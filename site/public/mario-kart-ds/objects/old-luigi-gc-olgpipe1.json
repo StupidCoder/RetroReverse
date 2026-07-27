@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GCN Luigi Circuit · OlgPipe1",
+ "model": "old_luigi_gc-OlgPipe1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "OlgPipe1"
+ }
+}

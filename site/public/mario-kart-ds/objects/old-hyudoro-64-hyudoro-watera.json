@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "N64 Banshee Boardwalk · hyudoro_waterA",
+ "model": "old_hyudoro_64-hyudoro_waterA.glb",
+ "props": {
+  "model": "hyudoro_waterA"
+ }
+}

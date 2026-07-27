@@ -1,0 +1,157 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [8.631050109863281, 349.4006652832031, -386.808999633789],
+  "target": [8.631050109863281, 124.0017318725586, -7.2130584716796875],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "luigi_course_V.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "luigi_course-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "luigi-course-model",
+   "pos": [0, 0, 0],
+   "name": "luigi_course (unused)"
+  },
+  {
+   "id": 1,
+   "object": "luigi-course-bound",
+   "pos": [21.82281494140625, 92.21556091308594, 55.85247802734375],
+   "scale": [6, 3, 6],
+   "props": {
+    "obji": "0x1A8"
+   }
+  },
+  {
+   "id": 2,
+   "object": "luigi-course-bound",
+   "pos": [18.110809326171875, 83.1170654296875, 94.68443298339844],
+   "scale": [6, 3, 6],
+   "props": {
+    "obji": "0x1A8"
+   }
+  },
+  {
+   "id": 3,
+   "object": "luigi-course-bound",
+   "pos": [-23.354232788085938, 83.1585693359375, 94.50729370117188],
+   "scale": [6, 3, 6],
+   "props": {
+    "obji": "0x1A8"
+   }
+  },
+  {
+   "id": 4,
+   "object": "luigi-course-flipper",
+   "pos": [13.091995239257812, 74.63009643554688, 130.90643310546875],
+   "props": {
+    "obji": "0x1A9"
+   }
+  },
+  {
+   "id": 5,
+   "object": "luigi-course-flipper",
+   "pos": [-19.156265258789062, 74.62486267089844, 130.92877197265625],
+   "props": {
+    "obji": "0x1A9"
+   }
+  },
+  {
+   "id": 6,
+   "object": "luigi-course-bound",
+   "pos": [-27.569412231445312, 105.00003051757812, 1.288909912109375],
+   "scale": [8, 4, 8],
+   "props": {
+    "obji": "0x1A8"
+   }
+  },
+  {
+   "id": 7,
+   "object": "luigi-course-bound",
+   "pos": [-29.842010498046875, 91.847412109375, 57.423736572265625],
+   "scale": [6, 3, 6],
+   "props": {
+    "obji": "0x1A8"
+   }
+  },
+  {
+   "id": 8,
+   "object": "luigi-course-flipper",
+   "pos": [-43.51666259765625, 134.60153198242188, -74.34432983398438],
+   "props": {
+    "obji": "0x1A9"
+   }
+  },
+  {
+   "id": 9,
+   "object": "luigi-course-bound",
+   "pos": [51.00897216796875, 148.08045959472656, -100.06336975097656],
+   "scale": [8, 4, 8],
+   "props": {
+    "obji": "0x1A8"
+   }
+  },
+  {
+   "id": 10,
+   "object": "luigi-course-bound",
+   "pos": [-2.37005615234375, 109.46626281738281, -17.772705078125],
+   "scale": [8, 4, 8],
+   "props": {
+    "obji": "0x1A8"
+   }
+  },
+  {
+   "id": 11,
+   "object": "luigi-course-bound",
+   "pos": [23.307525634765625, 105.194091796875, 0.4607086181640625],
+   "scale": [8, 4, 8],
+   "props": {
+    "obji": "0x1A8"
+   }
+  },
+  {
+   "id": 12,
+   "object": "luigi-course-bound",
+   "pos": [50.99110412597656, 126.86624145507812, -59.58460998535156],
+   "scale": [8, 4, 8],
+   "props": {
+    "obji": "0x1A8"
+   }
+  },
+  {
+   "id": 13,
+   "object": "luigi-course-bound",
+   "pos": [-11.025802612304688, 145.0391845703125, -94.26036071777344],
+   "scale": [8, 4, 8],
+   "props": {
+    "obji": "0x1A8"
+   }
+  }
+ ]
+}

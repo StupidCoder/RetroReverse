@@ -1,0 +1,26 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Waluigi Pinball · flipper",
+ "model": "pinball_course-flipper.glb",
+ "uvAnims": [
+  {
+   "material": "ob_flipper1",
+   "frames": 33,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {
+    "samples": [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2],
+    "step": 4
+   }
+  }
+ ],
+ "props": {
+  "model": "flipper"
+ }
+}

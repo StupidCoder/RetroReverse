@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GBA Bowser Castle 2 · water_efct",
+ "model": "old_koopa_agb-water_efct.glb",
+ "props": {
+  "model": "water_efct"
+ }
+}

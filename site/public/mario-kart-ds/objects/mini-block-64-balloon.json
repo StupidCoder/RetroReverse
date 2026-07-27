@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "mini_block_64 · balloon",
+ "model": "mini_block_64-balloon.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "balloon"
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Cheep Cheep Beach (multiplayer) · crab",
+ "model": "beach_courseD-crab.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "crab"
+ }
+}

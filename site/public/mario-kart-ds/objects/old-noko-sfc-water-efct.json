@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "SNES Koopa Beach 2 · water_efct",
+ "model": "old_noko_sfc-water_efct.glb",
+ "props": {
+  "model": "water_efct"
+ }
+}

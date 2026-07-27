@@ -1,0 +1,26 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Cheep Cheep Beach",
+ "model": "beach_course.glb",
+ "uvAnims": [
+  {
+   "material": "nb_dash",
+   "frames": 61,
+   "scaleS": {
+    "const": 4
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transT": {
+    "samples": [0, 0.065673828125, 0.131103515625, 0.19677734375, 0.26220703125, 0.327880859375, 0.3935546875, 0.458984375, 0.524658203125, 0.590087890625, 0.65576171875, 0.72119140625, 0.786865234375, 0.8525390625, 0.91796875, 0.983642578125],
+    "step": 4
+   }
+  }
+ ],
+ "props": {
+  "model": "beach_course"
+ }
+}

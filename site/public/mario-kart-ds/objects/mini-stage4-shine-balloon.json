@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "mini_stage4 · shine_balloon",
+ "model": "mini_stage4-shine_balloon.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "shine_balloon"
+ }
+}

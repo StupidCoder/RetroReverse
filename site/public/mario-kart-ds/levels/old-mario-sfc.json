@@ -1,0 +1,171 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-50.34148406982422, 90.36388397216797, -173.81259155273438],
+  "target": [-50.34148406982422, 6.25, -2.5598907470703125],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "old_mario_sfc_V.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "old_mario_sfc-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "old-mario-sfc-model",
+   "pos": [0, 0, 0],
+   "name": "SNES Mario Circuit 1"
+  },
+  {
+   "id": 1,
+   "object": "old-mario-sfc-earthen-pipe1",
+   "pos": [-103.56690979003906, 6.25, -67.89582824707031],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 2,
+   "object": "old-mario-sfc-earthen-pipe1",
+   "pos": [-102.07009887695312, 6.25, -74.140869140625],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 3,
+   "object": "old-mario-sfc-earthen-pipe1",
+   "pos": [-120.67204284667969, 6.25, -65.32081604003906],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 4,
+   "object": "old-mario-sfc-earthen-pipe1",
+   "pos": [-114.14723205566406, 6.25, -79.98727416992188],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 5,
+   "object": "old-mario-sfc-earthen-pipe1",
+   "pos": [-121.53752136230469, 6.25, 27.684051513671875],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 6,
+   "object": "old-mario-sfc-earthen-pipe1",
+   "pos": [-99.482421875, 6.25, 37.8326416015625],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 7,
+   "object": "old-mario-sfc-earthen-pipe1",
+   "pos": [-107.14588928222656, 6.25, 41.09190368652344],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 8,
+   "object": "old-mario-sfc-earthen-pipe1",
+   "pos": [-51.851531982421875, 6.25, 20.057403564453125],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 9,
+   "object": "mapobj-itembox",
+   "pos": [-131.85260009765625, 7, -13.057357788085938],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 10,
+   "object": "mapobj-itembox",
+   "pos": [-140.77294921875, 7, -15.975677490234375],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 11,
+   "object": "mapobj-itembox",
+   "pos": [-135.55368041992188, 7, -21.481613159179688],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 12,
+   "object": "mapobj-itembox",
+   "pos": [-129.7230224609375, 7, -26.697402954101562],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 13,
+   "object": "mapobj-itembox",
+   "pos": [-139.05337524414062, 7, -30.784088134765625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 14,
+   "object": "mapobj-itembox",
+   "pos": [-133.74205017089844, 7, -34.773651123046875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 15,
+   "object": "mapobj-itembox",
+   "pos": [-128.4241943359375, 7, -39.12712097167969],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 16,
+   "object": "mapobj-itembox",
+   "pos": [-137.09637451171875, 7, -43.520599365234375],
+   "props": {
+    "obji": "0x065"
+   }
+  }
+ ]
+}

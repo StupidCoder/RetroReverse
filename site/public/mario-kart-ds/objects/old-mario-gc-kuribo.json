@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "old_mario_gc (unused) · kuribo",
+ "model": "old_mario_gc-kuribo.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "kuribo"
+ }
+}

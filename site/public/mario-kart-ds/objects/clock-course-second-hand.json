@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Tick-Tock Clock · second_hand",
+ "model": "clock_course-second_hand.glb",
+ "props": {
+  "model": "second_hand"
+ }
+}

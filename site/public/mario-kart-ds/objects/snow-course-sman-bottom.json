@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "DK Pass · sman_bottom",
+ "model": "snow_course-sman_bottom.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "sman_bottom"
+ }
+}

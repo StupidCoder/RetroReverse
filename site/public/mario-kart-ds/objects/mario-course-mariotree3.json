@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Mario Circuit · MarioTree3",
+ "model": "mario_course-MarioTree3.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "MarioTree3"
+ }
+}

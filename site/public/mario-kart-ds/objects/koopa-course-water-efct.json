@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Bowser Castle · water_efct",
+ "model": "koopa_course-water_efct.glb",
+ "props": {
+  "model": "water_efct"
+ }
+}

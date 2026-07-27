@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Yoshi Falls · Bank_Tree1",
+ "model": "bank_course-Bank_Tree1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "Bank_Tree1"
+ }
+}

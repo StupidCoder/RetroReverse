@@ -1,0 +1,25 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Desert Hills",
+ "model": "desert_course.glb",
+ "uvAnims": [
+  {
+   "material": "lambert261",
+   "frames": 720,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transT": {
+    "const": 0.0244140625
+   }
+  }
+ ],
+ "props": {
+  "model": "desert_course"
+ }
+}

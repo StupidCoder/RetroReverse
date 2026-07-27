@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Airship Fortress · hole",
+ "model": "airship_course-hole.glb",
+ "props": {
+  "model": "hole"
+ }
+}

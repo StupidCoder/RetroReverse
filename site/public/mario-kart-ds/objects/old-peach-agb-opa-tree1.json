@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GBA Peach Circuit · opa_tree1",
+ "model": "old_peach_agb-opa_tree1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "opa_tree1"
+ }
+}

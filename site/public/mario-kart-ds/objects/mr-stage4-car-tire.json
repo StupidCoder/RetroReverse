@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "MR_stage4 · car_tire",
+ "model": "MR_stage4-car_tire.glb",
+ "props": {
+  "model": "car_tire"
+ }
+}

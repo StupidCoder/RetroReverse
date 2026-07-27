@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Toad — kart C",
+ "model": "kart_KO_c.glb",
+ "props": {
+  "model": "kart_KO_c"
+ }
+}

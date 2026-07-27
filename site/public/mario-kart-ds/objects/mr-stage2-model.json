@@ -1,0 +1,38 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "MR_stage2",
+ "model": "MR_stage2.glb",
+ "uvAnims": [
+  {
+   "material": "test_lambert353",
+   "frames": 480,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transT": {
+    "const": 0.0390625
+   }
+  },
+  {
+   "material": "lambert363",
+   "frames": 480,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transT": {
+    "const": 0.51171875
+   }
+  }
+ ],
+ "props": {
+  "model": "MR_stage2"
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "SNES Donut Plains 1 · earthen_pipe2",
+ "model": "old_donut_sfc-earthen_pipe2.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "earthen_pipe2"
+ }
+}

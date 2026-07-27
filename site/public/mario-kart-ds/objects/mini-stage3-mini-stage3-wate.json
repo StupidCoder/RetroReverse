@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "mini_stage3 · mini_stage3_wate",
+ "model": "mini_stage3-mini_stage3_wate.glb",
+ "props": {
+  "model": "mini_stage3_wate"
+ }
+}

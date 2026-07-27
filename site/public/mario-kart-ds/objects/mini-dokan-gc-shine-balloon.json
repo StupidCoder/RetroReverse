@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "mini_dokan_gc · shine_balloon",
+ "model": "mini_dokan_gc-shine_balloon.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "shine_balloon"
+ }
+}

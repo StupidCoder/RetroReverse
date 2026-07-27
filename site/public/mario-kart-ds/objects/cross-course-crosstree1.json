@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Figure-8 Circuit · CrossTree1",
+ "model": "cross_course-CrossTree1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "CrossTree1"
+ }
+}

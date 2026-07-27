@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "SNES Choco Island 2 · ob_pakkun_sf",
+ "model": "old_choco_sfc-ob_pakkun_sf.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "ob_pakkun_sf"
+ }
+}

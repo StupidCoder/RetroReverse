@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "test1_course (unused) · gear_white",
+ "model": "test1_course-gear_white.glb",
+ "props": {
+  "model": "gear_white"
+ }
+}

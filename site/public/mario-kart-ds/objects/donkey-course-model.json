@@ -1,0 +1,77 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "donkey_course (unused)",
+ "model": "donkey_course.glb",
+ "uvAnims": [
+  {
+   "material": "pin_cannon1",
+   "frames": 60,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {
+    "const": 0.08203125
+   }
+  },
+  {
+   "material": "pin_cannon2",
+   "frames": 60,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 2
+   },
+   "transS": {
+    "const": 0.115234375
+   }
+  },
+  {
+   "material": "pin_DASHJ",
+   "frames": 60,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transT": {
+    "const": 0.1494140625
+   }
+  },
+  {
+   "material": "pin_warp1",
+   "frames": 60,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {
+    "const": 0.181640625
+   }
+  },
+  {
+   "material": "pin_arrow1",
+   "frames": 60,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 2
+   },
+   "transS": {
+    "const": 0.21484375
+   }
+  }
+ ],
+ "props": {
+  "model": "donkey_course"
+ }
+}

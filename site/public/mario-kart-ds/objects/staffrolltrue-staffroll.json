@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "StaffRollTrue · StaffRoll",
+ "model": "StaffRollTrue-StaffRoll.glb",
+ "props": {
+  "model": "StaffRoll"
+ }
+}

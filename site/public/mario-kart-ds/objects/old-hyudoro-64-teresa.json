@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "N64 Banshee Boardwalk · teresa",
+ "model": "old_hyudoro_64-teresa.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "teresa"
+ }
+}

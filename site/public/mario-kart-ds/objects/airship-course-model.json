@@ -1,0 +1,25 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Airship Fortress",
+ "model": "airship_course.glb",
+ "uvAnims": [
+  {
+   "material": "dash",
+   "frames": 120,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transT": {
+    "const": 0.0244140625
+   }
+  }
+ ],
+ "props": {
+  "model": "airship_course"
+ }
+}

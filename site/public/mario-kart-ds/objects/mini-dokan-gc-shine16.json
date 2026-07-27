@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "mini_dokan_gc · shine16",
+ "model": "mini_dokan_gc-shine16.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "shine16"
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Wario Stadium · fireball2",
+ "model": "stadium_course-fireball2.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "fireball2"
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "mini_dokan_gc",
+ "model": "mini_dokan_gc.glb",
+ "props": {
+  "model": "mini_dokan_gc"
+ }
+}

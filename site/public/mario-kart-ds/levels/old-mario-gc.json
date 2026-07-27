@@ -1,0 +1,58 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-4.640800476074219, 191.36871337890625, -375.6506378173828],
+  "target": [-4.640800476074219, 13.711273193359375, 0.1559295654296875],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "old_mario_gc-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "old-mario-gc-model",
+   "pos": [0, 0, 0],
+   "name": "old_mario_gc (unused)"
+  },
+  {
+   "id": 1,
+   "object": "mapobj-itembox",
+   "pos": [-95.625, 7.625, 115.625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 2,
+   "object": "mapobj-itembox",
+   "pos": [-90.625, 7.625, 115.625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 3,
+   "object": "mapobj-itembox",
+   "pos": [-85.625, 7.625, 115.625],
+   "props": {
+    "obji": "0x065"
+   }
+  }
+ ]
+}

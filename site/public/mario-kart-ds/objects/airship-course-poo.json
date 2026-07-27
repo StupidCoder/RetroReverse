@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Airship Fortress · poo",
+ "model": "airship_course-poo.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "poo"
+ }
+}

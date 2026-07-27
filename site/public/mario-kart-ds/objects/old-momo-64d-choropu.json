@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "N64 Moo Moo Farm (multiplayer) · choropu",
+ "model": "old_momo_64D-choropu.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "choropu"
+ }
+}

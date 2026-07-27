@@ -1,0 +1,259 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [4.2477874755859375, 90.45674133300781, -185.38102111816406],
+  "target": [4.2477874755859375, 6.25, -0.126190185546875],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "old_donut_sfc_V.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "old_donut_sfc-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "old-donut-sfc-model",
+   "pos": [0, 0, 0],
+   "name": "SNES Donut Plains 1"
+  },
+  {
+   "id": 1,
+   "object": "mapobj-itembox",
+   "pos": [-68.93624877929688, 7, -61.951324462890625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 2,
+   "object": "mapobj-itembox",
+   "pos": [-55.26824951171875, 7, -66.84014892578125],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 3,
+   "object": "mapobj-itembox",
+   "pos": [-62.2266845703125, 7, -63.16410827636719],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 4,
+   "object": "mapobj-itembox",
+   "pos": [-60.074005126953125, 7, -56.3441162109375],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 5,
+   "object": "mapobj-itembox",
+   "pos": [-66.82792663574219, 7, -54.59812927246094],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 6,
+   "object": "mapobj-itembox",
+   "pos": [-59.11332702636719, 7, -73.00558471679688],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 7,
+   "object": "old-donut-sfc-earthen-pipe1",
+   "pos": [22.445571899414062, 6.25, -76.52864074707031],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 8,
+   "object": "old-donut-sfc-earthen-pipe1",
+   "pos": [-22.156829833984375, 6.25, -75.01744079589844],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 9,
+   "object": "old-donut-sfc-earthen-pipe1",
+   "pos": [22.676254272460938, 6.25, -90.51724243164062],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 10,
+   "object": "old-donut-sfc-earthen-pipe1",
+   "pos": [-22.426925659179688, 6.25, -90.77165222167969],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 11,
+   "object": "old-donut-sfc-earthen-pipe1",
+   "pos": [48.577789306640625, 6.25, -16.091201782226562],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 12,
+   "object": "old-donut-sfc-earthen-pipe1",
+   "pos": [67.89724731445312, 6.25, -12.547409057617188],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 13,
+   "object": "old-donut-sfc-earthen-pipe1",
+   "pos": [50.24150085449219, 6.25, 6.3291473388671875],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 14,
+   "object": "old-donut-sfc-earthen-pipe1",
+   "pos": [69.71522521972656, 6.25, 3.5091400146484375],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 15,
+   "object": "mapobj-itembox",
+   "pos": [35.25384521484375, 7, 51.93641662597656],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 16,
+   "object": "mapobj-itembox",
+   "pos": [38.37884521484375, 7, 50.37391662597656],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 17,
+   "object": "mapobj-itembox",
+   "pos": [41.50384521484375, 7, 48.81141662597656],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 18,
+   "object": "mapobj-itembox",
+   "pos": [44.62884521484375, 7, 47.24891662597656],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 19,
+   "object": "old-donut-sfc-earthen-pipe1",
+   "pos": [-54.93128967285156, 6.25, 98.41465759277344],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 20,
+   "object": "old-donut-sfc-earthen-pipe1",
+   "pos": [-67.40199279785156, 6.25, 95.06982421875],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 21,
+   "object": "old-donut-sfc-earthen-pipe1",
+   "pos": [-77.40632629394531, 6.25, 87.00245666503906],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 22,
+   "object": "old-donut-sfc-earthen-pipe1",
+   "pos": [-83.26066589355469, 6.25, 75.67323303222656],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 23,
+   "object": "old-donut-sfc-earthen-pipe1",
+   "pos": [-10.1441650390625, 6.25, -17.656707763671875],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 24,
+   "object": "old-donut-sfc-earthen-pipe1",
+   "pos": [-15.079925537109375, 6.25, -42.6551513671875],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 25,
+   "object": "old-donut-sfc-earthen-pipe1",
+   "pos": [-32.599090576171875, 6.25, -36.142120361328125],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 26,
+   "object": "old-donut-sfc-earthen-pipe1",
+   "pos": [5.0376434326171875, 6.25, -40.243743896484375],
+   "props": {
+    "obji": "0x12F"
+   }
+  },
+  {
+   "id": 27,
+   "object": "old-donut-sfc-water-efct",
+   "pos": [14.710006713867188, 6.25, -51.466522216796875],
+   "props": {
+    "obji": "0x005"
+   }
+  }
+ ]
+}

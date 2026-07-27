@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Cheep Cheep Beach (multiplayer) · water_efct",
+ "model": "beach_courseD-water_efct.glb",
+ "props": {
+  "model": "water_efct"
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GCN Mushroom Bridge · KinoMount2",
+ "model": "old_kinoko_gc-KinoMount2.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "KinoMount2"
+ }
+}

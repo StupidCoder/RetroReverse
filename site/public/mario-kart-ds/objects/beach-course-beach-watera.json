@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Cheep Cheep Beach · beach_waterA",
+ "model": "beach_course-beach_waterA.glb",
+ "props": {
+  "model": "beach_waterA"
+ }
+}

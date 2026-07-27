@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GCN Mushroom Bridge · car_tire",
+ "model": "old_kinoko_gc-car_tire.glb",
+ "props": {
+  "model": "car_tire"
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "R.O.B. — kart C",
+ "model": "kart_RB_c.glb",
+ "props": {
+  "model": "kart_RB_c"
+ }
+}

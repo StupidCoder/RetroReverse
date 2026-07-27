@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "nokonoko_course (unused) · noko_waterC",
+ "model": "nokonoko_course-noko_waterC.glb",
+ "props": {
+  "model": "noko_waterC"
+ }
+}

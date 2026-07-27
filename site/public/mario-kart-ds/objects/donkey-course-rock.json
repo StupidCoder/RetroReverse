@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "donkey_course (unused) · rock",
+ "model": "donkey_course-rock.glb",
+ "props": {
+  "model": "rock"
+ }
+}

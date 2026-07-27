@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Delfino Square · bridge",
+ "model": "town_course-bridge.glb",
+ "props": {
+  "model": "bridge"
+ }
+}

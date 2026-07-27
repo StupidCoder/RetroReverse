@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "nokonoko_course (unused) · crab_hand",
+ "model": "nokonoko_course-crab_hand.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "crab_hand"
+ }
+}

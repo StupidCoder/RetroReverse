@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Peach Gardens · water_efct",
+ "model": "garden_course-water_efct.glb",
+ "props": {
+  "model": "water_efct"
+ }
+}

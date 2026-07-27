@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "kart_tire_S",
+ "model": "kart_tire_S.glb",
+ "props": {
+  "model": "kart_tire_S"
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GCN Luigi Circuit (multiplayer) · wanwan_kui",
+ "model": "old_luigi_gcD-wanwan_kui.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "wanwan_kui"
+ }
+}

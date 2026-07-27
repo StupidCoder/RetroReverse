@@ -1,0 +1,123 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-3.3456573486328125, 108.67877197265625, -156.6398681640625],
+  "target": [-3.3456573486328125, 37.49999237060547, -0.04656982421875],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "old_baby_gc_V.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "old_baby_gc-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "old-baby-gc-model",
+   "pos": [0, 0, 0],
+   "name": "GCN Baby Park"
+  },
+  {
+   "id": 1,
+   "object": "mapobj-itembox",
+   "pos": [-17.812484741210938, 38.24998474121094, -56.25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 2,
+   "object": "mapobj-itembox",
+   "pos": [-8.437484741210938, 38.25, -56.25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 3,
+   "object": "mapobj-itembox",
+   "pos": [-20.937484741210938, 38.24998474121094, -56.25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 4,
+   "object": "mapobj-itembox",
+   "pos": [-11.562484741210938, 38.25, -56.25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 5,
+   "object": "mapobj-itembox",
+   "pos": [-14.687484741210938, 38.25, -56.25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 6,
+   "object": "mapobj-itembox",
+   "pos": [8.437484741210938, 38.25, 56.25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 7,
+   "object": "mapobj-itembox",
+   "pos": [14.687484741210938, 38.25, 56.25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 8,
+   "object": "mapobj-itembox",
+   "pos": [11.562484741210938, 38.25, 56.25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 9,
+   "object": "mapobj-itembox",
+   "pos": [20.937484741210938, 38.24998474121094, 56.25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 10,
+   "object": "mapobj-itembox",
+   "pos": [17.812484741210938, 38.24998474121094, 56.25],
+   "props": {
+    "obji": "0x065"
+   }
+  }
+ ]
+}

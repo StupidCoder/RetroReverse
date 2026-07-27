@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "SNES Koopa Beach 2",
+ "model": "old_noko_sfc.glb",
+ "props": {
+  "model": "old_noko_sfc"
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GBA Luigi Circuit · airship",
+ "model": "old_luigi_agb-airship.glb",
+ "props": {
+  "model": "airship"
+ }
+}

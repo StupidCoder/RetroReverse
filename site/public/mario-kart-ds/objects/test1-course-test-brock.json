@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "test1_course (unused) · test_brock",
+ "model": "test1_course-test_brock.glb",
+ "props": {
+  "model": "test_brock"
+ }
+}

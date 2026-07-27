@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "mini_block_course · mini_block_cours",
+ "model": "mini_block_course-mini_block_cours.glb",
+ "props": {
+  "model": "mini_block_cours"
+ }
+}

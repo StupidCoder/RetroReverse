@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Mario Circuit · PakkunZHead",
+ "model": "mario_course-PakkunZHead.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "PakkunZHead"
+ }
+}

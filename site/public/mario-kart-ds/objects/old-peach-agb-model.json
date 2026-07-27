@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GBA Peach Circuit",
+ "model": "old_peach_agb.glb",
+ "props": {
+  "model": "old_peach_agb"
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Delfino Square · woodbox1",
+ "model": "town_course-woodbox1.glb",
+ "props": {
+  "model": "woodbox1"
+ }
+}

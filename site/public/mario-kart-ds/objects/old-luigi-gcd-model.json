@@ -1,0 +1,25 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GCN Luigi Circuit (multiplayer)",
+ "model": "old_luigi_gcD.glb",
+ "uvAnims": [
+  {
+   "material": "dash1",
+   "frames": 120,
+   "scaleS": {
+    "const": 3
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transT": {
+    "const": 0.0244140625
+   }
+  }
+ ],
+ "props": {
+  "model": "old_luigi_gcD"
+ }
+}

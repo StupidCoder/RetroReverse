@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Cheep Cheep Beach · pukupuku",
+ "model": "beach_course-pukupuku.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "pukupuku"
+ }
+}

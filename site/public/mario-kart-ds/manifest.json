@@ -1,2048 +1,3239 @@
 {
-  "format": 2,
-  "game": "mario-kart-ds",
-  "levels": [
-    {
-      "name": "Airship Fortress",
-      "section": "Courses",
-      "file": "levels/airship_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/airship_course.objects.json"
-    },
-    {
-      "name": "Award ceremony scene",
-      "section": "Courses",
-      "file": "levels/Award.json",
-      "kind": "mesh3d",
-      "objects": "levels/Award.objects.json"
-    },
-    {
-      "name": "Bowser Castle",
-      "section": "Courses",
-      "file": "levels/koopa_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/koopa_course.objects.json"
-    },
-    {
-      "name": "Cheep Cheep Beach",
-      "section": "Courses",
-      "file": "levels/beach_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/beach_course.objects.json"
-    },
-    {
-      "name": "Cheep Cheep Beach (multiplayer)",
-      "section": "Courses",
-      "file": "levels/beach_courseD.json",
-      "kind": "mesh3d",
-      "objects": "levels/beach_courseD.objects.json"
-    },
-    {
-      "name": "DK Pass",
-      "section": "Courses",
-      "file": "levels/snow_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/snow_course.objects.json"
-    },
-    {
-      "name": "Delfino Square",
-      "section": "Courses",
-      "file": "levels/town_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/town_course.objects.json"
-    },
-    {
-      "name": "Desert Hills",
-      "section": "Courses",
-      "file": "levels/desert_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/desert_course.objects.json"
-    },
-    {
-      "name": "Figure-8 Circuit",
-      "section": "Courses",
-      "file": "levels/cross_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/cross_course.objects.json"
-    },
-    {
-      "name": "Figure-8 Circuit (multiplayer)",
-      "section": "Courses",
-      "file": "levels/cross_courseD.json",
-      "kind": "mesh3d",
-      "objects": "levels/cross_courseD.objects.json"
-    },
-    {
-      "name": "Luigi's Mansion",
-      "section": "Courses",
-      "file": "levels/mansion_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/mansion_course.objects.json"
-    },
-    {
-      "name": "Luigi's Mansion (multiplayer)",
-      "section": "Courses",
-      "file": "levels/mansion_courseD.json",
-      "kind": "mesh3d",
-      "objects": "levels/mansion_courseD.objects.json"
-    },
-    {
-      "name": "Mario Circuit",
-      "section": "Courses",
-      "file": "levels/mario_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/mario_course.objects.json"
-    },
-    {
-      "name": "Peach Gardens",
-      "section": "Courses",
-      "file": "levels/garden_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/garden_course.objects.json"
-    },
-    {
-      "name": "Rainbow Road",
-      "section": "Courses",
-      "file": "levels/rainbow_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/rainbow_course.objects.json"
-    },
-    {
-      "name": "Shroom Ridge",
-      "section": "Courses",
-      "file": "levels/ridge_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/ridge_course.objects.json"
-    },
-    {
-      "name": "Tick-Tock Clock",
-      "section": "Courses",
-      "file": "levels/clock_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/clock_course.objects.json"
-    },
-    {
-      "name": "Waluigi Pinball",
-      "section": "Courses",
-      "file": "levels/pinball_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/pinball_course.objects.json"
-    },
-    {
-      "name": "Wario Stadium",
-      "section": "Courses",
-      "file": "levels/stadium_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/stadium_course.objects.json"
-    },
-    {
-      "name": "Yoshi Falls",
-      "section": "Courses",
-      "file": "levels/bank_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/bank_course.objects.json"
-    },
-    {
-      "name": "dokan_course (unused)",
-      "section": "Courses",
-      "file": "levels/dokan_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/dokan_course.objects.json"
-    },
-    {
-      "name": "donkey_course (unused)",
-      "section": "Courses",
-      "file": "levels/donkey_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/donkey_course.objects.json"
-    },
-    {
-      "name": "luigi_course (unused)",
-      "section": "Courses",
-      "file": "levels/luigi_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/luigi_course.objects.json"
-    },
-    {
-      "name": "nokonoko_course (unused)",
-      "section": "Courses",
-      "file": "levels/nokonoko_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/nokonoko_course.objects.json"
-    },
-    {
-      "name": "wario_course",
-      "section": "Courses",
-      "file": "levels/wario_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/wario_course.objects.json"
-    },
-    {
-      "name": "GBA Bowser Castle 2",
-      "section": "Courses",
-      "file": "levels/old_koopa_agb.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_koopa_agb.objects.json"
-    },
-    {
-      "name": "GBA Luigi Circuit",
-      "section": "Courses",
-      "file": "levels/old_luigi_agb.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_luigi_agb.objects.json"
-    },
-    {
-      "name": "GBA Peach Circuit",
-      "section": "Courses",
-      "file": "levels/old_peach_agb.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_peach_agb.objects.json"
-    },
-    {
-      "name": "GBA Sky Garden",
-      "section": "Courses",
-      "file": "levels/old_sky_agb.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_sky_agb.objects.json"
-    },
-    {
-      "name": "GCN Baby Park",
-      "section": "Courses",
-      "file": "levels/old_baby_gc.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_baby_gc.objects.json"
-    },
-    {
-      "name": "GCN Luigi Circuit",
-      "section": "Courses",
-      "file": "levels/old_luigi_gc.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_luigi_gc.objects.json"
-    },
-    {
-      "name": "GCN Luigi Circuit (multiplayer)",
-      "section": "Courses",
-      "file": "levels/old_luigi_gcD.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_luigi_gcD.objects.json"
-    },
-    {
-      "name": "GCN Mushroom Bridge",
-      "section": "Courses",
-      "file": "levels/old_kinoko_gc.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_kinoko_gc.objects.json"
-    },
-    {
-      "name": "GCN Yoshi Circuit",
-      "section": "Courses",
-      "file": "levels/old_yoshi_gc.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_yoshi_gc.objects.json"
-    },
-    {
-      "name": "N64 Banshee Boardwalk",
-      "section": "Courses",
-      "file": "levels/old_hyudoro_64.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_hyudoro_64.objects.json"
-    },
-    {
-      "name": "N64 Choco Mountain",
-      "section": "Courses",
-      "file": "levels/old_choco_64.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_choco_64.objects.json"
-    },
-    {
-      "name": "N64 Frappe Snowland",
-      "section": "Courses",
-      "file": "levels/old_frappe_64.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_frappe_64.objects.json"
-    },
-    {
-      "name": "N64 Moo Moo Farm",
-      "section": "Courses",
-      "file": "levels/old_momo_64.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_momo_64.objects.json"
-    },
-    {
-      "name": "N64 Moo Moo Farm (multiplayer)",
-      "section": "Courses",
-      "file": "levels/old_momo_64D.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_momo_64D.objects.json"
-    },
-    {
-      "name": "SNES Choco Island 2",
-      "section": "Courses",
-      "file": "levels/old_choco_sfc.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_choco_sfc.objects.json"
-    },
-    {
-      "name": "SNES Donut Plains 1",
-      "section": "Courses",
-      "file": "levels/old_donut_sfc.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_donut_sfc.objects.json"
-    },
-    {
-      "name": "SNES Koopa Beach 2",
-      "section": "Courses",
-      "file": "levels/old_noko_sfc.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_noko_sfc.objects.json"
-    },
-    {
-      "name": "SNES Mario Circuit 1",
-      "section": "Courses",
-      "file": "levels/old_mario_sfc.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_mario_sfc.objects.json"
-    },
-    {
-      "name": "old_mario_gc (unused)",
-      "section": "Courses",
-      "file": "levels/old_mario_gc.json",
-      "kind": "mesh3d",
-      "objects": "levels/old_mario_gc.objects.json"
-    },
-    {
-      "name": "MR_stage1",
-      "section": "Courses",
-      "file": "levels/MR_stage1.json",
-      "kind": "mesh3d"
-    },
-    {
-      "name": "MR_stage2",
-      "section": "Courses",
-      "file": "levels/MR_stage2.json",
-      "kind": "mesh3d"
-    },
-    {
-      "name": "MR_stage3",
-      "section": "Courses",
-      "file": "levels/MR_stage3.json",
-      "kind": "mesh3d"
-    },
-    {
-      "name": "StaffRoll",
-      "section": "Courses",
-      "file": "levels/StaffRoll.json",
-      "kind": "mesh3d"
-    },
-    {
-      "name": "mini_block_64",
-      "section": "Courses",
-      "file": "levels/mini_block_64.json",
-      "kind": "mesh3d",
-      "objects": "levels/mini_block_64.objects.json"
-    },
-    {
-      "name": "mini_dokan_gc",
-      "section": "Courses",
-      "file": "levels/mini_dokan_gc.json",
-      "kind": "mesh3d",
-      "objects": "levels/mini_dokan_gc.objects.json"
-    },
-    {
-      "name": "mini_stage1",
-      "section": "Courses",
-      "file": "levels/mini_stage1.json",
-      "kind": "mesh3d",
-      "objects": "levels/mini_stage1.objects.json"
-    },
-    {
-      "name": "mini_stage2",
-      "section": "Courses",
-      "file": "levels/mini_stage2.json",
-      "kind": "mesh3d",
-      "objects": "levels/mini_stage2.objects.json"
-    },
-    {
-      "name": "mini_stage3",
-      "section": "Courses",
-      "file": "levels/mini_stage3.json",
-      "kind": "mesh3d",
-      "objects": "levels/mini_stage3.objects.json"
-    },
-    {
-      "name": "mini_stage4",
-      "section": "Courses",
-      "file": "levels/mini_stage4.json",
-      "kind": "mesh3d",
-      "objects": "levels/mini_stage4.objects.json"
-    },
-    {
-      "name": "test1_course (unused)",
-      "section": "Courses",
-      "file": "levels/test1_course.json",
-      "kind": "mesh3d",
-      "objects": "levels/test1_course.objects.json"
-    },
-    {
-      "name": "test_circle",
-      "section": "Courses",
-      "file": "levels/test_circle.json",
-      "kind": "mesh3d",
-      "objects": "levels/test_circle.objects.json"
-    }
-  ],
-  "models": [
-    {
-      "name": "Mario",
-      "section": "Characters",
-      "file": "models/P_MR.glb"
-    },
-    {
-      "name": "Luigi",
-      "section": "Characters",
-      "file": "models/P_LG.glb"
-    },
-    {
-      "name": "Peach",
-      "section": "Characters",
-      "file": "models/P_PC.glb"
-    },
-    {
-      "name": "Daisy",
-      "section": "Characters",
-      "file": "models/P_DS.glb"
-    },
-    {
-      "name": "Yoshi",
-      "section": "Characters",
-      "file": "models/P_YS.glb"
-    },
-    {
-      "name": "Toad",
-      "section": "Characters",
-      "file": "models/P_KO.glb"
-    },
-    {
-      "name": "Bowser",
-      "section": "Characters",
-      "file": "models/P_KP.glb"
-    },
-    {
-      "name": "Donkey Kong",
-      "section": "Characters",
-      "file": "models/P_DK.glb"
-    },
-    {
-      "name": "Wario",
-      "section": "Characters",
-      "file": "models/P_WR.glb"
-    },
-    {
-      "name": "Waluigi",
-      "section": "Characters",
-      "file": "models/P_WL.glb"
-    },
-    {
-      "name": "Dry Bones",
-      "section": "Characters",
-      "file": "models/P_KA.glb"
-    },
-    {
-      "name": "R.O.B.",
-      "section": "Characters",
-      "file": "models/P_RB.glb"
-    },
-    {
-      "name": "Mario — kart A",
-      "section": "Karts",
-      "file": "models/kart_MR_a.glb"
-    },
-    {
-      "name": "Mario — kart B",
-      "section": "Karts",
-      "file": "models/kart_MR_b.glb"
-    },
-    {
-      "name": "Mario — kart C",
-      "section": "Karts",
-      "file": "models/kart_MR_c.glb"
-    },
-    {
-      "name": "Luigi — kart B",
-      "section": "Karts",
-      "file": "models/kart_LG_b.glb"
-    },
-    {
-      "name": "Luigi — kart C",
-      "section": "Karts",
-      "file": "models/kart_LG_c.glb"
-    },
-    {
-      "name": "Peach — kart B",
-      "section": "Karts",
-      "file": "models/kart_PC_b.glb"
-    },
-    {
-      "name": "Peach — kart C",
-      "section": "Karts",
-      "file": "models/kart_PC_c.glb"
-    },
-    {
-      "name": "Daisy — kart B",
-      "section": "Karts",
-      "file": "models/kart_DS_b.glb"
-    },
-    {
-      "name": "Daisy — kart C",
-      "section": "Karts",
-      "file": "models/kart_DS_c.glb"
-    },
-    {
-      "name": "Yoshi — kart B",
-      "section": "Karts",
-      "file": "models/kart_YS_b.glb"
-    },
-    {
-      "name": "Yoshi — kart C",
-      "section": "Karts",
-      "file": "models/kart_YS_c.glb"
-    },
-    {
-      "name": "Toad — kart B",
-      "section": "Karts",
-      "file": "models/kart_KO_b.glb"
-    },
-    {
-      "name": "Toad — kart C",
-      "section": "Karts",
-      "file": "models/kart_KO_c.glb"
-    },
-    {
-      "name": "Bowser — kart B",
-      "section": "Karts",
-      "file": "models/kart_KP_b.glb"
-    },
-    {
-      "name": "Bowser — kart C",
-      "section": "Karts",
-      "file": "models/kart_KP_c.glb"
-    },
-    {
-      "name": "Donkey Kong — kart B",
-      "section": "Karts",
-      "file": "models/kart_DK_b.glb"
-    },
-    {
-      "name": "Donkey Kong — kart C",
-      "section": "Karts",
-      "file": "models/kart_DK_c.glb"
-    },
-    {
-      "name": "Wario — kart B",
-      "section": "Karts",
-      "file": "models/kart_WR_b.glb"
-    },
-    {
-      "name": "Wario — kart C",
-      "section": "Karts",
-      "file": "models/kart_WR_c.glb"
-    },
-    {
-      "name": "Waluigi — kart B",
-      "section": "Karts",
-      "file": "models/kart_WL_b.glb"
-    },
-    {
-      "name": "Waluigi — kart C",
-      "section": "Karts",
-      "file": "models/kart_WL_c.glb"
-    },
-    {
-      "name": "Dry Bones — kart B",
-      "section": "Karts",
-      "file": "models/kart_KA_b.glb"
-    },
-    {
-      "name": "Dry Bones — kart C",
-      "section": "Karts",
-      "file": "models/kart_KA_c.glb"
-    },
-    {
-      "name": "R.O.B. — kart B",
-      "section": "Karts",
-      "file": "models/kart_RB_b.glb"
-    },
-    {
-      "name": "R.O.B. — kart C",
-      "section": "Karts",
-      "file": "models/kart_RB_c.glb"
-    },
-    {
-      "name": "Airship Fortress · NsCannon1",
-      "section": "Airship Fortress",
-      "file": "models/airship_course-NsCannon1.glb"
-    },
-    {
-      "name": "Airship Fortress · NsKiller1",
-      "section": "Airship Fortress",
-      "file": "models/airship_course-NsKiller1.glb"
-    },
-    {
-      "name": "Airship Fortress · NsKiller2",
-      "section": "Airship Fortress",
-      "file": "models/airship_course-NsKiller2.glb"
-    },
-    {
-      "name": "Airship Fortress · NsKiller2_s",
-      "section": "Airship Fortress",
-      "file": "models/airship_course-NsKiller2_s.glb"
-    },
-    {
-      "name": "Airship Fortress · cover",
-      "section": "Airship Fortress",
-      "file": "models/airship_course-cover.glb"
-    },
-    {
-      "name": "Airship Fortress · hole",
-      "section": "Airship Fortress",
-      "file": "models/airship_course-hole.glb"
-    },
-    {
-      "name": "Airship Fortress · mkd_ef_burner",
-      "section": "Airship Fortress",
-      "file": "models/airship_course-mkd_ef_burner.glb"
-    },
-    {
-      "name": "Airship Fortress · poo",
-      "section": "Airship Fortress",
-      "file": "models/airship_course-poo.glb"
-    },
-    {
-      "name": "Airship Fortress · woodbox1",
-      "section": "Airship Fortress",
-      "file": "models/airship_course-woodbox1.glb"
-    },
-    {
-      "name": "Award ceremony scene · CrossTree1",
-      "section": "Award ceremony scene",
-      "file": "models/Award-CrossTree1.glb"
-    },
-    {
-      "name": "Bowser Castle · dossun",
-      "section": "Bowser Castle",
-      "file": "models/koopa_course-dossun.glb"
-    },
-    {
-      "name": "Bowser Castle · koopa_block",
-      "section": "Bowser Castle",
-      "file": "models/koopa_course-koopa_block.glb"
-    },
-    {
-      "name": "Bowser Castle · mkd_ef_burner",
-      "section": "Bowser Castle",
-      "file": "models/koopa_course-mkd_ef_burner.glb"
-    },
-    {
-      "name": "Bowser Castle · rotary_bridge",
-      "section": "Bowser Castle",
-      "file": "models/koopa_course-rotary_bridge.glb"
-    },
-    {
-      "name": "Bowser Castle · rotary_room",
-      "section": "Bowser Castle",
-      "file": "models/koopa_course-rotary_room.glb"
-    },
-    {
-      "name": "Bowser Castle · water_efct",
-      "section": "Bowser Castle",
-      "file": "models/koopa_course-water_efct.glb"
-    },
-    {
-      "name": "Cheep Cheep Beach · BeachTree1",
-      "section": "Cheep Cheep Beach",
-      "file": "models/beach_course-BeachTree1.glb"
-    },
-    {
-      "name": "Cheep Cheep Beach · beach_waterA",
-      "section": "Cheep Cheep Beach",
-      "file": "models/beach_course-beach_waterA.glb"
-    },
-    {
-      "name": "Cheep Cheep Beach · beach_waterC",
-      "section": "Cheep Cheep Beach",
-      "file": "models/beach_course-beach_waterC.glb"
-    },
-    {
-      "name": "Cheep Cheep Beach · crab",
-      "section": "Cheep Cheep Beach",
-      "file": "models/beach_course-crab.glb"
-    },
-    {
-      "name": "Cheep Cheep Beach · crab_hand",
-      "section": "Cheep Cheep Beach",
-      "file": "models/beach_course-crab_hand.glb"
-    },
-    {
-      "name": "Cheep Cheep Beach · pukupuku",
-      "section": "Cheep Cheep Beach",
-      "file": "models/beach_course-pukupuku.glb"
-    },
-    {
-      "name": "Cheep Cheep Beach · water_efct",
-      "section": "Cheep Cheep Beach",
-      "file": "models/beach_course-water_efct.glb"
-    },
-    {
-      "name": "Cheep Cheep Beach (multiplayer) · BeachTree1",
-      "section": "Cheep Cheep Beach (multiplayer)",
-      "file": "models/beach_courseD-BeachTree1.glb"
-    },
-    {
-      "name": "Cheep Cheep Beach (multiplayer) · beach_waterA",
-      "section": "Cheep Cheep Beach (multiplayer)",
-      "file": "models/beach_courseD-beach_waterA.glb"
-    },
-    {
-      "name": "Cheep Cheep Beach (multiplayer) · beach_waterC",
-      "section": "Cheep Cheep Beach (multiplayer)",
-      "file": "models/beach_courseD-beach_waterC.glb"
-    },
-    {
-      "name": "Cheep Cheep Beach (multiplayer) · crab",
-      "section": "Cheep Cheep Beach (multiplayer)",
-      "file": "models/beach_courseD-crab.glb"
-    },
-    {
-      "name": "Cheep Cheep Beach (multiplayer) · crab_hand",
-      "section": "Cheep Cheep Beach (multiplayer)",
-      "file": "models/beach_courseD-crab_hand.glb"
-    },
-    {
-      "name": "Cheep Cheep Beach (multiplayer) · pukupuku",
-      "section": "Cheep Cheep Beach (multiplayer)",
-      "file": "models/beach_courseD-pukupuku.glb"
-    },
-    {
-      "name": "Cheep Cheep Beach (multiplayer) · water_efct",
-      "section": "Cheep Cheep Beach (multiplayer)",
-      "file": "models/beach_courseD-water_efct.glb"
-    },
-    {
-      "name": "DK Pass · Snow_Tree1",
-      "section": "DK Pass",
-      "file": "models/snow_course-Snow_Tree1.glb"
-    },
-    {
-      "name": "DK Pass · rock",
-      "section": "DK Pass",
-      "file": "models/snow_course-rock.glb"
-    },
-    {
-      "name": "DK Pass · sman_bottom",
-      "section": "DK Pass",
-      "file": "models/snow_course-sman_bottom.glb"
-    },
-    {
-      "name": "DK Pass · sman_top",
-      "section": "DK Pass",
-      "file": "models/snow_course-sman_top.glb"
-    },
-    {
-      "name": "Delfino Square · TownMonte",
-      "section": "Delfino Square",
-      "file": "models/town_course-TownMonte.glb"
-    },
-    {
-      "name": "Delfino Square · TownTree1",
-      "section": "Delfino Square",
-      "file": "models/town_course-TownTree1.glb"
-    },
-    {
-      "name": "Delfino Square · bridge",
-      "section": "Delfino Square",
-      "file": "models/town_course-bridge.glb"
-    },
-    {
-      "name": "Delfino Square · town_waterA",
-      "section": "Delfino Square",
-      "file": "models/town_course-town_waterA.glb"
-    },
-    {
-      "name": "Delfino Square · town_waterC",
-      "section": "Delfino Square",
-      "file": "models/town_course-town_waterC.glb"
-    },
-    {
-      "name": "Delfino Square · water_efct",
-      "section": "Delfino Square",
-      "file": "models/town_course-water_efct.glb"
-    },
-    {
-      "name": "Delfino Square · woodbox1",
-      "section": "Delfino Square",
-      "file": "models/town_course-woodbox1.glb"
-    },
-    {
-      "name": "Desert Hills · DeTree1",
-      "section": "Desert Hills",
-      "file": "models/desert_course-DeTree1.glb"
-    },
-    {
-      "name": "Desert Hills · sanbo_b",
-      "section": "Desert Hills",
-      "file": "models/desert_course-sanbo_b.glb"
-    },
-    {
-      "name": "Desert Hills · sanbo_h",
-      "section": "Desert Hills",
-      "file": "models/desert_course-sanbo_h.glb"
-    },
-    {
-      "name": "Desert Hills · sun",
-      "section": "Desert Hills",
-      "file": "models/desert_course-sun.glb"
-    },
-    {
-      "name": "Desert Hills · sun_LOD",
-      "section": "Desert Hills",
-      "file": "models/desert_course-sun_LOD.glb"
-    },
-    {
-      "name": "Desert Hills · water_efct",
-      "section": "Desert Hills",
-      "file": "models/desert_course-water_efct.glb"
-    },
-    {
-      "name": "Figure-8 Circuit · CrossTree1",
-      "section": "Figure-8 Circuit",
-      "file": "models/cross_course-CrossTree1.glb"
-    },
-    {
-      "name": "Figure-8 Circuit (multiplayer) · CrossTree1",
-      "section": "Figure-8 Circuit (multiplayer)",
-      "file": "models/cross_courseD-CrossTree1.glb"
-    },
-    {
-      "name": "Luigi's Mansion · chandelier",
-      "section": "Luigi's Mansion",
-      "file": "models/mansion_course-chandelier.glb"
-    },
-    {
-      "name": "Luigi's Mansion · move_tree",
-      "section": "Luigi's Mansion",
-      "file": "models/mansion_course-move_tree.glb"
-    },
-    {
-      "name": "Luigi's Mansion · picture1",
-      "section": "Luigi's Mansion",
-      "file": "models/mansion_course-picture1.glb"
-    },
-    {
-      "name": "Luigi's Mansion · picture2",
-      "section": "Luigi's Mansion",
-      "file": "models/mansion_course-picture2.glb"
-    },
-    {
-      "name": "Luigi's Mansion · teresa",
-      "section": "Luigi's Mansion",
-      "file": "models/mansion_course-teresa.glb"
-    },
-    {
-      "name": "Luigi's Mansion (multiplayer) · chandelier",
-      "section": "Luigi's Mansion (multiplayer)",
-      "file": "models/mansion_courseD-chandelier.glb"
-    },
-    {
-      "name": "Luigi's Mansion (multiplayer) · move_tree",
-      "section": "Luigi's Mansion (multiplayer)",
-      "file": "models/mansion_courseD-move_tree.glb"
-    },
-    {
-      "name": "Luigi's Mansion (multiplayer) · picture1",
-      "section": "Luigi's Mansion (multiplayer)",
-      "file": "models/mansion_courseD-picture1.glb"
-    },
-    {
-      "name": "Luigi's Mansion (multiplayer) · picture2",
-      "section": "Luigi's Mansion (multiplayer)",
-      "file": "models/mansion_courseD-picture2.glb"
-    },
-    {
-      "name": "Luigi's Mansion (multiplayer) · teresa",
-      "section": "Luigi's Mansion (multiplayer)",
-      "file": "models/mansion_courseD-teresa.glb"
-    },
-    {
-      "name": "Mario Circuit · FireBall",
-      "section": "Mario Circuit",
-      "file": "models/mario_course-FireBall.glb"
-    },
-    {
-      "name": "Mario Circuit · MarioTree3",
-      "section": "Mario Circuit",
-      "file": "models/mario_course-MarioTree3.glb"
-    },
-    {
-      "name": "Mario Circuit · PakkunBody",
-      "section": "Mario Circuit",
-      "file": "models/mario_course-PakkunBody.glb"
-    },
-    {
-      "name": "Mario Circuit · PakkunMouth",
-      "section": "Mario Circuit",
-      "file": "models/mario_course-PakkunMouth.glb"
-    },
-    {
-      "name": "Mario Circuit · PakkunZHead",
-      "section": "Mario Circuit",
-      "file": "models/mario_course-PakkunZHead.glb"
-    },
-    {
-      "name": "Mario Circuit · kuribo",
-      "section": "Mario Circuit",
-      "file": "models/mario_course-kuribo.glb"
-    },
-    {
-      "name": "Mario Circuit · ob_pakkun_sf",
-      "section": "Mario Circuit",
-      "file": "models/mario_course-ob_pakkun_sf.glb"
-    },
-    {
-      "name": "Mario Circuit · water_efct",
-      "section": "Mario Circuit",
-      "file": "models/mario_course-water_efct.glb"
-    },
-    {
-      "name": "Peach Gardens · GardenTree1",
-      "section": "Peach Gardens",
-      "file": "models/garden_course-GardenTree1.glb"
-    },
-    {
-      "name": "Peach Gardens · choropu",
-      "section": "Peach Gardens",
-      "file": "models/garden_course-choropu.glb"
-    },
-    {
-      "name": "Peach Gardens · wanwan",
-      "section": "Peach Gardens",
-      "file": "models/garden_course-wanwan.glb"
-    },
-    {
-      "name": "Peach Gardens · wanwan_chain",
-      "section": "Peach Gardens",
-      "file": "models/garden_course-wanwan_chain.glb"
-    },
-    {
-      "name": "Peach Gardens · water_efct",
-      "section": "Peach Gardens",
-      "file": "models/garden_course-water_efct.glb"
-    },
-    {
-      "name": "Rainbow Road · RainStar",
-      "section": "Rainbow Road",
-      "file": "models/rainbow_course-RainStar.glb"
-    },
-    {
-      "name": "Shroom Ridge · bus_a",
-      "section": "Shroom Ridge",
-      "file": "models/ridge_course-bus_a.glb"
-    },
-    {
-      "name": "Shroom Ridge · car_a",
-      "section": "Shroom Ridge",
-      "file": "models/ridge_course-car_a.glb"
-    },
-    {
-      "name": "Shroom Ridge · car_tire",
-      "section": "Shroom Ridge",
-      "file": "models/ridge_course-car_tire.glb"
-    },
-    {
-      "name": "Shroom Ridge · truck_a",
-      "section": "Shroom Ridge",
-      "file": "models/ridge_course-truck_a.glb"
-    },
-    {
-      "name": "Tick-Tock Clock · gear_black",
-      "section": "Tick-Tock Clock",
-      "file": "models/clock_course-gear_black.glb"
-    },
-    {
-      "name": "Tick-Tock Clock · gear_white",
-      "section": "Tick-Tock Clock",
-      "file": "models/clock_course-gear_white.glb"
-    },
-    {
-      "name": "Tick-Tock Clock · pendulum",
-      "section": "Tick-Tock Clock",
-      "file": "models/clock_course-pendulum.glb"
-    },
-    {
-      "name": "Tick-Tock Clock · second_hand",
-      "section": "Tick-Tock Clock",
-      "file": "models/clock_course-second_hand.glb"
-    },
-    {
-      "name": "Tick-Tock Clock · test_cylinder",
-      "section": "Tick-Tock Clock",
-      "file": "models/clock_course-test_cylinder.glb"
-    },
-    {
-      "name": "Waluigi Pinball · IronBall",
-      "section": "Waluigi Pinball",
-      "file": "models/pinball_course-IronBall.glb"
-    },
-    {
-      "name": "Waluigi Pinball · bound",
-      "section": "Waluigi Pinball",
-      "file": "models/pinball_course-bound.glb"
-    },
-    {
-      "name": "Waluigi Pinball · dram",
-      "section": "Waluigi Pinball",
-      "file": "models/pinball_course-dram.glb"
-    },
-    {
-      "name": "Waluigi Pinball · flipper",
-      "section": "Waluigi Pinball",
-      "file": "models/pinball_course-flipper.glb"
-    },
-    {
-      "name": "Wario Stadium · fireball2",
-      "section": "Wario Stadium",
-      "file": "models/stadium_course-fireball2.glb"
-    },
-    {
-      "name": "Yoshi Falls · BankEgg1",
-      "section": "Yoshi Falls",
-      "file": "models/bank_course-BankEgg1.glb"
-    },
-    {
-      "name": "Yoshi Falls · Bank_Tree1",
-      "section": "Yoshi Falls",
-      "file": "models/bank_course-Bank_Tree1.glb"
-    },
-    {
-      "name": "donkey_course (unused) · bound",
-      "section": "donkey_course (unused)",
-      "file": "models/donkey_course-bound.glb"
-    },
-    {
-      "name": "donkey_course (unused) · dossun",
-      "section": "donkey_course (unused)",
-      "file": "models/donkey_course-dossun.glb"
-    },
-    {
-      "name": "donkey_course (unused) · dram",
-      "section": "donkey_course (unused)",
-      "file": "models/donkey_course-dram.glb"
-    },
-    {
-      "name": "donkey_course (unused) · flipper",
-      "section": "donkey_course (unused)",
-      "file": "models/donkey_course-flipper.glb"
-    },
-    {
-      "name": "donkey_course (unused) · kuribo",
-      "section": "donkey_course (unused)",
-      "file": "models/donkey_course-kuribo.glb"
-    },
-    {
-      "name": "donkey_course (unused) · pin1",
-      "section": "donkey_course (unused)",
-      "file": "models/donkey_course-pin1.glb"
-    },
-    {
-      "name": "donkey_course (unused) · rock",
-      "section": "donkey_course (unused)",
-      "file": "models/donkey_course-rock.glb"
-    },
-    {
-      "name": "luigi_course (unused) · bound",
-      "section": "luigi_course (unused)",
-      "file": "models/luigi_course-bound.glb"
-    },
-    {
-      "name": "luigi_course (unused) · flipper",
-      "section": "luigi_course (unused)",
-      "file": "models/luigi_course-flipper.glb"
-    },
-    {
-      "name": "luigi_course (unused) · gear_black",
-      "section": "luigi_course (unused)",
-      "file": "models/luigi_course-gear_black.glb"
-    },
-    {
-      "name": "luigi_course (unused) · gear_white",
-      "section": "luigi_course (unused)",
-      "file": "models/luigi_course-gear_white.glb"
-    },
-    {
-      "name": "luigi_course (unused) · pin1",
-      "section": "luigi_course (unused)",
-      "file": "models/luigi_course-pin1.glb"
-    },
-    {
-      "name": "luigi_course (unused) · pin_head1",
-      "section": "luigi_course (unused)",
-      "file": "models/luigi_course-pin_head1.glb"
-    },
-    {
-      "name": "luigi_course (unused) · test_cylinder",
-      "section": "luigi_course (unused)",
-      "file": "models/luigi_course-test_cylinder.glb"
-    },
-    {
-      "name": "nokonoko_course (unused) · BeachTree1",
-      "section": "nokonoko_course (unused)",
-      "file": "models/nokonoko_course-BeachTree1.glb"
-    },
-    {
-      "name": "nokonoko_course (unused) · beach_waterA",
-      "section": "nokonoko_course (unused)",
-      "file": "models/nokonoko_course-beach_waterA.glb"
-    },
-    {
-      "name": "nokonoko_course (unused) · beach_waterB",
-      "section": "nokonoko_course (unused)",
-      "file": "models/nokonoko_course-beach_waterB.glb"
-    },
-    {
-      "name": "nokonoko_course (unused) · beach_waterC",
-      "section": "nokonoko_course (unused)",
-      "file": "models/nokonoko_course-beach_waterC.glb"
-    },
-    {
-      "name": "nokonoko_course (unused) · crab",
-      "section": "nokonoko_course (unused)",
-      "file": "models/nokonoko_course-crab.glb"
-    },
-    {
-      "name": "nokonoko_course (unused) · crab_hand",
-      "section": "nokonoko_course (unused)",
-      "file": "models/nokonoko_course-crab_hand.glb"
-    },
-    {
-      "name": "nokonoko_course (unused) · kuribo",
-      "section": "nokonoko_course (unused)",
-      "file": "models/nokonoko_course-kuribo.glb"
-    },
-    {
-      "name": "nokonoko_course (unused) · noko_waterA",
-      "section": "nokonoko_course (unused)",
-      "file": "models/nokonoko_course-noko_waterA.glb"
-    },
-    {
-      "name": "nokonoko_course (unused) · noko_waterC",
-      "section": "nokonoko_course (unused)",
-      "file": "models/nokonoko_course-noko_waterC.glb"
-    },
-    {
-      "name": "nokonoko_course (unused) · nokonoko_sea",
-      "section": "nokonoko_course (unused)",
-      "file": "models/nokonoko_course-nokonoko_sea.glb"
-    },
-    {
-      "name": "nokonoko_course (unused) · yoshi_tree",
-      "section": "nokonoko_course (unused)",
-      "file": "models/nokonoko_course-yoshi_tree.glb"
-    },
-    {
-      "name": "wario_course · FireBall",
-      "section": "wario_course",
-      "file": "models/wario_course-FireBall.glb"
-    },
-    {
-      "name": "GBA Bowser Castle 2 · dossun",
-      "section": "GBA Bowser Castle 2",
-      "file": "models/old_koopa_agb-dossun.glb"
-    },
-    {
-      "name": "GBA Bowser Castle 2 · mkd_ef_bubble",
-      "section": "GBA Bowser Castle 2",
-      "file": "models/old_koopa_agb-mkd_ef_bubble.glb"
-    },
-    {
-      "name": "GBA Bowser Castle 2 · water_efct",
-      "section": "GBA Bowser Castle 2",
-      "file": "models/old_koopa_agb-water_efct.glb"
-    },
-    {
-      "name": "GBA Luigi Circuit · airship",
-      "section": "GBA Luigi Circuit",
-      "file": "models/old_luigi_agb-airship.glb"
-    },
-    {
-      "name": "GBA Luigi Circuit · olaTree1c",
-      "section": "GBA Luigi Circuit",
-      "file": "models/old_luigi_agb-olaTree1c.glb"
-    },
-    {
-      "name": "GBA Luigi Circuit · puddle",
-      "section": "GBA Luigi Circuit",
-      "file": "models/old_luigi_agb-puddle.glb"
-    },
-    {
-      "name": "GBA Peach Circuit · opa_tree1",
-      "section": "GBA Peach Circuit",
-      "file": "models/old_peach_agb-opa_tree1.glb"
-    },
-    {
-      "name": "GBA Sky Garden · airship",
-      "section": "GBA Sky Garden",
-      "file": "models/old_sky_agb-airship.glb"
-    },
-    {
-      "name": "GBA Sky Garden · osaTree1c",
-      "section": "GBA Sky Garden",
-      "file": "models/old_sky_agb-osaTree1c.glb"
-    },
-    {
-      "name": "GCN Baby Park · balloon",
-      "section": "GCN Baby Park",
-      "file": "models/old_baby_gc-balloon.glb"
-    },
-    {
-      "name": "GCN Baby Park · kuribo",
-      "section": "GCN Baby Park",
-      "file": "models/old_baby_gc-kuribo.glb"
-    },
-    {
-      "name": "GCN Luigi Circuit · OlgMush1",
-      "section": "GCN Luigi Circuit",
-      "file": "models/old_luigi_gc-OlgMush1.glb"
-    },
-    {
-      "name": "GCN Luigi Circuit · OlgPipe1",
-      "section": "GCN Luigi Circuit",
-      "file": "models/old_luigi_gc-OlgPipe1.glb"
-    },
-    {
-      "name": "GCN Luigi Circuit · wanwan",
-      "section": "GCN Luigi Circuit",
-      "file": "models/old_luigi_gc-wanwan.glb"
-    },
-    {
-      "name": "GCN Luigi Circuit · wanwan_chain",
-      "section": "GCN Luigi Circuit",
-      "file": "models/old_luigi_gc-wanwan_chain.glb"
-    },
-    {
-      "name": "GCN Luigi Circuit · wanwan_kui",
-      "section": "GCN Luigi Circuit",
-      "file": "models/old_luigi_gc-wanwan_kui.glb"
-    },
-    {
-      "name": "GCN Luigi Circuit (multiplayer) · OlgMush1",
-      "section": "GCN Luigi Circuit (multiplayer)",
-      "file": "models/old_luigi_gcD-OlgMush1.glb"
-    },
-    {
-      "name": "GCN Luigi Circuit (multiplayer) · OlgPipe1",
-      "section": "GCN Luigi Circuit (multiplayer)",
-      "file": "models/old_luigi_gcD-OlgPipe1.glb"
-    },
-    {
-      "name": "GCN Luigi Circuit (multiplayer) · wanwan",
-      "section": "GCN Luigi Circuit (multiplayer)",
-      "file": "models/old_luigi_gcD-wanwan.glb"
-    },
-    {
-      "name": "GCN Luigi Circuit (multiplayer) · wanwan_chain",
-      "section": "GCN Luigi Circuit (multiplayer)",
-      "file": "models/old_luigi_gcD-wanwan_chain.glb"
-    },
-    {
-      "name": "GCN Luigi Circuit (multiplayer) · wanwan_kui",
-      "section": "GCN Luigi Circuit (multiplayer)",
-      "file": "models/old_luigi_gcD-wanwan_kui.glb"
-    },
-    {
-      "name": "GCN Mushroom Bridge · KinoHouse1",
-      "section": "GCN Mushroom Bridge",
-      "file": "models/old_kinoko_gc-KinoHouse1.glb"
-    },
-    {
-      "name": "GCN Mushroom Bridge · KinoHouse2",
-      "section": "GCN Mushroom Bridge",
-      "file": "models/old_kinoko_gc-KinoHouse2.glb"
-    },
-    {
-      "name": "GCN Mushroom Bridge · KinoMount1",
-      "section": "GCN Mushroom Bridge",
-      "file": "models/old_kinoko_gc-KinoMount1.glb"
-    },
-    {
-      "name": "GCN Mushroom Bridge · KinoMount2",
-      "section": "GCN Mushroom Bridge",
-      "file": "models/old_kinoko_gc-KinoMount2.glb"
-    },
-    {
-      "name": "GCN Mushroom Bridge · balloon",
-      "section": "GCN Mushroom Bridge",
-      "file": "models/old_kinoko_gc-balloon.glb"
-    },
-    {
-      "name": "GCN Mushroom Bridge · bus_a",
-      "section": "GCN Mushroom Bridge",
-      "file": "models/old_kinoko_gc-bus_a.glb"
-    },
-    {
-      "name": "GCN Mushroom Bridge · car_a",
-      "section": "GCN Mushroom Bridge",
-      "file": "models/old_kinoko_gc-car_a.glb"
-    },
-    {
-      "name": "GCN Mushroom Bridge · car_tire",
-      "section": "GCN Mushroom Bridge",
-      "file": "models/old_kinoko_gc-car_tire.glb"
-    },
-    {
-      "name": "GCN Mushroom Bridge · truck_a",
-      "section": "GCN Mushroom Bridge",
-      "file": "models/old_kinoko_gc-truck_a.glb"
-    },
-    {
-      "name": "GCN Yoshi Circuit · kamome",
-      "section": "GCN Yoshi Circuit",
-      "file": "models/old_yoshi_gc-kamome.glb"
-    },
-    {
-      "name": "GCN Yoshi Circuit · ob_pakkun_sf",
-      "section": "GCN Yoshi Circuit",
-      "file": "models/old_yoshi_gc-ob_pakkun_sf.glb"
-    },
-    {
-      "name": "GCN Yoshi Circuit · water_efct",
-      "section": "GCN Yoshi Circuit",
-      "file": "models/old_yoshi_gc-water_efct.glb"
-    },
-    {
-      "name": "GCN Yoshi Circuit · yoshi_waterC",
-      "section": "GCN Yoshi Circuit",
-      "file": "models/old_yoshi_gc-yoshi_waterC.glb"
-    },
-    {
-      "name": "N64 Banshee Boardwalk · bakubaku",
-      "section": "N64 Banshee Boardwalk",
-      "file": "models/old_hyudoro_64-bakubaku.glb"
-    },
-    {
-      "name": "N64 Banshee Boardwalk · basabasa",
-      "section": "N64 Banshee Boardwalk",
-      "file": "models/old_hyudoro_64-basabasa.glb"
-    },
-    {
-      "name": "N64 Banshee Boardwalk · hyudoro_waterA",
-      "section": "N64 Banshee Boardwalk",
-      "file": "models/old_hyudoro_64-hyudoro_waterA.glb"
-    },
-    {
-      "name": "N64 Banshee Boardwalk · hyudoro_waterC",
-      "section": "N64 Banshee Boardwalk",
-      "file": "models/old_hyudoro_64-hyudoro_waterC.glb"
-    },
-    {
-      "name": "N64 Banshee Boardwalk · kanoke_64",
-      "section": "N64 Banshee Boardwalk",
-      "file": "models/old_hyudoro_64-kanoke_64.glb"
-    },
-    {
-      "name": "N64 Banshee Boardwalk · teresa",
-      "section": "N64 Banshee Boardwalk",
-      "file": "models/old_hyudoro_64-teresa.glb"
-    },
-    {
-      "name": "N64 Banshee Boardwalk · water_efct",
-      "section": "N64 Banshee Boardwalk",
-      "file": "models/old_hyudoro_64-water_efct.glb"
-    },
-    {
-      "name": "N64 Choco Mountain · rock2",
-      "section": "N64 Choco Mountain",
-      "file": "models/old_choco_64-rock2.glb"
-    },
-    {
-      "name": "N64 Choco Mountain · water_efct",
-      "section": "N64 Choco Mountain",
-      "file": "models/old_choco_64-water_efct.glb"
-    },
-    {
-      "name": "N64 Frappe Snowland · Of6Tree1",
-      "section": "N64 Frappe Snowland",
-      "file": "models/old_frappe_64-Of6Tree1.glb"
-    },
-    {
-      "name": "N64 Frappe Snowland · of6yoshi1",
-      "section": "N64 Frappe Snowland",
-      "file": "models/old_frappe_64-of6yoshi1.glb"
-    },
-    {
-      "name": "N64 Frappe Snowland · sman_bottom",
-      "section": "N64 Frappe Snowland",
-      "file": "models/old_frappe_64-sman_bottom.glb"
-    },
-    {
-      "name": "N64 Frappe Snowland · sman_top",
-      "section": "N64 Frappe Snowland",
-      "file": "models/old_frappe_64-sman_top.glb"
-    },
-    {
-      "name": "N64 Frappe Snowland · water_efct",
-      "section": "N64 Frappe Snowland",
-      "file": "models/old_frappe_64-water_efct.glb"
-    },
-    {
-      "name": "N64 Moo Moo Farm · choropu",
-      "section": "N64 Moo Moo Farm",
-      "file": "models/old_momo_64-choropu.glb"
-    },
-    {
-      "name": "N64 Moo Moo Farm · cow",
-      "section": "N64 Moo Moo Farm",
-      "file": "models/old_momo_64-cow.glb"
-    },
-    {
-      "name": "N64 Moo Moo Farm · om6Tree1",
-      "section": "N64 Moo Moo Farm",
-      "file": "models/old_momo_64-om6Tree1.glb"
-    },
-    {
-      "name": "N64 Moo Moo Farm (multiplayer) · choropu",
-      "section": "N64 Moo Moo Farm (multiplayer)",
-      "file": "models/old_momo_64D-choropu.glb"
-    },
-    {
-      "name": "N64 Moo Moo Farm (multiplayer) · cow",
-      "section": "N64 Moo Moo Farm (multiplayer)",
-      "file": "models/old_momo_64D-cow.glb"
-    },
-    {
-      "name": "N64 Moo Moo Farm (multiplayer) · om6Tree1",
-      "section": "N64 Moo Moo Farm (multiplayer)",
-      "file": "models/old_momo_64D-om6Tree1.glb"
-    },
-    {
-      "name": "SNES Choco Island 2 · ob_pakkun_sf",
-      "section": "SNES Choco Island 2",
-      "file": "models/old_choco_sfc-ob_pakkun_sf.glb"
-    },
-    {
-      "name": "SNES Donut Plains 1 · earthen_pipe1",
-      "section": "SNES Donut Plains 1",
-      "file": "models/old_donut_sfc-earthen_pipe1.glb"
-    },
-    {
-      "name": "SNES Donut Plains 1 · earthen_pipe2",
-      "section": "SNES Donut Plains 1",
-      "file": "models/old_donut_sfc-earthen_pipe2.glb"
-    },
-    {
-      "name": "SNES Donut Plains 1 · water_efct",
-      "section": "SNES Donut Plains 1",
-      "file": "models/old_donut_sfc-water_efct.glb"
-    },
-    {
-      "name": "SNES Koopa Beach 2 · pukupuku",
-      "section": "SNES Koopa Beach 2",
-      "file": "models/old_noko_sfc-pukupuku.glb"
-    },
-    {
-      "name": "SNES Koopa Beach 2 · water_efct",
-      "section": "SNES Koopa Beach 2",
-      "file": "models/old_noko_sfc-water_efct.glb"
-    },
-    {
-      "name": "SNES Mario Circuit 1 · earthen_pipe1",
-      "section": "SNES Mario Circuit 1",
-      "file": "models/old_mario_sfc-earthen_pipe1.glb"
-    },
-    {
-      "name": "SNES Mario Circuit 1 · earthen_pipe2",
-      "section": "SNES Mario Circuit 1",
-      "file": "models/old_mario_sfc-earthen_pipe2.glb"
-    },
-    {
-      "name": "old_mario_gc (unused) · BeachTree1",
-      "section": "old_mario_gc (unused)",
-      "file": "models/old_mario_gc-BeachTree1.glb"
-    },
-    {
-      "name": "old_mario_gc (unused) · kuribo",
-      "section": "old_mario_gc (unused)",
-      "file": "models/old_mario_gc-kuribo.glb"
-    },
-    {
-      "name": "old_mario_gc (unused) · mario_tree",
-      "section": "old_mario_gc (unused)",
-      "file": "models/old_mario_gc-mario_tree.glb"
-    },
-    {
-      "name": "MR_stage1 · balloon",
-      "section": "MR_stage1",
-      "file": "models/MR_stage1-balloon.glb"
-    },
-    {
-      "name": "MR_stage1 · water_efct",
-      "section": "MR_stage1",
-      "file": "models/MR_stage1-water_efct.glb"
-    },
-    {
-      "name": "MR_stage2 · balloon",
-      "section": "MR_stage2",
-      "file": "models/MR_stage2-balloon.glb"
-    },
-    {
-      "name": "MR_stage3 · balloon",
-      "section": "MR_stage3",
-      "file": "models/MR_stage3-balloon.glb"
-    },
-    {
-      "name": "MR_stage3 · water_efct",
-      "section": "MR_stage3",
-      "file": "models/MR_stage3-water_efct.glb"
-    },
-    {
-      "name": "MR_stage4 · KinoHouse1",
-      "section": "MR_stage4",
-      "file": "models/MR_stage4-KinoHouse1.glb"
-    },
-    {
-      "name": "MR_stage4 · KinoHouse2",
-      "section": "MR_stage4",
-      "file": "models/MR_stage4-KinoHouse2.glb"
-    },
-    {
-      "name": "MR_stage4 · KinoMount1",
-      "section": "MR_stage4",
-      "file": "models/MR_stage4-KinoMount1.glb"
-    },
-    {
-      "name": "MR_stage4 · KinoMount2",
-      "section": "MR_stage4",
-      "file": "models/MR_stage4-KinoMount2.glb"
-    },
-    {
-      "name": "MR_stage4 · bus_a",
-      "section": "MR_stage4",
-      "file": "models/MR_stage4-bus_a.glb"
-    },
-    {
-      "name": "MR_stage4 · car_a",
-      "section": "MR_stage4",
-      "file": "models/MR_stage4-car_a.glb"
-    },
-    {
-      "name": "MR_stage4 · car_tire",
-      "section": "MR_stage4",
-      "file": "models/MR_stage4-car_tire.glb"
-    },
-    {
-      "name": "MR_stage4 · old_kinoko_gc",
-      "section": "MR_stage4",
-      "file": "models/MR_stage4-old_kinoko_gc.glb"
-    },
-    {
-      "name": "MR_stage4 · truck_a",
-      "section": "MR_stage4",
-      "file": "models/MR_stage4-truck_a.glb"
-    },
-    {
-      "name": "MR_stage4 · water_efct",
-      "section": "MR_stage4",
-      "file": "models/MR_stage4-water_efct.glb"
-    },
-    {
-      "name": "StaffRollTrue · StaffRoll",
-      "section": "StaffRollTrue",
-      "file": "models/StaffRollTrue-StaffRoll.glb"
-    },
-    {
-      "name": "mini_block_64 · balloon",
-      "section": "mini_block_64",
-      "file": "models/mini_block_64-balloon.glb"
-    },
-    {
-      "name": "mini_block_64 · shine16",
-      "section": "mini_block_64",
-      "file": "models/mini_block_64-shine16.glb"
-    },
-    {
-      "name": "mini_block_64 · shine_balloon",
-      "section": "mini_block_64",
-      "file": "models/mini_block_64-shine_balloon.glb"
-    },
-    {
-      "name": "mini_block_course · balloon",
-      "section": "mini_block_course",
-      "file": "models/mini_block_course-balloon.glb"
-    },
-    {
-      "name": "mini_block_course · mini_block_cours",
-      "section": "mini_block_course",
-      "file": "models/mini_block_course-mini_block_cours.glb"
-    },
-    {
-      "name": "mini_block_course · shine16",
-      "section": "mini_block_course",
-      "file": "models/mini_block_course-shine16.glb"
-    },
-    {
-      "name": "mini_dokan_gc · balloon",
-      "section": "mini_dokan_gc",
-      "file": "models/mini_dokan_gc-balloon.glb"
-    },
-    {
-      "name": "mini_dokan_gc · mini_dokan",
-      "section": "mini_dokan_gc",
-      "file": "models/mini_dokan_gc-mini_dokan.glb"
-    },
-    {
-      "name": "mini_dokan_gc · shine16",
-      "section": "mini_dokan_gc",
-      "file": "models/mini_dokan_gc-shine16.glb"
-    },
-    {
-      "name": "mini_dokan_gc · shine_balloon",
-      "section": "mini_dokan_gc",
-      "file": "models/mini_dokan_gc-shine_balloon.glb"
-    },
-    {
-      "name": "mini_stage1 · balloon",
-      "section": "mini_stage1",
-      "file": "models/mini_stage1-balloon.glb"
-    },
-    {
-      "name": "mini_stage1 · shine16",
-      "section": "mini_stage1",
-      "file": "models/mini_stage1-shine16.glb"
-    },
-    {
-      "name": "mini_stage1 · shine_balloon",
-      "section": "mini_stage1",
-      "file": "models/mini_stage1-shine_balloon.glb"
-    },
-    {
-      "name": "mini_stage2 · balloon",
-      "section": "mini_stage2",
-      "file": "models/mini_stage2-balloon.glb"
-    },
-    {
-      "name": "mini_stage2 · shine16",
-      "section": "mini_stage2",
-      "file": "models/mini_stage2-shine16.glb"
-    },
-    {
-      "name": "mini_stage2 · shine_balloon",
-      "section": "mini_stage2",
-      "file": "models/mini_stage2-shine_balloon.glb"
-    },
-    {
-      "name": "mini_stage3 · balloon",
-      "section": "mini_stage3",
-      "file": "models/mini_stage3-balloon.glb"
-    },
-    {
-      "name": "mini_stage3 · crab",
-      "section": "mini_stage3",
-      "file": "models/mini_stage3-crab.glb"
-    },
-    {
-      "name": "mini_stage3 · crab_hand",
-      "section": "mini_stage3",
-      "file": "models/mini_stage3-crab_hand.glb"
-    },
-    {
-      "name": "mini_stage3 · mini_stage3_wate",
-      "section": "mini_stage3",
-      "file": "models/mini_stage3-mini_stage3_wate.glb"
-    },
-    {
-      "name": "mini_stage3 · shine16",
-      "section": "mini_stage3",
-      "file": "models/mini_stage3-shine16.glb"
-    },
-    {
-      "name": "mini_stage3 · shine_balloon",
-      "section": "mini_stage3",
-      "file": "models/mini_stage3-shine_balloon.glb"
-    },
-    {
-      "name": "mini_stage3 · water_efct",
-      "section": "mini_stage3",
-      "file": "models/mini_stage3-water_efct.glb"
-    },
-    {
-      "name": "mini_stage4 · balloon",
-      "section": "mini_stage4",
-      "file": "models/mini_stage4-balloon.glb"
-    },
-    {
-      "name": "mini_stage4 · berry",
-      "section": "mini_stage4",
-      "file": "models/mini_stage4-berry.glb"
-    },
-    {
-      "name": "mini_stage4 · cream",
-      "section": "mini_stage4",
-      "file": "models/mini_stage4-cream.glb"
-    },
-    {
-      "name": "mini_stage4 · cream_effect",
-      "section": "mini_stage4",
-      "file": "models/mini_stage4-cream_effect.glb"
-    },
-    {
-      "name": "mini_stage4 · shine16",
-      "section": "mini_stage4",
-      "file": "models/mini_stage4-shine16.glb"
-    },
-    {
-      "name": "mini_stage4 · shine_balloon",
-      "section": "mini_stage4",
-      "file": "models/mini_stage4-shine_balloon.glb"
-    },
-    {
-      "name": "test1_course (unused) · bridge",
-      "section": "test1_course (unused)",
-      "file": "models/test1_course-bridge.glb"
-    },
-    {
-      "name": "test1_course (unused) · gear_black",
-      "section": "test1_course (unused)",
-      "file": "models/test1_course-gear_black.glb"
-    },
-    {
-      "name": "test1_course (unused) · gear_white",
-      "section": "test1_course (unused)",
-      "file": "models/test1_course-gear_white.glb"
-    },
-    {
-      "name": "test1_course (unused) · test_brock",
-      "section": "test1_course (unused)",
-      "file": "models/test1_course-test_brock.glb"
-    },
-    {
-      "name": "test1_course (unused) · test_cylinder",
-      "section": "test1_course (unused)",
-      "file": "models/test1_course-test_cylinder.glb"
-    },
-    {
-      "name": "Item box",
-      "section": "Shared objects",
-      "file": "models/MapObj-itembox.glb"
-    }
-  ],
-  "music": [
-    {
-      "name": "Sequence 00 · 1:12",
-      "file": "music/seq_00.mp3"
-    },
-    {
-      "name": "Sequence 01 · 0:38",
-      "file": "music/seq_01.mp3"
-    },
-    {
-      "name": "Sequence 02 · 0:28",
-      "file": "music/seq_02.mp3"
-    },
-    {
-      "name": "Sequence 03 · 0:55",
-      "file": "music/seq_03.mp3"
-    },
-    {
-      "name": "Sequence 04 · 0:31",
-      "file": "music/seq_04.mp3"
-    },
-    {
-      "name": "Sequence 05 · 0:33",
-      "file": "music/seq_05.mp3"
-    },
-    {
-      "name": "Sequence 06 · 0:16",
-      "file": "music/seq_06.mp3"
-    },
-    {
-      "name": "Sequence 07 · 0:03",
-      "file": "music/seq_07.mp3"
-    },
-    {
-      "name": "Sequence 08 · 0:12",
-      "file": "music/seq_08.mp3"
-    },
-    {
-      "name": "Sequence 09 · 0:13",
-      "file": "music/seq_09.mp3"
-    },
-    {
-      "name": "Sequence 10 · 0:02",
-      "file": "music/seq_10.mp3"
-    },
-    {
-      "name": "Sequence 11 · 0:05",
-      "file": "music/seq_11.mp3"
-    },
-    {
-      "name": "Sequence 12 · 0:03",
-      "file": "music/seq_12.mp3"
-    },
-    {
-      "name": "Sequence 13 · 0:07",
-      "file": "music/seq_13.mp3"
-    },
-    {
-      "name": "Sequence 14 · 0:06",
-      "file": "music/seq_14.mp3"
-    },
-    {
-      "name": "Sequence 15 · 1:08",
-      "file": "music/seq_15.mp3"
-    },
-    {
-      "name": "Sequence 16 · 0:52",
-      "file": "music/seq_16.mp3"
-    },
-    {
-      "name": "Sequence 17 · 1:12",
-      "file": "music/seq_17.mp3"
-    },
-    {
-      "name": "Sequence 18 · 1:17",
-      "file": "music/seq_18.mp3"
-    },
-    {
-      "name": "Sequence 19 · 1:05",
-      "file": "music/seq_19.mp3"
-    },
-    {
-      "name": "Sequence 20 · 0:52",
-      "file": "music/seq_20.mp3"
-    },
-    {
-      "name": "Sequence 21 · 1:31",
-      "file": "music/seq_21.mp3"
-    },
-    {
-      "name": "Sequence 22 · 0:37",
-      "file": "music/seq_22.mp3"
-    },
-    {
-      "name": "Sequence 23 · 0:42",
-      "file": "music/seq_23.mp3"
-    },
-    {
-      "name": "Sequence 24 · 0:34",
-      "file": "music/seq_24.mp3"
-    },
-    {
-      "name": "Sequence 25 · 0:45",
-      "file": "music/seq_25.mp3"
-    },
-    {
-      "name": "Sequence 26 · 0:55",
-      "file": "music/seq_26.mp3"
-    },
-    {
-      "name": "Sequence 27 · 1:01",
-      "file": "music/seq_27.mp3"
-    },
-    {
-      "name": "Sequence 28 · 0:42",
-      "file": "music/seq_28.mp3"
-    },
-    {
-      "name": "Sequence 29 · 1:31",
-      "file": "music/seq_29.mp3"
-    },
-    {
-      "name": "Sequence 30 · 1:02",
-      "file": "music/seq_30.mp3"
-    },
-    {
-      "name": "Sequence 31 · 1:11",
-      "file": "music/seq_31.mp3"
-    },
-    {
-      "name": "Sequence 32 · 0:47",
-      "file": "music/seq_32.mp3"
-    },
-    {
-      "name": "Sequence 33 · 1:17",
-      "file": "music/seq_33.mp3"
-    },
-    {
-      "name": "Sequence 34 · 1:42",
-      "file": "music/seq_34.mp3"
-    },
-    {
-      "name": "Sequence 35 · 1:11",
-      "file": "music/seq_35.mp3"
-    },
-    {
-      "name": "Sequence 36 · 1:05",
-      "file": "music/seq_36.mp3"
-    },
-    {
-      "name": "Sequence 37 · 0:57",
-      "file": "music/seq_37.mp3"
-    },
-    {
-      "name": "Sequence 38 · 1:01",
-      "file": "music/seq_38.mp3"
-    },
-    {
-      "name": "Sequence 39 · 0:53",
-      "file": "music/seq_39.mp3"
-    },
-    {
-      "name": "Sequence 40 · 1:04",
-      "file": "music/seq_40.mp3"
-    },
-    {
-      "name": "Sequence 41 · 2:07",
-      "file": "music/seq_41.mp3"
-    },
-    {
-      "name": "Sequence 42 · 0:34",
-      "file": "music/seq_42.mp3"
-    },
-    {
-      "name": "Sequence 43 · 0:52",
-      "file": "music/seq_43.mp3"
-    },
-    {
-      "name": "Sequence 44 · 0:50",
-      "file": "music/seq_44.mp3"
-    },
-    {
-      "name": "Sequence 45 · 0:51",
-      "file": "music/seq_45.mp3"
-    },
-    {
-      "name": "Sequence 46 · 0:06",
-      "file": "music/seq_46.mp3"
-    },
-    {
-      "name": "Sequence 47 · 0:05",
-      "file": "music/seq_47.mp3"
-    },
-    {
-      "name": "Sequence 48 · 0:08",
-      "file": "music/seq_48.mp3"
-    },
-    {
-      "name": "Sequence 49 · 0:06",
-      "file": "music/seq_49.mp3"
-    },
-    {
-      "name": "Sequence 50 · 0:05",
-      "file": "music/seq_50.mp3"
-    },
-    {
-      "name": "Sequence 51 · 0:05",
-      "file": "music/seq_51.mp3"
-    },
-    {
-      "name": "Sequence 52 · 0:05",
-      "file": "music/seq_52.mp3"
-    },
-    {
-      "name": "Sequence 53 · 0:05",
-      "file": "music/seq_53.mp3"
-    },
-    {
-      "name": "Sequence 54 · 0:07",
-      "file": "music/seq_54.mp3"
-    },
-    {
-      "name": "Sequence 55 · 0:07",
-      "file": "music/seq_55.mp3"
-    },
-    {
-      "name": "Sequence 56 · 0:50",
-      "file": "music/seq_56.mp3"
-    },
-    {
-      "name": "Sequence 57 · 0:36",
-      "file": "music/seq_57.mp3"
-    },
-    {
-      "name": "Sequence 58 · 0:41",
-      "file": "music/seq_58.mp3"
-    },
-    {
-      "name": "Sequence 59 · 0:23",
-      "file": "music/seq_59.mp3"
-    },
-    {
-      "name": "Sequence 60 · 0:23",
-      "file": "music/seq_60.mp3"
-    },
-    {
-      "name": "Sequence 61 · 0:32",
-      "file": "music/seq_61.mp3"
-    },
-    {
-      "name": "Sequence 62 · 0:04",
-      "file": "music/seq_62.mp3"
-    },
-    {
-      "name": "Sequence 63 · 0:42",
-      "file": "music/seq_63.mp3"
-    },
-    {
-      "name": "Sequence 64 · 0:40",
-      "file": "music/seq_64.mp3"
-    },
-    {
-      "name": "Sequence 65 · 0:22",
-      "file": "music/seq_65.mp3"
-    },
-    {
-      "name": "Sequence 66 · 0:26",
-      "file": "music/seq_66.mp3"
-    },
-    {
-      "name": "Sequence 67 · 0:33",
-      "file": "music/seq_67.mp3"
-    },
-    {
-      "name": "Sequence 68 · 0:41",
-      "file": "music/seq_68.mp3"
-    },
-    {
-      "name": "Sequence 69 · 3:01",
-      "file": "music/seq_69.mp3"
-    },
-    {
-      "name": "Sequence 70 · 3:01",
-      "file": "music/seq_70.mp3"
-    },
-    {
-      "name": "Sequence 71 · 0:04",
-      "file": "music/seq_71.mp3"
-    },
-    {
-      "name": "Sequence 72 · 0:05",
-      "file": "music/seq_72.mp3"
-    },
-    {
-      "name": "Sequence 73 · 0:13",
-      "file": "music/seq_73.mp3"
-    },
-    {
-      "name": "Sequence 74 · 1:15",
-      "file": "music/seq_74.mp3"
-    },
-    {
-      "name": "Sequence 75 · 0:01",
-      "file": "music/seq_75.mp3"
-    }
-  ],
+ "format": "retro-x",
+ "version": 1,
+ "id": "mario-kart-ds",
+ "title": "Mario Kart DS",
+ "platform": "Nintendo DS",
+ "year": 2005,
+ "description": "The DS kart racer, rebuilt from the cartridge. Every course is its own NSBMD scene converted to GLB with the game's texture-SRT animations still running (water, lava, conveyors), the '_V' skybox riding the camera exactly as the engine draws it, and each NKM OBJI map object placed at its authored transform — movers follow their own NKM routes, and the CPU drive line can be toggled on as a line layer. Characters, karts and every map object are browsable as models, and all of the SDAT's sequenced music is rendered through our SSEQ/SBNK/SWAR pipeline.",
+ "display": {
   "native": {
-    "h": 192,
-    "w": 256
+   "w": 256,
+   "h": 192
   },
-  "platform": "Nintendo DS",
-  "tickHz": 60
+  "tickHz": 60,
+  "texFilter": "nearest"
+ },
+ "assets": [
+  {
+   "id": "seq_00",
+   "category": "music",
+   "name": "Sequence 00",
+   "file": "music/seq_00.mp3",
+   "duration": 72.856201171875
+  },
+  {
+   "id": "seq_01",
+   "category": "music",
+   "name": "Sequence 01",
+   "file": "music/seq_01.mp3",
+   "duration": 38.97894287109375
+  },
+  {
+   "id": "seq_02",
+   "category": "music",
+   "name": "Sequence 02",
+   "file": "music/seq_02.mp3",
+   "duration": 28.0716552734375
+  },
+  {
+   "id": "seq_03",
+   "category": "music",
+   "name": "Sequence 03",
+   "file": "music/seq_03.mp3",
+   "duration": 55.132171630859375
+  },
+  {
+   "id": "seq_04",
+   "category": "music",
+   "name": "Sequence 04",
+   "file": "music/seq_04.mp3",
+   "duration": 31.761962890625
+  },
+  {
+   "id": "seq_05",
+   "category": "music",
+   "name": "Sequence 05",
+   "file": "music/seq_05.mp3",
+   "duration": 33.311309814453125
+  },
+  {
+   "id": "seq_06",
+   "category": "music",
+   "name": "Sequence 06",
+   "file": "music/seq_06.mp3",
+   "duration": 16.6363525390625
+  },
+  {
+   "id": "seq_07",
+   "category": "music",
+   "name": "Sequence 07",
+   "file": "music/seq_07.mp3",
+   "duration": 3.63079833984375
+  },
+  {
+   "id": "seq_08",
+   "category": "music",
+   "name": "Sequence 08",
+   "file": "music/seq_08.mp3",
+   "duration": 12.7994384765625
+  },
+  {
+   "id": "seq_09",
+   "category": "music",
+   "name": "Sequence 09",
+   "file": "music/seq_09.mp3",
+   "duration": 13.274810791015625
+  },
+  {
+   "id": "seq_10",
+   "category": "music",
+   "name": "Sequence 10",
+   "file": "music/seq_10.mp3",
+   "duration": 2.142364501953125
+  },
+  {
+   "id": "seq_11",
+   "category": "music",
+   "name": "Sequence 11",
+   "file": "music/seq_11.mp3",
+   "duration": 5.266998291015625
+  },
+  {
+   "id": "seq_12",
+   "category": "music",
+   "name": "Sequence 12",
+   "file": "music/seq_12.mp3",
+   "duration": 3.75732421875
+  },
+  {
+   "id": "seq_13",
+   "category": "music",
+   "name": "Sequence 13",
+   "file": "music/seq_13.mp3",
+   "duration": 7.73699951171875
+  },
+  {
+   "id": "seq_14",
+   "category": "music",
+   "name": "Sequence 14",
+   "file": "music/seq_14.mp3",
+   "duration": 6.748687744140625
+  },
+  {
+   "id": "seq_15",
+   "category": "music",
+   "name": "Sequence 15",
+   "file": "music/seq_15.mp3",
+   "duration": 68.51617431640625
+  },
+  {
+   "id": "seq_16",
+   "category": "music",
+   "name": "Sequence 16",
+   "file": "music/seq_16.mp3",
+   "duration": 52.754364013671875
+  },
+  {
+   "id": "seq_17",
+   "category": "music",
+   "name": "Sequence 17",
+   "file": "music/seq_17.mp3",
+   "duration": 72.37109375
+  },
+  {
+   "id": "seq_18",
+   "category": "music",
+   "name": "Sequence 18",
+   "file": "music/seq_18.mp3",
+   "duration": 77.19760131835938
+  },
+  {
+   "id": "seq_19",
+   "category": "music",
+   "name": "Sequence 19",
+   "file": "music/seq_19.mp3",
+   "duration": 65.13623046875
+  },
+  {
+   "id": "seq_20",
+   "category": "music",
+   "name": "Sequence 20",
+   "file": "music/seq_20.mp3",
+   "duration": 52.32232666015625
+  },
+  {
+   "id": "seq_21",
+   "category": "music",
+   "name": "Sequence 21",
+   "file": "music/seq_21.mp3",
+   "duration": 91.60122680664062
+  },
+  {
+   "id": "seq_22",
+   "category": "music",
+   "name": "Sequence 22",
+   "file": "music/seq_22.mp3",
+   "duration": 37.133270263671875
+  },
+  {
+   "id": "seq_23",
+   "category": "music",
+   "name": "Sequence 23",
+   "file": "music/seq_23.mp3",
+   "duration": 42.59344482421875
+  },
+  {
+   "id": "seq_24",
+   "category": "music",
+   "name": "Sequence 24",
+   "file": "music/seq_24.mp3",
+   "duration": 34.48577880859375
+  },
+  {
+   "id": "seq_25",
+   "category": "music",
+   "name": "Sequence 25",
+   "file": "music/seq_25.mp3",
+   "duration": 45.09832763671875
+  },
+  {
+   "id": "seq_26",
+   "category": "music",
+   "name": "Sequence 26",
+   "file": "music/seq_26.mp3",
+   "duration": 55.663421630859375
+  },
+  {
+   "id": "seq_27",
+   "category": "music",
+   "name": "Sequence 27",
+   "file": "music/seq_27.mp3",
+   "duration": 61.715179443359375
+  },
+  {
+   "id": "seq_28",
+   "category": "music",
+   "name": "Sequence 28",
+   "file": "music/seq_28.mp3",
+   "duration": 42.630615234375
+  },
+  {
+   "id": "seq_29",
+   "category": "music",
+   "name": "Sequence 29",
+   "file": "music/seq_29.mp3",
+   "duration": 91.95974731445312
+  },
+  {
+   "id": "seq_30",
+   "category": "music",
+   "name": "Sequence 30",
+   "file": "music/seq_30.mp3",
+   "duration": 62.000640869140625
+  },
+  {
+   "id": "seq_31",
+   "category": "music",
+   "name": "Sequence 31",
+   "file": "music/seq_31.mp3",
+   "duration": 71.402587890625
+  },
+  {
+   "id": "seq_32",
+   "category": "music",
+   "name": "Sequence 32",
+   "file": "music/seq_32.mp3",
+   "duration": 47.318206787109375
+  },
+  {
+   "id": "seq_33",
+   "category": "music",
+   "name": "Sequence 33",
+   "file": "music/seq_33.mp3",
+   "duration": 77.11892700195312
+  },
+  {
+   "id": "seq_34",
+   "category": "music",
+   "name": "Sequence 34",
+   "file": "music/seq_34.mp3",
+   "duration": 102.55133056640625
+  },
+  {
+   "id": "seq_35",
+   "category": "music",
+   "name": "Sequence 35",
+   "file": "music/seq_35.mp3",
+   "duration": 71.44467163085938
+  },
+  {
+   "id": "seq_36",
+   "category": "music",
+   "name": "Sequence 36",
+   "file": "music/seq_36.mp3",
+   "duration": 65.13623046875
+  },
+  {
+   "id": "seq_37",
+   "category": "music",
+   "name": "Sequence 37",
+   "file": "music/seq_37.mp3",
+   "duration": 57.535430908203125
+  },
+  {
+   "id": "seq_38",
+   "category": "music",
+   "name": "Sequence 38",
+   "file": "music/seq_38.mp3",
+   "duration": 61.994140625
+  },
+  {
+   "id": "seq_39",
+   "category": "music",
+   "name": "Sequence 39",
+   "file": "music/seq_39.mp3",
+   "duration": 53.654388427734375
+  },
+  {
+   "id": "seq_40",
+   "category": "music",
+   "name": "Sequence 40",
+   "file": "music/seq_40.mp3",
+   "duration": 64.13540649414062
+  },
+  {
+   "id": "seq_41",
+   "category": "music",
+   "name": "Sequence 41",
+   "file": "music/seq_41.mp3",
+   "duration": 127.57269287109375
+  },
+  {
+   "id": "seq_42",
+   "category": "music",
+   "name": "Sequence 42",
+   "file": "music/seq_42.mp3",
+   "duration": 34.89166259765625
+  },
+  {
+   "id": "seq_43",
+   "category": "music",
+   "name": "Sequence 43",
+   "file": "music/seq_43.mp3",
+   "duration": 52.94287109375
+  },
+  {
+   "id": "seq_44",
+   "category": "music",
+   "name": "Sequence 44",
+   "file": "music/seq_44.mp3",
+   "duration": 50.99761962890625
+  },
+  {
+   "id": "seq_45",
+   "category": "music",
+   "name": "Sequence 45",
+   "file": "music/seq_45.mp3",
+   "duration": 51.820709228515625
+  },
+  {
+   "id": "seq_46",
+   "category": "music",
+   "name": "Sequence 46",
+   "file": "music/seq_46.mp3",
+   "duration": 6.721588134765625
+  },
+  {
+   "id": "seq_47",
+   "category": "music",
+   "name": "Sequence 47",
+   "file": "music/seq_47.mp3",
+   "duration": 5.576385498046875
+  },
+  {
+   "id": "seq_48",
+   "category": "music",
+   "name": "Sequence 48",
+   "file": "music/seq_48.mp3",
+   "duration": 8.723541259765625
+  },
+  {
+   "id": "seq_49",
+   "category": "music",
+   "name": "Sequence 49",
+   "file": "music/seq_49.mp3",
+   "duration": 6.75433349609375
+  },
+  {
+   "id": "seq_50",
+   "category": "music",
+   "name": "Sequence 50",
+   "file": "music/seq_50.mp3",
+   "duration": 5.814666748046875
+  },
+  {
+   "id": "seq_51",
+   "category": "music",
+   "name": "Sequence 51",
+   "file": "music/seq_51.mp3",
+   "duration": 5.191558837890625
+  },
+  {
+   "id": "seq_52",
+   "category": "music",
+   "name": "Sequence 52",
+   "file": "music/seq_52.mp3",
+   "duration": 5.539947509765625
+  },
+  {
+   "id": "seq_53",
+   "category": "music",
+   "name": "Sequence 53",
+   "file": "music/seq_53.mp3",
+   "duration": 5.539947509765625
+  },
+  {
+   "id": "seq_54",
+   "category": "music",
+   "name": "Sequence 54",
+   "file": "music/seq_54.mp3",
+   "duration": 7.354736328125
+  },
+  {
+   "id": "seq_55",
+   "category": "music",
+   "name": "Sequence 55",
+   "file": "music/seq_55.mp3",
+   "duration": 7.559051513671875
+  },
+  {
+   "id": "seq_56",
+   "category": "music",
+   "name": "Sequence 56",
+   "file": "music/seq_56.mp3",
+   "duration": 50.88623046875
+  },
+  {
+   "id": "seq_57",
+   "category": "music",
+   "name": "Sequence 57",
+   "file": "music/seq_57.mp3",
+   "duration": 36.67376708984375
+  },
+  {
+   "id": "seq_58",
+   "category": "music",
+   "name": "Sequence 58",
+   "file": "music/seq_58.mp3",
+   "duration": 41.43280029296875
+  },
+  {
+   "id": "seq_59",
+   "category": "music",
+   "name": "Sequence 59",
+   "file": "music/seq_59.mp3",
+   "duration": 23.88037109375
+  },
+  {
+   "id": "seq_60",
+   "category": "music",
+   "name": "Sequence 60",
+   "file": "music/seq_60.mp3",
+   "duration": 23.5975341796875
+  },
+  {
+   "id": "seq_61",
+   "category": "music",
+   "name": "Sequence 61",
+   "file": "music/seq_61.mp3",
+   "duration": 32.521453857421875
+  },
+  {
+   "id": "seq_62",
+   "category": "music",
+   "name": "Sequence 62",
+   "file": "music/seq_62.mp3",
+   "duration": 4.87017822265625
+  },
+  {
+   "id": "seq_63",
+   "category": "music",
+   "name": "Sequence 63",
+   "file": "music/seq_63.mp3",
+   "duration": 42.7525634765625
+  },
+  {
+   "id": "seq_64",
+   "category": "music",
+   "name": "Sequence 64",
+   "file": "music/seq_64.mp3",
+   "duration": 40.236663818359375
+  },
+  {
+   "id": "seq_65",
+   "category": "music",
+   "name": "Sequence 65",
+   "file": "music/seq_65.mp3",
+   "duration": 22.1444091796875
+  },
+  {
+   "id": "seq_66",
+   "category": "music",
+   "name": "Sequence 66",
+   "file": "music/seq_66.mp3",
+   "duration": 26.005767822265625
+  },
+  {
+   "id": "seq_67",
+   "category": "music",
+   "name": "Sequence 67",
+   "file": "music/seq_67.mp3",
+   "duration": 33.07489013671875
+  },
+  {
+   "id": "seq_68",
+   "category": "music",
+   "name": "Sequence 68",
+   "file": "music/seq_68.mp3",
+   "duration": 41.3912353515625
+  },
+  {
+   "id": "seq_69",
+   "category": "music",
+   "name": "Sequence 69",
+   "file": "music/seq_69.mp3",
+   "duration": 181.36624145507812
+  },
+  {
+   "id": "seq_70",
+   "category": "music",
+   "name": "Sequence 70",
+   "file": "music/seq_70.mp3",
+   "duration": 181.24801635742188
+  },
+  {
+   "id": "seq_71",
+   "category": "music",
+   "name": "Sequence 71",
+   "file": "music/seq_71.mp3",
+   "duration": 4.994110107421875
+  },
+  {
+   "id": "seq_72",
+   "category": "music",
+   "name": "Sequence 72",
+   "file": "music/seq_72.mp3",
+   "duration": 5.577850341796875
+  },
+  {
+   "id": "seq_73",
+   "category": "music",
+   "name": "Sequence 73",
+   "file": "music/seq_73.mp3",
+   "duration": 13.327301025390625
+  },
+  {
+   "id": "seq_74",
+   "category": "music",
+   "name": "Sequence 74",
+   "file": "music/seq_74.mp3",
+   "duration": 75.20266723632812
+  },
+  {
+   "id": "seq_75",
+   "category": "music",
+   "name": "Sequence 75",
+   "file": "music/seq_75.mp3",
+   "duration": 1.42987060546875
+  },
+  {
+   "id": "p-mr",
+   "category": "object",
+   "name": "Mario",
+   "group": "Characters",
+   "file": "objects/p-mr.json"
+  },
+  {
+   "id": "p-lg",
+   "category": "object",
+   "name": "Luigi",
+   "group": "Characters",
+   "file": "objects/p-lg.json"
+  },
+  {
+   "id": "p-pc",
+   "category": "object",
+   "name": "Peach",
+   "group": "Characters",
+   "file": "objects/p-pc.json"
+  },
+  {
+   "id": "p-ds",
+   "category": "object",
+   "name": "Daisy",
+   "group": "Characters",
+   "file": "objects/p-ds.json"
+  },
+  {
+   "id": "p-ys",
+   "category": "object",
+   "name": "Yoshi",
+   "group": "Characters",
+   "file": "objects/p-ys.json"
+  },
+  {
+   "id": "p-ko",
+   "category": "object",
+   "name": "Toad",
+   "group": "Characters",
+   "file": "objects/p-ko.json"
+  },
+  {
+   "id": "p-kp",
+   "category": "object",
+   "name": "Bowser",
+   "group": "Characters",
+   "file": "objects/p-kp.json"
+  },
+  {
+   "id": "p-dk",
+   "category": "object",
+   "name": "Donkey Kong",
+   "group": "Characters",
+   "file": "objects/p-dk.json"
+  },
+  {
+   "id": "p-wr",
+   "category": "object",
+   "name": "Wario",
+   "group": "Characters",
+   "file": "objects/p-wr.json"
+  },
+  {
+   "id": "p-wl",
+   "category": "object",
+   "name": "Waluigi",
+   "group": "Characters",
+   "file": "objects/p-wl.json"
+  },
+  {
+   "id": "p-ka",
+   "category": "object",
+   "name": "Dry Bones",
+   "group": "Characters",
+   "file": "objects/p-ka.json"
+  },
+  {
+   "id": "p-rb",
+   "category": "object",
+   "name": "R.O.B.",
+   "group": "Characters",
+   "file": "objects/p-rb.json"
+  },
+  {
+   "id": "kart-mr-a",
+   "category": "object",
+   "name": "Mario — kart A",
+   "group": "Karts",
+   "file": "objects/kart-mr-a.json"
+  },
+  {
+   "id": "kart-mr-b",
+   "category": "object",
+   "name": "Mario — kart B",
+   "group": "Karts",
+   "file": "objects/kart-mr-b.json"
+  },
+  {
+   "id": "kart-mr-c",
+   "category": "object",
+   "name": "Mario — kart C",
+   "group": "Karts",
+   "file": "objects/kart-mr-c.json"
+  },
+  {
+   "id": "kart-lg-b",
+   "category": "object",
+   "name": "Luigi — kart B",
+   "group": "Karts",
+   "file": "objects/kart-lg-b.json"
+  },
+  {
+   "id": "kart-lg-c",
+   "category": "object",
+   "name": "Luigi — kart C",
+   "group": "Karts",
+   "file": "objects/kart-lg-c.json"
+  },
+  {
+   "id": "kart-pc-b",
+   "category": "object",
+   "name": "Peach — kart B",
+   "group": "Karts",
+   "file": "objects/kart-pc-b.json"
+  },
+  {
+   "id": "kart-pc-c",
+   "category": "object",
+   "name": "Peach — kart C",
+   "group": "Karts",
+   "file": "objects/kart-pc-c.json"
+  },
+  {
+   "id": "kart-ds-b",
+   "category": "object",
+   "name": "Daisy — kart B",
+   "group": "Karts",
+   "file": "objects/kart-ds-b.json"
+  },
+  {
+   "id": "kart-ds-c",
+   "category": "object",
+   "name": "Daisy — kart C",
+   "group": "Karts",
+   "file": "objects/kart-ds-c.json"
+  },
+  {
+   "id": "kart-ys-b",
+   "category": "object",
+   "name": "Yoshi — kart B",
+   "group": "Karts",
+   "file": "objects/kart-ys-b.json"
+  },
+  {
+   "id": "kart-ys-c",
+   "category": "object",
+   "name": "Yoshi — kart C",
+   "group": "Karts",
+   "file": "objects/kart-ys-c.json"
+  },
+  {
+   "id": "kart-ko-b",
+   "category": "object",
+   "name": "Toad — kart B",
+   "group": "Karts",
+   "file": "objects/kart-ko-b.json"
+  },
+  {
+   "id": "kart-ko-c",
+   "category": "object",
+   "name": "Toad — kart C",
+   "group": "Karts",
+   "file": "objects/kart-ko-c.json"
+  },
+  {
+   "id": "kart-kp-b",
+   "category": "object",
+   "name": "Bowser — kart B",
+   "group": "Karts",
+   "file": "objects/kart-kp-b.json"
+  },
+  {
+   "id": "kart-kp-c",
+   "category": "object",
+   "name": "Bowser — kart C",
+   "group": "Karts",
+   "file": "objects/kart-kp-c.json"
+  },
+  {
+   "id": "kart-dk-b",
+   "category": "object",
+   "name": "Donkey Kong — kart B",
+   "group": "Karts",
+   "file": "objects/kart-dk-b.json"
+  },
+  {
+   "id": "kart-dk-c",
+   "category": "object",
+   "name": "Donkey Kong — kart C",
+   "group": "Karts",
+   "file": "objects/kart-dk-c.json"
+  },
+  {
+   "id": "kart-wr-b",
+   "category": "object",
+   "name": "Wario — kart B",
+   "group": "Karts",
+   "file": "objects/kart-wr-b.json"
+  },
+  {
+   "id": "kart-wr-c",
+   "category": "object",
+   "name": "Wario — kart C",
+   "group": "Karts",
+   "file": "objects/kart-wr-c.json"
+  },
+  {
+   "id": "kart-wl-b",
+   "category": "object",
+   "name": "Waluigi — kart B",
+   "group": "Karts",
+   "file": "objects/kart-wl-b.json"
+  },
+  {
+   "id": "kart-wl-c",
+   "category": "object",
+   "name": "Waluigi — kart C",
+   "group": "Karts",
+   "file": "objects/kart-wl-c.json"
+  },
+  {
+   "id": "kart-ka-b",
+   "category": "object",
+   "name": "Dry Bones — kart B",
+   "group": "Karts",
+   "file": "objects/kart-ka-b.json"
+  },
+  {
+   "id": "kart-ka-c",
+   "category": "object",
+   "name": "Dry Bones — kart C",
+   "group": "Karts",
+   "file": "objects/kart-ka-c.json"
+  },
+  {
+   "id": "kart-rb-b",
+   "category": "object",
+   "name": "R.O.B. — kart B",
+   "group": "Karts",
+   "file": "objects/kart-rb-b.json"
+  },
+  {
+   "id": "kart-rb-c",
+   "category": "object",
+   "name": "R.O.B. — kart C",
+   "group": "Karts",
+   "file": "objects/kart-rb-c.json"
+  },
+  {
+   "id": "airship-course-nscannon1",
+   "category": "object",
+   "name": "Airship Fortress · NsCannon1",
+   "group": "Airship Fortress",
+   "file": "objects/airship-course-nscannon1.json"
+  },
+  {
+   "id": "airship-course-nskiller1",
+   "category": "object",
+   "name": "Airship Fortress · NsKiller1",
+   "group": "Airship Fortress",
+   "file": "objects/airship-course-nskiller1.json"
+  },
+  {
+   "id": "airship-course-nskiller2",
+   "category": "object",
+   "name": "Airship Fortress · NsKiller2",
+   "group": "Airship Fortress",
+   "file": "objects/airship-course-nskiller2.json"
+  },
+  {
+   "id": "airship-course-nskiller2-s",
+   "category": "object",
+   "name": "Airship Fortress · NsKiller2_s",
+   "group": "Airship Fortress",
+   "file": "objects/airship-course-nskiller2-s.json"
+  },
+  {
+   "id": "airship-course-model",
+   "category": "object",
+   "name": "Airship Fortress",
+   "group": "Course models",
+   "file": "objects/airship-course-model.json"
+  },
+  {
+   "id": "airship-course-cover",
+   "category": "object",
+   "name": "Airship Fortress · cover",
+   "group": "Airship Fortress",
+   "file": "objects/airship-course-cover.json"
+  },
+  {
+   "id": "airship-course-hole",
+   "category": "object",
+   "name": "Airship Fortress · hole",
+   "group": "Airship Fortress",
+   "file": "objects/airship-course-hole.json"
+  },
+  {
+   "id": "airship-course-mkd-ef-burner",
+   "category": "object",
+   "name": "Airship Fortress · mkd_ef_burner",
+   "group": "Airship Fortress",
+   "file": "objects/airship-course-mkd-ef-burner.json"
+  },
+  {
+   "id": "airship-course-poo",
+   "category": "object",
+   "name": "Airship Fortress · poo",
+   "group": "Airship Fortress",
+   "file": "objects/airship-course-poo.json"
+  },
+  {
+   "id": "airship-course-woodbox1",
+   "category": "object",
+   "name": "Airship Fortress · woodbox1",
+   "group": "Airship Fortress",
+   "file": "objects/airship-course-woodbox1.json"
+  },
+  {
+   "id": "award-crosstree1",
+   "category": "object",
+   "name": "Award ceremony scene · CrossTree1",
+   "group": "Award ceremony scene",
+   "file": "objects/award-crosstree1.json"
+  },
+  {
+   "id": "award-model",
+   "category": "object",
+   "name": "Award ceremony scene",
+   "group": "Course models",
+   "file": "objects/award-model.json"
+  },
+  {
+   "id": "koopa-course-dossun",
+   "category": "object",
+   "name": "Bowser Castle · dossun",
+   "group": "Bowser Castle",
+   "file": "objects/koopa-course-dossun.json"
+  },
+  {
+   "id": "koopa-course-koopa-block",
+   "category": "object",
+   "name": "Bowser Castle · koopa_block",
+   "group": "Bowser Castle",
+   "file": "objects/koopa-course-koopa-block.json"
+  },
+  {
+   "id": "koopa-course-model",
+   "category": "object",
+   "name": "Bowser Castle",
+   "group": "Course models",
+   "file": "objects/koopa-course-model.json"
+  },
+  {
+   "id": "koopa-course-mkd-ef-burner",
+   "category": "object",
+   "name": "Bowser Castle · mkd_ef_burner",
+   "group": "Bowser Castle",
+   "file": "objects/koopa-course-mkd-ef-burner.json"
+  },
+  {
+   "id": "koopa-course-rotary-bridge",
+   "category": "object",
+   "name": "Bowser Castle · rotary_bridge",
+   "group": "Bowser Castle",
+   "file": "objects/koopa-course-rotary-bridge.json"
+  },
+  {
+   "id": "koopa-course-rotary-room",
+   "category": "object",
+   "name": "Bowser Castle · rotary_room",
+   "group": "Bowser Castle",
+   "file": "objects/koopa-course-rotary-room.json"
+  },
+  {
+   "id": "koopa-course-water-efct",
+   "category": "object",
+   "name": "Bowser Castle · water_efct",
+   "group": "Bowser Castle",
+   "file": "objects/koopa-course-water-efct.json"
+  },
+  {
+   "id": "beach-course-beachtree1",
+   "category": "object",
+   "name": "Cheep Cheep Beach · BeachTree1",
+   "group": "Cheep Cheep Beach",
+   "file": "objects/beach-course-beachtree1.json"
+  },
+  {
+   "id": "beach-course-model",
+   "category": "object",
+   "name": "Cheep Cheep Beach",
+   "group": "Course models",
+   "file": "objects/beach-course-model.json"
+  },
+  {
+   "id": "beach-course-beach-watera",
+   "category": "object",
+   "name": "Cheep Cheep Beach · beach_waterA",
+   "group": "Cheep Cheep Beach",
+   "file": "objects/beach-course-beach-watera.json"
+  },
+  {
+   "id": "beach-course-beach-waterc",
+   "category": "object",
+   "name": "Cheep Cheep Beach · beach_waterC",
+   "group": "Cheep Cheep Beach",
+   "file": "objects/beach-course-beach-waterc.json"
+  },
+  {
+   "id": "beach-course-crab",
+   "category": "object",
+   "name": "Cheep Cheep Beach · crab",
+   "group": "Cheep Cheep Beach",
+   "file": "objects/beach-course-crab.json"
+  },
+  {
+   "id": "beach-course-crab-hand",
+   "category": "object",
+   "name": "Cheep Cheep Beach · crab_hand",
+   "group": "Cheep Cheep Beach",
+   "file": "objects/beach-course-crab-hand.json"
+  },
+  {
+   "id": "beach-course-pukupuku",
+   "category": "object",
+   "name": "Cheep Cheep Beach · pukupuku",
+   "group": "Cheep Cheep Beach",
+   "file": "objects/beach-course-pukupuku.json"
+  },
+  {
+   "id": "beach-course-water-efct",
+   "category": "object",
+   "name": "Cheep Cheep Beach · water_efct",
+   "group": "Cheep Cheep Beach",
+   "file": "objects/beach-course-water-efct.json"
+  },
+  {
+   "id": "beach-coursed-beachtree1",
+   "category": "object",
+   "name": "Cheep Cheep Beach (multiplayer) · BeachTree1",
+   "group": "Cheep Cheep Beach (multiplayer)",
+   "file": "objects/beach-coursed-beachtree1.json"
+  },
+  {
+   "id": "beach-coursed-model",
+   "category": "object",
+   "name": "Cheep Cheep Beach (multiplayer)",
+   "group": "Course models",
+   "file": "objects/beach-coursed-model.json"
+  },
+  {
+   "id": "beach-coursed-beach-watera",
+   "category": "object",
+   "name": "Cheep Cheep Beach (multiplayer) · beach_waterA",
+   "group": "Cheep Cheep Beach (multiplayer)",
+   "file": "objects/beach-coursed-beach-watera.json"
+  },
+  {
+   "id": "beach-coursed-beach-waterc",
+   "category": "object",
+   "name": "Cheep Cheep Beach (multiplayer) · beach_waterC",
+   "group": "Cheep Cheep Beach (multiplayer)",
+   "file": "objects/beach-coursed-beach-waterc.json"
+  },
+  {
+   "id": "beach-coursed-crab",
+   "category": "object",
+   "name": "Cheep Cheep Beach (multiplayer) · crab",
+   "group": "Cheep Cheep Beach (multiplayer)",
+   "file": "objects/beach-coursed-crab.json"
+  },
+  {
+   "id": "beach-coursed-crab-hand",
+   "category": "object",
+   "name": "Cheep Cheep Beach (multiplayer) · crab_hand",
+   "group": "Cheep Cheep Beach (multiplayer)",
+   "file": "objects/beach-coursed-crab-hand.json"
+  },
+  {
+   "id": "beach-coursed-pukupuku",
+   "category": "object",
+   "name": "Cheep Cheep Beach (multiplayer) · pukupuku",
+   "group": "Cheep Cheep Beach (multiplayer)",
+   "file": "objects/beach-coursed-pukupuku.json"
+  },
+  {
+   "id": "beach-coursed-water-efct",
+   "category": "object",
+   "name": "Cheep Cheep Beach (multiplayer) · water_efct",
+   "group": "Cheep Cheep Beach (multiplayer)",
+   "file": "objects/beach-coursed-water-efct.json"
+  },
+  {
+   "id": "snow-course-snow-tree1",
+   "category": "object",
+   "name": "DK Pass · Snow_Tree1",
+   "group": "DK Pass",
+   "file": "objects/snow-course-snow-tree1.json"
+  },
+  {
+   "id": "snow-course-rock",
+   "category": "object",
+   "name": "DK Pass · rock",
+   "group": "DK Pass",
+   "file": "objects/snow-course-rock.json"
+  },
+  {
+   "id": "snow-course-sman-bottom",
+   "category": "object",
+   "name": "DK Pass · sman_bottom",
+   "group": "DK Pass",
+   "file": "objects/snow-course-sman-bottom.json"
+  },
+  {
+   "id": "snow-course-sman-top",
+   "category": "object",
+   "name": "DK Pass · sman_top",
+   "group": "DK Pass",
+   "file": "objects/snow-course-sman-top.json"
+  },
+  {
+   "id": "snow-course-model",
+   "category": "object",
+   "name": "DK Pass",
+   "group": "Course models",
+   "file": "objects/snow-course-model.json"
+  },
+  {
+   "id": "town-course-townmonte",
+   "category": "object",
+   "name": "Delfino Square · TownMonte",
+   "group": "Delfino Square",
+   "file": "objects/town-course-townmonte.json"
+  },
+  {
+   "id": "town-course-towntree1",
+   "category": "object",
+   "name": "Delfino Square · TownTree1",
+   "group": "Delfino Square",
+   "file": "objects/town-course-towntree1.json"
+  },
+  {
+   "id": "town-course-bridge",
+   "category": "object",
+   "name": "Delfino Square · bridge",
+   "group": "Delfino Square",
+   "file": "objects/town-course-bridge.json"
+  },
+  {
+   "id": "town-course-model",
+   "category": "object",
+   "name": "Delfino Square",
+   "group": "Course models",
+   "file": "objects/town-course-model.json"
+  },
+  {
+   "id": "town-course-town-watera",
+   "category": "object",
+   "name": "Delfino Square · town_waterA",
+   "group": "Delfino Square",
+   "file": "objects/town-course-town-watera.json"
+  },
+  {
+   "id": "town-course-town-waterc",
+   "category": "object",
+   "name": "Delfino Square · town_waterC",
+   "group": "Delfino Square",
+   "file": "objects/town-course-town-waterc.json"
+  },
+  {
+   "id": "town-course-water-efct",
+   "category": "object",
+   "name": "Delfino Square · water_efct",
+   "group": "Delfino Square",
+   "file": "objects/town-course-water-efct.json"
+  },
+  {
+   "id": "town-course-woodbox1",
+   "category": "object",
+   "name": "Delfino Square · woodbox1",
+   "group": "Delfino Square",
+   "file": "objects/town-course-woodbox1.json"
+  },
+  {
+   "id": "desert-course-detree1",
+   "category": "object",
+   "name": "Desert Hills · DeTree1",
+   "group": "Desert Hills",
+   "file": "objects/desert-course-detree1.json"
+  },
+  {
+   "id": "desert-course-model",
+   "category": "object",
+   "name": "Desert Hills",
+   "group": "Course models",
+   "file": "objects/desert-course-model.json"
+  },
+  {
+   "id": "desert-course-sanbo-b",
+   "category": "object",
+   "name": "Desert Hills · sanbo_b",
+   "group": "Desert Hills",
+   "file": "objects/desert-course-sanbo-b.json"
+  },
+  {
+   "id": "desert-course-sanbo-h",
+   "category": "object",
+   "name": "Desert Hills · sanbo_h",
+   "group": "Desert Hills",
+   "file": "objects/desert-course-sanbo-h.json"
+  },
+  {
+   "id": "desert-course-sun",
+   "category": "object",
+   "name": "Desert Hills · sun",
+   "group": "Desert Hills",
+   "file": "objects/desert-course-sun.json"
+  },
+  {
+   "id": "desert-course-sun-lod",
+   "category": "object",
+   "name": "Desert Hills · sun_LOD",
+   "group": "Desert Hills",
+   "file": "objects/desert-course-sun-lod.json"
+  },
+  {
+   "id": "desert-course-water-efct",
+   "category": "object",
+   "name": "Desert Hills · water_efct",
+   "group": "Desert Hills",
+   "file": "objects/desert-course-water-efct.json"
+  },
+  {
+   "id": "cross-course-crosstree1",
+   "category": "object",
+   "name": "Figure-8 Circuit · CrossTree1",
+   "group": "Figure-8 Circuit",
+   "file": "objects/cross-course-crosstree1.json"
+  },
+  {
+   "id": "cross-course-model",
+   "category": "object",
+   "name": "Figure-8 Circuit",
+   "group": "Course models",
+   "file": "objects/cross-course-model.json"
+  },
+  {
+   "id": "cross-coursed-crosstree1",
+   "category": "object",
+   "name": "Figure-8 Circuit (multiplayer) · CrossTree1",
+   "group": "Figure-8 Circuit (multiplayer)",
+   "file": "objects/cross-coursed-crosstree1.json"
+  },
+  {
+   "id": "cross-coursed-model",
+   "category": "object",
+   "name": "Figure-8 Circuit (multiplayer)",
+   "group": "Course models",
+   "file": "objects/cross-coursed-model.json"
+  },
+  {
+   "id": "mansion-course-chandelier",
+   "category": "object",
+   "name": "Luigi's Mansion · chandelier",
+   "group": "Luigi's Mansion",
+   "file": "objects/mansion-course-chandelier.json"
+  },
+  {
+   "id": "mansion-course-model",
+   "category": "object",
+   "name": "Luigi's Mansion",
+   "group": "Course models",
+   "file": "objects/mansion-course-model.json"
+  },
+  {
+   "id": "mansion-course-move-tree",
+   "category": "object",
+   "name": "Luigi's Mansion · move_tree",
+   "group": "Luigi's Mansion",
+   "file": "objects/mansion-course-move-tree.json"
+  },
+  {
+   "id": "mansion-course-picture1",
+   "category": "object",
+   "name": "Luigi's Mansion · picture1",
+   "group": "Luigi's Mansion",
+   "file": "objects/mansion-course-picture1.json"
+  },
+  {
+   "id": "mansion-course-picture2",
+   "category": "object",
+   "name": "Luigi's Mansion · picture2",
+   "group": "Luigi's Mansion",
+   "file": "objects/mansion-course-picture2.json"
+  },
+  {
+   "id": "mansion-course-teresa",
+   "category": "object",
+   "name": "Luigi's Mansion · teresa",
+   "group": "Luigi's Mansion",
+   "file": "objects/mansion-course-teresa.json"
+  },
+  {
+   "id": "mansion-coursed-chandelier",
+   "category": "object",
+   "name": "Luigi's Mansion (multiplayer) · chandelier",
+   "group": "Luigi's Mansion (multiplayer)",
+   "file": "objects/mansion-coursed-chandelier.json"
+  },
+  {
+   "id": "mansion-coursed-model",
+   "category": "object",
+   "name": "Luigi's Mansion (multiplayer)",
+   "group": "Course models",
+   "file": "objects/mansion-coursed-model.json"
+  },
+  {
+   "id": "mansion-coursed-move-tree",
+   "category": "object",
+   "name": "Luigi's Mansion (multiplayer) · move_tree",
+   "group": "Luigi's Mansion (multiplayer)",
+   "file": "objects/mansion-coursed-move-tree.json"
+  },
+  {
+   "id": "mansion-coursed-picture1",
+   "category": "object",
+   "name": "Luigi's Mansion (multiplayer) · picture1",
+   "group": "Luigi's Mansion (multiplayer)",
+   "file": "objects/mansion-coursed-picture1.json"
+  },
+  {
+   "id": "mansion-coursed-picture2",
+   "category": "object",
+   "name": "Luigi's Mansion (multiplayer) · picture2",
+   "group": "Luigi's Mansion (multiplayer)",
+   "file": "objects/mansion-coursed-picture2.json"
+  },
+  {
+   "id": "mansion-coursed-teresa",
+   "category": "object",
+   "name": "Luigi's Mansion (multiplayer) · teresa",
+   "group": "Luigi's Mansion (multiplayer)",
+   "file": "objects/mansion-coursed-teresa.json"
+  },
+  {
+   "id": "mario-course-fireball",
+   "category": "object",
+   "name": "Mario Circuit · FireBall",
+   "group": "Mario Circuit",
+   "file": "objects/mario-course-fireball.json"
+  },
+  {
+   "id": "mario-course-mariotree3",
+   "category": "object",
+   "name": "Mario Circuit · MarioTree3",
+   "group": "Mario Circuit",
+   "file": "objects/mario-course-mariotree3.json"
+  },
+  {
+   "id": "mario-course-pakkunbody",
+   "category": "object",
+   "name": "Mario Circuit · PakkunBody",
+   "group": "Mario Circuit",
+   "file": "objects/mario-course-pakkunbody.json"
+  },
+  {
+   "id": "mario-course-pakkunmouth",
+   "category": "object",
+   "name": "Mario Circuit · PakkunMouth",
+   "group": "Mario Circuit",
+   "file": "objects/mario-course-pakkunmouth.json"
+  },
+  {
+   "id": "mario-course-pakkunzhead",
+   "category": "object",
+   "name": "Mario Circuit · PakkunZHead",
+   "group": "Mario Circuit",
+   "file": "objects/mario-course-pakkunzhead.json"
+  },
+  {
+   "id": "mario-course-kuribo",
+   "category": "object",
+   "name": "Mario Circuit · kuribo",
+   "group": "Mario Circuit",
+   "file": "objects/mario-course-kuribo.json"
+  },
+  {
+   "id": "mario-course-model",
+   "category": "object",
+   "name": "Mario Circuit",
+   "group": "Course models",
+   "file": "objects/mario-course-model.json"
+  },
+  {
+   "id": "mario-course-ob-pakkun-sf",
+   "category": "object",
+   "name": "Mario Circuit · ob_pakkun_sf",
+   "group": "Mario Circuit",
+   "file": "objects/mario-course-ob-pakkun-sf.json"
+  },
+  {
+   "id": "mario-course-water-efct",
+   "category": "object",
+   "name": "Mario Circuit · water_efct",
+   "group": "Mario Circuit",
+   "file": "objects/mario-course-water-efct.json"
+  },
+  {
+   "id": "garden-course-gardentree1",
+   "category": "object",
+   "name": "Peach Gardens · GardenTree1",
+   "group": "Peach Gardens",
+   "file": "objects/garden-course-gardentree1.json"
+  },
+  {
+   "id": "garden-course-choropu",
+   "category": "object",
+   "name": "Peach Gardens · choropu",
+   "group": "Peach Gardens",
+   "file": "objects/garden-course-choropu.json"
+  },
+  {
+   "id": "garden-course-model",
+   "category": "object",
+   "name": "Peach Gardens",
+   "group": "Course models",
+   "file": "objects/garden-course-model.json"
+  },
+  {
+   "id": "garden-course-wanwan",
+   "category": "object",
+   "name": "Peach Gardens · wanwan",
+   "group": "Peach Gardens",
+   "file": "objects/garden-course-wanwan.json"
+  },
+  {
+   "id": "garden-course-wanwan-chain",
+   "category": "object",
+   "name": "Peach Gardens · wanwan_chain",
+   "group": "Peach Gardens",
+   "file": "objects/garden-course-wanwan-chain.json"
+  },
+  {
+   "id": "garden-course-water-efct",
+   "category": "object",
+   "name": "Peach Gardens · water_efct",
+   "group": "Peach Gardens",
+   "file": "objects/garden-course-water-efct.json"
+  },
+  {
+   "id": "rainbow-course-rainstar",
+   "category": "object",
+   "name": "Rainbow Road · RainStar",
+   "group": "Rainbow Road",
+   "file": "objects/rainbow-course-rainstar.json"
+  },
+  {
+   "id": "rainbow-course-model",
+   "category": "object",
+   "name": "Rainbow Road",
+   "group": "Course models",
+   "file": "objects/rainbow-course-model.json"
+  },
+  {
+   "id": "ridge-course-bus-a",
+   "category": "object",
+   "name": "Shroom Ridge · bus_a",
+   "group": "Shroom Ridge",
+   "file": "objects/ridge-course-bus-a.json"
+  },
+  {
+   "id": "ridge-course-car-a",
+   "category": "object",
+   "name": "Shroom Ridge · car_a",
+   "group": "Shroom Ridge",
+   "file": "objects/ridge-course-car-a.json"
+  },
+  {
+   "id": "ridge-course-car-tire",
+   "category": "object",
+   "name": "Shroom Ridge · car_tire",
+   "group": "Shroom Ridge",
+   "file": "objects/ridge-course-car-tire.json"
+  },
+  {
+   "id": "ridge-course-model",
+   "category": "object",
+   "name": "Shroom Ridge",
+   "group": "Course models",
+   "file": "objects/ridge-course-model.json"
+  },
+  {
+   "id": "ridge-course-truck-a",
+   "category": "object",
+   "name": "Shroom Ridge · truck_a",
+   "group": "Shroom Ridge",
+   "file": "objects/ridge-course-truck-a.json"
+  },
+  {
+   "id": "clock-course-model",
+   "category": "object",
+   "name": "Tick-Tock Clock",
+   "group": "Course models",
+   "file": "objects/clock-course-model.json"
+  },
+  {
+   "id": "clock-course-gear-black",
+   "category": "object",
+   "name": "Tick-Tock Clock · gear_black",
+   "group": "Tick-Tock Clock",
+   "file": "objects/clock-course-gear-black.json"
+  },
+  {
+   "id": "clock-course-gear-white",
+   "category": "object",
+   "name": "Tick-Tock Clock · gear_white",
+   "group": "Tick-Tock Clock",
+   "file": "objects/clock-course-gear-white.json"
+  },
+  {
+   "id": "clock-course-pendulum",
+   "category": "object",
+   "name": "Tick-Tock Clock · pendulum",
+   "group": "Tick-Tock Clock",
+   "file": "objects/clock-course-pendulum.json"
+  },
+  {
+   "id": "clock-course-second-hand",
+   "category": "object",
+   "name": "Tick-Tock Clock · second_hand",
+   "group": "Tick-Tock Clock",
+   "file": "objects/clock-course-second-hand.json"
+  },
+  {
+   "id": "clock-course-test-cylinder",
+   "category": "object",
+   "name": "Tick-Tock Clock · test_cylinder",
+   "group": "Tick-Tock Clock",
+   "file": "objects/clock-course-test-cylinder.json"
+  },
+  {
+   "id": "pinball-course-ironball",
+   "category": "object",
+   "name": "Waluigi Pinball · IronBall",
+   "group": "Waluigi Pinball",
+   "file": "objects/pinball-course-ironball.json"
+  },
+  {
+   "id": "pinball-course-bound",
+   "category": "object",
+   "name": "Waluigi Pinball · bound",
+   "group": "Waluigi Pinball",
+   "file": "objects/pinball-course-bound.json"
+  },
+  {
+   "id": "pinball-course-dram",
+   "category": "object",
+   "name": "Waluigi Pinball · dram",
+   "group": "Waluigi Pinball",
+   "file": "objects/pinball-course-dram.json"
+  },
+  {
+   "id": "pinball-course-flipper",
+   "category": "object",
+   "name": "Waluigi Pinball · flipper",
+   "group": "Waluigi Pinball",
+   "file": "objects/pinball-course-flipper.json"
+  },
+  {
+   "id": "pinball-course-model",
+   "category": "object",
+   "name": "Waluigi Pinball",
+   "group": "Course models",
+   "file": "objects/pinball-course-model.json"
+  },
+  {
+   "id": "stadium-course-fireball2",
+   "category": "object",
+   "name": "Wario Stadium · fireball2",
+   "group": "Wario Stadium",
+   "file": "objects/stadium-course-fireball2.json"
+  },
+  {
+   "id": "stadium-course-model",
+   "category": "object",
+   "name": "Wario Stadium",
+   "group": "Course models",
+   "file": "objects/stadium-course-model.json"
+  },
+  {
+   "id": "bank-course-bankegg1",
+   "category": "object",
+   "name": "Yoshi Falls · BankEgg1",
+   "group": "Yoshi Falls",
+   "file": "objects/bank-course-bankegg1.json"
+  },
+  {
+   "id": "bank-course-bank-tree1",
+   "category": "object",
+   "name": "Yoshi Falls · Bank_Tree1",
+   "group": "Yoshi Falls",
+   "file": "objects/bank-course-bank-tree1.json"
+  },
+  {
+   "id": "bank-course-model",
+   "category": "object",
+   "name": "Yoshi Falls",
+   "group": "Course models",
+   "file": "objects/bank-course-model.json"
+  },
+  {
+   "id": "dokan-course-model",
+   "category": "object",
+   "name": "dokan_course (unused)",
+   "group": "Course models",
+   "file": "objects/dokan-course-model.json"
+  },
+  {
+   "id": "donkey-course-bound",
+   "category": "object",
+   "name": "donkey_course (unused) · bound",
+   "group": "donkey_course (unused)",
+   "file": "objects/donkey-course-bound.json"
+  },
+  {
+   "id": "donkey-course-model",
+   "category": "object",
+   "name": "donkey_course (unused)",
+   "group": "Course models",
+   "file": "objects/donkey-course-model.json"
+  },
+  {
+   "id": "donkey-course-dossun",
+   "category": "object",
+   "name": "donkey_course (unused) · dossun",
+   "group": "donkey_course (unused)",
+   "file": "objects/donkey-course-dossun.json"
+  },
+  {
+   "id": "donkey-course-dram",
+   "category": "object",
+   "name": "donkey_course (unused) · dram",
+   "group": "donkey_course (unused)",
+   "file": "objects/donkey-course-dram.json"
+  },
+  {
+   "id": "donkey-course-flipper",
+   "category": "object",
+   "name": "donkey_course (unused) · flipper",
+   "group": "donkey_course (unused)",
+   "file": "objects/donkey-course-flipper.json"
+  },
+  {
+   "id": "donkey-course-kuribo",
+   "category": "object",
+   "name": "donkey_course (unused) · kuribo",
+   "group": "donkey_course (unused)",
+   "file": "objects/donkey-course-kuribo.json"
+  },
+  {
+   "id": "donkey-course-pin1",
+   "category": "object",
+   "name": "donkey_course (unused) · pin1",
+   "group": "donkey_course (unused)",
+   "file": "objects/donkey-course-pin1.json"
+  },
+  {
+   "id": "donkey-course-rock",
+   "category": "object",
+   "name": "donkey_course (unused) · rock",
+   "group": "donkey_course (unused)",
+   "file": "objects/donkey-course-rock.json"
+  },
+  {
+   "id": "luigi-course-bound",
+   "category": "object",
+   "name": "luigi_course (unused) · bound",
+   "group": "luigi_course (unused)",
+   "file": "objects/luigi-course-bound.json"
+  },
+  {
+   "id": "luigi-course-flipper",
+   "category": "object",
+   "name": "luigi_course (unused) · flipper",
+   "group": "luigi_course (unused)",
+   "file": "objects/luigi-course-flipper.json"
+  },
+  {
+   "id": "luigi-course-gear-black",
+   "category": "object",
+   "name": "luigi_course (unused) · gear_black",
+   "group": "luigi_course (unused)",
+   "file": "objects/luigi-course-gear-black.json"
+  },
+  {
+   "id": "luigi-course-gear-white",
+   "category": "object",
+   "name": "luigi_course (unused) · gear_white",
+   "group": "luigi_course (unused)",
+   "file": "objects/luigi-course-gear-white.json"
+  },
+  {
+   "id": "luigi-course-model",
+   "category": "object",
+   "name": "luigi_course (unused)",
+   "group": "Course models",
+   "file": "objects/luigi-course-model.json"
+  },
+  {
+   "id": "luigi-course-pin1",
+   "category": "object",
+   "name": "luigi_course (unused) · pin1",
+   "group": "luigi_course (unused)",
+   "file": "objects/luigi-course-pin1.json"
+  },
+  {
+   "id": "luigi-course-pin-head1",
+   "category": "object",
+   "name": "luigi_course (unused) · pin_head1",
+   "group": "luigi_course (unused)",
+   "file": "objects/luigi-course-pin-head1.json"
+  },
+  {
+   "id": "luigi-course-test-cylinder",
+   "category": "object",
+   "name": "luigi_course (unused) · test_cylinder",
+   "group": "luigi_course (unused)",
+   "file": "objects/luigi-course-test-cylinder.json"
+  },
+  {
+   "id": "nokonoko-course-beachtree1",
+   "category": "object",
+   "name": "nokonoko_course (unused) · BeachTree1",
+   "group": "nokonoko_course (unused)",
+   "file": "objects/nokonoko-course-beachtree1.json"
+  },
+  {
+   "id": "nokonoko-course-beach-watera",
+   "category": "object",
+   "name": "nokonoko_course (unused) · beach_waterA",
+   "group": "nokonoko_course (unused)",
+   "file": "objects/nokonoko-course-beach-watera.json"
+  },
+  {
+   "id": "nokonoko-course-beach-waterb",
+   "category": "object",
+   "name": "nokonoko_course (unused) · beach_waterB",
+   "group": "nokonoko_course (unused)",
+   "file": "objects/nokonoko-course-beach-waterb.json"
+  },
+  {
+   "id": "nokonoko-course-beach-waterc",
+   "category": "object",
+   "name": "nokonoko_course (unused) · beach_waterC",
+   "group": "nokonoko_course (unused)",
+   "file": "objects/nokonoko-course-beach-waterc.json"
+  },
+  {
+   "id": "nokonoko-course-crab",
+   "category": "object",
+   "name": "nokonoko_course (unused) · crab",
+   "group": "nokonoko_course (unused)",
+   "file": "objects/nokonoko-course-crab.json"
+  },
+  {
+   "id": "nokonoko-course-crab-hand",
+   "category": "object",
+   "name": "nokonoko_course (unused) · crab_hand",
+   "group": "nokonoko_course (unused)",
+   "file": "objects/nokonoko-course-crab-hand.json"
+  },
+  {
+   "id": "nokonoko-course-kuribo",
+   "category": "object",
+   "name": "nokonoko_course (unused) · kuribo",
+   "group": "nokonoko_course (unused)",
+   "file": "objects/nokonoko-course-kuribo.json"
+  },
+  {
+   "id": "nokonoko-course-noko-watera",
+   "category": "object",
+   "name": "nokonoko_course (unused) · noko_waterA",
+   "group": "nokonoko_course (unused)",
+   "file": "objects/nokonoko-course-noko-watera.json"
+  },
+  {
+   "id": "nokonoko-course-noko-waterc",
+   "category": "object",
+   "name": "nokonoko_course (unused) · noko_waterC",
+   "group": "nokonoko_course (unused)",
+   "file": "objects/nokonoko-course-noko-waterc.json"
+  },
+  {
+   "id": "nokonoko-course-model",
+   "category": "object",
+   "name": "nokonoko_course (unused)",
+   "group": "Course models",
+   "file": "objects/nokonoko-course-model.json"
+  },
+  {
+   "id": "nokonoko-course-nokonoko-sea",
+   "category": "object",
+   "name": "nokonoko_course (unused) · nokonoko_sea",
+   "group": "nokonoko_course (unused)",
+   "file": "objects/nokonoko-course-nokonoko-sea.json"
+  },
+  {
+   "id": "nokonoko-course-yoshi-tree",
+   "category": "object",
+   "name": "nokonoko_course (unused) · yoshi_tree",
+   "group": "nokonoko_course (unused)",
+   "file": "objects/nokonoko-course-yoshi-tree.json"
+  },
+  {
+   "id": "wario-course-fireball",
+   "category": "object",
+   "name": "wario_course · FireBall",
+   "group": "wario_course",
+   "file": "objects/wario-course-fireball.json"
+  },
+  {
+   "id": "wario-course-model",
+   "category": "object",
+   "name": "wario_course",
+   "group": "Course models",
+   "file": "objects/wario-course-model.json"
+  },
+  {
+   "id": "old-koopa-agb-dossun",
+   "category": "object",
+   "name": "GBA Bowser Castle 2 · dossun",
+   "group": "GBA Bowser Castle 2",
+   "file": "objects/old-koopa-agb-dossun.json"
+  },
+  {
+   "id": "old-koopa-agb-mkd-ef-bubble",
+   "category": "object",
+   "name": "GBA Bowser Castle 2 · mkd_ef_bubble",
+   "group": "GBA Bowser Castle 2",
+   "file": "objects/old-koopa-agb-mkd-ef-bubble.json"
+  },
+  {
+   "id": "old-koopa-agb-model",
+   "category": "object",
+   "name": "GBA Bowser Castle 2",
+   "group": "Course models",
+   "file": "objects/old-koopa-agb-model.json"
+  },
+  {
+   "id": "old-koopa-agb-water-efct",
+   "category": "object",
+   "name": "GBA Bowser Castle 2 · water_efct",
+   "group": "GBA Bowser Castle 2",
+   "file": "objects/old-koopa-agb-water-efct.json"
+  },
+  {
+   "id": "old-luigi-agb-airship",
+   "category": "object",
+   "name": "GBA Luigi Circuit · airship",
+   "group": "GBA Luigi Circuit",
+   "file": "objects/old-luigi-agb-airship.json"
+  },
+  {
+   "id": "old-luigi-agb-olatree1c",
+   "category": "object",
+   "name": "GBA Luigi Circuit · olaTree1c",
+   "group": "GBA Luigi Circuit",
+   "file": "objects/old-luigi-agb-olatree1c.json"
+  },
+  {
+   "id": "old-luigi-agb-model",
+   "category": "object",
+   "name": "GBA Luigi Circuit",
+   "group": "Course models",
+   "file": "objects/old-luigi-agb-model.json"
+  },
+  {
+   "id": "old-luigi-agb-puddle",
+   "category": "object",
+   "name": "GBA Luigi Circuit · puddle",
+   "group": "GBA Luigi Circuit",
+   "file": "objects/old-luigi-agb-puddle.json"
+  },
+  {
+   "id": "old-peach-agb-model",
+   "category": "object",
+   "name": "GBA Peach Circuit",
+   "group": "Course models",
+   "file": "objects/old-peach-agb-model.json"
+  },
+  {
+   "id": "old-peach-agb-opa-tree1",
+   "category": "object",
+   "name": "GBA Peach Circuit · opa_tree1",
+   "group": "GBA Peach Circuit",
+   "file": "objects/old-peach-agb-opa-tree1.json"
+  },
+  {
+   "id": "old-sky-agb-airship",
+   "category": "object",
+   "name": "GBA Sky Garden · airship",
+   "group": "GBA Sky Garden",
+   "file": "objects/old-sky-agb-airship.json"
+  },
+  {
+   "id": "old-sky-agb-model",
+   "category": "object",
+   "name": "GBA Sky Garden",
+   "group": "Course models",
+   "file": "objects/old-sky-agb-model.json"
+  },
+  {
+   "id": "old-sky-agb-osatree1c",
+   "category": "object",
+   "name": "GBA Sky Garden · osaTree1c",
+   "group": "GBA Sky Garden",
+   "file": "objects/old-sky-agb-osatree1c.json"
+  },
+  {
+   "id": "old-baby-gc-balloon",
+   "category": "object",
+   "name": "GCN Baby Park · balloon",
+   "group": "GCN Baby Park",
+   "file": "objects/old-baby-gc-balloon.json"
+  },
+  {
+   "id": "old-baby-gc-kuribo",
+   "category": "object",
+   "name": "GCN Baby Park · kuribo",
+   "group": "GCN Baby Park",
+   "file": "objects/old-baby-gc-kuribo.json"
+  },
+  {
+   "id": "old-baby-gc-model",
+   "category": "object",
+   "name": "GCN Baby Park",
+   "group": "Course models",
+   "file": "objects/old-baby-gc-model.json"
+  },
+  {
+   "id": "old-luigi-gc-olgmush1",
+   "category": "object",
+   "name": "GCN Luigi Circuit · OlgMush1",
+   "group": "GCN Luigi Circuit",
+   "file": "objects/old-luigi-gc-olgmush1.json"
+  },
+  {
+   "id": "old-luigi-gc-olgpipe1",
+   "category": "object",
+   "name": "GCN Luigi Circuit · OlgPipe1",
+   "group": "GCN Luigi Circuit",
+   "file": "objects/old-luigi-gc-olgpipe1.json"
+  },
+  {
+   "id": "old-luigi-gc-model",
+   "category": "object",
+   "name": "GCN Luigi Circuit",
+   "group": "Course models",
+   "file": "objects/old-luigi-gc-model.json"
+  },
+  {
+   "id": "old-luigi-gc-wanwan",
+   "category": "object",
+   "name": "GCN Luigi Circuit · wanwan",
+   "group": "GCN Luigi Circuit",
+   "file": "objects/old-luigi-gc-wanwan.json"
+  },
+  {
+   "id": "old-luigi-gc-wanwan-chain",
+   "category": "object",
+   "name": "GCN Luigi Circuit · wanwan_chain",
+   "group": "GCN Luigi Circuit",
+   "file": "objects/old-luigi-gc-wanwan-chain.json"
+  },
+  {
+   "id": "old-luigi-gc-wanwan-kui",
+   "category": "object",
+   "name": "GCN Luigi Circuit · wanwan_kui",
+   "group": "GCN Luigi Circuit",
+   "file": "objects/old-luigi-gc-wanwan-kui.json"
+  },
+  {
+   "id": "old-luigi-gcd-olgmush1",
+   "category": "object",
+   "name": "GCN Luigi Circuit (multiplayer) · OlgMush1",
+   "group": "GCN Luigi Circuit (multiplayer)",
+   "file": "objects/old-luigi-gcd-olgmush1.json"
+  },
+  {
+   "id": "old-luigi-gcd-olgpipe1",
+   "category": "object",
+   "name": "GCN Luigi Circuit (multiplayer) · OlgPipe1",
+   "group": "GCN Luigi Circuit (multiplayer)",
+   "file": "objects/old-luigi-gcd-olgpipe1.json"
+  },
+  {
+   "id": "old-luigi-gcd-model",
+   "category": "object",
+   "name": "GCN Luigi Circuit (multiplayer)",
+   "group": "Course models",
+   "file": "objects/old-luigi-gcd-model.json"
+  },
+  {
+   "id": "old-luigi-gcd-wanwan",
+   "category": "object",
+   "name": "GCN Luigi Circuit (multiplayer) · wanwan",
+   "group": "GCN Luigi Circuit (multiplayer)",
+   "file": "objects/old-luigi-gcd-wanwan.json"
+  },
+  {
+   "id": "old-luigi-gcd-wanwan-chain",
+   "category": "object",
+   "name": "GCN Luigi Circuit (multiplayer) · wanwan_chain",
+   "group": "GCN Luigi Circuit (multiplayer)",
+   "file": "objects/old-luigi-gcd-wanwan-chain.json"
+  },
+  {
+   "id": "old-luigi-gcd-wanwan-kui",
+   "category": "object",
+   "name": "GCN Luigi Circuit (multiplayer) · wanwan_kui",
+   "group": "GCN Luigi Circuit (multiplayer)",
+   "file": "objects/old-luigi-gcd-wanwan-kui.json"
+  },
+  {
+   "id": "old-kinoko-gc-kinohouse1",
+   "category": "object",
+   "name": "GCN Mushroom Bridge · KinoHouse1",
+   "group": "GCN Mushroom Bridge",
+   "file": "objects/old-kinoko-gc-kinohouse1.json"
+  },
+  {
+   "id": "old-kinoko-gc-kinohouse2",
+   "category": "object",
+   "name": "GCN Mushroom Bridge · KinoHouse2",
+   "group": "GCN Mushroom Bridge",
+   "file": "objects/old-kinoko-gc-kinohouse2.json"
+  },
+  {
+   "id": "old-kinoko-gc-kinomount1",
+   "category": "object",
+   "name": "GCN Mushroom Bridge · KinoMount1",
+   "group": "GCN Mushroom Bridge",
+   "file": "objects/old-kinoko-gc-kinomount1.json"
+  },
+  {
+   "id": "old-kinoko-gc-kinomount2",
+   "category": "object",
+   "name": "GCN Mushroom Bridge · KinoMount2",
+   "group": "GCN Mushroom Bridge",
+   "file": "objects/old-kinoko-gc-kinomount2.json"
+  },
+  {
+   "id": "old-kinoko-gc-balloon",
+   "category": "object",
+   "name": "GCN Mushroom Bridge · balloon",
+   "group": "GCN Mushroom Bridge",
+   "file": "objects/old-kinoko-gc-balloon.json"
+  },
+  {
+   "id": "old-kinoko-gc-bus-a",
+   "category": "object",
+   "name": "GCN Mushroom Bridge · bus_a",
+   "group": "GCN Mushroom Bridge",
+   "file": "objects/old-kinoko-gc-bus-a.json"
+  },
+  {
+   "id": "old-kinoko-gc-car-a",
+   "category": "object",
+   "name": "GCN Mushroom Bridge · car_a",
+   "group": "GCN Mushroom Bridge",
+   "file": "objects/old-kinoko-gc-car-a.json"
+  },
+  {
+   "id": "old-kinoko-gc-car-tire",
+   "category": "object",
+   "name": "GCN Mushroom Bridge · car_tire",
+   "group": "GCN Mushroom Bridge",
+   "file": "objects/old-kinoko-gc-car-tire.json"
+  },
+  {
+   "id": "old-kinoko-gc-model",
+   "category": "object",
+   "name": "GCN Mushroom Bridge",
+   "group": "Course models",
+   "file": "objects/old-kinoko-gc-model.json"
+  },
+  {
+   "id": "old-kinoko-gc-truck-a",
+   "category": "object",
+   "name": "GCN Mushroom Bridge · truck_a",
+   "group": "GCN Mushroom Bridge",
+   "file": "objects/old-kinoko-gc-truck-a.json"
+  },
+  {
+   "id": "old-yoshi-gc-kamome",
+   "category": "object",
+   "name": "GCN Yoshi Circuit · kamome",
+   "group": "GCN Yoshi Circuit",
+   "file": "objects/old-yoshi-gc-kamome.json"
+  },
+  {
+   "id": "old-yoshi-gc-ob-pakkun-sf",
+   "category": "object",
+   "name": "GCN Yoshi Circuit · ob_pakkun_sf",
+   "group": "GCN Yoshi Circuit",
+   "file": "objects/old-yoshi-gc-ob-pakkun-sf.json"
+  },
+  {
+   "id": "old-yoshi-gc-model",
+   "category": "object",
+   "name": "GCN Yoshi Circuit",
+   "group": "Course models",
+   "file": "objects/old-yoshi-gc-model.json"
+  },
+  {
+   "id": "old-yoshi-gc-water-efct",
+   "category": "object",
+   "name": "GCN Yoshi Circuit · water_efct",
+   "group": "GCN Yoshi Circuit",
+   "file": "objects/old-yoshi-gc-water-efct.json"
+  },
+  {
+   "id": "old-yoshi-gc-yoshi-waterc",
+   "category": "object",
+   "name": "GCN Yoshi Circuit · yoshi_waterC",
+   "group": "GCN Yoshi Circuit",
+   "file": "objects/old-yoshi-gc-yoshi-waterc.json"
+  },
+  {
+   "id": "old-hyudoro-64-bakubaku",
+   "category": "object",
+   "name": "N64 Banshee Boardwalk · bakubaku",
+   "group": "N64 Banshee Boardwalk",
+   "file": "objects/old-hyudoro-64-bakubaku.json"
+  },
+  {
+   "id": "old-hyudoro-64-basabasa",
+   "category": "object",
+   "name": "N64 Banshee Boardwalk · basabasa",
+   "group": "N64 Banshee Boardwalk",
+   "file": "objects/old-hyudoro-64-basabasa.json"
+  },
+  {
+   "id": "old-hyudoro-64-hyudoro-watera",
+   "category": "object",
+   "name": "N64 Banshee Boardwalk · hyudoro_waterA",
+   "group": "N64 Banshee Boardwalk",
+   "file": "objects/old-hyudoro-64-hyudoro-watera.json"
+  },
+  {
+   "id": "old-hyudoro-64-hyudoro-waterc",
+   "category": "object",
+   "name": "N64 Banshee Boardwalk · hyudoro_waterC",
+   "group": "N64 Banshee Boardwalk",
+   "file": "objects/old-hyudoro-64-hyudoro-waterc.json"
+  },
+  {
+   "id": "old-hyudoro-64-kanoke-64",
+   "category": "object",
+   "name": "N64 Banshee Boardwalk · kanoke_64",
+   "group": "N64 Banshee Boardwalk",
+   "file": "objects/old-hyudoro-64-kanoke-64.json"
+  },
+  {
+   "id": "old-hyudoro-64-model",
+   "category": "object",
+   "name": "N64 Banshee Boardwalk",
+   "group": "Course models",
+   "file": "objects/old-hyudoro-64-model.json"
+  },
+  {
+   "id": "old-hyudoro-64-teresa",
+   "category": "object",
+   "name": "N64 Banshee Boardwalk · teresa",
+   "group": "N64 Banshee Boardwalk",
+   "file": "objects/old-hyudoro-64-teresa.json"
+  },
+  {
+   "id": "old-hyudoro-64-water-efct",
+   "category": "object",
+   "name": "N64 Banshee Boardwalk · water_efct",
+   "group": "N64 Banshee Boardwalk",
+   "file": "objects/old-hyudoro-64-water-efct.json"
+  },
+  {
+   "id": "old-choco-64-model",
+   "category": "object",
+   "name": "N64 Choco Mountain",
+   "group": "Course models",
+   "file": "objects/old-choco-64-model.json"
+  },
+  {
+   "id": "old-choco-64-rock2",
+   "category": "object",
+   "name": "N64 Choco Mountain · rock2",
+   "group": "N64 Choco Mountain",
+   "file": "objects/old-choco-64-rock2.json"
+  },
+  {
+   "id": "old-choco-64-water-efct",
+   "category": "object",
+   "name": "N64 Choco Mountain · water_efct",
+   "group": "N64 Choco Mountain",
+   "file": "objects/old-choco-64-water-efct.json"
+  },
+  {
+   "id": "old-frappe-64-of6tree1",
+   "category": "object",
+   "name": "N64 Frappe Snowland · Of6Tree1",
+   "group": "N64 Frappe Snowland",
+   "file": "objects/old-frappe-64-of6tree1.json"
+  },
+  {
+   "id": "old-frappe-64-of6yoshi1",
+   "category": "object",
+   "name": "N64 Frappe Snowland · of6yoshi1",
+   "group": "N64 Frappe Snowland",
+   "file": "objects/old-frappe-64-of6yoshi1.json"
+  },
+  {
+   "id": "old-frappe-64-model",
+   "category": "object",
+   "name": "N64 Frappe Snowland",
+   "group": "Course models",
+   "file": "objects/old-frappe-64-model.json"
+  },
+  {
+   "id": "old-frappe-64-sman-bottom",
+   "category": "object",
+   "name": "N64 Frappe Snowland · sman_bottom",
+   "group": "N64 Frappe Snowland",
+   "file": "objects/old-frappe-64-sman-bottom.json"
+  },
+  {
+   "id": "old-frappe-64-sman-top",
+   "category": "object",
+   "name": "N64 Frappe Snowland · sman_top",
+   "group": "N64 Frappe Snowland",
+   "file": "objects/old-frappe-64-sman-top.json"
+  },
+  {
+   "id": "old-frappe-64-water-efct",
+   "category": "object",
+   "name": "N64 Frappe Snowland · water_efct",
+   "group": "N64 Frappe Snowland",
+   "file": "objects/old-frappe-64-water-efct.json"
+  },
+  {
+   "id": "old-momo-64-choropu",
+   "category": "object",
+   "name": "N64 Moo Moo Farm · choropu",
+   "group": "N64 Moo Moo Farm",
+   "file": "objects/old-momo-64-choropu.json"
+  },
+  {
+   "id": "old-momo-64-cow",
+   "category": "object",
+   "name": "N64 Moo Moo Farm · cow",
+   "group": "N64 Moo Moo Farm",
+   "file": "objects/old-momo-64-cow.json"
+  },
+  {
+   "id": "old-momo-64-model",
+   "category": "object",
+   "name": "N64 Moo Moo Farm",
+   "group": "Course models",
+   "file": "objects/old-momo-64-model.json"
+  },
+  {
+   "id": "old-momo-64-om6tree1",
+   "category": "object",
+   "name": "N64 Moo Moo Farm · om6Tree1",
+   "group": "N64 Moo Moo Farm",
+   "file": "objects/old-momo-64-om6tree1.json"
+  },
+  {
+   "id": "old-momo-64d-choropu",
+   "category": "object",
+   "name": "N64 Moo Moo Farm (multiplayer) · choropu",
+   "group": "N64 Moo Moo Farm (multiplayer)",
+   "file": "objects/old-momo-64d-choropu.json"
+  },
+  {
+   "id": "old-momo-64d-cow",
+   "category": "object",
+   "name": "N64 Moo Moo Farm (multiplayer) · cow",
+   "group": "N64 Moo Moo Farm (multiplayer)",
+   "file": "objects/old-momo-64d-cow.json"
+  },
+  {
+   "id": "old-momo-64d-model",
+   "category": "object",
+   "name": "N64 Moo Moo Farm (multiplayer)",
+   "group": "Course models",
+   "file": "objects/old-momo-64d-model.json"
+  },
+  {
+   "id": "old-momo-64d-om6tree1",
+   "category": "object",
+   "name": "N64 Moo Moo Farm (multiplayer) · om6Tree1",
+   "group": "N64 Moo Moo Farm (multiplayer)",
+   "file": "objects/old-momo-64d-om6tree1.json"
+  },
+  {
+   "id": "old-choco-sfc-ob-pakkun-sf",
+   "category": "object",
+   "name": "SNES Choco Island 2 · ob_pakkun_sf",
+   "group": "SNES Choco Island 2",
+   "file": "objects/old-choco-sfc-ob-pakkun-sf.json"
+  },
+  {
+   "id": "old-choco-sfc-model",
+   "category": "object",
+   "name": "SNES Choco Island 2",
+   "group": "Course models",
+   "file": "objects/old-choco-sfc-model.json"
+  },
+  {
+   "id": "old-donut-sfc-earthen-pipe1",
+   "category": "object",
+   "name": "SNES Donut Plains 1 · earthen_pipe1",
+   "group": "SNES Donut Plains 1",
+   "file": "objects/old-donut-sfc-earthen-pipe1.json"
+  },
+  {
+   "id": "old-donut-sfc-earthen-pipe2",
+   "category": "object",
+   "name": "SNES Donut Plains 1 · earthen_pipe2",
+   "group": "SNES Donut Plains 1",
+   "file": "objects/old-donut-sfc-earthen-pipe2.json"
+  },
+  {
+   "id": "old-donut-sfc-model",
+   "category": "object",
+   "name": "SNES Donut Plains 1",
+   "group": "Course models",
+   "file": "objects/old-donut-sfc-model.json"
+  },
+  {
+   "id": "old-donut-sfc-water-efct",
+   "category": "object",
+   "name": "SNES Donut Plains 1 · water_efct",
+   "group": "SNES Donut Plains 1",
+   "file": "objects/old-donut-sfc-water-efct.json"
+  },
+  {
+   "id": "old-noko-sfc-model",
+   "category": "object",
+   "name": "SNES Koopa Beach 2",
+   "group": "Course models",
+   "file": "objects/old-noko-sfc-model.json"
+  },
+  {
+   "id": "old-noko-sfc-pukupuku",
+   "category": "object",
+   "name": "SNES Koopa Beach 2 · pukupuku",
+   "group": "SNES Koopa Beach 2",
+   "file": "objects/old-noko-sfc-pukupuku.json"
+  },
+  {
+   "id": "old-noko-sfc-water-efct",
+   "category": "object",
+   "name": "SNES Koopa Beach 2 · water_efct",
+   "group": "SNES Koopa Beach 2",
+   "file": "objects/old-noko-sfc-water-efct.json"
+  },
+  {
+   "id": "old-mario-sfc-earthen-pipe1",
+   "category": "object",
+   "name": "SNES Mario Circuit 1 · earthen_pipe1",
+   "group": "SNES Mario Circuit 1",
+   "file": "objects/old-mario-sfc-earthen-pipe1.json"
+  },
+  {
+   "id": "old-mario-sfc-earthen-pipe2",
+   "category": "object",
+   "name": "SNES Mario Circuit 1 · earthen_pipe2",
+   "group": "SNES Mario Circuit 1",
+   "file": "objects/old-mario-sfc-earthen-pipe2.json"
+  },
+  {
+   "id": "old-mario-sfc-model",
+   "category": "object",
+   "name": "SNES Mario Circuit 1",
+   "group": "Course models",
+   "file": "objects/old-mario-sfc-model.json"
+  },
+  {
+   "id": "old-mario-gc-beachtree1",
+   "category": "object",
+   "name": "old_mario_gc (unused) · BeachTree1",
+   "group": "old_mario_gc (unused)",
+   "file": "objects/old-mario-gc-beachtree1.json"
+  },
+  {
+   "id": "old-mario-gc-kuribo",
+   "category": "object",
+   "name": "old_mario_gc (unused) · kuribo",
+   "group": "old_mario_gc (unused)",
+   "file": "objects/old-mario-gc-kuribo.json"
+  },
+  {
+   "id": "old-mario-gc-mario-tree",
+   "category": "object",
+   "name": "old_mario_gc (unused) · mario_tree",
+   "group": "old_mario_gc (unused)",
+   "file": "objects/old-mario-gc-mario-tree.json"
+  },
+  {
+   "id": "old-mario-gc-model",
+   "category": "object",
+   "name": "old_mario_gc (unused)",
+   "group": "Course models",
+   "file": "objects/old-mario-gc-model.json"
+  },
+  {
+   "id": "mr-stage1-model",
+   "category": "object",
+   "name": "MR_stage1",
+   "group": "Course models",
+   "file": "objects/mr-stage1-model.json"
+  },
+  {
+   "id": "mr-stage1-balloon",
+   "category": "object",
+   "name": "MR_stage1 · balloon",
+   "group": "MR_stage1",
+   "file": "objects/mr-stage1-balloon.json"
+  },
+  {
+   "id": "mr-stage1-water-efct",
+   "category": "object",
+   "name": "MR_stage1 · water_efct",
+   "group": "MR_stage1",
+   "file": "objects/mr-stage1-water-efct.json"
+  },
+  {
+   "id": "mr-stage2-model",
+   "category": "object",
+   "name": "MR_stage2",
+   "group": "Course models",
+   "file": "objects/mr-stage2-model.json"
+  },
+  {
+   "id": "mr-stage2-balloon",
+   "category": "object",
+   "name": "MR_stage2 · balloon",
+   "group": "MR_stage2",
+   "file": "objects/mr-stage2-balloon.json"
+  },
+  {
+   "id": "mr-stage3-model",
+   "category": "object",
+   "name": "MR_stage3",
+   "group": "Course models",
+   "file": "objects/mr-stage3-model.json"
+  },
+  {
+   "id": "mr-stage3-balloon",
+   "category": "object",
+   "name": "MR_stage3 · balloon",
+   "group": "MR_stage3",
+   "file": "objects/mr-stage3-balloon.json"
+  },
+  {
+   "id": "mr-stage3-water-efct",
+   "category": "object",
+   "name": "MR_stage3 · water_efct",
+   "group": "MR_stage3",
+   "file": "objects/mr-stage3-water-efct.json"
+  },
+  {
+   "id": "mr-stage4-kinohouse1",
+   "category": "object",
+   "name": "MR_stage4 · KinoHouse1",
+   "group": "MR_stage4",
+   "file": "objects/mr-stage4-kinohouse1.json"
+  },
+  {
+   "id": "mr-stage4-kinohouse2",
+   "category": "object",
+   "name": "MR_stage4 · KinoHouse2",
+   "group": "MR_stage4",
+   "file": "objects/mr-stage4-kinohouse2.json"
+  },
+  {
+   "id": "mr-stage4-kinomount1",
+   "category": "object",
+   "name": "MR_stage4 · KinoMount1",
+   "group": "MR_stage4",
+   "file": "objects/mr-stage4-kinomount1.json"
+  },
+  {
+   "id": "mr-stage4-kinomount2",
+   "category": "object",
+   "name": "MR_stage4 · KinoMount2",
+   "group": "MR_stage4",
+   "file": "objects/mr-stage4-kinomount2.json"
+  },
+  {
+   "id": "mr-stage4-bus-a",
+   "category": "object",
+   "name": "MR_stage4 · bus_a",
+   "group": "MR_stage4",
+   "file": "objects/mr-stage4-bus-a.json"
+  },
+  {
+   "id": "mr-stage4-car-a",
+   "category": "object",
+   "name": "MR_stage4 · car_a",
+   "group": "MR_stage4",
+   "file": "objects/mr-stage4-car-a.json"
+  },
+  {
+   "id": "mr-stage4-car-tire",
+   "category": "object",
+   "name": "MR_stage4 · car_tire",
+   "group": "MR_stage4",
+   "file": "objects/mr-stage4-car-tire.json"
+  },
+  {
+   "id": "mr-stage4-old-kinoko-gc",
+   "category": "object",
+   "name": "MR_stage4 · old_kinoko_gc",
+   "group": "MR_stage4",
+   "file": "objects/mr-stage4-old-kinoko-gc.json"
+  },
+  {
+   "id": "mr-stage4-truck-a",
+   "category": "object",
+   "name": "MR_stage4 · truck_a",
+   "group": "MR_stage4",
+   "file": "objects/mr-stage4-truck-a.json"
+  },
+  {
+   "id": "mr-stage4-water-efct",
+   "category": "object",
+   "name": "MR_stage4 · water_efct",
+   "group": "MR_stage4",
+   "file": "objects/mr-stage4-water-efct.json"
+  },
+  {
+   "id": "staffroll-model",
+   "category": "object",
+   "name": "StaffRoll",
+   "group": "Course models",
+   "file": "objects/staffroll-model.json"
+  },
+  {
+   "id": "staffrolltrue-staffroll",
+   "category": "object",
+   "name": "StaffRollTrue · StaffRoll",
+   "group": "StaffRollTrue",
+   "file": "objects/staffrolltrue-staffroll.json"
+  },
+  {
+   "id": "mini-block-64-balloon",
+   "category": "object",
+   "name": "mini_block_64 · balloon",
+   "group": "mini_block_64",
+   "file": "objects/mini-block-64-balloon.json"
+  },
+  {
+   "id": "mini-block-64-model",
+   "category": "object",
+   "name": "mini_block_64",
+   "group": "Course models",
+   "file": "objects/mini-block-64-model.json"
+  },
+  {
+   "id": "mini-block-64-shine16",
+   "category": "object",
+   "name": "mini_block_64 · shine16",
+   "group": "mini_block_64",
+   "file": "objects/mini-block-64-shine16.json"
+  },
+  {
+   "id": "mini-block-64-shine-balloon",
+   "category": "object",
+   "name": "mini_block_64 · shine_balloon",
+   "group": "mini_block_64",
+   "file": "objects/mini-block-64-shine-balloon.json"
+  },
+  {
+   "id": "mini-block-course-balloon",
+   "category": "object",
+   "name": "mini_block_course · balloon",
+   "group": "mini_block_course",
+   "file": "objects/mini-block-course-balloon.json"
+  },
+  {
+   "id": "mini-block-course-mini-block-cours",
+   "category": "object",
+   "name": "mini_block_course · mini_block_cours",
+   "group": "mini_block_course",
+   "file": "objects/mini-block-course-mini-block-cours.json"
+  },
+  {
+   "id": "mini-block-course-shine16",
+   "category": "object",
+   "name": "mini_block_course · shine16",
+   "group": "mini_block_course",
+   "file": "objects/mini-block-course-shine16.json"
+  },
+  {
+   "id": "mini-dokan-gc-balloon",
+   "category": "object",
+   "name": "mini_dokan_gc · balloon",
+   "group": "mini_dokan_gc",
+   "file": "objects/mini-dokan-gc-balloon.json"
+  },
+  {
+   "id": "mini-dokan-gc-mini-dokan",
+   "category": "object",
+   "name": "mini_dokan_gc · mini_dokan",
+   "group": "mini_dokan_gc",
+   "file": "objects/mini-dokan-gc-mini-dokan.json"
+  },
+  {
+   "id": "mini-dokan-gc-model",
+   "category": "object",
+   "name": "mini_dokan_gc",
+   "group": "Course models",
+   "file": "objects/mini-dokan-gc-model.json"
+  },
+  {
+   "id": "mini-dokan-gc-shine16",
+   "category": "object",
+   "name": "mini_dokan_gc · shine16",
+   "group": "mini_dokan_gc",
+   "file": "objects/mini-dokan-gc-shine16.json"
+  },
+  {
+   "id": "mini-dokan-gc-shine-balloon",
+   "category": "object",
+   "name": "mini_dokan_gc · shine_balloon",
+   "group": "mini_dokan_gc",
+   "file": "objects/mini-dokan-gc-shine-balloon.json"
+  },
+  {
+   "id": "mini-stage1-balloon",
+   "category": "object",
+   "name": "mini_stage1 · balloon",
+   "group": "mini_stage1",
+   "file": "objects/mini-stage1-balloon.json"
+  },
+  {
+   "id": "mini-stage1-model",
+   "category": "object",
+   "name": "mini_stage1",
+   "group": "Course models",
+   "file": "objects/mini-stage1-model.json"
+  },
+  {
+   "id": "mini-stage1-shine16",
+   "category": "object",
+   "name": "mini_stage1 · shine16",
+   "group": "mini_stage1",
+   "file": "objects/mini-stage1-shine16.json"
+  },
+  {
+   "id": "mini-stage1-shine-balloon",
+   "category": "object",
+   "name": "mini_stage1 · shine_balloon",
+   "group": "mini_stage1",
+   "file": "objects/mini-stage1-shine-balloon.json"
+  },
+  {
+   "id": "mini-stage2-balloon",
+   "category": "object",
+   "name": "mini_stage2 · balloon",
+   "group": "mini_stage2",
+   "file": "objects/mini-stage2-balloon.json"
+  },
+  {
+   "id": "mini-stage2-model",
+   "category": "object",
+   "name": "mini_stage2",
+   "group": "Course models",
+   "file": "objects/mini-stage2-model.json"
+  },
+  {
+   "id": "mini-stage2-shine16",
+   "category": "object",
+   "name": "mini_stage2 · shine16",
+   "group": "mini_stage2",
+   "file": "objects/mini-stage2-shine16.json"
+  },
+  {
+   "id": "mini-stage2-shine-balloon",
+   "category": "object",
+   "name": "mini_stage2 · shine_balloon",
+   "group": "mini_stage2",
+   "file": "objects/mini-stage2-shine-balloon.json"
+  },
+  {
+   "id": "mini-stage3-balloon",
+   "category": "object",
+   "name": "mini_stage3 · balloon",
+   "group": "mini_stage3",
+   "file": "objects/mini-stage3-balloon.json"
+  },
+  {
+   "id": "mini-stage3-crab",
+   "category": "object",
+   "name": "mini_stage3 · crab",
+   "group": "mini_stage3",
+   "file": "objects/mini-stage3-crab.json"
+  },
+  {
+   "id": "mini-stage3-crab-hand",
+   "category": "object",
+   "name": "mini_stage3 · crab_hand",
+   "group": "mini_stage3",
+   "file": "objects/mini-stage3-crab-hand.json"
+  },
+  {
+   "id": "mini-stage3-model",
+   "category": "object",
+   "name": "mini_stage3",
+   "group": "Course models",
+   "file": "objects/mini-stage3-model.json"
+  },
+  {
+   "id": "mini-stage3-mini-stage3-wate",
+   "category": "object",
+   "name": "mini_stage3 · mini_stage3_wate",
+   "group": "mini_stage3",
+   "file": "objects/mini-stage3-mini-stage3-wate.json"
+  },
+  {
+   "id": "mini-stage3-shine16",
+   "category": "object",
+   "name": "mini_stage3 · shine16",
+   "group": "mini_stage3",
+   "file": "objects/mini-stage3-shine16.json"
+  },
+  {
+   "id": "mini-stage3-shine-balloon",
+   "category": "object",
+   "name": "mini_stage3 · shine_balloon",
+   "group": "mini_stage3",
+   "file": "objects/mini-stage3-shine-balloon.json"
+  },
+  {
+   "id": "mini-stage3-water-efct",
+   "category": "object",
+   "name": "mini_stage3 · water_efct",
+   "group": "mini_stage3",
+   "file": "objects/mini-stage3-water-efct.json"
+  },
+  {
+   "id": "mini-stage4-balloon",
+   "category": "object",
+   "name": "mini_stage4 · balloon",
+   "group": "mini_stage4",
+   "file": "objects/mini-stage4-balloon.json"
+  },
+  {
+   "id": "mini-stage4-berry",
+   "category": "object",
+   "name": "mini_stage4 · berry",
+   "group": "mini_stage4",
+   "file": "objects/mini-stage4-berry.json"
+  },
+  {
+   "id": "mini-stage4-cream",
+   "category": "object",
+   "name": "mini_stage4 · cream",
+   "group": "mini_stage4",
+   "file": "objects/mini-stage4-cream.json"
+  },
+  {
+   "id": "mini-stage4-cream-effect",
+   "category": "object",
+   "name": "mini_stage4 · cream_effect",
+   "group": "mini_stage4",
+   "file": "objects/mini-stage4-cream-effect.json"
+  },
+  {
+   "id": "mini-stage4-model",
+   "category": "object",
+   "name": "mini_stage4",
+   "group": "Course models",
+   "file": "objects/mini-stage4-model.json"
+  },
+  {
+   "id": "mini-stage4-shine16",
+   "category": "object",
+   "name": "mini_stage4 · shine16",
+   "group": "mini_stage4",
+   "file": "objects/mini-stage4-shine16.json"
+  },
+  {
+   "id": "mini-stage4-shine-balloon",
+   "category": "object",
+   "name": "mini_stage4 · shine_balloon",
+   "group": "mini_stage4",
+   "file": "objects/mini-stage4-shine-balloon.json"
+  },
+  {
+   "id": "test1-course-bridge",
+   "category": "object",
+   "name": "test1_course (unused) · bridge",
+   "group": "test1_course (unused)",
+   "file": "objects/test1-course-bridge.json"
+  },
+  {
+   "id": "test1-course-gear-black",
+   "category": "object",
+   "name": "test1_course (unused) · gear_black",
+   "group": "test1_course (unused)",
+   "file": "objects/test1-course-gear-black.json"
+  },
+  {
+   "id": "test1-course-gear-white",
+   "category": "object",
+   "name": "test1_course (unused) · gear_white",
+   "group": "test1_course (unused)",
+   "file": "objects/test1-course-gear-white.json"
+  },
+  {
+   "id": "test1-course-model",
+   "category": "object",
+   "name": "test1_course (unused)",
+   "group": "Course models",
+   "file": "objects/test1-course-model.json"
+  },
+  {
+   "id": "test1-course-test-brock",
+   "category": "object",
+   "name": "test1_course (unused) · test_brock",
+   "group": "test1_course (unused)",
+   "file": "objects/test1-course-test-brock.json"
+  },
+  {
+   "id": "test1-course-test-cylinder",
+   "category": "object",
+   "name": "test1_course (unused) · test_cylinder",
+   "group": "test1_course (unused)",
+   "file": "objects/test1-course-test-cylinder.json"
+  },
+  {
+   "id": "test-circle-model",
+   "category": "object",
+   "name": "test_circle",
+   "group": "Course models",
+   "file": "objects/test-circle-model.json"
+  },
+  {
+   "id": "mapobj-itembox",
+   "category": "object",
+   "name": "Item box",
+   "group": "Shared objects",
+   "file": "objects/mapobj-itembox.json"
+  },
+  {
+   "id": "kart-tire-l",
+   "category": "object",
+   "name": "kart_tire_L",
+   "group": "Other",
+   "file": "objects/kart-tire-l.json"
+  },
+  {
+   "id": "kart-tire-m",
+   "category": "object",
+   "name": "kart_tire_M",
+   "group": "Other",
+   "file": "objects/kart-tire-m.json"
+  },
+  {
+   "id": "kart-tire-s",
+   "category": "object",
+   "name": "kart_tire_S",
+   "group": "Other",
+   "file": "objects/kart-tire-s.json"
+  },
+  {
+   "id": "select",
+   "category": "object",
+   "name": "select",
+   "group": "Other",
+   "file": "objects/select.json"
+  },
+  {
+   "id": "airship-course",
+   "category": "level",
+   "name": "Airship Fortress",
+   "group": "Nitro courses",
+   "file": "levels/airship-course.json"
+  },
+  {
+   "id": "award",
+   "category": "level",
+   "name": "Award ceremony scene",
+   "group": "Nitro courses",
+   "file": "levels/award.json"
+  },
+  {
+   "id": "koopa-course",
+   "category": "level",
+   "name": "Bowser Castle",
+   "group": "Nitro courses",
+   "file": "levels/koopa-course.json"
+  },
+  {
+   "id": "beach-course",
+   "category": "level",
+   "name": "Cheep Cheep Beach",
+   "group": "Nitro courses",
+   "file": "levels/beach-course.json"
+  },
+  {
+   "id": "beach-coursed",
+   "category": "level",
+   "name": "Cheep Cheep Beach (multiplayer)",
+   "group": "Nitro courses",
+   "file": "levels/beach-coursed.json"
+  },
+  {
+   "id": "snow-course",
+   "category": "level",
+   "name": "DK Pass",
+   "group": "Nitro courses",
+   "file": "levels/snow-course.json"
+  },
+  {
+   "id": "town-course",
+   "category": "level",
+   "name": "Delfino Square",
+   "group": "Nitro courses",
+   "file": "levels/town-course.json"
+  },
+  {
+   "id": "desert-course",
+   "category": "level",
+   "name": "Desert Hills",
+   "group": "Nitro courses",
+   "file": "levels/desert-course.json"
+  },
+  {
+   "id": "cross-course",
+   "category": "level",
+   "name": "Figure-8 Circuit",
+   "group": "Nitro courses",
+   "file": "levels/cross-course.json"
+  },
+  {
+   "id": "cross-coursed",
+   "category": "level",
+   "name": "Figure-8 Circuit (multiplayer)",
+   "group": "Nitro courses",
+   "file": "levels/cross-coursed.json"
+  },
+  {
+   "id": "mansion-course",
+   "category": "level",
+   "name": "Luigi's Mansion",
+   "group": "Nitro courses",
+   "file": "levels/mansion-course.json"
+  },
+  {
+   "id": "mansion-coursed",
+   "category": "level",
+   "name": "Luigi's Mansion (multiplayer)",
+   "group": "Nitro courses",
+   "file": "levels/mansion-coursed.json"
+  },
+  {
+   "id": "mario-course",
+   "category": "level",
+   "name": "Mario Circuit",
+   "group": "Nitro courses",
+   "file": "levels/mario-course.json"
+  },
+  {
+   "id": "garden-course",
+   "category": "level",
+   "name": "Peach Gardens",
+   "group": "Nitro courses",
+   "file": "levels/garden-course.json"
+  },
+  {
+   "id": "rainbow-course",
+   "category": "level",
+   "name": "Rainbow Road",
+   "group": "Nitro courses",
+   "file": "levels/rainbow-course.json"
+  },
+  {
+   "id": "ridge-course",
+   "category": "level",
+   "name": "Shroom Ridge",
+   "group": "Nitro courses",
+   "file": "levels/ridge-course.json"
+  },
+  {
+   "id": "clock-course",
+   "category": "level",
+   "name": "Tick-Tock Clock",
+   "group": "Nitro courses",
+   "file": "levels/clock-course.json"
+  },
+  {
+   "id": "pinball-course",
+   "category": "level",
+   "name": "Waluigi Pinball",
+   "group": "Nitro courses",
+   "file": "levels/pinball-course.json"
+  },
+  {
+   "id": "stadium-course",
+   "category": "level",
+   "name": "Wario Stadium",
+   "group": "Nitro courses",
+   "file": "levels/stadium-course.json"
+  },
+  {
+   "id": "bank-course",
+   "category": "level",
+   "name": "Yoshi Falls",
+   "group": "Nitro courses",
+   "file": "levels/bank-course.json"
+  },
+  {
+   "id": "dokan-course",
+   "category": "level",
+   "name": "dokan_course (unused)",
+   "group": "Nitro courses",
+   "file": "levels/dokan-course.json"
+  },
+  {
+   "id": "donkey-course",
+   "category": "level",
+   "name": "donkey_course (unused)",
+   "group": "Nitro courses",
+   "file": "levels/donkey-course.json"
+  },
+  {
+   "id": "luigi-course",
+   "category": "level",
+   "name": "luigi_course (unused)",
+   "group": "Nitro courses",
+   "file": "levels/luigi-course.json"
+  },
+  {
+   "id": "nokonoko-course",
+   "category": "level",
+   "name": "nokonoko_course (unused)",
+   "group": "Nitro courses",
+   "file": "levels/nokonoko-course.json"
+  },
+  {
+   "id": "wario-course",
+   "category": "level",
+   "name": "wario_course",
+   "group": "Nitro courses",
+   "file": "levels/wario-course.json"
+  },
+  {
+   "id": "old-koopa-agb",
+   "category": "level",
+   "name": "GBA Bowser Castle 2",
+   "group": "Retro courses",
+   "file": "levels/old-koopa-agb.json"
+  },
+  {
+   "id": "old-luigi-agb",
+   "category": "level",
+   "name": "GBA Luigi Circuit",
+   "group": "Retro courses",
+   "file": "levels/old-luigi-agb.json"
+  },
+  {
+   "id": "old-peach-agb",
+   "category": "level",
+   "name": "GBA Peach Circuit",
+   "group": "Retro courses",
+   "file": "levels/old-peach-agb.json"
+  },
+  {
+   "id": "old-sky-agb",
+   "category": "level",
+   "name": "GBA Sky Garden",
+   "group": "Retro courses",
+   "file": "levels/old-sky-agb.json"
+  },
+  {
+   "id": "old-baby-gc",
+   "category": "level",
+   "name": "GCN Baby Park",
+   "group": "Retro courses",
+   "file": "levels/old-baby-gc.json"
+  },
+  {
+   "id": "old-luigi-gc",
+   "category": "level",
+   "name": "GCN Luigi Circuit",
+   "group": "Retro courses",
+   "file": "levels/old-luigi-gc.json"
+  },
+  {
+   "id": "old-luigi-gcd",
+   "category": "level",
+   "name": "GCN Luigi Circuit (multiplayer)",
+   "group": "Retro courses",
+   "file": "levels/old-luigi-gcd.json"
+  },
+  {
+   "id": "old-kinoko-gc",
+   "category": "level",
+   "name": "GCN Mushroom Bridge",
+   "group": "Retro courses",
+   "file": "levels/old-kinoko-gc.json"
+  },
+  {
+   "id": "old-yoshi-gc",
+   "category": "level",
+   "name": "GCN Yoshi Circuit",
+   "group": "Retro courses",
+   "file": "levels/old-yoshi-gc.json"
+  },
+  {
+   "id": "old-hyudoro-64",
+   "category": "level",
+   "name": "N64 Banshee Boardwalk",
+   "group": "Retro courses",
+   "file": "levels/old-hyudoro-64.json"
+  },
+  {
+   "id": "old-choco-64",
+   "category": "level",
+   "name": "N64 Choco Mountain",
+   "group": "Retro courses",
+   "file": "levels/old-choco-64.json"
+  },
+  {
+   "id": "old-frappe-64",
+   "category": "level",
+   "name": "N64 Frappe Snowland",
+   "group": "Retro courses",
+   "file": "levels/old-frappe-64.json"
+  },
+  {
+   "id": "old-momo-64",
+   "category": "level",
+   "name": "N64 Moo Moo Farm",
+   "group": "Retro courses",
+   "file": "levels/old-momo-64.json"
+  },
+  {
+   "id": "old-momo-64d",
+   "category": "level",
+   "name": "N64 Moo Moo Farm (multiplayer)",
+   "group": "Retro courses",
+   "file": "levels/old-momo-64d.json"
+  },
+  {
+   "id": "old-choco-sfc",
+   "category": "level",
+   "name": "SNES Choco Island 2",
+   "group": "Retro courses",
+   "file": "levels/old-choco-sfc.json"
+  },
+  {
+   "id": "old-donut-sfc",
+   "category": "level",
+   "name": "SNES Donut Plains 1",
+   "group": "Retro courses",
+   "file": "levels/old-donut-sfc.json"
+  },
+  {
+   "id": "old-noko-sfc",
+   "category": "level",
+   "name": "SNES Koopa Beach 2",
+   "group": "Retro courses",
+   "file": "levels/old-noko-sfc.json"
+  },
+  {
+   "id": "old-mario-sfc",
+   "category": "level",
+   "name": "SNES Mario Circuit 1",
+   "group": "Retro courses",
+   "file": "levels/old-mario-sfc.json"
+  },
+  {
+   "id": "old-mario-gc",
+   "category": "level",
+   "name": "old_mario_gc (unused)",
+   "group": "Retro courses",
+   "file": "levels/old-mario-gc.json"
+  },
+  {
+   "id": "mr-stage1",
+   "category": "level",
+   "name": "MR_stage1",
+   "group": "Other scenes",
+   "file": "levels/mr-stage1.json"
+  },
+  {
+   "id": "mr-stage2",
+   "category": "level",
+   "name": "MR_stage2",
+   "group": "Other scenes",
+   "file": "levels/mr-stage2.json"
+  },
+  {
+   "id": "mr-stage3",
+   "category": "level",
+   "name": "MR_stage3",
+   "group": "Other scenes",
+   "file": "levels/mr-stage3.json"
+  },
+  {
+   "id": "staffroll",
+   "category": "level",
+   "name": "StaffRoll",
+   "group": "Other scenes",
+   "file": "levels/staffroll.json"
+  },
+  {
+   "id": "mini-block-64",
+   "category": "level",
+   "name": "mini_block_64",
+   "group": "Other scenes",
+   "file": "levels/mini-block-64.json"
+  },
+  {
+   "id": "mini-dokan-gc",
+   "category": "level",
+   "name": "mini_dokan_gc",
+   "group": "Other scenes",
+   "file": "levels/mini-dokan-gc.json"
+  },
+  {
+   "id": "mini-stage1",
+   "category": "level",
+   "name": "mini_stage1",
+   "group": "Other scenes",
+   "file": "levels/mini-stage1.json"
+  },
+  {
+   "id": "mini-stage2",
+   "category": "level",
+   "name": "mini_stage2",
+   "group": "Other scenes",
+   "file": "levels/mini-stage2.json"
+  },
+  {
+   "id": "mini-stage3",
+   "category": "level",
+   "name": "mini_stage3",
+   "group": "Other scenes",
+   "file": "levels/mini-stage3.json"
+  },
+  {
+   "id": "mini-stage4",
+   "category": "level",
+   "name": "mini_stage4",
+   "group": "Other scenes",
+   "file": "levels/mini-stage4.json"
+  },
+  {
+   "id": "test1-course",
+   "category": "level",
+   "name": "test1_course (unused)",
+   "group": "Other scenes",
+   "file": "levels/test1-course.json"
+  },
+  {
+   "id": "test-circle",
+   "category": "level",
+   "name": "test_circle",
+   "group": "Other scenes",
+   "file": "levels/test-circle.json"
+  }
+ ]
 }

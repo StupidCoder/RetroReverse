@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "MR_stage4 · KinoMount1",
+ "model": "MR_stage4-KinoMount1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "KinoMount1"
+ }
+}

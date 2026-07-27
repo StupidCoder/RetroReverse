@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Figure-8 Circuit (multiplayer)",
+ "model": "cross_courseD.glb",
+ "props": {
+  "model": "cross_courseD"
+ }
+}

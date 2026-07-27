@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "mini_stage3",
+ "model": "mini_stage3.glb",
+ "props": {
+  "model": "mini_stage3"
+ }
+}

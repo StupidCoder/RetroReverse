@@ -1,0 +1,25 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "N64 Frappe Snowland",
+ "model": "old_frappe_64.glb",
+ "uvAnims": [
+  {
+   "material": "water0_HIG",
+   "frames": 240,
+   "scaleS": {
+    "const": 40
+   },
+   "scaleT": {
+    "const": 40
+   },
+   "transS": {
+    "const": 0.0234375
+   }
+  }
+ ],
+ "props": {
+  "model": "old_frappe_64"
+ }
+}

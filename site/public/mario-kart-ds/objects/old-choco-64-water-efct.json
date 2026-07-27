@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "N64 Choco Mountain · water_efct",
+ "model": "old_choco_64-water_efct.glb",
+ "props": {
+  "model": "water_efct"
+ }
+}

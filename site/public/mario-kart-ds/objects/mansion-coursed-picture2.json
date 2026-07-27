@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Luigi's Mansion (multiplayer) · picture2",
+ "model": "mansion_courseD-picture2.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "picture2"
+ }
+}

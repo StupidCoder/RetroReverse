@@ -1,0 +1,389 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-12.629196166992188, 168.14776611328125, -330.8522979736328],
+  "target": [-12.629196166992188, 11.965400695800781, 3.5055389404296875],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "beach_courseD_V.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "beach_courseD-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "beach-coursed-model",
+   "pos": [0, 0, 0],
+   "name": "Cheep Cheep Beach (multiplayer)"
+  },
+  {
+   "id": 1,
+   "object": "mapobj-itembox",
+   "pos": [40.625, 8.875, -141.25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 2,
+   "object": "mapobj-itembox",
+   "pos": [40.625, 8.875, -152.5],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 3,
+   "object": "mapobj-itembox",
+   "pos": [40.625, 8.875, -146.875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 4,
+   "object": "mapobj-itembox",
+   "pos": [38.125, 8.875, -144.0625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 5,
+   "object": "mapobj-itembox",
+   "pos": [38.125, 8.875, -149.6875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 6,
+   "object": "mapobj-itembox",
+   "pos": [65.625, 8.43194580078125, 34.375],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 7,
+   "object": "mapobj-itembox",
+   "pos": [81.25, 8.875, 31.25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 8,
+   "object": "mapobj-itembox",
+   "pos": [71.875, 8.875, 28.125],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 9,
+   "object": "mapobj-itembox",
+   "pos": [78.125, 8.2525634765625, 21.875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 10,
+   "object": "mapobj-itembox",
+   "pos": [62.5, 8.875, 25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 11,
+   "object": "mapobj-itembox",
+   "pos": [-144.7889862060547, 10.245101928710938, 158.35906982421875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 12,
+   "object": "mapobj-itembox",
+   "pos": [-143.8514862060547, 10.248092651367188, 155.23406982421875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 13,
+   "object": "mapobj-itembox",
+   "pos": [-141.9764862060547, 10.254074096679688, 148.98406982421875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 14,
+   "object": "mapobj-itembox",
+   "pos": [-142.9139862060547, 10.251083374023438, 152.10906982421875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 15,
+   "object": "beach-coursed-crab",
+   "pos": [48.35960388183594, 8.125, -19.47540283203125],
+   "scale": 1.25,
+   "route": {
+    "id": "r6",
+    "speed": 8,
+    "face": true
+   },
+   "props": {
+    "obji": "0x1AC"
+   }
+  },
+  {
+   "id": 16,
+   "object": "beach-coursed-crab",
+   "pos": [54.126556396484375, 7.8242950439453125, 9.076522827148438],
+   "scale": 1.25,
+   "route": {
+    "id": "r7",
+    "speed": 8,
+    "face": true
+   },
+   "props": {
+    "obji": "0x1AC"
+   }
+  },
+  {
+   "id": 17,
+   "object": "beach-coursed-crab",
+   "pos": [74.603759765625, 6.646881103515625, 52.74714660644531],
+   "scale": 1.25,
+   "route": {
+    "id": "r8",
+    "speed": 8,
+    "face": true
+   },
+   "props": {
+    "obji": "0x1AC"
+   }
+  },
+  {
+   "id": 18,
+   "object": "beach-coursed-crab",
+   "pos": [75.9136962890625, 7.4916229248046875, 72.59785461425781],
+   "scale": 1.25,
+   "route": {
+    "id": "r9",
+    "speed": 8,
+    "face": true
+   },
+   "props": {
+    "obji": "0x1AC"
+   }
+  },
+  {
+   "id": 19,
+   "object": "beach-coursed-water-efct",
+   "pos": [0, 6.8125, 0],
+   "props": {
+    "obji": "0x001"
+   }
+  },
+  {
+   "id": 20,
+   "object": "beach-coursed-beachtree1",
+   "pos": [-98.75, 8.125, -48.125],
+   "props": {
+    "obji": "0x12E"
+   }
+  },
+  {
+   "id": 21,
+   "object": "beach-coursed-beachtree1",
+   "pos": [-116.25, 8.125, -48.125],
+   "props": {
+    "obji": "0x12E"
+   }
+  },
+  {
+   "id": 22,
+   "object": "beach-coursed-beachtree1",
+   "pos": [-96.875, 8.125, -35.625],
+   "props": {
+    "obji": "0x12E"
+   }
+  },
+  {
+   "id": 23,
+   "object": "beach-coursed-beachtree1",
+   "pos": [-116.875, 8.125, -35.625],
+   "props": {
+    "obji": "0x12E"
+   }
+  },
+  {
+   "id": 24,
+   "object": "beach-coursed-beachtree1",
+   "pos": [48.125, 8.125, -137.5],
+   "rot": [0, -1.5707963267948966, 0],
+   "props": {
+    "obji": "0x12E"
+   }
+  },
+  {
+   "id": 25,
+   "object": "beach-coursed-beachtree1",
+   "pos": [70, 8.125, -26.25],
+   "rot": [0, 2.2689280275926285, 0],
+   "props": {
+    "obji": "0x12E"
+   }
+  },
+  {
+   "id": 26,
+   "object": "beach-coursed-beachtree1",
+   "pos": [43.125, 8.125, -23.125],
+   "rot": [0, 2.2689280275926285, 0],
+   "props": {
+    "obji": "0x12E"
+   }
+  },
+  {
+   "id": 27,
+   "object": "beach-coursed-beachtree1",
+   "pos": [55.625, 8.125, 25.625],
+   "rot": [0, 3.6651914291880923, 0],
+   "props": {
+    "obji": "0x12E"
+   }
+  },
+  {
+   "id": 28,
+   "object": "beach-coursed-beachtree1",
+   "pos": [86.875, 8.125, 31.25],
+   "rot": [0, 4.1887902047863905, 0],
+   "props": {
+    "obji": "0x12E"
+   }
+  },
+  {
+   "id": 29,
+   "object": "beach-coursed-beachtree1",
+   "pos": [-19.0625, 8.125, 144.0625],
+   "rot": [0, 2.0943951023931953, 0],
+   "props": {
+    "obji": "0x12E"
+   }
+  },
+  {
+   "id": 30,
+   "object": "beach-coursed-beachtree1",
+   "pos": [-35.625, 8.125, 148.125],
+   "rot": [0, 2.0943951023931953, 0],
+   "props": {
+    "obji": "0x12E"
+   }
+  },
+  {
+   "id": 31,
+   "object": "beach-coursed-beachtree1",
+   "pos": [-90.625, 8.125, 160],
+   "rot": [0, 2.0943951023931953, 0],
+   "props": {
+    "obji": "0x12E"
+   }
+  },
+  {
+   "id": 32,
+   "object": "beach-coursed-beachtree1",
+   "pos": [53.75, 8.125, 82.5],
+   "rot": [0, 2.0943951023931953, 0],
+   "props": {
+    "obji": "0x12E"
+   }
+  },
+  {
+   "id": 33,
+   "object": "beach-coursed-beachtree1",
+   "pos": [77.5, 8.125, 91.25],
+   "rot": [0, 2.6179938779914944, 0],
+   "props": {
+    "obji": "0x12E"
+   }
+  },
+  {
+   "id": 34,
+   "object": "beach-coursed-beachtree1",
+   "pos": [-117.5, 8.125, -21.875],
+   "props": {
+    "obji": "0x12E"
+   }
+  },
+  {
+   "id": 35,
+   "object": "beach-coursed-beachtree1",
+   "pos": [-97.5, 8.125, -21.875],
+   "props": {
+    "obji": "0x12E"
+   }
+  }
+ ],
+ "routes": [
+  {
+   "id": "r6",
+   "points": [
+    [48.3758544921875, 8.125, -19.561325073242188],
+    [53.637939453125, 8.11334228515625, -17.126327514648438],
+    [60.16661071777344, 7.539794921875, -15.252334594726562]
+   ]
+  },
+  {
+   "id": "r7",
+   "points": [
+    [54.11802673339844, 7.8248748779296875, 9.075576782226562],
+    [65.14920043945312, 6.995452880859375, 9.022445678710938]
+   ]
+  },
+  {
+   "id": "r8",
+   "points": [
+    [74.64511108398438, 6.651397705078125, 52.71514892578125],
+    [88.58322143554688, 7.8280487060546875, 46.988861083984375]
+   ]
+  },
+  {
+   "id": "r9",
+   "points": [
+    [75.81657409667969, 7.49859619140625, 72.71116638183594],
+    [80.467041015625, 8.125, 78.28666687011719],
+    [83.59210205078125, 8.125, 85.55972290039062]
+   ]
+  }
+ ]
+}

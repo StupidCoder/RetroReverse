@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Airship Fortress · NsCannon1",
+ "model": "airship_course-NsCannon1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "NsCannon1"
+ }
+}

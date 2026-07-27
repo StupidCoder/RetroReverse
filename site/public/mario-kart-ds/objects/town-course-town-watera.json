@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Delfino Square · town_waterA",
+ "model": "town_course-town_waterA.glb",
+ "props": {
+  "model": "town_waterA"
+ }
+}

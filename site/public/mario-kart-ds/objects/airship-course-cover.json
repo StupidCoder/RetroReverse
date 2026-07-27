@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Airship Fortress · cover",
+ "model": "airship_course-cover.glb",
+ "props": {
+  "model": "cover"
+ }
+}

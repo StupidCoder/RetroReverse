@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "luigi_course (unused) · gear_white",
+ "model": "luigi_course-gear_white.glb",
+ "props": {
+  "model": "gear_white"
+ }
+}

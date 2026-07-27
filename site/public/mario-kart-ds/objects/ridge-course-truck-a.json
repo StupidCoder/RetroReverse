@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Shroom Ridge · truck_a",
+ "model": "ridge_course-truck_a.glb",
+ "props": {
+  "model": "truck_a"
+ }
+}

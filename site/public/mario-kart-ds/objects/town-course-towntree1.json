@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Delfino Square · TownTree1",
+ "model": "town_course-TownTree1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "TownTree1"
+ }
+}

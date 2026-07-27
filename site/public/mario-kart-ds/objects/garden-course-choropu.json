@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Peach Gardens · choropu",
+ "model": "garden_course-choropu.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "choropu"
+ }
+}

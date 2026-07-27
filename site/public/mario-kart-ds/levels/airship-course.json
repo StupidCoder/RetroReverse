@@ -1,0 +1,282 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [14.765083312988281, 274.66236877441406, -691.508999633789],
+  "target": [14.765083312988281, 55.54938507080078, -262.91908264160156],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "airship_course_V.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "airship_course-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "airship-course-model",
+   "pos": [0, 0, 0],
+   "name": "Airship Fortress"
+  },
+  {
+   "id": 1,
+   "object": "mapobj-itembox",
+   "pos": [100, 35.203094482421875, -430],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 2,
+   "object": "mapobj-itembox",
+   "pos": [100, 35.203094482421875, -426.5625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 3,
+   "object": "mapobj-itembox",
+   "pos": [100, 35.203094482421875, -423.125],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 4,
+   "object": "mapobj-itembox",
+   "pos": [100, 35.203094482421875, -419.6875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 5,
+   "object": "mapobj-itembox",
+   "pos": [6.25, 41.25160217285156, -329.375],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 6,
+   "object": "mapobj-itembox",
+   "pos": [6.25, 41.25059509277344, -325.9375],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 7,
+   "object": "mapobj-itembox",
+   "pos": [6.25, 41.249420166015625, -322.5],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 8,
+   "object": "mapobj-itembox",
+   "pos": [6.25, 41.25276184082031, -332.8125],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 9,
+   "object": "mapobj-itembox",
+   "pos": [-87.5, 62.01136779785156, -105.9375],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 10,
+   "object": "mapobj-itembox",
+   "pos": [-87.5, 62.26470947265625, -109.6875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 11,
+   "object": "mapobj-itembox",
+   "pos": [-87.5, 61.91352844238281, -102.1875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 12,
+   "object": "mapobj-itembox",
+   "pos": [-87.5, 61.782562255859375, -98.4375],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 13,
+   "object": "airship-course-nskiller1",
+   "pos": [46.5625, 37.5, -384.375],
+   "route": {
+    "id": "r0",
+    "speed": 8,
+    "face": true
+   },
+   "props": {
+    "obji": "0x1A1"
+   }
+  },
+  {
+   "id": 14,
+   "object": "airship-course-mkd-ef-burner",
+   "pos": [-18.75, 43.61653137207031, -413.05506896972656],
+   "scale": 1.699951171875,
+   "route": {
+    "id": "r6",
+    "speed": 8,
+    "face": true
+   },
+   "props": {
+    "obji": "0x1A4"
+   }
+  },
+  {
+   "id": 15,
+   "object": "airship-course-mkd-ef-burner",
+   "pos": [-6.2966766357421875, 43.61653137207031, -428.8851776123047],
+   "scale": 1.699951171875,
+   "route": {
+    "id": "r7",
+    "speed": 8,
+    "face": true
+   },
+   "props": {
+    "obji": "0x1A4"
+   }
+  },
+  {
+   "id": 16,
+   "object": "airship-course-cover",
+   "pos": [-14.277084350585938, 46.25, -424.79786682128906],
+   "props": {
+    "obji": "0x1A7"
+   }
+  },
+  {
+   "id": 17,
+   "object": "airship-course-cover",
+   "pos": [12.4368896484375, 46.25, -453.23680114746094],
+   "props": {
+    "obji": "0x1A7"
+   }
+  },
+  {
+   "id": 18,
+   "object": "airship-course-cover",
+   "pos": [27.577987670898438, 46.25, -443.61024475097656],
+   "props": {
+    "obji": "0x1A7"
+   }
+  },
+  {
+   "id": 19,
+   "object": "airship-course-cover",
+   "pos": [49.36572265625, 46.25, -446.0258331298828],
+   "props": {
+    "obji": "0x1A7"
+   }
+  },
+  {
+   "id": 20,
+   "object": "airship-course-cover",
+   "pos": [47.88053894042969, 46.25, -423.21934509277344],
+   "props": {
+    "obji": "0x1A7"
+   }
+  },
+  {
+   "id": 21,
+   "object": "airship-course-cover",
+   "pos": [-2.86199951171875, 46.25, -440.01600646972656],
+   "props": {
+    "obji": "0x1A7"
+   }
+  },
+  {
+   "id": 22,
+   "object": "airship-course-nscannon1",
+   "pos": [3.05206298828125, 46.25, -406.24781799316406],
+   "props": {
+    "obji": "0x135"
+   }
+  },
+  {
+   "id": 23,
+   "object": "airship-course-nscannon1",
+   "pos": [3.05206298828125, 46.25, -432.7741241455078],
+   "props": {
+    "obji": "0x135"
+   }
+  },
+  {
+   "id": 24,
+   "object": "airship-course-nscannon1",
+   "pos": [30.651046752929688, 46.25, -432.79026794433594],
+   "props": {
+    "obji": "0x135"
+   }
+  },
+  {
+   "id": 25,
+   "object": "airship-course-nscannon1",
+   "pos": [67.65449523925781, 46.25, -416.1033477783203],
+   "props": {
+    "obji": "0x135"
+   }
+  }
+ ],
+ "routes": [
+  {
+   "id": "r0",
+   "loop": true,
+   "points": [
+    [46.5625, 37.5, -384.375],
+    [39.6875, 37.5, -384.375],
+    [36.25, 37.5, -384.375],
+    [43.125, 37.5, -384.375],
+    [50, 37.5, -384.375],
+    [53.4375, 37.5, -384.375]
+   ]
+  },
+  {
+   "id": "r6",
+   "points": [[-18.75, 43.75, -413.125], [-18.75, 43.75, -428.75]]
+  },
+  {
+   "id": "r7",
+   "points": [[-6.25, 43.75, -429.0625], [-6.25, 43.75, -413.4375]]
+  }
+ ]
+}

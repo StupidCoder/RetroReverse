@@ -1,0 +1,28 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Airship Fortress · mkd_ef_burner",
+ "model": "airship_course-mkd_ef_burner.glb",
+ "uvAnims": [
+  {
+   "material": "lamb_burn1",
+   "frames": 60,
+   "scaleS": {
+    "const": 0.0205078125
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {
+    "const": 0.0517578125
+   },
+   "transT": {
+    "const": 0.0810546875
+   }
+  }
+ ],
+ "props": {
+  "model": "mkd_ef_burner"
+ }
+}

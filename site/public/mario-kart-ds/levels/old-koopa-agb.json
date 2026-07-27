@@ -1,0 +1,147 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-1.879913330078125, 169.6285400390625, -276.7774993896484],
+  "target": [-1.879913330078125, 37.5, -7.901008605957031],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "old_koopa_agb_V.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "old_koopa_agb-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "old-koopa-agb-model",
+   "pos": [0, 0, 0],
+   "name": "GBA Bowser Castle 2"
+  },
+  {
+   "id": 1,
+   "object": "mapobj-itembox",
+   "pos": [-89.51637268066406, 38.25, -0.03582763671875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 2,
+   "object": "mapobj-itembox",
+   "pos": [34.375, 38.25, 104.0625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 3,
+   "object": "mapobj-itembox",
+   "pos": [34.375, 38.25, 100],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 4,
+   "object": "mapobj-itembox",
+   "pos": [-97.89999389648438, 38.25, -0.011932373046875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 5,
+   "object": "mapobj-itembox",
+   "pos": [-95.12361145019531, 38.25, 0],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 6,
+   "object": "mapobj-itembox",
+   "pos": [118.75, 38.25, 28.125],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 7,
+   "object": "old-koopa-agb-mkd-ef-bubble",
+   "pos": [-59.90147399902344, 36.25, 97.13536071777344],
+   "props": {
+    "obji": "0x198"
+   }
+  },
+  {
+   "id": 8,
+   "object": "old-koopa-agb-mkd-ef-bubble",
+   "pos": [-59.8870849609375, 36.25, 107.04583740234375],
+   "props": {
+    "obji": "0x198"
+   }
+  },
+  {
+   "id": 9,
+   "object": "old-koopa-agb-mkd-ef-bubble",
+   "pos": [123.28216552734375, 36.25, -60.87486267089844],
+   "props": {
+    "obji": "0x198"
+   }
+  },
+  {
+   "id": 10,
+   "object": "old-koopa-agb-mkd-ef-bubble",
+   "pos": [70.09831237792969, 36.25, 107.70091247558594],
+   "props": {
+    "obji": "0x198"
+   }
+  },
+  {
+   "id": 11,
+   "object": "old-koopa-agb-mkd-ef-bubble",
+   "pos": [-14.996475219726562, 36.25, 96.21002197265625],
+   "props": {
+    "obji": "0x198"
+   }
+  },
+  {
+   "id": 12,
+   "object": "mapobj-itembox",
+   "pos": [-92.31663513183594, 38.25, 0],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 13,
+   "object": "old-koopa-agb-water-efct",
+   "pos": [-114.98849487304688, 36.25, -43.56011962890625],
+   "props": {
+    "obji": "0x00E"
+   }
+  }
+ ]
+}

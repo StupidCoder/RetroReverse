@@ -1,0 +1,28 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GBA Bowser Castle 2 · mkd_ef_bubble",
+ "model": "old_koopa_agb-mkd_ef_bubble.glb",
+ "uvAnims": [
+  {
+   "material": "lamb_burn1",
+   "frames": 40,
+   "scaleS": {
+    "const": 0.0205078125
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transS": {
+    "const": 0.0419921875
+   },
+   "transT": {
+    "const": 0.0615234375
+   }
+  }
+ ],
+ "props": {
+  "model": "mkd_ef_bubble"
+ }
+}

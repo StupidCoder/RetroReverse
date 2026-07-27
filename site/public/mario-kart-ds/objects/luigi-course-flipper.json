@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "luigi_course (unused) · flipper",
+ "model": "luigi_course-flipper.glb",
+ "props": {
+  "model": "flipper"
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "SNES Koopa Beach 2 · pukupuku",
+ "model": "old_noko_sfc-pukupuku.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "pukupuku"
+ }
+}

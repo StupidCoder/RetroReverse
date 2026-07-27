@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GCN Baby Park",
+ "model": "old_baby_gc.glb",
+ "props": {
+  "model": "old_baby_gc"
+ }
+}

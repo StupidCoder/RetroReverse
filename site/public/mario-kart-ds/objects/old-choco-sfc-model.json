@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "SNES Choco Island 2",
+ "model": "old_choco_sfc.glb",
+ "props": {
+  "model": "old_choco_sfc"
+ }
+}

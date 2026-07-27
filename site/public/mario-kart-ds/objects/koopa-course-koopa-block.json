@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Bowser Castle · koopa_block",
+ "model": "koopa_course-koopa_block.glb",
+ "props": {
+  "model": "koopa_block"
+ }
+}

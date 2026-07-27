@@ -1,0 +1,115 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [14.068374633789062, 90.1007080078125, -177.2283935546875],
+  "target": [14.068374633789062, 6.25, 4.222709655761719],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "old_noko_sfc_V.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "old_noko_sfc-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "old-noko-sfc-model",
+   "pos": [0, 0, 0],
+   "name": "SNES Koopa Beach 2"
+  },
+  {
+   "id": 1,
+   "object": "mapobj-itembox",
+   "pos": [-26.780410766601562, 7, -75.68199157714844],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 2,
+   "object": "mapobj-itembox",
+   "pos": [-30.034469604492188, 7, -69.22370910644531],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 3,
+   "object": "mapobj-itembox",
+   "pos": [-22.1500244140625, 7, -72.43600463867188],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 4,
+   "object": "mapobj-itembox",
+   "pos": [-87.5, 7, 6.25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 5,
+   "object": "mapobj-itembox",
+   "pos": [-22.778350830078125, 7, -78.94566345214844],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 6,
+   "object": "mapobj-itembox",
+   "pos": [-81.25, 7, 6.25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 7,
+   "object": "mapobj-itembox",
+   "pos": [-30.005630493164062, 7, -81.62843322753906],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 8,
+   "object": "mapobj-itembox",
+   "pos": [-84.375, 7, 6.25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 9,
+   "object": "old-noko-sfc-water-efct",
+   "pos": [-74.40335083007812, 6.25, -11.627365112304688],
+   "props": {
+    "obji": "0x005"
+   }
+  }
+ ]
+}

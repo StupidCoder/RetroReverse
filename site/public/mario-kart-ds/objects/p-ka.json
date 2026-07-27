@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Dry Bones",
+ "model": "P_KA.glb",
+ "props": {
+  "model": "P_KA"
+ }
+}

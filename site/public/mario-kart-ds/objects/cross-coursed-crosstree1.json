@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Figure-8 Circuit (multiplayer) · CrossTree1",
+ "model": "cross_courseD-CrossTree1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "CrossTree1"
+ }
+}

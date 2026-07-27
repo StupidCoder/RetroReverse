@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GCN Yoshi Circuit · water_efct",
+ "model": "old_yoshi_gc-water_efct.glb",
+ "props": {
+  "model": "water_efct"
+ }
+}

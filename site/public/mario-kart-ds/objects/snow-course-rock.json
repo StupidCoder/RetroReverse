@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "DK Pass · rock",
+ "model": "snow_course-rock.glb",
+ "props": {
+  "model": "rock"
+ }
+}

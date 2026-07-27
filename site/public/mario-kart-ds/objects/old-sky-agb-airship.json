@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GBA Sky Garden · airship",
+ "model": "old_sky_agb-airship.glb",
+ "props": {
+  "model": "airship"
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "MR_stage4 · truck_a",
+ "model": "MR_stage4-truck_a.glb",
+ "props": {
+  "model": "truck_a"
+ }
+}

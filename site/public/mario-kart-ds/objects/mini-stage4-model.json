@@ -1,0 +1,25 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "mini_stage4",
+ "model": "mini_stage4.glb",
+ "uvAnims": [
+  {
+   "material": "Dash",
+   "frames": 100,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transT": {
+    "const": 0.0390625
+   }
+  }
+ ],
+ "props": {
+  "model": "mini_stage4"
+ }
+}

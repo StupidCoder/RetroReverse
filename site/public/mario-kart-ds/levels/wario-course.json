@@ -1,0 +1,67 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-97.57136535644531, 185.42056274414062, -273.8994537353515],
+  "target": [-97.57136535644531, 17.81024169921875, 68.50995635986328],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "stadium_course_V.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "wario_course-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "wario-course-model",
+   "pos": [0, 0, 0],
+   "name": "wario_course"
+  },
+  {
+   "id": 1,
+   "object": "mapobj-itembox",
+   "pos": [-132.4148406982422, 13.679977416992188, 36.127777099609375],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 2,
+   "object": "mapobj-itembox",
+   "pos": [-142.0880584716797, 14.765853881835938, 30.890579223632812],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 3,
+   "object": "mapobj-itembox",
+   "pos": [-138.9662628173828, 14.207000732421875, 41.12510681152344],
+   "props": {
+    "obji": "0x065"
+   }
+  }
+ ]
+}

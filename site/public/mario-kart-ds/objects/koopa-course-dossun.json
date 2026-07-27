@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Bowser Castle · dossun",
+ "model": "koopa_course-dossun.glb",
+ "props": {
+  "model": "dossun"
+ }
+}

@@ -1,0 +1,375 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [13.421684265136719, 193.27324676513672, -343.77668151855465],
+  "target": [13.421684265136719, 25, -5.974967956542969],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "town_course_V.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "town_course-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "town-course-model",
+   "pos": [0, 0, 0],
+   "name": "Delfino Square"
+  },
+  {
+   "id": 1,
+   "object": "mapobj-itembox",
+   "pos": [-73.26176452636719, 35.125, -108.85975646972656],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 2,
+   "object": "mapobj-itembox",
+   "pos": [-73.26176452636719, 35.125, -111.67225646972656],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 3,
+   "object": "mapobj-itembox",
+   "pos": [-73.26176452636719, 35.125, -114.48475646972656],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 4,
+   "object": "mapobj-itembox",
+   "pos": [-73.26176452636719, 35.125, -117.29725646972656],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 5,
+   "object": "mapobj-itembox",
+   "pos": [80.78675842285156, 21.375, -11.195938110351562],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 6,
+   "object": "mapobj-itembox",
+   "pos": [83.91175842285156, 21.375, -15.570938110351562],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 7,
+   "object": "mapobj-itembox",
+   "pos": [79.22425842285156, 21.375, -17.758438110351562],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 8,
+   "object": "mapobj-itembox",
+   "pos": [86.72425842285156, 21.375, -19.945938110351562],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 9,
+   "object": "mapobj-itembox",
+   "pos": [75.47425842285156, 21.375, -14.008438110351562],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 10,
+   "object": "mapobj-itembox",
+   "pos": [100.54086303710938, 16.919036865234375, 145.47789001464844],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 11,
+   "object": "mapobj-itembox",
+   "pos": [100.54086303710938, 16.919036865234375, 142.66539001464844],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 12,
+   "object": "mapobj-itembox",
+   "pos": [100.54086303710938, 16.919036865234375, 139.85289001464844],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 13,
+   "object": "mapobj-itembox",
+   "pos": [100.54086303710938, 16.919036865234375, 137.04039001464844],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 14,
+   "object": "town-course-bridge",
+   "pos": [50, 15.625, 132.5],
+   "rot": [0, -1.5707963267948966, 0],
+   "props": {
+    "obji": "0x0CC"
+   }
+  },
+  {
+   "id": 15,
+   "object": "town-course-bridge",
+   "pos": [6.25, 15.625, 132.5],
+   "rot": [0, 1.5707963267948966, 0],
+   "props": {
+    "obji": "0x0CC"
+   }
+  },
+  {
+   "id": 16,
+   "object": "town-course-water-efct",
+   "pos": [0, 0, 0],
+   "props": {
+    "obji": "0x003"
+   }
+  },
+  {
+   "id": 17,
+   "object": "town-course-water-efct",
+   "pos": [28.249008178710938, 10.625, 165.8396453857422],
+   "props": {
+    "obji": "0x005"
+   }
+  },
+  {
+   "id": 18,
+   "object": "mapobj-itembox",
+   "pos": [153.125, 15.101837158203125, 71.875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 19,
+   "object": "town-course-towntree1",
+   "pos": [117.5, 19.375, 34.375],
+   "scale": 0.89990234375,
+   "props": {
+    "obji": "0x145"
+   }
+  },
+  {
+   "id": 20,
+   "object": "town-course-towntree1",
+   "pos": [103.75, 19.375, 34.375],
+   "scale": [0.7998046875, 0.849853515625, 0.7998046875],
+   "props": {
+    "obji": "0x145"
+   }
+  },
+  {
+   "id": 21,
+   "object": "town-course-towntree1",
+   "pos": [55.625, 15.625, 111.25],
+   "scale": [0.89990234375, 1, 0.89990234375],
+   "props": {
+    "obji": "0x145"
+   }
+  },
+  {
+   "id": 22,
+   "object": "town-course-towntree1",
+   "pos": [77.5, 15.625, 144.375],
+   "scale": 0.7998046875,
+   "props": {
+    "obji": "0x145"
+   }
+  },
+  {
+   "id": 23,
+   "object": "town-course-towntree1",
+   "pos": [81.875, 15.625, 129.375],
+   "scale": 0.849853515625,
+   "props": {
+    "obji": "0x145"
+   }
+  },
+  {
+   "id": 24,
+   "object": "town-course-towntree1",
+   "pos": [-20, 15.625, 144.375],
+   "scale": [0.7998046875, 0.849853515625, 0.7998046875],
+   "props": {
+    "obji": "0x145"
+   }
+  },
+  {
+   "id": 25,
+   "object": "town-course-towntree1",
+   "pos": [-44.375, 15.625, 141.25],
+   "scale": [1, 0.89990234375, 1],
+   "props": {
+    "obji": "0x145"
+   }
+  },
+  {
+   "id": 26,
+   "object": "town-course-towntree1",
+   "pos": [-53.75, 15.625, 126.875],
+   "scale": [0.849853515625, 0.89990234375, 0.849853515625],
+   "props": {
+    "obji": "0x145"
+   }
+  },
+  {
+   "id": 27,
+   "object": "town-course-towntree1",
+   "pos": [-52.5, 15.625, 96.875],
+   "scale": [1.099853515625, 1.14990234375, 1.099853515625],
+   "props": {
+    "obji": "0x145"
+   }
+  },
+  {
+   "id": 28,
+   "object": "town-course-towntree1",
+   "pos": [-30, 15.625, 114.375],
+   "scale": 0.89990234375,
+   "props": {
+    "obji": "0x145"
+   }
+  },
+  {
+   "id": 29,
+   "object": "town-course-townmonte",
+   "pos": [-118.75, 19.375, 36.875],
+   "props": {
+    "obji": "0x157"
+   }
+  },
+  {
+   "id": 30,
+   "object": "town-course-townmonte",
+   "pos": [-118.75, 19.375, 45],
+   "scale": 1.1171875,
+   "props": {
+    "obji": "0x157"
+   }
+  },
+  {
+   "id": 31,
+   "object": "town-course-townmonte",
+   "pos": [-143.37509155273438, 19.375, 45.625],
+   "scale": 1.104248046875,
+   "props": {
+    "obji": "0x157"
+   }
+  },
+  {
+   "id": 32,
+   "object": "town-course-townmonte",
+   "pos": [-143.28836059570312, 19.375, 36.25],
+   "scale": 1.048828125,
+   "props": {
+    "obji": "0x157"
+   }
+  },
+  {
+   "id": 33,
+   "object": "town-course-townmonte",
+   "pos": [-143.34423828125, 19.375, 76.875],
+   "scale": 1.038818359375,
+   "props": {
+    "obji": "0x157"
+   }
+  },
+  {
+   "id": 34,
+   "object": "town-course-townmonte",
+   "pos": [-143.30162048339844, 21.875, 12.5],
+   "props": {
+    "obji": "0x157"
+   }
+  },
+  {
+   "id": 35,
+   "object": "town-course-townmonte",
+   "pos": [106.875, 18.125, 133.4375],
+   "scale": 0.75,
+   "props": {
+    "obji": "0x157"
+   }
+  },
+  {
+   "id": 36,
+   "object": "town-course-townmonte",
+   "pos": [-162.61830139160156, 34.375, -110],
+   "scale": 1.199951171875,
+   "props": {
+    "obji": "0x157"
+   }
+  },
+  {
+   "id": 37,
+   "object": "town-course-townmonte",
+   "pos": [-130.97967529296875, 34.375, -142.5],
+   "scale": 1.199951171875,
+   "props": {
+    "obji": "0x157"
+   }
+  },
+  {
+   "id": 38,
+   "object": "town-course-townmonte",
+   "pos": [-102.5, 34.375, -130],
+   "scale": 1.199951171875,
+   "props": {
+    "obji": "0x157"
+   }
+  },
+  {
+   "id": 39,
+   "object": "town-course-townmonte",
+   "pos": [-119.125, 20.96875, 17.5],
+   "props": {
+    "obji": "0x157"
+   }
+  }
+ ]
+}

@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Peach Gardens · wanwan_chain",
+ "model": "garden_course-wanwan_chain.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "wanwan_chain"
+ }
+}

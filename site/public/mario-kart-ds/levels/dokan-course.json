@@ -1,0 +1,82 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [9.700675964355469, 226.51770782470703, -352.1523468017578],
+  "target": [9.700675964355469, 47.514251708984375, -42.227943420410156],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "dokan_course-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "dokan-course-model",
+   "pos": [0, 0, 0],
+   "name": "dokan_course (unused)"
+  },
+  {
+   "id": 1,
+   "object": "mapobj-itembox",
+   "pos": [-70.02095031738281, 55.39599609375, -10.355361938476562],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 2,
+   "object": "mapobj-itembox",
+   "pos": [-48.544464111328125, 58.875, -75.83647155761719],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 3,
+   "object": "mapobj-itembox",
+   "pos": [-57.656463623046875, 58.875, -34.67683410644531],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 4,
+   "object": "mapobj-itembox",
+   "pos": [-47.537017822265625, 57.625, -59.52796936035156],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 5,
+   "object": "mapobj-itembox",
+   "pos": [-68.76713562011719, 57.625, -26.85870361328125],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 6,
+   "object": "mapobj-itembox",
+   "pos": [-57.30804443359375, 55.35955810546875, -50.06800842285156],
+   "props": {
+    "obji": "0x065"
+   }
+  }
+ ]
+}

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Wario",
+ "model": "P_WR.glb",
+ "props": {
+  "model": "P_WR"
+ }
+}

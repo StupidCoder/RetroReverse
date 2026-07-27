@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "R.O.B.",
+ "model": "P_RB.glb",
+ "props": {
+  "model": "P_RB"
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Luigi's Mansion (multiplayer) · teresa",
+ "model": "mansion_courseD-teresa.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "teresa"
+ }
+}

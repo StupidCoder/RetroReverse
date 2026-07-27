@@ -1,0 +1,343 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [1.1986160278320312, 224.57079315185547, -323.5312957763672],
+  "target": [1.1986160278320312, 67.9445571899414, 4.196235656738281],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "garden_course_V.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "garden_course-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "garden-course-model",
+   "pos": [0, 0, 0],
+   "name": "Peach Gardens"
+  },
+  {
+   "id": 1,
+   "object": "mapobj-itembox",
+   "pos": [49.375, 64.11068725585938, 3.75],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 2,
+   "object": "mapobj-itembox",
+   "pos": [49.375, 64.11068725585938, 1.25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 3,
+   "object": "mapobj-itembox",
+   "pos": [49.375, 64.11068725585938, -1.25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 4,
+   "object": "mapobj-itembox",
+   "pos": [-137.5, 63.25, -12.5],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 5,
+   "object": "mapobj-itembox",
+   "pos": [-133.75, 63.25, -12.5],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 6,
+   "object": "mapobj-itembox",
+   "pos": [-141.25, 63.25, -12.5],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 7,
+   "object": "mapobj-itembox",
+   "pos": [-119.04092407226562, 63.25, -14.62945556640625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 8,
+   "object": "mapobj-itembox",
+   "pos": [-155.9341278076172, 63.25, -14.705184936523438],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 9,
+   "object": "garden-course-choropu",
+   "pos": [-146.74668884277344, 62.5, -50.79780578613281],
+   "scale": 1.2998046875,
+   "props": {
+    "obji": "0x199"
+   }
+  },
+  {
+   "id": 10,
+   "object": "garden-course-choropu",
+   "pos": [-128.29957580566406, 62.5, -106.23628234863281],
+   "scale": 1.2998046875,
+   "props": {
+    "obji": "0x199"
+   }
+  },
+  {
+   "id": 11,
+   "object": "garden-course-choropu",
+   "pos": [-139.78761291503906, 62.5, -77.15287780761719],
+   "scale": 1.2998046875,
+   "props": {
+    "obji": "0x199"
+   }
+  },
+  {
+   "id": 12,
+   "object": "garden-course-choropu",
+   "pos": [-135.45089721679688, 62.5, -129.24118041992188],
+   "scale": 1.2998046875,
+   "props": {
+    "obji": "0x199"
+   }
+  },
+  {
+   "id": 13,
+   "object": "mapobj-itembox",
+   "pos": [49.375, 64.11068725585938, -3.75],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 14,
+   "object": "garden-course-water-efct",
+   "pos": [37.02784729003906, 60.25238037109375, -32.181182861328125],
+   "props": {
+    "obji": "0x005"
+   }
+  },
+  {
+   "id": 15,
+   "object": "garden-course-gardentree1",
+   "pos": [9.375, 62.5, -75],
+   "props": {
+    "obji": "0x13F"
+   }
+  },
+  {
+   "id": 16,
+   "object": "garden-course-gardentree1",
+   "pos": [-9.375, 62.5, -75],
+   "props": {
+    "obji": "0x13F"
+   }
+  },
+  {
+   "id": 17,
+   "object": "garden-course-gardentree1",
+   "pos": [9.375, 62.5, -87.5],
+   "props": {
+    "obji": "0x13F"
+   }
+  },
+  {
+   "id": 18,
+   "object": "garden-course-gardentree1",
+   "pos": [-9.375, 62.5, -87.5],
+   "props": {
+    "obji": "0x13F"
+   }
+  },
+  {
+   "id": 19,
+   "object": "garden-course-gardentree1",
+   "pos": [9.375, 62.5, -100],
+   "props": {
+    "obji": "0x13F"
+   }
+  },
+  {
+   "id": 20,
+   "object": "garden-course-gardentree1",
+   "pos": [-9.375, 62.5, -100],
+   "props": {
+    "obji": "0x13F"
+   }
+  },
+  {
+   "id": 21,
+   "object": "garden-course-gardentree1",
+   "pos": [71.875, 62.5, -9.375],
+   "props": {
+    "obji": "0x13F"
+   }
+  },
+  {
+   "id": 22,
+   "object": "garden-course-gardentree1",
+   "pos": [71.875, 62.5, 9.375],
+   "props": {
+    "obji": "0x13F"
+   }
+  },
+  {
+   "id": 23,
+   "object": "garden-course-gardentree1",
+   "pos": [84.375, 62.5, -9.375],
+   "props": {
+    "obji": "0x13F"
+   }
+  },
+  {
+   "id": 24,
+   "object": "garden-course-gardentree1",
+   "pos": [84.375, 62.5, 9.375],
+   "props": {
+    "obji": "0x13F"
+   }
+  },
+  {
+   "id": 25,
+   "object": "garden-course-gardentree1",
+   "pos": [96.875, 62.5, -9.375],
+   "props": {
+    "obji": "0x13F"
+   }
+  },
+  {
+   "id": 26,
+   "object": "garden-course-gardentree1",
+   "pos": [96.875, 62.5, 9.375],
+   "props": {
+    "obji": "0x13F"
+   }
+  },
+  {
+   "id": 27,
+   "object": "garden-course-gardentree1",
+   "pos": [-150.55886840820312, 62.5, -141.50559997558594],
+   "props": {
+    "obji": "0x13F"
+   }
+  },
+  {
+   "id": 28,
+   "object": "garden-course-gardentree1",
+   "pos": [-154.83493041992188, 62.5, -40.625],
+   "props": {
+    "obji": "0x138"
+   }
+  },
+  {
+   "id": 29,
+   "object": "garden-course-gardentree1",
+   "pos": [-133.0346221923828, 62.5, -40.54411315917969],
+   "props": {
+    "obji": "0x138"
+   }
+  },
+  {
+   "id": 30,
+   "object": "garden-course-gardentree1",
+   "pos": [-140.12161254882812, 62.5, -56.727813720703125],
+   "props": {
+    "obji": "0x138"
+   }
+  },
+  {
+   "id": 31,
+   "object": "garden-course-gardentree1",
+   "pos": [-159.10400390625, 62.5, -59.375],
+   "props": {
+    "obji": "0x138"
+   }
+  },
+  {
+   "id": 32,
+   "object": "garden-course-gardentree1",
+   "pos": [-146.95555114746094, 62.5, -78.125],
+   "props": {
+    "obji": "0x138"
+   }
+  },
+  {
+   "id": 33,
+   "object": "garden-course-gardentree1",
+   "pos": [-135.83261108398438, 62.5, -96.875],
+   "props": {
+    "obji": "0x138"
+   }
+  },
+  {
+   "id": 34,
+   "object": "garden-course-gardentree1",
+   "pos": [-143.73341369628906, 62.5, -115.66322326660156],
+   "props": {
+    "obji": "0x138"
+   }
+  },
+  {
+   "id": 35,
+   "object": "garden-course-gardentree1",
+   "pos": [-122.3939208984375, 62.5, -78.125],
+   "props": {
+    "obji": "0x138"
+   }
+  },
+  {
+   "id": 36,
+   "object": "garden-course-gardentree1",
+   "pos": [-118.52717590332031, 62.5, -106.87812805175781],
+   "props": {
+    "obji": "0x138"
+   }
+  },
+  {
+   "id": 37,
+   "object": "garden-course-gardentree1",
+   "pos": [-125.36566162109375, 62.5, -118.78373718261719],
+   "props": {
+    "obji": "0x138"
+   }
+  }
+ ]
+}

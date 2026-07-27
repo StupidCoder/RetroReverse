@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GCN Mushroom Bridge · balloon",
+ "model": "old_kinoko_gc-balloon.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "balloon"
+ }
+}

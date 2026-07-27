@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "luigi_course (unused)",
+ "model": "luigi_course.glb",
+ "props": {
+  "model": "luigi_course"
+ }
+}

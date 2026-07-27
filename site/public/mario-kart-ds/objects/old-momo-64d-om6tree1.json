@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "N64 Moo Moo Farm (multiplayer) · om6Tree1",
+ "model": "old_momo_64D-om6Tree1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "om6Tree1"
+ }
+}

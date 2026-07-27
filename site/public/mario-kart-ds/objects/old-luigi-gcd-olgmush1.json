@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GCN Luigi Circuit (multiplayer) · OlgMush1",
+ "model": "old_luigi_gcD-OlgMush1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "OlgMush1"
+ }
+}

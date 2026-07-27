@@ -1,0 +1,231 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-4.8531036376953125, 187.20480346679688, -386.78150634765626],
+  "target": [-4.8531036376953125, 10.3125, -2.430938720703125],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "old_hyudoro_64_V.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "old_hyudoro_64-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "old-hyudoro-64-model",
+   "pos": [0, 0, 0],
+   "name": "N64 Banshee Boardwalk"
+  },
+  {
+   "id": 1,
+   "object": "mapobj-itembox",
+   "pos": [9.173843383789062, 13.25, 29.3411865234375],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 2,
+   "object": "mapobj-itembox",
+   "pos": [-0.8218994140625, 13.25, 34.00520324707031],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 3,
+   "object": "mapobj-itembox",
+   "pos": [5.94561767578125, 13.25, 35.37156677246094],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 4,
+   "object": "mapobj-itembox",
+   "pos": [1.9429779052734375, 13.25, 43.01789855957031],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 5,
+   "object": "mapobj-itembox",
+   "pos": [-47.424957275390625, 13.25, -145.38629150390625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 6,
+   "object": "mapobj-itembox",
+   "pos": [-49.01942443847656, 13.25, -147.18255615234375],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 7,
+   "object": "mapobj-itembox",
+   "pos": [125.57496643066406, 13.25, -138.14306640625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 8,
+   "object": "mapobj-itembox",
+   "pos": [128.97157287597656, 13.25, -136.49368286132812],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 9,
+   "object": "mapobj-itembox",
+   "pos": [129.41607666015625, 13.25, -132.15760803222656],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 10,
+   "object": "mapobj-itembox",
+   "pos": [133.99049377441406, 13.25, -132.14617919921875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 11,
+   "object": "mapobj-itembox",
+   "pos": [144.41844177246094, 13.25, 169.98287963867188],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 12,
+   "object": "mapobj-itembox",
+   "pos": [133.72344970703125, 13.25, 169.36875915527344],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 13,
+   "object": "mapobj-itembox",
+   "pos": [137.59901428222656, 13.25, 173.6593780517578],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 14,
+   "object": "mapobj-itembox",
+   "pos": [142.87750244140625, 13.25, 175.80078125],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 15,
+   "object": "mapobj-itembox",
+   "pos": [-45.78645324707031, 13.25, -143.6223907470703],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 16,
+   "object": "old-hyudoro-64-kanoke-64",
+   "pos": [-31.25, 12.5, 43.75],
+   "rot": [0, -1.5707963267948966, 0],
+   "props": {
+    "obji": "0x19E"
+   }
+  },
+  {
+   "id": 17,
+   "object": "old-hyudoro-64-bakubaku",
+   "pos": [25, 3.125, -150],
+   "rot": [0, 2.2689280275926285, 0],
+   "route": {
+    "id": "r0",
+    "speed": 8,
+    "face": true
+   },
+   "props": {
+    "obji": "0x13C"
+   }
+  },
+  {
+   "id": 18,
+   "object": "old-hyudoro-64-bakubaku",
+   "pos": [-34.16584777832031, 12.5, -146.92578125],
+   "props": {
+    "obji": "0x13D"
+   }
+  },
+  {
+   "id": 19,
+   "object": "old-hyudoro-64-bakubaku",
+   "pos": [115.625, 12.5, 128.125],
+   "props": {
+    "obji": "0x13D"
+   }
+  },
+  {
+   "id": 20,
+   "object": "old-hyudoro-64-water-efct",
+   "pos": [0, 0, 0],
+   "props": {
+    "obji": "0x009"
+   }
+  },
+  {
+   "id": 21,
+   "object": "old-hyudoro-64-water-efct",
+   "pos": [169.5257110595703, 3.125, 19.66119384765625],
+   "props": {
+    "obji": "0x00F"
+   }
+  }
+ ],
+ "routes": [
+  {
+   "id": "r0",
+   "points": [
+    [25, 3.125, -150],
+    [40.625, 15.625, -162.5],
+    [56.25, 21.875, -175],
+    [68.75, 21.875, -184.375],
+    [84.375, 15.625, -196.875],
+    [100, 3.125, -209.375]
+   ]
+  }
+ ]
+}

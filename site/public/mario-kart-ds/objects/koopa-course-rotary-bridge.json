@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Bowser Castle · rotary_bridge",
+ "model": "koopa_course-rotary_bridge.glb",
+ "props": {
+  "model": "rotary_bridge"
+ }
+}

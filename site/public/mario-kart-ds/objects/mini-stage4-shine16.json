@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "mini_stage4 · shine16",
+ "model": "mini_stage4-shine16.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "shine16"
+ }
+}

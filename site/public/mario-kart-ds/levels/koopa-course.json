@@ -1,0 +1,205 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-21.793251037597656, 226.98226165771484, -361.59276428222654],
+  "target": [-21.793251037597656, 50, -6.606788635253906],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "koopa_course_V.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "koopa_course-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "koopa-course-model",
+   "pos": [0, 0, 0],
+   "name": "Bowser Castle"
+  },
+  {
+   "id": 1,
+   "object": "mapobj-itembox",
+   "pos": [-48.4375, 44.5, -25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 2,
+   "object": "mapobj-itembox",
+   "pos": [-45.3125, 44.5, -25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 3,
+   "object": "mapobj-itembox",
+   "pos": [-42.1875, 44.5, -25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 4,
+   "object": "mapobj-itembox",
+   "pos": [-39.0625, 44.5, -25],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 5,
+   "object": "koopa-course-mkd-ef-burner",
+   "pos": [-113.19972229003906, 65.3125, -40.280487060546875],
+   "scale": [1.25, 1.125, 1.25],
+   "props": {
+    "obji": "0x1A4"
+   }
+  },
+  {
+   "id": 6,
+   "object": "koopa-course-mkd-ef-burner",
+   "pos": [-115.04460144042969, 65.3125, -25.548080444335938],
+   "scale": [1.25, 1.125, 1.25],
+   "props": {
+    "obji": "0x1A4"
+   }
+  },
+  {
+   "id": 7,
+   "object": "mapobj-itembox",
+   "pos": [-102.1875, 57, -118.4375],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 8,
+   "object": "mapobj-itembox",
+   "pos": [-107.1875, 57, -118.4375],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 9,
+   "object": "mapobj-itembox",
+   "pos": [-104.6875, 57, -118.4375],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 10,
+   "object": "mapobj-itembox",
+   "pos": [65.625, 63.25, -131.875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 11,
+   "object": "mapobj-itembox",
+   "pos": [65.625, 63.25, -128.75],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 12,
+   "object": "mapobj-itembox",
+   "pos": [65.625, 63.25, -125.625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 13,
+   "object": "mapobj-itembox",
+   "pos": [43.75, 44.492767333984375, -165.3125],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 14,
+   "object": "mapobj-itembox",
+   "pos": [43.75, 44.492767333984375, -161.875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 15,
+   "object": "mapobj-itembox",
+   "pos": [43.75, 44.492767333984375, -158.4375],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 16,
+   "object": "mapobj-itembox",
+   "pos": [112.8125, 35.125, 115.625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 17,
+   "object": "mapobj-itembox",
+   "pos": [104.0625, 35.125, 115.625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 18,
+   "object": "mapobj-itembox",
+   "pos": [99.6875, 35.125, 115.625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 19,
+   "object": "mapobj-itembox",
+   "pos": [108.4375, 35.125, 115.625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 20,
+   "object": "koopa-course-water-efct",
+   "pos": [8.6640625, 28.125, 0.2950439453125],
+   "props": {
+    "obji": "0x00E"
+   }
+  }
+ ]
+}

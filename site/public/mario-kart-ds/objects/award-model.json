@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Award ceremony scene",
+ "model": "Award.glb",
+ "props": {
+  "model": "cross_course"
+ }
+}

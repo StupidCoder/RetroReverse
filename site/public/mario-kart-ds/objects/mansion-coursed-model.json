@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Luigi's Mansion (multiplayer)",
+ "model": "mansion_courseD.glb",
+ "props": {
+  "model": "mansion_courseD"
+ }
+}

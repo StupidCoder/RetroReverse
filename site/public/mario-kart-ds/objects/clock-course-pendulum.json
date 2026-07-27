@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Tick-Tock Clock · pendulum",
+ "model": "clock_course-pendulum.glb",
+ "props": {
+  "model": "pendulum"
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GBA Luigi Circuit · olaTree1c",
+ "model": "old_luigi_agb-olaTree1c.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "olaTree1c"
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GCN Luigi Circuit · wanwan",
+ "model": "old_luigi_gc-wanwan.glb",
+ "props": {
+  "model": "wanwan"
+ }
+}

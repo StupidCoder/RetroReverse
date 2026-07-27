@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "SNES Donut Plains 1",
+ "model": "old_donut_sfc.glb",
+ "props": {
+  "model": "old_donut_sfc"
+ }
+}

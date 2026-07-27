@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "nokonoko_course (unused) · kuribo",
+ "model": "nokonoko_course-kuribo.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "kuribo"
+ }
+}

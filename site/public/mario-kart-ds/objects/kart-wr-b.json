@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Wario — kart B",
+ "model": "kart_WR_b.glb",
+ "props": {
+  "model": "kart_WR_b"
+ }
+}

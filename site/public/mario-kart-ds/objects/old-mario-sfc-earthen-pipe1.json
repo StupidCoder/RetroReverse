@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "SNES Mario Circuit 1 · earthen_pipe1",
+ "model": "old_mario_sfc-earthen_pipe1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "earthen_pipe1"
+ }
+}

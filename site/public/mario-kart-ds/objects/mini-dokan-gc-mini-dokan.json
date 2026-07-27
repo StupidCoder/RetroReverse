@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "mini_dokan_gc · mini_dokan",
+ "model": "mini_dokan_gc-mini_dokan.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "mini_dokan"
+ }
+}

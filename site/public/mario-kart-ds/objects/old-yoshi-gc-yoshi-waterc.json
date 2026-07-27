@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GCN Yoshi Circuit · yoshi_waterC",
+ "model": "old_yoshi_gc-yoshi_waterC.glb",
+ "props": {
+  "model": "yoshi_waterC"
+ }
+}

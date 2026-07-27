@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Dry Bones — kart C",
+ "model": "kart_KA_c.glb",
+ "props": {
+  "model": "kart_KA_c"
+ }
+}

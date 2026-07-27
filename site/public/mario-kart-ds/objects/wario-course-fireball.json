@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "wario_course · FireBall",
+ "model": "wario_course-FireBall.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "FireBall"
+ }
+}

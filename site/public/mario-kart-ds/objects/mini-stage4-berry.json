@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "mini_stage4 · berry",
+ "model": "mini_stage4-berry.glb",
+ "props": {
+  "model": "berry"
+ }
+}

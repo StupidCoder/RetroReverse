@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "N64 Frappe Snowland · of6yoshi1",
+ "model": "old_frappe_64-of6yoshi1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "of6yoshi1"
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Shroom Ridge",
+ "model": "ridge_course.glb",
+ "props": {
+  "model": "ridge_course"
+ }
+}

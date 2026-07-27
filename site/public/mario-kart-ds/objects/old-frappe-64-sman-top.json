@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "N64 Frappe Snowland · sman_top",
+ "model": "old_frappe_64-sman_top.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "sman_top"
+ }
+}

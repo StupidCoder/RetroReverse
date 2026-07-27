@@ -1,0 +1,218 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-9.722938537597656, 149.71381378173828, -327.06800537109376],
+  "target": [-9.722938537597656, 9.33770751953125, -22.295867919921875],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "nokonoko_course-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "nokonoko-course-model",
+   "pos": [0, 0, 0],
+   "name": "nokonoko_course (unused)"
+  },
+  {
+   "id": 1,
+   "object": "mapobj-itembox",
+   "pos": [123.936279296875, 9.8125, 38.213287353515625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 2,
+   "object": "mapobj-itembox",
+   "pos": [129.2854461669922, 9.8125, 38.61155700683594],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 3,
+   "object": "mapobj-itembox",
+   "pos": [134.8334503173828, 9.8125, 39.26939392089844],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 4,
+   "object": "mapobj-itembox",
+   "pos": [140.49655151367188, 9.8125, 39.87261962890625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 5,
+   "object": "mapobj-itembox",
+   "pos": [-105.05314636230469, 9.8125, -71.88563537597656],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 6,
+   "object": "mapobj-itembox",
+   "pos": [-93.802001953125, 9.8125, -75.6036376953125],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 7,
+   "object": "mapobj-itembox",
+   "pos": [-93.18208312988281, 9.8125, -91.47587585449219],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 8,
+   "object": "mapobj-itembox",
+   "pos": [-106.37840270996094, 9.8125, -91.3172607421875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 9,
+   "object": "mapobj-itembox",
+   "pos": [-102.49887084960938, 9.8125, -82.32498168945312],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 10,
+   "object": "mapobj-itembox",
+   "pos": [-113.251220703125, 9.8125, -79.40512084960938],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 11,
+   "object": "nokonoko-course-beachtree1",
+   "pos": [109.3717041015625, 8.7320556640625, 77.88337707519531],
+   "props": {
+    "obji": "0x12D"
+   }
+  },
+  {
+   "id": 12,
+   "object": "nokonoko-course-beachtree1",
+   "pos": [116.30621337890625, 8.7320556640625, 56.141357421875],
+   "props": {
+    "obji": "0x12D"
+   }
+  },
+  {
+   "id": 13,
+   "object": "nokonoko-course-beachtree1",
+   "pos": [137.64183044433594, 8.7320556640625, 50.986328125],
+   "props": {
+    "obji": "0x12D"
+   }
+  },
+  {
+   "id": 14,
+   "object": "nokonoko-course-beachtree1",
+   "pos": [129.1795196533203, 8.7320556640625, -138.30230712890625],
+   "props": {
+    "obji": "0x12D"
+   }
+  },
+  {
+   "id": 15,
+   "object": "nokonoko-course-beachtree1",
+   "pos": [111.60438537597656, 8.7320556640625, -144.2198028564453],
+   "props": {
+    "obji": "0x12D"
+   }
+  },
+  {
+   "id": 16,
+   "object": "nokonoko-course-beachtree1",
+   "pos": [103.38883972167969, 8.7320556640625, -150.77105712890625],
+   "props": {
+    "obji": "0x12D"
+   }
+  },
+  {
+   "id": 17,
+   "object": "nokonoko-course-beachtree1",
+   "pos": [91.66746520996094, 8.7320556640625, -144.2669219970703],
+   "props": {
+    "obji": "0x12D"
+   }
+  },
+  {
+   "id": 18,
+   "object": "nokonoko-course-beachtree1",
+   "pos": [91.66746520996094, 8.7320556640625, -170.2511749267578],
+   "props": {
+    "obji": "0x12D"
+   }
+  },
+  {
+   "id": 19,
+   "object": "nokonoko-course-beachtree1",
+   "pos": [-157.01580810546875, 8.7320556640625, 67.57232666015625],
+   "props": {
+    "obji": "0x12D"
+   }
+  },
+  {
+   "id": 20,
+   "object": "nokonoko-course-beachtree1",
+   "pos": [-155.638916015625, 8.7320556640625, 81.67587280273438],
+   "props": {
+    "obji": "0x12D"
+   }
+  },
+  {
+   "id": 21,
+   "object": "nokonoko-course-beachtree1",
+   "pos": [-143.60076904296875, 8.7320556640625, 111.60000610351562],
+   "props": {
+    "obji": "0x12D"
+   }
+  },
+  {
+   "id": 22,
+   "object": "nokonoko-course-beachtree1",
+   "pos": [-98.91609191894531, 8.7320556640625, 124.18486022949219],
+   "props": {
+    "obji": "0x12D"
+   }
+  },
+  {
+   "id": 23,
+   "object": "nokonoko-course-beachtree1",
+   "pos": [-72.23727416992188, 8.7320556640625, 106.10537719726562],
+   "props": {
+    "obji": "0x12D"
+   }
+  }
+ ]
+}

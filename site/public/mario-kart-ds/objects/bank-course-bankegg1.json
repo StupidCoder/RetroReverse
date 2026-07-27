@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Yoshi Falls · BankEgg1",
+ "model": "bank_course-BankEgg1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "BankEgg1"
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GCN Baby Park · balloon",
+ "model": "old_baby_gc-balloon.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "balloon"
+ }
+}

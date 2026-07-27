@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Donkey Kong",
+ "model": "P_DK.glb",
+ "props": {
+  "model": "P_DK"
+ }
+}

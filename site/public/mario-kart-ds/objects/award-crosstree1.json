@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Award ceremony scene · CrossTree1",
+ "model": "Award-CrossTree1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "CrossTree1"
+ }
+}

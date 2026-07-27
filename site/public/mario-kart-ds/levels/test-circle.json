@@ -1,0 +1,42 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-0.26786041259765625, 28.078330993652344, -30.979006958007812],
+  "target": [-0.26786041259765625, 12.65972900390625, 0.23492431640625],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "test_circle-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "test-circle-model",
+   "pos": [0, 0, 0],
+   "name": "test_circle"
+  },
+  {
+   "id": 1,
+   "object": "mapobj-itembox",
+   "pos": [19.375, 13.40972900390625, 0],
+   "props": {
+    "obji": "0x065"
+   }
+  }
+ ]
+}

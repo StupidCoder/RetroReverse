@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Bowser — kart C",
+ "model": "kart_KP_c.glb",
+ "props": {
+  "model": "kart_KP_c"
+ }
+}

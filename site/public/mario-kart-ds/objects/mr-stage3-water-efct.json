@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "MR_stage3 · water_efct",
+ "model": "MR_stage3-water_efct.glb",
+ "props": {
+  "model": "water_efct"
+ }
+}

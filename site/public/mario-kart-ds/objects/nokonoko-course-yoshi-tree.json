@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "nokonoko_course (unused) · yoshi_tree",
+ "model": "nokonoko_course-yoshi_tree.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "yoshi_tree"
+ }
+}

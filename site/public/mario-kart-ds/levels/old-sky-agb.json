@@ -1,0 +1,328 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-2.082794189453125, 143.70689392089844, -245.56942138671874],
+  "target": [-2.082794189453125, 31.304222106933594, -2.7860183715820312],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "old_sky_agb_V.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "old_sky_agb-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "old-sky-agb-model",
+   "pos": [0, 0, 0],
+   "name": "GBA Sky Garden"
+  },
+  {
+   "id": 1,
+   "object": "mapobj-itembox",
+   "pos": [65.625, 32, -105.3125],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 2,
+   "object": "mapobj-itembox",
+   "pos": [65.625, 32, -102.1875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 3,
+   "object": "mapobj-itembox",
+   "pos": [65.625, 32, -95.9375],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 4,
+   "object": "mapobj-itembox",
+   "pos": [-78.75, 34.1875, 16.279251098632812],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 5,
+   "object": "mapobj-itembox",
+   "pos": [19.128890991210938, 32, 75.67495727539062],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 6,
+   "object": "mapobj-itembox",
+   "pos": [21.603408813476562, 32, 75.69081115722656],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 7,
+   "object": "mapobj-itembox",
+   "pos": [26.741470336914062, 32, 75.65238952636719],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 8,
+   "object": "mapobj-itembox",
+   "pos": [65.625, 32, -99.0625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 9,
+   "object": "mapobj-itembox",
+   "pos": [24.18017578125, 32, 75.61955261230469],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 10,
+   "object": "old-sky-agb-airship",
+   "pos": [191.5462646484375, 37.5, -122.97732543945312],
+   "scale": 0.75,
+   "route": {
+    "id": "r3",
+    "speed": 8,
+    "face": true
+   },
+   "props": {
+    "obji": "0x158"
+   }
+  },
+  {
+   "id": 11,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [18.75, 31.25, -85.625],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 12,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [-23.75, 31.25, -84.375],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 13,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [-46.875, 31.25, -81.25],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 14,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [-74.375, 31.25, -103.75],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 15,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [-80.625, 31.25, -95],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 16,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [-98.75, 31.25, -73.75],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 17,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [-80.625, 31.25, -21.875],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 18,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [-70, 31.25, -3.75],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 19,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [-85, 31.25, 23.4375],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 20,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [-105, 31.25, 117.5],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 21,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [-56.25, 31.25, 80.625],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 22,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [-34.375, 31.25, 63.125],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 23,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [-20.625, 31.25, 59.375],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 24,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [-0.3125, 31.25, 21.5625],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 25,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [30, 31.25, 9.375],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 26,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [61.25, 31.25, 2.5],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 27,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [38.125, 31.25, 27.5],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 28,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [33.125, 31.25, 119.0625],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 29,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [61.875, 31.25, 109.375],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 30,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [86.875, 31.25, 73.125],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 31,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [102.5, 31.25, 61.875],
+   "props": {
+    "obji": "0x150"
+   }
+  },
+  {
+   "id": 32,
+   "object": "old-sky-agb-osatree1c",
+   "pos": [109.375, 31.25, 30.3125],
+   "props": {
+    "obji": "0x150"
+   }
+  }
+ ],
+ "routes": [
+  {
+   "id": "r3",
+   "loop": true,
+   "points": [
+    [191.53927612304688, 37.5, -122.93971252441406],
+    [160.91928100585938, 37.5, -181.20436096191406],
+    [84.375, 37.5, -206.25],
+    [-12.5, 37.5, -196.875],
+    [-112.2978515625, 37.5, -204.10919189453125],
+    [-175.9737091064453, 37.5, -151.29660034179688],
+    [-179.40621948242188, 37.5, -28.803451538085938],
+    [-204.520263671875, 37.5, 97.1031494140625],
+    [-185.3069610595703, 37.5, 190.93019104003906],
+    [-109.48445129394531, 37.5, 203.41978454589844],
+    [-22.044448852539062, 37.5, 190.31173706054688],
+    [111.53125, 37.5, 204.79725646972656],
+    [192.54373168945312, 37.5, 143.31796264648438],
+    [203.41070556640625, 37.5, 46.03160095214844],
+    [193.28631591796875, 37.5, -29.622512817382812]
+   ]
+  }
+ ]
+}

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Cheep Cheep Beach · water_efct",
+ "model": "beach_course-water_efct.glb",
+ "props": {
+  "model": "water_efct"
+ }
+}

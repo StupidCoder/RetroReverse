@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "nokonoko_course (unused) · beach_waterA",
+ "model": "nokonoko_course-beach_waterA.glb",
+ "props": {
+  "model": "beach_waterA"
+ }
+}

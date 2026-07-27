@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Luigi's Mansion · chandelier",
+ "model": "mansion_course-chandelier.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "chandelier"
+ }
+}

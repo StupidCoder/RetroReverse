@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Waluigi Pinball · dram",
+ "model": "pinball_course-dram.glb",
+ "props": {
+  "model": "dram"
+ }
+}

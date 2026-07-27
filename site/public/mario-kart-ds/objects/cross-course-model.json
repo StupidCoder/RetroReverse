@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Figure-8 Circuit",
+ "model": "cross_course.glb",
+ "props": {
+  "model": "cross_course"
+ }
+}

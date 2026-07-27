@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Peach Gardens · GardenTree1",
+ "model": "garden_course-GardenTree1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "GardenTree1"
+ }
+}

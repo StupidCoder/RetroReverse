@@ -1,0 +1,64 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "MR_stage1",
+ "model": "MR_stage1.glb",
+ "uvAnims": [
+  {
+   "material": "ShdwOff1",
+   "frames": 480,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transT": {
+    "const": 0.068359375
+   }
+  },
+  {
+   "material": "ShdwOff",
+   "frames": 480,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transT": {
+    "const": 0.541015625
+   }
+  },
+  {
+   "material": "lambert359",
+   "frames": 480,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transT": {
+    "const": 1.013671875
+   }
+  },
+  {
+   "material": "lambert321",
+   "frames": 480,
+   "scaleS": {
+    "const": 1
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transT": {
+    "const": 1.251953125
+   }
+  }
+ ],
+ "props": {
+  "model": "MR_stage1"
+ }
+}

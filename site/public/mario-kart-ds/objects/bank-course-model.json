@@ -1,0 +1,64 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Yoshi Falls",
+ "model": "bank_course.glb",
+ "uvAnims": [
+  {
+   "material": "lambert292",
+   "frames": 480,
+   "scaleS": {
+    "const": 2
+   },
+   "scaleT": {
+    "const": 2
+   },
+   "transT": {
+    "const": 0.068359375
+   }
+  },
+  {
+   "material": "lambert20",
+   "frames": 480,
+   "scaleS": {
+    "const": 3
+   },
+   "scaleT": {
+    "const": 1
+   },
+   "transT": {
+    "const": 0.306640625
+   }
+  },
+  {
+   "material": "falls_02",
+   "frames": 480,
+   "scaleS": {
+    "const": 8
+   },
+   "scaleT": {
+    "const": 2
+   },
+   "transT": {
+    "const": 0.544921875
+   }
+  },
+  {
+   "material": "falls_01",
+   "frames": 480,
+   "scaleS": {
+    "const": 8
+   },
+   "scaleT": {
+    "const": 2
+   },
+   "transT": {
+    "const": 0.783203125
+   }
+  }
+ ],
+ "props": {
+  "model": "bank_course"
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Mario — kart C",
+ "model": "kart_MR_c.glb",
+ "props": {
+  "model": "kart_MR_c"
+ }
+}

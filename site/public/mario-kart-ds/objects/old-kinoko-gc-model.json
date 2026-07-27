@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GCN Mushroom Bridge",
+ "model": "old_kinoko_gc.glb",
+ "props": {
+  "model": "old_kinoko_gc"
+ }
+}

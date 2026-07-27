@@ -1,0 +1,37 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [0, 60, -120],
+  "target": [0, 0, 0],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "MR_stage3_V.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "mr-stage3-model",
+   "pos": [0, 0, 0],
+   "name": "MR_stage3"
+  }
+ ]
+}

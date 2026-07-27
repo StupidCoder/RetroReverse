@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Luigi's Mansion · teresa",
+ "model": "mansion_course-teresa.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "teresa"
+ }
+}

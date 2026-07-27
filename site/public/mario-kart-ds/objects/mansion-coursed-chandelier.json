@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Luigi's Mansion (multiplayer) · chandelier",
+ "model": "mansion_courseD-chandelier.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "chandelier"
+ }
+}

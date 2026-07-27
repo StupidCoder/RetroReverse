@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Delfino Square · water_efct",
+ "model": "town_course-water_efct.glb",
+ "props": {
+  "model": "water_efct"
+ }
+}

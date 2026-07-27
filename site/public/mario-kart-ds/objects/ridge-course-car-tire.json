@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Shroom Ridge · car_tire",
+ "model": "ridge_course-car_tire.glb",
+ "props": {
+  "model": "car_tire"
+ }
+}

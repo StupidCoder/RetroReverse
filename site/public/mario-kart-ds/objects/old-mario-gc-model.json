@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "old_mario_gc (unused)",
+ "model": "old_mario_gc.glb",
+ "props": {
+  "model": "old_mario_gc"
+ }
+}

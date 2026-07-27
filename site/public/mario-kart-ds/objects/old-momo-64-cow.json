@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "N64 Moo Moo Farm · cow",
+ "model": "old_momo_64-cow.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "cow"
+ }
+}

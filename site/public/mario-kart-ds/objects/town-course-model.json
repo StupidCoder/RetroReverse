@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Delfino Square",
+ "model": "town_course.glb",
+ "props": {
+  "model": "town_course"
+ }
+}

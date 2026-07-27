@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "nokonoko_course (unused)",
+ "model": "nokonoko_course.glb",
+ "props": {
+  "model": "nokonoko_course"
+ }
+}

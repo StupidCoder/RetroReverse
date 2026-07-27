@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Daisy",
+ "model": "P_DS.glb",
+ "props": {
+  "model": "P_DS"
+ }
+}

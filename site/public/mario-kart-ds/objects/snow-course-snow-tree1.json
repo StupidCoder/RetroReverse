@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "DK Pass · Snow_Tree1",
+ "model": "snow_course-Snow_Tree1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "Snow_Tree1"
+ }
+}

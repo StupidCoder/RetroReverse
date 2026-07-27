@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Donkey Kong — kart C",
+ "model": "kart_DK_c.glb",
+ "props": {
+  "model": "kart_DK_c"
+ }
+}

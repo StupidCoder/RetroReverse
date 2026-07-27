@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Airship Fortress · NsKiller2_s",
+ "model": "airship_course-NsKiller2_s.glb",
+ "props": {
+  "model": "NsKiller2_s"
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "mini_stage4 · cream_effect",
+ "model": "mini_stage4-cream_effect.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "cream_effect"
+ }
+}

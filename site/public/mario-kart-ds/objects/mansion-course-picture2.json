@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Luigi's Mansion · picture2",
+ "model": "mansion_course-picture2.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "picture2"
+ }
+}

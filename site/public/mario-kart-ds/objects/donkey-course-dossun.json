@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "donkey_course (unused) · dossun",
+ "model": "donkey_course-dossun.glb",
+ "props": {
+  "model": "dossun"
+ }
+}

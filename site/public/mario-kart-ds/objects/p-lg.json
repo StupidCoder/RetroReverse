@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Luigi",
+ "model": "P_LG.glb",
+ "props": {
+  "model": "P_LG"
+ }
+}

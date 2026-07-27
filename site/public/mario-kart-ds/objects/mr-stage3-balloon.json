@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "MR_stage3 · balloon",
+ "model": "MR_stage3-balloon.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "balloon"
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Desert Hills · sun_LOD",
+ "model": "desert_course-sun_LOD.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "sun_LOD"
+ }
+}

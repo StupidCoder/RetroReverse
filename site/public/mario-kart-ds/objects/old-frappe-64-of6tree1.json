@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "N64 Frappe Snowland · Of6Tree1",
+ "model": "old_frappe_64-Of6Tree1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "Of6Tree1"
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "SNES Donut Plains 1 · water_efct",
+ "model": "old_donut_sfc-water_efct.glb",
+ "props": {
+  "model": "water_efct"
+ }
+}

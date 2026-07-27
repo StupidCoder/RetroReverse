@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "N64 Banshee Boardwalk · bakubaku",
+ "model": "old_hyudoro_64-bakubaku.glb",
+ "props": {
+  "model": "bakubaku"
+ }
+}

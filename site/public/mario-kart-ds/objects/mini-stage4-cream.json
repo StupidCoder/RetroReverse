@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "mini_stage4 · cream",
+ "model": "mini_stage4-cream.glb",
+ "props": {
+  "model": "cream"
+ }
+}

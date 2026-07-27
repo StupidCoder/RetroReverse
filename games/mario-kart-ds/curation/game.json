@@ -1,0 +1,6 @@
+{
+ "title": "Mario Kart DS",
+ "platform": "Nintendo DS",
+ "year": 2005,
+ "description": "The DS kart racer, rebuilt from the cartridge. Every course is its own NSBMD scene converted to GLB with the game's texture-SRT animations still running (water, lava, conveyors), the '_V' skybox riding the camera exactly as the engine draws it, and each NKM OBJI map object placed at its authored transform — movers follow their own NKM routes, and the CPU drive line can be toggled on as a line layer. Characters, karts and every map object are browsable as models, and all of the SDAT's sequenced music is rendered through our SSEQ/SBNK/SWAR pipeline."
+}

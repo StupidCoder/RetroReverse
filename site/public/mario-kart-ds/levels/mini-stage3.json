@@ -1,0 +1,141 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [0, 60, -120],
+  "target": [0, 0, 0],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "mini_stage3_V.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "mini-stage3-model",
+   "pos": [0, 0, 0],
+   "name": "mini_stage3"
+  },
+  {
+   "id": 1,
+   "object": "mini-stage3-water-efct",
+   "pos": [0, 10.949996948242188, 0],
+   "props": {
+    "obji": "0x00C"
+   }
+  },
+  {
+   "id": 2,
+   "object": "mapobj-itembox",
+   "pos": [4.1637420654296875, 16.395355224609375, 3.3141326904296875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 3,
+   "object": "mapobj-itembox",
+   "pos": [14.193023681640625, 16.295944213867188, -3.7319488525390625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 4,
+   "object": "mapobj-itembox",
+   "pos": [-5.58880615234375, 13.354278564453125, 38.93437194824219],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 5,
+   "object": "mapobj-itembox",
+   "pos": [-9.231155395507812, 13.649810791015625, -34.536041259765625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 6,
+   "object": "mapobj-itembox",
+   "pos": [9.03424072265625, 16.23065185546875, -9.631179809570312],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 7,
+   "object": "mapobj-itembox",
+   "pos": [2.9671783447265625, 16.351638793945312, -4.50518798828125],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 8,
+   "object": "mapobj-itembox",
+   "pos": [-21.513504028320312, 14.276123046875, -6.747161865234375],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 9,
+   "object": "mapobj-itembox",
+   "pos": [11.846527099609375, 16.259353637695312, 3.748443603515625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 10,
+   "object": "mapobj-itembox",
+   "pos": [16.622421264648438, 13.919967651367188, 23.1009521484375],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 11,
+   "object": "mapobj-itembox",
+   "pos": [13.403900146484375, 13.926437377929688, -23.4820556640625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 12,
+   "object": "mapobj-itembox",
+   "pos": [33.001739501953125, 14.343368530273438, 2.2098541259765625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 13,
+   "object": "mapobj-itembox",
+   "pos": [-18.710922241210938, 14.143341064453125, 16.5159912109375],
+   "props": {
+    "obji": "0x065"
+   }
+  }
+ ]
+}

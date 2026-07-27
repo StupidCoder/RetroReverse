@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Luigi's Mansion · move_tree",
+ "model": "mansion_course-move_tree.glb",
+ "props": {
+  "model": "move_tree"
+ }
+}

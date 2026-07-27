@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Tick-Tock Clock · gear_black",
+ "model": "clock_course-gear_black.glb",
+ "props": {
+  "model": "gear_black"
+ }
+}

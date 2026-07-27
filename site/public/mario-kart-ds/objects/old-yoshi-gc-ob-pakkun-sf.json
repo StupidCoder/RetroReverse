@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GCN Yoshi Circuit · ob_pakkun_sf",
+ "model": "old_yoshi_gc-ob_pakkun_sf.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "ob_pakkun_sf"
+ }
+}

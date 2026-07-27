@@ -1,0 +1,155 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [0.0617218017578125, 187.85723876953125, -298.78453979492184],
+  "target": [0.0617218017578125, 33.008079528808594, 2.284210205078125],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "old_choco_64_V.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "old_choco_64-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "old-choco-64-model",
+   "pos": [0, 0, 0],
+   "name": "N64 Choco Mountain"
+  },
+  {
+   "id": 1,
+   "object": "mapobj-itembox",
+   "pos": [-108.16566467285156, 32, 108.01469421386719],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 2,
+   "object": "mapobj-itembox",
+   "pos": [-105.40715026855469, 32, 108.72889709472656],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 3,
+   "object": "mapobj-itembox",
+   "pos": [-102.13386535644531, 32, 106.35313415527344],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 4,
+   "object": "mapobj-itembox",
+   "pos": [-104.92019653320312, 32, 105.94219970703125],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 5,
+   "object": "mapobj-itembox",
+   "pos": [-101.90074157714844, 32, 103.66336059570312],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 6,
+   "object": "mapobj-itembox",
+   "pos": [51.168243408203125, 33.5625, -107.06678771972656],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 7,
+   "object": "mapobj-itembox",
+   "pos": [49.550079345703125, 33.5625, -101.92111206054688],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 8,
+   "object": "mapobj-itembox",
+   "pos": [49.644195556640625, 33.5625, -109.49632263183594],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 9,
+   "object": "mapobj-itembox",
+   "pos": [51.23292541503906, 33.5625, -104.2528076171875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 10,
+   "object": "mapobj-itembox",
+   "pos": [50.518524169921875, 36.6875, 111.57734680175781],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 11,
+   "object": "mapobj-itembox",
+   "pos": [47.785491943359375, 36.6875, 109.56742858886719],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 12,
+   "object": "mapobj-itembox",
+   "pos": [48.29034423828125, 36.6875, 106.66026306152344],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 13,
+   "object": "mapobj-itembox",
+   "pos": [45.80113220214844, 36.6875, 104.64976501464844],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 14,
+   "object": "old-choco-64-water-efct",
+   "pos": [128.10568237304688, 25, 35.049407958984375],
+   "props": {
+    "obji": "0x005"
+   }
+  }
+ ]
+}

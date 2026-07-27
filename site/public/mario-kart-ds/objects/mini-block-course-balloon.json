@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "mini_block_course · balloon",
+ "model": "mini_block_course-balloon.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "balloon"
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "N64 Choco Mountain",
+ "model": "old_choco_64.glb",
+ "props": {
+  "model": "old_choco_64"
+ }
+}

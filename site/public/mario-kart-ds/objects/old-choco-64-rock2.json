@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "N64 Choco Mountain · rock2",
+ "model": "old_choco_64-rock2.glb",
+ "props": {
+  "model": "rock2"
+ }
+}

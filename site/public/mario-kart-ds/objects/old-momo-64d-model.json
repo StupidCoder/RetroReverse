@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "N64 Moo Moo Farm (multiplayer)",
+ "model": "old_momo_64D.glb",
+ "props": {
+  "model": "old_momo_64D"
+ }
+}

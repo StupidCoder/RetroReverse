@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "nokonoko_course (unused) · BeachTree1",
+ "model": "nokonoko_course-BeachTree1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "BeachTree1"
+ }
+}

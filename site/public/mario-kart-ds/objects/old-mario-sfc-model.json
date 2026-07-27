@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "SNES Mario Circuit 1",
+ "model": "old_mario_sfc.glb",
+ "props": {
+  "model": "old_mario_sfc"
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Peach",
+ "model": "P_PC.glb",
+ "props": {
+  "model": "P_PC"
+ }
+}

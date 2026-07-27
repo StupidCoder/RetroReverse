@@ -1,0 +1,215 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-98.96900939941406, 185.530029296875, -273.7945831298828],
+  "target": [-98.96900939941406, 17.633773803710938, 68.67649841308594],
+  "fov": 50,
+  "near": 0.1,
+  "far": 4000,
+  "fly": {
+   "speed": 30
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "sky",
+    "name": "Skybox",
+    "file": "stadium_course_V.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "role": "sky"
+   },
+   {
+    "id": "driveline",
+    "name": "CPU drive line",
+    "file": "stadium_course-driveline.glb",
+    "mode": "toggle"
+   }
+  ]
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "stadium-course-model",
+   "pos": [0, 0, 0],
+   "name": "Wario Stadium"
+  },
+  {
+   "id": 1,
+   "object": "mapobj-itembox",
+   "pos": [-51.71875, 27.3125, 17.5],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 2,
+   "object": "mapobj-itembox",
+   "pos": [-53.90625, 27.3125, 17.5],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 3,
+   "object": "mapobj-itembox",
+   "pos": [-47.34375, 27.3125, 17.5],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 4,
+   "object": "mapobj-itembox",
+   "pos": [-49.53125, 27.3125, 17.5],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 5,
+   "object": "mapobj-itembox",
+   "pos": [-202.37391662597656, 25.75, 26.502578735351562],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 6,
+   "object": "mapobj-itembox",
+   "pos": [-200.5273895263672, 25.75, 24.51226806640625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 7,
+   "object": "mapobj-itembox",
+   "pos": [15.167282104492188, 13.99737548828125, 55.863311767578125],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 8,
+   "object": "mapobj-itembox",
+   "pos": [14.948440551757812, 13.935317993164062, 49.018310546875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 9,
+   "object": "mapobj-itembox",
+   "pos": [21.411849975585938, 13.992019653320312, 52.24055480957031],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 10,
+   "object": "mapobj-itembox",
+   "pos": [21.36505126953125, 13.975982666015625, 45.56756591796875],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 11,
+   "object": "mapobj-itembox",
+   "pos": [21.426513671875, 13.99981689453125, 59.18878173828125],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 12,
+   "object": "mapobj-itembox",
+   "pos": [-142.9835205078125, 11.637496948242188, 152.2017822265625],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 13,
+   "object": "mapobj-itembox",
+   "pos": [-139.55210876464844, 12.355667114257812, 151.27491760253906],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 14,
+   "object": "mapobj-itembox",
+   "pos": [-136.13246154785156, 12.365188598632812, 150.1334991455078],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 15,
+   "object": "mapobj-itembox",
+   "pos": [-132.35894775390625, 11.712783813476562, 149.2041473388672],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 16,
+   "object": "stadium-course-fireball2",
+   "pos": [-156.5452117919922, 16.25, 127.80244445800781],
+   "rot": [0, -2.792526803190927, 0],
+   "props": {
+    "obji": "0x1AF"
+   }
+  },
+  {
+   "id": 17,
+   "object": "stadium-course-fireball2",
+   "pos": [-143.17724609375, 16.25, 179.08865356445312],
+   "rot": [0, 0.08726646259971647, 0],
+   "props": {
+    "obji": "0x1AF"
+   }
+  },
+  {
+   "id": 18,
+   "object": "stadium-course-fireball2",
+   "pos": [-195.69129943847656, 26.25, 31.767303466796875],
+   "rot": [0, -2.2689280275926285, 0],
+   "props": {
+    "obji": "0x1AF"
+   }
+  },
+  {
+   "id": 19,
+   "object": "stadium-course-fireball2",
+   "pos": [-232.89984130859375, 25.9375, 0.1006927490234375],
+   "rot": [0, 0.8726646259971648, 0],
+   "props": {
+    "obji": "0x1AF"
+   }
+  },
+  {
+   "id": 20,
+   "object": "mapobj-itembox",
+   "pos": [-238.22006225585938, 25.75, -7.3223419189453125],
+   "props": {
+    "obji": "0x065"
+   }
+  },
+  {
+   "id": 21,
+   "object": "mapobj-itembox",
+   "pos": [-240.1540069580078, 25.75, -5.25067138671875],
+   "props": {
+    "obji": "0x065"
+   }
+  }
+ ]
+}

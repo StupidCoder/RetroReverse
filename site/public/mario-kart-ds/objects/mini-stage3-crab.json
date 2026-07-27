@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "mini_stage3 · crab",
+ "model": "mini_stage3-crab.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "crab"
+ }
+}

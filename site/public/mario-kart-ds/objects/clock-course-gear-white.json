@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Tick-Tock Clock · gear_white",
+ "model": "clock_course-gear_white.glb",
+ "props": {
+  "model": "gear_white"
+ }
+}

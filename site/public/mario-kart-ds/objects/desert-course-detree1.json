@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Desert Hills · DeTree1",
+ "model": "desert_course-DeTree1.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "DeTree1"
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "GCN Yoshi Circuit · kamome",
+ "model": "old_yoshi_gc-kamome.glb",
+ "billboard": "yaw",
+ "props": {
+  "model": "kamome"
+ }
+}
