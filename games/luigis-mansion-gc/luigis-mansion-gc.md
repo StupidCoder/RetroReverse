@@ -516,11 +516,54 @@ names a member that was cut from `room_45.arc`.
 
 ## Open items
 
+* **The mansion tour — a collision-aware camera fly-through** of the assembled mansion.
+  There is no ready-made path in the game's data (`jmp/railinfo` + the `path/*` splines
+  are *actor* rails — ghost escape routes, the rat runs — and the game's own cameras are
+  fixed per-room rigs), so the tour is generated offline from data we already have, and
+  shipped as a `cameraTrack` JSON the existing fly-until-grabbed player consumes:
+  1. **Route from the door graph.** The DOL door list is a room-adjacency graph with
+     exact 3-D coordinates on every edge. A hand-picked room order (a dozen showpiece
+     rooms — foyer, ballroom, kitchen, conservatory, a basement corridor; the graph
+     fills in the connective legs) turns into door-to-door legs, never centroid-based:
+     room centroids sit inside furniture (the billiard table) or under stair sweeps.
+  2. **Free space from the shipped geometry.** The room + furniture GLBs plus the
+     placement transforms are the collision proxy — no new decode needed (`col.mp`,
+     905 KB in map2.szp, is the game's own collision mesh and remains unreversed; it
+     would say the same thing). Per room: voxelize at ~40–50 units, mark cells cut by
+     any triangle, dilate the occupied set by the camera clearance (~60–80 units).
+     The remainder is the flyable volume — it excludes banisters, chandelier drops,
+     tabletops by construction. Doorways get a locally reduced clearance radius
+     (a 200-unit opening cannot pass an 80-unit bubble; the approach is perpendicular
+     and the door has already swung open).
+  3. **A\* door-to-door with a clearance-shaped cost.** Plain shortest-path hugs
+     corners; adding a proximity penalty pushes the route toward the medial axis of
+     each free pocket ("the cameraman's comfortable line"), and a mild band cost keeps
+     it near eye height (~140–160 above the storey's floor) instead of ballooning to
+     the ceiling. Vertical transitions happen inside the rooms that justify them
+     (the foyer, stairwell room 36).
+  4. **Smooth, then re-validate the smooth.** Shortcut the voxel staircase (drop
+     waypoints while the straight segment keeps line-of-sight through free cells),
+     fit a centripetal Catmull-Rom, arc-length reparameterize for constant speed —
+     then sample the spline densely and check every sample against the grid,
+     re-inserting waypoints where the curve bulges out of the corridor. This loop is
+     the step naive smoothing skips, and why naive smoothed paths clip.
+  5. **Doors open ahead of the camera.** The tour knows which opening each leg
+     threads; fire the swing's open half a second before arrival, the close half once
+     through — the leaves hold at their apex exactly like the click interaction.
+  6. **Verify like everything else ships:** fly the generated track headless, record
+     the minimum distance-to-geometry over the whole run, eyeball the worst frames.
+     The deliverable is `mansion-tour.json` plus a "never closer than N units" number,
+     not a spline that looked fine in three scrubbed spots. Caveat to check on the
+     full watch-through: a collision-clean *path* is not yet a clean *picture* — the
+     look-ahead target can drag the view across a wall edge near sharp turns; damp the
+     look target harder or pull it in when a camera→target ray is occluded.
 * The demo's binding of shots to archives and archive members to actors (the `.scd` names
   only lights; the model actors and their mirror placement matrix are set up in code).
 * The `.sls` normal pass's target indexing (exists, unexercised in the opening shots).
 * `.txp` — texture-pattern animation (the torch's flame), consumed by the evaluator at
   `0x8005C7AC` through the `.scd`-style channel interpolators.
-* The mansion itself: `Iwamoto/map2/room_*.arc` room archives, `Map/map*.szp`, the in-game
-  actor models in `model/*.szp` (same .mdl format family, unverified).
-* Audio: `AudioRes/` (JAudio banks, sequences, and the `.afc` streams the cutscene plays).
+* The mansion itself: `Map/map*.szp` beyond map2 (map0/map1/map6's own room sets), the
+  in-game actor models in `model/*.szp` (same .mdl format family, unverified), and
+  `col.mp` — the mansion's collision mesh.
+* Audio: `AudioRes/` (JAudio banks, sequences, and the `.afc` streams the cutscene
+  plays) — also the gate for making the `.bas` sound cues audible.

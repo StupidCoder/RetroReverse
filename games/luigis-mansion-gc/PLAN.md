@@ -82,8 +82,11 @@ by the six two-stage rooms (63/65/66/67, b1_c_67, gyara_00).
    furniture placement came straight from `jmp/furnitureinfo`, no `.bas` needed).
 2. **Viewer work**: ~~`lm-mansion` renderer~~ ✅; ~~floor slider~~ ✅ (storey layers:
    basement/ground/first/attic peel the dollhouse, exterior+roof separate);
-   ~~doors~~ ✅ (placed from the DOL list, click to swing). Still open: a camera-track
-   fly-through, per-room highlight on entry.
+   ~~doors~~ ✅ (placed from the DOL list, click to swing). Still open: the mansion
+   tour — a collision-aware generated fly-through (full design in the writeup's Open
+   items: door-graph route, voxelized free space from the shipped GLBs, clearance-shaped
+   A*, validated Catmull-Rom, doors opening ahead of the camera) — and per-room
+   highlight on entry.
 3. **Performance**: shells stream 6-at-a-time with a shared furniture cache (~58 MB
    total, in line with the site's bigger games); KTX2 only if it ever hurts.
 4. **Stretch**: the dark-ambient flashlight preset; the `[13]/[14]` material-stage
