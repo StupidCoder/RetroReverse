@@ -134,7 +134,9 @@ export async function mount(ctx, doc) {
   if (!activeVariant && variants.length) {
     activeVariant = (variants.find((v) => v.default) || variants[0]).id;
   }
-  if (variants.length) ctx.setVariants(variants, activeVariant);
+  if (variants.length) {
+    ctx.setVariants(variants, activeVariant, (id) => { activeVariant = id; applyVariant(); });
+  }
 
   // ---- placements ---------------------------------------------------------------------
   const lib = new ObjectLibrary(game);
@@ -165,7 +167,13 @@ export async function mount(ctx, doc) {
         node.userData.variants = pl.variants;
       }
       if (inst.playAnim && pl.anim) inst.playAnim(pl.anim);
-      else if (inst.playAnim && inst.doc.animations?.length) inst.playAnim(inst.doc.animations[0].id);
+      else if (inst.playAnim) {
+        // Autoplay only an idle (looping) clip. One-shot clips are
+        // interactions — autoplaying them made every door in the mansion
+        // swing open and shut once at load.
+        const idle = (inst.doc.animations || []).find((a) => (a.loop || 'loop') === 'loop' || a.loop === 'pingpong');
+        if (idle) inst.playAnim(idle.id);
+      }
       if (inst.update) stage.updaters.add((dt, cp, t) => { if (node.visible) inst.update(dt, cp, t); });
       wireBehavior(stage, node, pl, routeById);
     } catch (e) {
@@ -173,12 +181,13 @@ export async function mount(ctx, doc) {
     }
   }));
 
-  const applyVariant = () => {
+  // hoisted: the variant setter can fire while placements are still loading
+  function applyVariant() {
     for (const { pl, node } of placementById.values()) {
       node.userData.varOn = !pl.variants?.length || pl.variants.includes(activeVariant);
       node.visible = node.userData.varOn;
     }
-  };
+  }
   if (variants.length) applyVariant();
 
   // ---- interactions ---------------------------------------------------------------------

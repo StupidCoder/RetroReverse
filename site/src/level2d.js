@@ -16,7 +16,11 @@ export async function mount(ctx, doc) {
 
   stage.classList.add('render2d');
   const app = new Application();
-  await app.init({ background: '#000000', resizeTo: stage, antialias: false, resolution: devicePixelRatio, autoDensity: true });
+  // preserveDrawingBuffer: the screen-filter overlay captures this canvas
+  // from its own RAF loop; without it the capture races pixi's render and
+  // goes black whenever the filter loop runs first (filter enabled before
+  // the view mounts).
+  await app.init({ background: '#000000', resizeTo: stage, antialias: false, resolution: devicePixelRatio, autoDensity: true, preserveDrawingBuffer: true });
   app.canvas.classList.add('pixi', 'fill');
   stage.appendChild(app.canvas);
 
@@ -195,9 +199,12 @@ export async function mount(ctx, doc) {
     const wx = tm.wrap === 'x' ? ((wx0 % map.widthPx) + map.widthPx) % map.widthPx : wx0;
     let hit = null;
     for (const p of pickables) {
-      const b = p.inst.sprite;
-      const ax = p.inst.sprite.pivot.x, ay = p.inst.sprite.pivot.y;
-      const x0 = p.pl.pos[0] - ax, y0 = p.pl.pos[1] - ay;
+      const s = p.inst.sprite;
+      // The box tracks the sprite where it is DRAWN: path-animated objects
+      // (the swinging platform) offset their sprite from the placement, and
+      // the click must follow the visual, not the anchor.
+      const x0 = p.pl.pos[0] + s.position.x - s.pivot.x;
+      const y0 = p.pl.pos[1] + s.position.y - s.pivot.y;
       if (wx >= x0 && wx <= x0 + p.obj.cellW && wy >= y0 && wy <= y0 + p.obj.cellH) { hit = p; break; }
     }
     closeCard();
@@ -265,9 +272,12 @@ export async function mount(ctx, doc) {
       stage.classList.remove('render2d');
     },
     sources: () => [app.canvas],
+    // { cell, ox, oy, ref } — one game pixel in viewer px + the grid origin
+    // (the shape screenfx._pixelCell consumes; it phase-locks the filter's
+    // scanlines/LCD cells to the game pixels at any zoom/pan).
     pixelGrid: () => ({
-      zoom: cam.zoom, ox: world.position.x, oy: world.position.y,
-      screenW: app.screen.width,
+      cell: cam.zoom, ox: world.position.x, oy: world.position.y,
+      ref: app.screen.width,
     }),
     stats: () => ({
       Size: `${tm.width} × ${tm.height} cells (${map.widthPx} × ${map.heightPx} px)`,

@@ -121,7 +121,7 @@ async function showAsset(game, asset, params) {
     const view = await mod.mount({
       stage, game, asset, params,
       navigate: (assetId, p) => navigate(game.id, assetId, p),
-      setVariants: (variants, activeId) => buildVariantSelect(game, asset, variants, activeId, params),
+      setVariants: (variants, activeId, apply) => buildVariantSelect(game, asset, variants, activeId, params, apply),
       displayPanel: displayPanelAPI(),
       toast,
     });
@@ -213,7 +213,7 @@ function buildTopbar(game, asset, params) {
   $('displayBtn').hidden = true;
 }
 
-function buildVariantSelect(game, asset, variants, activeId, params) {
+function buildVariantSelect(game, asset, variants, activeId, params, apply) {
   const vs = $('variantSelect');
   if (!variants || variants.length < 2) { vs.hidden = true; return; }
   vs.hidden = false;
@@ -229,9 +229,12 @@ function buildVariantSelect(game, asset, variants, activeId, params) {
     const p = Object.fromEntries(new URLSearchParams(location.hash.split('?')[1] || ''));
     p.variant = vs.value;
     // Apply in place when the view supports it: a remount would reset the
-    // camera, and comparing variants wants the viewpoint kept.
-    if (current?.view?.setVariant) {
-      current.view.setVariant(vs.value);
+    // camera, and comparing variants wants the viewpoint kept. The view
+    // passes its setter directly (usable even while the mount is still
+    // streaming rooms); current.view is the fallback.
+    const set = apply || current?.view?.setVariant;
+    if (set) {
+      set(vs.value);
       const q = new URLSearchParams();
       for (const [k, v] of Object.entries(p)) if (v != null && v !== '') q.set(k, v);
       history.replaceState(null, '', `#/${encodeURIComponent(game.id)}/${encodeURIComponent(asset.id)}?${q}`);

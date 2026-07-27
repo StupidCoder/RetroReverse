@@ -17,7 +17,9 @@ async function mount2D(ctx, doc) {
 
   stage.classList.add('render2d');
   const app = new Application();
-  await app.init({ background: '#101520', resizeTo: stage, antialias: false, resolution: devicePixelRatio, autoDensity: true });
+  // preserveDrawingBuffer: see level2d.js — the screen-filter capture
+  // must not race pixi's render loop.
+  await app.init({ background: '#101520', resizeTo: stage, antialias: false, resolution: devicePixelRatio, autoDensity: true, preserveDrawingBuffer: true });
   app.canvas.classList.add('pixi', 'fill');
   stage.appendChild(app.canvas);
 
@@ -83,7 +85,8 @@ async function mount2D(ctx, doc) {
   cv.addEventListener('wheel', (e) => {
     e.preventDefault();
     touched = true;
-    zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.2 : 1 / 1.2);
+    // gentle: one wheel notch (deltaY 100) = 1.2^0.1 ≈ 1.8%
+    zoomAt(e.clientX, e.clientY, Math.pow(1.2, -e.deltaY * 0.001));
   }, { passive: false });
 
   // ---- animation list + transport --------------------------------------------------
@@ -134,6 +137,10 @@ async function mount2D(ctx, doc) {
       stage.classList.remove('render2d');
     },
     sources: () => [app.canvas],
+    pixelGrid: () => ({
+      cell: world.scale.x, ox: world.position.x, oy: world.position.y,
+      ref: app.screen.width,
+    }),
     stats: () => ({
       Type: 'sprite2d',
       Cell: `${obj.cellW} × ${obj.cellH} px`,

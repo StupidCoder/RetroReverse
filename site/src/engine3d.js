@@ -412,6 +412,18 @@ export class ObjectLibrary {
     node.frustumCulled = false;
     const inst = { node, doc, asset: proto.asset };
     const v = wf.positions;
+    // Fill every edge once up front: the camera frames the geometry before
+    // the first visibility pass runs, and an empty buffer frames to nothing.
+    {
+      let n = 0;
+      for (const [a, b] of wf.edges) {
+        positions[n * 6 + 0] = v[a * 3]; positions[n * 6 + 1] = v[a * 3 + 1]; positions[n * 6 + 2] = v[a * 3 + 2];
+        positions[n * 6 + 3] = v[b * 3]; positions[n * 6 + 4] = v[b * 3 + 1]; positions[n * 6 + 5] = v[b * 3 + 2];
+        n++;
+      }
+      geo.setDrawRange(0, n * 2);
+      geo.computeBoundingSphere();
+    }
     // The model's own hidden-surface rule: a face is visible when its outward
     // normal points at the eye; an edge draws when either adjacent face does.
     inst.update = (dt, camPos) => {
