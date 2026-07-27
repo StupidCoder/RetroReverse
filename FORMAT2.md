@@ -1,4 +1,10 @@
-# The Studio's common asset format (format 2)
+# The Studio's common asset format (format 2) — SUPERSEDED
+
+> **This spec is superseded by [Retro-X](RETROX.md)** (`RETROX.md`, 2026-07). Format 2
+> remains documented here only while games are migrated; new exporters and the new viewer
+> implement Retro-X exclusively.
+
+
 
 Format 2 is the single asset contract every game exports into `site/public/<slug>/`,
 consumed by the shared viewer core in `site/src/shared/`. It supersedes the earlier format-1 spec: the 2-D tilemap body is unchanged, now carried inside a common
