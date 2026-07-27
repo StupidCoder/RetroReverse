@@ -29,6 +29,19 @@ body {
   background: color-mix(in srgb, var(--panel) 92%, transparent);
   border-bottom: 1px solid var(--line);
   backdrop-filter: blur(6px);
+  /* narrow (portrait) screens: the bar scrolls sideways; the edges fade out
+     as the "there's more off-screen" cue (classes set from app.js) */
+  overflow-x: auto; scrollbar-width: none;
+}
+#topbar::-webkit-scrollbar { display: none; }
+#topbar > * { flex-shrink: 0; }
+#topbar.fade-r { mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 32px), transparent);
+  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 32px), transparent); }
+#topbar.fade-l { mask-image: linear-gradient(90deg, transparent, #000 32px, #000 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 32px, #000 100%); }
+#topbar.fade-l.fade-r {
+  mask-image: linear-gradient(90deg, transparent, #000 32px, #000 calc(100% - 32px), transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 32px, #000 calc(100% - 32px), transparent);
 }
 .tb-btn {
   flex: 0 0 auto; width: 34px; height: 34px; padding: 6px;

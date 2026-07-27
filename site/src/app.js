@@ -92,6 +92,7 @@ function showLanding() {
   }
   landing.appendChild(grid);
   document.title = 'RetroReverse — Studio';
+  requestAnimationFrame(updateTopbarFades);
 }
 
 // ---- asset views -------------------------------------------------------------
@@ -218,6 +219,7 @@ function buildTopbar(game, asset, params) {
 
   $('wireBtn').hidden = true;
   $('displayBtn').hidden = true;
+  requestAnimationFrame(updateTopbarFades);
 }
 
 function buildVariantSelect(game, asset, variants, activeId, params, apply) {
@@ -333,6 +335,15 @@ async function showInfoModal(game, asset) {
 
 // ---- chrome ----------------------------------------------------------------------
 
+// The top bar scrolls sideways on narrow screens; fade classes signal
+// truncated content on either edge.
+function updateTopbarFades() {
+  const tb = $('topbar');
+  const max = tb.scrollWidth - tb.clientWidth;
+  tb.classList.toggle('fade-r', max > 1 && tb.scrollLeft < max - 1);
+  tb.classList.toggle('fade-l', max > 1 && tb.scrollLeft > 1);
+}
+
 function spinner(on) {
   let s = stage.querySelector('.spinner');
   if (on && !s) { s = document.createElement('div'); s.className = 'spinner'; stage.appendChild(s); }
@@ -368,6 +379,8 @@ document.addEventListener('click', (e) => {
   }
 });
 window.addEventListener('hashchange', route);
+$('topbar').addEventListener('scroll', updateTopbarFades);
+window.addEventListener('resize', updateTopbarFades);
 
 (async () => {
   try {

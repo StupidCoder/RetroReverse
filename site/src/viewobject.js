@@ -17,9 +17,14 @@ async function mount2D(ctx, doc) {
 
   stage.classList.add('render2d');
   const app = new Application();
+  // Reflective displays (the Game Boy's dot-matrix panel) show sprites as
+  // dark ink on a PALE panel: give their objects light "paper", or the gb
+  // screen filter posterizes the Studio's dark backdrop to the darkest
+  // green and swallows the art.
+  const paper = game.display.filter === 'gb';
   // preserveDrawingBuffer: see level2d.js — the screen-filter capture
   // must not race pixi's render loop.
-  await app.init({ background: '#101520', resizeTo: stage, antialias: false, resolution: devicePixelRatio, autoDensity: true, preserveDrawingBuffer: true });
+  await app.init({ background: paper ? '#dfe6ea' : '#101520', resizeTo: stage, antialias: false, resolution: devicePixelRatio, autoDensity: true, preserveDrawingBuffer: true });
   app.canvas.classList.add('pixi', 'fill');
   stage.appendChild(app.canvas);
 
