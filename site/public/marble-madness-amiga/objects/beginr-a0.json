@@ -1,0 +1,40 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Piece a0",
+ "atlas": {
+  "file": "beginr-a0.png",
+  "cellW": 64,
+  "cellH": 63
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 4,
+   "steps": [
+    [0, 4],
+    [1, 4],
+    [1, 4],
+    [2, 4],
+    [2, 4],
+    [3, 4],
+    [3, 4],
+    [3, 60],
+    [3, 4],
+    [2, 4],
+    [2, 4],
+    [1, 4],
+    [1, 4],
+    [0, 4],
+    [0, 4],
+    [0, 120]
+   ]
+  }
+ ],
+ "props": {
+  "course": "Beginner",
+  "piece": "a0"
+ }
+}

@@ -1,0 +1,23 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Piece a8",
+ "atlas": {
+  "file": "aerial-a8.png",
+  "cellW": 64,
+  "cellH": 55
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 6,
+   "steps": [[0, 2], [1, 2], [2, 2], [3, 2], [4, 20], [2, 2], [1, 2], [0, 2], [5, 2], [0, 2]]
+  }
+ ],
+ "props": {
+  "course": "Aerial",
+  "piece": "a8"
+ }
+}

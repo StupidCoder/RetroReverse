@@ -1,17 +1,16 @@
-// levels.go is the levels stage: each course becomes a format-2 tilemap2d level
-// (Marble_Madness.md Part IV §3/§6). The colour bands are baked into the atlas as
-// recoloured variant tiles and the gold shimmer as tileAnims, so the viewer needs
-// no palette machinery. The scenery-overlay sprite pieces the level references are
-// produced by the sprites stage; here we only emit their object placements (keys
-// resolve via sprites/index.json). NO slope link — the slopes are standalone views.
+// levels.go is the levels stage: each course becomes a Retro-X tilemap level
+// (Marble_Madness.md Part IV §3/§6). The colour bands are baked into the atlas
+// as recoloured variant tiles and the gold shimmer as tileAnims, so the viewer
+// needs no palette machinery. The scenery-overlay pieces the placements
+// reference are the objects stage's sprite2d assets.
 package main
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"retroreverse.com/games/marble-madness-amiga/extract/mlb"
+	"retroreverse.com/tools/lib/retrox/cli"
+	"retroreverse.com/tools/lib/retrox/schema"
 	"retroreverse.com/tools/platform/amiga/adf"
 	"retroreverse.com/tools/platform/c64/gfx"
 )
@@ -21,22 +20,24 @@ import (
 // 4th world frame = 8 vblanks.
 const shimmerPeriod = 8
 
-// exportLevels writes the levels/ tree (per-course format-2 tilemaps, object DBs and
-// deduped-into-one atlas per course) and returns the manifest level index.
-func exportLevels(vol *adf.Volume, paths map[string]string, outDir string) []LevelIndex {
-	levelsDir := filepath.Join(outDir, "levels")
-	chk(os.MkdirAll(levelsDir, 0o755))
+// exportLevels writes the level documents + per-course atlases. refs may be
+// nil (objects stage disabled): then the levels ship without placements.
+func exportLevels(ctx *cli.Context, vol *adf.Volume, paths map[string]string, refs map[string]objRef) error {
+	b := ctx.Builder
 
-	var levels []LevelIndex
 	for idx, c := range courses {
 		cr, err := loadCourse(vol, paths, c.key, c.track)
-		chk(err)
+		if err != nil {
+			return err
+		}
 		co, bake := cr.co, cr.bake
 
 		// The scenery overlays give us the level's object placements + the screen-swap
-		// tile animations. render=false: the sprite PNGs/index come from the sprites stage.
+		// tile animations. render=false: the sprite PNGs come from the objects stage.
 		objects, cellAnims, err := exportOverlays(vol, paths, c.key, cr.prog.Image, co, bake.paletteAt, "", nil, false)
-		chk(err)
+		if err != nil {
+			return err
+		}
 
 		cells := make([]int, mlb.CourseW*co.PlayableH)
 		tilesInBand := map[int]map[int]bool{}
@@ -69,83 +70,71 @@ func exportLevels(vol *adf.Volume, paths map[string]string, outDir string) []Lev
 		}
 		tileAnims := bake.shimmerAnims(tilesInBand, shimmerPeriod)
 
-		// The tilemap's cells reference variant tiles appended to the atlas, so the level
-		// JSON and the PNG must never mix versions in a client cache: hash the atlas URL.
 		atlasFile := c.key + ".atlas.png"
-		chk(gfx.WritePNG(filepath.Join(levelsDir, atlasFile), co.AtlasVariants(16, bake.ext, bake.varList)))
-		hashed, err := hashedRef(filepath.Join(levelsDir, atlasFile), atlasFile)
-		chk(err)
-		atlasRef := "levels/" + hashed // path relative to the asset root, with the cache-buster
+		p, err := b.Path("levels", atlasFile)
+		if err != nil {
+			return err
+		}
+		if err := gfx.WritePNG(p, co.AtlasVariants(16, bake.ext, bake.varList)); err != nil {
+			return err
+		}
 
-		// The map shows the PLAYABLE rows (the .mlb header count = the engine's scroll
-		// clamp). Data rows beyond it are off-screen variant storage; the swap animation
-		// replays them from the full cell array.
-		level := map[string]any{
-			"format": 2,
-			"name":   c.name,
-			"kind":   "tilemap2d",
-			"extents": map[string]any{
-				"tileSize": 8, "width": mlb.CourseW, "height": co.PlayableH,
+		// The map shows the PLAYABLE rows (the .mlb header count = the engine's
+		// scroll clamp). Data rows beyond it are off-screen variant storage; the
+		// swap animation replays them from the full cell array.
+		doc := &schema.Level{
+			Type:  schema.LevelTilemap,
+			Music: c.key + "-theme",
+			Tilemap: &schema.Tilemap{
+				TileSize: 8, Width: mlb.CourseW, Height: co.PlayableH,
+				Atlas: schema.TileAtlas{File: atlasFile, Cols: 16, Gutter: 1},
+				Cells: cells,
+				// Frame the Amiga's on-screen view (288x200 playfield) at the course top.
+				View: &schema.Rect{X: (mlb.CourseW*8 - 288) / 2, Y: 0, W: 288, H: 200},
 			},
-			"wrap": "none",
-			"grid": map[string]any{
-				"tileSize": 8, "atlas": atlasRef, "atlasCols": 16, "atlasGutter": 1,
-				"width": mlb.CourseW, "height": co.PlayableH,
-				"cells": cells,
-			},
-			"objects": objects,
-			// Frame the Amiga's on-screen view (288x200 playfield) at the course top.
-			"view":        map[string]any{"x": (mlb.CourseW*8 - 288) / 2, "y": 0, "w": 288, "h": 200},
-			"objectsFile": c.key + ".objects.json",
 		}
-		if len(cellAnims) > 0 {
-			level["cellAnims"] = cellAnims
+		for _, ca := range cellAnims {
+			sca := schema.CellAnim{
+				TX: ca["tx"].(int), TY: ca["ty"].(int),
+				TW: ca["tw"].(int), TH: ca["th"].(int),
+			}
+			for _, ph := range ca["phases"].([]map[string]any) {
+				sca.Phases = append(sca.Phases, schema.CellPhase{
+					Tiles: ph["tiles"].([]int), Frames: ph["frames"].(int),
+				})
+			}
+			doc.Tilemap.CellAnims = append(doc.Tilemap.CellAnims, sca)
 		}
-		if len(tileAnims) > 0 {
-			level["tileAnims"] = tileAnims
+		for _, ta := range tileAnims {
+			doc.Tilemap.TileAnims = append(doc.Tilemap.TileAnims, schema.TileAnim{
+				Tiles:        ta["tiles"].([]int),
+				Frames:       ta["frames"].([][]int),
+				PeriodFrames: ta["periodFrames"].(int),
+			})
 		}
-		chk(writeJSON(filepath.Join(levelsDir, c.key+".json"), level))
+		for i, o := range objects {
+			key, _ := o["sprite"].(string)
+			ref, ok := refs[key]
+			if !ok {
+				continue // objects stage disabled, or a piece without art
+			}
+			pl := schema.Placement{
+				ID:     i,
+				Object: ref.asset,
+				Pos:    []float64{float64(o["x"].(int)), float64(o["y"].(int))},
+			}
+			if n, ok := o["name"].(string); ok {
+				pl.Name = n
+			}
+			if t, ok := o["type"].(int); ok {
+				pl.Props = map[string]any{"region": t}
+			}
+			doc.Placements = append(doc.Placements, pl)
+		}
 
-		// machine-readable object DB (sibling of the level file)
-		db := objectsDB(c.name, objects)
-		chk(writeJSON(filepath.Join(levelsDir, c.key+".objects.json"), db))
-
-		levels = append(levels, LevelIndex{
-			Name: c.name, Section: "Courses", File: "levels/" + c.key + ".json",
-			Kind: "tilemap2d", Atlas: "levels/" + atlasFile, Objects: "levels/" + c.key + ".objects.json",
-		})
-		fmt.Fprintf(os.Stderr, "[levels] %d/%d  %-12s %s  %d×%d tiles, %d tiles, %d objects\n",
-			idx+1, len(courses), c.name, c.key+".json", mlb.CourseW, co.PlayableH, co.NTiles, len(objects))
+		b.AddLevel(schema.Asset{ID: c.key, Name: c.name, Group: "Courses"}, doc)
+		ctx.Progress("levels", idx+1, len(courses),
+			fmt.Sprintf("%-12s %d×%d tiles, %d objects", c.name, mlb.CourseW, co.PlayableH, len(doc.Placements)))
 	}
-	fmt.Fprintf(os.Stderr, "[levels] done: %d courses\n", len(levels))
-	return levels
-}
-
-// objectsDB builds the machine-readable object database from the level's inline overlay
-// objects ({type,name,x,y,sprite} maps produced by exportOverlays).
-func objectsDB(level string, objects []map[string]any) map[string]any {
-	out := make([]map[string]any, 0, len(objects))
-	for i, o := range objects {
-		e := map[string]any{
-			"id":  i,
-			"pos": []int{o["x"].(int), o["y"].(int)},
-		}
-		if t, ok := o["type"]; ok {
-			e["type"] = t
-		}
-		if n, ok := o["name"]; ok {
-			e["name"] = n
-		}
-		if s, ok := o["sprite"]; ok {
-			e["props"] = map[string]any{"sprite": s}
-		}
-		out = append(out, e)
-	}
-	return map[string]any{"format": 2, "level": level, "objects": out}
-}
-
-func chk(e error) {
-	if e != nil {
-		fail(e)
-	}
+	return nil
 }

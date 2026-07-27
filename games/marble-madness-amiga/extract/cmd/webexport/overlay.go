@@ -3,18 +3,19 @@
 // "One game, eight obstacle systems" + Part V §2).
 //
 // Sources handled here, all from the course Track file:
-//  - dynamic-region scripts (header +$14 record list): drawbridge, goal flags,
-//    Practice's start ramp, Aerial's duct muncher — op0 KEYFRAME carries the
-//    anchor (tile coords +$26/+$28 when dur==1, else the iso-projected ref
-//    point); op2 [wrap count][hold] plays the current record list; op3 holds;
-//    op12/op13 relink; op14/op16 drift the anchor (the wave sweep); op4/op5
-//    loops are expanded; op8/op18 conditional targets are scanned too.
-//  - the loose hazard script at block+8, spawned by code on marbles entering
-//    placement-zone 9/$A (Intermediate's WAVE).
-//  - the 3-slot obstacle-actor array at block+$23C (Aerial's pistons, world-px
-//    positions, RNG anim variants at +$278).
-//  - the vacuum hood trigger scripts at block +$54/+$58, run on the terr-11/13
-//    fall regions (anchor taken from the region's op0).
+//   - dynamic-region scripts (header +$14 record list): drawbridge, goal flags,
+//     Practice's start ramp, Aerial's duct muncher — op0 KEYFRAME carries the
+//     anchor (tile coords +$26/+$28 when dur==1, else the iso-projected ref
+//     point); op2 [wrap count][hold] plays the current record list; op3 holds;
+//     op12/op13 relink; op14/op16 drift the anchor (the wave sweep); op4/op5
+//     loops are expanded; op8/op18 conditional targets are scanned too.
+//   - the loose hazard script at block+8, spawned by code on marbles entering
+//     placement-zone 9/$A (Intermediate's WAVE).
+//   - the 3-slot obstacle-actor array at block+$23C (Aerial's pistons, world-px
+//     positions, RNG anim variants at +$278).
+//   - the vacuum hood trigger scripts at block +$54/+$58, run on the terr-11/13
+//     fall regions (anchor taken from the region's op0).
+//
 // A record list is a $FFFFFFFF-terminated pointer array (flat, [record,
 // composite] pairs, or 8-byte [record][0] anim entries) of 16-byte sprite
 // records: [+0 dx][+1 dy nudge (dy raises)][+2..3 state][+4..7 iso-box extents]

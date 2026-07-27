@@ -11,11 +11,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 
+	"retroreverse.com/tools/lib/retrox/audio"
+	"retroreverse.com/tools/lib/retrox/cli"
+	"retroreverse.com/tools/lib/retrox/schema"
 	"retroreverse.com/tools/platform/amiga/adf"
 	"retroreverse.com/tools/platform/amiga/hunk"
 )
@@ -120,36 +120,36 @@ type chanState struct {
 
 // exportMusic renders every course theme to music/<key>.mp3 and returns the manifest music
 // index (display name + file). NO oracle. Deterministic order.
-func exportMusic(vol *adf.Volume, paths map[string]string, outDir string) []MusicEntry {
-	musicDir := filepath.Join(outDir, "music")
-	chk(os.MkdirAll(musicDir, 0o755))
-
+func exportMusic(ctx *cli.Context, vol *adf.Volume, paths map[string]string) error {
 	const secs = 60.0
-	var entries []MusicEntry
 	for idx, c := range courses {
 		sp, ok := paths[strings.ToLower(c.snd)]
 		if !ok {
-			fail(fmt.Errorf("%s not found on disk", c.snd))
+			return fmt.Errorf("%s not found on disk", c.snd)
 		}
 		data, err := vol.ReadFile(sp)
-		chk(err)
+		if err != nil {
+			return err
+		}
 		pcm := renderSnd(data, secs)
 
-		wav := filepath.Join(musicDir, c.key+".wav")
-		sndWriteWAV(wav, pcm, sndOutRate)
-		mp3 := filepath.Join(musicDir, c.key+".mp3")
-		cmd := exec.Command("ffmpeg", "-y", "-loglevel", "error", "-i", wav,
-			"-c:a", "libmp3lame", "-b:a", "96k", "-ac", "1", mp3)
-		chk(cmd.Run())
-		os.Remove(wav)
-
-		fi, _ := os.Stat(mp3)
-		entries = append(entries, MusicEntry{Name: c.name, File: "music/" + c.key + ".mp3"})
-		fmt.Fprintf(os.Stderr, "[music] %d/%d  %-12s %s (%d KB, %.0fs)\n",
-			idx+1, len(courses), c.name, c.key+".mp3", fi.Size()/1024, secs)
+		out, err := ctx.Builder.Path("music", c.key+".mp3")
+		if err != nil {
+			return err
+		}
+		wave := audio.PCM16{Rate: sndOutRate, Channels: 1, Samples: pcm}
+		if err := audio.EncodeMP3(wave, out); err != nil {
+			return err
+		}
+		ctx.Builder.AddMedia(schema.Asset{
+			ID: c.key + "-theme", Category: schema.CategoryMusic,
+			Name:     c.name + " theme",
+			File:     "music/" + c.key + ".mp3",
+			Duration: wave.Duration(),
+		})
+		ctx.Progress("music", idx+1, len(courses), fmt.Sprintf("%-12s %.0fs", c.name, secs))
 	}
-	fmt.Fprintf(os.Stderr, "[music] done: %d tracks\n", len(entries))
-	return entries
+	return nil
 }
 
 // renderSnd synthesises a course *Snd bank to mono 16-bit PCM at sndOutRate.
@@ -178,9 +178,9 @@ func renderSnd(data []byte, secs float64) []int16 {
 		return nil
 	}
 	desc := s.r32(dir + 2 + uint32(pick)*8 + 4)
-	song := s.r32(desc)         // arrangement
-	sub := s.r32(desc + 4)      // instrument bank
-	sampBase := s.r32(sub + 4)  // h4 waveform base
+	song := s.r32(desc)        // arrangement
+	sub := s.r32(desc + 4)     // instrument bank
+	sampBase := s.r32(sub + 4) // h4 waveform base
 	sndVolEnv = sndParseEnv(s, s.r32(sub+8))
 
 	var chans []*chanState
@@ -340,24 +340,4 @@ func sndClamp(x, lo, hi int) int {
 		return hi
 	}
 	return x
-}
-
-func sndWriteWAV(path string, pcm []int16, rate int) {
-	f, err := os.Create(path)
-	chk(err)
-	defer f.Close()
-	dataLen := len(pcm) * 2
-	w := func(v ...interface{}) {
-		for _, x := range v {
-			binary.Write(f, binary.LittleEndian, x)
-		}
-	}
-	f.WriteString("RIFF")
-	w(uint32(36 + dataLen))
-	f.WriteString("WAVE")
-	f.WriteString("fmt ")
-	w(uint32(16), uint16(1), uint16(1), uint32(rate), uint32(rate*2), uint16(2), uint16(16))
-	f.WriteString("data")
-	w(uint32(dataLen))
-	w(pcm)
 }

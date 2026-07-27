@@ -1,1 +1,334 @@
-{"format":2,"game":"marble-madness-amiga","platform":"Amiga","native":{"h":200,"w":288},"tickHz":50,"levels":[{"name":"Practice","section":"Courses","file":"levels/practy.json","kind":"tilemap2d","atlas":"levels/practy.atlas.png","objects":"levels/practy.objects.json"},{"name":"Beginner","section":"Courses","file":"levels/beginr.json","kind":"tilemap2d","atlas":"levels/beginr.atlas.png","objects":"levels/beginr.objects.json"},{"name":"Intermediate","section":"Courses","file":"levels/interm.json","kind":"tilemap2d","atlas":"levels/interm.atlas.png","objects":"levels/interm.objects.json"},{"name":"Aerial","section":"Courses","file":"levels/aerial.json","kind":"tilemap2d","atlas":"levels/aerial.atlas.png","objects":"levels/aerial.objects.json"},{"name":"Silly","section":"Courses","file":"levels/silly.json","kind":"tilemap2d","atlas":"levels/silly.atlas.png","objects":"levels/silly.objects.json"},{"name":"Ultimate","section":"Courses","file":"levels/ultima.json","kind":"tilemap2d","atlas":"levels/ultima.atlas.png","objects":"levels/ultima.objects.json"}],"views":[{"name":"Practice","section":"Slopes","file":"slopes/practy.glb","kind":"marble-slope","markers":"slopes/practy.markers.json"},{"name":"Beginner","section":"Slopes","file":"slopes/beginr.glb","kind":"marble-slope","markers":"slopes/beginr.markers.json"},{"name":"Intermediate","section":"Slopes","file":"slopes/interm.glb","kind":"marble-slope","markers":"slopes/interm.markers.json"},{"name":"Aerial","section":"Slopes","file":"slopes/aerial.glb","kind":"marble-slope","markers":"slopes/aerial.markers.json"},{"name":"Silly","section":"Slopes","file":"slopes/silly.glb","kind":"marble-slope","markers":"slopes/silly.markers.json"},{"name":"Ultimate","section":"Slopes","file":"slopes/ultima.glb","kind":"marble-slope","markers":"slopes/ultima.markers.json"}],"music":[{"name":"Practice","file":"music/practy.mp3"},{"name":"Beginner","file":"music/beginr.mp3"},{"name":"Intermediate","file":"music/interm.mp3"},{"name":"Aerial","file":"music/aerial.mp3"},{"name":"Silly","file":"music/silly.mp3"},{"name":"Ultimate","file":"music/ultima.mp3"}],"sprites":"sprites/index.json"}
+{
+ "format": "retro-x",
+ "version": 1,
+ "id": "marble-madness-amiga",
+ "title": "Marble Madness",
+ "platform": "Amiga",
+ "year": 1986,
+ "description": "Atari's isometric marble-racing arcade classic in its Amiga port, decoded from the disk image with no emulation anywhere. The six courses come straight from their .mlb tilemaps with the engine's colour bands baked into recoloured atlas tiles and the gold shimmer replayed as tile animation; the scenery pieces (drawbridge, flags, the WAVE) are the Track files' own overlay scripts. Each course's true 3-D height field is rebuilt as a solid slope model with the Track-layer markers pinned on in colour — enemy routes, ooze spawns and scenery anchors. The themes are rendered by a from-scratch Go port of the game's music player.",
+ "display": {
+  "native": {
+   "w": 288,
+   "h": 200
+  },
+  "tickHz": 50,
+  "filter": "crt"
+ },
+ "assets": [
+  {
+   "id": "practy-a0",
+   "category": "object",
+   "name": "Piece a0",
+   "group": "Practice",
+   "file": "objects/practy-a0.json"
+  },
+  {
+   "id": "practy-a11",
+   "category": "object",
+   "name": "Piece a11",
+   "group": "Practice",
+   "file": "objects/practy-a11.json"
+  },
+  {
+   "id": "practy-a12",
+   "category": "object",
+   "name": "Piece a12",
+   "group": "Practice",
+   "file": "objects/practy-a12.json"
+  },
+  {
+   "id": "beginr-a0",
+   "category": "object",
+   "name": "Piece a0",
+   "group": "Beginner",
+   "file": "objects/beginr-a0.json"
+  },
+  {
+   "id": "beginr-a1",
+   "category": "object",
+   "name": "Piece a1",
+   "group": "Beginner",
+   "file": "objects/beginr-a1.json"
+  },
+  {
+   "id": "beginr-a10",
+   "category": "object",
+   "name": "Piece a10",
+   "group": "Beginner",
+   "file": "objects/beginr-a10.json"
+  },
+  {
+   "id": "beginr-a2",
+   "category": "object",
+   "name": "Piece a2",
+   "group": "Beginner",
+   "file": "objects/beginr-a2.json"
+  },
+  {
+   "id": "beginr-a9",
+   "category": "object",
+   "name": "Piece a9",
+   "group": "Beginner",
+   "file": "objects/beginr-a9.json"
+  },
+  {
+   "id": "interm-a1",
+   "category": "object",
+   "name": "Piece a1",
+   "group": "Intermediate",
+   "file": "objects/interm-a1.json"
+  },
+  {
+   "id": "interm-a2",
+   "category": "object",
+   "name": "Piece a2",
+   "group": "Intermediate",
+   "file": "objects/interm-a2.json"
+  },
+  {
+   "id": "interm-a90",
+   "category": "object",
+   "name": "Piece a90",
+   "group": "Intermediate",
+   "file": "objects/interm-a90.json"
+  },
+  {
+   "id": "aerial-a10",
+   "category": "object",
+   "name": "Piece a10",
+   "group": "Aerial",
+   "file": "objects/aerial-a10.json"
+  },
+  {
+   "id": "aerial-a11",
+   "category": "object",
+   "name": "Piece a11",
+   "group": "Aerial",
+   "file": "objects/aerial-a11.json"
+  },
+  {
+   "id": "aerial-a2",
+   "category": "object",
+   "name": "Piece a2",
+   "group": "Aerial",
+   "file": "objects/aerial-a2.json"
+  },
+  {
+   "id": "aerial-a3",
+   "category": "object",
+   "name": "Piece a3",
+   "group": "Aerial",
+   "file": "objects/aerial-a3.json"
+  },
+  {
+   "id": "aerial-a4",
+   "category": "object",
+   "name": "Piece a4",
+   "group": "Aerial",
+   "file": "objects/aerial-a4.json"
+  },
+  {
+   "id": "aerial-a5",
+   "category": "object",
+   "name": "Piece a5",
+   "group": "Aerial",
+   "file": "objects/aerial-a5.json"
+  },
+  {
+   "id": "aerial-a6",
+   "category": "object",
+   "name": "Piece a6",
+   "group": "Aerial",
+   "file": "objects/aerial-a6.json"
+  },
+  {
+   "id": "aerial-a7",
+   "category": "object",
+   "name": "Piece a7",
+   "group": "Aerial",
+   "file": "objects/aerial-a7.json"
+  },
+  {
+   "id": "aerial-a8",
+   "category": "object",
+   "name": "Piece a8",
+   "group": "Aerial",
+   "file": "objects/aerial-a8.json"
+  },
+  {
+   "id": "aerial-a91",
+   "category": "object",
+   "name": "Piece a91",
+   "group": "Aerial",
+   "file": "objects/aerial-a91.json"
+  },
+  {
+   "id": "aerial-a92",
+   "category": "object",
+   "name": "Piece a92",
+   "group": "Aerial",
+   "file": "objects/aerial-a92.json"
+  },
+  {
+   "id": "aerial-a93",
+   "category": "object",
+   "name": "Piece a93",
+   "group": "Aerial",
+   "file": "objects/aerial-a93.json"
+  },
+  {
+   "id": "silly-a3",
+   "category": "object",
+   "name": "Piece a3",
+   "group": "Silly",
+   "file": "objects/silly-a3.json"
+  },
+  {
+   "id": "silly-a4",
+   "category": "object",
+   "name": "Piece a4",
+   "group": "Silly",
+   "file": "objects/silly-a4.json"
+  },
+  {
+   "id": "ultima-a18",
+   "category": "object",
+   "name": "Piece a18",
+   "group": "Ultimate",
+   "file": "objects/ultima-a18.json"
+  },
+  {
+   "id": "ultima-a19",
+   "category": "object",
+   "name": "Piece a19",
+   "group": "Ultimate",
+   "file": "objects/ultima-a19.json"
+  },
+  {
+   "id": "practy-slope",
+   "category": "object",
+   "name": "Practice slope",
+   "group": "Slopes",
+   "file": "objects/practy-slope.json"
+  },
+  {
+   "id": "beginr-slope",
+   "category": "object",
+   "name": "Beginner slope",
+   "group": "Slopes",
+   "file": "objects/beginr-slope.json"
+  },
+  {
+   "id": "interm-slope",
+   "category": "object",
+   "name": "Intermediate slope",
+   "group": "Slopes",
+   "file": "objects/interm-slope.json"
+  },
+  {
+   "id": "aerial-slope",
+   "category": "object",
+   "name": "Aerial slope",
+   "group": "Slopes",
+   "file": "objects/aerial-slope.json"
+  },
+  {
+   "id": "silly-slope",
+   "category": "object",
+   "name": "Silly slope",
+   "group": "Slopes",
+   "file": "objects/silly-slope.json"
+  },
+  {
+   "id": "ultima-slope",
+   "category": "object",
+   "name": "Ultimate slope",
+   "group": "Slopes",
+   "file": "objects/ultima-slope.json"
+  },
+  {
+   "id": "practy",
+   "category": "level",
+   "name": "Practice",
+   "group": "Courses",
+   "file": "levels/practy.json"
+  },
+  {
+   "id": "beginr",
+   "category": "level",
+   "name": "Beginner",
+   "group": "Courses",
+   "file": "levels/beginr.json"
+  },
+  {
+   "id": "interm",
+   "category": "level",
+   "name": "Intermediate",
+   "group": "Courses",
+   "file": "levels/interm.json"
+  },
+  {
+   "id": "aerial",
+   "category": "level",
+   "name": "Aerial",
+   "group": "Courses",
+   "file": "levels/aerial.json"
+  },
+  {
+   "id": "silly",
+   "category": "level",
+   "name": "Silly",
+   "group": "Courses",
+   "file": "levels/silly.json"
+  },
+  {
+   "id": "ultima",
+   "category": "level",
+   "name": "Ultimate",
+   "group": "Courses",
+   "file": "levels/ultima.json"
+  },
+  {
+   "id": "practy-theme",
+   "category": "music",
+   "name": "Practice theme",
+   "file": "music/practy.mp3",
+   "duration": 60
+  },
+  {
+   "id": "beginr-theme",
+   "category": "music",
+   "name": "Beginner theme",
+   "file": "music/beginr.mp3",
+   "duration": 60
+  },
+  {
+   "id": "interm-theme",
+   "category": "music",
+   "name": "Intermediate theme",
+   "file": "music/interm.mp3",
+   "duration": 60
+  },
+  {
+   "id": "aerial-theme",
+   "category": "music",
+   "name": "Aerial theme",
+   "file": "music/aerial.mp3",
+   "duration": 60
+  },
+  {
+   "id": "silly-theme",
+   "category": "music",
+   "name": "Silly theme",
+   "file": "music/silly.mp3",
+   "duration": 60
+  },
+  {
+   "id": "ultima-theme",
+   "category": "music",
+   "name": "Ultimate theme",
+   "file": "music/ultima.mp3",
+   "duration": 60
+  }
+ ]
+}

@@ -1,0 +1,17 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Silly slope",
+ "model": "silly-slope.glb",
+ "props": {
+  "course": "Silly",
+  "legend": {
+   "#46d4ff cyan": "scenery placements",
+   "#46e05a green": "slinky routes (spawn pin at the start)",
+   "#ff46c8 magenta": "marble routes (spawn pin at the start)",
+   "#ff9430 orange": "ooze spawns",
+   "#ffe000 yellow": "dynamic regions"
+  }
+ }
+}

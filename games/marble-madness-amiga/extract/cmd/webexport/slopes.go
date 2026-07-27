@@ -1,20 +1,19 @@
-// slopes.go is the slopes stage: each course's 3-D height field is written as a
-// SOLID triangulated terrain GLB (slopes/<key>.glb, coloured by height band) plus
-// a world-space markers sidecar (slopes/<key>.markers.json) for the Track-layer
-// overlays, and indexed in manifest.views[] as a bespoke "marble-slope" three.js
-// view (Marble_Madness.md Part V §4-5). The mesh geometry reproduces the viewer's
-// slopes.js _buildMesh exactly so it frames identically. The slopes are DECOUPLED
-// from the levels — no level references them.
+// slopes.go is the slopes stage: each course's 3-D height field becomes ONE
+// model3d object GLB (Marble_Madness.md Part V §4-5) — the solid triangulated
+// terrain coloured by height band, with the Track-layer markers baked in as
+// coloured LINE geometry: a small pin cross per marker and a polyline per
+// marble/slinky route (spawn pin at each route's start). The mesh geometry
+// reproduces the old viewer's slopes.js _buildMesh exactly.
 package main
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"retroreverse.com/games/marble-madness-amiga/extract/slope"
 	"retroreverse.com/tools/lib/glb"
+	"retroreverse.com/tools/lib/retrox/cli"
+	"retroreverse.com/tools/lib/retrox/schema"
 	"retroreverse.com/tools/platform/amiga/adf"
 	"retroreverse.com/tools/platform/amiga/hunk"
 )
@@ -52,7 +51,7 @@ type pathJSON struct {
 // positions (the viewer no longer carries the height field). Pins = single objects
 // plus each path's spawn point; paths = the route polylines.
 type worldMarkers struct {
-	Pins  []pinJSON  `json:"pins"`
+	Pins  []pinJSON   `json:"pins"`
 	Paths []pathWJSON `json:"paths"`
 }
 type pinJSON struct {
@@ -73,52 +72,97 @@ const (
 	colSlinky    = 0x46e05a // green
 )
 
-// exportSlopes writes slopes/<key>.glb (solid terrain) + slopes/<key>.markers.json
-// (world-space overlays) for every course and returns the manifest views index (the
-// bespoke "marble-slope" three.js views).
-func exportSlopes(vol *adf.Volume, paths map[string]string, outDir string) []ViewIndex {
-	slopesDir := filepath.Join(outDir, "slopes")
-	chk(os.MkdirAll(slopesDir, 0o755))
-
-	var views []ViewIndex
+// exportSlopes writes each course's slope as one model3d object: terrain
+// triangles plus the markers as coloured line pins/routes, all in one GLB.
+func exportSlopes(ctx *cli.Context, vol *adf.Volume, paths map[string]string) error {
+	b := ctx.Builder
 	for idx, c := range courses {
 		tp, ok := paths[strings.ToLower(c.track)]
 		if !ok {
-			fail(fmt.Errorf("%s not found on disk", c.track))
+			return fmt.Errorf("%s not found on disk", c.track)
 		}
 		td, err := vol.ReadFile(tp)
-		chk(err)
+		if err != nil {
+			return err
+		}
 		prog, err := hunk.Load(td, 0)
 		if err != nil {
-			fail(fmt.Errorf("%s: hunk load: %w", c.track, err))
+			return fmt.Errorf("%s: hunk load: %w", c.track, err)
 		}
 
 		g := buildGrid(slope.Build(prog.Image))
 		mk := buildMarkers(slope.Markers(prog.Image))
-
 		positions, groups := buildTerrain(g)
-		glbFile := c.key + ".glb"
-		chk(glb.WriteTrianglesMat(filepath.Join(slopesDir, glbFile), positions, groups))
-
 		wm := buildWorldMarkers(g, mk)
-		mkFile := c.key + ".markers.json"
-		chk(writeJSON(filepath.Join(slopesDir, mkFile), wm))
 
-		views = append(views, ViewIndex{
-			Name: c.name, Section: "Slopes", File: "slopes/" + glbFile,
-			Kind: "marble-slope", Markers: "slopes/" + mkFile,
+		// Bake the markers as LINE geometry sharing the positions array:
+		// a small cross + upright per pin, a raised polyline per route,
+		// one line material per marker colour.
+		byColor := map[string][][2]uint32{}
+		addSeg := func(color string, a, b [3]float32) {
+			i := uint32(len(positions))
+			positions = append(positions, a, b)
+			byColor[color] = append(byColor[color], [2]uint32{i, i + 1})
+		}
+		for _, p := range wm.Pins {
+			x, y, z := p.Pos[0], p.Pos[1]+0.05, p.Pos[2]
+			addSeg(p.Color, [3]float32{x - 0.5, y, z}, [3]float32{x + 0.5, y, z})
+			addSeg(p.Color, [3]float32{x, y, z - 0.5}, [3]float32{x, y, z + 0.5})
+			addSeg(p.Color, [3]float32{x, y, z}, [3]float32{x, y + 1.2, z})
+		}
+		for _, p := range wm.Paths {
+			for i := 1; i < len(p.Points); i++ {
+				a, bb := p.Points[i-1], p.Points[i]
+				a[1] += 0.08
+				bb[1] += 0.08
+				addSeg(p.Color, a, bb)
+			}
+		}
+		var lines []glb.LineGroup
+		for _, col := range []string{"#46d4ff", "#ffe000", "#ff9430", "#ff46c8", "#46e05a"} {
+			if segs := byColor[col]; len(segs) > 0 {
+				lines = append(lines, glb.LineGroup{Lines: segs, Color: hexRGB(col)})
+			}
+		}
+
+		id := c.key + "-slope"
+		p, err := b.Path("objects", id+".glb")
+		if err != nil {
+			return err
+		}
+		if err := glb.WriteMixed(p, positions, groups, lines); err != nil {
+			return err
+		}
+		name := c.name + " slope"
+		b.AddObject(schema.Asset{ID: id, Name: name, Group: "Slopes"}, &schema.Object{
+			Type: schema.ObjectModel3D, Name: name, Model: id + ".glb",
+			Props: map[string]any{
+				"course": c.name,
+				"legend": map[string]string{
+					"#46d4ff cyan":    "scenery placements",
+					"#ff9430 orange":  "ooze spawns",
+					"#ffe000 yellow":  "dynamic regions",
+					"#ff46c8 magenta": "marble routes (spawn pin at the start)",
+					"#46e05a green":   "slinky routes (spawn pin at the start)",
+				},
+			},
 		})
 
 		nTri := 0
 		for _, grp := range groups {
 			nTri += len(grp.Tris)
 		}
-		fmt.Fprintf(os.Stderr, "[slopes] %d/%d  %-12s %s  %dx%d, h %d..%d, %d verts %d tris %d bands, %d pins %d paths\n",
-			idx+1, len(courses), c.name, glbFile, g.w, g.h, g.lo, g.hi,
-			len(positions), nTri, len(groups), len(wm.Pins), len(wm.Paths))
+		ctx.Progress("objects", idx+1, len(courses),
+			fmt.Sprintf("%-12s slope  %dx%d, %d tris, %d pins %d paths", c.name, g.w, g.h, nTri, len(wm.Pins), len(wm.Paths)))
 	}
-	fmt.Fprintf(os.Stderr, "[slopes] done: %d views\n", len(views))
-	return views
+	return nil
+}
+
+// hexRGB parses "#rrggbb" into 0..1 floats.
+func hexRGB(s string) [3]float32 {
+	var r, g, bl int
+	fmt.Sscanf(s, "#%02x%02x%02x", &r, &g, &bl)
+	return [3]float32{float32(r) / 255, float32(g) / 255, float32(bl) / 255}
 }
 
 // buildGrid flattens a slope field into the dense grid the viewer meshes: each cell
@@ -149,8 +193,8 @@ func newGeom(g grid) geom {
 func (m geom) present(gx, gy int) bool {
 	return gx >= 0 && gy >= 0 && gx < m.g.w && gy < m.g.h && m.g.heights[gy*m.g.w+gx] > 0
 }
-func (m geom) wX(gx, gy int) float32  { return float32(gy) - m.cz }
-func (m geom) wZ(gx, gy int) float32  { return float32(gx) - m.cx }
+func (m geom) wX(gx, gy int) float32 { return float32(gy) - m.cz }
+func (m geom) wZ(gx, gy int) float32 { return float32(gx) - m.cx }
 func (m geom) surfY(gx, gy int) float32 {
 	return float32(m.g.heights[gy*m.g.w+gx]-1) * heightScale
 }

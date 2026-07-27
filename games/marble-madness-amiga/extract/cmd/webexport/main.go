@@ -1,34 +1,32 @@
-// webexport is Marble Madness's single-call format-2 asset exporter (see
-// STANDARDS.md §4 / FORMAT2.md). It reconstructs everything from the Amiga
-// disk image and writes the common asset tree under the output root:
+// webexport builds Marble Madness's Retro-X game tree from the Amiga disk
+// image. Every stage is a pure decode — nothing boots an emulator:
 //
-//	manifest.json                 game index: native res, tick rate, levels/views/music/sprites
-//	levels/<key>.json             per course (kind "tilemap2d"): the format-1 tilemap body
-//	                              (grid with the content-hashed variant atlas, objects, cellAnims,
-//	                              tileAnims) inside the format-2 envelope
-//	levels/<key>.objects.json     machine-readable object DB for the course
-//	levels/<key>.atlas.png        the course's tile atlas (base tiles + band/shimmer variants)
-//	slopes/<key>.slope.json       the course's 3-D height field + markers (a manifest.views entry,
-//	                              the bespoke "marble-slope" three.js view — NOT linked by a level)
-//	sprites/index.json + PNGs     the scenery-overlay sprite pieces the level objects reference
-//	music/<key>.mp3               each course theme, rendered by the from-scratch Go music player
+//	levels/<key>.json       per course: tilemap (grid with the colour bands
+//	                        baked as recoloured variant tiles, the gold
+//	                        shimmer as tileAnims, screen swaps as cellAnims)
+//	                        and the scenery-overlay placements
+//	levels/<key>.atlas.png  the course's tile atlas (base + variant tiles)
+//	objects/<id>.json|.png  the scenery-overlay pieces (drawbridge, goal
+//	                        flags, the WAVE, pistons, …) as sprite2d objects
+//	objects/<key>-slope.glb the course's 3-D height field as ONE GLB: solid
+//	                        terrain triangles + the Track-layer markers baked
+//	                        as coloured line pins/routes
+//	music/<key>.mp3         each course theme, rendered by the from-scratch
+//	                        Go music player
 //
-// The four producers (levels, slopes, sprites, music) are folded into this one command; -only
-// gates which stages run. None of them boots an emulator — every stage is a pure decode.
+// Usage (from games/marble-madness-amiga/):
 //
-// Usage: webexport [-adf Marble_Madness.adf] [-o dir] [-only levels,slopes,sprites,music,all]
+//	go run ./extract/cmd/webexport -in Marble_Madness.adf
 package main
 
 import (
-	"encoding/json"
-	"flag"
 	"fmt"
-	"hash/fnv"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"retroreverse.com/games/marble-madness-amiga/extract/mlb"
+	"retroreverse.com/tools/lib/retrox/cli"
+	"retroreverse.com/tools/lib/retrox/schema"
 	"retroreverse.com/tools/platform/amiga/adf"
 	"retroreverse.com/tools/platform/amiga/hunk"
 )
@@ -43,89 +41,21 @@ var courses = []struct{ key, track, snd, name string }{
 	{"ultima", "UltTrack", "UltSnd", "Ultimate"},
 }
 
-// Manifest is the format-2 per-game index (FORMAT2.md). A stage gated out via -only leaves
-// its section empty; omitempty drops it, so a partial run stays self-consistent.
-type Manifest struct {
-	Format   int            `json:"format"`
-	Game     string         `json:"game"`
-	Platform string         `json:"platform"`
-	Native   map[string]int `json:"native"`
-	TickHz   int            `json:"tickHz"`
-	Levels   []LevelIndex   `json:"levels,omitempty"`
-	Views    []ViewIndex    `json:"views,omitempty"`
-	Music    []MusicEntry   `json:"music,omitempty"`
-	Sprites  string         `json:"sprites,omitempty"`
-}
-
-type LevelIndex struct {
-	Name    string `json:"name"`
-	Section string `json:"section,omitempty"`
-	File    string `json:"file"`
-	Kind    string `json:"kind"`
-	Atlas   string `json:"atlas,omitempty"`
-	Objects string `json:"objects,omitempty"`
-}
-
-// ViewIndex is a bespoke-3D-view entry (the escape hatch): the course slopes are
-// standalone "marble-slope" views, not referenced by any level. File is the solid
-// terrain GLB; Markers is the sidecar of world-space route markers/pins.
-type ViewIndex struct {
-	Name    string `json:"name"`
-	Section string `json:"section,omitempty"`
-	File    string `json:"file"`
-	Kind    string `json:"kind"`
-	Markers string `json:"markers,omitempty"`
-}
-
-type MusicEntry struct {
-	Name string `json:"name"`
-	File string `json:"file"`
-}
-
-// parseOnly turns the -only selection into a stage set. "all" (or empty) selects every stage;
-// otherwise only the named stages (levels,slopes,sprites,music) run.
-func parseOnly(sel string) map[string]bool {
-	out := map[string]bool{}
-	for _, s := range strings.Split(sel, ",") {
-		s = strings.TrimSpace(s)
-		switch s {
-		case "":
-		case "all":
-			out["levels"], out["slopes"], out["sprites"], out["music"] = true, true, true, true
-		case "levels", "slopes", "sprites", "music":
-			out[s] = true
-		default:
-			fmt.Fprintf(os.Stderr, "webexport: unknown -only stage %q (want levels,slopes,sprites,music,all)\n", s)
-			os.Exit(2)
-		}
-	}
-	return out
-}
-
 func main() {
-	adfPath := flag.String("adf", "../Marble_Madness.adf", "input Amiga disk image (.adf)")
-	in := flag.String("in", "", "input Amiga disk image (.adf) — alias for -adf")
-	outDir := flag.String("o", "../../site/public/marble-madness-amiga", "output asset root")
-	only := flag.String("only", "all", "comma-separated subset of stages to run: levels,slopes,sprites,music,all")
-	flag.Parse()
-	if *in != "" {
-		*adfPath = *in
-	}
-	if flag.NArg() > 0 {
-		*adfPath = flag.Arg(0) // tolerate a positional ADF path
-	}
-	sel := parseOnly(*only)
+	cli.Main("marble-madness-amiga", run)
+}
 
-	raw, err := os.ReadFile(*adfPath)
+func run(ctx *cli.Context) error {
+	if ctx.In == "" {
+		return fmt.Errorf("usage: webexport -in Marble_Madness.adf [-o DIR] [-only levels,objects,music]")
+	}
+	raw, err := os.ReadFile(ctx.In)
 	if err != nil {
-		fail(err)
+		return err
 	}
 	vol, err := adf.Open(raw)
 	if err != nil {
-		fail(err)
-	}
-	if err := os.MkdirAll(*outDir, 0o755); err != nil {
-		fail(err)
+		return err
 	}
 
 	// case-insensitive filename -> path (disk names mix case: AerSnd, ulttrack, BegTrack).
@@ -136,35 +66,47 @@ func main() {
 		}
 		return nil
 	}); err != nil {
-		fail(err)
+		return err
 	}
 
-	man := Manifest{
-		Format: 2, Game: "marble-madness-amiga", Platform: "Amiga",
-		Native: map[string]int{"w": 288, "h": 200}, TickHz: 50,
+	b := ctx.Builder
+	b.SetTitle("Marble Madness")
+	b.SetPlatform("Amiga")
+	b.SetYear(1986)
+	b.SetDisplay(schema.Display{
+		Native: schema.Size{W: 288, H: 200},
+		TickHz: 50,
+		Filter: "crt",
+	})
+
+	var refs map[string]objRef
+	if ctx.Stage("objects") {
+		if refs, err = exportObjects(ctx, vol, paths); err != nil {
+			return err
+		}
+		if err := exportSlopes(ctx, vol, paths); err != nil {
+			return err
+		}
 	}
-	if sel["levels"] {
-		man.Levels = exportLevels(vol, paths, *outDir)
+	if ctx.Stage("levels") {
+		if err := exportLevels(ctx, vol, paths, refs); err != nil {
+			return err
+		}
 	}
-	if sel["slopes"] {
-		man.Views = exportSlopes(vol, paths, *outDir)
+	if ctx.Stage("music") {
+		if err := exportMusic(ctx, vol, paths); err != nil {
+			return err
+		}
 	}
-	if sel["sprites"] {
-		exportSprites(vol, paths, *outDir)
-		man.Sprites = "sprites/index.json"
-	}
-	if sel["music"] {
-		man.Music = exportMusic(vol, paths, *outDir)
-	}
-	if err := writeJSON(filepath.Join(*outDir, "manifest.json"), man); err != nil {
-		fail(err)
-	}
-	fmt.Fprintf(os.Stderr, "[manifest] %d levels, %d views, %d music, sprites=%q -> %s\n",
-		len(man.Levels), len(man.Views), len(man.Music), man.Sprites, *outDir)
+	return nil
 }
 
-// course is one course's decoded assets shared by the levels and sprites stages: the tilemap
-// (co), the Track hunk image, the parsed display block, and the band-baker over them.
+// objRef points a placement's sprite key ("<course>/<piece>") at its object asset.
+type objRef struct{ asset string }
+
+// course is one course's decoded assets shared by the levels and objects
+// stages: the tilemap (co), the Track hunk image, the parsed display block,
+// and the band-baker over them.
 type course struct {
 	co   *mlb.Course
 	prog *hunk.Program
@@ -200,24 +142,33 @@ func loadCourse(vol *adf.Volume, paths map[string]string, key, track string) (co
 	return course{co: co, prog: prog, fx: fx, bake: newBandBake(co, fx)}, nil
 }
 
-// hashedRef returns "<name>?v=<fnv32 of the file>" — a cache-busting URL that changes whenever
-// the file's content does.
-func hashedRef(path, name string) (string, error) {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
+// slugify turns a sprite key or name into a stable kebab-case id
+// ("practy/a10" -> "practy-a10").
+func slugify(s string) string {
+	var out []rune
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z' || r >= '0' && r <= '9':
+			out = append(out, r)
+		case r >= 'A' && r <= 'Z':
+			out = append(out, r+32)
+		default:
+			if len(out) > 0 && out[len(out)-1] != '-' {
+				out = append(out, '-')
+			}
+		}
 	}
-	h := fnv.New32a()
-	h.Write(b)
-	return fmt.Sprintf("%s?v=%08x", name, h.Sum32()), nil
+	for len(out) > 0 && out[len(out)-1] == '-' {
+		out = out[:len(out)-1]
+	}
+	return string(out)
 }
 
-func writeJSON(path string, v any) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
+// chk/fail keep the untouched decode files (overlay.go, bake.go, bands.go) compiling.
+func chk(e error) {
+	if e != nil {
+		fail(e)
 	}
-	return os.WriteFile(path, b, 0o644)
 }
 
 func fail(err error) {
