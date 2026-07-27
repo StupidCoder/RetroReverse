@@ -350,3 +350,30 @@ func TestPatrolRanges(t *testing.T) {
 		}
 	}
 }
+
+func TestEnemySpawnDrawsWeighting(t *testing.T) {
+	g := loadTestGame(t)
+	// Level 0 ($9CBA..): the fort top-center is 4 of the 8 draws; the four
+	// cavern corridor ends appear once each (write-up Part V §3).
+	draws := g.EnemySpawnDraws(0)
+	if len(draws) != 8 {
+		t.Fatalf("got %d draws, want 8", len(draws))
+	}
+	count := map[Point]int{}
+	for _, p := range draws {
+		count[p]++
+	}
+	top := Point{Col: 0x84 - 7, Row: -2}
+	if count[top] != 4 {
+		t.Errorf("fort top-center %v drawn %d times, want 4", top, count[top])
+	}
+	if len(count) != 5 {
+		t.Errorf("got %d distinct points, want 5", len(count))
+	}
+	// Every draw sits inside the content map.
+	for _, p := range append(draws, g.EnemySpawnDraws(1)...) {
+		if p.Col < 0 || p.Col >= ContentWidth || p.Row < -2 || p.Row >= MapHeight {
+			t.Errorf("draw %v outside the map", p)
+		}
+	}
+}

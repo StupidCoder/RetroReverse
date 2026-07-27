@@ -461,23 +461,13 @@ func exportLevels(ctx *cli.Context, game *fortgfx.Game, refs map[string]string) 
 				Seedable:   true,
 			})
 
-			// One enemy helicopter at a random 4x2-clear spot in the band.
+			// One enemy helicopter, drawn from the game's OWN 8-entry
+			// spawn table ($9CBA/$9CCA). Duplicate entries stay: a uniform
+			// pick over the 8 draws is the game's own weighting (level 0's
+			// fort top-center is 4 of 8).
 			var heliSpots [][]float64
-			for r := 0; r+1 < h; r++ {
-				for c := fortgfx.SPMBandMin; c <= fortgfx.SPMBandMax && c+3 < w; c++ {
-					clear := true
-					for dy := 0; dy < 2 && clear; dy++ {
-						for dx := 0; dx < 4; dx++ {
-							if cellAt(c+dx, r+dy) != 0 {
-								clear = false
-								break
-							}
-						}
-					}
-					if clear {
-						heliSpots = append(heliSpots, []float64{float64(c * 8), float64(r * 8)})
-					}
-				}
+			for _, p := range game.EnemySpawnDraws(li) {
+				heliSpots = append(heliSpots, []float64{float64(p.Col * 8), float64(p.Row * 8)})
 			}
 			enemy := schema.Pool{
 				ID: "enemy-helicopter", Count: 1, Name: "Enemy Helicopter",

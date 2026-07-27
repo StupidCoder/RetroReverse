@@ -230,12 +230,7 @@ func (g *Game) LevelMap(level int) (*LevelMap, error) {
 	// x = (col-cam)*4+$16, y = (row-cam)*8+$53) puts the craft's
 	// visual top-left at buffer column col-7.5, row col-2.1 — rounded
 	// here to (col-7, row-2).
-	base := enemyPatrolTbl + 8*level
-	for i := 0; i < 8; i++ {
-		p := Point{
-			Col: int(g.mem[base+i]) - 7,
-			Row: int(g.mem[base+16+i]) - 2,
-		}
+	for _, p := range g.EnemySpawnDraws(level) {
 		dup := false
 		for _, q := range lm.EnemySpawns {
 			if q == p {
@@ -266,6 +261,24 @@ func (g *Game) LevelMap(level int) (*LevelMap, error) {
 		}
 	}
 	return lm, nil
+}
+
+// EnemySpawnDraws returns a level's 8 enemy-helicopter spawn-table entries
+// ($9C6B draws `rnd&7 + 8*level` into $9CBA/$9CCA), each converted to the
+// craft's visual top-left like the map renders (col-7, row-2). DUPLICATES ARE
+// KEPT: they are the game's own spawn weighting — level 0's fort top-center
+// is 4 of the 8 draws, so a uniform pick over these entries reproduces the
+// real distribution. LevelMap's EnemySpawns is the deduplicated marker set.
+func (g *Game) EnemySpawnDraws(level int) []Point {
+	base := enemyPatrolTbl + 8*level
+	pts := make([]Point, 8)
+	for i := 0; i < 8; i++ {
+		pts[i] = Point{
+			Col: int(g.mem[base+i]) - 7,
+			Row: int(g.mem[base+16+i]) - 2,
+		}
+	}
+	return pts
 }
 
 // MulticolorValue returns the level's $D022 colour register value.

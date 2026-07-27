@@ -5,7 +5,7 @@
  },
  "enemy-helicopter": {
   "title": "Enemy Helicopter",
-  "text": "Only one is active at a time. After a delay it spawns at a random patrol point — but never within ~34 columns or 8 rows of the player, so it can’t materialise on top of you — then hunts by pure per-axis pursuit: each tick it steps one cell toward the player horizontally, then vertically, testing the cells ahead so it only advances into clear corridor. It banks into its motion (which aims its shots) and fires while on screen, but can’t chase across the cylinder’s wrap. Its only exits are death — flying into terrain, or a player bullet through the VIC collision latch. (This viewer leaves it static; in play it is a pursuit AI, not a patroller.)"
+  "text": "Only one is active at a time. After a delay it spawns at one of the eight fixed patrol points in the game’s own table at $9CBA/$9CCA — on the first level the fort’s top-center is four of the eight draws, so it appears there half the time — but never within ~34 columns or 8 rows of the player, so it can’t materialise on top of you — then hunts by pure per-axis pursuit: each tick it steps one cell toward the player horizontally, then vertically, testing the cells ahead so it only advances into clear corridor. It banks into its motion (which aims its shots) and fires while on screen, but can’t chase across the cylinder’s wrap. Its only exits are death — flying into terrain, or a player bullet through the VIC collision latch. (This viewer leaves it static; in play it is a pursuit AI, not a patroller.)"
  },
  "mine": {
   "title": "Self-Propelled Mine",
