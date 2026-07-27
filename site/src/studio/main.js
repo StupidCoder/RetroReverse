@@ -402,6 +402,20 @@ const GAMES = [
     // Browse-list accordion: the manifest tags each model's section ("Tracks", "Cars").
     group: (item) => ({ section: item.section, label: item.name }),
   },
+  {
+    // The generic manifest-driven 3-D viewer, plain GLBs only (builtin mesh3d):
+    // the player's Dino 246 GTS assembled in the game's captured grid rest pose,
+    // and the fifteen AI rival Ferraris (their wheels are modeled in place).
+    // Extracted from the disc's /Cars *_pmt.sz models by extract/cmd/carex —
+    // see games/outrun-2006-xbox/outrun-2006-xbox.md, Part XIX.
+    id: 'outrun-2006-xbox', name: 'OutRun 2006: Coast 2 Coast', system: 'Original Xbox', render: '3d',
+    load: () => import('../shared/viewer3d.js').then(m => m.Viewer3D),
+    make: (V, el, hud) => new V(el, hud, { base: 'public/outrun-2006-xbox/' }),
+    list: async (v) => await v.init(),
+    show: (v, item, i) => v.showItem(item),
+    layers: [{ id: 'wireframe', label: 'Wireframe', default: false }],
+    group: (item) => ({ section: item.section, label: item.name }),
+  },
 ];
 
 // Turrican's manifest labels worlds 0-based with hex start offsets; make them readable.
@@ -445,6 +459,7 @@ const SYSTEMS = [
   { full: 'Nintendo 3DS', short: '3DS' },
   { full: 'Nintendo GameCube', short: 'GameCube' },
   { full: '3DO', short: '3DO' },
+  { full: 'Original Xbox', short: 'Xbox' },
 ];
 const CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
 

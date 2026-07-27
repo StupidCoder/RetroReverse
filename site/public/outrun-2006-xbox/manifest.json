@@ -1,0 +1,108 @@
+{
+  "format": 2,
+  "game": "outrun-2006-xbox",
+  "platform": "Original Xbox",
+  "native": {
+    "h": 480,
+    "w": 640
+  },
+  "tickHz": 60,
+  "models": [
+    {
+      "name": "Dino 246 GTS (player)",
+      "section": "Player car",
+      "kind": "mesh3d",
+      "file": "models/plcar-dino.glb"
+    },
+    {
+      "name": "250GTO",
+      "section": "Rivals (AI)",
+      "kind": "mesh3d",
+      "file": "models/rc-250gto.glb"
+    },
+    {
+      "name": "328GTS",
+      "section": "Rivals (AI)",
+      "kind": "mesh3d",
+      "file": "models/rc-328gts.glb"
+    },
+    {
+      "name": "360SP",
+      "section": "Rivals (AI)",
+      "kind": "mesh3d",
+      "file": "models/rc-360sp.glb"
+    },
+    {
+      "name": "512BB",
+      "section": "Rivals (AI)",
+      "kind": "mesh3d",
+      "file": "models/rc-512bb.glb"
+    },
+    {
+      "name": "550B",
+      "section": "Rivals (AI)",
+      "kind": "mesh3d",
+      "file": "models/rc-550b.glb"
+    },
+    {
+      "name": "575SA",
+      "section": "Rivals (AI)",
+      "kind": "mesh3d",
+      "file": "models/rc-575sa.glb"
+    },
+    {
+      "name": "DAYTS",
+      "section": "Rivals (AI)",
+      "kind": "mesh3d",
+      "file": "models/rc-dayts.glb"
+    },
+    {
+      "name": "DINO",
+      "section": "Rivals (AI)",
+      "kind": "mesh3d",
+      "file": "models/rc-dino.glb"
+    },
+    {
+      "name": "F355SP",
+      "section": "Rivals (AI)",
+      "kind": "mesh3d",
+      "file": "models/rc-f355sp.glb"
+    },
+    {
+      "name": "F40",
+      "section": "Rivals (AI)",
+      "kind": "mesh3d",
+      "file": "models/rc-f40.glb"
+    },
+    {
+      "name": "F430",
+      "section": "Rivals (AI)",
+      "kind": "mesh3d",
+      "file": "models/rc-f430.glb"
+    },
+    {
+      "name": "F50",
+      "section": "Rivals (AI)",
+      "kind": "mesh3d",
+      "file": "models/rc-f50.glb"
+    },
+    {
+      "name": "FX",
+      "section": "Rivals (AI)",
+      "kind": "mesh3d",
+      "file": "models/rc-fx.glb"
+    },
+    {
+      "name": "GTO",
+      "section": "Rivals (AI)",
+      "kind": "mesh3d",
+      "file": "models/rc-gto.glb"
+    },
+    {
+      "name": "TESTA",
+      "section": "Rivals (AI)",
+      "kind": "mesh3d",
+      "file": "models/rc-testa.glb"
+    }
+  ]
+}

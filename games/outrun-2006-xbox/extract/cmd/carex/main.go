@@ -39,6 +39,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"encoding/binary"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"image"
@@ -553,8 +554,17 @@ func main() {
 	all := flag.Bool("all", false, "extract every /Cars/*_pmt.sz model")
 	outDir := flag.String("o", "out", "output directory")
 	dumpTex := flag.Bool("dumptex", false, "also write each decoded texture as PNG")
+	site := flag.String("site", "", "Studio export: write the curated roster + manifest.json under this directory")
 	flag.Parse()
 
+	if *site != "" {
+		if *imagePath == "" {
+			fmt.Fprintln(os.Stderr, "usage: carex -image DISC.iso -site site/public/outrun-2006-xbox")
+			os.Exit(2)
+		}
+		exportSite(*imagePath, *site)
+		return
+	}
 	if *imagePath == "" || (*one == "" && !*all) {
 		fmt.Fprintln(os.Stderr, "usage: carex -image DISC.iso (-file /Cars/... | -all) [-o dir]")
 		os.Exit(2)
@@ -624,6 +634,96 @@ func main() {
 		}
 		fmt.Printf("%-28s -> %s (%s; %d textures, %#x pixel bytes)\n", f, out, summary, len(texs), pixBytes)
 	}
+}
+
+// exportSite writes the Studio's curated car set: the assembled player Dino
+// plus the fifteen AI ("rc") rivals, whose wheels are modeled in place. The
+// unassembled player models, the `_t` variants, the origin-stacked traffic
+// bundle and rc_all stay out until their open items (chassis rest pose,
+// variant semantics) are resolved — see the game markdown, Part XIX.
+func exportSite(imagePath, siteDir string) {
+	disc, err := xbox.Open(imagePath)
+	if err != nil {
+		fatal("open image: %v", err)
+	}
+	defer disc.Close()
+	modelsDir := filepath.Join(siteDir, "models")
+	if err := os.MkdirAll(modelsDir, 0o755); err != nil {
+		fatal("%v", err)
+	}
+
+	type model struct {
+		Name    string `json:"name"`
+		Section string `json:"section"`
+		Kind    string `json:"kind"`
+		File    string `json:"file"`
+	}
+	type manifest struct {
+		Format   int            `json:"format"`
+		Game     string         `json:"game"`
+		Platform string         `json:"platform"`
+		Native   map[string]int `json:"native"`
+		TickHz   int            `json:"tickHz"`
+		Models   []model        `json:"models"`
+	}
+
+	// Model codes are the disc's own file names; the labels just uppercase them.
+	rivals := []string{
+		"250gto", "328gts", "360sp", "512bb", "550b", "575sa",
+		"dayts", "dino", "f355sp", "f40", "f430", "f50", "fx", "gto", "testa",
+	}
+	m := manifest{
+		Format: 2, Game: "outrun-2006-xbox", Platform: "Original Xbox",
+		Native: map[string]int{"w": 640, "h": 480}, TickHz: 60,
+	}
+
+	doOne := func(discPath, outName, name, section string) {
+		raw, err := disc.ReadFile(discPath)
+		if err != nil {
+			fatal("read %s: %v", discPath, err)
+		}
+		zr, err := zlib.NewReader(bytes.NewReader(raw))
+		if err != nil {
+			fatal("%s: zlib: %v", discPath, err)
+		}
+		data, err := io.ReadAll(zr)
+		if err != nil {
+			fatal("%s: inflate: %v", discPath, err)
+		}
+		base := strings.TrimSuffix(filepath.Base(discPath), "_pmt.sz")
+		p, err := parsePMT(base, data)
+		if err != nil {
+			fatal("%s: %v", discPath, err)
+		}
+		texs, _, err := p.parseTextures()
+		if err != nil {
+			fatal("%s: %v", discPath, err)
+		}
+		out := filepath.Join(modelsDir, outName)
+		summary, err := export(p, texs, out)
+		if err != nil {
+			fatal("%s: %v", discPath, err)
+		}
+		m.Models = append(m.Models, model{
+			Name: name, Section: section, Kind: "mesh3d", File: "models/" + outName,
+		})
+		fmt.Printf("%-34s -> %s (%s)\n", discPath, out, summary)
+	}
+
+	doOne("/Cars/obj_plcar_dino_pmt.sz", "plcar-dino.glb", "Dino 246 GTS (player)", "Player car")
+	for _, code := range rivals {
+		doOne("/Cars/obj_rc_"+code+"_pmt.sz", "rc-"+code+".glb",
+			strings.ToUpper(code), "Rivals (AI)")
+	}
+
+	buf, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		fatal("%v", err)
+	}
+	if err := os.WriteFile(filepath.Join(siteDir, "manifest.json"), append(buf, '\n'), 0o644); err != nil {
+		fatal("%v", err)
+	}
+	fmt.Printf("[manifest] %d models -> %s\n", len(m.Models), filepath.Join(siteDir, "manifest.json"))
 }
 
 func writePNG(path string, img image.Image) {

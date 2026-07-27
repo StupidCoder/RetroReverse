@@ -91,6 +91,21 @@ roadmap.)
   Then a 3.9× byte-identical parallel raster, a film-strip instrument that catches a mid-frame
   capture masquerading as motion — and the countdown runs to "Go!" over a grid nothing ever
   releases: the race-start gate is the named next frontier. *(this document)*
+* **Part XVI** — **the grid does not freeze, it crawls**: the start machinery mapped — no hard
+  on/off gate, the launch state machine, and the racing tick starved by the intro's idle loop.
+  *(this document)*
+* **Part XVII** — the **race state machine**: the grid-release gate localised to an exact chain,
+  the drivetrain characterised as an idle speed-following model with the drive force *absent* —
+  and the state-advance recognised as a symptom, not the root. *(this document)*
+* **Part XVIII** — **the race drives**: the "freeze" was the integrator gate read with inverted
+  polarity — every prior throttle test sat in an integrator-OFF config. Throttle in the ON state
+  takes the speedo 000→084 km/h; `DOT_REFLECT_SPECULAR` modeled to unblock sustained driving.
+  *(this document)*
+* **Part XIX** — **the cars come off the disc**: the `.sz` container is a bare zlib stream, the
+  `_pmt` model format derived from the game's own loader fix-up and draw loop, vertex layouts
+  read off the NV2A's own declaration, the XPR0 texture bank decoded — and all 63 `/Cars`
+  models extracted to verified GLBs, the player Dino assembled in the game's captured grid rest
+  pose. *(this document)*
 
 ---
 
@@ -2551,3 +2566,202 @@ addresses: integrator gate `0x166E80` (`body[0]` = `[0x613030]`); dynamic update
 (gate `0xF3E71`/`0xF3E86`); drive force `0xF3C10` → `0xEF9B0` (impulse into `[body+0x5C]`,
 `dt 0x3C881469`); state-`0x10` tick `0xE85B0` (arm `[0x62B4CC]`, GO gate `0x8E8F0` on
 `[0x5BF548]==0x14`, start `0x8E490`); reflect model `texReflectSpecular`.
+
+---
+
+## Part XIX — the cars come off the disc
+
+Every part so far ran the game to *observe* it. This one turns around and takes its assets:
+the `/Cars` directory — the player's Ferraris, the AI rivals, the traffic — extracted straight
+from the disc into standard glTF binaries, by a chain derived from the game's own loader and
+draw code. The deliverables are `carex` (the extractor), 63 of 63 `/Cars` files parsing and
+exporting with every structural invariant checked, and the assembled player Dino verified
+against the game's own render of the same car on the same grid.
+
+### Which files the race actually opens
+
+`-v` on a race load from `main-menu.state` names the asset set (and the default car) without
+touching a byte of game code:
+
+```
+NtOpenFile: "d:\sprite\spr_sprani_meter_246gts_xst.sz"   the HUD names the default car
+NtOpenFile: "d:\CARS\obj_plcar_dino_pmt.sz"              the player's Dino 246 GTS
+NtOpenFile: "d:\CARS\obj_rc_dayts_pmt.sz"                rival ("rc") Daytona
+NtOpenFile: "d:\CARS\obj_rc_dino_pmt.sz"                 rival Dino
+NtOpenFile: "d:\CARS\obj_othcar_pmt.sz"                  the traffic fleet
+```
+
+`obj_plcar_*` are the 15 driveable Ferraris (each with a `_t` twin — a variant model whose
+meaning is still open; the `_t` files are complete models with their own textures, often with
+a different part count). `obj_rc_*` are the lower-poly AI versions of the same cars,
+`obj_othcar` is the traffic, and `obj_rc_all` bundles every rival into one 293-part file.
+
+### The `.sz` container is a bare zlib stream, streamed
+
+Every asset's first two bytes are `78 DA`. There is no game container around it — `.sz` *is*
+a raw zlib stream, and the whole "format" is in how the game consumes it: `NtReadFile` pulls
+64 KB chunks into two ping-pong buffers (`0x6A4430`/`0x6B4430`, visible in the read log as
+alternating `buf` values), and a statically-linked zlib — `inflate` at VA `0x1BD79B`, the
+"incorrect header check" string cluster nearby — decompresses *in flight*. The game-side
+wrapper at `0x2A820` drives the classic `z_stream` fields and has a discard path (a 0x40-byte
+stack scratch as `next_out`) so a reader can *seek forward* in a compressed stream it can't
+rewind. One public entry at `0x2AC70` serves all 27 call sites; the decompressed file never
+needs to exist in one piece anywhere.
+
+`carex` reimplements this as `compress/zlib` over the whole file — same bytes, no streaming
+needed offline.
+
+### The `_pmt` payload: a 16-byte header and two sections
+
+```
++0  nParts     part records in section A
++4  nTextures  entries in the XPR0 texture bank
++8  szA        section A byte size   (CPU-side tables)
++C  szB        section B byte size   (GPU-side data)
+```
+
+`0x10 + szA + szB == file size`, exact, in all 63 files. The loader (the state machine at
+`0x363xx`) reads the 16-byte header, allocates `szA+8` through the tagged allocator
+(`0x20D10` → the `MALLOC` tag string), streams section A into it, streams section B
+separately, and then calls the **fix-up** at `0x35DC0` — and that fix-up is the field map:
+it walks the `nParts` records adding the section base to *every nonzero offset field* (zero
+stays zero, i.e. NULL). Which fields get relocated is which fields are pointers; everything
+below was read off that loop and the draw-time consumers, then re-derived by `carex` from the
+file alone.
+
+**Section A** holds, in order: a 6-dword sub-header `{0, nParts, nTextures, 0, 0, 0}`; the
+`nParts` **part records** (15 dwords each, at `+0x18`); `nTextures` zeroed dwords (the
+runtime texture-pointer slots); the **XPR0 texture bank header**; then per-part table data
+and the shared **16-bit index pool**. **Section B** is `[texture pixels][vertex buffers]`,
+in that order — the bank's `totalSize − headerSize` gives the pixel-region size, and the
+first vertex buffer starts at exactly that offset.
+
+### The part record, and the tables it points at
+
+Record fields (after fix-up they are pointers; in the file they are A-relative offsets):
+
+| w | points at | shape |
+|---|---|---|
+| w1 | index-buffer descriptors | n₁ pointers → 12-byte `{0, poolOffset, 0}` — registered as `D3DFMT_INDEX16` (the literal `0x65` at the `0x1C5A3C` call site) |
+| w2 | vertex-buffer descriptors | 4 stream slots per pair, slot 0 live → 12-byte `{0, sectionB offset, 0}` |
+| w3 | draw-group table | 20-byte entries, zero in the file, built at load |
+| w4 | the 16-bit index pool | shared by all of the part's slices |
+| w5, w6 | the 0x34-byte entry | counts live here: `+0x24`=n₁ pairs, `+0x28`=n₂ batches, `+0x30`=n₄ colour materials |
+| w7 | part header | `{kind, cx, cy, cz, r, …}` — a **local-space** bounding sphere |
+| w10 | batch descriptors | 32-byte `{baseVertex, matIdx, drawIdx, flag, cx, cy, cz, r}` |
+| w11 | draw entries | 16-byte `{prim, firstIndex, primCount, nVerts}` |
+| w12 | buffer pairs | 0x2C-byte `{…, ibBytes, vbBytes, ?, stride}` |
+| w13 | materials | 0x58-byte `{id, stateKey, 4 × 20-byte stages}` |
+| w14 | colour materials | 0x48-byte D3DMATERIAL8 (diffuse RGBA first; copied out by the D3D `SetMaterial` at `0x1ABDF6`) |
+
+The draw loop at `0x12070` is the Rosetta stone. Per batch it reads the 32-byte descriptor's
+`matIdx`/`drawIdx`, applies material state via `0x16570` — whose stage loop is where the
+0x58 struct decodes: each of four 20-byte stages carries a **texture index** at `+0x10`
+(`0xFFFFFFFF` = stage unused) resolved through the runtime slot array, i.e. into the file's
+XPR bank — binds both streams with `SetStreamSource`, and issues the draw with
+`indexCount = primCount·mul + add` from the game's own primitive table at VA `0x248758`
+(`{3,0}` triangles, `{1,2}` strip and fan, `{4,0}` quads — Kelvin primitive numbering).
+`firstIndex` is relative to the pair's index-pool slice, `vertex = VB[baseVertex + index]`,
+and a global at `0x1B94F4` holds the currently-bound slice base.
+
+Two invariants make the parse self-checking, and `carex` enforces both: a pair's batches
+consume its index slice **exactly** (the Dino's part-0 batch 3 ends at byte `0xEEE` =
+`ibBytes₀` to the byte), and `baseVertex + max(index)` stays inside the pair's vertex buffer
+(part-0 pair-1: batch 4 ends at vertex 2115, batch 5 bases at 2116).
+
+### The vertex layouts, read off the GPU
+
+Instead of guessing the vertex format from float patterns, the oracle grew `-carvtx LO:HI`:
+a census that shadows `SET_VERTEX_DATA_ARRAY_OFFSET/_FORMAT` in the NV2A method stream and
+prints the full 16-attribute declaration at every `BEGIN` whose attribute-0 array lies in a
+chosen RAM range. Pointed at the loaded Dino's section B during one race frame it returns
+exactly two layouts:
+
+```
+stride 16: attr0 pos float3 @0   attr2 normal packed-11:11:10 @12
+stride 24: attr0 pos float3 @0   attr2 normal packed-11:11:10 @12   attr9 uv float2 @16
+```
+
+(Some `_t` files also carry stride 32; `carex` accepts it with the uv at `+16`.) The
+`stride` field in the buffer-pair table matches the declaration's stride in every checked
+draw — the file states it, the GPU confirms it.
+
+### The XPR0 texture bank
+
+The bank header sits *in section A* (`XPR0` magic, total size, header size); its pixel data
+is the head of section B. After the 12-byte magic block come `nTextures` 20-byte Xbox D3D
+texture headers `{Common=0x00040001, Data, Lock, Format, Size}` — then a `0xFFFFFFFF`
+terminator and `0xAD` padding (the header size is padded, so the entry count must come from
+the file header; trusting `(headerSize-12)/20` mis-parses `obj_plcar_360s` and `obj_rc_all`).
+`Data` is the pixel offset in section B; the `Format` dword's nibbles decode as
+`{..., vlog2, ulog2, mips, formatByte, flags}` with NV2A format bytes `0x0C`/`0x0E`/`0x0F` =
+DXT1/DXT23/DXT45 (stored linear — compressed formats aren't swizzled) and flag bit 2 = cube
+map (six faces, face size = the level-0 size; the Dino's 128×128 DXT23 environment cube is
+`6 × 0x4000 = 0x18000` bytes, exactly its neighbour's `Data` delta).
+
+The decoded sheets are self-verifying: the Dino's 41 textures come out as its headlight
+lenses, gauge cluster, licence plate, seat stitching, alloy wheel + tire, and the Dino badge
+script. The `rc` files carry something the player files don't: **whole-car livery bakes** in
+up to seven colours per car — the AI picks its paint per instance at runtime; `carex` binds
+whatever the material's default stage names.
+
+### ★ The assembled Dino, against the game's own render
+
+The model files hold every part in **local space** — wheels, doors, the steering wheel and
+gear stick all sit at the origin, placed each frame by the game from its chassis/physics
+state. There is no rest pose in the file (a float-scan for wheel triples finds only batch
+bounding spheres). The pose was instead *captured from the game itself*: `-carvtx` logs each
+car draw's composite matrix (vsh constants c160–163), and the relative transform
+`M_body⁻¹ · M_part` cancels view and projection entirely, leaving the game's own grid rest
+pose:
+
+```
+wheels  (∓0.713, 0.299, −1.105) rear   (∓0.715, 0.312, +1.235) front
+doors   (∓0.657, 0,      −0.664)       steering wheel (−0.331, 0.688, −0.258), 25° column tilt
+```
+
+`carex` bakes that captured pose into the Dino's export (a runtime observation, marked as
+such in the source — not file data). The `rc` models need none of this: their wheels are
+modeled in place. Every exported GLB is verified by loading it back through three.js's own
+`GLTFLoader` headless and screenshotting — the shipped file, not the decoded structs (the
+repo's verify-the-shipped-file rule) — and the assembled Dino matches the game's render from
+`race-beac.state`: same yellow, same chrome, same `MO 246 G` plate, tires black, rims
+textured, wheels under the arches.
+
+### Honest status and open items
+
+- **63/63 `/Cars` files extract** (including the 293-part `obj_rc_all`) with all
+  invariants green; no unknown primitive types, strides, or texture formats remain in
+  `/Cars`.
+- **Open — the chassis rest pose**: only the Dino ships assembled; the other player cars'
+  wheel/door placements live in per-car chassis data not yet located (not in the model
+  files; not an obvious float table in the XBE). The AI fleet is unaffected.
+- **Open — the paint pipeline**: body materials pair a 2-D stage with the environment cube
+  under stateKey `0x08005401`; the sheen texture renders white where the game's combiner
+  adds the dynamic reflection. The close-up reference shows the game's own paint also reads
+  largely white under sky reflection, so the export is faithful at rest — but the stateKey →
+  combiner-setup mapping (`0x15B90`) is undecoded.
+- **Open — `_t` variants and `obj_rc_all`'s role**: both extract cleanly; what selects them
+  at runtime is unread. The entry block (w5) holds its pointers *entry-relative* in
+  `obj_plcar_360s`/`obj_rc_all` but A-relative elsewhere; the game never reads those fields
+  (the draw path uses the record), so `carex` uses only its counts.
+- **Open — LOD sets**: the `rc` files carry each car several times over (the F40's body
+  appears as parts 1, 10, 22 and 23) — level-of-detail copies whose selector is unread. The
+  export ships them stacked; they overlap exactly, so the viewer shows one car.
+
+### The Studio
+
+`carex -site site/public/outrun-2006-xbox` writes the curated set — the assembled player
+Dino plus the fifteen AI rivals — with a format-2 manifest; the game registers in the
+Studio's game list under a new Original Xbox system group, on the shared manifest-driven
+3-D viewer (plain `mesh3d`, no custom renderer). Verified headless: the page loads with
+zero console errors, `?game=outrun-2006-xbox` opens on the Dino, `&level=f40` deep-links a
+rival.
+
+### Tooling
+
+- `games/outrun-2006-xbox/extract/cmd/carex` — the extractor.
+  `carex -image DISC.iso -all -o out` writes one GLB per `/Cars` model (textures PNG-embedded,
+  `-dumptex` writes them separately); `-file /Cars/obj_plcar_dino_pmt.sz` extracts one.
+- `bootoracle -carvtx LO:HI` — the draw census: vertex declarations, combiner factors and
+  vsh constants c160–163 for every draw whose attribute-0 array lies in `[LO,HI)`.
