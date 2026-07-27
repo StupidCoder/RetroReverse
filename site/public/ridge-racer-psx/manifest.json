@@ -1,207 +1,601 @@
 {
-  "format": 2,
-  "game": "ridge-racer-psx",
-  "platform": "Sony PlayStation",
+ "format": "retro-x",
+ "version": 1,
+ "id": "ridge-racer-psx",
+ "title": "Ridge Racer",
+ "platform": "Sony PlayStation",
+ "year": 1994,
+ "description": "Namco's PlayStation launch racer — the repo's first PSX/MIPS target, every format cracked and the geometry oracle bit-exact. The full course is a textured GLB straight from MAP.RRM with all 107 trackside objects at their engine placements: the blimp, big screens, the helicopter flying one of its real waypoint routes and the airliner on its glide path. All thirteen cars (twelve selectable plus the hidden one) are assembled exactly as the car-select carousel draws them, from the executable's own car table.",
+ "display": {
   "native": {
-    "w": 320,
-    "h": 240
+   "w": 320,
+   "h": 240
   },
   "tickHz": 60,
-  "models": [
-    {
-      "name": "F/A RACING",
-      "file": "models/car-01.glb",
-      "kind": "mesh3d",
-      "section": "Cars"
-    },
-    {
-      "name": "RT RYUKYU",
-      "file": "models/car-02.glb",
-      "kind": "mesh3d",
-      "section": "Cars"
-    },
-    {
-      "name": "RT YELLOW SOLVALOU",
-      "file": "models/car-03.glb",
-      "kind": "mesh3d",
-      "section": "Cars"
-    },
-    {
-      "name": "RT BLUE SOLVALOU",
-      "file": "models/car-04.glb",
-      "kind": "mesh3d",
-      "section": "Cars"
-    },
-    {
-      "name": "RT PINK MAPPY",
-      "file": "models/car-05.glb",
-      "kind": "mesh3d",
-      "section": "Cars"
-    },
-    {
-      "name": "RT BLUE MAPPY",
-      "file": "models/car-06.glb",
-      "kind": "mesh3d",
-      "section": "Cars"
-    },
-    {
-      "name": "GALAGA RT PLID'S",
-      "file": "models/car-07.glb",
-      "kind": "mesh3d",
-      "section": "Cars"
-    },
-    {
-      "name": "GALAGA RT CARROT",
-      "file": "models/car-08.glb",
-      "kind": "mesh3d",
-      "section": "Cars"
-    },
-    {
-      "name": "RT BOSCONIAN",
-      "file": "models/car-09.glb",
-      "kind": "mesh3d",
-      "section": "Cars"
-    },
-    {
-      "name": "RT NEBULASRAY",
-      "file": "models/car-10.glb",
-      "kind": "mesh3d",
-      "section": "Cars"
-    },
-    {
-      "name": "RT XEVIOUS RED",
-      "file": "models/car-11.glb",
-      "kind": "mesh3d",
-      "section": "Cars"
-    },
-    {
-      "name": "RT XEVIOUS GREEN",
-      "file": "models/car-12.glb",
-      "kind": "mesh3d",
-      "section": "Cars"
-    },
-    {
-      "name": "13\" RACING",
-      "file": "models/car-13.glb",
-      "kind": "mesh3d",
-      "section": "Cars"
-    },
-    {
-      "name": "Number girl (obj 250)",
-      "file": "models/special-250.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Swinging tunnel sign (obj 192)",
-      "file": "models/special-192.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Rotating sign (obj 175)",
-      "file": "models/special-175.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Beacon (palette-cycled) (obj 257)",
-      "file": "models/special-257.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Start banner (obj 182)",
-      "file": "models/special-182.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Big screen A (obj 185)",
-      "file": "models/special-185.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Start gate crowd (far LOD) (obj 67)",
-      "file": "models/special-067.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Start gate crowd (near LOD base) (obj 146)",
-      "file": "models/special-146.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Start semaphore (obj 154)",
-      "file": "models/special-154.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Crowd wave (near LOD) (obj 147)",
-      "file": "models/special-147.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Camera crane (obj 258)",
-      "file": "models/special-258.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Start balloons (obj 166)",
-      "file": "models/special-166.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Lap banner (on balloons) (obj 279)",
-      "file": "models/special-279.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Hot-air balloon A (obj 139)",
-      "file": "models/special-139.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Helicopter (obj 188)",
-      "file": "models/special-188.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Airplane (obj 190)",
-      "file": "models/special-190.glb",
-      "kind": "mesh3d",
-      "section": "Objects"
-    },
-    {
-      "name": "Ridge Racer Course",
-      "file": "models/track.glb",
-      "kind": "rr-course",
-      "section": "Course",
-      "objectsFile": "levels/course.objects.json",
-      "pathsFile": "levels/course.paths.json",
-      "fly": true,
-      "camera": {
-        "pos": [
-          103.646,
-          0.098,
-          -162.713
-        ],
-        "target": [
-          122.914,
-          0.098,
-          -157.347
-        ]
-      }
-    }
-  ]
+  "filter": "crt",
+  "texFilter": "nearest"
+ },
+ "assets": [
+  {
+   "id": "car-01",
+   "category": "object",
+   "name": "F/A RACING",
+   "group": "Cars",
+   "file": "objects/car-01.json"
+  },
+  {
+   "id": "car-02",
+   "category": "object",
+   "name": "RT RYUKYU",
+   "group": "Cars",
+   "file": "objects/car-02.json"
+  },
+  {
+   "id": "car-03",
+   "category": "object",
+   "name": "RT YELLOW SOLVALOU",
+   "group": "Cars",
+   "file": "objects/car-03.json"
+  },
+  {
+   "id": "car-04",
+   "category": "object",
+   "name": "RT BLUE SOLVALOU",
+   "group": "Cars",
+   "file": "objects/car-04.json"
+  },
+  {
+   "id": "car-05",
+   "category": "object",
+   "name": "RT PINK MAPPY",
+   "group": "Cars",
+   "file": "objects/car-05.json"
+  },
+  {
+   "id": "car-06",
+   "category": "object",
+   "name": "RT BLUE MAPPY",
+   "group": "Cars",
+   "file": "objects/car-06.json"
+  },
+  {
+   "id": "car-07",
+   "category": "object",
+   "name": "GALAGA RT PLID'S",
+   "group": "Cars",
+   "file": "objects/car-07.json"
+  },
+  {
+   "id": "car-08",
+   "category": "object",
+   "name": "GALAGA RT CARROT",
+   "group": "Cars",
+   "file": "objects/car-08.json"
+  },
+  {
+   "id": "car-09",
+   "category": "object",
+   "name": "RT BOSCONIAN",
+   "group": "Cars",
+   "file": "objects/car-09.json"
+  },
+  {
+   "id": "car-10",
+   "category": "object",
+   "name": "RT NEBULASRAY",
+   "group": "Cars",
+   "file": "objects/car-10.json"
+  },
+  {
+   "id": "car-11",
+   "category": "object",
+   "name": "RT XEVIOUS RED",
+   "group": "Cars",
+   "file": "objects/car-11.json"
+  },
+  {
+   "id": "car-12",
+   "category": "object",
+   "name": "RT XEVIOUS GREEN",
+   "group": "Cars",
+   "file": "objects/car-12.json"
+  },
+  {
+   "id": "car-13",
+   "category": "object",
+   "name": "13\" RACING",
+   "group": "Cars",
+   "file": "objects/car-13.json"
+  },
+  {
+   "id": "special-250",
+   "category": "object",
+   "name": "Number girl (obj 250)",
+   "group": "Trackside",
+   "file": "objects/special-250.json"
+  },
+  {
+   "id": "special-192",
+   "category": "object",
+   "name": "Swinging tunnel sign (obj 192)",
+   "group": "Trackside",
+   "file": "objects/special-192.json"
+  },
+  {
+   "id": "special-175",
+   "category": "object",
+   "name": "Rotating sign (obj 175)",
+   "group": "Trackside",
+   "file": "objects/special-175.json"
+  },
+  {
+   "id": "special-257",
+   "category": "object",
+   "name": "Beacon (palette-cycled) (obj 257)",
+   "group": "Trackside",
+   "file": "objects/special-257.json"
+  },
+  {
+   "id": "special-182",
+   "category": "object",
+   "name": "Start banner (obj 182)",
+   "group": "Trackside",
+   "file": "objects/special-182.json"
+  },
+  {
+   "id": "special-185",
+   "category": "object",
+   "name": "Big screen A (obj 185)",
+   "group": "Trackside",
+   "file": "objects/special-185.json"
+  },
+  {
+   "id": "special-067",
+   "category": "object",
+   "name": "Start gate crowd (far LOD) (obj 67)",
+   "group": "Trackside",
+   "file": "objects/special-067.json"
+  },
+  {
+   "id": "special-146",
+   "category": "object",
+   "name": "Start gate crowd (near LOD base) (obj 146)",
+   "group": "Trackside",
+   "file": "objects/special-146.json"
+  },
+  {
+   "id": "special-154",
+   "category": "object",
+   "name": "Start semaphore (obj 154)",
+   "group": "Trackside",
+   "file": "objects/special-154.json"
+  },
+  {
+   "id": "special-147",
+   "category": "object",
+   "name": "Crowd wave (near LOD) (obj 147)",
+   "group": "Trackside",
+   "file": "objects/special-147.json"
+  },
+  {
+   "id": "special-258",
+   "category": "object",
+   "name": "Camera crane (obj 258)",
+   "group": "Trackside",
+   "file": "objects/special-258.json"
+  },
+  {
+   "id": "special-166",
+   "category": "object",
+   "name": "Start balloons (obj 166)",
+   "group": "Trackside",
+   "file": "objects/special-166.json"
+  },
+  {
+   "id": "special-279",
+   "category": "object",
+   "name": "Lap banner (on balloons) (obj 279)",
+   "group": "Trackside",
+   "file": "objects/special-279.json"
+  },
+  {
+   "id": "special-139",
+   "category": "object",
+   "name": "Hot-air balloon A (obj 139)",
+   "group": "Trackside",
+   "file": "objects/special-139.json"
+  },
+  {
+   "id": "special-188",
+   "category": "object",
+   "name": "Helicopter (obj 188)",
+   "group": "Trackside",
+   "file": "objects/special-188.json"
+  },
+  {
+   "id": "special-190",
+   "category": "object",
+   "name": "Airplane (obj 190)",
+   "group": "Trackside",
+   "file": "objects/special-190.json"
+  },
+  {
+   "id": "heli-body",
+   "category": "object",
+   "name": "Object heli-body",
+   "group": "Scenery",
+   "file": "objects/heli-body.json"
+  },
+  {
+   "id": "heli-rotor",
+   "category": "object",
+   "name": "Object heli-rotor",
+   "group": "Scenery",
+   "file": "objects/heli-rotor.json"
+  },
+  {
+   "id": "obj-104",
+   "category": "object",
+   "name": "Object 104",
+   "group": "Scenery",
+   "file": "objects/obj-104.json"
+  },
+  {
+   "id": "obj-105",
+   "category": "object",
+   "name": "Object 105",
+   "group": "Scenery",
+   "file": "objects/obj-105.json"
+  },
+  {
+   "id": "obj-106",
+   "category": "object",
+   "name": "Object 106",
+   "group": "Scenery",
+   "file": "objects/obj-106.json"
+  },
+  {
+   "id": "obj-110",
+   "category": "object",
+   "name": "Object 110",
+   "group": "Scenery",
+   "file": "objects/obj-110.json"
+  },
+  {
+   "id": "obj-111",
+   "category": "object",
+   "name": "Object 111",
+   "group": "Scenery",
+   "file": "objects/obj-111.json"
+  },
+  {
+   "id": "obj-112",
+   "category": "object",
+   "name": "Object 112",
+   "group": "Scenery",
+   "file": "objects/obj-112.json"
+  },
+  {
+   "id": "obj-115",
+   "category": "object",
+   "name": "Object 115",
+   "group": "Scenery",
+   "file": "objects/obj-115.json"
+  },
+  {
+   "id": "obj-116",
+   "category": "object",
+   "name": "Object 116",
+   "group": "Scenery",
+   "file": "objects/obj-116.json"
+  },
+  {
+   "id": "obj-117",
+   "category": "object",
+   "name": "Object 117",
+   "group": "Scenery",
+   "file": "objects/obj-117.json"
+  },
+  {
+   "id": "obj-118",
+   "category": "object",
+   "name": "Object 118",
+   "group": "Scenery",
+   "file": "objects/obj-118.json"
+  },
+  {
+   "id": "obj-120",
+   "category": "object",
+   "name": "Object 120",
+   "group": "Scenery",
+   "file": "objects/obj-120.json"
+  },
+  {
+   "id": "obj-121",
+   "category": "object",
+   "name": "Object 121",
+   "group": "Scenery",
+   "file": "objects/obj-121.json"
+  },
+  {
+   "id": "obj-122",
+   "category": "object",
+   "name": "Object 122",
+   "group": "Scenery",
+   "file": "objects/obj-122.json"
+  },
+  {
+   "id": "obj-123",
+   "category": "object",
+   "name": "Object 123",
+   "group": "Scenery",
+   "file": "objects/obj-123.json"
+  },
+  {
+   "id": "obj-125",
+   "category": "object",
+   "name": "Object 125",
+   "group": "Scenery",
+   "file": "objects/obj-125.json"
+  },
+  {
+   "id": "obj-127",
+   "category": "object",
+   "name": "Object 127",
+   "group": "Scenery",
+   "file": "objects/obj-127.json"
+  },
+  {
+   "id": "obj-129",
+   "category": "object",
+   "name": "Object 129",
+   "group": "Scenery",
+   "file": "objects/obj-129.json"
+  },
+  {
+   "id": "obj-130",
+   "category": "object",
+   "name": "Object 130",
+   "group": "Scenery",
+   "file": "objects/obj-130.json"
+  },
+  {
+   "id": "obj-131",
+   "category": "object",
+   "name": "Object 131",
+   "group": "Scenery",
+   "file": "objects/obj-131.json"
+  },
+  {
+   "id": "obj-132",
+   "category": "object",
+   "name": "Object 132",
+   "group": "Scenery",
+   "file": "objects/obj-132.json"
+  },
+  {
+   "id": "obj-134",
+   "category": "object",
+   "name": "Object 134",
+   "group": "Scenery",
+   "file": "objects/obj-134.json"
+  },
+  {
+   "id": "obj-135",
+   "category": "object",
+   "name": "Object 135",
+   "group": "Scenery",
+   "file": "objects/obj-135.json"
+  },
+  {
+   "id": "obj-136",
+   "category": "object",
+   "name": "Object 136",
+   "group": "Scenery",
+   "file": "objects/obj-136.json"
+  },
+  {
+   "id": "obj-137",
+   "category": "object",
+   "name": "Object 137",
+   "group": "Scenery",
+   "file": "objects/obj-137.json"
+  },
+  {
+   "id": "obj-176",
+   "category": "object",
+   "name": "Object 176",
+   "group": "Scenery",
+   "file": "objects/obj-176.json"
+  },
+  {
+   "id": "obj-177",
+   "category": "object",
+   "name": "Object 177",
+   "group": "Scenery",
+   "file": "objects/obj-177.json"
+  },
+  {
+   "id": "obj-179",
+   "category": "object",
+   "name": "Object 179",
+   "group": "Scenery",
+   "file": "objects/obj-179.json"
+  },
+  {
+   "id": "obj-187",
+   "category": "object",
+   "name": "Object 187",
+   "group": "Scenery",
+   "file": "objects/obj-187.json"
+  },
+  {
+   "id": "obj-191",
+   "category": "object",
+   "name": "Object 191",
+   "group": "Scenery",
+   "file": "objects/obj-191.json"
+  },
+  {
+   "id": "obj-192",
+   "category": "object",
+   "name": "Object 192",
+   "group": "Scenery",
+   "file": "objects/obj-192.json"
+  },
+  {
+   "id": "obj-193",
+   "category": "object",
+   "name": "Object 193",
+   "group": "Scenery",
+   "file": "objects/obj-193.json"
+  },
+  {
+   "id": "obj-194",
+   "category": "object",
+   "name": "Object 194",
+   "group": "Scenery",
+   "file": "objects/obj-194.json"
+  },
+  {
+   "id": "obj-247",
+   "category": "object",
+   "name": "Object 247",
+   "group": "Scenery",
+   "file": "objects/obj-247.json"
+  },
+  {
+   "id": "obj-248",
+   "category": "object",
+   "name": "Object 248",
+   "group": "Scenery",
+   "file": "objects/obj-248.json"
+  },
+  {
+   "id": "obj-249",
+   "category": "object",
+   "name": "Object 249",
+   "group": "Scenery",
+   "file": "objects/obj-249.json"
+  },
+  {
+   "id": "obj-60",
+   "category": "object",
+   "name": "Object 60",
+   "group": "Scenery",
+   "file": "objects/obj-60.json"
+  },
+  {
+   "id": "obj-61",
+   "category": "object",
+   "name": "Object 61",
+   "group": "Scenery",
+   "file": "objects/obj-61.json"
+  },
+  {
+   "id": "obj-62",
+   "category": "object",
+   "name": "Object 62",
+   "group": "Scenery",
+   "file": "objects/obj-62.json"
+  },
+  {
+   "id": "obj-63",
+   "category": "object",
+   "name": "Object 63",
+   "group": "Scenery",
+   "file": "objects/obj-63.json"
+  },
+  {
+   "id": "obj-64",
+   "category": "object",
+   "name": "Object 64",
+   "group": "Scenery",
+   "file": "objects/obj-64.json"
+  },
+  {
+   "id": "obj-84",
+   "category": "object",
+   "name": "Object 84",
+   "group": "Scenery",
+   "file": "objects/obj-84.json"
+  },
+  {
+   "id": "obj-85",
+   "category": "object",
+   "name": "Object 85",
+   "group": "Scenery",
+   "file": "objects/obj-85.json"
+  },
+  {
+   "id": "obj-86",
+   "category": "object",
+   "name": "Object 86",
+   "group": "Scenery",
+   "file": "objects/obj-86.json"
+  },
+  {
+   "id": "obj-87",
+   "category": "object",
+   "name": "Object 87",
+   "group": "Scenery",
+   "file": "objects/obj-87.json"
+  },
+  {
+   "id": "obj-89",
+   "category": "object",
+   "name": "Object 89",
+   "group": "Scenery",
+   "file": "objects/obj-89.json"
+  },
+  {
+   "id": "obj-90",
+   "category": "object",
+   "name": "Object 90",
+   "group": "Scenery",
+   "file": "objects/obj-90.json"
+  },
+  {
+   "id": "obj-91",
+   "category": "object",
+   "name": "Object 91",
+   "group": "Scenery",
+   "file": "objects/obj-91.json"
+  },
+  {
+   "id": "obj-92",
+   "category": "object",
+   "name": "Object 92",
+   "group": "Scenery",
+   "file": "objects/obj-92.json"
+  },
+  {
+   "id": "obj-94",
+   "category": "object",
+   "name": "Object 94",
+   "group": "Scenery",
+   "file": "objects/obj-94.json"
+  },
+  {
+   "id": "obj-95",
+   "category": "object",
+   "name": "Object 95",
+   "group": "Scenery",
+   "file": "objects/obj-95.json"
+  },
+  {
+   "id": "obj-96",
+   "category": "object",
+   "name": "Object 96",
+   "group": "Scenery",
+   "file": "objects/obj-96.json"
+  },
+  {
+   "id": "course",
+   "category": "level",
+   "name": "Ridge Racer Course",
+   "group": "Course",
+   "file": "levels/course.json"
+  }
+ ]
 }

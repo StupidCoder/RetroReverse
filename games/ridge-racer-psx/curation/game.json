@@ -1,0 +1,6 @@
+{
+ "title": "Ridge Racer",
+ "platform": "Sony PlayStation",
+ "year": 1994,
+ "description": "Namco's PlayStation launch racer — the repo's first PSX/MIPS target, every format cracked and the geometry oracle bit-exact. The full course is a textured GLB straight from MAP.RRM with all 107 trackside objects at their engine placements: the blimp, big screens, the helicopter flying one of its real waypoint routes and the airliner on its glide path. All thirteen cars (twelve selectable plus the hidden one) are assembled exactly as the car-select carousel draws them, from the executable's own car table."
+}

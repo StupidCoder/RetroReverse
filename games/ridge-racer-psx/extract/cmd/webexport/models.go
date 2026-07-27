@@ -90,8 +90,8 @@ func exportCars(a *assets, out string) ([]ModelIndex, error) {
 		addObject(b, &a.objs[c.Canopy], [3]int32{0, 0, 0})
 		addObject(b, &a.objs[c.Canopy+3], [3]int32{0, 0, 0}) // underbody
 		axle := &a.objs[c.Canopy+1]
-		addObject(b, axle, [3]int32{0, 0, 0})                       // rear axle
-		addObject(b, axle, [3]int32{0, 0, int32(c.Wheelbase)})      // front axle
+		addObject(b, axle, [3]int32{0, 0, 0})                  // rear axle
+		addObject(b, axle, [3]int32{0, 0, int32(c.Wheelbase)}) // front axle
 		file := fmt.Sprintf("models/car-%02d.glb", i+1)
 		if err := b.Write(filepath.Join(out, file)); err != nil {
 			return nil, err

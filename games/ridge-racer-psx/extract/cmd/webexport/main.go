@@ -8,14 +8,17 @@
 package main
 
 import (
+	"io"
+
 	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"retroreverse.com/games/ridge-racer-psx/extract/rr"
+	"retroreverse.com/tools/lib/retrox/cli"
+	"retroreverse.com/tools/lib/retrox/schema"
 	"retroreverse.com/tools/platform/psx"
 )
 
@@ -78,73 +81,217 @@ type assets struct {
 }
 
 func main() {
-	in := flag.String("in", "../Ridge Racer (Track 01).bin", "PlayStation CD image (.bin)")
-	out := flag.String("o", "../../../site/public/ridge-racer-psx", "output root")
-	only := flag.String("only", "all", "stages to run: models,levels or all")
-	flag.Parse()
+	cli.Main("ridge-racer-psx", run2)
+}
 
-	stages := map[string]bool{}
-	for _, s := range strings.Split(*only, ",") {
-		s = strings.TrimSpace(s)
-		switch s {
-		case "models", "levels", "all":
-			stages[s] = true
-		default:
-			fmt.Fprintf(os.Stderr, "webexport: unknown stage %q (want models,levels,all)\n", s)
-			os.Exit(2)
-		}
+func run2(ctx *cli.Context) error {
+	if ctx.In == "" {
+		return fmt.Errorf("usage: webexport -in 'Ridge Racer (Track 01).bin' [-o DIR]")
 	}
-	run := func(stage string) bool { return stages["all"] || stages[stage] }
-
-	data, err := os.ReadFile(*in)
+	data, err := os.ReadFile(ctx.In)
 	if err != nil {
-		die("%v", err)
+		return err
 	}
 	vol, err := psx.Open(data)
 	if err != nil {
-		die("%v", err)
+		return err
 	}
 	a, err := load(vol)
 	if err != nil {
-		die("%v", err)
+		return err
 	}
 
-	man := Manifest{
-		Format:   2,
-		Game:     "ridge-racer-psx",
-		Platform: "Sony PlayStation",
-		Native:   Size{W: 320, H: 240},
-		TickHz:   60,
+	b := ctx.Builder
+	b.SetTitle("Ridge Racer")
+	b.SetPlatform("Sony PlayStation")
+	b.SetYear(1994)
+	b.SetDisplay(schema.Display{
+		Native: schema.Size{W: 320, H: 240},
+		TickHz: 60,
+		Filter: "crt",
+		// the PSX GPU point-samples textures
+		TexFilter: "nearest",
+	})
+	ctx.Stage("objects")
+	ctx.Stage("levels")
+
+	// The stages write the format-1 GLBs + side files into a scratch tree;
+	// everything is then registered through the builder.
+	scratch, err := os.MkdirTemp("", "rr-webexport-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(scratch)
+
+	cars, err := exportCars(a, scratch)
+	if err != nil {
+		return err
+	}
+	specials, err := exportSpecials(a, scratch)
+	if err != nil {
+		return err
+	}
+	trackIdx, err := exportTrack(a, scratch)
+	if err != nil {
+		return err
+	}
+	_ = trackIdx
+
+	// copy every produced GLB into objects/ (track.glb goes to levels/)
+	glbs, _ := filepath.Glob(filepath.Join(scratch, "models", "*.glb"))
+	copyTo := func(src, dir, name string) error {
+		in, err := os.Open(src)
+		if err != nil {
+			return err
+		}
+		defer in.Close()
+		dst, err := b.Path(dir, name)
+		if err != nil {
+			return err
+		}
+		out, err := os.Create(dst)
+		if err != nil {
+			return err
+		}
+		defer out.Close()
+		_, err = io.Copy(out, in)
+		return err
+	}
+	refs := map[string]string{} // "models/<f>.glb" -> asset id
+	registered := map[string]bool{}
+	addObj := func(file, name, group string) error {
+		id := strings.TrimSuffix(file, ".glb")
+		if registered[file] {
+			return nil
+		}
+		registered[file] = true
+		if err := copyTo(filepath.Join(scratch, "models", file), "objects", file); err != nil {
+			return err
+		}
+		b.AddObject(schema.Asset{ID: id, Name: name, Group: group}, &schema.Object{
+			Type: schema.ObjectModel3D, Name: name, Model: file,
+		})
+		refs["models/"+file] = id
+		return nil
+	}
+	for _, m := range cars {
+		if err := addObj(filepath.Base(m.File), m.Name, "Cars"); err != nil {
+			return err
+		}
+	}
+	for _, m := range specials {
+		if err := addObj(filepath.Base(m.File), m.Name, "Trackside"); err != nil {
+			return err
+		}
+	}
+	for _, g := range glbs {
+		f := filepath.Base(g)
+		if f == "track.glb" || registered[f] {
+			continue
+		}
+		name := strings.TrimSuffix(f, ".glb")
+		if err := addObj(f, "Object "+strings.TrimPrefix(name, "obj-"), "Scenery"); err != nil {
+			return err
+		}
+	}
+	if err := copyTo(filepath.Join(scratch, "models", "track.glb"), "levels", "track.glb"); err != nil {
+		return err
 	}
 
-	if run("models") {
-		models, err := exportCars(a, *out)
-		if err != nil {
-			die("models: %v", err)
-		}
-		man.Models = append(man.Models, models...)
-		specials, err := exportSpecials(a, *out)
-		if err != nil {
-			die("models: %v", err)
-		}
-		man.Models = append(man.Models, specials...)
+	// the course level: track layer, race-start camera, scenery placements,
+	// the helicopter + airplane as flyer behaviours
+	doc := &schema.Level{
+		Type:  schema.LevelScene3D,
+		Scene: &schema.Scene{Layers: []schema.Layer{{ID: "track", File: "track.glb"}}},
+		Camera: &schema.Camera{
+			Mode: "fly", FOV: 55, Near: 0.05, Far: 3000, Fly: &schema.Fly{Speed: 20},
+			Pos:    startCam.Pos[:],
+			Target: startCam.Target[:],
+		},
 	}
-	if run("levels") {
-		m, err := exportTrack(a, *out)
-		if err != nil {
-			die("levels: %v", err)
+	var objsDoc struct {
+		Objects []struct {
+			Model string     `json:"model"`
+			Pos   [3]float64 `json:"pos"`
+			Rot   [3]float64 `json:"rot"`
+			ID    int        `json:"id"`
+			Addr  string     `json:"addr"`
+		} `json:"objects"`
+	}
+	if raw, err := os.ReadFile(filepath.Join(scratch, "levels", "course.objects.json")); err == nil {
+		if err := json.Unmarshal(raw, &objsDoc); err != nil {
+			return err
 		}
-		man.Models = append(man.Models, m)
+	}
+	pid := 0
+	for _, o := range objsDoc.Objects {
+		asset, ok := refs[o.Model]
+		if !ok {
+			continue
+		}
+		pl := schema.Placement{
+			ID: pid, Object: asset,
+			Pos:   []float64{o.Pos[0], o.Pos[1], o.Pos[2]},
+			Props: map[string]any{"addr": o.Addr},
+		}
+		if o.Rot != [3]float64{} {
+			pl.Rot = []float64{o.Rot[0], o.Rot[1], o.Rot[2]}
+		}
+		doc.Placements = append(doc.Placements, pl)
+		pid++
+	}
+	var paths pathsDoc
+	if raw, err := os.ReadFile(filepath.Join(scratch, "levels", "course.paths.json")); err == nil {
+		if err := json.Unmarshal(raw, &paths); err != nil {
+			return err
+		}
+	}
+	toKeys := func(r route) []schema.FlyKey {
+		var keys []schema.FlyKey
+		for _, k := range r.Keys {
+			keys = append(keys, schema.FlyKey{
+				Pos: []float64{k.Pos[0], k.Pos[1], k.Pos[2]}, Dur: k.Dur, Hold: k.Hold, Yaw: k.Yaw,
+			})
+		}
+		return keys
+	}
+	if len(paths.Helicopter.Routes) > 0 {
+		r := paths.Helicopter.Routes[0]
+		for _, part := range []string{paths.Helicopter.Body, paths.Helicopter.Rotor} {
+			if asset, ok := refs[part]; ok {
+				pl := schema.Placement{
+					ID: pid, Object: asset,
+					Pos:      []float64{r.Start[0], r.Start[1], r.Start[2]},
+					Behavior: &schema.Behavior{Kind: "flyer", Keys: toKeys(r)},
+					Props:    map[string]any{"route": r.Addr, "note": "route 0 of 2 (flown alternately in game)"},
+				}
+				doc.Placements = append(doc.Placements, pl)
+				pid++
+			}
+		}
+	}
+	if asset, ok := refs[paths.Airplane.Model]; ok {
+		p0 := paths.Airplane.Start
+		end := [3]float64{
+			p0[0] + paths.Airplane.Delta[0]*float64(paths.Airplane.Frames),
+			p0[1] + paths.Airplane.Delta[1]*float64(paths.Airplane.Frames),
+			p0[2] + paths.Airplane.Delta[2]*float64(paths.Airplane.Frames),
+		}
+		yaw := paths.Airplane.Yaw
+		doc.Placements = append(doc.Placements, schema.Placement{
+			ID: pid, Object: asset,
+			Pos: []float64{p0[0], p0[1], p0[2]},
+			Behavior: &schema.Behavior{Kind: "flyer", Keys: []schema.FlyKey{
+				{Pos: []float64{p0[0], p0[1], p0[2]}, Dur: paths.Airplane.Frames, Yaw: yaw},
+				{Pos: []float64{end[0], end[1], end[2]}, Dur: 1, Yaw: yaw},
+			}},
+		})
+		pid++
 	}
 
-	if err := os.MkdirAll(*out, 0o755); err != nil {
-		die("%v", err)
-	}
-	mj, _ := json.MarshalIndent(man, "", "  ")
-	if err := os.WriteFile(filepath.Join(*out, "manifest.json"), append(mj, '\n'), 0o644); err != nil {
-		die("%v", err)
-	}
-	fmt.Fprintf(os.Stderr, "[manifest] %d models\n", len(man.Models))
+	b.AddLevel(schema.Asset{ID: "course", Name: "Ridge Racer Course", Group: "Course"}, doc)
+	ctx.Progress("levels", 1, 1, fmt.Sprintf("course: %d placements", len(doc.Placements)))
+	return nil
 }
 
 // load reads and decodes every needed file off the disc.

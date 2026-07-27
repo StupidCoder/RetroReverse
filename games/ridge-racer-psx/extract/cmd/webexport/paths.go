@@ -25,16 +25,16 @@ import (
 )
 
 type pathsDoc struct {
-	FPS        int        `json:"fps"` // game ticks per second
-	Helicopter heliPath   `json:"helicopter"`
-	Airplane   planePath  `json:"airplane"`
+	FPS        int       `json:"fps"` // game ticks per second
+	Helicopter heliPath  `json:"helicopter"`
+	Airplane   planePath `json:"airplane"`
 }
 
 type heliPath struct {
-	Body      string     `json:"body"`
-	Rotor     string     `json:"rotor"`
-	RotorRate float64    `json:"rotorRate"` // radians per second
-	Routes    []route    `json:"routes"`    // flown alternately, each a loop
+	Body      string  `json:"body"`
+	Rotor     string  `json:"rotor"`
+	RotorRate float64 `json:"rotorRate"` // radians per second
+	Routes    []route `json:"routes"`    // flown alternately, each a loop
 }
 
 type route struct {

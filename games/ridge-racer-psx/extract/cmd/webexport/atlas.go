@@ -23,7 +23,7 @@ const tileSize = 256 // one PSX texture page, texel-addressed 0..255
 
 type pageKey struct {
 	page, clut uint16
-	set        uint8       // scenery set for quadrant pages; 0 otherwise
+	set        uint8        // scenery set for quadrant pages; 0 otherwise
 	win        rr.TexWindow // texture window (48-byte records); zero otherwise
 }
 
