@@ -462,7 +462,9 @@ export class ScreenFilter {
   _render(time) {
     const gl = this.gl, w = this.canvas.width, h = this.canvas.height;
     // composite the active viewer's visible canvas(es) into the scratch buffer.
-    const sources = this.source();
+    // A view being torn down mid-frame must not kill the loop.
+    let sources;
+    try { sources = this.source(); } catch { sources = []; }
     if (!sources.length) return;
     this.sctx.clearRect(0, 0, w, h);
     for (const c of sources) {

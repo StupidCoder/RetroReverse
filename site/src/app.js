@@ -101,7 +101,14 @@ function teardown() {
   current = null;
   stage.innerHTML = '';
   stage.className = '';
-  if (screenFx) { stage.appendChild(screenFx.canvas); screenFx.setEnabled(false); }
+  if (screenFx) {
+    stage.appendChild(screenFx.canvas);
+    screenFx.setEnabled(false);
+    // Unbind the dead view: its capture closures survive here otherwise, and
+    // reading a destroyed pixi Application's canvas throws in the filter loop.
+    screenFx.source = () => [];
+    screenFx.pixelGrid = () => null;
+  }
   $('displayPanel').hidden = true;
   $('displayPanel').innerHTML = '';
 }

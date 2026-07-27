@@ -191,20 +191,47 @@ function mountPicture(ctx) {
   const { stage, game, asset } = ctx;
   const box = document.createElement('div');
   box.className = 'picture-stage';
-  const img = document.createElement('img');
-  img.src = game.url('', asset.file);
-  box.appendChild(img);
   stage.appendChild(box);
+  // Drawn on a canvas (not an <img> + CSS transform) so the screen filter can
+  // capture the view and phase-lock its grid to the picture's pixels.
+  const cv = document.createElement('canvas');
+  cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;';
+  box.appendChild(cv);
+  const c2 = cv.getContext('2d');
+  const dpr = Math.min(2, devicePixelRatio || 1);
+
+  const img = new Image();
+  img.src = game.url('', asset.file);
+
+  // Exports may bake an integer upscale (Elite's loading.png is the 320-wide
+  // screen at 2x): one GAME pixel is srcScale image pixels, and the filter's
+  // cell grid must follow game pixels.
+  let srcScale = 1;
 
   let z = 1, x = 40, y = 40;
-  const apply = () => { img.style.transform = `translate(${x}px, ${y}px) scale(${z})`; };
+  const draw = () => {
+    const w = Math.max(1, Math.round(box.clientWidth * dpr));
+    const h = Math.max(1, Math.round(box.clientHeight * dpr));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    c2.setTransform(1, 0, 0, 1, 0, 0);
+    c2.clearRect(0, 0, w, h);
+    c2.imageSmoothingEnabled = false;
+    c2.setTransform(z * dpr, 0, 0, z * dpr, x * dpr, y * dpr);
+    if (img.complete && img.naturalWidth) c2.drawImage(img, 0, 0);
+  };
   img.onload = () => {
+    const nw = game.display.native?.w || 0;
+    const ratio = nw > 0 ? img.naturalWidth / nw : 1;
+    srcScale = ratio >= 1 && Number.isInteger(ratio) ? ratio : 1;
     const fit = Math.min((box.clientWidth * 0.85) / img.naturalWidth, (box.clientHeight * 0.85) / img.naturalHeight);
     z = Math.max(1, Math.floor(fit)) || fit;
     x = (box.clientWidth - img.naturalWidth * z) / 2;
     y = (box.clientHeight - img.naturalHeight * z) / 2;
-    apply();
+    draw();
   };
+  const ro = new ResizeObserver(draw);
+  ro.observe(box);
+
   const pts = new Map();
   let pinch = 0;
   box.addEventListener('pointerdown', (e) => { pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); box.setPointerCapture(e.pointerId); });
@@ -218,12 +245,16 @@ function mountPicture(ctx) {
       const d = Math.hypot(a.x - b.x, a.y - b.y);
       if (pinch) zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, d / pinch);
       pinch = d;
-    } else { x += dx; y += dy; apply(); }
+    } else { x += dx; y += dy; draw(); }
   });
   const up = (e) => { pts.delete(e.pointerId); if (pts.size < 2) pinch = 0; };
   box.addEventListener('pointerup', up);
   box.addEventListener('pointercancel', up);
-  box.addEventListener('wheel', (e) => { e.preventDefault(); zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.2 : 1 / 1.2); }, { passive: false });
+  box.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    // gentle: one wheel notch (deltaY 100) = 1.2^0.1 ≈ 1.8%
+    zoomAt(e.clientX, e.clientY, Math.pow(1.2, -e.deltaY * 0.001));
+  }, { passive: false });
   function zoomAt(cx, cy, f) {
     const r = box.getBoundingClientRect();
     const px = cx - r.left, py = cy - r.top;
@@ -231,11 +262,16 @@ function mountPicture(ctx) {
     x = px - ((px - x) / z) * nz;
     y = py - ((py - y) / z) * nz;
     z = nz;
-    apply();
+    draw();
   }
 
   return {
-    unmount() { box.remove(); },
+    unmount() { ro.disconnect(); box.remove(); },
+    sources: () => [cv],
+    pixelGrid: () => ({
+      cell: z * srcScale, ox: x, oy: y,
+      ref: box.clientWidth,
+    }),
     stats: () => ({ File: asset.file, Size: `${asset.w || '?'} × ${asset.h || '?'} px` }),
   };
 }
