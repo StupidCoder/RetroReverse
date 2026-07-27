@@ -1,32 +1,40 @@
 {
- "collision": {
-  "glb": "models/kinoko01_collision.glb",
-  "kind": "outlines"
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-1410.52978515625, -46.523651123046875, 2312.98203125],
+  "target": [-1410.52978515625, -46.523651123046875, 0],
+  "fov": 36,
+  "near": 1,
+  "far": 20000,
+  "fly": {
+   "speed": 250
+  }
  },
- "extents": {
-  "max": [
-   2000,
-   1000,
-   100
-  ],
-  "min": [
-   -2000,
-   -1000,
-   -199
+ "scene": {
+  "background": "#ffffff",
+  "layers": [
+   {
+    "id": "stage",
+    "file": "kinoko01.glb"
+   },
+   {
+    "id": "background",
+    "name": "Background",
+    "file": "kinoko01_bg.glb",
+    "mode": "toggle",
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision contours",
+    "file": "kinoko01_collision.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
   ]
- },
- "format": 2,
- "kind": "mesh3d",
- "mesh": {
-  "glb": "models/kinoko01.glb"
- },
- "name": "kinoko01",
- "objectsFile": "kinoko01.objects.json",
- "sky": "models/kinoko01_bg.glb",
- "view": {
-  "h": 272,
-  "w": 480,
-  "x": -50.529785,
-  "y": 306.1626
  }
 }

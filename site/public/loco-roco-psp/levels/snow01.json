@@ -1,32 +1,40 @@
 {
- "collision": {
-  "glb": "models/snow01_collision.glb",
-  "kind": "outlines"
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-3505.989990234375, 1352.604736328125, 2583.003125],
+  "target": [-3505.989990234375, 1352.604736328125, 0],
+  "fov": 36,
+  "near": 1,
+  "far": 20000,
+  "fly": {
+   "speed": 250
+  }
  },
- "extents": {
-  "max": [
-   4200,
-   2400,
-   100
-  ],
-  "min": [
-   -4200,
-   -2400,
-   -199
+ "scene": {
+  "background": "#ffffff",
+  "layers": [
+   {
+    "id": "stage",
+    "file": "snow01.glb"
+   },
+   {
+    "id": "background",
+    "name": "Background",
+    "file": "snow01_bg.glb",
+    "mode": "toggle",
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision contours",
+    "file": "snow01_collision.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
   ]
- },
- "format": 2,
- "kind": "mesh3d",
- "mesh": {
-  "glb": "models/snow01.glb"
- },
- "name": "snow01",
- "objectsFile": "snow01.objects.json",
- "sky": "models/snow01_bg.glb",
- "view": {
-  "h": 272,
-  "w": 480,
-  "x": 54.01001,
-  "y": 104.20679
  }
 }

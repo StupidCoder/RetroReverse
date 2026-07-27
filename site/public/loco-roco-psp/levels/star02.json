@@ -1,32 +1,40 @@
 {
- "collision": {
-  "glb": "models/star02_collision.glb",
-  "kind": "outlines"
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-2406.907958984375, -1750.7003173828125, 1767.3285156250001],
+  "target": [-2406.907958984375, -1750.7003173828125, 0],
+  "fov": 36,
+  "near": 1,
+  "far": 20000,
+  "fly": {
+   "speed": 250
+  }
  },
- "extents": {
-  "max": [
-   3200,
-   2600,
-   100
-  ],
-  "min": [
-   -3200,
-   -2600,
-   -199
+ "scene": {
+  "background": "#ffffff",
+  "layers": [
+   {
+    "id": "stage",
+    "file": "star02.glb"
+   },
+   {
+    "id": "background",
+    "name": "Background",
+    "file": "star02_bg.glb",
+    "mode": "toggle",
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision contours",
+    "file": "star02_collision.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
   ]
- },
- "format": 2,
- "kind": "mesh3d",
- "mesh": {
-  "glb": "models/star02.glb"
- },
- "name": "star02",
- "objectsFile": "star02.objects.json",
- "sky": "models/star02_bg.glb",
- "view": {
-  "h": 272,
-  "w": 480,
-  "x": 153.09204,
-  "y": 4765.054
  }
 }

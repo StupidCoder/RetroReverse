@@ -1,32 +1,40 @@
 {
- "collision": {
-  "glb": "models/africa01_collision.glb",
-  "kind": "outlines"
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-3065.851806640625, 683.302001953125, 3466.56640625],
+  "target": [-3065.851806640625, 683.302001953125, 0],
+  "fov": 36,
+  "near": 1,
+  "far": 20000,
+  "fly": {
+   "speed": 250
+  }
  },
- "extents": {
-  "max": [
-   3800,
-   2000,
-   100
-  ],
-  "min": [
-   -3800,
-   -2000,
-   -199
+ "scene": {
+  "background": "#ffffff",
+  "layers": [
+   {
+    "id": "stage",
+    "file": "africa01.glb"
+   },
+   {
+    "id": "background",
+    "name": "Background",
+    "file": "africa01_bg.glb",
+    "mode": "toggle",
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision contours",
+    "file": "africa01_collision.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
   ]
- },
- "format": 2,
- "kind": "mesh3d",
- "mesh": {
-  "glb": "models/africa01.glb"
- },
- "name": "africa01",
- "objectsFile": "africa01.objects.json",
- "sky": "models/africa01_bg.glb",
- "view": {
-  "h": 272,
-  "w": 480,
-  "x": 94.14819,
-  "y": 1246.7067
  }
 }

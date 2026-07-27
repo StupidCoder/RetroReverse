@@ -7,12 +7,10 @@
 package main
 
 import (
-	"encoding/json"
-	"flag"
 	"fmt"
 	"image"
+	"math"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -20,6 +18,8 @@ import (
 	"retroreverse.com/games/loco-roco-psp/extract/garc"
 	"retroreverse.com/games/loco-roco-psp/extract/gprs"
 	"retroreverse.com/tools/lib/glb"
+	"retroreverse.com/tools/lib/retrox/cli"
+	"retroreverse.com/tools/lib/retrox/schema"
 	"retroreverse.com/tools/platform/psp"
 )
 
@@ -28,43 +28,52 @@ import (
 const dataBinLBN = 23472
 
 func main() {
-	in := flag.String("in", "", "UMD image (.cso or .iso)")
-	out := flag.String("o", "../../site/public/loco-roco-psp", "output root")
-	only := flag.String("only", "all", "levels|all")
-	flag.Parse()
-	if *in == "" {
-		die("need -in IMAGE")
-	}
-	if *only != "all" && *only != "levels" {
-		die("unknown -only %q", *only)
-	}
+	cli.Main("loco-roco-psp", runCLI)
+}
 
-	im, err := psp.OpenImage(*in)
+func runCLI(ctx *cli.Context) error {
+	if ctx.In == "" {
+		return fmt.Errorf("usage: webexport -in UMD.iso/.cso [-o DIR]")
+	}
+	b := ctx.Builder
+	b.SetTitle("LocoRoco")
+	b.SetPlatform("Sony PSP")
+	b.SetYear(2006)
+	b.SetDisplay(schema.Display{
+		Native: schema.Size{W: 480, H: 272},
+		TickHz: 60,
+		// the PSP's backlit TFT + the GE's bilinear sampling
+		Filter:    "ds",
+		TexFilter: "linear",
+	})
+	ctx.Stage("levels")
+
+	im, err := psp.OpenImage(ctx.In)
 	if err != nil {
-		die("%v", err)
+		return err
 	}
 	defer im.Close()
 
 	// the boot archive's GIMG directory locates every stage file in DATA.BIN
 	raw, err := im.ReadFile("PSP_GAME/USRDIR/data/first_us.arc")
 	if err != nil {
-		die("first_us.arc: %v", err)
+		return fmt.Errorf("first_us.arc: %w", err)
 	}
 	dec, err := gprs.Decompress(raw)
 	if err != nil {
-		die("first_us.arc: %v", err)
+		return fmt.Errorf("first_us.arc: %w", err)
 	}
 	arc, err := garc.Parse(dec)
 	if err != nil {
-		die("first_us.arc: %v", err)
+		return fmt.Errorf("first_us.arc: %w", err)
 	}
 	sect, ok := arc.Find("sector_usa.bin")
 	if !ok {
-		die("no sector_usa.bin in first_us.arc")
+		return fmt.Errorf("no sector_usa.bin in first_us.arc")
 	}
 	dir, err := garc.ParseGimg(arc.Data(sect))
 	if err != nil {
-		die("sector_usa.bin: %v", err)
+		return fmt.Errorf("sector_usa.bin: %w", err)
 	}
 
 	var stages []garc.GimgEntry
@@ -75,66 +84,26 @@ func main() {
 	}
 	sort.Slice(stages, func(i, j int) bool { return stages[i].Name < stages[j].Name })
 
-	if err := os.MkdirAll(filepath.Join(*out, "levels"), 0755); err != nil {
-		die("%v", err)
-	}
-	if err := os.MkdirAll(filepath.Join(*out, "models"), 0755); err != nil {
-		die("%v", err)
-	}
-
-	type manifestLevel struct {
-		Name    string `json:"name"`
-		Section string `json:"section"`
-		File    string `json:"file"`
-		Kind    string `json:"kind"`
-	}
-	var levels []manifestLevel
 	fail := 0
 	for i, st := range stages {
 		stem := strings.TrimSuffix(strings.TrimPrefix(st.Name, "st_"), ".clv")
-		fmt.Fprintf(os.Stderr, "[levels] %2d/%d  %s\n", i+1, len(stages), st.Name)
-		if err := exportStage(im, st, stem, *out); err != nil {
-			fmt.Fprintf(os.Stderr, "[levels] %s FAILED: %v\n", st.Name, err)
+		if err := exportStage(ctx, im, st, stem); err != nil {
+			ctx.Logf("%s FAILED: %v", st.Name, err)
 			fail++
 			continue
 		}
-		section := strings.TrimRight(stem, "0123456789")
-		levels = append(levels, manifestLevel{
-			Name: stem, Section: section,
-			File: "levels/" + stem + ".json", Kind: "mesh3d",
-		})
+		ctx.Progress("levels", i+1, len(stages), st.Name)
 	}
 	if fail > 0 {
-		fmt.Fprintf(os.Stderr, "[levels] %d of %d stages FAILED\n", fail, len(stages))
+		return fmt.Errorf("%d of %d stages failed", fail, len(stages))
 	}
-
-	manifest := map[string]any{
-		"format":   2,
-		"game":     "loco-roco-psp",
-		"platform": "Sony PSP",
-		"native":   map[string]int{"w": 480, "h": 272},
-		"tickHz":   60,
-		"levels":   levels,
-	}
-	mf, err := os.Create(filepath.Join(*out, "manifest.json"))
-	if err != nil {
-		die("%v", err)
-	}
-	enc := json.NewEncoder(mf)
-	enc.SetIndent("", " ")
-	if err := enc.Encode(manifest); err != nil {
-		die("%v", err)
-	}
-	mf.Close()
-	fmt.Fprintf(os.Stderr, "wrote %s (%d levels)\n", filepath.Join(*out, "manifest.json"), len(levels))
-	if fail > 0 {
-		os.Exit(1)
-	}
+	return nil
 }
 
 // exportStage decodes one stage file and writes its level JSON and its
 // foreground/background GLBs.
-func exportStage(im *psp.Image, st garc.GimgEntry, stem, out string) error {
+func exportStage(ctx *cli.Context, im *psp.Image, st garc.GimgEntry, stem string) error {
+	b := ctx.Builder
 	raw, err := im.Volume.ReadFile(fmt.Sprintf("sce_lbn0x%X_size0x%X", dataBinLBN+st.Sector, st.Size))
 	if err != nil {
 		return err
@@ -147,8 +116,8 @@ func exportStage(im *psp.Image, st garc.GimgEntry, stem, out string) error {
 	fg := newMeshBuilder()
 	bg := newMeshBuilder()
 	for i := range c.Layout.Cells {
-		for _, b := range c.Layout.Cells[i].Batches {
-			m, err := c.Material(b)
+		for _, bt := range c.Layout.Cells[i].Batches {
+			m, err := c.Material(bt)
 			if err != nil {
 				return fmt.Errorf("cell %d: %w", i, err)
 			}
@@ -156,57 +125,51 @@ func exportStage(im *psp.Image, st garc.GimgEntry, stem, out string) error {
 			if strings.HasPrefix(m.Name, "stage") {
 				dst = fg
 			}
-			if err := dst.addBatch(c, b, m); err != nil {
+			if err := dst.addBatch(c, bt, m); err != nil {
 				return fmt.Errorf("cell %d %q: %w", i, m.Name, err)
 			}
 		}
 	}
-
-	lvl := map[string]any{
-		"format": 2,
-		"name":   stem,
-		"kind":   "mesh3d",
-		"extents": map[string]any{
-			"min": []float32{c.Layout.X, c.Layout.Y, c.Layout.Z0},
-			"max": []float32{c.Layout.X + c.Layout.W, c.Layout.Y + c.Layout.H, c.Layout.Z1},
-		},
-		"mesh": map[string]any{"glb": "models/" + stem + ".glb"},
-	}
-	if len(c.Collision.Points) > 0 {
-		// the default view: the PSP screen centred on the leftmost collision
-		// point — the stages run left to right, so that is where play begins.
-		// Map coordinates (y down from the stage's top edge), like a tilemap.
-		lm := c.Collision.Points[0]
-		for _, p := range c.Collision.Points {
-			if p[0] < lm[0] {
-				lm = p
-			}
-		}
-		lvl["view"] = map[string]any{
-			"x": lm[0] - c.Layout.X - 240,
-			"y": (c.Layout.Y + c.Layout.H - lm[1]) - 136,
-			"w": 480, "h": 272,
-		}
-	}
 	if fg.dropped+bg.dropped > 0 {
-		fmt.Fprintf(os.Stderr, "[levels] %s: dropped %d strips with non-finite vertices\n",
-			stem, fg.dropped+bg.dropped)
+		ctx.Logf("%s: dropped %d strips with non-finite vertices", stem, fg.dropped+bg.dropped)
 	}
-	if err := fg.write(filepath.Join(out, "models", stem+".glb")); err != nil {
+
+	p, err := b.Path("levels", stem+".glb")
+	if err != nil {
 		return err
 	}
+	if err := fg.write(p); err != nil {
+		return err
+	}
+	doc := &schema.Level{
+		Type: schema.LevelScene3D,
+		// The engine clears each frame to a per-stage sky colour written into
+		// BSS at stage load; its per-stage source is still unlocated (see the
+		// writeup), so clear white — correct for the flower stages, an open
+		// item for the dark ones.
+		Scene: &schema.Scene{
+			Background: "#ffffff",
+			Layers:     []schema.Layer{{ID: "stage", File: stem + ".glb"}},
+		},
+	}
 	if len(bg.positions) > 0 {
-		if err := bg.write(filepath.Join(out, "models", stem+"_bg.glb")); err != nil {
+		p, err := b.Path("levels", stem+"_bg.glb")
+		if err != nil {
 			return err
 		}
-		lvl["sky"] = "models/" + stem + "_bg.glb"
+		if err := bg.write(p); err != nil {
+			return err
+		}
+		doc.Scene.Layers = append(doc.Scene.Layers, schema.Layer{
+			ID: "background", Name: "Background", File: stem + "_bg.glb", Mode: "toggle", Role: "sky",
+		})
 	}
 	if len(c.Collision.Points) > 0 {
 		// the collision contours as a line GLB the viewer toggles, one colour
 		// per layer, drawn just in front of the terrain plane
 		pos := make([][3]float32, len(c.Collision.Points))
-		for i, p := range c.Collision.Points {
-			pos[i] = [3]float32{p[0], p[1], 150}
+		for i, pt := range c.Collision.Points {
+			pos[i] = [3]float32{pt[0], pt[1], 150}
 		}
 		cols := [][3]float32{{0.9, 0.1, 0.1}, {0.1, 0.6, 0.1}, {0.15, 0.25, 0.9}, {0.8, 0.1, 0.8}}
 		var lines []glb.LineGroup
@@ -217,51 +180,60 @@ func exportStage(im *psp.Image, st garc.GimgEntry, stem, out string) error {
 			}
 			lines = append(lines, g)
 		}
-		if err := glb.WriteMixed(filepath.Join(out, "models", stem+"_collision.glb"), pos, nil, lines); err != nil {
-			return err
-		}
-		lvl["collision"] = map[string]any{"kind": "outlines", "glb": "models/" + stem + "_collision.glb"}
-	}
-	// the prop placements as the machine-readable object DB
-	if pls := c.Placements(); len(pls) > 0 {
-		objs := make([]map[string]any, 0, len(pls))
-		for i, p := range pls {
-			o := map[string]any{
-				"id":   i,
-				"name": p.Name,
-				"pos":  []float32{p.Pos[0], p.Pos[1], p.Pos[2]},
-				"props": map[string]any{
-					"dag":   p.DagPath,
-					"rotZ":  p.RotZ,
-					"scale": []float32{p.Scale[0], p.Scale[1], p.Scale[2]},
-				},
-			}
-			objs = append(objs, o)
-		}
-		of, err := os.Create(filepath.Join(out, "levels", stem+".objects.json"))
+		p, err := b.Path("levels", stem+"_collision.glb")
 		if err != nil {
 			return err
 		}
-		enc := json.NewEncoder(of)
-		enc.SetIndent("", " ")
-		if err := enc.Encode(map[string]any{"format": 2, "level": stem, "objects": objs}); err != nil {
+		if err := glb.WriteMixed(p, pos, nil, lines); err != nil {
 			return err
 		}
-		if err := of.Close(); err != nil {
-			return err
+		off := false
+		doc.Scene.Layers = append(doc.Scene.Layers, schema.Layer{
+			ID: "collision", Name: "Collision contours", File: stem + "_collision.glb",
+			Mode: "toggle", Visible: &off, Role: "collision",
+		})
+
+	}
+	if len(fg.positions) > 0 {
+		// the opening view: the stages run left to right, so frame the
+		// terrain's own left edge — centre on the foreground geometry within
+		// the first 800 units and stand back far enough to take it in
+		minX := fg.positions[0][0]
+		for _, p := range fg.positions {
+			if p[0] < minX {
+				minX = p[0]
+			}
 		}
-		lvl["objectsFile"] = stem + ".objects.json"
+		loY, hiY := float32(math.Inf(1)), float32(math.Inf(-1))
+		for _, p := range fg.positions {
+			if p[0] > minX+800 {
+				continue
+			}
+			if p[1] < loY {
+				loY = p[1]
+			}
+			if p[1] > hiY {
+				hiY = p[1]
+			}
+		}
+		cx, cy := float64(minX)+400, float64(loY+hiY)/2
+		dist := 1.6 * float64(hiY-loY)
+		if dist < 430 {
+			dist = 430
+		}
+		doc.Camera = &schema.Camera{
+			Mode: "fly", FOV: 36, Near: 1, Far: 20000, Fly: &schema.Fly{Speed: 250},
+			Pos:    []float64{cx, cy, dist},
+			Target: []float64{cx, cy, 0},
+		}
 	}
-	lf, err := os.Create(filepath.Join(out, "levels", stem+".json"))
-	if err != nil {
-		return err
-	}
-	enc := json.NewEncoder(lf)
-	enc.SetIndent("", " ")
-	if err := enc.Encode(lvl); err != nil {
-		return err
-	}
-	return lf.Close()
+
+	section := strings.TrimRight(stem, "0123456789")
+	b.AddLevel(schema.Asset{
+		ID: stem, Name: stem,
+		Group: strings.ToUpper(section[:1]) + section[1:],
+	}, doc)
+	return nil
 }
 
 // meshBuilder accumulates triangles grouped per (texture, tint) material;

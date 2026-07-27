@@ -1,32 +1,40 @@
 {
- "collision": {
-  "glb": "models/flower02_collision.glb",
-  "kind": "outlines"
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-1211.796875, 292.090087890625, 4351.51015625],
+  "target": [-1211.796875, 292.090087890625, 0],
+  "fov": 36,
+  "near": 1,
+  "far": 20000,
+  "fly": {
+   "speed": 250
+  }
  },
- "extents": {
-  "max": [
-   2000,
-   1800,
-   100.03063
-  ],
-  "min": [
-   -2000,
-   -1800,
-   -199
+ "scene": {
+  "background": "#ffffff",
+  "layers": [
+   {
+    "id": "stage",
+    "file": "flower02.glb"
+   },
+   {
+    "id": "background",
+    "name": "Background",
+    "file": "flower02_bg.glb",
+    "mode": "toggle",
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision contours",
+    "file": "flower02_collision.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
   ]
- },
- "format": 2,
- "kind": "mesh3d",
- "mesh": {
-  "glb": "models/flower02.glb"
- },
- "name": "flower02",
- "objectsFile": "flower02.objects.json",
- "sky": "models/flower02_bg.glb",
- "view": {
-  "h": 272,
-  "w": 480,
-  "x": 400.05115,
-  "y": 2435.457
  }
 }

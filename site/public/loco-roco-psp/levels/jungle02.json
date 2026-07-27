@@ -1,32 +1,40 @@
 {
- "collision": {
-  "glb": "models/jungle02_collision.glb",
-  "kind": "outlines"
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-1994.26318359375, 70, 3424],
+  "target": [-1994.26318359375, 70, 0],
+  "fov": 36,
+  "near": 1,
+  "far": 20000,
+  "fly": {
+   "speed": 250
+  }
  },
- "extents": {
-  "max": [
-   2600,
-   1400,
-   100
-  ],
-  "min": [
-   -2600,
-   -1400,
-   -199
+ "scene": {
+  "background": "#ffffff",
+  "layers": [
+   {
+    "id": "stage",
+    "file": "jungle02.glb"
+   },
+   {
+    "id": "background",
+    "name": "Background",
+    "file": "jungle02_bg.glb",
+    "mode": "toggle",
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision contours",
+    "file": "jungle02_collision.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
   ]
- },
- "format": 2,
- "kind": "mesh3d",
- "mesh": {
-  "glb": "models/jungle02.glb"
- },
- "name": "jungle02",
- "objectsFile": "jungle02.objects.json",
- "sky": "models/jungle02_bg.glb",
- "view": {
-  "h": 272,
-  "w": 480,
-  "x": -34.263184,
-  "y": 1830.4006
  }
 }

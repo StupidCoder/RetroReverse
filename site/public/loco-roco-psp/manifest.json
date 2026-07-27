@@ -1,252 +1,300 @@
 {
- "format": 2,
- "game": "loco-roco-psp",
- "levels": [
-  {
-   "name": "africa01",
-   "section": "africa",
-   "file": "levels/africa01.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "africa02",
-   "section": "africa",
-   "file": "levels/africa02.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "africa03",
-   "section": "africa",
-   "file": "levels/africa03.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "bigtree01",
-   "section": "bigtree",
-   "file": "levels/bigtree01.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "bigtree02",
-   "section": "bigtree",
-   "file": "levels/bigtree02.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "bigtree03",
-   "section": "bigtree",
-   "file": "levels/bigtree03.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "bombmuch",
-   "section": "bombmuch",
-   "file": "levels/bombmuch.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "flower01",
-   "section": "flower",
-   "file": "levels/flower01.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "flower02",
-   "section": "flower",
-   "file": "levels/flower02.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "flower03",
-   "section": "flower",
-   "file": "levels/flower03.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "iseki01",
-   "section": "iseki",
-   "file": "levels/iseki01.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "iseki02",
-   "section": "iseki",
-   "file": "levels/iseki02.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "iseki04",
-   "section": "iseki",
-   "file": "levels/iseki04.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "island01",
-   "section": "island",
-   "file": "levels/island01.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "island02",
-   "section": "island",
-   "file": "levels/island02.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "island03",
-   "section": "island",
-   "file": "levels/island03.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "jungle01",
-   "section": "jungle",
-   "file": "levels/jungle01.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "jungle02",
-   "section": "jungle",
-   "file": "levels/jungle02.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "kinoko01",
-   "section": "kinoko",
-   "file": "levels/kinoko01.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "kinoko02",
-   "section": "kinoko",
-   "file": "levels/kinoko02.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "kinoko03",
-   "section": "kinoko",
-   "file": "levels/kinoko03.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "nightmare01",
-   "section": "nightmare",
-   "file": "levels/nightmare01.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "nightmare02",
-   "section": "nightmare",
-   "file": "levels/nightmare02.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "nightmare03",
-   "section": "nightmare",
-   "file": "levels/nightmare03.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "nightmare04",
-   "section": "nightmare",
-   "file": "levels/nightmare04.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "snow01",
-   "section": "snow",
-   "file": "levels/snow01.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "snow02",
-   "section": "snow",
-   "file": "levels/snow02.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "snow03",
-   "section": "snow",
-   "file": "levels/snow03.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "snow04",
-   "section": "snow",
-   "file": "levels/snow04.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "snow05",
-   "section": "snow",
-   "file": "levels/snow05.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "star01",
-   "section": "star",
-   "file": "levels/star01.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "star02",
-   "section": "star",
-   "file": "levels/star02.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "star03",
-   "section": "star",
-   "file": "levels/star03.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "tainai01",
-   "section": "tainai",
-   "file": "levels/tainai01.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "tainai02",
-   "section": "tainai",
-   "file": "levels/tainai02.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "tainai03",
-   "section": "tainai",
-   "file": "levels/tainai03.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "tainai04",
-   "section": "tainai",
-   "file": "levels/tainai04.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "yama01",
-   "section": "yama",
-   "file": "levels/yama01.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "yama02",
-   "section": "yama",
-   "file": "levels/yama02.json",
-   "kind": "mesh3d"
-  },
-  {
-   "name": "yama03",
-   "section": "yama",
-   "file": "levels/yama03.json",
-   "kind": "mesh3d"
-  }
- ],
- "native": {
-  "h": 272,
-  "w": 480
- },
+ "format": "retro-x",
+ "version": 1,
+ "id": "loco-roco-psp",
+ "title": "LocoRoco",
  "platform": "Sony PSP",
- "tickHz": 60
+ "year": 2006,
+ "description": "SCE Japan Studio's rolling-blob platformer — the PSP title whose oracle plays into Stage 1 through the game's own controller latch, and whose GPRS compression was reimplemented byte-exact. All forty stages are decoded straight from DATA.BIN's .clv files: the terrain and decoration meshes in their authored tints, the parallax background as a toggleable layer, and the engine's collision contours — one colour per layer — drawn just in front of the terrain. Each stage opens where play begins, at its leftmost collision point.",
+ "display": {
+  "native": {
+   "w": 480,
+   "h": 272
+  },
+  "tickHz": 60,
+  "filter": "ds",
+  "texFilter": "linear"
+ },
+ "assets": [
+  {
+   "id": "africa01",
+   "category": "level",
+   "name": "africa01",
+   "group": "Africa",
+   "file": "levels/africa01.json"
+  },
+  {
+   "id": "africa02",
+   "category": "level",
+   "name": "africa02",
+   "group": "Africa",
+   "file": "levels/africa02.json"
+  },
+  {
+   "id": "africa03",
+   "category": "level",
+   "name": "africa03",
+   "group": "Africa",
+   "file": "levels/africa03.json"
+  },
+  {
+   "id": "bigtree01",
+   "category": "level",
+   "name": "bigtree01",
+   "group": "Bigtree",
+   "file": "levels/bigtree01.json"
+  },
+  {
+   "id": "bigtree02",
+   "category": "level",
+   "name": "bigtree02",
+   "group": "Bigtree",
+   "file": "levels/bigtree02.json"
+  },
+  {
+   "id": "bigtree03",
+   "category": "level",
+   "name": "bigtree03",
+   "group": "Bigtree",
+   "file": "levels/bigtree03.json"
+  },
+  {
+   "id": "bombmuch",
+   "category": "level",
+   "name": "bombmuch",
+   "group": "Bombmuch",
+   "file": "levels/bombmuch.json"
+  },
+  {
+   "id": "flower01",
+   "category": "level",
+   "name": "flower01",
+   "group": "Flower",
+   "file": "levels/flower01.json"
+  },
+  {
+   "id": "flower02",
+   "category": "level",
+   "name": "flower02",
+   "group": "Flower",
+   "file": "levels/flower02.json"
+  },
+  {
+   "id": "flower03",
+   "category": "level",
+   "name": "flower03",
+   "group": "Flower",
+   "file": "levels/flower03.json"
+  },
+  {
+   "id": "iseki01",
+   "category": "level",
+   "name": "iseki01",
+   "group": "Iseki",
+   "file": "levels/iseki01.json"
+  },
+  {
+   "id": "iseki02",
+   "category": "level",
+   "name": "iseki02",
+   "group": "Iseki",
+   "file": "levels/iseki02.json"
+  },
+  {
+   "id": "iseki04",
+   "category": "level",
+   "name": "iseki04",
+   "group": "Iseki",
+   "file": "levels/iseki04.json"
+  },
+  {
+   "id": "island01",
+   "category": "level",
+   "name": "island01",
+   "group": "Island",
+   "file": "levels/island01.json"
+  },
+  {
+   "id": "island02",
+   "category": "level",
+   "name": "island02",
+   "group": "Island",
+   "file": "levels/island02.json"
+  },
+  {
+   "id": "island03",
+   "category": "level",
+   "name": "island03",
+   "group": "Island",
+   "file": "levels/island03.json"
+  },
+  {
+   "id": "jungle01",
+   "category": "level",
+   "name": "jungle01",
+   "group": "Jungle",
+   "file": "levels/jungle01.json"
+  },
+  {
+   "id": "jungle02",
+   "category": "level",
+   "name": "jungle02",
+   "group": "Jungle",
+   "file": "levels/jungle02.json"
+  },
+  {
+   "id": "kinoko01",
+   "category": "level",
+   "name": "kinoko01",
+   "group": "Kinoko",
+   "file": "levels/kinoko01.json"
+  },
+  {
+   "id": "kinoko02",
+   "category": "level",
+   "name": "kinoko02",
+   "group": "Kinoko",
+   "file": "levels/kinoko02.json"
+  },
+  {
+   "id": "kinoko03",
+   "category": "level",
+   "name": "kinoko03",
+   "group": "Kinoko",
+   "file": "levels/kinoko03.json"
+  },
+  {
+   "id": "nightmare01",
+   "category": "level",
+   "name": "nightmare01",
+   "group": "Nightmare",
+   "file": "levels/nightmare01.json"
+  },
+  {
+   "id": "nightmare02",
+   "category": "level",
+   "name": "nightmare02",
+   "group": "Nightmare",
+   "file": "levels/nightmare02.json"
+  },
+  {
+   "id": "nightmare03",
+   "category": "level",
+   "name": "nightmare03",
+   "group": "Nightmare",
+   "file": "levels/nightmare03.json"
+  },
+  {
+   "id": "nightmare04",
+   "category": "level",
+   "name": "nightmare04",
+   "group": "Nightmare",
+   "file": "levels/nightmare04.json"
+  },
+  {
+   "id": "snow01",
+   "category": "level",
+   "name": "snow01",
+   "group": "Snow",
+   "file": "levels/snow01.json"
+  },
+  {
+   "id": "snow02",
+   "category": "level",
+   "name": "snow02",
+   "group": "Snow",
+   "file": "levels/snow02.json"
+  },
+  {
+   "id": "snow03",
+   "category": "level",
+   "name": "snow03",
+   "group": "Snow",
+   "file": "levels/snow03.json"
+  },
+  {
+   "id": "snow04",
+   "category": "level",
+   "name": "snow04",
+   "group": "Snow",
+   "file": "levels/snow04.json"
+  },
+  {
+   "id": "snow05",
+   "category": "level",
+   "name": "snow05",
+   "group": "Snow",
+   "file": "levels/snow05.json"
+  },
+  {
+   "id": "star01",
+   "category": "level",
+   "name": "star01",
+   "group": "Star",
+   "file": "levels/star01.json"
+  },
+  {
+   "id": "star02",
+   "category": "level",
+   "name": "star02",
+   "group": "Star",
+   "file": "levels/star02.json"
+  },
+  {
+   "id": "star03",
+   "category": "level",
+   "name": "star03",
+   "group": "Star",
+   "file": "levels/star03.json"
+  },
+  {
+   "id": "tainai01",
+   "category": "level",
+   "name": "tainai01",
+   "group": "Tainai",
+   "file": "levels/tainai01.json"
+  },
+  {
+   "id": "tainai02",
+   "category": "level",
+   "name": "tainai02",
+   "group": "Tainai",
+   "file": "levels/tainai02.json"
+  },
+  {
+   "id": "tainai03",
+   "category": "level",
+   "name": "tainai03",
+   "group": "Tainai",
+   "file": "levels/tainai03.json"
+  },
+  {
+   "id": "tainai04",
+   "category": "level",
+   "name": "tainai04",
+   "group": "Tainai",
+   "file": "levels/tainai04.json"
+  },
+  {
+   "id": "yama01",
+   "category": "level",
+   "name": "yama01",
+   "group": "Yama",
+   "file": "levels/yama01.json"
+  },
+  {
+   "id": "yama02",
+   "category": "level",
+   "name": "yama02",
+   "group": "Yama",
+   "file": "levels/yama02.json"
+  },
+  {
+   "id": "yama03",
+   "category": "level",
+   "name": "yama03",
+   "group": "Yama",
+   "file": "levels/yama03.json"
+  }
+ ]
 }

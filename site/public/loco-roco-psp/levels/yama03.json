@@ -1,32 +1,40 @@
 {
- "collision": {
-  "glb": "models/yama03_collision.glb",
-  "kind": "outlines"
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-2264.777099609375, 351.936279296875, 1126.19609375],
+  "target": [-2264.777099609375, 351.936279296875, 0],
+  "fov": 36,
+  "near": 1,
+  "far": 20000,
+  "fly": {
+   "speed": 250
+  }
  },
- "extents": {
-  "max": [
-   3000,
-   1200,
-   109.63326
-  ],
-  "min": [
-   -3000,
-   -1200,
-   -199
+ "scene": {
+  "background": "#ffffff",
+  "layers": [
+   {
+    "id": "stage",
+    "file": "yama03.glb"
+   },
+   {
+    "id": "background",
+    "name": "Background",
+    "file": "yama03_bg.glb",
+    "mode": "toggle",
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision contours",
+    "file": "yama03_collision.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
   ]
- },
- "format": 2,
- "kind": "mesh3d",
- "mesh": {
-  "glb": "models/yama03.glb"
- },
- "name": "yama03",
- "objectsFile": "yama03.objects.json",
- "sky": "models/yama03_bg.glb",
- "view": {
-  "h": 272,
-  "w": 480,
-  "x": 95.2229,
-  "y": 420.1731
  }
 }

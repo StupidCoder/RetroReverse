@@ -1,32 +1,40 @@
 {
- "collision": {
-  "glb": "models/bombmuch_collision.glb",
-  "kind": "outlines"
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-687.7021484375, -33.6494140625, 7301.06875],
+  "target": [-687.7021484375, -33.6494140625, 0],
+  "fov": 36,
+  "near": 1,
+  "far": 20000,
+  "fly": {
+   "speed": 250
+  }
  },
- "extents": {
-  "max": [
-   1200,
-   2400,
-   103
-  ],
-  "min": [
-   -1200,
-   -2400,
-   -160
+ "scene": {
+  "background": "#ffffff",
+  "layers": [
+   {
+    "id": "stage",
+    "file": "bombmuch.glb"
+   },
+   {
+    "id": "background",
+    "name": "Background",
+    "file": "bombmuch_bg.glb",
+    "mode": "toggle",
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision contours",
+    "file": "bombmuch_collision.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
   ]
- },
- "format": 2,
- "kind": "mesh3d",
- "mesh": {
-  "glb": "models/bombmuch.glb"
- },
- "name": "bombmuch",
- "objectsFile": "bombmuch.objects.json",
- "sky": "models/bombmuch_bg.glb",
- "view": {
-  "h": 272,
-  "w": 480,
-  "x": -17.308716,
-  "y": 2895.6072
  }
 }

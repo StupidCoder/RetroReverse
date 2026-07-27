@@ -1,32 +1,40 @@
 {
- "collision": {
-  "glb": "models/iseki04_collision.glb",
-  "kind": "outlines"
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-4070.43603515625, 638.90673828125, 2553.45625],
+  "target": [-4070.43603515625, 638.90673828125, 0],
+  "fov": 36,
+  "near": 1,
+  "far": 20000,
+  "fly": {
+   "speed": 250
+  }
  },
- "extents": {
-  "max": [
-   4800,
-   1800,
-   100
-  ],
-  "min": [
-   -4800,
-   -1800,
-   -199
+ "scene": {
+  "background": "#ffffff",
+  "layers": [
+   {
+    "id": "stage",
+    "file": "iseki04.glb"
+   },
+   {
+    "id": "background",
+    "name": "Background",
+    "file": "iseki04_bg.glb",
+    "mode": "toggle",
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision contours",
+    "file": "iseki04_collision.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
   ]
- },
- "format": 2,
- "kind": "mesh3d",
- "mesh": {
-  "glb": "models/iseki04.glb"
- },
- "name": "iseki04",
- "objectsFile": "iseki04.objects.json",
- "sky": "models/iseki04_bg.glb",
- "view": {
-  "h": 272,
-  "w": 480,
-  "x": 89.563965,
-  "y": 1822.4982
  }
 }

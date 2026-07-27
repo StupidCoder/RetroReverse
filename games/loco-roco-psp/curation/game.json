@@ -1,0 +1,6 @@
+{
+ "title": "LocoRoco",
+ "platform": "Sony PSP",
+ "year": 2006,
+ "description": "SCE Japan Studio's rolling-blob platformer — the PSP title whose oracle plays into Stage 1 through the game's own controller latch, and whose GPRS compression was reimplemented byte-exact. All forty stages are decoded straight from DATA.BIN's .clv files: the terrain and decoration meshes in their authored tints, the parallax background as a toggleable layer, and the engine's collision contours — one colour per layer — drawn just in front of the terrain. Each stage opens where play begins, at its leftmost collision point."
+}

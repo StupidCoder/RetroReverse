@@ -1,32 +1,40 @@
 {
- "collision": {
-  "glb": "models/bigtree01_collision.glb",
-  "kind": "outlines"
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-1048.706298828125, 101.04962158203125, 3888.8265625000004],
+  "target": [-1048.706298828125, 101.04962158203125, 0],
+  "fov": 36,
+  "near": 1,
+  "far": 20000,
+  "fly": {
+   "speed": 250
+  }
  },
- "extents": {
-  "max": [
-   2000,
-   3400,
-   101
-  ],
-  "min": [
-   -2000,
-   -3400,
-   -400
+ "scene": {
+  "background": "#ffffff",
+  "layers": [
+   {
+    "id": "stage",
+    "file": "bigtree01.glb"
+   },
+   {
+    "id": "background",
+    "name": "Background",
+    "file": "bigtree01_bg.glb",
+    "mode": "toggle",
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision contours",
+    "file": "bigtree01_collision.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
   ]
- },
- "format": 2,
- "kind": "mesh3d",
- "mesh": {
-  "glb": "models/bigtree01.glb"
- },
- "name": "bigtree01",
- "objectsFile": "bigtree01.objects.json",
- "sky": "models/bigtree01_bg.glb",
- "view": {
-  "h": 272,
-  "w": 480,
-  "x": 311.2937,
-  "y": 2703.892
  }
 }

@@ -1,32 +1,40 @@
 {
- "collision": {
-  "glb": "models/tainai04_collision.glb",
-  "kind": "outlines"
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-4537.8154296875, 637.3850708007812, 2944.1412109375],
+  "target": [-4537.8154296875, 637.3850708007812, 0],
+  "fov": 36,
+  "near": 1,
+  "far": 20000,
+  "fly": {
+   "speed": 250
+  }
  },
- "extents": {
-  "max": [
-   5200,
-   1800,
-   100
-  ],
-  "min": [
-   -5200,
-   -1800,
-   -199
+ "scene": {
+  "background": "#ffffff",
+  "layers": [
+   {
+    "id": "stage",
+    "file": "tainai04.glb"
+   },
+   {
+    "id": "background",
+    "name": "Background",
+    "file": "tainai04_bg.glb",
+    "mode": "toggle",
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision contours",
+    "file": "tainai04_collision.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
   ]
- },
- "format": 2,
- "kind": "mesh3d",
- "mesh": {
-  "glb": "models/tainai04.glb"
- },
- "name": "tainai04",
- "objectsFile": "tainai04.objects.json",
- "sky": "models/tainai04_bg.glb",
- "view": {
-  "h": 272,
-  "w": 480,
-  "x": 22.18457,
-  "y": 106.656006
  }
 }

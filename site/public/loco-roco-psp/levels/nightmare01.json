@@ -1,32 +1,40 @@
 {
- "collision": {
-  "glb": "models/nightmare01_collision.glb",
-  "kind": "outlines"
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-2498.229248046875, 1035.558349609375, 430],
+  "target": [-2498.229248046875, 1035.558349609375, 0],
+  "fov": 36,
+  "near": 1,
+  "far": 20000,
+  "fly": {
+   "speed": 250
+  }
  },
- "extents": {
-  "max": [
-   3600,
-   1400,
-   100
-  ],
-  "min": [
-   -3600,
-   -1400,
-   -199
+ "scene": {
+  "background": "#ffffff",
+  "layers": [
+   {
+    "id": "stage",
+    "file": "nightmare01.glb"
+   },
+   {
+    "id": "background",
+    "name": "Background",
+    "file": "nightmare01_bg.glb",
+    "mode": "toggle",
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision contours",
+    "file": "nightmare01_collision.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
   ]
- },
- "format": 2,
- "kind": "mesh3d",
- "mesh": {
-  "glb": "models/nightmare01.glb"
- },
- "name": "nightmare01",
- "objectsFile": "nightmare01.objects.json",
- "sky": "models/nightmare01_bg.glb",
- "view": {
-  "h": 272,
-  "w": 480,
-  "x": 462.28687,
-  "y": 168.45288
  }
 }

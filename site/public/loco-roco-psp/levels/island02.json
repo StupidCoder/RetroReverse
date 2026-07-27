@@ -1,32 +1,40 @@
 {
- "collision": {
-  "glb": "models/island02_collision.glb",
-  "kind": "outlines"
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-3408.5322265625, 537.184814453125, 2372.6648437500003],
+  "target": [-3408.5322265625, 537.184814453125, 0],
+  "fov": 36,
+  "near": 1,
+  "far": 20000,
+  "fly": {
+   "speed": 250
+  }
  },
- "extents": {
-  "max": [
-   4000,
-   1600,
-   100
-  ],
-  "min": [
-   -4000,
-   -1600,
-   -199
+ "scene": {
+  "background": "#ffffff",
+  "layers": [
+   {
+    "id": "stage",
+    "file": "island02.glb"
+   },
+   {
+    "id": "background",
+    "name": "Background",
+    "file": "island02_bg.glb",
+    "mode": "toggle",
+    "role": "sky"
+   },
+   {
+    "id": "collision",
+    "name": "Collision contours",
+    "file": "island02_collision.glb",
+    "mode": "toggle",
+    "visible": false,
+    "role": "collision"
+   }
   ]
- },
- "format": 2,
- "kind": "mesh3d",
- "mesh": {
-  "glb": "models/island02.glb"
- },
- "name": "island02",
- "objectsFile": "island02.objects.json",
- "sky": "models/island02_bg.glb",
- "view": {
-  "h": 272,
-  "w": 480,
-  "x": -48.532227,
-  "y": 1019.2512
  }
 }
