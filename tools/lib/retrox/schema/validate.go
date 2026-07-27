@@ -905,7 +905,8 @@ func (c *checker) checkObject(p string, o *Object, assets map[string]*Asset) {
 				c.errf(p, "edge %d vertex index out of range", i)
 				break
 			}
-			if e[2] >= len(w.Faces) || e[3] >= len(w.Faces) || e[2] < 0 || e[3] < 0 {
+			// -1 = no face on that side (an open edge, always drawn) — RETROX.md §6.4
+			if e[2] >= len(w.Faces) || e[3] >= len(w.Faces) || e[2] < -1 || e[3] < -1 {
 				c.errf(p, "edge %d face index out of range", i)
 				break
 			}

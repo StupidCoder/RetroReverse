@@ -561,8 +561,10 @@ either adjacent face points toward the eye.
 }
 ```
 
-Face `i` is visible when `dot(faces[i], eye - faceCenters[i]) > 0`. Presentation effects
-(authentic CRT edge flicker, glow) are viewer options, not data.
+Face `i` is visible when `dot(faces[i], eye - faceCenters[i]) > 0`. A face id of `-1` on an
+edge means "no face on this side" — an open edge, drawn unconditionally (Elite's blueprint
+sentinel `$F` maps here). Presentation effects (authentic CRT edge flicker, glow) are viewer
+options, not data.
 
 ## 7. Cutscene scripts
 
