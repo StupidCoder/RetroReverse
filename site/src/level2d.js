@@ -104,6 +104,34 @@ export async function mount(ctx, doc) {
     if (fx) anims.push(fx);
   }
 
+  // ---- camera ---------------------------------------------------------------------
+  // Fitted BEFORE the placements load: their loading awaits many fetches and
+  // the level must never render unzoomed in the meantime.
+  const cam = new MapCamera(stage, app, world, {
+    bounds: () => ({ w: map.widthPx, h: map.heightPx }),
+    wrapX: () => (tm.wrap === 'x' ? map.widthPx : 0),
+  });
+  const caps = doc.camera?.map2d || {};
+  cam.fitView(tm.view, {
+    maxNativeFactor: caps.maxNativeFactor || 4,
+    minFitFactor: caps.minFitFactor || 0.95,
+  });
+  cam.wirePointer();
+
+  // arrows pan, +/- zooms
+  const onKey = (e) => {
+    const step = 60;
+    if (e.key === 'ArrowLeft') cam.panBy(step, 0);
+    else if (e.key === 'ArrowRight') cam.panBy(-step, 0);
+    else if (e.key === 'ArrowUp') cam.panBy(0, step);
+    else if (e.key === 'ArrowDown') cam.panBy(0, -step);
+    else if (e.key === '+' || e.key === '=') cam.zoomAtCenter(1.15);
+    else if (e.key === '-' || e.key === '_') cam.zoomAtCenter(1 / 1.15);
+    else return;
+    e.preventDefault();
+  };
+  window.addEventListener('keydown', onKey);
+
   // ---- placements, pools, spawn --------------------------------------------------
   world.addChild(objLayer);
   const objects = new Map(); // id -> SpriteObject (loaded on demand)
@@ -150,32 +178,6 @@ export async function mount(ctx, doc) {
       anim: tm.spawn.anim, tint: tm.spawn.tint, name: 'Player spawn' });
   }
 
-  // ---- camera ---------------------------------------------------------------------
-  const cam = new MapCamera(stage, app, world, {
-    bounds: () => ({ w: map.widthPx, h: map.heightPx }),
-    wrapX: () => (tm.wrap === 'x' ? map.widthPx : 0),
-  });
-  const caps = doc.camera?.map2d || {};
-  cam.fitView(tm.view, {
-    maxNativeFactor: caps.maxNativeFactor || 4,
-    minFitFactor: caps.minFitFactor || 0.95,
-  });
-  cam.wirePointer();
-
-  // arrows pan, +/- zooms
-  const onKey = (e) => {
-    const step = 60;
-    if (e.key === 'ArrowLeft') cam.panBy(step, 0);
-    else if (e.key === 'ArrowRight') cam.panBy(-step, 0);
-    else if (e.key === 'ArrowUp') cam.panBy(0, step);
-    else if (e.key === 'ArrowDown') cam.panBy(0, -step);
-    else if (e.key === '+' || e.key === '=') cam.zoomAtCenter(1.15);
-    else if (e.key === '-' || e.key === '_') cam.zoomAtCenter(1 / 1.15);
-    else return;
-    e.preventDefault();
-  };
-  window.addEventListener('keydown', onKey);
-
   // ---- picking ----------------------------------------------------------------------
   const hud = document.createElement('div');
   hud.className = 'hud';
@@ -216,8 +218,8 @@ export async function mount(ctx, doc) {
     closeCard();
     card = document.createElement('div');
     card.className = 'infocard';
-    const name = title || p.pl.name || p.obj.asset.name;
-    const desc = body || p.obj.asset.description || '';
+    const name = title || p.pl.info?.title || p.pl.name || p.obj.asset.name;
+    const desc = body || p.pl.info?.body || p.obj.asset.description || '';
     const props = p.pl.props ? Object.entries(p.pl.props).map(([k, v]) => `${k} ${JSON.stringify(v)}`).join(' · ') : '';
     card.innerHTML = `<span class="x">×</span><b></b><div class="dim"></div>
       <div class="mono">${props}</div><a>Open object →</a>`;

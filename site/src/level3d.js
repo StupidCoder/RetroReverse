@@ -4,7 +4,7 @@
 // onClick interactions, and the cutscene scripts. All of it from the level
 // document; no per-game code.
 
-import { THREE, Stage, FlyCam, ObjectLibrary, loadGLB, applyWireframe, applyTransform, flyHint } from './engine3d.js';
+import { THREE, Stage, FlyCam, ObjectLibrary, loadGLB, applyWireframe, applyTexFilter, applyTransform, flyHint } from './engine3d.js';
 import { CutscenePlayer } from './cutscene.js';
 
 export async function mount(ctx, doc) {
@@ -45,6 +45,7 @@ export async function mount(ctx, doc) {
     dp.section('Layers');
     await Promise.all(doc.scene.layers.map(async (ly) => {
       const gltf = await loadGLB(game.url(docPath, ly.file));
+      if (game.display.texFilter) applyTexFilter(gltf.scene, game.display.texFilter);
       const group = new THREE.Group();
       group.add(gltf.scene);
       group.visible = ly.visible !== false;
@@ -92,6 +93,7 @@ export async function mount(ctx, doc) {
         if (!r) return;
         try {
           const gltf = await loadGLB(game.url(docPath, r.file));
+          if (game.display.texFilter) applyTexFilter(gltf.scene, game.display.texFilter);
           const group = new THREE.Group();
           group.add(gltf.scene);
           group.userData.room = r;
@@ -342,6 +344,7 @@ export async function mount(ctx, doc) {
     },
     sources: () => [stage.canvas],
     setWireframe(on) { for (const r of roots) applyWireframe(r, on); },
+    setVariant(id) { activeVariant = id; applyVariant(); },
     stats: () => {
       let tris = 0, meshes = 0;
       stage.scene.traverse((o) => {

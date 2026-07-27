@@ -21,6 +21,7 @@ const VIEWS = {
 let games = [];
 let current = null;   // { game, asset, view, params }
 let screenFx = null;
+let filterOn = false; // the user's screen-filter choice survives navigation
 
 // ---- routing ---------------------------------------------------------------
 
@@ -192,17 +193,19 @@ function buildTopbar(game, asset, params) {
   $('infoBtn').classList.toggle('on', false);
   if (!hasInfo && !statsProvider) { /* keep the button: stats still show */ }
 
-  // screen filter: offered when the game declares a profile
+  // screen filter: offered when the game declares a profile; the on/off
+  // choice is the user's and persists across levels, objects and games
   const filter = game.display.filter;
   const fb = $('filterBtn');
   fb.hidden = !filter || !screenFx?.ok;
-  fb.classList.toggle('on', false);
   if (filter && screenFx?.ok) {
     screenFx.setProfile(filter);
+    screenFx.setEnabled(filterOn);
+    fb.classList.toggle('on', filterOn);
     fb.onclick = () => {
-      const on = !screenFx.enabled;
-      screenFx.setEnabled(on);
-      fb.classList.toggle('on', on);
+      filterOn = !filterOn;
+      screenFx.setEnabled(filterOn);
+      fb.classList.toggle('on', filterOn);
     };
   }
 
@@ -225,6 +228,15 @@ function buildVariantSelect(game, asset, variants, activeId, params) {
   vs.onchange = () => {
     const p = Object.fromEntries(new URLSearchParams(location.hash.split('?')[1] || ''));
     p.variant = vs.value;
+    // Apply in place when the view supports it: a remount would reset the
+    // camera, and comparing variants wants the viewpoint kept.
+    if (current?.view?.setVariant) {
+      current.view.setVariant(vs.value);
+      const q = new URLSearchParams();
+      for (const [k, v] of Object.entries(p)) if (v != null && v !== '') q.set(k, v);
+      history.replaceState(null, '', `#/${encodeURIComponent(game.id)}/${encodeURIComponent(asset.id)}?${q}`);
+      return;
+    }
     navigate(game.id, asset.id, p);
   };
 }

@@ -21,7 +21,7 @@ function mountMusic(ctx) {
   const wrap = document.createElement('div');
   wrap.className = 'media-wrap';
   const inner = document.createElement('div');
-  inner.className = 'media-inner music'; // column layout: the track list scrolls, the player bar stays put
+  inner.className = 'media-inner';
   wrap.appendChild(inner);
   stage.appendChild(wrap);
 
@@ -77,8 +77,26 @@ function mountMusic(ctx) {
   const vu = bar.querySelector('.vu');
   for (let i = 0; i < 12; i++) vu.appendChild(document.createElement('i'));
 
+  // Shuffle draws from a bag of every track index, refilled only when empty,
+  // so no track repeats until all have played once. Manual picks count
+  // toward the current bag.
+  let bag = [];
+  const drawShuffled = () => {
+    if (!bag.length) {
+      bag = tracks.map((_, i) => i);
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = (Math.random() * (i + 1)) | 0;
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+      // never play the track that just ended back-to-back across a refill
+      if (bag.length > 1 && bag[bag.length - 1] === cur) bag.unshift(bag.pop());
+    }
+    return bag.pop();
+  };
+
   const play = (i) => {
     cur = i;
+    bag = bag.filter((j) => j !== i);
     rows.forEach((r, j) => r.classList.toggle('playing', j === i));
     audio.src = game.url('', tracks[i].file);
     ensureAnalyser();
@@ -88,7 +106,7 @@ function mountMusic(ctx) {
   };
   const next = () => {
     if (!tracks.length) return;
-    if (shuffle) return play((Math.random() * tracks.length) | 0);
+    if (shuffle) return play(drawShuffled());
     play((cur + 1) % tracks.length);
   };
 

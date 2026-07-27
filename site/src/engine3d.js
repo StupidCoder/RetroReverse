@@ -199,17 +199,30 @@ export function loadGLB(url) {
   return gltfLoader.loadAsync(url);
 }
 
-function nearestify(root) {
+// applyTexFilter imposes the platform's texture sampling (manifest
+// display.texFilter) on a loaded subtree: "linear" = bilinear + mipmaps
+// (N64/GC), "nearest"/default = point-sampled magnification (PSX-style).
+export function applyTexFilter(root, mode) {
   root.traverse((o) => {
     const m = o.material;
     if (!m) return;
     for (const mat of Array.isArray(m) ? m : [m]) {
-      if (mat.map) {
-        mat.map.magFilter = THREE.NearestFilter;
-        mat.map.needsUpdate = true;
-      }
+      if (!mat.map) continue;
+      filterTex(mat.map, mode);
+      mat.needsUpdate = true;
     }
   });
+}
+
+function filterTex(tex, mode) {
+  if (mode === 'linear') {
+    tex.magFilter = THREE.LinearFilter;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.generateMipmaps = true;
+  } else {
+    tex.magFilter = THREE.NearestFilter;
+  }
+  tex.needsUpdate = true;
 }
 
 const LOOPMAP = { loop: THREE.LoopRepeat, pingpong: THREE.LoopPingPong, once: THREE.LoopOnce, hold: THREE.LoopOnce };
@@ -230,15 +243,16 @@ export class ObjectLibrary {
   async _load(id) {
     const { asset, doc, docPath } = await this.game.object(id);
     const proto = { asset, doc, docPath };
+    const texFilter = this.game.display.texFilter;
     if (doc.type === 'model3d') {
       proto.gltf = await loadGLB(this.game.url(docPath, doc.model));
-      nearestify(proto.gltf.scene);
+      applyTexFilter(proto.gltf.scene, texFilter);
       if (doc.flipbooks?.length) {
         proto.flipTex = {};
         for (const fb of doc.flipbooks) {
           proto.flipTex[fb.material] = await Promise.all(fb.textures.map((t) =>
             new THREE.TextureLoader().loadAsync(this.game.url(docPath, t)).then((tx) => {
-              tx.magFilter = THREE.NearestFilter;
+              filterTex(tx, texFilter);
               tx.flipY = false;
               return tx;
             })));
@@ -246,6 +260,8 @@ export class ObjectLibrary {
       }
     } else if (doc.type === 'billboard3d') {
       proto.tex = await new THREE.TextureLoader().loadAsync(this.game.url(docPath, doc.atlas.file));
+      // Billboards are sprite sheets: sub-rect sampling bleeds across cells
+      // with mipmaps, so they stay point-sampled regardless of texFilter.
       proto.tex.magFilter = proto.tex.minFilter = THREE.NearestFilter;
       proto.tex.generateMipmaps = false;
     }

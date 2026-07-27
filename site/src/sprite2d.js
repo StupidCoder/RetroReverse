@@ -149,4 +149,36 @@ export class SpriteInstance {
     this._show();
     this.sprite.position.set(0, 0);
   }
+
+  // ---- transport support: engine-frame position within one program cycle ----
+
+  cycleFrames() {
+    return this.prog.reduce((s, [, h]) => s + h, 0);
+  }
+
+  pos() {
+    let f = this.acc;
+    for (let i = 0; i < this.idx; i++) f += this.prog[i][1];
+    return f;
+  }
+
+  // seek scrubs to an engine-frame position in the forward pass (pingpong
+  // scrubs its forward half — good enough for a slider).
+  seek(f) {
+    f = Math.max(0, Math.min(this.cycleFrames() - 0.001, f));
+    this.done = false;
+    this.dir = 1;
+    this.idx = 0;
+    this.acc = f;
+    while (this.idx < this.prog.length - 1 && this.acc >= this.prog[this.idx][1]) {
+      this.acc -= this.prog[this.idx][1];
+      this.idx++;
+    }
+    this._show();
+    if (this.anim.path?.length) {
+      this.pathT = f % this.anim.path.length;
+      const [dx, dy] = this.anim.path[this.pathT | 0];
+      this.sprite.position.set(dx, dy);
+    }
+  }
 }

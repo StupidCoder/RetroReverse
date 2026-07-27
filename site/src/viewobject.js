@@ -27,9 +27,15 @@ async function mount2D(ctx, doc) {
   const inst = obj.makeInstance({});
   world.addChild(inst.node);
 
+  let playing = true;
   const tickHz = game.display.tickHz || 60;
-  app.ticker.add(() => inst.tick((app.ticker.deltaMS * tickHz) / 1000));
+  app.ticker.add(() => {
+    if (playing) inst.tick((app.ticker.deltaMS * tickHz) / 1000);
+    tp?.sync(inst.pos(), inst.cycleFrames(), playing && !inst.done);
+  });
 
+  // ---- camera: auto-fit until the user pans/zooms --------------------------------
+  let touched = false;
   const fit = () => {
     const z = Math.max(1, Math.floor(Math.min(
       (app.screen.width * 0.5) / obj.cellW, (app.screen.height * 0.5) / obj.cellH)));
@@ -40,9 +46,47 @@ async function mount2D(ctx, doc) {
       app.screen.height / 2 - (obj.cellH / 2 - ay) * z);
   };
   fit();
-  addEventListener('resize', fit);
+  const onResize = () => { if (!touched) fit(); };
+  addEventListener('resize', onResize);
 
-  // animation list
+  const cv = app.canvas;
+  const zoomAt = (cx, cy, f) => {
+    const r = cv.getBoundingClientRect();
+    const px = cx - r.left, py = cy - r.top;
+    const z0 = world.scale.x, z = Math.max(0.5, Math.min(64, z0 * f));
+    world.position.x = px - (px - world.position.x) * (z / z0);
+    world.position.y = py - (py - world.position.y) * (z / z0);
+    world.scale.set(z);
+  };
+  const pts = new Map();
+  let pinch = 0;
+  cv.addEventListener('pointerdown', (e) => { pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointermove', (e) => {
+    const p = pts.get(e.pointerId);
+    if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    touched = true;
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinch) zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, d / pinch);
+      pinch = d;
+    } else if (pts.size === 1) {
+      world.position.x += dx;
+      world.position.y += dy;
+    }
+  });
+  const up = (e) => { pts.delete(e.pointerId); if (pts.size < 2) pinch = 0; };
+  cv.addEventListener('pointerup', up);
+  cv.addEventListener('pointercancel', up);
+  cv.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    touched = true;
+    zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.2 : 1 / 1.2);
+  }, { passive: false });
+
+  // ---- animation list + transport --------------------------------------------------
   const list = document.createElement('div');
   list.className = 'side-list';
   const btns = [];
@@ -53,6 +97,7 @@ async function mount2D(ctx, doc) {
     b.onclick = () => {
       inst.setAnim(a.id);
       inst.reset();
+      playing = true;
       btns.forEach((x) => x.classList.remove('on'));
       b.classList.add('on');
     };
@@ -62,16 +107,30 @@ async function mount2D(ctx, doc) {
   btns[0]?.classList.add('on');
   stage.appendChild(list);
 
+  const animated = (doc.animations || []).some((a) => expandedFrames(a) > 1);
+  const tp = animated ? makeTransport(stage, {
+    onToggle() {
+      playing = !playing;
+      if (playing && inst.done) inst.reset();
+    },
+    onSeek(f) {
+      playing = false;
+      inst.seek(f);
+    },
+  }) : null;
+
   const hud = document.createElement('div');
   hud.className = 'hud';
-  hud.textContent = `${obj.cellW}×${obj.cellH} px cells · ${doc.animations?.length || 0} animations`;
+  hud.textContent = `${obj.cellW}×${obj.cellH} px cells · ${doc.animations?.length || 0} animations · drag to pan · wheel/pinch to zoom`;
   stage.appendChild(hud);
+
+  window.__rxo2 = { app, world, inst, obj }; // debug handle
 
   return {
     unmount() {
-      removeEventListener('resize', fit);
+      removeEventListener('resize', onResize);
       app.destroy(true, { children: true });
-      list.remove(); hud.remove();
+      list.remove(); hud.remove(); tp?.remove();
       stage.classList.remove('render2d');
     },
     sources: () => [app.canvas],
@@ -82,6 +141,48 @@ async function mount2D(ctx, doc) {
       Animations: (doc.animations || []).map((a) => `${a.id} (${a.frames}f, ${a.loop})`).join(', '),
       ...(doc.stats || {}),
     }),
+  };
+}
+
+// ---- animation transport (frame counter + slider + play/pause) --------------------
+
+function expandedFrames(a) {
+  if (a.steps?.length) return a.steps.length;
+  return a.frames || 1;
+}
+
+const PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+const PAUSE_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>';
+
+// makeTransport builds the cutscene-style bar: play/pause, a scrubber in
+// engine frames and a frame counter. The view owns the clock — it calls
+// sync(frame, total, playing) every tick and receives onToggle/onSeek.
+function makeTransport(el, { onToggle, onSeek }) {
+  const bar = document.createElement('div');
+  bar.className = 'transport';
+  bar.innerHTML = `
+    <button class="t-play" title="Play/pause">${PAUSE_SVG}</button>
+    <input type="range" min="0" max="1" value="0" step="1" />
+    <span class="t-label"></span>`;
+  el.appendChild(bar);
+  const btn = bar.querySelector('.t-play');
+  const seek = bar.querySelector('input');
+  const label = bar.querySelector('.t-label');
+  btn.onclick = onToggle;
+  seek.oninput = () => onSeek(+seek.value);
+  let lastPlaying = null;
+  return {
+    sync(frame, total, playing) {
+      const max = Math.max(1, Math.ceil(total) - 1);
+      if (+seek.max !== max) seek.max = max;
+      if (document.activeElement !== seek) seek.value = Math.min(max, frame | 0);
+      label.textContent = `f ${Math.min(max, frame | 0)}/${Math.ceil(total)}`;
+      if (playing !== lastPlaying) {
+        btn.innerHTML = playing ? PAUSE_SVG : PLAY_SVG;
+        lastPlaying = playing;
+      }
+    },
+    remove() { bar.remove(); },
   };
 }
 
@@ -168,6 +269,37 @@ async function mount3D(ctx, doc) {
     list.appendChild(b);
     btns.push(b);
   }
+  // transport over the active clip: frames at the clip's declared fps
+  const clipFps = () => handle?.meta?.fps || 30;
+  const tp = (doc.animations || []).length && inst.mixer ? makeTransport(el, {
+    onToggle() {
+      if (!handle) return;
+      const { action, clip } = handle;
+      if (action.paused || !action.isRunning()) {
+        if (action.time >= clip.duration - 1e-4) action.time = 0;
+        action.paused = false;
+        action.play();
+      } else {
+        action.paused = true;
+      }
+    },
+    onSeek(f) {
+      if (!handle) return;
+      const { action, clip } = handle;
+      action.play();
+      action.paused = true;
+      action.time = Math.min(f / clipFps(), clip.duration - 1e-4);
+      inst.mixer.update(0);
+    },
+  }) : null;
+  if (tp) {
+    stage.updaters.add(() => {
+      if (!handle) return;
+      const { action, clip } = handle;
+      tp.sync(action.time * clipFps(), clip.duration * clipFps(),
+        !action.paused && action.isRunning());
+    });
+  }
   if (doc.atlasPicture) {
     const b = document.createElement('button');
     b.textContent = '🖼 Texture sheet';
@@ -191,7 +323,7 @@ async function mount3D(ctx, doc) {
   return {
     unmount() {
       stage.dispose();
-      list.remove(); hud.remove();
+      list.remove(); hud.remove(); tp?.remove();
     },
     sources: () => [stage.canvas],
     setWireframe(on) { applyWireframe(inst.node, on); },
