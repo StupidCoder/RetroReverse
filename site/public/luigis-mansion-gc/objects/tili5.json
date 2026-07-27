@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "tili5",
+ "model": "tili5.glb",
+ "instanced": true
+}

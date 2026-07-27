@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "oben",
+ "animations": [
+  {
+   "id": "oben_0",
+   "loop": "loop",
+   "clip": "oben_0",
+   "fps": 30
+  },
+  {
+   "id": "oben_1",
+   "loop": "once",
+   "clip": "oben_1",
+   "fps": 30
+  }
+ ],
+ "model": "oben.glb",
+ "instanced": true
+}

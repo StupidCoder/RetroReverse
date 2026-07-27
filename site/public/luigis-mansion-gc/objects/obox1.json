@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "obox1",
+ "animations": [
+  {
+   "id": "obox1_0",
+   "loop": "loop",
+   "clip": "obox1_0",
+   "fps": 30
+  },
+  {
+   "id": "obox1_1",
+   "loop": "once",
+   "clip": "obox1_1",
+   "fps": 30
+  }
+ ],
+ "model": "obox1.glb",
+ "instanced": true
+}

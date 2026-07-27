@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "flrd",
+ "animations": [
+  {
+   "id": "flrd_0",
+   "loop": "once",
+   "clip": "flrd_0",
+   "fps": 30
+  },
+  {
+   "id": "flrd_1",
+   "loop": "once",
+   "clip": "flrd_1",
+   "fps": 30
+  }
+ ],
+ "model": "flrd.glb",
+ "instanced": true
+}

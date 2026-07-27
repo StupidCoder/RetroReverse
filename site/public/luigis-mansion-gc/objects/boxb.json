@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "boxb",
+ "animations": [
+  {
+   "id": "boxb_0",
+   "loop": "loop",
+   "clip": "boxb_0",
+   "fps": 30
+  },
+  {
+   "id": "boxb_1",
+   "loop": "once",
+   "clip": "boxb_1",
+   "fps": 30
+  }
+ ],
+ "model": "boxb.glb",
+ "instanced": true
+}

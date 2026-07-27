@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "sen17",
+ "model": "sen17.glb",
+ "instanced": true
+}

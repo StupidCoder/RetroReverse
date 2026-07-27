@@ -1,0 +1,20 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Flashlight cone (gate)",
+ "animations": [
+  {
+   "id": "opeg_cone",
+   "loop": "once",
+   "description": "The shot's .key clip: hermite channels on the 30 fps demo timeline, root motion kept.",
+   "clip": "opeg_cone",
+   "fps": 30
+  }
+ ],
+ "model": "cone-gate.glb",
+ "skinnedClone": true,
+ "props": {
+  "source": "/Ajioka/ADemo/opeg.szp:opeg_cone.mdl+opeg_cone.key"
+ }
+}

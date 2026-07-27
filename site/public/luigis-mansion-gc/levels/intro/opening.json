@@ -1,0 +1,195 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "name": "The opening cutscene",
+ "fps": 30,
+ "shots": [
+  {
+   "id": "opwf",
+   "name": "The forest walk",
+   "frames": 338,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 0,
+     "clip": "opwf_bg"
+    },
+    {
+     "placement": 1,
+     "clip": "opwf_luigi"
+    },
+    {
+     "placement": 2,
+     "clip": "opwf_cone"
+    },
+    {
+     "placement": 3,
+     "clip": "opwf_handlight"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/opwf.json"
+   }
+  },
+  {
+   "id": "oppm",
+   "name": "The map points the way",
+   "frames": 337,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 4,
+     "clip": "op_mansion"
+    },
+    {
+     "placement": 5,
+     "clip": "oppm_hand"
+    },
+    {
+     "placement": 6,
+     "clip": "oppm_lightning"
+    },
+    {
+     "placement": 7,
+     "clip": "torch"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/oppm.json"
+   }
+  },
+  {
+   "id": "opeg",
+   "name": "At the gate",
+   "frames": 200,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 8,
+     "clip": "opeg_mansion"
+    },
+    {
+     "placement": 9,
+     "clip": "entergate"
+    },
+    {
+     "placement": 10,
+     "clip": "opeg_cone"
+    },
+    {
+     "placement": 11,
+     "clip": "opeg_handlight"
+    },
+    {
+     "placement": 7,
+     "clip": "torch"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/opeg.json"
+   }
+  },
+  {
+   "id": "opcn",
+   "name": "The crow watches",
+   "frames": 235,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 4,
+     "clip": "op_mansion"
+    },
+    {
+     "placement": 12,
+     "clip": "karasu1"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/opcn.json"
+   }
+  },
+  {
+   "id": "opsu",
+   "name": "Up the steps",
+   "frames": 100,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 4,
+     "clip": "op_mansion"
+    },
+    {
+     "placement": 13,
+     "clip": "opsu_luigi"
+    },
+    {
+     "placement": 14,
+     "clip": "opsu_cone"
+    },
+    {
+     "placement": 15,
+     "clip": "opsu_handlight"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/opsu.json"
+   }
+  },
+  {
+   "id": "opdn",
+   "name": "The door knob",
+   "frames": 167,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 4,
+     "clip": "op_mansion"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/opdn.json"
+   }
+  },
+  {
+   "id": "opod",
+   "name": "Opening the door",
+   "frames": 180,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 16,
+     "clip": "opod_mansion"
+    },
+    {
+     "placement": 17,
+     "clip": "opod_luigi"
+    },
+    {
+     "placement": 18,
+     "clip": "opod_cone"
+    },
+    {
+     "placement": 19,
+     "clip": "opod_handlight"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/opod.json"
+   }
+  }
+ ]
+}

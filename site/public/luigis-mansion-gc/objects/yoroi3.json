@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "yoroi3",
+ "animations": [
+  {
+   "id": "yoroi3_0",
+   "loop": "once",
+   "clip": "yoroi3_0",
+   "fps": 30
+  },
+  {
+   "id": "yoroi3_1",
+   "loop": "once",
+   "clip": "yoroi3_1",
+   "fps": 30
+  }
+ ],
+ "model": "yoroi3.glb",
+ "instanced": true
+}

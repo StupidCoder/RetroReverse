@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "sen",
+ "animations": [
+  {
+   "id": "sen_0",
+   "loop": "loop",
+   "clip": "sen_0",
+   "fps": 30
+  },
+  {
+   "id": "sen_1",
+   "loop": "once",
+   "clip": "sen_1",
+   "fps": 30
+  }
+ ],
+ "model": "sen.glb",
+ "instanced": true
+}

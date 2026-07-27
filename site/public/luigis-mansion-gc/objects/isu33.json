@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "isu33",
+ "model": "isu33.glb",
+ "instanced": true
+}

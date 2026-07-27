@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "wbox48_4",
+ "model": "wbox48-4.glb",
+ "instanced": true
+}

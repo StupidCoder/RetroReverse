@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "o_nin",
+ "model": "o-nin.glb",
+ "instanced": true
+}

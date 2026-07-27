@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "heri25",
+ "model": "heri25.glb",
+ "instanced": true
+}

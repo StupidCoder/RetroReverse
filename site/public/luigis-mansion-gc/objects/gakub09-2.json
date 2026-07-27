@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "gakub09",
+ "model": "gakub09-2.glb",
+ "instanced": true
+}

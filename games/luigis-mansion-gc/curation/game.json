@@ -1,0 +1,6 @@
+{
+ "title": "Luigi's Mansion",
+ "platform": "Nintendo GameCube",
+ "year": 2001,
+ "description": "Nintendo's GameCube launch showcase (2001): Luigi wins a mansion he never entered in a contest he never entered, and hoovers its ghosts with the Poltergust 3000. This export is decoded straight from the disc: all 75 room shells assembled in mansion-global coordinates with every furniture piece at its jmp/furnitureinfo placement (click one to see the vacuum yank it open — the game's own .anm clip), the 72 doorways from the DOL's own door table with their swing clips held at the apex, and the seven-shot opening cutscene rebuilt as data — sets, envelope-skinned actors and per-frame cameras baked from the demo player's .scd/.sco channels."
+}

@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "mono57_2",
+ "model": "mono57-2.glb",
+ "instanced": true
+}

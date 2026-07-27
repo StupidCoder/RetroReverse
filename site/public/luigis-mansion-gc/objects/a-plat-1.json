@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "a_plat_1",
+ "model": "a-plat-1.glb",
+ "instanced": true
+}

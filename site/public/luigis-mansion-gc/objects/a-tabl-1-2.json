@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "a_tabl_1",
+ "model": "a-tabl-1-2.glb",
+ "instanced": true
+}

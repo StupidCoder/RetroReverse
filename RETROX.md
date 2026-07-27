@@ -273,7 +273,8 @@ the first is the default).
 "scene": {
   "background": "#000010",                  // clear colour
   "fog": { "color": "#334455", "near": 500, "far": 9000 },
-  "layers": [                               // ✱ ≥1 — THE general composition mechanism
+  "layers": [                               // ✱ ≥1 unless `rooms` is present —
+                                            //   THE general composition mechanism
     { "id": "terrain",                      // ✱
       "name": "Terrain",                    //   label for the layer-toggle UI
       "file": "ghz1/geo/terrain.glb",       // ✱ GLB payload
@@ -573,7 +574,9 @@ on one frame clock. It is data-only replay — no game logic.
   "shots": [                                 // ✱ played in order; a player shows chapters
     { "id": "opwf", "name": "The forest walk",
       "frames": 234,                         // ✱ shot length
-      "layers": ["forest"],                  // ✱ scene layers visible during this shot
+      "layers": ["forest"],                  // scene layers visible during this shot
+                                             //   (omit when the shot's sets are actors —
+                                             //    an animated set-piece is a placement)
       "actors": [                            // placements animated during the shot:
         { "placement": 12,                   // ✱ placement id in the owning level
           "clip": "walk",                    //   animation id; absent = posed static

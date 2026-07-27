@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "kuma24",
+ "model": "kuma24.glb",
+ "instanced": true
+}

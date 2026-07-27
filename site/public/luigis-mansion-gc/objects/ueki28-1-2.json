@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "ueki28_1",
+ "model": "ueki28-1-2.glb",
+ "instanced": true
+}

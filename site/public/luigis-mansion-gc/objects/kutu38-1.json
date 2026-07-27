@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "kutu38_1",
+ "model": "kutu38-1.glb",
+ "instanced": true
+}

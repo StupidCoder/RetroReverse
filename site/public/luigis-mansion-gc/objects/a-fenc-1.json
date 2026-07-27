@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "a_fenc_1",
+ "model": "a-fenc-1.glb",
+ "instanced": true
+}

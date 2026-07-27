@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "fuku38_5",
+ "model": "fuku38-5.glb",
+ "instanced": true
+}

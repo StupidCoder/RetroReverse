@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "oha",
+ "animations": [
+  {
+   "id": "oha_0",
+   "loop": "once",
+   "clip": "oha_0",
+   "fps": 30
+  },
+  {
+   "id": "oha_1",
+   "loop": "once",
+   "clip": "oha_1",
+   "fps": 30
+  }
+ ],
+ "model": "oha.glb",
+ "instanced": true
+}

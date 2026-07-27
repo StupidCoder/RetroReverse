@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "danb17",
+ "model": "danb17.glb",
+ "instanced": true
+}

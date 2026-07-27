@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "o_sando1",
+ "model": "o-sando1.glb",
+ "instanced": true
+}

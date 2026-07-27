@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Tool cabinet",
+ "animations": [
+  {
+   "id": "ota1_0",
+   "loop": "loop",
+   "clip": "ota1_0",
+   "fps": 30
+  },
+  {
+   "id": "ota1_1",
+   "loop": "once",
+   "clip": "ota1_1",
+   "fps": 30
+  }
+ ],
+ "model": "ota1.glb",
+ "instanced": true
+}

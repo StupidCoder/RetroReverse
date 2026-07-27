@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "o_kusa1",
+ "model": "o-kusa1.glb",
+ "instanced": true
+}

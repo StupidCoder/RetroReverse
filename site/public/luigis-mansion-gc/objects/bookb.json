@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "bookb",
+ "animations": [
+  {
+   "id": "bookb_0",
+   "loop": "loop",
+   "clip": "bookb_0",
+   "fps": 30
+  },
+  {
+   "id": "bookb_1",
+   "loop": "once",
+   "clip": "bookb_1",
+   "fps": 30
+  }
+ ],
+ "model": "bookb.glb",
+ "instanced": true
+}

@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "o_run1",
+ "animations": [
+  {
+   "id": "o_run1_0",
+   "loop": "loop",
+   "clip": "o_run1_0",
+   "fps": 30
+  },
+  {
+   "id": "o_run1_1",
+   "loop": "loop",
+   "clip": "o_run1_1",
+   "fps": 30
+  }
+ ],
+ "model": "o-run1.glb",
+ "instanced": true
+}

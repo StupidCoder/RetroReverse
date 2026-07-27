@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "desk12_2",
+ "model": "desk12-2.glb",
+ "instanced": true
+}

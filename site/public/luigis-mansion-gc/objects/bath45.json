@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "bath45",
+ "model": "bath45.glb",
+ "instanced": true
+}

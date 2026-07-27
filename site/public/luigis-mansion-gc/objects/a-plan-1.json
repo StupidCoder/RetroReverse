@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "a_plan_1",
+ "model": "a-plan-1.glb",
+ "instanced": true
+}

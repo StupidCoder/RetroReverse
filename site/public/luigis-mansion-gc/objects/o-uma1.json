@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "o_uma1",
+ "model": "o-uma1.glb",
+ "instanced": true
+}

@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "bank",
+ "animations": [
+  {
+   "id": "bank_0",
+   "loop": "loop",
+   "clip": "bank_0",
+   "fps": 30
+  },
+  {
+   "id": "bank_1",
+   "loop": "once",
+   "clip": "bank_1",
+   "fps": 30
+  }
+ ],
+ "model": "bank.glb",
+ "instanced": true
+}

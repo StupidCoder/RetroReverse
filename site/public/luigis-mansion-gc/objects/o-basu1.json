@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "o_basu1",
+ "model": "o-basu1.glb",
+ "instanced": true
+}

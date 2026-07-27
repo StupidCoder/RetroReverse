@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "htana",
+ "animations": [
+  {
+   "id": "htana_0",
+   "loop": "loop",
+   "clip": "htana_0",
+   "fps": 30
+  },
+  {
+   "id": "htana_1",
+   "loop": "once",
+   "clip": "htana_1",
+   "fps": 30
+  }
+ ],
+ "model": "htana.glb",
+ "instanced": true
+}

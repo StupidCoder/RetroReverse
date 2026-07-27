@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "o_ken1",
+ "model": "o-ken1.glb",
+ "instanced": true
+}

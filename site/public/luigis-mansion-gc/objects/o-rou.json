@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "o_rou",
+ "model": "o-rou.glb",
+ "instanced": true
+}

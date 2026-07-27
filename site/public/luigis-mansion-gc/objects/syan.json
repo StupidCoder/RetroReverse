@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Chandelier",
+ "animations": [
+  {
+   "id": "syan_0",
+   "loop": "loop",
+   "clip": "syan_0",
+   "fps": 30
+  },
+  {
+   "id": "syan_1",
+   "loop": "once",
+   "clip": "syan_1",
+   "fps": 30
+  }
+ ],
+ "model": "syan.glb",
+ "instanced": true
+}

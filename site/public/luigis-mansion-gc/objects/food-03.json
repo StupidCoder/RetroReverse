@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "food_03",
+ "model": "food-03.glb",
+ "instanced": true
+}

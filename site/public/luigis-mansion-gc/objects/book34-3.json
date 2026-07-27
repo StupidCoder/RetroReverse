@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "book34_3",
+ "model": "book34-3.glb",
+ "instanced": true
+}

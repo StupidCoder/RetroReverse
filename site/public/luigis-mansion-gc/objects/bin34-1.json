@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "bin34_1",
+ "model": "bin34-1.glb",
+ "instanced": true
+}

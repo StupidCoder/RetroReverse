@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "ohako1",
+ "animations": [
+  {
+   "id": "ohako1_0",
+   "loop": "loop",
+   "clip": "ohako1_0",
+   "fps": 30
+  },
+  {
+   "id": "ohako1_1",
+   "loop": "once",
+   "clip": "ohako1_1",
+   "fps": 30
+  }
+ ],
+ "model": "ohako1.glb",
+ "instanced": true
+}

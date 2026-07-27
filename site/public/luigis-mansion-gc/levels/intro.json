@@ -1,0 +1,209 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-3383.50732421875, 115.224853515625, -787.3837280273438],
+  "target": [-3355.0458984375, 124.54673767089844, -789.1278076171875],
+  "fov": 50,
+  "near": 5,
+  "far": 200000,
+  "fly": {
+   "speed": 600
+  }
+ },
+ "scene": {
+  "layers": null
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "forest",
+   "pos": [0, 0, 0],
+   "name": "The dark forest",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 1,
+   "object": "luigi-walk",
+   "pos": [0, 0, 0],
+   "name": "Luigi — the forest walk",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 2,
+   "object": "cone-walk",
+   "pos": [0, 0, 0],
+   "name": "Flashlight cone (forest)",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 3,
+   "object": "handlight-walk",
+   "pos": [0, 0, 0],
+   "name": "Luigi's flashlight (forest)",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 4,
+   "object": "mansion-set",
+   "pos": [0, 0, 0],
+   "name": "The mansion approach",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 5,
+   "object": "bighand",
+   "pos": [0, 0, 0],
+   "name": "The pointing hand",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 6,
+   "object": "lightning",
+   "pos": [0, 0, 0],
+   "name": "Lightning bolt",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 7,
+   "object": "gate-torch",
+   "pos": [0, 0, 0],
+   "name": "Gate torch",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 8,
+   "object": "mansion-set-gate",
+   "pos": [0, 0, 0],
+   "name": "The mansion — the gate opens",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 9,
+   "object": "luigi-gate",
+   "pos": [0, 0, 0],
+   "name": "Luigi — at the gate",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 10,
+   "object": "cone-gate",
+   "pos": [0, 0, 0],
+   "name": "Flashlight cone (gate)",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 11,
+   "object": "handlight-gate",
+   "pos": [0, 0, 0],
+   "name": "Luigi's flashlight (gate)",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 12,
+   "object": "crow",
+   "pos": [0, 0, 0],
+   "name": "The crow",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 13,
+   "object": "luigi-stepup",
+   "pos": [0, 0, 0],
+   "name": "Luigi — up the steps",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 14,
+   "object": "cone-stepup",
+   "pos": [0, 0, 0],
+   "name": "Flashlight cone (steps)",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 15,
+   "object": "handlight-stepup",
+   "pos": [0, 0, 0],
+   "name": "Luigi's flashlight (steps)",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 16,
+   "object": "mansion-set-door",
+   "pos": [0, 0, 0],
+   "name": "The mansion — the door opens",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 17,
+   "object": "luigi-opendoor",
+   "pos": [0, 0, 0],
+   "name": "Luigi — opening the door",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 18,
+   "object": "cone-door",
+   "pos": [0, 0, 0],
+   "name": "Flashlight cone (door)",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 19,
+   "object": "handlight-door",
+   "pos": [0, 0, 0],
+   "name": "Luigi's flashlight (door)",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  }
+ ],
+ "scripts": [
+  {
+   "id": "opening",
+   "name": "The opening cutscene",
+   "file": "intro/opening.json",
+   "description": "The seven demo shots the game streams before the title: Luigi walks the forest path, the map points the way, the gate and the front door open. Sets, actor clips and camera cuts are the game's own data; sound cues await the .bas decoder."
+  }
+ ]
+}

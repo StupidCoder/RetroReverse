@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "tubo30_1",
+ "model": "tubo30-1.glb",
+ "instanced": true
+}

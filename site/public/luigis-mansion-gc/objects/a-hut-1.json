@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "a_hut_1",
+ "model": "a-hut-1.glb",
+ "instanced": true
+}

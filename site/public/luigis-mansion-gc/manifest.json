@@ -1,647 +1,3403 @@
 {
- "format": 2,
- "game": "Luigi's Mansion",
+ "format": "retro-x",
+ "version": 1,
+ "id": "luigis-mansion-gc",
+ "title": "Luigi's Mansion",
  "platform": "Nintendo GameCube",
- "models": [
+ "year": 2001,
+ "description": "Nintendo's GameCube launch showcase (2001): Luigi wins a mansion he never entered in a contest he never entered, and hoovers its ghosts with the Poltergust 3000. This export is decoded straight from the disc: all 75 room shells assembled in mansion-global coordinates with every furniture piece at its jmp/furnitureinfo placement (click one to see the vacuum yank it open — the game's own .anm clip), the 72 doorways from the DOL's own door table with their swing clips held at the apex, and the seven-shot opening cutscene rebuilt as data — sets, envelope-skinned actors and per-frame cameras baked from the demo player's .scd/.sco channels.",
+ "display": {
+  "native": {
+   "w": 640,
+   "h": 480
+  },
+  "tickHz": 60
+ },
+ "assets": [
   {
-   "name": "The mansion",
-   "file": "models/mansion.glb",
-   "kind": "lm-set",
-   "section": "Opening cutscene",
-   "camera": {
-    "pos": [
-     0,
-     700,
-     -3800
-    ],
-    "target": [
-     0,
-     1100,
-     -12100
-    ]
-   }
+   "id": "door-02",
+   "category": "object",
+   "name": "Door 02",
+   "group": "Doors",
+   "file": "objects/door-02.json"
   },
   {
-   "name": "The dark forest",
-   "file": "models/forest.glb",
-   "kind": "lm-set",
-   "section": "Opening cutscene",
-   "camera": {
-    "pos": [
-     -1200,
-     900,
-     1500
-    ],
-    "target": [
-     800,
-     700,
-     -5500
-    ]
-   },
-   "cameraTrack": "walkforest-camera.json"
+   "id": "door-14",
+   "category": "object",
+   "name": "Door 14",
+   "group": "Doors",
+   "file": "objects/door-14.json"
   },
   {
-   "name": "Luigi \u2014 the forest walk",
-   "file": "models/luigi-walk.glb",
-   "kind": "lm-actor",
-   "section": "Opening cutscene"
+   "id": "door-10",
+   "category": "object",
+   "name": "Door 10",
+   "group": "Doors",
+   "file": "objects/door-10.json"
   },
   {
-   "name": "Luigi \u2014 at the gate",
-   "file": "models/luigi-gate.glb",
-   "kind": "lm-actor",
-   "section": "Opening cutscene"
+   "id": "door-04",
+   "category": "object",
+   "name": "Door 04",
+   "group": "Doors",
+   "file": "objects/door-04.json"
   },
   {
-   "name": "Gate torch",
-   "file": "models/torch.glb",
-   "kind": "lm-actor",
-   "section": "Opening cutscene"
+   "id": "door-03",
+   "category": "object",
+   "name": "Door 03",
+   "group": "Doors",
+   "file": "objects/door-03.json"
   },
   {
-   "name": "Lightning bolt",
-   "file": "models/lightning.glb",
-   "kind": "mesh3d",
-   "section": "Opening cutscene"
+   "id": "door-12",
+   "category": "object",
+   "name": "Door 12",
+   "group": "Doors",
+   "file": "objects/door-12.json"
   },
   {
-   "name": "The pointing hand",
-   "file": "models/bighand.glb",
-   "kind": "mesh3d",
-   "section": "Opening cutscene"
+   "id": "door-09",
+   "category": "object",
+   "name": "Door 09",
+   "group": "Doors",
+   "file": "objects/door-09.json"
   },
   {
-   "name": "The mansion \u2014 the map points the way",
-   "file": "models/mansion.glb",
-   "kind": "lm-set",
-   "section": "Opening cutscene",
-   "camera": {
-    "pos": [
-     0,
-     700,
-     -3800
-    ],
-    "target": [
-     0,
-     1100,
-     -12100
-    ]
-   },
-   "cameraTrack": "cameras/pointmap.json"
+   "id": "door-13",
+   "category": "object",
+   "name": "Door 13",
+   "group": "Doors",
+   "file": "objects/door-13.json"
   },
   {
-   "name": "The mansion \u2014 the crow watches",
-   "file": "models/mansion.glb",
-   "kind": "lm-set",
-   "section": "Opening cutscene",
-   "camera": {
-    "pos": [
-     0,
-     700,
-     -3800
-    ],
-    "target": [
-     0,
-     1100,
-     -12100
-    ]
-   },
-   "cameraTrack": "cameras/crownotice.json"
+   "id": "door-01",
+   "category": "object",
+   "name": "Door 01",
+   "group": "Doors",
+   "file": "objects/door-01.json"
   },
   {
-   "name": "The mansion \u2014 at the gate",
-   "file": "models/mansion.glb",
-   "kind": "lm-set",
-   "section": "Opening cutscene",
-   "camera": {
-    "pos": [
-     0,
-     700,
-     -3800
-    ],
-    "target": [
-     0,
-     1100,
-     -12100
-    ]
-   },
-   "cameraTrack": "cameras/entergate.json"
+   "id": "door-11",
+   "category": "object",
+   "name": "Door 11",
+   "group": "Doors",
+   "file": "objects/door-11.json"
   },
   {
-   "name": "The mansion \u2014 up the steps",
-   "file": "models/mansion.glb",
-   "kind": "lm-set",
-   "section": "Opening cutscene",
-   "camera": {
-    "pos": [
-     0,
-     700,
-     -3800
-    ],
-    "target": [
-     0,
-     1100,
-     -12100
-    ]
-   },
-   "cameraTrack": "cameras/stepup.json"
+   "id": "oba",
+   "category": "object",
+   "name": "oba",
+   "group": "Furniture",
+   "file": "objects/oba.json"
   },
   {
-   "name": "The mansion \u2014 the door knob",
-   "file": "models/mansion.glb",
-   "kind": "lm-set",
-   "section": "Opening cutscene",
-   "camera": {
-    "pos": [
-     0,
-     700,
-     -3800
-    ],
-    "target": [
-     0,
-     1100,
-     -12100
-    ]
-   },
-   "cameraTrack": "cameras/doornob.json"
+   "id": "obaketu",
+   "category": "object",
+   "name": "obaketu",
+   "group": "Furniture",
+   "file": "objects/obaketu.json"
   },
   {
-   "name": "The mansion \u2014 opening the door",
-   "file": "models/mansion.glb",
-   "kind": "lm-set",
-   "section": "Opening cutscene",
-   "camera": {
-    "pos": [
-     0,
-     700,
-     -3800
-    ],
-    "target": [
-     0,
-     1100,
-     -12100
-    ]
-   },
-   "cameraTrack": "cameras/opendoor.json"
+   "id": "ohikari",
+   "category": "object",
+   "name": "ohikari",
+   "group": "Furniture",
+   "file": "objects/ohikari.json"
   },
   {
-   "name": "The crow",
-   "file": "models/crow.glb",
-   "kind": "lm-actor",
-   "section": "Opening cutscene"
+   "id": "oiron",
+   "category": "object",
+   "name": "oiron",
+   "group": "Furniture",
+   "file": "objects/oiron.json"
   },
   {
-   "name": "Luigi \u2014 up the steps",
-   "file": "models/luigi-stepup.glb",
-   "kind": "lm-actor",
-   "section": "Opening cutscene"
-  },
-  {
-   "name": "Luigi \u2014 opening the door",
-   "file": "models/luigi-opendoor.glb",
-   "kind": "lm-actor",
-   "section": "Opening cutscene"
-  },
-  {
-   "name": "Door demo 01",
-   "file": "models/door-01.glb",
-   "kind": "lm-set",
-   "section": "Key demos",
-   "camera": {
-    "pos": [
-     0,
-     150,
-     400
-    ],
-    "target": [
-     0,
-     120,
-     0
-    ]
-   },
-   "cameraTrack": "cameras/demo01.json"
-  },
-  {
-   "name": "Door demo 02",
-   "file": "models/door-01.glb",
-   "kind": "lm-set",
-   "section": "Key demos",
-   "camera": {
-    "pos": [
-     0,
-     150,
-     400
-    ],
-    "target": [
-     0,
-     120,
-     0
-    ]
-   },
-   "cameraTrack": "cameras/demo02.json"
-  },
-  {
-   "name": "Door demo 03",
-   "file": "models/door-03.glb",
-   "kind": "lm-set",
-   "section": "Key demos",
-   "camera": {
-    "pos": [
-     0,
-     150,
-     400
-    ],
-    "target": [
-     0,
-     120,
-     0
-    ]
-   },
-   "cameraTrack": "cameras/demo03.json"
-  },
-  {
-   "name": "Door demo 04",
-   "file": "models/door-04.glb",
-   "kind": "lm-set",
-   "section": "Key demos",
-   "camera": {
-    "pos": [
-     0,
-     150,
-     400
-    ],
-    "target": [
-     0,
-     120,
-     0
-    ]
-   },
-   "cameraTrack": "cameras/demo04.json"
-  },
-  {
-   "name": "Door demo 05",
-   "file": "models/door-05.glb",
-   "kind": "lm-set",
-   "section": "Key demos",
-   "camera": {
-    "pos": [
-     0,
-     150,
-     400
-    ],
-    "target": [
-     0,
-     120,
-     0
-    ]
-   },
-   "cameraTrack": "cameras/demo05.json"
-  },
-  {
-   "name": "Door demo 06",
-   "file": "models/door-04.glb",
-   "kind": "lm-set",
-   "section": "Key demos",
-   "camera": {
-    "pos": [
-     0,
-     150,
-     400
-    ],
-    "target": [
-     0,
-     120,
-     0
-    ]
-   },
-   "cameraTrack": "cameras/demo06.json"
-  },
-  {
-   "name": "Door demo 07",
-   "file": "models/door-07.glb",
-   "kind": "lm-set",
-   "section": "Key demos",
-   "camera": {
-    "pos": [
-     0,
-     150,
-     400
-    ],
-    "target": [
-     0,
-     120,
-     0
-    ]
-   },
-   "cameraTrack": "cameras/demo07.json"
-  },
-  {
-   "name": "Door demo 08",
-   "file": "models/door-08.glb",
-   "kind": "lm-set",
-   "section": "Key demos",
-   "camera": {
-    "pos": [
-     0,
-     150,
-     400
-    ],
-    "target": [
-     0,
-     120,
-     0
-    ]
-   },
-   "cameraTrack": "cameras/demo08.json"
-  },
-  {
-   "name": "Door demo 09",
-   "file": "models/door-09.glb",
-   "kind": "lm-set",
-   "section": "Key demos",
-   "camera": {
-    "pos": [
-     0,
-     150,
-     400
-    ],
-    "target": [
-     0,
-     120,
-     0
-    ]
-   },
-   "cameraTrack": "cameras/demo09.json"
-  },
-  {
-   "name": "Door demo 10",
-   "file": "models/door-10.glb",
-   "kind": "lm-set",
-   "section": "Key demos",
-   "camera": {
-    "pos": [
-     0,
-     150,
-     400
-    ],
-    "target": [
-     0,
-     120,
-     0
-    ]
-   },
-   "cameraTrack": "cameras/demo10.json"
-  },
-  {
-   "name": "Door demo 11",
-   "file": "models/door-03.glb",
-   "kind": "lm-set",
-   "section": "Key demos",
-   "camera": {
-    "pos": [
-     0,
-     150,
-     400
-    ],
-    "target": [
-     0,
-     120,
-     0
-    ]
-   },
-   "cameraTrack": "cameras/demo11.json"
-  },
-  {
-   "name": "Door demo 12",
-   "file": "models/door-01.glb",
-   "kind": "lm-set",
-   "section": "Key demos",
-   "camera": {
-    "pos": [
-     0,
-     150,
-     400
-    ],
-    "target": [
-     0,
-     120,
-     0
-    ]
-   },
-   "cameraTrack": "cameras/demo12.json"
-  },
-  {
-   "name": "Door demo 13",
-   "file": "models/door-09.glb",
-   "kind": "lm-set",
-   "section": "Key demos",
-   "camera": {
-    "pos": [
-     0,
-     150,
-     400
-    ],
-    "target": [
-     0,
-     120,
-     0
-    ]
-   },
-   "cameraTrack": "cameras/demo13.json"
-  },
-  {
-   "name": "Door demo 14",
-   "file": "models/door-10.glb",
-   "kind": "lm-set",
-   "section": "Key demos",
-   "camera": {
-    "pos": [
-     0,
-     150,
-     400
-    ],
-    "target": [
-     0,
-     120,
-     0
-    ]
-   },
-   "cameraTrack": "cameras/demo14.json"
-  },
-  {
-   "name": "Luigi's hand",
-   "file": "models/hand.glb",
-   "kind": "lm-actor",
-   "section": "Key demos"
-  },
-  {
-   "name": "The key",
-   "file": "models/key.glb",
-   "kind": "lm-actor",
-   "section": "Key demos"
-  },
-  {
-   "name": "The lab \u2014 bye-bye",
-   "file": "models/lab.glb",
-   "kind": "lm-set",
-   "section": "The professor's lab",
-   "camera": {
-    "pos": [
-     0,
-     150,
-     500
-    ],
-    "target": [
-     0,
-     100,
-     0
-    ]
-   },
-   "cameraTrack": "cameras/drbyebye.json"
-  },
-  {
-   "name": "Professor E. Gadd",
-   "file": "models/gadd.glb",
-   "kind": "lm-actor",
-   "section": "The professor's lab"
-  },
-  {
-   "name": "Luigi \u2014 bye-bye",
-   "file": "models/luigi-lab.glb",
-   "kind": "lm-actor",
-   "section": "The professor's lab"
-  },
-  {
-   "name": "The Poltergust 3000",
-   "file": "models/poltergust.glb",
-   "kind": "lm-actor",
-   "section": "The professor's lab"
-  },
-  {
-   "name": "The thunderbolt",
-   "file": "models/thunderbolt.glb",
-   "kind": "lm-set",
-   "section": "The professor's lab",
-   "camera": {
-    "pos": [
-     0,
-     700,
-     -3800
-    ],
-    "target": [
-     0,
-     1100,
-     -12100
-    ]
-   },
-   "cameraTrack": "cameras/thunderbolt.json"
-  },
-  {
-   "name": "The Game Boy Horror",
-   "file": "models/gameboy.glb",
-   "kind": "lm-actor",
-   "section": "The professor's lab",
-   "cameraTrack": "cameras/gb_demo.json"
-  },
-  {
-   "name": "The whole mansion \u2014 assembled",
-   "file": "placements.json",
-   "kind": "lm-mansion",
-   "section": "The mansion",
-   "camera": {
-    "pos": [
-     3000,
-     5200,
-     7800
-    ],
-    "target": [
-     0,
-     200,
-     -2500
-    ]
-   }
-  },
-  {
-   "name": "The foyer (room 02)",
-   "file": "models/rooms/room_02.glb",
-   "kind": "lm-room",
-   "room": "room_02",
-   "section": "The mansion",
-   "camera": {
-    "pos": [
-     0,
-     200,
-     180
-    ],
-    "target": [
-     0,
-     120,
-     -760
-    ]
-   }
-  },
-  {
-   "name": "Room 00",
-   "file": "models/rooms/room_00.glb",
-   "kind": "lm-room",
-   "room": "room_00",
-   "section": "The mansion"
-  },
-  {
-   "name": "Room 08",
-   "file": "models/rooms/room_08.glb",
-   "kind": "lm-room",
-   "room": "room_08",
-   "section": "The mansion"
-  },
-  {
-   "name": "Room 23",
-   "file": "models/rooms/room_23.glb",
-   "kind": "lm-room",
-   "room": "room_23",
-   "section": "The mansion"
-  },
-  {
-   "name": "Tea table",
-   "file": "models/furniture/otukue.glb",
-   "kind": "mesh3d",
-   "section": "The mansion"
-  },
-  {
+   "id": "oisu",
+   "category": "object",
    "name": "Chair",
-   "file": "models/furniture/oisu.glb",
-   "kind": "mesh3d",
-   "section": "The mansion"
+   "group": "Furniture",
+   "file": "objects/oisu.json"
   },
   {
-   "name": "Toilet",
-   "file": "models/furniture/otoire.glb",
-   "kind": "mesh3d",
-   "section": "The mansion"
+   "id": "omisi",
+   "category": "object",
+   "name": "omisi",
+   "group": "Furniture",
+   "file": "objects/omisi.json"
   },
   {
-   "name": "Chest of drawers",
-   "file": "models/furniture/chest.glb",
-   "kind": "mesh3d",
-   "section": "The mansion"
+   "id": "osoku",
+   "category": "object",
+   "name": "osoku",
+   "group": "Furniture",
+   "file": "objects/osoku.json"
   },
   {
-   "name": "Foyer mirror",
-   "file": "models/furniture/mirror.glb",
-   "kind": "mesh3d",
-   "section": "The mansion"
+   "id": "ot",
+   "category": "object",
+   "name": "ot",
+   "group": "Furniture",
+   "file": "objects/ot.json"
   },
   {
-   "name": "Chandelier",
-   "file": "models/furniture/syan.glb",
-   "kind": "mesh3d",
-   "section": "The mansion"
-  },
-  {
+   "id": "ota1",
+   "category": "object",
    "name": "Tool cabinet",
-   "file": "models/furniture/ota1.glb",
-   "kind": "mesh3d",
-   "section": "The mansion"
+   "group": "Furniture",
+   "file": "objects/ota1.json"
+  },
+  {
+   "id": "otoire",
+   "category": "object",
+   "name": "Toilet",
+   "group": "Furniture",
+   "file": "objects/otoire.json"
+  },
+  {
+   "id": "otoire2",
+   "category": "object",
+   "name": "otoire2",
+   "group": "Furniture",
+   "file": "objects/otoire2.json"
+  },
+  {
+   "id": "otukue",
+   "category": "object",
+   "name": "Tea table",
+   "group": "Furniture",
+   "file": "objects/otukue.json"
+  },
+  {
+   "id": "ozou",
+   "category": "object",
+   "name": "ozou",
+   "group": "Furniture",
+   "file": "objects/ozou.json"
+  },
+  {
+   "id": "obox1",
+   "category": "object",
+   "name": "obox1",
+   "group": "Furniture",
+   "file": "objects/obox1.json"
+  },
+  {
+   "id": "obox2",
+   "category": "object",
+   "name": "obox2",
+   "group": "Furniture",
+   "file": "objects/obox2.json"
+  },
+  {
+   "id": "ocup",
+   "category": "object",
+   "name": "ocup",
+   "group": "Furniture",
+   "file": "objects/ocup.json"
+  },
+  {
+   "id": "oe",
+   "category": "object",
+   "name": "oe",
+   "group": "Furniture",
+   "file": "objects/oe.json"
+  },
+  {
+   "id": "oe2",
+   "category": "object",
+   "name": "oe2",
+   "group": "Furniture",
+   "file": "objects/oe2.json"
+  },
+  {
+   "id": "oe3",
+   "category": "object",
+   "name": "oe3",
+   "group": "Furniture",
+   "file": "objects/oe3.json"
+  },
+  {
+   "id": "orou",
+   "category": "object",
+   "name": "orou",
+   "group": "Furniture",
+   "file": "objects/orou.json"
+  },
+  {
+   "id": "osyan",
+   "category": "object",
+   "name": "osyan",
+   "group": "Furniture",
+   "file": "objects/osyan.json"
+  },
+  {
+   "id": "osyan2",
+   "category": "object",
+   "name": "osyan2",
+   "group": "Furniture",
+   "file": "objects/osyan2.json"
+  },
+  {
+   "id": "chest",
+   "category": "object",
+   "name": "Chest of drawers",
+   "group": "Furniture",
+   "description": "The chest of drawers. Its two clips are the rest pose and the vacuum interaction — chest_1 is what plays when the Poltergust yanks the drawers.",
+   "file": "objects/chest.json"
+  },
+  {
+   "id": "mirror",
+   "category": "object",
+   "name": "Foyer mirror",
+   "group": "Furniture",
+   "file": "objects/mirror.json"
+  },
+  {
+   "id": "rou02-1",
+   "category": "object",
+   "name": "rou02_1",
+   "group": "Furniture",
+   "file": "objects/rou02-1.json"
+  },
+  {
+   "id": "syan",
+   "category": "object",
+   "name": "Chandelier",
+   "group": "Furniture",
+   "file": "objects/syan.json"
+  },
+  {
+   "id": "syan02",
+   "category": "object",
+   "name": "syan02",
+   "group": "Furniture",
+   "file": "objects/syan02.json"
+  },
+  {
+   "id": "hasira",
+   "category": "object",
+   "name": "hasira",
+   "group": "Furniture",
+   "file": "objects/hasira.json"
+  },
+  {
+   "id": "otana2",
+   "category": "object",
+   "name": "otana2",
+   "group": "Furniture",
+   "file": "objects/otana2.json"
+  },
+  {
+   "id": "o-isu1",
+   "category": "object",
+   "name": "o_isu1",
+   "group": "Furniture",
+   "file": "objects/o-isu1.json"
+  },
+  {
+   "id": "o-rou1",
+   "category": "object",
+   "name": "o_rou1",
+   "group": "Furniture",
+   "file": "objects/o-rou1.json"
+  },
+  {
+   "id": "o-tama1",
+   "category": "object",
+   "name": "o_tama1",
+   "group": "Furniture",
+   "file": "objects/o-tama1.json"
+  },
+  {
+   "id": "o-ten1",
+   "category": "object",
+   "name": "o_ten1",
+   "group": "Furniture",
+   "file": "objects/o-ten1.json"
+  },
+  {
+   "id": "o-tuku1",
+   "category": "object",
+   "name": "o_tuku1",
+   "group": "Furniture",
+   "file": "objects/o-tuku1.json"
+  },
+  {
+   "id": "pic10",
+   "category": "object",
+   "name": "pic10",
+   "group": "Furniture",
+   "file": "objects/pic10.json"
+  },
+  {
+   "id": "obox",
+   "category": "object",
+   "name": "obox",
+   "group": "Furniture",
+   "file": "objects/obox.json"
+  },
+  {
+   "id": "oisu-2",
+   "category": "object",
+   "name": "Chair",
+   "group": "Furniture",
+   "file": "objects/oisu-2.json"
+  },
+  {
+   "id": "otuku",
+   "category": "object",
+   "name": "otuku",
+   "group": "Furniture",
+   "file": "objects/otuku.json"
+  },
+  {
+   "id": "o-rou",
+   "category": "object",
+   "name": "o_rou",
+   "group": "Furniture",
+   "file": "objects/o-rou.json"
+  },
+  {
+   "id": "o-syan1",
+   "category": "object",
+   "name": "o_syan1",
+   "group": "Furniture",
+   "file": "objects/o-syan1.json"
+  },
+  {
+   "id": "o-syan2",
+   "category": "object",
+   "name": "o_syan2",
+   "group": "Furniture",
+   "file": "objects/o-syan2.json"
+  },
+  {
+   "id": "o-tochi",
+   "category": "object",
+   "name": "o_tochi",
+   "group": "Furniture",
+   "file": "objects/o-tochi.json"
+  },
+  {
+   "id": "bake5",
+   "category": "object",
+   "name": "bake5",
+   "group": "Furniture",
+   "file": "objects/bake5.json"
+  },
+  {
+   "id": "hoki5",
+   "category": "object",
+   "name": "hoki5",
+   "group": "Furniture",
+   "file": "objects/hoki5.json"
+  },
+  {
+   "id": "sen",
+   "category": "object",
+   "name": "sen",
+   "group": "Furniture",
+   "file": "objects/sen.json"
+  },
+  {
+   "id": "sen5",
+   "category": "object",
+   "name": "sen5",
+   "group": "Furniture",
+   "file": "objects/sen5.json"
+  },
+  {
+   "id": "syan5",
+   "category": "object",
+   "name": "syan5",
+   "group": "Furniture",
+   "file": "objects/syan5.json"
+  },
+  {
+   "id": "tana",
+   "category": "object",
+   "name": "tana",
+   "group": "Furniture",
+   "file": "objects/tana.json"
+  },
+  {
+   "id": "tana5-1",
+   "category": "object",
+   "name": "tana5_1",
+   "group": "Furniture",
+   "file": "objects/tana5-1.json"
+  },
+  {
+   "id": "tana5-2",
+   "category": "object",
+   "name": "tana5_2",
+   "group": "Furniture",
+   "file": "objects/tana5-2.json"
+  },
+  {
+   "id": "tili5",
+   "category": "object",
+   "name": "tili5",
+   "group": "Furniture",
+   "file": "objects/tili5.json"
+  },
+  {
+   "id": "tubo30-1",
+   "category": "object",
+   "name": "tubo30_1",
+   "group": "Furniture",
+   "file": "objects/tubo30-1.json"
+  },
+  {
+   "id": "room",
+   "category": "object",
+   "name": "room.",
+   "group": "Furniture",
+   "file": "objects/room.json"
+  },
+  {
+   "id": "desk8-1",
+   "category": "object",
+   "name": "desk8_1",
+   "group": "Furniture",
+   "file": "objects/desk8-1.json"
+  },
+  {
+   "id": "dog8-1",
+   "category": "object",
+   "name": "dog8_1",
+   "group": "Furniture",
+   "file": "objects/dog8-1.json"
+  },
+  {
+   "id": "oben",
+   "category": "object",
+   "name": "oben",
+   "group": "Furniture",
+   "file": "objects/oben.json"
+  },
+  {
+   "id": "reizo",
+   "category": "object",
+   "name": "reizo",
+   "group": "Furniture",
+   "file": "objects/reizo.json"
+  },
+  {
+   "id": "stana",
+   "category": "object",
+   "name": "stana",
+   "group": "Furniture",
+   "file": "objects/stana.json"
+  },
+  {
+   "id": "syan8-1",
+   "category": "object",
+   "name": "syan8_1",
+   "group": "Furniture",
+   "file": "objects/syan8-1.json"
+  },
+  {
+   "id": "tana8-1",
+   "category": "object",
+   "name": "tana8_1",
+   "group": "Furniture",
+   "file": "objects/tana8-1.json"
+  },
+  {
+   "id": "tana8-2",
+   "category": "object",
+   "name": "tana8_2",
+   "group": "Furniture",
+   "file": "objects/tana8-2.json"
+  },
+  {
+   "id": "wash",
+   "category": "object",
+   "name": "wash",
+   "group": "Furniture",
+   "file": "objects/wash.json"
+  },
+  {
+   "id": "food-01",
+   "category": "object",
+   "name": "food_01",
+   "group": "Furniture",
+   "file": "objects/food-01.json"
+  },
+  {
+   "id": "food-02",
+   "category": "object",
+   "name": "food_02",
+   "group": "Furniture",
+   "file": "objects/food-02.json"
+  },
+  {
+   "id": "food-03",
+   "category": "object",
+   "name": "food_03",
+   "group": "Furniture",
+   "file": "objects/food-03.json"
+  },
+  {
+   "id": "food-04",
+   "category": "object",
+   "name": "food_04",
+   "group": "Furniture",
+   "file": "objects/food-04.json"
+  },
+  {
+   "id": "food-05",
+   "category": "object",
+   "name": "food_05",
+   "group": "Furniture",
+   "file": "objects/food-05.json"
+  },
+  {
+   "id": "gakub10",
+   "category": "object",
+   "name": "gakub10",
+   "group": "Furniture",
+   "file": "objects/gakub10.json"
+  },
+  {
+   "id": "isu9",
+   "category": "object",
+   "name": "isu9",
+   "group": "Furniture",
+   "file": "objects/isu9.json"
+  },
+  {
+   "id": "isu9-1",
+   "category": "object",
+   "name": "isu9_1",
+   "group": "Furniture",
+   "file": "objects/isu9-1.json"
+  },
+  {
+   "id": "rou36",
+   "category": "object",
+   "name": "rou36",
+   "group": "Furniture",
+   "file": "objects/rou36.json"
+  },
+  {
+   "id": "tans",
+   "category": "object",
+   "name": "tans",
+   "group": "Furniture",
+   "file": "objects/tans.json"
+  },
+  {
+   "id": "torch",
+   "category": "object",
+   "name": "torch",
+   "group": "Furniture",
+   "file": "objects/torch.json"
+  },
+  {
+   "id": "tuku9",
+   "category": "object",
+   "name": "tuku9",
+   "group": "Furniture",
+   "file": "objects/tuku9.json"
+  },
+  {
+   "id": "gakub12",
+   "category": "object",
+   "name": "gakub12",
+   "group": "Furniture",
+   "file": "objects/gakub12.json"
+  },
+  {
+   "id": "isu10",
+   "category": "object",
+   "name": "isu10",
+   "group": "Furniture",
+   "file": "objects/isu10.json"
+  },
+  {
+   "id": "syan10",
+   "category": "object",
+   "name": "syan10",
+   "group": "Furniture",
+   "file": "objects/syan10.json"
+  },
+  {
+   "id": "yuka",
+   "category": "object",
+   "name": "yuka",
+   "group": "Furniture",
+   "file": "objects/yuka.json"
+  },
+  {
+   "id": "a-boar-1",
+   "category": "object",
+   "name": "a_boar_1",
+   "group": "Furniture",
+   "file": "objects/a-boar-1.json"
+  },
+  {
+   "id": "a-dog-1",
+   "category": "object",
+   "name": "a_dog_1",
+   "group": "Furniture",
+   "file": "objects/a-dog-1.json"
+  },
+  {
+   "id": "a-dog-2",
+   "category": "object",
+   "name": "a_dog_2",
+   "group": "Furniture",
+   "file": "objects/a-dog-2.json"
+  },
+  {
+   "id": "a-kui-1",
+   "category": "object",
+   "name": "a_kui_1",
+   "group": "Furniture",
+   "file": "objects/a-kui-1.json"
+  },
+  {
+   "id": "a-suid-1",
+   "category": "object",
+   "name": "a_suid_1",
+   "group": "Furniture",
+   "file": "objects/a-suid-1.json"
+  },
+  {
+   "id": "bil12",
+   "category": "object",
+   "name": "bil12",
+   "group": "Furniture",
+   "file": "objects/bil12.json"
+  },
+  {
+   "id": "desk",
+   "category": "object",
+   "name": "desk",
+   "group": "Furniture",
+   "file": "objects/desk.json"
+  },
+  {
+   "id": "desk12-2",
+   "category": "object",
+   "name": "desk12_2",
+   "group": "Furniture",
+   "file": "objects/desk12-2.json"
+  },
+  {
+   "id": "desk35-2",
+   "category": "object",
+   "name": "desk35_2",
+   "group": "Furniture",
+   "file": "objects/desk35-2.json"
+  },
+  {
+   "id": "drink",
+   "category": "object",
+   "name": "drink",
+   "group": "Furniture",
+   "file": "objects/drink.json"
+  },
+  {
+   "id": "drt12",
+   "category": "object",
+   "name": "drt12",
+   "group": "Furniture",
+   "file": "objects/drt12.json"
+  },
+  {
+   "id": "fan33",
+   "category": "object",
+   "name": "fan33",
+   "group": "Furniture",
+   "file": "objects/fan33.json"
+  },
+  {
+   "id": "gakub01",
+   "category": "object",
+   "name": "gakub01",
+   "group": "Furniture",
+   "file": "objects/gakub01.json"
+  },
+  {
+   "id": "gakub07",
+   "category": "object",
+   "name": "gakub07",
+   "group": "Furniture",
+   "file": "objects/gakub07.json"
+  },
+  {
+   "id": "gakub08",
+   "category": "object",
+   "name": "gakub08",
+   "group": "Furniture",
+   "file": "objects/gakub08.json"
+  },
+  {
+   "id": "gakub09",
+   "category": "object",
+   "name": "gakub09",
+   "group": "Furniture",
+   "file": "objects/gakub09.json"
+  },
+  {
+   "id": "isu12-1",
+   "category": "object",
+   "name": "isu12_1",
+   "group": "Furniture",
+   "file": "objects/isu12-1.json"
+  },
+  {
+   "id": "isu12-2",
+   "category": "object",
+   "name": "isu12_2",
+   "group": "Furniture",
+   "file": "objects/isu12-2.json"
+  },
+  {
+   "id": "pic12",
+   "category": "object",
+   "name": "pic12",
+   "group": "Furniture",
+   "file": "objects/pic12.json"
+  },
+  {
+   "id": "cam",
+   "category": "object",
+   "name": "cam",
+   "group": "Furniture",
+   "file": "objects/cam.json"
+  },
+  {
+   "id": "chiku",
+   "category": "object",
+   "name": "chiku",
+   "group": "Furniture",
+   "file": "objects/chiku.json"
+  },
+  {
+   "id": "desk13",
+   "category": "object",
+   "name": "desk13",
+   "group": "Furniture",
+   "file": "objects/desk13.json"
+  },
+  {
+   "id": "sk13",
+   "category": "object",
+   "name": "sk13",
+   "group": "Furniture",
+   "file": "objects/sk13.json"
+  },
+  {
+   "id": "sp13",
+   "category": "object",
+   "name": "sp13",
+   "group": "Furniture",
+   "file": "objects/sp13.json"
+  },
+  {
+   "id": "syan13",
+   "category": "object",
+   "name": "syan13",
+   "group": "Furniture",
+   "file": "objects/syan13.json"
+  },
+  {
+   "id": "tana-2",
+   "category": "object",
+   "name": "tana",
+   "group": "Furniture",
+   "file": "objects/tana-2.json"
+  },
+  {
+   "id": "bake14-1",
+   "category": "object",
+   "name": "bake14_1",
+   "group": "Furniture",
+   "file": "objects/bake14-1.json"
+  },
+  {
+   "id": "box14-1",
+   "category": "object",
+   "name": "box14_1",
+   "group": "Furniture",
+   "file": "objects/box14-1.json"
+  },
+  {
+   "id": "flrd",
+   "category": "object",
+   "name": "flrd",
+   "group": "Furniture",
+   "file": "objects/flrd.json"
+  },
+  {
+   "id": "isu14-1",
+   "category": "object",
+   "name": "isu14_1",
+   "group": "Furniture",
+   "file": "objects/isu14-1.json"
+  },
+  {
+   "id": "isu14-3",
+   "category": "object",
+   "name": "isu14_3",
+   "group": "Furniture",
+   "file": "objects/isu14-3.json"
+  },
+  {
+   "id": "kabe14-1",
+   "category": "object",
+   "name": "kabe14_1",
+   "group": "Furniture",
+   "file": "objects/kabe14-1.json"
+  },
+  {
+   "id": "shan14-1",
+   "category": "object",
+   "name": "shan14_1",
+   "group": "Furniture",
+   "file": "objects/shan14-1.json"
+  },
+  {
+   "id": "a-pipe-1",
+   "category": "object",
+   "name": "a_pipe_1",
+   "group": "Furniture",
+   "file": "objects/a-pipe-1.json"
+  },
+  {
+   "id": "a-tomb-1",
+   "category": "object",
+   "name": "a_tomb_1",
+   "group": "Furniture",
+   "file": "objects/a-tomb-1.json"
+  },
+  {
+   "id": "a-tomb-2",
+   "category": "object",
+   "name": "a_tomb_2",
+   "group": "Furniture",
+   "file": "objects/a-tomb-2.json"
+  },
+  {
+   "id": "a-tomb-3",
+   "category": "object",
+   "name": "a_tomb_3",
+   "group": "Furniture",
+   "file": "objects/a-tomb-3.json"
+  },
+  {
+   "id": "a-tomb-4",
+   "category": "object",
+   "name": "a_tomb_4",
+   "group": "Furniture",
+   "file": "objects/a-tomb-4.json"
+  },
+  {
+   "id": "a-torc-1",
+   "category": "object",
+   "name": "a_torc_1",
+   "group": "Furniture",
+   "file": "objects/a-torc-1.json"
+  },
+  {
+   "id": "a-tree-1",
+   "category": "object",
+   "name": "a_tree_1",
+   "group": "Furniture",
+   "file": "objects/a-tree-1.json"
+  },
+  {
+   "id": "bank",
+   "category": "object",
+   "name": "bank",
+   "group": "Furniture",
+   "file": "objects/bank.json"
+  },
+  {
+   "id": "danb17",
+   "category": "object",
+   "name": "danb17",
+   "group": "Furniture",
+   "file": "objects/danb17.json"
+  },
+  {
+   "id": "gakub04",
+   "category": "object",
+   "name": "gakub04",
+   "group": "Furniture",
+   "file": "objects/gakub04.json"
+  },
+  {
+   "id": "mirror-2",
+   "category": "object",
+   "name": "Foyer mirror",
+   "group": "Furniture",
+   "file": "objects/mirror-2.json"
+  },
+  {
+   "id": "papa17-2",
+   "category": "object",
+   "name": "papa17_2",
+   "group": "Furniture",
+   "file": "objects/papa17-2.json"
+  },
+  {
+   "id": "sen17",
+   "category": "object",
+   "name": "sen17",
+   "group": "Furniture",
+   "file": "objects/sen17.json"
+  },
+  {
+   "id": "syan17",
+   "category": "object",
+   "name": "syan17",
+   "group": "Furniture",
+   "file": "objects/syan17.json"
+  },
+  {
+   "id": "tana-3",
+   "category": "object",
+   "name": "tana",
+   "group": "Furniture",
+   "file": "objects/tana-3.json"
+  },
+  {
+   "id": "tank17",
+   "category": "object",
+   "name": "tank17",
+   "group": "Furniture",
+   "file": "objects/tank17.json"
+  },
+  {
+   "id": "pic18",
+   "category": "object",
+   "name": "pic18",
+   "group": "Furniture",
+   "file": "objects/pic18.json"
+  },
+  {
+   "id": "syan19",
+   "category": "object",
+   "name": "syan19",
+   "group": "Furniture",
+   "file": "objects/syan19.json"
+  },
+  {
+   "id": "bath20",
+   "category": "object",
+   "name": "bath20",
+   "group": "Furniture",
+   "file": "objects/bath20.json"
+  },
+  {
+   "id": "senmen",
+   "category": "object",
+   "name": "senmen",
+   "group": "Furniture",
+   "file": "objects/senmen.json"
+  },
+  {
+   "id": "tana-4",
+   "category": "object",
+   "name": "tana",
+   "group": "Furniture",
+   "file": "objects/tana-4.json"
+  },
+  {
+   "id": "tana20",
+   "category": "object",
+   "name": "tana20",
+   "group": "Furniture",
+   "file": "objects/tana20.json"
+  },
+  {
+   "id": "otana1",
+   "category": "object",
+   "name": "otana1",
+   "group": "Furniture",
+   "file": "objects/otana1.json"
+  },
+  {
+   "id": "o-basu1",
+   "category": "object",
+   "name": "o_basu1",
+   "group": "Furniture",
+   "file": "objects/o-basu1.json"
+  },
+  {
+   "id": "o-e1",
+   "category": "object",
+   "name": "o_e1",
+   "group": "Furniture",
+   "file": "objects/o-e1.json"
+  },
+  {
+   "id": "o-e2",
+   "category": "object",
+   "name": "o_e2",
+   "group": "Furniture",
+   "file": "objects/o-e2.json"
+  },
+  {
+   "id": "o-e3",
+   "category": "object",
+   "name": "o_e3",
+   "group": "Furniture",
+   "file": "objects/o-e3.json"
+  },
+  {
+   "id": "o-harpu1",
+   "category": "object",
+   "name": "o_harpu1",
+   "group": "Furniture",
+   "file": "objects/o-harpu1.json"
+  },
+  {
+   "id": "o-isu1-2",
+   "category": "object",
+   "name": "o_isu1",
+   "group": "Furniture",
+   "file": "objects/o-isu1-2.json"
+  },
+  {
+   "id": "o-isu2",
+   "category": "object",
+   "name": "o_isu2",
+   "group": "Furniture",
+   "file": "objects/o-isu2.json"
+  },
+  {
+   "id": "o-mokin1",
+   "category": "object",
+   "name": "o_mokin1",
+   "group": "Furniture",
+   "file": "objects/o-mokin1.json"
+  },
+  {
+   "id": "o-piano1",
+   "category": "object",
+   "name": "o_piano1",
+   "group": "Furniture",
+   "file": "objects/o-piano1.json"
+  },
+  {
+   "id": "o-rapa",
+   "category": "object",
+   "name": "o_rapa",
+   "group": "Furniture",
+   "file": "objects/o-rapa.json"
+  },
+  {
+   "id": "o-syan1-2",
+   "category": "object",
+   "name": "o_syan1",
+   "group": "Furniture",
+   "file": "objects/o-syan1-2.json"
+  },
+  {
+   "id": "o-taiko1",
+   "category": "object",
+   "name": "o_taiko1",
+   "group": "Furniture",
+   "file": "objects/o-taiko1.json"
+  },
+  {
+   "id": "o-tate1",
+   "category": "object",
+   "name": "o_tate1",
+   "group": "Furniture",
+   "file": "objects/o-tate1.json"
+  },
+  {
+   "id": "ohiki1",
+   "category": "object",
+   "name": "ohiki1",
+   "group": "Furniture",
+   "file": "objects/ohiki1.json"
+  },
+  {
+   "id": "o-chika1",
+   "category": "object",
+   "name": "o_chika1",
+   "group": "Furniture",
+   "file": "objects/o-chika1.json"
+  },
+  {
+   "id": "o-hika1",
+   "category": "object",
+   "name": "o_hika1",
+   "group": "Furniture",
+   "file": "objects/o-hika1.json"
+  },
+  {
+   "id": "o-ken1",
+   "category": "object",
+   "name": "o_ken1",
+   "group": "Furniture",
+   "file": "objects/o-ken1.json"
+  },
+  {
+   "id": "o-run1",
+   "category": "object",
+   "name": "o_run1",
+   "group": "Furniture",
+   "file": "objects/o-run1.json"
+  },
+  {
+   "id": "o-sando1",
+   "category": "object",
+   "name": "o_sando1",
+   "group": "Furniture",
+   "file": "objects/o-sando1.json"
+  },
+  {
+   "id": "o-ziten1",
+   "category": "object",
+   "name": "o_ziten1",
+   "group": "Furniture",
+   "file": "objects/o-ziten1.json"
+  },
+  {
+   "id": "a-bird-1",
+   "category": "object",
+   "name": "a_bird_1",
+   "group": "Furniture",
+   "file": "objects/a-bird-1.json"
+  },
+  {
+   "id": "a-foun-1",
+   "category": "object",
+   "name": "a_foun_1",
+   "group": "Furniture",
+   "file": "objects/a-foun-1.json"
+  },
+  {
+   "id": "a-ligh-1",
+   "category": "object",
+   "name": "a_ligh_1",
+   "group": "Furniture",
+   "file": "objects/a-ligh-1.json"
+  },
+  {
+   "id": "a-plan-1",
+   "category": "object",
+   "name": "a_plan_1",
+   "group": "Furniture",
+   "file": "objects/a-plan-1.json"
+  },
+  {
+   "id": "a-stam-1",
+   "category": "object",
+   "name": "a_stam_1",
+   "group": "Furniture",
+   "file": "objects/a-stam-1.json"
+  },
+  {
+   "id": "a-staw-1",
+   "category": "object",
+   "name": "a_staw_1",
+   "group": "Furniture",
+   "file": "objects/a-staw-1.json"
+  },
+  {
+   "id": "a-tree-1-2",
+   "category": "object",
+   "name": "a_tree_1",
+   "group": "Furniture",
+   "file": "objects/a-tree-1-2.json"
+  },
+  {
+   "id": "mono",
+   "category": "object",
+   "name": "mono",
+   "group": "Furniture",
+   "file": "objects/mono.json"
+  },
+  {
+   "id": "bat",
+   "category": "object",
+   "name": "bat",
+   "group": "Furniture",
+   "file": "objects/bat.json"
+  },
+  {
+   "id": "bed24",
+   "category": "object",
+   "name": "bed24",
+   "group": "Furniture",
+   "file": "objects/bed24.json"
+  },
+  {
+   "id": "hana",
+   "category": "object",
+   "name": "hana",
+   "group": "Furniture",
+   "file": "objects/hana.json"
+  },
+  {
+   "id": "isu24",
+   "category": "object",
+   "name": "isu24",
+   "group": "Furniture",
+   "file": "objects/isu24.json"
+  },
+  {
+   "id": "kuma24",
+   "category": "object",
+   "name": "kuma24",
+   "group": "Furniture",
+   "file": "objects/kuma24.json"
+  },
+  {
+   "id": "moku24",
+   "category": "object",
+   "name": "moku24",
+   "group": "Furniture",
+   "file": "objects/moku24.json"
+  },
+  {
+   "id": "pic24-1",
+   "category": "object",
+   "name": "pic24_1",
+   "group": "Furniture",
+   "file": "objects/pic24-1.json"
+  },
+  {
+   "id": "pic24-2",
+   "category": "object",
+   "name": "pic24_2",
+   "group": "Furniture",
+   "file": "objects/pic24-2.json"
+  },
+  {
+   "id": "syan24",
+   "category": "object",
+   "name": "syan24",
+   "group": "Furniture",
+   "file": "objects/syan24.json"
+  },
+  {
+   "id": "tana-5",
+   "category": "object",
+   "name": "tana",
+   "group": "Furniture",
+   "file": "objects/tana-5.json"
+  },
+  {
+   "id": "toy",
+   "category": "object",
+   "name": "toy",
+   "group": "Furniture",
+   "file": "objects/toy.json"
+  },
+  {
+   "id": "tuku24",
+   "category": "object",
+   "name": "tuku24",
+   "group": "Furniture",
+   "file": "objects/tuku24.json"
+  },
+  {
+   "id": "bed25",
+   "category": "object",
+   "name": "bed25",
+   "group": "Furniture",
+   "file": "objects/bed25.json"
+  },
+  {
+   "id": "car25",
+   "category": "object",
+   "name": "car25",
+   "group": "Furniture",
+   "file": "objects/car25.json"
+  },
+  {
+   "id": "desk25",
+   "category": "object",
+   "name": "desk25",
+   "group": "Furniture",
+   "file": "objects/desk25.json"
+  },
+  {
+   "id": "drt25",
+   "category": "object",
+   "name": "drt25",
+   "group": "Furniture",
+   "file": "objects/drt25.json"
+  },
+  {
+   "id": "heri25",
+   "category": "object",
+   "name": "heri25",
+   "group": "Furniture",
+   "file": "objects/heri25.json"
+  },
+  {
+   "id": "isu25",
+   "category": "object",
+   "name": "isu25",
+   "group": "Furniture",
+   "file": "objects/isu25.json"
+  },
+  {
+   "id": "pic25",
+   "category": "object",
+   "name": "pic25",
+   "group": "Furniture",
+   "file": "objects/pic25.json"
+  },
+  {
+   "id": "sl25",
+   "category": "object",
+   "name": "sl25",
+   "group": "Furniture",
+   "file": "objects/sl25.json"
+  },
+  {
+   "id": "syan25",
+   "category": "object",
+   "name": "syan25",
+   "group": "Furniture",
+   "file": "objects/syan25.json"
+  },
+  {
+   "id": "tak25",
+   "category": "object",
+   "name": "tak25",
+   "group": "Furniture",
+   "file": "objects/tak25.json"
+  },
+  {
+   "id": "tana-6",
+   "category": "object",
+   "name": "tana",
+   "group": "Furniture",
+   "file": "objects/tana-6.json"
+  },
+  {
+   "id": "teni25",
+   "category": "object",
+   "name": "teni25",
+   "group": "Furniture",
+   "file": "objects/teni25.json"
+  },
+  {
+   "id": "tola25",
+   "category": "object",
+   "name": "tola25",
+   "group": "Furniture",
+   "file": "objects/tola25.json"
+  },
+  {
+   "id": "hut27-1",
+   "category": "object",
+   "name": "hut27_1",
+   "group": "Furniture",
+   "file": "objects/hut27-1.json"
+  },
+  {
+   "id": "isu27-1",
+   "category": "object",
+   "name": "isu27_1",
+   "group": "Furniture",
+   "file": "objects/isu27-1.json"
+  },
+  {
+   "id": "isu27-2",
+   "category": "object",
+   "name": "isu27_2",
+   "group": "Furniture",
+   "file": "objects/isu27-2.json"
+  },
+  {
+   "id": "pic27-1",
+   "category": "object",
+   "name": "pic27_1",
+   "group": "Furniture",
+   "file": "objects/pic27-1.json"
+  },
+  {
+   "id": "shan27-1",
+   "category": "object",
+   "name": "shan27_1",
+   "group": "Furniture",
+   "file": "objects/shan27-1.json"
+  },
+  {
+   "id": "tana1",
+   "category": "object",
+   "name": "tana1",
+   "group": "Furniture",
+   "file": "objects/tana1.json"
+  },
+  {
+   "id": "tuku27-1",
+   "category": "object",
+   "name": "tuku27_1",
+   "group": "Furniture",
+   "file": "objects/tuku27-1.json"
+  },
+  {
+   "id": "ueki27-1",
+   "category": "object",
+   "name": "ueki27_1",
+   "group": "Furniture",
+   "file": "objects/ueki27-1.json"
+  },
+  {
+   "id": "bed28-1",
+   "category": "object",
+   "name": "bed28_1",
+   "group": "Furniture",
+   "file": "objects/bed28-1.json"
+  },
+  {
+   "id": "dres28-1",
+   "category": "object",
+   "name": "dres28_1",
+   "group": "Furniture",
+   "file": "objects/dres28-1.json"
+  },
+  {
+   "id": "isu28-1",
+   "category": "object",
+   "name": "isu28_1",
+   "group": "Furniture",
+   "file": "objects/isu28-1.json"
+  },
+  {
+   "id": "lamp1",
+   "category": "object",
+   "name": "lamp1",
+   "group": "Furniture",
+   "file": "objects/lamp1.json"
+  },
+  {
+   "id": "pic28-1",
+   "category": "object",
+   "name": "pic28_1",
+   "group": "Furniture",
+   "file": "objects/pic28-1.json"
+  },
+  {
+   "id": "shan28-1",
+   "category": "object",
+   "name": "shan28_1",
+   "group": "Furniture",
+   "file": "objects/shan28-1.json"
+  },
+  {
+   "id": "suiso1",
+   "category": "object",
+   "name": "suiso1",
+   "group": "Furniture",
+   "file": "objects/suiso1.json"
+  },
+  {
+   "id": "ueki28-1",
+   "category": "object",
+   "name": "ueki28_1",
+   "group": "Furniture",
+   "file": "objects/ueki28-1.json"
+  },
+  {
+   "id": "dres28-1-2",
+   "category": "object",
+   "name": "dres28_1",
+   "group": "Furniture",
+   "file": "objects/dres28-1-2.json"
+  },
+  {
+   "id": "ueki28-1-2",
+   "category": "object",
+   "name": "ueki28_1",
+   "group": "Furniture",
+   "file": "objects/ueki28-1-2.json"
+  },
+  {
+   "id": "tubo30-1-2",
+   "category": "object",
+   "name": "tubo30_1",
+   "group": "Furniture",
+   "file": "objects/tubo30-1-2.json"
+  },
+  {
+   "id": "room-2",
+   "category": "object",
+   "name": "room.",
+   "group": "Furniture",
+   "file": "objects/room-2.json"
+  },
+  {
+   "id": "tesu30",
+   "category": "object",
+   "name": "tesu30",
+   "group": "Furniture",
+   "file": "objects/tesu30.json"
+  },
+  {
+   "id": "tubo",
+   "category": "object",
+   "name": "tubo",
+   "group": "Furniture",
+   "file": "objects/tubo.json"
+  },
+  {
+   "id": "bed33-1",
+   "category": "object",
+   "name": "bed33_1",
+   "group": "Furniture",
+   "file": "objects/bed33-1.json"
+  },
+  {
+   "id": "bednul",
+   "category": "object",
+   "name": "bednul",
+   "group": "Furniture",
+   "file": "objects/bednul.json"
+  },
+  {
+   "id": "dol33",
+   "category": "object",
+   "name": "dol33",
+   "group": "Furniture",
+   "file": "objects/dol33.json"
+  },
+  {
+   "id": "gakub01-2",
+   "category": "object",
+   "name": "gakub01",
+   "group": "Furniture",
+   "file": "objects/gakub01-2.json"
+  },
+  {
+   "id": "gakub06",
+   "category": "object",
+   "name": "gakub06",
+   "group": "Furniture",
+   "file": "objects/gakub06.json"
+  },
+  {
+   "id": "isu33",
+   "category": "object",
+   "name": "isu33",
+   "group": "Furniture",
+   "file": "objects/isu33.json"
+  },
+  {
+   "id": "pic33-1",
+   "category": "object",
+   "name": "pic33_1",
+   "group": "Furniture",
+   "file": "objects/pic33-1.json"
+  },
+  {
+   "id": "pic33-2",
+   "category": "object",
+   "name": "pic33_2",
+   "group": "Furniture",
+   "file": "objects/pic33-2.json"
+  },
+  {
+   "id": "syan33",
+   "category": "object",
+   "name": "syan33",
+   "group": "Furniture",
+   "file": "objects/syan33.json"
+  },
+  {
+   "id": "tans-2",
+   "category": "object",
+   "name": "tans",
+   "group": "Furniture",
+   "file": "objects/tans-2.json"
+  },
+  {
+   "id": "ueki",
+   "category": "object",
+   "name": "ueki",
+   "group": "Furniture",
+   "file": "objects/ueki.json"
+  },
+  {
+   "id": "bin34-1",
+   "category": "object",
+   "name": "bin34_1",
+   "group": "Furniture",
+   "file": "objects/bin34-1.json"
+  },
+  {
+   "id": "book34-1",
+   "category": "object",
+   "name": "book34_1",
+   "group": "Furniture",
+   "file": "objects/book34-1.json"
+  },
+  {
+   "id": "book34-2",
+   "category": "object",
+   "name": "book34_2",
+   "group": "Furniture",
+   "file": "objects/book34-2.json"
+  },
+  {
+   "id": "book34-3",
+   "category": "object",
+   "name": "book34_3",
+   "group": "Furniture",
+   "file": "objects/book34-3.json"
+  },
+  {
+   "id": "book34-4",
+   "category": "object",
+   "name": "book34_4",
+   "group": "Furniture",
+   "file": "objects/book34-4.json"
+  },
+  {
+   "id": "book34-5",
+   "category": "object",
+   "name": "book34_5",
+   "group": "Furniture",
+   "file": "objects/book34-5.json"
+  },
+  {
+   "id": "book34-6",
+   "category": "object",
+   "name": "book34_6",
+   "group": "Furniture",
+   "file": "objects/book34-6.json"
+  },
+  {
+   "id": "booka",
+   "category": "object",
+   "name": "booka",
+   "group": "Furniture",
+   "file": "objects/booka.json"
+  },
+  {
+   "id": "bookb",
+   "category": "object",
+   "name": "bookb",
+   "group": "Furniture",
+   "file": "objects/bookb.json"
+  },
+  {
+   "id": "desk34-2",
+   "category": "object",
+   "name": "desk34_2",
+   "group": "Furniture",
+   "file": "objects/desk34-2.json"
+  },
+  {
+   "id": "gakub02",
+   "category": "object",
+   "name": "gakub02",
+   "group": "Furniture",
+   "file": "objects/gakub02.json"
+  },
+  {
+   "id": "gakub09-2",
+   "category": "object",
+   "name": "gakub09",
+   "group": "Furniture",
+   "file": "objects/gakub09-2.json"
+  },
+  {
+   "id": "hasi34-1",
+   "category": "object",
+   "name": "hasi34_1",
+   "group": "Furniture",
+   "file": "objects/hasi34-1.json"
+  },
+  {
+   "id": "hat34-1",
+   "category": "object",
+   "name": "hat34_1",
+   "group": "Furniture",
+   "file": "objects/hat34-1.json"
+  },
+  {
+   "id": "isu34-1",
+   "category": "object",
+   "name": "isu34_1",
+   "group": "Furniture",
+   "file": "objects/isu34-1.json"
+  },
+  {
+   "id": "pic34-1",
+   "category": "object",
+   "name": "pic34_1",
+   "group": "Furniture",
+   "file": "objects/pic34-1.json"
+  },
+  {
+   "id": "pic34-2",
+   "category": "object",
+   "name": "pic34_2",
+   "group": "Furniture",
+   "file": "objects/pic34-2.json"
+  },
+  {
+   "id": "suta34-1",
+   "category": "object",
+   "name": "suta34_1",
+   "group": "Furniture",
+   "file": "objects/suta34-1.json"
+  },
+  {
+   "id": "syan34-1",
+   "category": "object",
+   "name": "syan34_1",
+   "group": "Furniture",
+   "file": "objects/syan34-1.json"
+  },
+  {
+   "id": "desk35-1",
+   "category": "object",
+   "name": "desk35_1",
+   "group": "Furniture",
+   "file": "objects/desk35-1.json"
+  },
+  {
+   "id": "desk35-2-2",
+   "category": "object",
+   "name": "desk35_2",
+   "group": "Furniture",
+   "file": "objects/desk35-2-2.json"
+  },
+  {
+   "id": "htana",
+   "category": "object",
+   "name": "htana",
+   "group": "Furniture",
+   "file": "objects/htana.json"
+  },
+  {
+   "id": "isu35-1",
+   "category": "object",
+   "name": "isu35_1",
+   "group": "Furniture",
+   "file": "objects/isu35-1.json"
+  },
+  {
+   "id": "isu35-3",
+   "category": "object",
+   "name": "isu35_3",
+   "group": "Furniture",
+   "file": "objects/isu35-3.json"
+  },
+  {
+   "id": "pic35-1",
+   "category": "object",
+   "name": "pic35_1",
+   "group": "Furniture",
+   "file": "objects/pic35-1.json"
+  },
+  {
+   "id": "pic35-2",
+   "category": "object",
+   "name": "pic35_2",
+   "group": "Furniture",
+   "file": "objects/pic35-2.json"
+  },
+  {
+   "id": "pic35-3",
+   "category": "object",
+   "name": "pic35_3",
+   "group": "Furniture",
+   "file": "objects/pic35-3.json"
+  },
+  {
+   "id": "pic35-4",
+   "category": "object",
+   "name": "pic35_4",
+   "group": "Furniture",
+   "file": "objects/pic35-4.json"
+  },
+  {
+   "id": "pic35-5",
+   "category": "object",
+   "name": "pic35_5",
+   "group": "Furniture",
+   "file": "objects/pic35-5.json"
+  },
+  {
+   "id": "rou",
+   "category": "object",
+   "name": "rou",
+   "group": "Furniture",
+   "file": "objects/rou.json"
+  },
+  {
+   "id": "rou02",
+   "category": "object",
+   "name": "rou02",
+   "group": "Furniture",
+   "file": "objects/rou02.json"
+  },
+  {
+   "id": "syan35-1",
+   "category": "object",
+   "name": "syan35_1",
+   "group": "Furniture",
+   "file": "objects/syan35-1.json"
+  },
+  {
+   "id": "syan35-2",
+   "category": "object",
+   "name": "syan35_2",
+   "group": "Furniture",
+   "file": "objects/syan35-2.json"
+  },
+  {
+   "id": "boxb",
+   "category": "object",
+   "name": "boxb",
+   "group": "Furniture",
+   "file": "objects/boxb.json"
+  },
+  {
+   "id": "boxs",
+   "category": "object",
+   "name": "boxs",
+   "group": "Furniture",
+   "file": "objects/boxs.json"
+  },
+  {
+   "id": "desk36",
+   "category": "object",
+   "name": "desk36",
+   "group": "Furniture",
+   "file": "objects/desk36.json"
+  },
+  {
+   "id": "mirror36",
+   "category": "object",
+   "name": "mirror36",
+   "group": "Furniture",
+   "file": "objects/mirror36.json"
+  },
+  {
+   "id": "rou36-2",
+   "category": "object",
+   "name": "rou36",
+   "group": "Furniture",
+   "file": "objects/rou36-2.json"
+  },
+  {
+   "id": "sara36",
+   "category": "object",
+   "name": "sara36",
+   "group": "Furniture",
+   "file": "objects/sara36.json"
+  },
+  {
+   "id": "trophy01",
+   "category": "object",
+   "name": "trophy01",
+   "group": "Furniture",
+   "file": "objects/trophy01.json"
+  },
+  {
+   "id": "trophy02",
+   "category": "object",
+   "name": "trophy02",
+   "group": "Furniture",
+   "file": "objects/trophy02.json"
+  },
+  {
+   "id": "tubo36",
+   "category": "object",
+   "name": "tubo36",
+   "group": "Furniture",
+   "file": "objects/tubo36.json"
+  },
+  {
+   "id": "a-lamp-1",
+   "category": "object",
+   "name": "a_lamp_1",
+   "group": "Furniture",
+   "file": "objects/a-lamp-1.json"
+  },
+  {
+   "id": "a-plant-1",
+   "category": "object",
+   "name": "a_plant_1",
+   "group": "Furniture",
+   "file": "objects/a-plant-1.json"
+  },
+  {
+   "id": "a-plant-2",
+   "category": "object",
+   "name": "a_plant_2",
+   "group": "Furniture",
+   "file": "objects/a-plant-2.json"
+  },
+  {
+   "id": "a-plant-3",
+   "category": "object",
+   "name": "a_plant_3",
+   "group": "Furniture",
+   "file": "objects/a-plant-3.json"
+  },
+  {
+   "id": "a-plant-4",
+   "category": "object",
+   "name": "a_plant_4",
+   "group": "Furniture",
+   "file": "objects/a-plant-4.json"
+  },
+  {
+   "id": "a-plan-2",
+   "category": "object",
+   "name": "a_plan_2",
+   "group": "Furniture",
+   "file": "objects/a-plan-2.json"
+  },
+  {
+   "id": "a-plan-4",
+   "category": "object",
+   "name": "a_plan_4",
+   "group": "Furniture",
+   "file": "objects/a-plan-4.json"
+  },
+  {
+   "id": "chest1",
+   "category": "object",
+   "name": "chest1",
+   "group": "Furniture",
+   "file": "objects/chest1.json"
+  },
+  {
+   "id": "fuku38-1",
+   "category": "object",
+   "name": "fuku38_1",
+   "group": "Furniture",
+   "file": "objects/fuku38-1.json"
+  },
+  {
+   "id": "fuku38-2",
+   "category": "object",
+   "name": "fuku38_2",
+   "group": "Furniture",
+   "file": "objects/fuku38-2.json"
+  },
+  {
+   "id": "fuku38-3",
+   "category": "object",
+   "name": "fuku38_3",
+   "group": "Furniture",
+   "file": "objects/fuku38-3.json"
+  },
+  {
+   "id": "fuku38-4",
+   "category": "object",
+   "name": "fuku38_4",
+   "group": "Furniture",
+   "file": "objects/fuku38-4.json"
+  },
+  {
+   "id": "fuku38-5",
+   "category": "object",
+   "name": "fuku38_5",
+   "group": "Furniture",
+   "file": "objects/fuku38-5.json"
+  },
+  {
+   "id": "fuku38-6",
+   "category": "object",
+   "name": "fuku38_6",
+   "group": "Furniture",
+   "file": "objects/fuku38-6.json"
+  },
+  {
+   "id": "fuku38-7",
+   "category": "object",
+   "name": "fuku38_7",
+   "group": "Furniture",
+   "file": "objects/fuku38-7.json"
+  },
+  {
+   "id": "hat38-1",
+   "category": "object",
+   "name": "hat38_1",
+   "group": "Furniture",
+   "file": "objects/hat38-1.json"
+  },
+  {
+   "id": "kutu38-1",
+   "category": "object",
+   "name": "kutu38_1",
+   "group": "Furniture",
+   "file": "objects/kutu38-1.json"
+  },
+  {
+   "id": "mirr38-1",
+   "category": "object",
+   "name": "mirr38_1",
+   "group": "Furniture",
+   "file": "objects/mirr38-1.json"
+  },
+  {
+   "id": "shan38-1",
+   "category": "object",
+   "name": "shan38_1",
+   "group": "Furniture",
+   "file": "objects/shan38-1.json"
+  },
+  {
+   "id": "shan39-1",
+   "category": "object",
+   "name": "shan39_1",
+   "group": "Furniture",
+   "file": "objects/shan39-1.json"
+  },
+  {
+   "id": "tana1-2",
+   "category": "object",
+   "name": "tana1",
+   "group": "Furniture",
+   "file": "objects/tana1-2.json"
+  },
+  {
+   "id": "ohiki1-2",
+   "category": "object",
+   "name": "ohiki1",
+   "group": "Furniture",
+   "file": "objects/ohiki1-2.json"
+  },
+  {
+   "id": "o-rou-2",
+   "category": "object",
+   "name": "o_rou",
+   "group": "Furniture",
+   "file": "objects/o-rou-2.json"
+  },
+  {
+   "id": "o-syan",
+   "category": "object",
+   "name": "o_syan",
+   "group": "Furniture",
+   "file": "objects/o-syan.json"
+  },
+  {
+   "id": "otana4",
+   "category": "object",
+   "name": "otana4",
+   "group": "Furniture",
+   "file": "objects/otana4.json"
+  },
+  {
+   "id": "o-bou1",
+   "category": "object",
+   "name": "o_bou1",
+   "group": "Furniture",
+   "file": "objects/o-bou1.json"
+  },
+  {
+   "id": "o-heya1",
+   "category": "object",
+   "name": "o_heya1",
+   "group": "Furniture",
+   "file": "objects/o-heya1.json"
+  },
+  {
+   "id": "o-heya2",
+   "category": "object",
+   "name": "o_heya2",
+   "group": "Furniture",
+   "file": "objects/o-heya2.json"
+  },
+  {
+   "id": "o-heya3",
+   "category": "object",
+   "name": "o_heya3",
+   "group": "Furniture",
+   "file": "objects/o-heya3.json"
+  },
+  {
+   "id": "o-isu1-3",
+   "category": "object",
+   "name": "o_isu1",
+   "group": "Furniture",
+   "file": "objects/o-isu1-3.json"
+  },
+  {
+   "id": "o-isu2-2",
+   "category": "object",
+   "name": "o_isu2",
+   "group": "Furniture",
+   "file": "objects/o-isu2-2.json"
+  },
+  {
+   "id": "o-syan1-3",
+   "category": "object",
+   "name": "o_syan1",
+   "group": "Furniture",
+   "file": "objects/o-syan1-3.json"
+  },
+  {
+   "id": "bank42",
+   "category": "object",
+   "name": "bank42",
+   "group": "Furniture",
+   "file": "objects/bank42.json"
+  },
+  {
+   "id": "dan42",
+   "category": "object",
+   "name": "dan42",
+   "group": "Furniture",
+   "file": "objects/dan42.json"
+  },
+  {
+   "id": "papa42-1",
+   "category": "object",
+   "name": "papa42_1",
+   "group": "Furniture",
+   "file": "objects/papa42-1.json"
+  },
+  {
+   "id": "papa42-2",
+   "category": "object",
+   "name": "papa42_2",
+   "group": "Furniture",
+   "file": "objects/papa42-2.json"
+  },
+  {
+   "id": "pic42",
+   "category": "object",
+   "name": "pic42",
+   "group": "Furniture",
+   "file": "objects/pic42.json"
+  },
+  {
+   "id": "sen42",
+   "category": "object",
+   "name": "sen42",
+   "group": "Furniture",
+   "file": "objects/sen42.json"
+  },
+  {
+   "id": "syan42",
+   "category": "object",
+   "name": "syan42",
+   "group": "Furniture",
+   "file": "objects/syan42.json"
+  },
+  {
+   "id": "tana42",
+   "category": "object",
+   "name": "tana42",
+   "group": "Furniture",
+   "file": "objects/tana42.json"
+  },
+  {
+   "id": "tank42",
+   "category": "object",
+   "name": "tank42",
+   "group": "Furniture",
+   "file": "objects/tank42.json"
+  },
+  {
+   "id": "pic11",
+   "category": "object",
+   "name": "pic11",
+   "group": "Furniture",
+   "file": "objects/pic11.json"
+  },
+  {
+   "id": "bath45",
+   "category": "object",
+   "name": "bath45",
+   "group": "Furniture",
+   "file": "objects/bath45.json"
+  },
+  {
+   "id": "otan01",
+   "category": "object",
+   "name": "otan01",
+   "group": "Furniture",
+   "file": "objects/otan01.json"
+  },
+  {
+   "id": "o-e1-2",
+   "category": "object",
+   "name": "o_e1",
+   "group": "Furniture",
+   "file": "objects/o-e1-2.json"
+  },
+  {
+   "id": "o-hon1",
+   "category": "object",
+   "name": "o_hon1",
+   "group": "Furniture",
+   "file": "objects/o-hon1.json"
+  },
+  {
+   "id": "o-misin1",
+   "category": "object",
+   "name": "o_misin1",
+   "group": "Furniture",
+   "file": "objects/o-misin1.json"
+  },
+  {
+   "id": "o-oki1",
+   "category": "object",
+   "name": "o_oki1",
+   "group": "Furniture",
+   "file": "objects/o-oki1.json"
+  },
+  {
+   "id": "o-oki2",
+   "category": "object",
+   "name": "o_oki2",
+   "group": "Furniture",
+   "file": "objects/o-oki2.json"
+  },
+  {
+   "id": "o-oki3",
+   "category": "object",
+   "name": "o_oki3",
+   "group": "Furniture",
+   "file": "objects/o-oki3.json"
+  },
+  {
+   "id": "o-sofa1",
+   "category": "object",
+   "name": "o_sofa1",
+   "group": "Furniture",
+   "file": "objects/o-sofa1.json"
+  },
+  {
+   "id": "o-sofa2",
+   "category": "object",
+   "name": "o_sofa2",
+   "group": "Furniture",
+   "file": "objects/o-sofa2.json"
+  },
+  {
+   "id": "o-syan1-4",
+   "category": "object",
+   "name": "o_syan1",
+   "group": "Furniture",
+   "file": "objects/o-syan1-4.json"
+  },
+  {
+   "id": "o-tuku1-2",
+   "category": "object",
+   "name": "o_tuku1",
+   "group": "Furniture",
+   "file": "objects/o-tuku1-2.json"
+  },
+  {
+   "id": "o-tuku2",
+   "category": "object",
+   "name": "o_tuku2",
+   "group": "Furniture",
+   "file": "objects/o-tuku2.json"
+  },
+  {
+   "id": "o-tumu1",
+   "category": "object",
+   "name": "o_tumu1",
+   "group": "Furniture",
+   "file": "objects/o-tumu1.json"
+  },
+  {
+   "id": "oais",
+   "category": "object",
+   "name": "oais",
+   "group": "Furniture",
+   "file": "objects/oais.json"
+  },
+  {
+   "id": "ohako1",
+   "category": "object",
+   "name": "ohako1",
+   "group": "Furniture",
+   "file": "objects/ohako1.json"
+  },
+  {
+   "id": "omark",
+   "category": "object",
+   "name": "omark",
+   "group": "Furniture",
+   "file": "objects/omark.json"
+  },
+  {
+   "id": "onuno",
+   "category": "object",
+   "name": "onuno",
+   "group": "Furniture",
+   "file": "objects/onuno.json"
+  },
+  {
+   "id": "orou-2",
+   "category": "object",
+   "name": "orou",
+   "group": "Furniture",
+   "file": "objects/orou-2.json"
+  },
+  {
+   "id": "oto1",
+   "category": "object",
+   "name": "oto1",
+   "group": "Furniture",
+   "file": "objects/oto1.json"
+  },
+  {
+   "id": "oto2",
+   "category": "object",
+   "name": "oto2",
+   "group": "Furniture",
+   "file": "objects/oto2.json"
+  },
+  {
+   "id": "o-isu",
+   "category": "object",
+   "name": "o_isu",
+   "group": "Furniture",
+   "file": "objects/o-isu.json"
+  },
+  {
+   "id": "o-sara",
+   "category": "object",
+   "name": "o_sara",
+   "group": "Furniture",
+   "file": "objects/o-sara.json"
+  },
+  {
+   "id": "o-syan-2",
+   "category": "object",
+   "name": "o_syan",
+   "group": "Furniture",
+   "file": "objects/o-syan-2.json"
+  },
+  {
+   "id": "o-syo1",
+   "category": "object",
+   "name": "o_syo1",
+   "group": "Furniture",
+   "file": "objects/o-syo1.json"
+  },
+  {
+   "id": "o-syo2",
+   "category": "object",
+   "name": "o_syo2",
+   "group": "Furniture",
+   "file": "objects/o-syo2.json"
+  },
+  {
+   "id": "shan48-1",
+   "category": "object",
+   "name": "shan48_1",
+   "group": "Furniture",
+   "file": "objects/shan48-1.json"
+  },
+  {
+   "id": "tate48-1",
+   "category": "object",
+   "name": "tate48_1",
+   "group": "Furniture",
+   "file": "objects/tate48-1.json"
+  },
+  {
+   "id": "trsbx1",
+   "category": "object",
+   "name": "trsbx1",
+   "group": "Furniture",
+   "file": "objects/trsbx1.json"
+  },
+  {
+   "id": "wbox48-1",
+   "category": "object",
+   "name": "wbox48_1",
+   "group": "Furniture",
+   "file": "objects/wbox48-1.json"
+  },
+  {
+   "id": "wbox48-2",
+   "category": "object",
+   "name": "wbox48_2",
+   "group": "Furniture",
+   "file": "objects/wbox48-2.json"
+  },
+  {
+   "id": "wbox48-3",
+   "category": "object",
+   "name": "wbox48_3",
+   "group": "Furniture",
+   "file": "objects/wbox48-3.json"
+  },
+  {
+   "id": "wbox48-4",
+   "category": "object",
+   "name": "wbox48_4",
+   "group": "Furniture",
+   "file": "objects/wbox48-4.json"
+  },
+  {
+   "id": "yoroi1",
+   "category": "object",
+   "name": "yoroi1",
+   "group": "Furniture",
+   "file": "objects/yoroi1.json"
+  },
+  {
+   "id": "yoroi2",
+   "category": "object",
+   "name": "yoroi2",
+   "group": "Furniture",
+   "file": "objects/yoroi2.json"
+  },
+  {
+   "id": "yoroi3",
+   "category": "object",
+   "name": "yoroi3",
+   "group": "Furniture",
+   "file": "objects/yoroi3.json"
+  },
+  {
+   "id": "a-hari-1",
+   "category": "object",
+   "name": "a_hari_1",
+   "group": "Furniture",
+   "file": "objects/a-hari-1.json"
+  },
+  {
+   "id": "a-ligh-1-2",
+   "category": "object",
+   "name": "a_ligh_1",
+   "group": "Furniture",
+   "file": "objects/a-ligh-1-2.json"
+  },
+  {
+   "id": "a-shel-1",
+   "category": "object",
+   "name": "a_shel_1",
+   "group": "Furniture",
+   "file": "objects/a-shel-1.json"
+  },
+  {
+   "id": "a-sofa-1",
+   "category": "object",
+   "name": "a_sofa_1",
+   "group": "Furniture",
+   "file": "objects/a-sofa-1.json"
+  },
+  {
+   "id": "a-tabl-1",
+   "category": "object",
+   "name": "a_tabl_1",
+   "group": "Furniture",
+   "file": "objects/a-tabl-1.json"
+  },
+  {
+   "id": "oldbox",
+   "category": "object",
+   "name": "oldbox",
+   "group": "Furniture",
+   "file": "objects/oldbox.json"
+  },
+  {
+   "id": "shelf",
+   "category": "object",
+   "name": "shelf",
+   "group": "Furniture",
+   "file": "objects/shelf.json"
+  },
+  {
+   "id": "trick",
+   "category": "object",
+   "name": "trick",
+   "group": "Furniture",
+   "file": "objects/trick.json"
+  },
+  {
+   "id": "oha",
+   "category": "object",
+   "name": "oha",
+   "group": "Furniture",
+   "file": "objects/oha.json"
+  },
+  {
+   "id": "o-dan1",
+   "category": "object",
+   "name": "o_dan1",
+   "group": "Furniture",
+   "file": "objects/o-dan1.json"
+  },
+  {
+   "id": "o-dan2",
+   "category": "object",
+   "name": "o_dan2",
+   "group": "Furniture",
+   "file": "objects/o-dan2.json"
+  },
+  {
+   "id": "o-isu-2",
+   "category": "object",
+   "name": "o_isu",
+   "group": "Furniture",
+   "file": "objects/o-isu-2.json"
+  },
+  {
+   "id": "o-sika",
+   "category": "object",
+   "name": "o_sika",
+   "group": "Furniture",
+   "file": "objects/o-sika.json"
+  },
+  {
+   "id": "o-syan-3",
+   "category": "object",
+   "name": "o_syan",
+   "group": "Furniture",
+   "file": "objects/o-syan-3.json"
+  },
+  {
+   "id": "o-tora1",
+   "category": "object",
+   "name": "o_tora1",
+   "group": "Furniture",
+   "file": "objects/o-tora1.json"
+  },
+  {
+   "id": "o-tora2",
+   "category": "object",
+   "name": "o_tora2",
+   "group": "Furniture",
+   "file": "objects/o-tora2.json"
+  },
+  {
+   "id": "ohako1-2",
+   "category": "object",
+   "name": "ohako1",
+   "group": "Furniture",
+   "file": "objects/ohako1-2.json"
+  },
+  {
+   "id": "ohako2",
+   "category": "object",
+   "name": "ohako2",
+   "group": "Furniture",
+   "file": "objects/ohako2.json"
+  },
+  {
+   "id": "oisu-3",
+   "category": "object",
+   "name": "Chair",
+   "group": "Furniture",
+   "file": "objects/oisu-3.json"
+  },
+  {
+   "id": "oisu1",
+   "category": "object",
+   "name": "oisu1",
+   "group": "Furniture",
+   "file": "objects/oisu1.json"
+  },
+  {
+   "id": "oisu2",
+   "category": "object",
+   "name": "oisu2",
+   "group": "Furniture",
+   "file": "objects/oisu2.json"
+  },
+  {
+   "id": "oisu3",
+   "category": "object",
+   "name": "oisu3",
+   "group": "Furniture",
+   "file": "objects/oisu3.json"
+  },
+  {
+   "id": "oisu4",
+   "category": "object",
+   "name": "oisu4",
+   "group": "Furniture",
+   "file": "objects/oisu4.json"
+  },
+  {
+   "id": "okori",
+   "category": "object",
+   "name": "okori",
+   "group": "Furniture",
+   "file": "objects/okori.json"
+  },
+  {
+   "id": "osyan-2",
+   "category": "object",
+   "name": "osyan",
+   "group": "Furniture",
+   "file": "objects/osyan-2.json"
+  },
+  {
+   "id": "otubo1",
+   "category": "object",
+   "name": "otubo1",
+   "group": "Furniture",
+   "file": "objects/otubo1.json"
+  },
+  {
+   "id": "otubo2",
+   "category": "object",
+   "name": "otubo2",
+   "group": "Furniture",
+   "file": "objects/otubo2.json"
+  },
+  {
+   "id": "otubo3",
+   "category": "object",
+   "name": "otubo3",
+   "group": "Furniture",
+   "file": "objects/otubo3.json"
+  },
+  {
+   "id": "otubo4",
+   "category": "object",
+   "name": "otubo4",
+   "group": "Furniture",
+   "file": "objects/otubo4.json"
+  },
+  {
+   "id": "otubo5",
+   "category": "object",
+   "name": "otubo5",
+   "group": "Furniture",
+   "file": "objects/otubo5.json"
+  },
+  {
+   "id": "otubo6",
+   "category": "object",
+   "name": "otubo6",
+   "group": "Furniture",
+   "file": "objects/otubo6.json"
+  },
+  {
+   "id": "otubo7",
+   "category": "object",
+   "name": "otubo7",
+   "group": "Furniture",
+   "file": "objects/otubo7.json"
+  },
+  {
+   "id": "otubo8",
+   "category": "object",
+   "name": "otubo8",
+   "group": "Furniture",
+   "file": "objects/otubo8.json"
+  },
+  {
+   "id": "otubo9",
+   "category": "object",
+   "name": "otubo9",
+   "group": "Furniture",
+   "file": "objects/otubo9.json"
+  },
+  {
+   "id": "otebl1",
+   "category": "object",
+   "name": "otebl1",
+   "group": "Furniture",
+   "file": "objects/otebl1.json"
+  },
+  {
+   "id": "otebl2",
+   "category": "object",
+   "name": "otebl2",
+   "group": "Furniture",
+   "file": "objects/otebl2.json"
+  },
+  {
+   "id": "otoke1",
+   "category": "object",
+   "name": "otoke1",
+   "group": "Furniture",
+   "file": "objects/otoke1.json"
+  },
+  {
+   "id": "otoke2",
+   "category": "object",
+   "name": "otoke2",
+   "group": "Furniture",
+   "file": "objects/otoke2.json"
+  },
+  {
+   "id": "o-dougu",
+   "category": "object",
+   "name": "o_dougu",
+   "group": "Furniture",
+   "file": "objects/o-dougu.json"
+  },
+  {
+   "id": "o-i-ao",
+   "category": "object",
+   "name": "o_i_ao",
+   "group": "Furniture",
+   "file": "objects/o-i-ao.json"
+  },
+  {
+   "id": "o-nin",
+   "category": "object",
+   "name": "o_nin",
+   "group": "Furniture",
+   "file": "objects/o-nin.json"
+  },
+  {
+   "id": "o-syan-4",
+   "category": "object",
+   "name": "o_syan",
+   "group": "Furniture",
+   "file": "objects/o-syan-4.json"
+  },
+  {
+   "id": "isu57-1",
+   "category": "object",
+   "name": "isu57_1",
+   "group": "Furniture",
+   "file": "objects/isu57-1.json"
+  },
+  {
+   "id": "mono57-1",
+   "category": "object",
+   "name": "mono57_1",
+   "group": "Furniture",
+   "file": "objects/mono57-1.json"
+  },
+  {
+   "id": "mono57-2",
+   "category": "object",
+   "name": "mono57_2",
+   "group": "Furniture",
+   "file": "objects/mono57-2.json"
+  },
+  {
+   "id": "opic1",
+   "category": "object",
+   "name": "opic1",
+   "group": "Furniture",
+   "file": "objects/opic1.json"
+  },
+  {
+   "id": "opic2",
+   "category": "object",
+   "name": "opic2",
+   "group": "Furniture",
+   "file": "objects/opic2.json"
+  },
+  {
+   "id": "opic3",
+   "category": "object",
+   "name": "opic3",
+   "group": "Furniture",
+   "file": "objects/opic3.json"
+  },
+  {
+   "id": "opic4",
+   "category": "object",
+   "name": "opic4",
+   "group": "Furniture",
+   "file": "objects/opic4.json"
+  },
+  {
+   "id": "opic5",
+   "category": "object",
+   "name": "opic5",
+   "group": "Furniture",
+   "file": "objects/opic5.json"
+  },
+  {
+   "id": "opic6",
+   "category": "object",
+   "name": "opic6",
+   "group": "Furniture",
+   "file": "objects/opic6.json"
+  },
+  {
+   "id": "opic7",
+   "category": "object",
+   "name": "opic7",
+   "group": "Furniture",
+   "file": "objects/opic7.json"
+  },
+  {
+   "id": "shan57-1",
+   "category": "object",
+   "name": "shan57_1",
+   "group": "Furniture",
+   "file": "objects/shan57-1.json"
+  },
+  {
+   "id": "tana57-1",
+   "category": "object",
+   "name": "tana57_1",
+   "group": "Furniture",
+   "file": "objects/tana57-1.json"
+  },
+  {
+   "id": "tana57-2",
+   "category": "object",
+   "name": "tana57_2",
+   "group": "Furniture",
+   "file": "objects/tana57-2.json"
+  },
+  {
+   "id": "tpic1",
+   "category": "object",
+   "name": "tpic1",
+   "group": "Furniture",
+   "file": "objects/tpic1.json"
+  },
+  {
+   "id": "o-haao",
+   "category": "object",
+   "name": "o_haao",
+   "group": "Furniture",
+   "file": "objects/o-haao.json"
+  },
+  {
+   "id": "o-isu-3",
+   "category": "object",
+   "name": "o_isu",
+   "group": "Furniture",
+   "file": "objects/o-isu-3.json"
+  },
+  {
+   "id": "o-kusa1",
+   "category": "object",
+   "name": "o_kusa1",
+   "group": "Furniture",
+   "file": "objects/o-kusa1.json"
+  },
+  {
+   "id": "o-kusa2",
+   "category": "object",
+   "name": "o_kusa2",
+   "group": "Furniture",
+   "file": "objects/o-kusa2.json"
+  },
+  {
+   "id": "o-kusa3",
+   "category": "object",
+   "name": "o_kusa3",
+   "group": "Furniture",
+   "file": "objects/o-kusa3.json"
+  },
+  {
+   "id": "o-syan-5",
+   "category": "object",
+   "name": "o_syan",
+   "group": "Furniture",
+   "file": "objects/o-syan-5.json"
+  },
+  {
+   "id": "o-two1",
+   "category": "object",
+   "name": "o_two1",
+   "group": "Furniture",
+   "file": "objects/o-two1.json"
+  },
+  {
+   "id": "o-two5",
+   "category": "object",
+   "name": "o_two5",
+   "group": "Furniture",
+   "file": "objects/o-two5.json"
+  },
+  {
+   "id": "o-uma1",
+   "category": "object",
+   "name": "o_uma1",
+   "group": "Furniture",
+   "file": "objects/o-uma1.json"
+  },
+  {
+   "id": "a-bran-1",
+   "category": "object",
+   "name": "a_bran_1",
+   "group": "Furniture",
+   "file": "objects/a-bran-1.json"
+  },
+  {
+   "id": "a-hut-1",
+   "category": "object",
+   "name": "a_hut_1",
+   "group": "Furniture",
+   "file": "objects/a-hut-1.json"
+  },
+  {
+   "id": "a-pill-1",
+   "category": "object",
+   "name": "a_pill_1",
+   "group": "Furniture",
+   "file": "objects/a-pill-1.json"
+  },
+  {
+   "id": "a-camp-1",
+   "category": "object",
+   "name": "a_camp_1",
+   "group": "Furniture",
+   "file": "objects/a-camp-1.json"
+  },
+  {
+   "id": "a-drum-1",
+   "category": "object",
+   "name": "a_drum_1",
+   "group": "Furniture",
+   "file": "objects/a-drum-1.json"
+  },
+  {
+   "id": "a-gass-1",
+   "category": "object",
+   "name": "a_gass_1",
+   "group": "Furniture",
+   "file": "objects/a-gass-1.json"
+  },
+  {
+   "id": "a-ligh-2",
+   "category": "object",
+   "name": "a_ligh_2",
+   "group": "Furniture",
+   "file": "objects/a-ligh-2.json"
+  },
+  {
+   "id": "a-shel-1-2",
+   "category": "object",
+   "name": "a_shel_1",
+   "group": "Furniture",
+   "file": "objects/a-shel-1-2.json"
+  },
+  {
+   "id": "a-wbox-1",
+   "category": "object",
+   "name": "a_wbox_1",
+   "group": "Furniture",
+   "file": "objects/a-wbox-1.json"
+  },
+  {
+   "id": "a-barr-1",
+   "category": "object",
+   "name": "a_barr_1",
+   "group": "Furniture",
+   "file": "objects/a-barr-1.json"
+  },
+  {
+   "id": "a-cand-1",
+   "category": "object",
+   "name": "a_cand_1",
+   "group": "Furniture",
+   "file": "objects/a-cand-1.json"
+  },
+  {
+   "id": "a-fenc-1",
+   "category": "object",
+   "name": "a_fenc_1",
+   "group": "Furniture",
+   "file": "objects/a-fenc-1.json"
+  },
+  {
+   "id": "a-groc-1",
+   "category": "object",
+   "name": "a_groc_1",
+   "group": "Furniture",
+   "file": "objects/a-groc-1.json"
+  },
+  {
+   "id": "a-groc-2",
+   "category": "object",
+   "name": "a_groc_2",
+   "group": "Furniture",
+   "file": "objects/a-groc-2.json"
+  },
+  {
+   "id": "a-groc-3",
+   "category": "object",
+   "name": "a_groc_3",
+   "group": "Furniture",
+   "file": "objects/a-groc-3.json"
+  },
+  {
+   "id": "a-groc-4",
+   "category": "object",
+   "name": "a_groc_4",
+   "group": "Furniture",
+   "file": "objects/a-groc-4.json"
+  },
+  {
+   "id": "a-ligh-1-3",
+   "category": "object",
+   "name": "a_ligh_1",
+   "group": "Furniture",
+   "file": "objects/a-ligh-1-3.json"
+  },
+  {
+   "id": "a-rack-1",
+   "category": "object",
+   "name": "a_rack_1",
+   "group": "Furniture",
+   "file": "objects/a-rack-1.json"
+  },
+  {
+   "id": "a-wbox-1-2",
+   "category": "object",
+   "name": "a_wbox_1",
+   "group": "Furniture",
+   "file": "objects/a-wbox-1-2.json"
+  },
+  {
+   "id": "a-lamp-1-2",
+   "category": "object",
+   "name": "a_lamp_1",
+   "group": "Furniture",
+   "file": "objects/a-lamp-1-2.json"
+  },
+  {
+   "id": "a-lamp-2",
+   "category": "object",
+   "name": "a_lamp_2",
+   "group": "Furniture",
+   "file": "objects/a-lamp-2.json"
+  },
+  {
+   "id": "a-stai-1",
+   "category": "object",
+   "name": "a_stai_1",
+   "group": "Furniture",
+   "file": "objects/a-stai-1.json"
+  },
+  {
+   "id": "break",
+   "category": "object",
+   "name": "break",
+   "group": "Furniture",
+   "file": "objects/break.json"
+  },
+  {
+   "id": "a-boar-1-2",
+   "category": "object",
+   "name": "a_boar_1",
+   "group": "Furniture",
+   "file": "objects/a-boar-1-2.json"
+  },
+  {
+   "id": "a-buck-1",
+   "category": "object",
+   "name": "a_buck_1",
+   "group": "Furniture",
+   "file": "objects/a-buck-1.json"
+  },
+  {
+   "id": "a-drum-1-2",
+   "category": "object",
+   "name": "a_drum_1",
+   "group": "Furniture",
+   "file": "objects/a-drum-1-2.json"
+  },
+  {
+   "id": "a-fenc-1-2",
+   "category": "object",
+   "name": "a_fenc_1",
+   "group": "Furniture",
+   "file": "objects/a-fenc-1-2.json"
+  },
+  {
+   "id": "a-lamp-1-3",
+   "category": "object",
+   "name": "a_lamp_1",
+   "group": "Furniture",
+   "file": "objects/a-lamp-1-3.json"
+  },
+  {
+   "id": "a-scre-1",
+   "category": "object",
+   "name": "a_scre_1",
+   "group": "Furniture",
+   "file": "objects/a-scre-1.json"
+  },
+  {
+   "id": "a-tesu-1",
+   "category": "object",
+   "name": "a_tesu_1",
+   "group": "Furniture",
+   "file": "objects/a-tesu-1.json"
+  },
+  {
+   "id": "a-wate-1",
+   "category": "object",
+   "name": "a_wate_1",
+   "group": "Furniture",
+   "file": "objects/a-wate-1.json"
+  },
+  {
+   "id": "hundle",
+   "category": "object",
+   "name": "hundle",
+   "group": "Furniture",
+   "file": "objects/hundle.json"
+  },
+  {
+   "id": "a-barr-1-2",
+   "category": "object",
+   "name": "a_barr_1",
+   "group": "Furniture",
+   "file": "objects/a-barr-1-2.json"
+  },
+  {
+   "id": "a-drum-1-3",
+   "category": "object",
+   "name": "a_drum_1",
+   "group": "Furniture",
+   "file": "objects/a-drum-1-3.json"
+  },
+  {
+   "id": "a-ligh-1-4",
+   "category": "object",
+   "name": "a_ligh_1",
+   "group": "Furniture",
+   "file": "objects/a-ligh-1-4.json"
+  },
+  {
+   "id": "a-tabl-1-2",
+   "category": "object",
+   "name": "a_tabl_1",
+   "group": "Furniture",
+   "file": "objects/a-tabl-1-2.json"
+  },
+  {
+   "id": "b1-c-67",
+   "category": "object",
+   "name": "b1_c_67",
+   "group": "Furniture",
+   "file": "objects/b1-c-67.json"
+  },
+  {
+   "id": "a-ladd-1",
+   "category": "object",
+   "name": "a_ladd_1",
+   "group": "Furniture",
+   "file": "objects/a-ladd-1.json"
+  },
+  {
+   "id": "a-lump-1",
+   "category": "object",
+   "name": "a_lump_1",
+   "group": "Furniture",
+   "file": "objects/a-lump-1.json"
+  },
+  {
+   "id": "a-back-1",
+   "category": "object",
+   "name": "a_back_1",
+   "group": "Furniture",
+   "file": "objects/a-back-1.json"
+  },
+  {
+   "id": "a-cand-1-2",
+   "category": "object",
+   "name": "a_cand_1",
+   "group": "Furniture",
+   "file": "objects/a-cand-1-2.json"
+  },
+  {
+   "id": "a-fram-1",
+   "category": "object",
+   "name": "a_fram_1",
+   "group": "Furniture",
+   "file": "objects/a-fram-1.json"
+  },
+  {
+   "id": "a-ligh-1-5",
+   "category": "object",
+   "name": "a_ligh_1",
+   "group": "Furniture",
+   "file": "objects/a-ligh-1-5.json"
+  },
+  {
+   "id": "a-lion-1",
+   "category": "object",
+   "name": "a_lion_1",
+   "group": "Furniture",
+   "file": "objects/a-lion-1.json"
+  },
+  {
+   "id": "a-pill-1-2",
+   "category": "object",
+   "name": "a_pill_1",
+   "group": "Furniture",
+   "file": "objects/a-pill-1-2.json"
+  },
+  {
+   "id": "a-plat-1",
+   "category": "object",
+   "name": "a_plat_1",
+   "group": "Furniture",
+   "file": "objects/a-plat-1.json"
+  },
+  {
+   "id": "mansion",
+   "category": "level",
+   "name": "The mansion",
+   "description": "The whole mansion, streamed room by room. The storey areas peel the dollhouse: basement, ground floor, first floor, attic, and the exterior shells. Furniture placements come from Map/map2.szp jmp/furnitureinfo; doors from the door list in the game binary itself.",
+   "file": "levels/mansion.json"
+  },
+  {
+   "id": "forest",
+   "category": "object",
+   "name": "The dark forest",
+   "group": "Intro",
+   "file": "objects/forest.json"
+  },
+  {
+   "id": "luigi-walk",
+   "category": "object",
+   "name": "Luigi — the forest walk",
+   "group": "Intro",
+   "description": "Luigi's 338-frame forest walk: a 122-node model with 64 skinning envelopes, driven by opwf_luigi.key. The .sls face shapes are applied at rest; the .slk talking-flap weight tracks are not yet exported.",
+   "file": "objects/luigi-walk.json"
+  },
+  {
+   "id": "cone-walk",
+   "category": "object",
+   "name": "Flashlight cone (forest)",
+   "group": "Intro",
+   "file": "objects/cone-walk.json"
+  },
+  {
+   "id": "handlight-walk",
+   "category": "object",
+   "name": "Luigi's flashlight (forest)",
+   "group": "Intro",
+   "file": "objects/handlight-walk.json"
+  },
+  {
+   "id": "mansion-set",
+   "category": "object",
+   "name": "The mansion approach",
+   "group": "Intro",
+   "description": "The mansion approach set, 1.87 MB of facade — shared by five of the seven intro shots, with op_mansion.key swaying its trees.",
+   "file": "objects/mansion-set.json"
+  },
+  {
+   "id": "bighand",
+   "category": "object",
+   "name": "The pointing hand",
+   "group": "Intro",
+   "file": "objects/bighand.json"
+  },
+  {
+   "id": "lightning",
+   "category": "object",
+   "name": "Lightning bolt",
+   "group": "Intro",
+   "file": "objects/lightning.json"
+  },
+  {
+   "id": "gate-torch",
+   "category": "object",
+   "name": "Gate torch",
+   "group": "Intro",
+   "file": "objects/gate-torch.json"
+  },
+  {
+   "id": "mansion-set-gate",
+   "category": "object",
+   "name": "The mansion — the gate opens",
+   "group": "Intro",
+   "file": "objects/mansion-set-gate.json"
+  },
+  {
+   "id": "luigi-gate",
+   "category": "object",
+   "name": "Luigi — at the gate",
+   "group": "Intro",
+   "file": "objects/luigi-gate.json"
+  },
+  {
+   "id": "cone-gate",
+   "category": "object",
+   "name": "Flashlight cone (gate)",
+   "group": "Intro",
+   "file": "objects/cone-gate.json"
+  },
+  {
+   "id": "handlight-gate",
+   "category": "object",
+   "name": "Luigi's flashlight (gate)",
+   "group": "Intro",
+   "file": "objects/handlight-gate.json"
+  },
+  {
+   "id": "crow",
+   "category": "object",
+   "name": "The crow",
+   "group": "Intro",
+   "file": "objects/crow.json"
+  },
+  {
+   "id": "luigi-stepup",
+   "category": "object",
+   "name": "Luigi — up the steps",
+   "group": "Intro",
+   "file": "objects/luigi-stepup.json"
+  },
+  {
+   "id": "cone-stepup",
+   "category": "object",
+   "name": "Flashlight cone (steps)",
+   "group": "Intro",
+   "file": "objects/cone-stepup.json"
+  },
+  {
+   "id": "handlight-stepup",
+   "category": "object",
+   "name": "Luigi's flashlight (steps)",
+   "group": "Intro",
+   "file": "objects/handlight-stepup.json"
+  },
+  {
+   "id": "mansion-set-door",
+   "category": "object",
+   "name": "The mansion — the door opens",
+   "group": "Intro",
+   "description": "The same facade driven by opod_mansion.key: the front door swings open for the final shot.",
+   "file": "objects/mansion-set-door.json"
+  },
+  {
+   "id": "luigi-opendoor",
+   "category": "object",
+   "name": "Luigi — opening the door",
+   "group": "Intro",
+   "file": "objects/luigi-opendoor.json"
+  },
+  {
+   "id": "cone-door",
+   "category": "object",
+   "name": "Flashlight cone (door)",
+   "group": "Intro",
+   "file": "objects/cone-door.json"
+  },
+  {
+   "id": "handlight-door",
+   "category": "object",
+   "name": "Luigi's flashlight (door)",
+   "group": "Intro",
+   "file": "objects/handlight-door.json"
+  },
+  {
+   "id": "intro",
+   "category": "level",
+   "name": "The opening",
+   "description": "The opening cutscene's stage: the dark forest and the mansion approach with every intro actor. Play the script to watch the seven shots the game streams before the title — the cameras are the game's own hermite channels, baked per frame at 30 fps.",
+   "file": "levels/intro.json"
   }
  ]
 }

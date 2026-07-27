@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "o_syan",
+ "model": "o-syan-2.glb",
+ "instanced": true
+}

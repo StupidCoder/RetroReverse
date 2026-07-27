@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "tans",
+ "animations": [
+  {
+   "id": "tans_0",
+   "loop": "loop",
+   "clip": "tans_0",
+   "fps": 30
+  },
+  {
+   "id": "tans_1",
+   "loop": "once",
+   "clip": "tans_1",
+   "fps": 30
+  }
+ ],
+ "model": "tans-2.glb",
+ "instanced": true
+}

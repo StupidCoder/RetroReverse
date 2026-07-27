@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "desk",
+ "animations": [
+  {
+   "id": "desk_0",
+   "loop": "loop",
+   "clip": "desk_0",
+   "fps": 30
+  },
+  {
+   "id": "desk_1",
+   "loop": "once",
+   "clip": "desk_1",
+   "fps": 30
+  }
+ ],
+ "model": "desk.glb",
+ "instanced": true
+}

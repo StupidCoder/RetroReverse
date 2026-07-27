@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "a_buck_1",
+ "model": "a-buck-1.glb",
+ "instanced": true
+}

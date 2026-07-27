@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "tpic1",
+ "animations": [
+  {
+   "id": "tpic1_0",
+   "loop": "once",
+   "clip": "tpic1_0",
+   "fps": 30
+  },
+  {
+   "id": "tpic1_1",
+   "loop": "once",
+   "clip": "tpic1_1",
+   "fps": 30
+  }
+ ],
+ "model": "tpic1.glb",
+ "instanced": true
+}

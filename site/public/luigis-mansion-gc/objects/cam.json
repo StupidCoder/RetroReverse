@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "cam",
+ "animations": [
+  {
+   "id": "cam_0",
+   "loop": "loop",
+   "clip": "cam_0",
+   "fps": 30
+  },
+  {
+   "id": "cam_1",
+   "loop": "loop",
+   "clip": "cam_1",
+   "fps": 30
+  }
+ ],
+ "model": "cam.glb",
+ "instanced": true
+}

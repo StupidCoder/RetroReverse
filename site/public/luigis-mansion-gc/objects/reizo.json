@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "reizo",
+ "animations": [
+  {
+   "id": "reizo_0",
+   "loop": "loop",
+   "clip": "reizo_0",
+   "fps": 30
+  },
+  {
+   "id": "reizo_1",
+   "loop": "once",
+   "clip": "reizo_1",
+   "fps": 30
+  }
+ ],
+ "model": "reizo.glb",
+ "instanced": true
+}

@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "opic3",
+ "animations": [
+  {
+   "id": "opic3_0",
+   "loop": "once",
+   "clip": "opic3_0",
+   "fps": 30
+  },
+  {
+   "id": "opic3_1",
+   "loop": "once",
+   "clip": "opic3_1",
+   "fps": 30
+  }
+ ],
+ "model": "opic3.glb",
+ "instanced": true
+}

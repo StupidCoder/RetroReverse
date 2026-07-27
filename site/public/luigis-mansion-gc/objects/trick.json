@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "trick",
+ "animations": [
+  {
+   "id": "trick_0",
+   "loop": "loop",
+   "clip": "trick_0",
+   "fps": 30
+  },
+  {
+   "id": "trick_1",
+   "loop": "once",
+   "clip": "trick_1",
+   "fps": 30
+  }
+ ],
+ "model": "trick.glb",
+ "instanced": true
+}

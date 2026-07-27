@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "suiso1",
+ "animations": [
+  {
+   "id": "suiso1_0",
+   "loop": "once",
+   "clip": "suiso1_0",
+   "fps": 30
+  },
+  {
+   "id": "suiso1_1",
+   "loop": "once",
+   "clip": "suiso1_1",
+   "fps": 30
+  }
+ ],
+ "model": "suiso1.glb",
+ "instanced": true
+}

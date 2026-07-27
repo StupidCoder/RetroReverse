@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "bed33_1",
+ "model": "bed33-1.glb",
+ "instanced": true
+}

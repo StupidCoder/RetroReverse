@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "o_tuku1",
+ "model": "o-tuku1.glb",
+ "instanced": true
+}

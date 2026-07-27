@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "stana",
+ "animations": [
+  {
+   "id": "stana_0",
+   "loop": "loop",
+   "clip": "stana_0",
+   "fps": 30
+  },
+  {
+   "id": "stana_1",
+   "loop": "once",
+   "clip": "stana_1",
+   "fps": 30
+  }
+ ],
+ "model": "stana.glb",
+ "instanced": true
+}

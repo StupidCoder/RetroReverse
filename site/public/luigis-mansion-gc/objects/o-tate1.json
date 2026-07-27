@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "o_tate1",
+ "model": "o-tate1.glb",
+ "instanced": true
+}

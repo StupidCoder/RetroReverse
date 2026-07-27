@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "otebl2",
+ "animations": [
+  {
+   "id": "otebl2_0",
+   "loop": "loop",
+   "clip": "otebl2_0",
+   "fps": 30
+  },
+  {
+   "id": "otebl2_1",
+   "loop": "once",
+   "clip": "otebl2_1",
+   "fps": 30
+  }
+ ],
+ "model": "otebl2.glb",
+ "instanced": true
+}

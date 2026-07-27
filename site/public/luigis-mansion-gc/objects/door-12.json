@@ -1,0 +1,26 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Door 12",
+ "animations": [
+  {
+   "id": "pull",
+   "loop": "once",
+   "clip": "pull",
+   "fps": 30
+  },
+  {
+   "id": "push",
+   "loop": "once",
+   "clip": "push",
+   "fps": 30
+  }
+ ],
+ "model": "door-12.glb",
+ "instanced": true,
+ "props": {
+  "clips": "pull opens toward the walker, push away; a full open-and-shut cycle each",
+  "source": "/Game/game_usa.szp iwamoto/door/door_12.bin"
+ }
+}

@@ -321,8 +321,8 @@ func (c *checker) checkLevel(p string, l *Level, assets map[string]*Asset, objec
 	layers := map[string]bool{}
 	rooms := map[int]bool{}
 	if l.Scene != nil {
-		if len(l.Scene.Layers) == 0 {
-			c.errf(p, "a scene needs at least one layer")
+		if len(l.Scene.Layers) == 0 && l.Scene.Rooms == nil && len(l.Placements) == 0 {
+			c.errf(p, "a scene needs at least one layer, a room graph, or placements")
 		}
 		exclusiveVisible := map[string]int{}
 		for i := range l.Scene.Layers {

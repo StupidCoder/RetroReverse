@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "o_chika1",
+ "model": "o-chika1.glb",
+ "instanced": true
+}

@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "pic35_5",
+ "model": "pic35-5.glb",
+ "instanced": true
+}

@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "wash",
+ "animations": [
+  {
+   "id": "wash_0",
+   "loop": "loop",
+   "clip": "wash_0",
+   "fps": 30
+  },
+  {
+   "id": "wash_1",
+   "loop": "once",
+   "clip": "wash_1",
+   "fps": 30
+  }
+ ],
+ "model": "wash.glb",
+ "instanced": true
+}

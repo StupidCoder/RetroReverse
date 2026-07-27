@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "hundle",
+ "animations": [
+  {
+   "id": "hundle_0",
+   "loop": "once",
+   "clip": "hundle_0",
+   "fps": 30
+  },
+  {
+   "id": "hundle_1",
+   "loop": "once",
+   "clip": "hundle_1",
+   "fps": 30
+  }
+ ],
+ "model": "hundle.glb",
+ "instanced": true
+}

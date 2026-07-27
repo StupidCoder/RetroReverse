@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "a_stai_1",
+ "model": "a-stai-1.glb",
+ "instanced": true
+}

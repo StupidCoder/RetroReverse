@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "oldbox",
+ "animations": [
+  {
+   "id": "oldbox_0",
+   "loop": "loop",
+   "clip": "oldbox_0",
+   "fps": 30
+  },
+  {
+   "id": "oldbox_1",
+   "loop": "once",
+   "clip": "oldbox_1",
+   "fps": 30
+  }
+ ],
+ "model": "oldbox.glb",
+ "instanced": true
+}

@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "a_tomb_2",
+ "model": "a-tomb-2.glb",
+ "instanced": true
+}

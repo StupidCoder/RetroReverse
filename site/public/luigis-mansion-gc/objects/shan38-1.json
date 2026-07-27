@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "shan38_1",
+ "model": "shan38-1.glb",
+ "instanced": true
+}

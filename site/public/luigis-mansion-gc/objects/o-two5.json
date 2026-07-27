@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "o_two5",
+ "model": "o-two5.glb",
+ "instanced": true
+}

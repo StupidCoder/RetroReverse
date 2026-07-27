@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "car25",
+ "model": "car25.glb",
+ "instanced": true
+}

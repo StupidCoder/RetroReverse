@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "sk13",
+ "model": "sk13.glb",
+ "instanced": true
+}

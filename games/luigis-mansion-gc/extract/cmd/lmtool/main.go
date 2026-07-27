@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"retroreverse.com/games/luigis-mansion-gc/extract/export"
 	"retroreverse.com/games/luigis-mansion-gc/extract/lm"
 	"retroreverse.com/tools/platform/gc"
 )
@@ -45,7 +46,12 @@ func main() {
 		return
 	}
 	if *bin != "" {
-		if err := binExport(*image, *bin, *out); err != nil {
+		src, err := export.Open(*image)
+		if err == nil {
+			defer src.Close()
+			err = export.BinExport(src, *bin, *out)
+		}
+		if err != nil {
 			fmt.Fprintln(os.Stderr, "lmtool:", err)
 			os.Exit(1)
 		}
@@ -68,7 +74,12 @@ func main() {
 		return
 	}
 	if *mdl != "" && *anim != "" {
-		if err := skinnedExport(*image, *mdl, *anim, *out, *inplace, *noflip); err != nil {
+		src, err := export.Open(*image)
+		if err == nil {
+			defer src.Close()
+			err = export.SkinnedExport(src, *mdl, *anim, *out, *inplace, *noflip)
+		}
+		if err != nil {
 			fmt.Fprintln(os.Stderr, "lmtool:", err)
 			os.Exit(1)
 		}
@@ -77,9 +88,15 @@ func main() {
 	}
 
 	if *mdl != "" {
-		m, name, err := mdlFromArchive(*image, *mdl)
+		src, err := export.Open(*image)
+		var m *lm.MDL
+		var name string
 		if err == nil {
-			err = staticGLB(m, *out, name)
+			defer src.Close()
+			m, name, err = export.MDLFromArchive(src, *mdl)
+		}
+		if err == nil {
+			err = export.StaticGLB(m, *out, name)
 		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "lmtool:", err)

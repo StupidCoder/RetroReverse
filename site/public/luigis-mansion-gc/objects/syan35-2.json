@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "syan35_2",
+ "model": "syan35-2.glb",
+ "instanced": true
+}

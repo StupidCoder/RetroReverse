@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Chest of drawers",
+ "animations": [
+  {
+   "id": "chest_0",
+   "loop": "loop",
+   "clip": "chest_0",
+   "fps": 30
+  },
+  {
+   "id": "chest_1",
+   "loop": "once",
+   "clip": "chest_1",
+   "fps": 30
+  }
+ ],
+ "model": "chest.glb",
+ "instanced": true
+}

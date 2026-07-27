@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "otana4",
+ "animations": [
+  {
+   "id": "otana4_0",
+   "loop": "loop",
+   "clip": "otana4_0",
+   "fps": 30
+  },
+  {
+   "id": "otana4_1",
+   "loop": "once",
+   "clip": "otana4_1",
+   "fps": 30
+  }
+ ],
+ "model": "otana4.glb",
+ "instanced": true
+}

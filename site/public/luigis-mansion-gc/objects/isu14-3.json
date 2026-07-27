@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "isu14_3",
+ "model": "isu14-3.glb",
+ "instanced": true
+}

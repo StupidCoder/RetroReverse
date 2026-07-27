@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "a_sofa_1",
+ "model": "a-sofa-1.glb",
+ "instanced": true
+}

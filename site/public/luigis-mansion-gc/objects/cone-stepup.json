@@ -1,0 +1,20 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Flashlight cone (steps)",
+ "animations": [
+  {
+   "id": "opsu_cone",
+   "loop": "once",
+   "description": "The shot's .key clip: hermite channels on the 30 fps demo timeline, root motion kept.",
+   "clip": "opsu_cone",
+   "fps": 30
+  }
+ ],
+ "model": "cone-stepup.glb",
+ "skinnedClone": true,
+ "props": {
+  "source": "/Ajioka/ADemo/opsu.szp:opsu_cone.mdl+opsu_cone.key"
+ }
+}

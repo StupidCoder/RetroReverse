@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "lamp1",
+ "animations": [
+  {
+   "id": "lamp1_0",
+   "loop": "once",
+   "clip": "lamp1_0",
+   "fps": 30
+  },
+  {
+   "id": "lamp1_1",
+   "loop": "once",
+   "clip": "lamp1_1",
+   "fps": 30
+  }
+ ],
+ "model": "lamp1.glb",
+ "instanced": true
+}

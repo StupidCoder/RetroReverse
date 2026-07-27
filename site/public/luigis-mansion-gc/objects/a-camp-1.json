@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "a_camp_1",
+ "model": "a-camp-1.glb",
+ "instanced": true
+}

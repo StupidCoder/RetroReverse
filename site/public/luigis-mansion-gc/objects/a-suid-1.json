@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "a_suid_1",
+ "model": "a-suid-1.glb",
+ "instanced": true
+}

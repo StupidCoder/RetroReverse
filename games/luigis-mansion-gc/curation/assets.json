@@ -1,0 +1,8 @@
+{
+ "mansion": "The whole mansion, streamed room by room. The storey areas peel the dollhouse: basement, ground floor, first floor, attic, and the exterior shells. Furniture placements come from Map/map2.szp jmp/furnitureinfo; doors from the door list in the game binary itself.",
+ "intro": "The opening cutscene's stage: the dark forest and the mansion approach with every intro actor. Play the script to watch the seven shots the game streams before the title — the cameras are the game's own hermite channels, baked per frame at 30 fps.",
+ "luigi-walk": "Luigi's 338-frame forest walk: a 122-node model with 64 skinning envelopes, driven by opwf_luigi.key. The .sls face shapes are applied at rest; the .slk talking-flap weight tracks are not yet exported.",
+ "mansion-set": "The mansion approach set, 1.87 MB of facade — shared by five of the seven intro shots, with op_mansion.key swaying its trees.",
+ "mansion-set-door": "The same facade driven by opod_mansion.key: the front door swings open for the final shot.",
+ "chest": "The chest of drawers. Its two clips are the rest pose and the vacuum interaction — chest_1 is what plays when the Poltergust yanks the drawers."
+}

@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "o_tora1",
+ "model": "o-tora1.glb",
+ "instanced": true
+}

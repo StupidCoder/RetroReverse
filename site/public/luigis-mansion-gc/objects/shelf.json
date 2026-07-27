@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "shelf",
+ "animations": [
+  {
+   "id": "shelf_0",
+   "loop": "loop",
+   "clip": "shelf_0",
+   "fps": 30
+  },
+  {
+   "id": "shelf_1",
+   "loop": "once",
+   "clip": "shelf_1",
+   "fps": 30
+  }
+ ],
+ "model": "shelf.glb",
+ "instanced": true
+}

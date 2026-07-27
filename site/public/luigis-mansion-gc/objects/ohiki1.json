@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "ohiki1",
+ "animations": [
+  {
+   "id": "ohiki1_0",
+   "loop": "loop",
+   "clip": "ohiki1_0",
+   "fps": 30
+  },
+  {
+   "id": "ohiki1_1",
+   "loop": "once",
+   "clip": "ohiki1_1",
+   "fps": 30
+  }
+ ],
+ "model": "ohiki1.glb",
+ "instanced": true
+}

@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "o_e3",
+ "model": "o-e3.glb",
+ "instanced": true
+}

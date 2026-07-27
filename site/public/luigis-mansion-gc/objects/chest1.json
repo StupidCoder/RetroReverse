@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "chest1",
+ "animations": [
+  {
+   "id": "chest1_0",
+   "loop": "once",
+   "clip": "chest1_0",
+   "fps": 30
+  },
+  {
+   "id": "chest1_1",
+   "loop": "once",
+   "clip": "chest1_1",
+   "fps": 30
+  }
+ ],
+ "model": "chest1.glb",
+ "instanced": true
+}

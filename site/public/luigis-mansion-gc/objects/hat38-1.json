@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "hat38_1",
+ "model": "hat38-1.glb",
+ "instanced": true
+}

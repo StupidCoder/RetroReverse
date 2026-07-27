@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "tana1",
+ "animations": [
+  {
+   "id": "tana1_0",
+   "loop": "once",
+   "clip": "tana1_0",
+   "fps": 30
+  },
+  {
+   "id": "tana1_1",
+   "loop": "once",
+   "clip": "tana1_1",
+   "fps": 30
+  }
+ ],
+ "model": "tana1.glb",
+ "instanced": true
+}

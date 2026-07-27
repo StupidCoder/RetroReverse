@@ -1,0 +1,20 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "The dark forest",
+ "animations": [
+  {
+   "id": "opwf_bg",
+   "loop": "once",
+   "description": "The shot's .key clip: hermite channels on the 30 fps demo timeline, root motion kept.",
+   "clip": "opwf_bg",
+   "fps": 30
+  }
+ ],
+ "model": "forest.glb",
+ "skinnedClone": true,
+ "props": {
+  "source": "/Ajioka/ADemo/opwf.szp:opwf_bg.mdl+opwf_bg.key"
+ }
+}

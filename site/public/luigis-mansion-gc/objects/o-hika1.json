@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "o_hika1",
+ "model": "o-hika1.glb",
+ "instanced": true
+}

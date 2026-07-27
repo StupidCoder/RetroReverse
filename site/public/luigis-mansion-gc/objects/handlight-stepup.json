@@ -1,0 +1,20 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Luigi's flashlight (steps)",
+ "animations": [
+  {
+   "id": "opsu_handlight",
+   "loop": "once",
+   "description": "The shot's .key clip: hermite channels on the 30 fps demo timeline, root motion kept.",
+   "clip": "opsu_handlight",
+   "fps": 30
+  }
+ ],
+ "model": "handlight-stepup.glb",
+ "skinnedClone": true,
+ "props": {
+  "source": "/Ajioka/ADemo/opsu.szp:opsu_handlight.mdl+opsu_handlight.key"
+ }
+}

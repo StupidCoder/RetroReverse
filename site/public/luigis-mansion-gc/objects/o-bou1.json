@@ -1,0 +1,8 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "o_bou1",
+ "model": "o-bou1.glb",
+ "instanced": true
+}

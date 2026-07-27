@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "oto2",
+ "animations": [
+  {
+   "id": "oto2_0",
+   "loop": "loop",
+   "clip": "oto2_0",
+   "fps": 30
+  },
+  {
+   "id": "oto2_1",
+   "loop": "once",
+   "clip": "oto2_1",
+   "fps": 30
+  }
+ ],
+ "model": "oto2.glb",
+ "instanced": true
+}
