@@ -39,19 +39,24 @@ The foundation everything else stands on. A room must look *right* before 74 of 
    are the game's flashlight lighting, the door leaf (separate asset), and furniture
    (separate bins, Phase 2).
 
-## Phase 2 — furniture, complete with animation
+## Phase 2 — furniture, complete with animation ✅ core (2026-07-27, cc0514a9 / 3cbdf75b)
 
-1. **Sweep all furniture bins** in all room arcs (they repeat across rooms — dedupe by
-   content hash, keep the game's own names: oisu the chair, otukue the tea table, …).
-   Fix what the sweep turns up (the odd attribute mask, the `[13]/[14]` material-stage
-   sections richer furniture uses — decode them from `0x8001DBF8`'s stage path).
-2. **The `.anm` format** — furniture animation (drawers, lids, curtains; `anm/ota1_0.anm`).
-   Same method as always: find the evaluator via rwatch/callers; expect another wearing of
-   the hermite-channel mechanism. Export as glTF animations on the furniture GLBs.
-3. **The `.bas` files** (168 B, one per animated prop in the demos too) — likely the actor's
-   base/placement record; small, decode opportunistically.
-4. **Acceptance**: a furniture gallery section in the Studio, animated where the game
-   animates (a chest opening, the toilet lid).
+1. ~~**Sweep all furniture bins**~~ — `lmtool -mansion` sweeps all 75 arcs: 451 unique
+   furniture GLBs (content-hash dedupe, game names kept, numbered variants on collision),
+   all parsing cleanly under the exact attribute-mask decode. **Bonus: the placement
+   database fell out of this phase** — `Map/map2.szp jmp/furnitureinfo` (JMap format,
+   `lm/jmp.go`) places every piece per room; `placements.json` + the Studio's `lm-room`
+   renderer assemble rooms as shell + instanced furniture (the SM64DS model).
+2. ~~**The `.anm` format**~~ — cracked and verified (binder `0x8001DE90`, evaluator
+   `0x8001E04C`): 9 hermite channels per graph node over three pools, TRS-replacing;
+   the rest clip reproduces the `.bin` graph bit-exact. Furniture GLBs carry one glTF
+   animation per clip; the gallery click-cycles them (chest drawer confirmed visually).
+3. **The `.bas` files** — still open (interaction metadata; decode opportunistically).
+4. ~~**Acceptance**~~: the Studio gallery (tea table, chair, toilet, chest, mirror,
+   chandelier, tool cabinet) with animations playing where the game has them.
+
+Remaining Phase 2 polish: the `[13]/[14]` material-stage sections + TEX1 blending used
+by the six two-stage rooms (63/65/66/67, b1_c_67, gyara_00).
 
 ## Phase 3 — room placement: assembling the mansion
 
