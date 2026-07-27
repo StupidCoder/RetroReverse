@@ -87,7 +87,9 @@ by the six two-stage rooms (63/65/66/67, b1_c_67, gyara_00).
 3. **Performance**: shells stream 6-at-a-time with a shared furniture cache (~58 MB
    total, in line with the site's bigger games); KTX2 only if it ever hurts.
 4. **Stretch**: the dark-ambient flashlight preset; the `[13]/[14]` material-stage
-   sections + TEX1 blending for the six two-stage rooms; `.bas` interaction records.
+   sections + TEX1 blending for the six two-stage rooms. (~~`.bas`~~ decoded: the
+   clips' sound-cue tracks, direction-aware — audible only once JAudio SE synthesis
+   exists, see the writeup.)
 
 ## Standing items
 

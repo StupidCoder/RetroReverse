@@ -459,9 +459,19 @@ TRS *replaces* the node's own, which is also the decode's verification: `chest_0
 channels. `chest_1` then slides the drawer node out (`tz` keys 19→64 over 15 frames)
 — the visible "chest opens" moment. `lmtool -mansion` exports any furniture with clips
 through a node-hierarchy GLB (`binGLBAnimated`) carrying one glTF animation per clip;
-the Studio's gallery plays them (click cycles clips). Still unread: the 136–264-byte
-`.bas` records that pair with animated furniture (interaction metadata — trigger
-volumes and sounds by the look of the floats).
+the Studio's gallery plays them (click cycles clips).
+
+The `.bas` files that pair with the interaction clips (`chest_1.bas` ↔ `chest_1.anm`)
+are the clips' **sound-cue tracks**: `{u16 count, u16, u32}` then 32-byte records
+`{u32 soundID, f32 start, f32 end, f32 scale, u32 direction, u8 volume, u8 pan,
+u16 flags}`. The timestamps live on the paired clip's timeline (chest cues at frames
+0/9.03/12.93 of its 15; the chandelier at 0/60/75/171/296 of its 300), sustained cues
+carry a nonzero end (the chain rattle holds 0→60), one-shots end at 0 — and the records
+come in mirrored pairs with the times swapped and the direction field flipped (0x01/0x11
+forward, 0x02/0x12 backward): the game plays the same clips in reverse to close the
+furniture, with its own cue set, exactly the interaction the Studio viewers mimic.
+Sound IDs are JAudio effect-bank entries (0x10xx/0x18xx); making them audible means
+synthesizing the `AudioRes` banks — an audio project for another day.
 
 ## Part XII — the assembled mansion
 
