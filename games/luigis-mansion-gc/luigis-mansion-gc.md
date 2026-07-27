@@ -480,11 +480,29 @@ FlyCam to walk the halls, and the same click-to-vacuum furniture as the single-r
 viewer. Standing in the assembled foyer, the archway that was a black hole in the
 single-room export now opens into the parlor beyond it.
 
-Doors are the one thing the map data does not place: no `jmp/` table names the
-`iwamoto/door/door_NN.bin` leaves (checked every table in `map2.szp`), so their
-per-opening placement lives in a DOL-side structure — the open item for the full
-dollhouse. `room_41` is a 10-unit dummy box far outside the building; `syan45`'s
-chandelier record names a member that was cut from `room_45.arc`.
+**The doors** live in the DOL, not in any file. The map-info header at `0x8030377C`
+(GLME01/USA) carries the room table at +0x14 (74 × 48 B) and the **door list** at +0x18:
+28-byte records `{u8 axis, u8 flag, …, u8 type@6, u8 id@7, s32 pos[3]@8, …,
+u16 size[3]@20, u8 roomA@26, u8 roomB@27}`, terminated by axis 0 — 72 openings, each
+naming the two rooms it connects. axis 1 faces z, 2 faces x, 4 is a floor opening; one
+size component is zero (the thin axis). A word of 255 at +4 is a doorless archway (18 of
+them, the check the panel counter at `0x8001A0C0` makes); otherwise the type byte indexes
+the 20-byte table at `0x802FF95C` — `{u8 kind (2 = double), …, u8 model@19}` — whose
+model names `/iwamoto/Door/{saku,door_NN}.bin` via the path table at `0x802FF868`
+(54 leafed doors: door_01 ×30, door_09 ×13, three doubles). The leaf models are 200×300
+`.bin`s whose leaf node sits at +100 (the GLB is centred on its opening, hinge node on
+the jamb); the swing `.anm`s (`pull`/`push`) are complete open-and-shut cycles — the
+game plays them as Luigi walks through, so the Studio holds a clicked door at the
+swing's apex and runs it backwards on the next click. `lmtool -mansion` exports
+`doors/*.glb` and a `doors` array in placements.json; `lm-mansion` hinges singles at
+the record position and doubles at ±(width−200)/2, mirrored.
+
+The mansion also peels: every shell (and its furniture and doors) is grouped by storey —
+basement / ground / first / attic by the shell's lowest y — and the Studio's layer
+toggles strip the dollhouse floor by floor, exterior and roof on their own switch.
+
+`room_41` is a 10-unit dummy box far outside the building; `syan45`'s chandelier record
+names a member that was cut from `room_45.arc`.
 
 ## Open items
 

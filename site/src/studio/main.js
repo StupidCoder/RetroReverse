@@ -355,6 +355,10 @@ const GAMES = [
     layers: [
       { id: 'wireframe', label: 'Wireframe', default: false },
       { id: 'exterior', label: 'Exterior shell', default: true, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'lm-mansion' },
+      { id: 'attic', label: 'Attic', default: true, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'lm-mansion' },
+      { id: 'first', label: 'First floor', default: true, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'lm-mansion' },
+      { id: 'ground', label: 'Ground floor', default: true, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'lm-mansion' },
+      { id: 'basement', label: 'Basement', default: true, when: (m) => m.leaves?.[m.currentIdx]?.level?.kind === 'lm-mansion' },
     ],
     group: (item) => ({ section: item.section || 'Opening cutscene', label: item.name }),
   },

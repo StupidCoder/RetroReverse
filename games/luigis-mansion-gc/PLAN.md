@@ -68,26 +68,26 @@ by the six two-stage rooms (63/65/66/67, b1_c_67, gyara_00).
    `lmtool -mansion` output); ALL rooms + furniture now ship in the Studio, streamed by
    the new `lm-mansion` renderer with a shared furniture cache and an exterior layer
    (on = the mansion on its grounds, off = the dollhouse cutaway).
-3. **Doors**: open — no `jmp/` table names the door leaves; their placement is a
-   DOL-side structure (find it via the door-actor construction around the loader at
-   `0x8001A050`).
+3. ~~**Doors**~~: FOUND — the DOL's map-info header (0x8030377C) points at a 72-record
+   door list: position, axis, size, type (→ door model via the 20-byte table at
+   0x802FF95C), and the two rooms each opening connects. All 54 leafed doors now hang
+   in the assembled mansion, swing open on click (held at the apex — the game's clips
+   are full open-and-shut cycles) and shut on the next.
 4. ~~**Acceptance**~~: the mansion orbits/flies as one building, rooms in true position;
    the foyer's archway opens into the parlor behind it.
 
-## Phase 4 — the full sweep and the Studio centrepiece
+## Phase 4 — the full sweep and the Studio centrepiece (doors + floors done 2026-07-27)
 
-1. **All 74 rooms + furniture placed inside them** (room arcs contain their furniture;
-   placement of furniture within a room needs the same investigation as Phase 3 — the
-   `.bas` records and the room's `keyper`-style tables are the suspects).
-2. **Viewer work**: an `lm-mansion` renderer — per-room visibility toggles (the game's own
-   trick: rooms light up as you enter), a floor slider, and the existing camera-track
-   machinery for a fly-through.
-3. **Performance**: 74 rooms of GLB is tens of MB — lazy-load per room, share repeated
-   furniture GLBs by hash, and consider KTX2/basis if it gets heavy (weigh against the
-   site's no-build convention).
-4. **Stretch**: room lighting. The game's look is flashlight + darkness; vertex colours
-   (Phase 1) plus a dark-ambient viewer preset would land the mood without a lighting
-   engine.
+1. ~~**All 74 rooms + furniture placed inside them**~~ — shipped with Phase 3 (the
+   furniture placement came straight from `jmp/furnitureinfo`, no `.bas` needed).
+2. **Viewer work**: ~~`lm-mansion` renderer~~ ✅; ~~floor slider~~ ✅ (storey layers:
+   basement/ground/first/attic peel the dollhouse, exterior+roof separate);
+   ~~doors~~ ✅ (placed from the DOL list, click to swing). Still open: a camera-track
+   fly-through, per-room highlight on entry.
+3. **Performance**: shells stream 6-at-a-time with a shared furniture cache (~58 MB
+   total, in line with the site's bigger games); KTX2 only if it ever hurts.
+4. **Stretch**: the dark-ambient flashlight preset; the `[13]/[14]` material-stage
+   sections + TEX1 blending for the six two-stage rooms; `.bas` interaction records.
 
 ## Standing items
 

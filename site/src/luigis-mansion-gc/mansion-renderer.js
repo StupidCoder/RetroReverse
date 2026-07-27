@@ -30,8 +30,20 @@ export default {
     const placements = await fetch(base + 'placements.json').then((r) => r.json());
     const rooms = placements.rooms || [];
 
+    // Floor groups: each shell lands in the group of its lowest storey, so
+    // the floor toggles peel the dollhouse layer by layer.
+    const floors = {
+      attic: new THREE.Group(),
+      first: new THREE.Group(),
+      ground: new THREE.Group(),
+      basement: new THREE.Group(),
+    };
+    for (const g of Object.values(floors)) group.add(g);
+    const floorOf = (minY) => (minY < -300 ? 'basement' : minY < 300 ? 'ground' : minY < 900 ? 'first' : 'attic');
+
     stage.setLayer = (id, on) => {
       if (id === 'exterior') exterior.visible = !!on;
+      else if (floors[id]) floors[id].visible = !!on;
     };
 
     // Camera: over the front lawn, looking into the foyer front. The
@@ -77,8 +89,13 @@ export default {
         const entry = rooms[i];
         try {
           const gltf = await loader.loadAsync(base + 'models/' + entry.model);
-          (EXTERIOR.has(entry.room) ? exterior : group).add(gltf.scene);
-          const res = await furnishRoom({ loader, base, entry, group, cache, mixers, clickable });
+          let dest = exterior;
+          if (!EXTERIOR.has(entry.room)) {
+            const box = new THREE.Box3().setFromObject(gltf.scene);
+            dest = floors[floorOf(box.min.y)];
+          }
+          dest.add(gltf.scene);
+          const res = await furnishRoom({ loader, base, entry, group: dest, cache, mixers, clickable });
           placed += res.placed;
           animated += res.animated;
         } catch { /* a missing room leaves a gap, not a broken build */ }
@@ -86,8 +103,74 @@ export default {
         hud();
       }
     };
+    // Doors: the DOL-side list — each record an opening between two rooms;
+    // leafed ones get their door model hinged into it. The record's position
+    // is the opening's centre; the leaf model is 200x300 with the hinge at
+    // its local x=0 edge, so a single leaf sits at +width/2 (hinge on the
+    // right jamb) and a double adds a mirrored leaf on the left. Axis 2
+    // turns the plane onto x; axis 4 lays it flat (a trapdoor). Doors click
+    // open and closed like the furniture (the swing clips ride in the GLB).
+    const doorWatch = [];
+    const placeDoors = async () => {
+      for (const dr of placements.doors || []) {
+        if (!dr.model) continue;
+        if (!cache[dr.model]) {
+          cache[dr.model] = loader.loadAsync(base + 'models/' + dr.model).then((g) => g, () => null);
+        }
+        const proto = await cache[dr.model];
+        if (!proto) continue;
+        const holder = new THREE.Group();
+        holder.position.set(dr.pos[0], dr.pos[1], dr.pos[2]);
+        if (dr.axis === 2) holder.rotation.y = Math.PI / 2;
+        if (dr.axis === 4) holder.rotation.x = Math.PI / 2;
+        // The leaf GLB is centred on its opening (the mesh hangs -200..0 off
+        // a node at +100, putting the hinge node on the right edge): a
+        // single leaf sits at the record position; a double's two leaves
+        // shift half an opening each way, mirrored, hinges on the jambs.
+        const w = (dr.axis === 2 ? dr.size[2] : dr.size[0]) || 200;
+        const h = dr.size[1] || 300;
+        const off = Math.max(0, (w - 200) / 2);
+        const leaves = dr.double ? [[off, 1], [-off, -1]] : [[0, 1]];
+        for (const [x, sx] of leaves) {
+          const inst = proto.scene.clone(true);
+          const leaf = new THREE.Group();
+          leaf.position.set(x, -h / 2, 0);
+          leaf.scale.set(sx, 1, 1);
+          leaf.add(inst);
+          holder.add(leaf);
+          // The swing clips are a complete open-and-shut cycle (the game
+          // plays them as Luigi walks through); clicking holds the leaf at
+          // the swing's apex instead, and clicking again runs it back shut.
+          const clips = proto.animations || [];
+          const clip = clips[clips.length - 1];
+          if (clip) {
+            const mixer = new THREE.AnimationMixer(inst);
+            const action = mixer.clipAction(clip);
+            action.loop = THREE.LoopOnce;
+            action.clampWhenFinished = true;
+            const apex = clip.duration / 2;
+            leaf.userData.toggle = () => {
+              const open = leaf.userData.open;
+              action.timeScale = open ? -1 : 1;
+              if (!open && action.time >= apex) action.time = 0;
+              if (open && action.time <= 0) action.time = apex;
+              action.paused = false;
+              action.enabled = true;
+              action.play();
+              leaf.userData.open = !open;
+            };
+            doorWatch.push({ action, apex, leaf });
+            mixers.push(mixer);
+            clickable.push(leaf);
+          }
+        }
+        floors[floorOf(dr.pos[1] - h / 2)].add(holder);
+      }
+    };
+
     const workers = [];
     for (let i = 0; i < 6; i++) workers.push(worker());
+    workers.push(placeDoors());
     // The build returns once the first few rooms are visible; the rest
     // keep streaming in the background.
     await Promise.race([Promise.all(workers), new Promise((r) => setTimeout(r, 1500))]);
@@ -98,6 +181,13 @@ export default {
       if (prev) prev(camPos, dt);
       flycam.update(dt);
       for (const m of mixers) m.update(dt || 0);
+      // Hold opening doors at the swing's apex.
+      for (const w of doorWatch) {
+        if (w.leaf.userData.open && w.action.timeScale > 0 && w.action.time >= w.apex) {
+          w.action.time = w.apex;
+          w.action.paused = true;
+        }
+      }
     };
     stage.disposePlugin = () => {
       flycam.dispose();
