@@ -57,9 +57,30 @@ export class Stage {
   _resize() {
     const w = this.el.clientWidth, h = this.el.clientHeight;
     if (!w || !h) return;
-    this.renderer.setSize(w, h, false);
+    if (this.native) {
+      // Native-resolution mode (screen filter active): render at the game's
+      // vertical resolution — the width follows the viewport's aspect — and
+      // upscale pixelated, so the CRT's scanlines land one per game line.
+      const nh = this.native.h, nw = Math.max(2, Math.round((w / h) * nh));
+      this.renderer.setPixelRatio(1);
+      this.renderer.setSize(nw, nh, false);
+      this.canvas.style.width = '100%';
+      this.canvas.style.height = '100%';
+      this.canvas.style.imageRendering = 'pixelated';
+    } else {
+      this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      this.renderer.setSize(w, h, false);
+      this.canvas.style.imageRendering = '';
+    }
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+  }
+
+  // setNative switches the render buffer to the game's native resolution
+  // (screen-filter authenticity) or back to display resolution (null).
+  setNative(size) {
+    this.native = size && size.h ? size : null;
+    this._resize();
   }
 
   // frame fits the camera to an object (used when the document has no pose).

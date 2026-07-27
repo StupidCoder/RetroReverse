@@ -354,6 +354,10 @@ export async function mount(ctx, doc) {
     sources: () => [stage.canvas],
     setWireframe(on) { for (const r of roots) applyWireframe(r, on); },
     setVariant(id) { activeVariant = id; applyVariant(); },
+    setNative(size) { stage.setNative(size); },
+    pixelGrid: () => (stage.native
+      ? { cell: el.clientHeight / stage.native.h, ox: 0, oy: 0, ref: el.clientWidth }
+      : null),
     stats: () => {
       let tris = 0, meshes = 0;
       stage.scene.traverse((o) => {

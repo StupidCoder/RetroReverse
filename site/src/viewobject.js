@@ -338,6 +338,10 @@ async function mount3D(ctx, doc) {
       list.remove(); hud.remove(); tp?.remove();
     },
     sources: () => [stage.canvas],
+    setNative(size) { stage.setNative(size); },
+    pixelGrid: () => (stage.native
+      ? { cell: el.clientHeight / stage.native.h, ox: 0, oy: 0, ref: el.clientWidth }
+      : null),
     setWireframe(on) { applyWireframe(inst.node, on); },
     stats: () => {
       let tris = 0, verts = 0, mats = new Set(), bones = 0;

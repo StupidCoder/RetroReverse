@@ -214,6 +214,8 @@ function buildTopbar(game, asset, params) {
       filterOn = !filterOn;
       screenFx.setEnabled(filterOn);
       fb.classList.toggle('on', filterOn);
+      // 3D views drop to the game's native resolution under the filter
+      current?.view?.setNative?.(filterOn ? game.display.native : null);
     };
   }
 
@@ -274,6 +276,8 @@ function wireViewButtons(game, view) {
   if (screenFx) {
     screenFx.source = () => (view.sources ? view.sources() : []);
     screenFx.pixelGrid = () => (view.pixelGrid ? view.pixelGrid() : null);
+    // a view mounted while the filter is on starts in native-resolution mode
+    if (filterOn && game.display.filter && screenFx.ok) view.setNative?.(game.display.native);
   }
 }
 
