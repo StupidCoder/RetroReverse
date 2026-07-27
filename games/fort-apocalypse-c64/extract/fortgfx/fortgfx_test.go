@@ -271,7 +271,7 @@ func TestObstacleChars(t *testing.T) {
 	g := loadTestGame(t)
 	got := g.ObstacleChars()
 	// The 22-byte table at $A45D ($9A8F loops LDX #$15). It includes $00 and
-	// $20: tanks reverse at empty air and water.
+	// $20: tanks reverse at empty air and the barrier.
 	want := []byte{
 		0x40, 0x5B, 0x5C, 0x5D, 0x5E, 0x5F, 0x3B, 0x3C, 0x3D, 0x3E, 0x49,
 		0x4A, 0x6C, 0x6D, 0x6E, 0x6F, 0x70, 0x71, 0x72, 0x61, 0x00, 0x20,

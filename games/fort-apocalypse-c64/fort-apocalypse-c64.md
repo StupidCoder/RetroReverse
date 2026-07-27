@@ -914,7 +914,7 @@ $A45D: 40 5B 5C 5D 5E 5F 3B 3C 3D 3E 49 4A 6C 6D 6E 6F 70 71 72 61 00 20
 ```
 
 — the movers (mines, prisoners, other tanks, missiles) plus,
-notably, **$00 and $20**: a tank reverses at empty air and water,
+notably, **$00 and $20**: a tank reverses at empty air and the barrier,
 and drives *through* every other background char (fences, pads,
 rubble), saving the 3 cells it covers in $D6+3X and restoring them
 behind itself. Dies (→ three $20 cells for 10 ticks) when a

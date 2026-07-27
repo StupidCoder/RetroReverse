@@ -35,7 +35,7 @@ const (
 	dropPointTbl    = 0x98DA // 4 cavern drop points: $57,$59,$56,$58,$65,$66 presets
 	barrierPattern  = 0x8907 // 32 bytes: energy barrier chars 1-4
 	barrierTop      = 0x891F // 8 bytes: barrier cap char 9
-	waterPattern    = 0xA927 // 8 bytes: water/static chars $20/$3F
+	barrierStatic   = 0xA927 // 8 bytes: barrier/static chars $20/$3F
 	hudCharsetSrc   = 0xB298 // raw HUD charset stream -> $500F+
 	playCharsetSrc  = 0xB561 // raw playfield charset stream -> $5908+
 	spritePtrTable  = 0x86F3 // 14 words: packed sprite shape locations
@@ -104,9 +104,9 @@ func (g *Game) PlayfieldCharset() []byte {
 	for i := 0x0E * 8; i < 0x0F*8; i++ {
 		cs[i] = 0x55
 	}
-	// $A8F3: water/static chars $20 and $3F (pattern, sans noise)
-	copy(cs[0x20*8:], g.mem[waterPattern:waterPattern+8])
-	copy(cs[0x3F*8:], g.mem[waterPattern:waterPattern+8])
+	// $A8F3: barrier/static chars $20 and $3F (pattern, sans noise)
+	copy(cs[0x20*8:], g.mem[barrierStatic:barrierStatic+8])
+	copy(cs[0x3F*8:], g.mem[barrierStatic:barrierStatic+8])
 	return cs
 }
 
@@ -289,7 +289,7 @@ func (g *Game) MulticolorValue(level int) byte {
 // ObstacleChars returns the tank engine's 22-entry obstacle table at $A45D:
 // the characters a tank refuses to drive onto — walls, the movers (mines,
 // prisoners, other tanks, missiles), and notably $00 and $20, so a tank
-// reverses at empty air and water while driving *through* every other
+// reverses at empty air and the barrier while driving *through* every other
 // background char (which it saves and restores).
 func (g *Game) ObstacleChars() []byte {
 	return g.mem[obstacleTable : obstacleTable+obstacleLen]

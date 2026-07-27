@@ -36,7 +36,7 @@
    "category": "object",
    "name": "Tank",
    "group": "Vaults of Draconis",
-   "description": "A character-based enemy, six per level (engine $992A). Three body cells plus a turret that always aims at the player. The six patrol horizontally in lockstep — one shared countdown steps them all together — turning back only at open air or water and driving straight through every other kind of terrain; they respawn at fixed home positions once cleared. Each can launch one homing missile when the player passes within range above it. An explosion character or a missile in its cell destroys it.",
+   "description": "A character-based enemy, six per level (engine $992A). Three body cells plus a turret that always aims at the player. The six patrol horizontally in lockstep — one shared countdown steps them all together — turning back only at open air or the barrier and driving straight through every other kind of terrain; they respawn at fixed home positions once cleared. Each can launch one homing missile when the player passes within range above it. An explosion character or a missile in its cell destroys it.",
    "file": "objects/tank-vaults.json"
   },
   {
@@ -44,7 +44,7 @@
    "category": "object",
    "name": "Tank",
    "group": "Crystalline Caves",
-   "description": "A character-based enemy, six per level (engine $992A). Three body cells plus a turret that always aims at the player. The six patrol horizontally in lockstep — one shared countdown steps them all together — turning back only at open air or water and driving straight through every other kind of terrain; they respawn at fixed home positions once cleared. Each can launch one homing missile when the player passes within range above it. An explosion character or a missile in its cell destroys it.",
+   "description": "A character-based enemy, six per level (engine $992A). Three body cells plus a turret that always aims at the player. The six patrol horizontally in lockstep — one shared countdown steps them all together — turning back only at open air or the barrier and driving straight through every other kind of terrain; they respawn at fixed home positions once cleared. Each can launch one homing missile when the player passes within range above it. An explosion character or a missile in its cell destroys it.",
    "file": "objects/tank-caves.json"
   },
   {
