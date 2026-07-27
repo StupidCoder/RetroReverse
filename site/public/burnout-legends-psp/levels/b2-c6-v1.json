@@ -1,0 +1,30 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [2704.5, 49.5, -61.5],
+  "target": [2648, 43.5, 59],
+  "fov": 55,
+  "near": 0.5,
+  "far": 30000,
+  "fly": {
+   "speed": 120
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "track",
+    "file": "track-B2_C6_V1.glb"
+   },
+   {
+    "id": "environment",
+    "name": "Environment",
+    "file": "track-B2_C6_V1_env.glb",
+    "mode": "toggle"
+   }
+  ]
+ }
+}

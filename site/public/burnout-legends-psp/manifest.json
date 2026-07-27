@@ -1,1198 +1,888 @@
 {
-  "format": 2,
-  "game": "burnout-legends-psp",
-  "platform": "Sony PSP",
+ "format": "retro-x",
+ "version": 1,
+ "id": "burnout-legends-psp",
+ "title": "Burnout Legends",
+ "platform": "Sony PSP",
+ "year": 2005,
+ "description": "Criterion's handheld Burnout — the PSP title whose oracle cold-boots into the menus and races at 121 MPH. All 34 tracks are rebuilt from their static and streamed data: the drivable world assembled from the streaming cells (whose offsets are relative — the tell that the engine streams), the static environment as a toggleable layer, and each track opening on the road at its first streaming cell, looking down the racing line. Every vehicle ships at its highest detail level, drawn opaque exactly as the GE renders it.",
+ "display": {
   "native": {
-    "h": 272,
-    "w": 480
+   "w": 480,
+   "h": 272
   },
   "tickHz": 60,
-  "models": [
-    {
-      "name": "AS C1 V1",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-AS_C1_V1.glb",
-      "env": "models/track-AS_C1_V1_env.glb",
-      "spawn": {
-        "pos": [
-          1884.5,
-          18,
-          1616.5
-        ],
-        "target": [
-          1810.5,
-          18,
-          1652
-        ]
-      }
-    },
-    {
-      "name": "AS C1 V2",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-AS_C1_V2.glb",
-      "env": "models/track-AS_C1_V2_env.glb",
-      "spawn": {
-        "pos": [
-          1908,
-          18,
-          1615
-        ],
-        "target": [
-          1928,
-          18,
-          1550.5
-        ]
-      }
-    },
-    {
-      "name": "AS C2 V1",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-AS_C2_V1.glb",
-      "env": "models/track-AS_C2_V1_env.glb",
-      "spawn": {
-        "pos": [
-          -429,
-          39,
-          1067.5
-        ],
-        "target": [
-          -486,
-          39,
-          1281
-        ]
-      }
-    },
-    {
-      "name": "AS C2 V2",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-AS_C2_V2.glb",
-      "env": "models/track-AS_C2_V2_env.glb",
-      "spawn": {
-        "pos": [
-          -429,
-          39,
-          1067.5
-        ],
-        "target": [
-          -149,
-          39,
-          1250.5
-        ]
-      }
-    },
-    {
-      "name": "AS C3 V1",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-AS_C3_V1.glb",
-      "env": "models/track-AS_C3_V1_env.glb",
-      "spawn": {
-        "pos": [
-          828.5,
-          8,
-          6703
-        ],
-        "target": [
-          924,
-          8,
-          6719
-        ]
-      }
-    },
-    {
-      "name": "AS C3 V2",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-AS_C3_V2.glb",
-      "env": "models/track-AS_C3_V2_env.glb",
-      "spawn": {
-        "pos": [
-          828.5,
-          8,
-          6703
-        ],
-        "target": [
-          746.5,
-          8,
-          6704
-        ]
-      }
-    },
-    {
-      "name": "B1 C1 V1",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-B1_C1_V1.glb",
-      "env": "models/track-B1_C1_V1_env.glb",
-      "spawn": {
-        "pos": [
-          -82,
-          4.5,
-          1147
-        ],
-        "target": [
-          -49.5,
-          4.5,
-          1050.5
-        ]
-      }
-    },
-    {
-      "name": "B1 C1 V2",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-B1_C1_V2.glb",
-      "env": "models/track-B1_C1_V2_env.glb",
-      "spawn": {
-        "pos": [
-          -82,
-          4.5,
-          1147
-        ],
-        "target": [
-          -143,
-          4.5,
-          1195
-        ]
-      }
-    },
-    {
-      "name": "B2 C1 V1",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-B2_C1_V1.glb",
-      "env": "models/track-B2_C1_V1_env.glb",
-      "spawn": {
-        "pos": [
-          -1856,
-          66,
-          502
-        ],
-        "target": [
-          -2035.5,
-          66,
-          579
-        ]
-      }
-    },
-    {
-      "name": "B2 C1 V2",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-B2_C1_V2.glb",
-      "env": "models/track-B2_C1_V2_env.glb",
-      "spawn": {
-        "pos": [
-          -1856,
-          66,
-          502
-        ],
-        "target": [
-          -1662,
-          66,
-          369
-        ]
-      }
-    },
-    {
-      "name": "B2 C2 V1",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-B2_C2_V1.glb",
-      "env": "models/track-B2_C2_V1_env.glb",
-      "spawn": {
-        "pos": [
-          -2291,
-          63.5,
-          455
-        ],
-        "target": [
-          -2071.5,
-          63.5,
-          578
-        ]
-      }
-    },
-    {
-      "name": "B2 C2 V2",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-B2_C2_V2.glb",
-      "env": "models/track-B2_C2_V2_env.glb",
-      "spawn": {
-        "pos": [
-          -2291,
-          63.5,
-          455
-        ],
-        "target": [
-          -2380.5,
-          63.5,
-          564.5
-        ]
-      }
-    },
-    {
-      "name": "B2 C3 V1",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-B2_C3_V1.glb",
-      "env": "models/track-B2_C3_V1_env.glb",
-      "spawn": {
-        "pos": [
-          -791.5,
-          18.5,
-          -2069.5
-        ],
-        "target": [
-          -682.5,
-          18.5,
-          -2099.5
-        ]
-      }
-    },
-    {
-      "name": "B2 C3 V2",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-B2_C3_V2.glb",
-      "env": "models/track-B2_C3_V2_env.glb",
-      "spawn": {
-        "pos": [
-          -791.5,
-          18.5,
-          -2069.5
-        ],
-        "target": [
-          -946.5,
-          18.5,
-          -2021.5
-        ]
-      }
-    },
-    {
-      "name": "B2 C4 V1",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-B2_C4_V1.glb",
-      "env": "models/track-B2_C4_V1_env.glb",
-      "spawn": {
-        "pos": [
-          -147,
-          56.5,
-          -2173.5
-        ],
-        "target": [
-          -267.5,
-          56.5,
-          -2284
-        ]
-      }
-    },
-    {
-      "name": "B2 C4 V2",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-B2_C4_V2.glb",
-      "env": "models/track-B2_C4_V2_env.glb",
-      "spawn": {
-        "pos": [
-          -147,
-          56.5,
-          -2173.5
-        ],
-        "target": [
-          5.5,
-          56.5,
-          -2018
-        ]
-      }
-    },
-    {
-      "name": "B2 C5 V1",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-B2_C5_V1.glb",
-      "env": "models/track-B2_C5_V1_env.glb",
-      "spawn": {
-        "pos": [
-          720,
-          105.5,
-          -520.5
-        ],
-        "target": [
-          688.5,
-          105.5,
-          -258.5
-        ]
-      }
-    },
-    {
-      "name": "B2 C5 V2",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-B2_C5_V2.glb",
-      "env": "models/track-B2_C5_V2_env.glb",
-      "spawn": {
-        "pos": [
-          720,
-          105.5,
-          -520.5
-        ],
-        "target": [
-          763.5,
-          105.5,
-          -642
-        ]
-      }
-    },
-    {
-      "name": "B2 C6 V1",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-B2_C6_V1.glb",
-      "env": "models/track-B2_C6_V1_env.glb",
-      "spawn": {
-        "pos": [
-          2704.5,
-          43.5,
-          -61.5
-        ],
-        "target": [
-          2648,
-          43.5,
-          59
-        ]
-      }
-    },
-    {
-      "name": "B2 C6 V2",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-B2_C6_V2.glb",
-      "env": "models/track-B2_C6_V2_env.glb",
-      "spawn": {
-        "pos": [
-          2704.5,
-          43.5,
-          -61.5
-        ],
-        "target": [
-          2697.5,
-          43.5,
-          -121.5
-        ]
-      }
-    },
-    {
-      "name": "EU C1 V1",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-EU_C1_V1.glb",
-      "env": "models/track-EU_C1_V1_env.glb",
-      "spawn": {
-        "pos": [
-          2565,
-          20.5,
-          292
-        ],
-        "target": [
-          2609,
-          20.5,
-          134
-        ]
-      }
-    },
-    {
-      "name": "EU C1 V2",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-EU_C1_V2.glb",
-      "env": "models/track-EU_C1_V2_env.glb",
-      "spawn": {
-        "pos": [
-          2565,
-          20.5,
-          292
-        ],
-        "target": [
-          2642,
-          20.5,
-          357
-        ]
-      }
-    },
-    {
-      "name": "EU C2 V1",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-EU_C2_V1.glb",
-      "env": "models/track-EU_C2_V1_env.glb",
-      "spawn": {
-        "pos": [
-          1116.5,
-          74.5,
-          -229
-        ],
-        "target": [
-          1201,
-          74.5,
-          -95.5
-        ]
-      }
-    },
-    {
-      "name": "EU C2 V2",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-EU_C2_V2.glb",
-      "env": "models/track-EU_C2_V2_env.glb",
-      "spawn": {
-        "pos": [
-          1116.5,
-          74.5,
-          -229
-        ],
-        "target": [
-          991,
-          74.5,
-          -228.5
-        ]
-      }
-    },
-    {
-      "name": "EU C3 V1",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-EU_C3_V1.glb",
-      "env": "models/track-EU_C3_V1_env.glb",
-      "spawn": {
-        "pos": [
-          -3238.5,
-          -24.5,
-          1504.5
-        ],
-        "target": [
-          -3093,
-          -24.5,
-          1553.5
-        ]
-      }
-    },
-    {
-      "name": "EU C3 V2",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-EU_C3_V2.glb",
-      "env": "models/track-EU_C3_V2_env.glb",
-      "spawn": {
-        "pos": [
-          -3268,
-          -23.5,
-          1521.5
-        ],
-        "target": [
-          -3275,
-          -23.5,
-          1380.5
-        ]
-      }
-    },
-    {
-      "name": "EU C4 V1",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-EU_C4_V1.glb",
-      "env": "models/track-EU_C4_V1_env.glb",
-      "spawn": {
-        "pos": [
-          -4218.5,
-          -24.5,
-          219
-        ],
-        "target": [
-          -4320.5,
-          -24.5,
-          147
-        ]
-      }
-    },
-    {
-      "name": "EU C4 V2",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-EU_C4_V2.glb",
-      "env": "models/track-EU_C4_V2_env.glb",
-      "spawn": {
-        "pos": [
-          -4218.5,
-          -24.5,
-          219
-        ],
-        "target": [
-          -4148.5,
-          -24.5,
-          338
-        ]
-      }
-    },
-    {
-      "name": "US C1 V1",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-US_C1_V1.glb",
-      "env": "models/track-US_C1_V1_env.glb",
-      "spawn": {
-        "pos": [
-          1279.5,
-          100.5,
-          738.5
-        ],
-        "target": [
-          1468.5,
-          100.5,
-          745.5
-        ]
-      }
-    },
-    {
-      "name": "US C1 V2",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-US_C1_V2.glb",
-      "env": "models/track-US_C1_V2_env.glb",
-      "spawn": {
-        "pos": [
-          1279.5,
-          100.5,
-          738.5
-        ],
-        "target": [
-          1158.5,
-          100.5,
-          669
-        ]
-      }
-    },
-    {
-      "name": "US C2 V1",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-US_C2_V1.glb",
-      "env": "models/track-US_C2_V1_env.glb",
-      "spawn": {
-        "pos": [
-          -1726.5,
-          105.5,
-          1657.5
-        ],
-        "target": [
-          -1686.5,
-          105.5,
-          1559
-        ]
-      }
-    },
-    {
-      "name": "US C2 V2",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-US_C2_V2.glb",
-      "env": "models/track-US_C2_V2_env.glb",
-      "spawn": {
-        "pos": [
-          -1726.5,
-          105.5,
-          1657.5
-        ],
-        "target": [
-          -1742.5,
-          105.5,
-          1839.5
-        ]
-      }
-    },
-    {
-      "name": "US C3 V1",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-US_C3_V1.glb",
-      "env": "models/track-US_C3_V1_env.glb",
-      "spawn": {
-        "pos": [
-          5374,
-          154.5,
-          2296.5
-        ],
-        "target": [
-          5230.5,
-          154.5,
-          2162.5
-        ]
-      }
-    },
-    {
-      "name": "US C3 V2",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-US_C3_V2.glb",
-      "env": "models/track-US_C3_V2_env.glb",
-      "spawn": {
-        "pos": [
-          5374,
-          154.5,
-          2296.5
-        ],
-        "target": [
-          5674,
-          154.5,
-          2235.5
-        ]
-      }
-    },
-    {
-      "name": "US C5 V1",
-      "section": "Tracks",
-      "kind": "bl-track",
-      "file": "models/track-US_C5_V1.glb"
-    },
-    {
-      "name": "COMP Car1",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-COMP_Car1.glb"
-    },
-    {
-      "name": "COMP Car10",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-COMP_Car10.glb"
-    },
-    {
-      "name": "COMP Car2",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-COMP_Car2.glb"
-    },
-    {
-      "name": "COMP Car24",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-COMP_Car24.glb"
-    },
-    {
-      "name": "COMP Car25",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-COMP_Car25.glb"
-    },
-    {
-      "name": "COMP Car26",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-COMP_Car26.glb"
-    },
-    {
-      "name": "COMP Car27",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-COMP_Car27.glb"
-    },
-    {
-      "name": "COMP Car3",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-COMP_Car3.glb"
-    },
-    {
-      "name": "COMP Car4",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-COMP_Car4.glb"
-    },
-    {
-      "name": "COMP Car5",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-COMP_Car5.glb"
-    },
-    {
-      "name": "COMP Car6",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-COMP_Car6.glb"
-    },
-    {
-      "name": "COMP Car7",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-COMP_Car7.glb"
-    },
-    {
-      "name": "COMP Car8",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-COMP_Car8.glb"
-    },
-    {
-      "name": "COMP Car9",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-COMP_Car9.glb"
-    },
-    {
-      "name": "CUPE Car1",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-CUPE_Car1.glb"
-    },
-    {
-      "name": "CUPE Car10",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-CUPE_Car10.glb"
-    },
-    {
-      "name": "CUPE Car11",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-CUPE_Car11.glb"
-    },
-    {
-      "name": "CUPE Car12",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-CUPE_Car12.glb"
-    },
-    {
-      "name": "CUPE Car13",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-CUPE_Car13.glb"
-    },
-    {
-      "name": "CUPE Car14",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-CUPE_Car14.glb"
-    },
-    {
-      "name": "CUPE Car2",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-CUPE_Car2.glb"
-    },
-    {
-      "name": "CUPE Car3",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-CUPE_Car3.glb"
-    },
-    {
-      "name": "CUPE Car4",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-CUPE_Car4.glb"
-    },
-    {
-      "name": "CUPE Car5",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-CUPE_Car5.glb"
-    },
-    {
-      "name": "CUPE Car6",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-CUPE_Car6.glb"
-    },
-    {
-      "name": "CUPE Car7",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-CUPE_Car7.glb"
-    },
-    {
-      "name": "CUPE Car8",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-CUPE_Car8.glb"
-    },
-    {
-      "name": "CUPE Car9",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-CUPE_Car9.glb"
-    },
-    {
-      "name": "HEVY Car1",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HEVY_Car1.glb"
-    },
-    {
-      "name": "HEVY Car10",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HEVY_Car10.glb"
-    },
-    {
-      "name": "HEVY Car2",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HEVY_Car2.glb"
-    },
-    {
-      "name": "HEVY Car3",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HEVY_Car3.glb"
-    },
-    {
-      "name": "HEVY Car36",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HEVY_Car36.glb"
-    },
-    {
-      "name": "HEVY Car4",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HEVY_Car4.glb"
-    },
-    {
-      "name": "HEVY Car5",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HEVY_Car5.glb"
-    },
-    {
-      "name": "HEVY Car6",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HEVY_Car6.glb"
-    },
-    {
-      "name": "HEVY Car7",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HEVY_Car7.glb"
-    },
-    {
-      "name": "HEVY Car8",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HEVY_Car8.glb"
-    },
-    {
-      "name": "HEVY Car9",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HEVY_Car9.glb"
-    },
-    {
-      "name": "HSPC Car20",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HSPC_Car20.glb"
-    },
-    {
-      "name": "HSPC Car21",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HSPC_Car21.glb"
-    },
-    {
-      "name": "HSPC Car22",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HSPC_Car22.glb"
-    },
-    {
-      "name": "HSPC Car23",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HSPC_Car23.glb"
-    },
-    {
-      "name": "HSPC Car24",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HSPC_Car24.glb"
-    },
-    {
-      "name": "HSPC Car25",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HSPC_Car25.glb"
-    },
-    {
-      "name": "HSPC Car26",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HSPC_Car26.glb"
-    },
-    {
-      "name": "HSPC Car27",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-HSPC_Car27.glb"
-    },
-    {
-      "name": "MSCL Car1",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-MSCL_Car1.glb"
-    },
-    {
-      "name": "MSCL Car10",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-MSCL_Car10.glb"
-    },
-    {
-      "name": "MSCL Car11",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-MSCL_Car11.glb"
-    },
-    {
-      "name": "MSCL Car12",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-MSCL_Car12.glb"
-    },
-    {
-      "name": "MSCL Car13",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-MSCL_Car13.glb"
-    },
-    {
-      "name": "MSCL Car14",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-MSCL_Car14.glb"
-    },
-    {
-      "name": "MSCL Car2",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-MSCL_Car2.glb"
-    },
-    {
-      "name": "MSCL Car3",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-MSCL_Car3.glb"
-    },
-    {
-      "name": "MSCL Car4",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-MSCL_Car4.glb"
-    },
-    {
-      "name": "MSCL Car5",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-MSCL_Car5.glb"
-    },
-    {
-      "name": "MSCL Car6",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-MSCL_Car6.glb"
-    },
-    {
-      "name": "MSCL Car7",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-MSCL_Car7.glb"
-    },
-    {
-      "name": "MSCL Car8",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-MSCL_Car8.glb"
-    },
-    {
-      "name": "MSCL Car9",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-MSCL_Car9.glb"
-    },
-    {
-      "name": "SPRT CAR14",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SPRT_CAR14.glb"
-    },
-    {
-      "name": "SPRT Car1",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SPRT_Car1.glb"
-    },
-    {
-      "name": "SPRT Car10",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SPRT_Car10.glb"
-    },
-    {
-      "name": "SPRT Car11",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SPRT_Car11.glb"
-    },
-    {
-      "name": "SPRT Car12",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SPRT_Car12.glb"
-    },
-    {
-      "name": "SPRT Car13",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SPRT_Car13.glb"
-    },
-    {
-      "name": "SPRT Car2",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SPRT_Car2.glb"
-    },
-    {
-      "name": "SPRT Car3",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SPRT_Car3.glb"
-    },
-    {
-      "name": "SPRT Car4",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SPRT_Car4.glb"
-    },
-    {
-      "name": "SPRT Car5",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SPRT_Car5.glb"
-    },
-    {
-      "name": "SPRT Car6",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SPRT_Car6.glb"
-    },
-    {
-      "name": "SPRT Car7",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SPRT_Car7.glb"
-    },
-    {
-      "name": "SPRT Car8",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SPRT_Car8.glb"
-    },
-    {
-      "name": "SPRT Car9",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SPRT_Car9.glb"
-    },
-    {
-      "name": "SUPR Car1",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SUPR_Car1.glb"
-    },
-    {
-      "name": "SUPR Car10",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SUPR_Car10.glb"
-    },
-    {
-      "name": "SUPR Car11",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SUPR_Car11.glb"
-    },
-    {
-      "name": "SUPR Car12",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SUPR_Car12.glb"
-    },
-    {
-      "name": "SUPR Car13",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SUPR_Car13.glb"
-    },
-    {
-      "name": "SUPR Car14",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SUPR_Car14.glb"
-    },
-    {
-      "name": "SUPR Car2",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SUPR_Car2.glb"
-    },
-    {
-      "name": "SUPR Car3",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SUPR_Car3.glb"
-    },
-    {
-      "name": "SUPR Car4",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SUPR_Car4.glb"
-    },
-    {
-      "name": "SUPR Car5",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SUPR_Car5.glb"
-    },
-    {
-      "name": "SUPR Car6",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SUPR_Car6.glb"
-    },
-    {
-      "name": "SUPR Car7",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SUPR_Car7.glb"
-    },
-    {
-      "name": "SUPR Car8",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SUPR_Car8.glb"
-    },
-    {
-      "name": "SUPR Car9",
-      "section": "Cars",
-      "kind": "mesh3d",
-      "file": "models/car-SUPR_Car9.glb"
-    }
-  ]
+  "filter": "ds",
+  "texFilter": "linear"
+ },
+ "assets": [
+  {
+   "id": "as-c1-v1",
+   "category": "level",
+   "name": "AS C1 V1",
+   "group": "AS tracks",
+   "file": "levels/as-c1-v1.json"
+  },
+  {
+   "id": "as-c1-v2",
+   "category": "level",
+   "name": "AS C1 V2",
+   "group": "AS tracks",
+   "file": "levels/as-c1-v2.json"
+  },
+  {
+   "id": "as-c2-v1",
+   "category": "level",
+   "name": "AS C2 V1",
+   "group": "AS tracks",
+   "file": "levels/as-c2-v1.json"
+  },
+  {
+   "id": "as-c2-v2",
+   "category": "level",
+   "name": "AS C2 V2",
+   "group": "AS tracks",
+   "file": "levels/as-c2-v2.json"
+  },
+  {
+   "id": "as-c3-v1",
+   "category": "level",
+   "name": "AS C3 V1",
+   "group": "AS tracks",
+   "file": "levels/as-c3-v1.json"
+  },
+  {
+   "id": "as-c3-v2",
+   "category": "level",
+   "name": "AS C3 V2",
+   "group": "AS tracks",
+   "file": "levels/as-c3-v2.json"
+  },
+  {
+   "id": "b1-c1-v1",
+   "category": "level",
+   "name": "B1 C1 V1",
+   "group": "B1 tracks",
+   "file": "levels/b1-c1-v1.json"
+  },
+  {
+   "id": "b1-c1-v2",
+   "category": "level",
+   "name": "B1 C1 V2",
+   "group": "B1 tracks",
+   "file": "levels/b1-c1-v2.json"
+  },
+  {
+   "id": "b2-c1-v1",
+   "category": "level",
+   "name": "B2 C1 V1",
+   "group": "B2 tracks",
+   "file": "levels/b2-c1-v1.json"
+  },
+  {
+   "id": "b2-c1-v2",
+   "category": "level",
+   "name": "B2 C1 V2",
+   "group": "B2 tracks",
+   "file": "levels/b2-c1-v2.json"
+  },
+  {
+   "id": "b2-c2-v1",
+   "category": "level",
+   "name": "B2 C2 V1",
+   "group": "B2 tracks",
+   "file": "levels/b2-c2-v1.json"
+  },
+  {
+   "id": "b2-c2-v2",
+   "category": "level",
+   "name": "B2 C2 V2",
+   "group": "B2 tracks",
+   "file": "levels/b2-c2-v2.json"
+  },
+  {
+   "id": "b2-c3-v1",
+   "category": "level",
+   "name": "B2 C3 V1",
+   "group": "B2 tracks",
+   "file": "levels/b2-c3-v1.json"
+  },
+  {
+   "id": "b2-c3-v2",
+   "category": "level",
+   "name": "B2 C3 V2",
+   "group": "B2 tracks",
+   "file": "levels/b2-c3-v2.json"
+  },
+  {
+   "id": "b2-c4-v1",
+   "category": "level",
+   "name": "B2 C4 V1",
+   "group": "B2 tracks",
+   "file": "levels/b2-c4-v1.json"
+  },
+  {
+   "id": "b2-c4-v2",
+   "category": "level",
+   "name": "B2 C4 V2",
+   "group": "B2 tracks",
+   "file": "levels/b2-c4-v2.json"
+  },
+  {
+   "id": "b2-c5-v1",
+   "category": "level",
+   "name": "B2 C5 V1",
+   "group": "B2 tracks",
+   "file": "levels/b2-c5-v1.json"
+  },
+  {
+   "id": "b2-c5-v2",
+   "category": "level",
+   "name": "B2 C5 V2",
+   "group": "B2 tracks",
+   "file": "levels/b2-c5-v2.json"
+  },
+  {
+   "id": "b2-c6-v1",
+   "category": "level",
+   "name": "B2 C6 V1",
+   "group": "B2 tracks",
+   "file": "levels/b2-c6-v1.json"
+  },
+  {
+   "id": "b2-c6-v2",
+   "category": "level",
+   "name": "B2 C6 V2",
+   "group": "B2 tracks",
+   "file": "levels/b2-c6-v2.json"
+  },
+  {
+   "id": "eu-c1-v1",
+   "category": "level",
+   "name": "EU C1 V1",
+   "group": "EU tracks",
+   "file": "levels/eu-c1-v1.json"
+  },
+  {
+   "id": "eu-c1-v2",
+   "category": "level",
+   "name": "EU C1 V2",
+   "group": "EU tracks",
+   "file": "levels/eu-c1-v2.json"
+  },
+  {
+   "id": "eu-c2-v1",
+   "category": "level",
+   "name": "EU C2 V1",
+   "group": "EU tracks",
+   "file": "levels/eu-c2-v1.json"
+  },
+  {
+   "id": "eu-c2-v2",
+   "category": "level",
+   "name": "EU C2 V2",
+   "group": "EU tracks",
+   "file": "levels/eu-c2-v2.json"
+  },
+  {
+   "id": "eu-c3-v1",
+   "category": "level",
+   "name": "EU C3 V1",
+   "group": "EU tracks",
+   "file": "levels/eu-c3-v1.json"
+  },
+  {
+   "id": "eu-c3-v2",
+   "category": "level",
+   "name": "EU C3 V2",
+   "group": "EU tracks",
+   "file": "levels/eu-c3-v2.json"
+  },
+  {
+   "id": "eu-c4-v1",
+   "category": "level",
+   "name": "EU C4 V1",
+   "group": "EU tracks",
+   "file": "levels/eu-c4-v1.json"
+  },
+  {
+   "id": "eu-c4-v2",
+   "category": "level",
+   "name": "EU C4 V2",
+   "group": "EU tracks",
+   "file": "levels/eu-c4-v2.json"
+  },
+  {
+   "id": "us-c1-v1",
+   "category": "level",
+   "name": "US C1 V1",
+   "group": "US tracks",
+   "file": "levels/us-c1-v1.json"
+  },
+  {
+   "id": "us-c1-v2",
+   "category": "level",
+   "name": "US C1 V2",
+   "group": "US tracks",
+   "file": "levels/us-c1-v2.json"
+  },
+  {
+   "id": "us-c2-v1",
+   "category": "level",
+   "name": "US C2 V1",
+   "group": "US tracks",
+   "file": "levels/us-c2-v1.json"
+  },
+  {
+   "id": "us-c2-v2",
+   "category": "level",
+   "name": "US C2 V2",
+   "group": "US tracks",
+   "file": "levels/us-c2-v2.json"
+  },
+  {
+   "id": "us-c3-v1",
+   "category": "level",
+   "name": "US C3 V1",
+   "group": "US tracks",
+   "file": "levels/us-c3-v1.json"
+  },
+  {
+   "id": "us-c3-v2",
+   "category": "level",
+   "name": "US C3 V2",
+   "group": "US tracks",
+   "file": "levels/us-c3-v2.json"
+  },
+  {
+   "id": "us-c5-v1",
+   "category": "level",
+   "name": "US C5 V1",
+   "group": "US tracks",
+   "file": "levels/us-c5-v1.json"
+  },
+  {
+   "id": "comp-car1",
+   "category": "object",
+   "name": "COMP Car1",
+   "group": "COMP",
+   "file": "objects/comp-car1.json"
+  },
+  {
+   "id": "comp-car10",
+   "category": "object",
+   "name": "COMP Car10",
+   "group": "COMP",
+   "file": "objects/comp-car10.json"
+  },
+  {
+   "id": "comp-car2",
+   "category": "object",
+   "name": "COMP Car2",
+   "group": "COMP",
+   "file": "objects/comp-car2.json"
+  },
+  {
+   "id": "comp-car24",
+   "category": "object",
+   "name": "COMP Car24",
+   "group": "COMP",
+   "file": "objects/comp-car24.json"
+  },
+  {
+   "id": "comp-car25",
+   "category": "object",
+   "name": "COMP Car25",
+   "group": "COMP",
+   "file": "objects/comp-car25.json"
+  },
+  {
+   "id": "comp-car26",
+   "category": "object",
+   "name": "COMP Car26",
+   "group": "COMP",
+   "file": "objects/comp-car26.json"
+  },
+  {
+   "id": "comp-car27",
+   "category": "object",
+   "name": "COMP Car27",
+   "group": "COMP",
+   "file": "objects/comp-car27.json"
+  },
+  {
+   "id": "comp-car3",
+   "category": "object",
+   "name": "COMP Car3",
+   "group": "COMP",
+   "file": "objects/comp-car3.json"
+  },
+  {
+   "id": "comp-car4",
+   "category": "object",
+   "name": "COMP Car4",
+   "group": "COMP",
+   "file": "objects/comp-car4.json"
+  },
+  {
+   "id": "comp-car5",
+   "category": "object",
+   "name": "COMP Car5",
+   "group": "COMP",
+   "file": "objects/comp-car5.json"
+  },
+  {
+   "id": "comp-car6",
+   "category": "object",
+   "name": "COMP Car6",
+   "group": "COMP",
+   "file": "objects/comp-car6.json"
+  },
+  {
+   "id": "comp-car7",
+   "category": "object",
+   "name": "COMP Car7",
+   "group": "COMP",
+   "file": "objects/comp-car7.json"
+  },
+  {
+   "id": "comp-car8",
+   "category": "object",
+   "name": "COMP Car8",
+   "group": "COMP",
+   "file": "objects/comp-car8.json"
+  },
+  {
+   "id": "comp-car9",
+   "category": "object",
+   "name": "COMP Car9",
+   "group": "COMP",
+   "file": "objects/comp-car9.json"
+  },
+  {
+   "id": "cupe-car1",
+   "category": "object",
+   "name": "CUPE Car1",
+   "group": "CUPE",
+   "file": "objects/cupe-car1.json"
+  },
+  {
+   "id": "cupe-car10",
+   "category": "object",
+   "name": "CUPE Car10",
+   "group": "CUPE",
+   "file": "objects/cupe-car10.json"
+  },
+  {
+   "id": "cupe-car11",
+   "category": "object",
+   "name": "CUPE Car11",
+   "group": "CUPE",
+   "file": "objects/cupe-car11.json"
+  },
+  {
+   "id": "cupe-car12",
+   "category": "object",
+   "name": "CUPE Car12",
+   "group": "CUPE",
+   "file": "objects/cupe-car12.json"
+  },
+  {
+   "id": "cupe-car13",
+   "category": "object",
+   "name": "CUPE Car13",
+   "group": "CUPE",
+   "file": "objects/cupe-car13.json"
+  },
+  {
+   "id": "cupe-car14",
+   "category": "object",
+   "name": "CUPE Car14",
+   "group": "CUPE",
+   "file": "objects/cupe-car14.json"
+  },
+  {
+   "id": "cupe-car2",
+   "category": "object",
+   "name": "CUPE Car2",
+   "group": "CUPE",
+   "file": "objects/cupe-car2.json"
+  },
+  {
+   "id": "cupe-car3",
+   "category": "object",
+   "name": "CUPE Car3",
+   "group": "CUPE",
+   "file": "objects/cupe-car3.json"
+  },
+  {
+   "id": "cupe-car4",
+   "category": "object",
+   "name": "CUPE Car4",
+   "group": "CUPE",
+   "file": "objects/cupe-car4.json"
+  },
+  {
+   "id": "cupe-car5",
+   "category": "object",
+   "name": "CUPE Car5",
+   "group": "CUPE",
+   "file": "objects/cupe-car5.json"
+  },
+  {
+   "id": "cupe-car6",
+   "category": "object",
+   "name": "CUPE Car6",
+   "group": "CUPE",
+   "file": "objects/cupe-car6.json"
+  },
+  {
+   "id": "cupe-car7",
+   "category": "object",
+   "name": "CUPE Car7",
+   "group": "CUPE",
+   "file": "objects/cupe-car7.json"
+  },
+  {
+   "id": "cupe-car8",
+   "category": "object",
+   "name": "CUPE Car8",
+   "group": "CUPE",
+   "file": "objects/cupe-car8.json"
+  },
+  {
+   "id": "cupe-car9",
+   "category": "object",
+   "name": "CUPE Car9",
+   "group": "CUPE",
+   "file": "objects/cupe-car9.json"
+  },
+  {
+   "id": "hevy-car1",
+   "category": "object",
+   "name": "HEVY Car1",
+   "group": "HEVY",
+   "file": "objects/hevy-car1.json"
+  },
+  {
+   "id": "hevy-car10",
+   "category": "object",
+   "name": "HEVY Car10",
+   "group": "HEVY",
+   "file": "objects/hevy-car10.json"
+  },
+  {
+   "id": "hevy-car2",
+   "category": "object",
+   "name": "HEVY Car2",
+   "group": "HEVY",
+   "file": "objects/hevy-car2.json"
+  },
+  {
+   "id": "hevy-car3",
+   "category": "object",
+   "name": "HEVY Car3",
+   "group": "HEVY",
+   "file": "objects/hevy-car3.json"
+  },
+  {
+   "id": "hevy-car36",
+   "category": "object",
+   "name": "HEVY Car36",
+   "group": "HEVY",
+   "file": "objects/hevy-car36.json"
+  },
+  {
+   "id": "hevy-car4",
+   "category": "object",
+   "name": "HEVY Car4",
+   "group": "HEVY",
+   "file": "objects/hevy-car4.json"
+  },
+  {
+   "id": "hevy-car5",
+   "category": "object",
+   "name": "HEVY Car5",
+   "group": "HEVY",
+   "file": "objects/hevy-car5.json"
+  },
+  {
+   "id": "hevy-car6",
+   "category": "object",
+   "name": "HEVY Car6",
+   "group": "HEVY",
+   "file": "objects/hevy-car6.json"
+  },
+  {
+   "id": "hevy-car7",
+   "category": "object",
+   "name": "HEVY Car7",
+   "group": "HEVY",
+   "file": "objects/hevy-car7.json"
+  },
+  {
+   "id": "hevy-car8",
+   "category": "object",
+   "name": "HEVY Car8",
+   "group": "HEVY",
+   "file": "objects/hevy-car8.json"
+  },
+  {
+   "id": "hevy-car9",
+   "category": "object",
+   "name": "HEVY Car9",
+   "group": "HEVY",
+   "file": "objects/hevy-car9.json"
+  },
+  {
+   "id": "hspc-car20",
+   "category": "object",
+   "name": "HSPC Car20",
+   "group": "HSPC",
+   "file": "objects/hspc-car20.json"
+  },
+  {
+   "id": "hspc-car21",
+   "category": "object",
+   "name": "HSPC Car21",
+   "group": "HSPC",
+   "file": "objects/hspc-car21.json"
+  },
+  {
+   "id": "hspc-car22",
+   "category": "object",
+   "name": "HSPC Car22",
+   "group": "HSPC",
+   "file": "objects/hspc-car22.json"
+  },
+  {
+   "id": "hspc-car23",
+   "category": "object",
+   "name": "HSPC Car23",
+   "group": "HSPC",
+   "file": "objects/hspc-car23.json"
+  },
+  {
+   "id": "hspc-car24",
+   "category": "object",
+   "name": "HSPC Car24",
+   "group": "HSPC",
+   "file": "objects/hspc-car24.json"
+  },
+  {
+   "id": "hspc-car25",
+   "category": "object",
+   "name": "HSPC Car25",
+   "group": "HSPC",
+   "file": "objects/hspc-car25.json"
+  },
+  {
+   "id": "hspc-car26",
+   "category": "object",
+   "name": "HSPC Car26",
+   "group": "HSPC",
+   "file": "objects/hspc-car26.json"
+  },
+  {
+   "id": "hspc-car27",
+   "category": "object",
+   "name": "HSPC Car27",
+   "group": "HSPC",
+   "file": "objects/hspc-car27.json"
+  },
+  {
+   "id": "mscl-car1",
+   "category": "object",
+   "name": "MSCL Car1",
+   "group": "MSCL",
+   "file": "objects/mscl-car1.json"
+  },
+  {
+   "id": "mscl-car10",
+   "category": "object",
+   "name": "MSCL Car10",
+   "group": "MSCL",
+   "file": "objects/mscl-car10.json"
+  },
+  {
+   "id": "mscl-car11",
+   "category": "object",
+   "name": "MSCL Car11",
+   "group": "MSCL",
+   "file": "objects/mscl-car11.json"
+  },
+  {
+   "id": "mscl-car12",
+   "category": "object",
+   "name": "MSCL Car12",
+   "group": "MSCL",
+   "file": "objects/mscl-car12.json"
+  },
+  {
+   "id": "mscl-car13",
+   "category": "object",
+   "name": "MSCL Car13",
+   "group": "MSCL",
+   "file": "objects/mscl-car13.json"
+  },
+  {
+   "id": "mscl-car14",
+   "category": "object",
+   "name": "MSCL Car14",
+   "group": "MSCL",
+   "file": "objects/mscl-car14.json"
+  },
+  {
+   "id": "mscl-car2",
+   "category": "object",
+   "name": "MSCL Car2",
+   "group": "MSCL",
+   "file": "objects/mscl-car2.json"
+  },
+  {
+   "id": "mscl-car3",
+   "category": "object",
+   "name": "MSCL Car3",
+   "group": "MSCL",
+   "file": "objects/mscl-car3.json"
+  },
+  {
+   "id": "mscl-car4",
+   "category": "object",
+   "name": "MSCL Car4",
+   "group": "MSCL",
+   "file": "objects/mscl-car4.json"
+  },
+  {
+   "id": "mscl-car5",
+   "category": "object",
+   "name": "MSCL Car5",
+   "group": "MSCL",
+   "file": "objects/mscl-car5.json"
+  },
+  {
+   "id": "mscl-car6",
+   "category": "object",
+   "name": "MSCL Car6",
+   "group": "MSCL",
+   "file": "objects/mscl-car6.json"
+  },
+  {
+   "id": "mscl-car7",
+   "category": "object",
+   "name": "MSCL Car7",
+   "group": "MSCL",
+   "file": "objects/mscl-car7.json"
+  },
+  {
+   "id": "mscl-car8",
+   "category": "object",
+   "name": "MSCL Car8",
+   "group": "MSCL",
+   "file": "objects/mscl-car8.json"
+  },
+  {
+   "id": "mscl-car9",
+   "category": "object",
+   "name": "MSCL Car9",
+   "group": "MSCL",
+   "file": "objects/mscl-car9.json"
+  },
+  {
+   "id": "sprt-car14",
+   "category": "object",
+   "name": "SPRT CAR14",
+   "group": "SPRT",
+   "file": "objects/sprt-car14.json"
+  },
+  {
+   "id": "sprt-car1",
+   "category": "object",
+   "name": "SPRT Car1",
+   "group": "SPRT",
+   "file": "objects/sprt-car1.json"
+  },
+  {
+   "id": "sprt-car10",
+   "category": "object",
+   "name": "SPRT Car10",
+   "group": "SPRT",
+   "file": "objects/sprt-car10.json"
+  },
+  {
+   "id": "sprt-car11",
+   "category": "object",
+   "name": "SPRT Car11",
+   "group": "SPRT",
+   "file": "objects/sprt-car11.json"
+  },
+  {
+   "id": "sprt-car12",
+   "category": "object",
+   "name": "SPRT Car12",
+   "group": "SPRT",
+   "file": "objects/sprt-car12.json"
+  },
+  {
+   "id": "sprt-car13",
+   "category": "object",
+   "name": "SPRT Car13",
+   "group": "SPRT",
+   "file": "objects/sprt-car13.json"
+  },
+  {
+   "id": "sprt-car2",
+   "category": "object",
+   "name": "SPRT Car2",
+   "group": "SPRT",
+   "file": "objects/sprt-car2.json"
+  },
+  {
+   "id": "sprt-car3",
+   "category": "object",
+   "name": "SPRT Car3",
+   "group": "SPRT",
+   "file": "objects/sprt-car3.json"
+  },
+  {
+   "id": "sprt-car4",
+   "category": "object",
+   "name": "SPRT Car4",
+   "group": "SPRT",
+   "file": "objects/sprt-car4.json"
+  },
+  {
+   "id": "sprt-car5",
+   "category": "object",
+   "name": "SPRT Car5",
+   "group": "SPRT",
+   "file": "objects/sprt-car5.json"
+  },
+  {
+   "id": "sprt-car6",
+   "category": "object",
+   "name": "SPRT Car6",
+   "group": "SPRT",
+   "file": "objects/sprt-car6.json"
+  },
+  {
+   "id": "sprt-car7",
+   "category": "object",
+   "name": "SPRT Car7",
+   "group": "SPRT",
+   "file": "objects/sprt-car7.json"
+  },
+  {
+   "id": "sprt-car8",
+   "category": "object",
+   "name": "SPRT Car8",
+   "group": "SPRT",
+   "file": "objects/sprt-car8.json"
+  },
+  {
+   "id": "sprt-car9",
+   "category": "object",
+   "name": "SPRT Car9",
+   "group": "SPRT",
+   "file": "objects/sprt-car9.json"
+  },
+  {
+   "id": "supr-car1",
+   "category": "object",
+   "name": "SUPR Car1",
+   "group": "SUPR",
+   "file": "objects/supr-car1.json"
+  },
+  {
+   "id": "supr-car10",
+   "category": "object",
+   "name": "SUPR Car10",
+   "group": "SUPR",
+   "file": "objects/supr-car10.json"
+  },
+  {
+   "id": "supr-car11",
+   "category": "object",
+   "name": "SUPR Car11",
+   "group": "SUPR",
+   "file": "objects/supr-car11.json"
+  },
+  {
+   "id": "supr-car12",
+   "category": "object",
+   "name": "SUPR Car12",
+   "group": "SUPR",
+   "file": "objects/supr-car12.json"
+  },
+  {
+   "id": "supr-car13",
+   "category": "object",
+   "name": "SUPR Car13",
+   "group": "SUPR",
+   "file": "objects/supr-car13.json"
+  },
+  {
+   "id": "supr-car14",
+   "category": "object",
+   "name": "SUPR Car14",
+   "group": "SUPR",
+   "file": "objects/supr-car14.json"
+  },
+  {
+   "id": "supr-car2",
+   "category": "object",
+   "name": "SUPR Car2",
+   "group": "SUPR",
+   "file": "objects/supr-car2.json"
+  },
+  {
+   "id": "supr-car3",
+   "category": "object",
+   "name": "SUPR Car3",
+   "group": "SUPR",
+   "file": "objects/supr-car3.json"
+  },
+  {
+   "id": "supr-car4",
+   "category": "object",
+   "name": "SUPR Car4",
+   "group": "SUPR",
+   "file": "objects/supr-car4.json"
+  },
+  {
+   "id": "supr-car5",
+   "category": "object",
+   "name": "SUPR Car5",
+   "group": "SUPR",
+   "file": "objects/supr-car5.json"
+  },
+  {
+   "id": "supr-car6",
+   "category": "object",
+   "name": "SUPR Car6",
+   "group": "SUPR",
+   "file": "objects/supr-car6.json"
+  },
+  {
+   "id": "supr-car7",
+   "category": "object",
+   "name": "SUPR Car7",
+   "group": "SUPR",
+   "file": "objects/supr-car7.json"
+  },
+  {
+   "id": "supr-car8",
+   "category": "object",
+   "name": "SUPR Car8",
+   "group": "SUPR",
+   "file": "objects/supr-car8.json"
+  },
+  {
+   "id": "supr-car9",
+   "category": "object",
+   "name": "SUPR Car9",
+   "group": "SUPR",
+   "file": "objects/supr-car9.json"
+  }
+ ]
 }

@@ -15,8 +15,6 @@
 package main
 
 import (
-	"encoding/json"
-	"flag"
 	"fmt"
 	"image"
 	"os"
@@ -28,6 +26,8 @@ import (
 	"retroreverse.com/games/burnout-legends-psp/extract/bgt"
 	"retroreverse.com/games/burnout-legends-psp/extract/bgv"
 	"retroreverse.com/tools/lib/glb"
+	"retroreverse.com/tools/lib/retrox/cli"
+	"retroreverse.com/tools/lib/retrox/schema"
 	"retroreverse.com/tools/platform/psp"
 )
 
@@ -89,48 +89,40 @@ type manifest struct {
 }
 
 func main() {
-	in := flag.String("in", "", "PSP UMD image (.cso or .iso)")
-	out := flag.String("o", "../../site/public/burnout-legends-psp", "output root")
-	only := flag.String("only", "all", "models|all")
-	flag.Parse()
-
-	if *in == "" {
-		die("need -in")
-	}
-	im, err := psp.OpenImage(*in)
-	if err != nil {
-		die("open image: %v", err)
-	}
-	defer im.Close()
-
-	models := filepath.Join(*out, "models")
-	if err := os.MkdirAll(models, 0o755); err != nil {
-		die("%v", err)
-	}
-	want := *only == "all" || strings.Contains(*only, "models")
-	if !want {
-		die("nothing to do for -only %q", *only)
-	}
-
-	m := manifest{
-		Format: 2, Game: "burnout-legends-psp", Platform: "Sony PSP",
-		Native: map[string]int{"w": 480, "h": 272}, TickHz: 60,
-	}
-	m.Models = append(m.Models, exportTracks(im, models)...)
-	m.Models = append(m.Models, exportCars(im, models)...)
-
-	buf, err := json.MarshalIndent(m, "", "  ")
-	if err != nil {
-		die("%v", err)
-	}
-	if err := os.WriteFile(filepath.Join(*out, "manifest.json"), append(buf, '\n'), 0o644); err != nil {
-		die("%v", err)
-	}
-	fmt.Fprintf(os.Stderr, "[manifest] %d models -> %s\n", len(m.Models), filepath.Join(*out, "manifest.json"))
+	cli.Main("burnout-legends-psp", runCLI)
 }
 
-// exportTracks writes each track's two layers and returns their manifest entries.
-func exportTracks(im *psp.Image, dir string) []model {
+func runCLI(ctx *cli.Context) error {
+	if ctx.In == "" {
+		return fmt.Errorf("usage: webexport -in UMD.iso/.cso [-o DIR]")
+	}
+	b := ctx.Builder
+	b.SetTitle("Burnout Legends")
+	b.SetPlatform("Sony PSP")
+	b.SetYear(2005)
+	b.SetDisplay(schema.Display{
+		Native: schema.Size{W: 480, H: 272},
+		TickHz: 60,
+		// the PSP's backlit TFT + the GE's bilinear sampling
+		Filter:    "ds",
+		TexFilter: "linear",
+	})
+	im, err := psp.OpenImage(ctx.In)
+	if err != nil {
+		return fmt.Errorf("open image: %w", err)
+	}
+	defer im.Close()
+	if ctx.Stage("levels") {
+		exportTracks(ctx, im)
+	}
+	if ctx.Stage("objects") {
+		exportCars(ctx, im)
+	}
+	return nil
+}
+
+// exportTracks writes each track's two layers and registers a fly-through level.
+func exportTracks(ctx *cli.Context, im *psp.Image) {
 	var dirs []string
 	im.Walk(func(e psp.Entry) error {
 		if !e.IsDir && strings.HasSuffix(e.Path, "/static.dat") {
@@ -140,7 +132,6 @@ func exportTracks(im *psp.Image, dir string) []model {
 	})
 	sort.Strings(dirs)
 
-	var out []model
 	for i, d := range dirs {
 		id := strings.TrimPrefix(d, "PSP_GAME/USRDIR/Tracks/") // e.g. US/C3_V1
 		slug := strings.ReplaceAll(id, "/", "_")
@@ -174,34 +165,54 @@ func exportTracks(im *psp.Image, dir string) []model {
 			world, env = env, nil
 		}
 
-		e := model{
-			Name:    region + " " + strings.ReplaceAll(track, "_", " "),
-			Section: "Tracks",
-			Kind:    "bl-track",
-			File:    "models/track-" + slug + ".glb",
+		name := region + " " + strings.ReplaceAll(track, "_", " ")
+		worldFile := "track-" + slug + ".glb"
+		wp, err := ctx.Builder.Path("levels", worldFile)
+		if err != nil {
+			die("%v", err)
 		}
+		writeGLB(wp, slug, t, world)
+		doc := &schema.Level{
+			Type:  schema.LevelScene3D,
+			Scene: &schema.Scene{Layers: []schema.Layer{{ID: "track", File: worldFile}}},
+		}
+		if len(env) > 0 {
+			envFile := "track-" + slug + "_env.glb"
+			ep, err := ctx.Builder.Path("levels", envFile)
+			if err != nil {
+				die("%v", err)
+			}
+			writeGLB(ep, slug+"_env", t, env)
+			doc.Scene.Layers = append(doc.Scene.Layers, schema.Layer{
+				ID: "environment", Name: "Environment", File: envFile, Mode: "toggle",
+			})
+		}
+		cam := &schema.Camera{Mode: "fly", FOV: 55, Near: 0.5, Far: 30000, Fly: &schema.Fly{Speed: 120}}
 		if len(anchors) >= 2 {
 			pos, ok1 := roadFrom(anchors[0])
 			tgt, ok2 := roadFrom(anchors[1])
 			if ok1 && ok2 {
 				tgt[1] = pos[1] // look along the road, not up or down the next cell
-				e.Spawn = &spawn{Pos: pos, Target: tgt}
+				cam.Pos = []float64{float64(pos[0]), float64(pos[1]) + 6, float64(pos[2])}
+				cam.Target = []float64{float64(tgt[0]), float64(tgt[1]), float64(tgt[2])}
 			}
 		}
-		writeGLB(filepath.Join(dir, "track-"+slug+".glb"), slug, t, world)
-		if len(env) > 0 {
-			e.Env = "models/track-" + slug + "_env.glb"
-			writeGLB(filepath.Join(dir, "track-"+slug+"_env.glb"), slug+"_env", t, env)
+		if cam.Pos == nil {
+			cam.Pos = []float64{0, 200, -400}
+			cam.Target = []float64{0, 0, 0}
 		}
-		out = append(out, e)
-		fmt.Fprintf(os.Stderr, "[tracks] %2d/%d  %s (%d world meshes, %d environment)\n",
-			i+1, len(dirs), id, len(world), len(env))
+		doc.Camera = cam
+		ctx.Builder.AddLevel(schema.Asset{
+			ID:    strings.ToLower(strings.ReplaceAll(slug, "_", "-")),
+			Name:  name,
+			Group: region + " tracks",
+		}, doc)
+		ctx.Progress("levels", i+1, len(dirs), fmt.Sprintf("%s (%d world meshes, %d environment)", id, len(world), len(env)))
 	}
-	return out
 }
 
 // exportCars writes one GLB per vehicle: its highest detail level, assembled.
-func exportCars(im *psp.Image, dir string) []model {
+func exportCars(ctx *cli.Context, im *psp.Image) {
 	var paths []string
 	im.Walk(func(e psp.Entry) error {
 		if !e.IsDir && strings.HasSuffix(e.Path, ".bgv") {
@@ -211,7 +222,6 @@ func exportCars(im *psp.Image, dir string) []model {
 	})
 	sort.Strings(paths)
 
-	var out []model
 	for i, p := range paths {
 		// Vehicles are grouped by class — the classes the SELECT CAR menu offers —
 		// and the numbering restarts in each, so the class belongs in the name.
@@ -286,21 +296,24 @@ func exportCars(im *psp.Image, dir string) []model {
 		if err := sc.AddMesh(node, slug, prims); err != nil {
 			die("%s: %v", slug, err)
 		}
-		file := "models/car-" + slug + ".glb"
-		if err := sc.Write(filepath.Join(dir, "car-"+slug+".glb"), slug); err != nil {
+		file := "car-" + slug + ".glb"
+		cp, err := ctx.Builder.Path("objects", file)
+		if err != nil {
+			die("%v", err)
+		}
+		if err := sc.Write(cp, slug); err != nil {
 			die("%s: %v", slug, err)
 		}
-		out = append(out, model{
-			Name:    class + " " + car,
-			Section: "Cars",
-			Kind:    "mesh3d",
-			File:    file,
+		name := class + " " + car
+		ctx.Builder.AddObject(schema.Asset{
+			ID: strings.ToLower(strings.ReplaceAll(slug, "_", "-")), Name: name, Group: class,
+		}, &schema.Object{
+			Type: schema.ObjectModel3D, Name: name, Model: file,
 		})
 		if (i+1)%10 == 0 || i+1 == len(paths) {
-			fmt.Fprintf(os.Stderr, "[cars] %2d/%d  %s\n", i+1, len(paths), slug)
+			ctx.Progress("objects", i+1, len(paths), slug)
 		}
 	}
-	return out
 }
 
 // writeGLB emits one track layer, batched by material as the engine draws it.
