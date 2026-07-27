@@ -1,585 +1,1819 @@
 {
-  "format": 2,
-  "game": "The Need for Speed",
-  "platform": "3DO",
+ "format": "retro-x",
+ "version": 1,
+ "id": "need-for-speed-3do",
+ "title": "The Need for Speed",
+ "platform": "3DO",
+ "year": 1994,
+ "description": "Road \u0026 Track Presents: The Need for Speed on the 3DO — the repo's first ARM60 target, whose Portfolio OS HLE runs the game's own movie player through the full attract sequence. All nine courses (the announcer's CITY, COASTAL and ALPINE runs) are rebuilt from the .trk segment spline, the streamed slice rows and the static slice topology in LaunchMe, each opening at the grid camera captured from the running game, under its own horizon-ring sky dome, with every roadside prop at its engine placement. The whole car fleet ships too: the eight player cars, the traffic the player weaves through, and the vehicles nothing in the game ever spawns.",
+ "display": {
   "native": {
-    "w": 320,
-    "h": 240
+   "w": 320,
+   "h": 240
   },
   "tickHz": 60,
-  "models": [
-    {
-      "name": "City 1",
-      "file": "models/course-cy1.glb",
-      "kind": "nfs-course",
-      "section": "Tracks",
-      "objectsFile": "cy1.objects.json",
-      "sky": "models/sky-cy1.glb",
-      "fly": true,
-      "camera": {
-        "pos": [
-          -2.902,
-          0.94,
-          -95.99598693847656
-        ],
-        "target": [
-          -2.902,
-          0.94,
-          -135.99598693847656
-        ]
-      }
-    },
-    {
-      "name": "City 2",
-      "file": "models/course-cy2.glb",
-      "kind": "nfs-course",
-      "section": "Tracks",
-      "objectsFile": "cy2.objects.json",
-      "sky": "models/sky-cy2.glb",
-      "fly": true,
-      "camera": {
-        "pos": [
-          -2.89998583984375,
-          0.9409918212890624,
-          -95.99598693847656
-        ],
-        "target": [
-          -2.89998583984375,
-          0.9409918212890624,
-          -135.99598693847656
-        ]
-      }
-    },
-    {
-      "name": "City 3",
-      "file": "models/course-cy3.glb",
-      "kind": "nfs-course",
-      "section": "Tracks",
-      "objectsFile": "cy3.objects.json",
-      "sky": "models/sky-cy3.glb",
-      "fly": true,
-      "camera": {
-        "pos": [
-          -2.902,
-          0.94,
-          -95.9949951171875
-        ],
-        "target": [
-          -2.902,
-          0.94,
-          -135.9949951171875
-        ]
-      }
-    },
-    {
-      "name": "Coastal 1",
-      "file": "models/course-cl1.glb",
-      "kind": "nfs-course",
-      "section": "Tracks",
-      "objectsFile": "cl1.objects.json",
-      "sky": "models/sky-cl1.glb",
-      "fly": true,
-      "camera": {
-        "pos": [
-          2.2989849126592854,
-          0.9419989013671874,
-          -96.01297542886455
-        ],
-        "target": [
-          2.3756839050535024,
-          0.9419989013671874,
-          -136.01290189460403
-        ]
-      }
-    },
-    {
-      "name": "Coastal 2",
-      "file": "models/course-cl2.glb",
-      "kind": "nfs-course",
-      "section": "Tracks",
-      "objectsFile": "cl2.objects.json",
-      "sky": "models/sky-cl2.glb",
-      "fly": true,
-      "camera": {
-        "pos": [
-          2.1299976806640624,
-          0.94299072265625,
-          -96.07398986816406
-        ],
-        "target": [
-          2.1299976806640624,
-          0.94299072265625,
-          -136.07398986816406
-        ]
-      }
-    },
-    {
-      "name": "Coastal 3",
-      "file": "models/course-cl3.glb",
-      "kind": "nfs-course",
-      "section": "Tracks",
-      "objectsFile": "cl3.objects.json",
-      "sky": "models/sky-cl3.glb",
-      "fly": true,
-      "camera": {
-        "pos": [
-          2.098,
-          0.94,
-          -95.99699401855469
-        ],
-        "target": [
-          2.098,
-          0.94,
-          -135.9969940185547
-        ]
-      }
-    },
-    {
-      "name": "Alpine 1",
-      "file": "models/course-al1.glb",
-      "kind": "nfs-course",
-      "section": "Tracks",
-      "objectsFile": "al1.objects.json",
-      "sky": "models/sky-al1.glb",
-      "fly": true,
-      "camera": {
-        "pos": [
-          2.261983737656358,
-          1.0269903564453124,
-          -95.99377572812386
-        ],
-        "target": [
-          2.3233429451077487,
-          1.0269903564453124,
-          -135.99372866619194
-        ]
-      }
-    },
-    {
-      "name": "Alpine 2",
-      "file": "models/course-al2.glb",
-      "kind": "nfs-course",
-      "section": "Tracks",
-      "objectsFile": "al2.objects.json",
-      "sky": "models/sky-al2.glb",
-      "fly": true,
-      "camera": {
-        "pos": [
-          2.0830006103515624,
-          0.9419989013671874,
-          -95.989990234375
-        ],
-        "target": [
-          2.0830006103515624,
-          0.9419989013671874,
-          -135.989990234375
-        ]
-      }
-    },
-    {
-      "name": "Alpine 3",
-      "file": "models/course-al3.glb",
-      "kind": "nfs-course",
-      "section": "Tracks",
-      "objectsFile": "al3.objects.json",
-      "sky": "models/sky-al3.glb",
-      "fly": true,
-      "camera": {
-        "pos": [
-          2.633965245585608,
-          0.9409918212890624,
-          -96.00472724412704
-        ],
-        "target": [
-          2.848721524145462,
-          0.9409918212890624,
-          -136.00415073673278
-        ]
-      }
-    },
-    {
-      "name": "Diablo",
-      "file": "models/car-ldiablo.glb",
-      "kind": "mesh3d",
-      "section": "Player cars"
-    },
-    {
-      "name": "512 TR",
-      "file": "models/car-f512tr.glb",
-      "kind": "mesh3d",
-      "section": "Player cars"
-    },
-    {
-      "name": "911",
-      "file": "models/car-p911.glb",
-      "kind": "mesh3d",
-      "section": "Player cars"
-    },
-    {
-      "name": "ZR-1",
-      "file": "models/car-czr1.glb",
-      "kind": "mesh3d",
-      "section": "Player cars"
-    },
-    {
-      "name": "Viper",
-      "file": "models/car-dviper.glb",
-      "kind": "mesh3d",
-      "section": "Player cars"
-    },
-    {
-      "name": "NSX",
-      "file": "models/car-ansx.glb",
-      "kind": "mesh3d",
-      "section": "Player cars"
-    },
-    {
-      "name": "RX-7",
-      "file": "models/car-mrx7.glb",
-      "kind": "mesh3d",
-      "section": "Player cars"
-    },
-    {
-      "name": "Supra",
-      "file": "models/car-tsupra.glb",
-      "kind": "mesh3d",
-      "section": "Player cars"
-    },
-    {
-      "name": "Police Mustang",
-      "file": "models/car-copmust.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "BMW",
-      "file": "models/car-bmw.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "BMW (scheme 2)",
-      "file": "models/car-bmw-plt1.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "BMW (scheme 3)",
-      "file": "models/car-bmw-plt2.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "BMW (scheme 4)",
-      "file": "models/car-bmw-plt3.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "CRX",
-      "file": "models/car-crx.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "CRX (scheme 2)",
-      "file": "models/car-crx-plt1.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "CRX (scheme 3)",
-      "file": "models/car-crx-plt2.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "CRX (scheme 4)",
-      "file": "models/car-crx-plt3.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "GMC Truck",
-      "file": "models/car-gmctruck.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Jeep",
-      "file": "models/car-jeep.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Jeep (scheme 2)",
-      "file": "models/car-jeep-plt1.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Jeep (scheme 3)",
-      "file": "models/car-jeep-plt2.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Jeep (scheme 4)",
-      "file": "models/car-jeep-plt3.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Jetta",
-      "file": "models/car-jetta.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Jetta (scheme 2)",
-      "file": "models/car-jetta-plt1.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Jetta (scheme 3)",
-      "file": "models/car-jetta-plt2.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Jetta (scheme 4)",
-      "file": "models/car-jetta-plt3.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Lemans",
-      "file": "models/car-lemans.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Lemans (scheme 2)",
-      "file": "models/car-lemans-plt1.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Lemans (scheme 3)",
-      "file": "models/car-lemans-plt2.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Lemans (scheme 4)",
-      "file": "models/car-lemans-plt3.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Pickup",
-      "file": "models/car-pickup.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Pickup (scheme 2)",
-      "file": "models/car-pickup-plt1.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Pickup (scheme 3)",
-      "file": "models/car-pickup-plt2.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Pickup (scheme 4)",
-      "file": "models/car-pickup-plt3.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Prelude",
-      "file": "models/car-prelude.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Probe",
-      "file": "models/car-probe.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Probe (scheme 2)",
-      "file": "models/car-probe-plt1.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Probe (scheme 3)",
-      "file": "models/car-probe-plt2.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Probe (scheme 4)",
-      "file": "models/car-probe-plt3.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Rodeo",
-      "file": "models/car-rodeo.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Rodeo (scheme 2)",
-      "file": "models/car-rodeo-plt1.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Rodeo (scheme 3)",
-      "file": "models/car-rodeo-plt2.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Rodeo (scheme 4)",
-      "file": "models/car-rodeo-plt3.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Sunbird",
-      "file": "models/car-sunbird.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Sunbird (scheme 2)",
-      "file": "models/car-sunbird-plt1.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Sunbird (scheme 3)",
-      "file": "models/car-sunbird-plt2.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Sunbird (scheme 4)",
-      "file": "models/car-sunbird-plt3.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Vandura",
-      "file": "models/car-vandura.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Vandura (scheme 2)",
-      "file": "models/car-vandura-plt1.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Vandura (scheme 3)",
-      "file": "models/car-vandura-plt2.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Vandura (scheme 4)",
-      "file": "models/car-vandura-plt3.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Wagon",
-      "file": "models/car-wagon.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Wagon (scheme 2)",
-      "file": "models/car-wagon-plt1.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Wagon (scheme 3)",
-      "file": "models/car-wagon-plt2.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Wagon (scheme 4)",
-      "file": "models/car-wagon-plt3.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Axxess",
-      "file": "models/car-axxess.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Axxess (scheme 2)",
-      "file": "models/car-axxess-plt1.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Axxess (scheme 3)",
-      "file": "models/car-axxess-plt2.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Axxess (scheme 4)",
-      "file": "models/car-axxess-plt3.glb",
-      "kind": "mesh3d",
-      "section": "Traffic vehicles"
-    },
-    {
-      "name": "Scooter",
-      "file": "models/car-scooter.glb",
-      "kind": "mesh3d",
-      "section": "Unused vehicles"
-    },
-    {
-      "name": "911 (classic body)",
-      "file": "models/car-porsche.glb",
-      "kind": "mesh3d",
-      "section": "Unused vehicles"
-    },
-    {
-      "name": "Police Mustang (dev)",
-      "file": "models/car-copmust-new.glb",
-      "kind": "mesh3d",
-      "section": "Unused vehicles"
-    },
-    {
-      "name": "Probe94 (SASCO model)",
-      "file": "models/car-probe94.glb",
-      "kind": "mesh3d",
-      "section": "Unused vehicles"
-    },
-    {
-      "name": "SASCO",
-      "file": "models/car-sasco.glb",
-      "kind": "mesh3d",
-      "section": "Unused vehicles"
-    }
-  ]
+  "filter": "crt",
+  "texFilter": "nearest"
+ },
+ "assets": [
+  {
+   "id": "obj-cy1-10",
+   "category": "object",
+   "name": "City 1 prop 10",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-10.json"
+  },
+  {
+   "id": "obj-cy1-04",
+   "category": "object",
+   "name": "City 1 prop 04",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-04.json"
+  },
+  {
+   "id": "obj-cy1-12",
+   "category": "object",
+   "name": "City 1 prop 12",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-12.json"
+  },
+  {
+   "id": "obj-cy1-11",
+   "category": "object",
+   "name": "City 1 prop 11",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-11.json"
+  },
+  {
+   "id": "obj-cy1-33",
+   "category": "object",
+   "name": "City 1 prop 33",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-33.json"
+  },
+  {
+   "id": "obj-cy1-37",
+   "category": "object",
+   "name": "City 1 prop 37",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-37.json"
+  },
+  {
+   "id": "obj-cy1-16",
+   "category": "object",
+   "name": "City 1 prop 16",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-16.json"
+  },
+  {
+   "id": "obj-cy1-36",
+   "category": "object",
+   "name": "City 1 prop 36",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-36.json"
+  },
+  {
+   "id": "obj-cy1-20",
+   "category": "object",
+   "name": "City 1 prop 20",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-20.json"
+  },
+  {
+   "id": "obj-cy1-23",
+   "category": "object",
+   "name": "City 1 prop 23",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-23.json"
+  },
+  {
+   "id": "obj-cy1-02",
+   "category": "object",
+   "name": "City 1 prop 02",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-02.json"
+  },
+  {
+   "id": "obj-cy1-21",
+   "category": "object",
+   "name": "City 1 prop 21",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-21.json"
+  },
+  {
+   "id": "obj-cy1-18",
+   "category": "object",
+   "name": "City 1 prop 18",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-18.json"
+  },
+  {
+   "id": "obj-cy1-26",
+   "category": "object",
+   "name": "City 1 prop 26",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-26.json"
+  },
+  {
+   "id": "obj-cy1-34",
+   "category": "object",
+   "name": "City 1 prop 34",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-34.json"
+  },
+  {
+   "id": "obj-cy1-19",
+   "category": "object",
+   "name": "City 1 prop 19",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-19.json"
+  },
+  {
+   "id": "obj-cy1-22",
+   "category": "object",
+   "name": "City 1 prop 22",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-22.json"
+  },
+  {
+   "id": "obj-cy1-35",
+   "category": "object",
+   "name": "City 1 prop 35",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-35.json"
+  },
+  {
+   "id": "obj-cy1-06",
+   "category": "object",
+   "name": "City 1 prop 06",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-06.json"
+  },
+  {
+   "id": "obj-cy1-05",
+   "category": "object",
+   "name": "City 1 prop 05",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-05.json"
+  },
+  {
+   "id": "obj-cy1-24",
+   "category": "object",
+   "name": "City 1 prop 24",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-24.json"
+  },
+  {
+   "id": "obj-cy1-13",
+   "category": "object",
+   "name": "City 1 prop 13",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-13.json"
+  },
+  {
+   "id": "obj-cy1-03",
+   "category": "object",
+   "name": "City 1 prop 03",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-03.json"
+  },
+  {
+   "id": "obj-cy1-08",
+   "category": "object",
+   "name": "City 1 prop 08",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-08.json"
+  },
+  {
+   "id": "obj-cy1-32",
+   "category": "object",
+   "name": "City 1 prop 32",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-32.json"
+  },
+  {
+   "id": "obj-cy1-27",
+   "category": "object",
+   "name": "City 1 prop 27",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-27.json"
+  },
+  {
+   "id": "obj-cy1-07",
+   "category": "object",
+   "name": "City 1 prop 07",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-07.json"
+  },
+  {
+   "id": "obj-cy1-00",
+   "category": "object",
+   "name": "City 1 prop 00",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-00.json"
+  },
+  {
+   "id": "obj-cy1-31",
+   "category": "object",
+   "name": "City 1 prop 31",
+   "group": "City scenery",
+   "file": "objects/obj-cy1-31.json"
+  },
+  {
+   "id": "cy1",
+   "category": "level",
+   "name": "City 1",
+   "group": "City tracks",
+   "file": "levels/cy1.json"
+  },
+  {
+   "id": "obj-cy2-07",
+   "category": "object",
+   "name": "City 2 prop 07",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-07.json"
+  },
+  {
+   "id": "obj-cy2-17",
+   "category": "object",
+   "name": "City 2 prop 17",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-17.json"
+  },
+  {
+   "id": "obj-cy2-12",
+   "category": "object",
+   "name": "City 2 prop 12",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-12.json"
+  },
+  {
+   "id": "obj-cy2-35",
+   "category": "object",
+   "name": "City 2 prop 35",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-35.json"
+  },
+  {
+   "id": "obj-cy2-02",
+   "category": "object",
+   "name": "City 2 prop 02",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-02.json"
+  },
+  {
+   "id": "obj-cy2-11",
+   "category": "object",
+   "name": "City 2 prop 11",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-11.json"
+  },
+  {
+   "id": "obj-cy2-36",
+   "category": "object",
+   "name": "City 2 prop 36",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-36.json"
+  },
+  {
+   "id": "obj-cy2-37",
+   "category": "object",
+   "name": "City 2 prop 37",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-37.json"
+  },
+  {
+   "id": "obj-cy2-38",
+   "category": "object",
+   "name": "City 2 prop 38",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-38.json"
+  },
+  {
+   "id": "obj-cy2-34",
+   "category": "object",
+   "name": "City 2 prop 34",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-34.json"
+  },
+  {
+   "id": "obj-cy2-00",
+   "category": "object",
+   "name": "City 2 prop 00",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-00.json"
+  },
+  {
+   "id": "obj-cy2-33",
+   "category": "object",
+   "name": "City 2 prop 33",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-33.json"
+  },
+  {
+   "id": "obj-cy2-13",
+   "category": "object",
+   "name": "City 2 prop 13",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-13.json"
+  },
+  {
+   "id": "obj-cy2-14",
+   "category": "object",
+   "name": "City 2 prop 14",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-14.json"
+  },
+  {
+   "id": "obj-cy2-01",
+   "category": "object",
+   "name": "City 2 prop 01",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-01.json"
+  },
+  {
+   "id": "obj-cy2-09",
+   "category": "object",
+   "name": "City 2 prop 09",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-09.json"
+  },
+  {
+   "id": "obj-cy2-04",
+   "category": "object",
+   "name": "City 2 prop 04",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-04.json"
+  },
+  {
+   "id": "obj-cy2-32",
+   "category": "object",
+   "name": "City 2 prop 32",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-32.json"
+  },
+  {
+   "id": "obj-cy2-03",
+   "category": "object",
+   "name": "City 2 prop 03",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-03.json"
+  },
+  {
+   "id": "obj-cy2-31",
+   "category": "object",
+   "name": "City 2 prop 31",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-31.json"
+  },
+  {
+   "id": "obj-cy2-08",
+   "category": "object",
+   "name": "City 2 prop 08",
+   "group": "City scenery",
+   "file": "objects/obj-cy2-08.json"
+  },
+  {
+   "id": "cy2",
+   "category": "level",
+   "name": "City 2",
+   "group": "City tracks",
+   "file": "levels/cy2.json"
+  },
+  {
+   "id": "obj-cy3-07",
+   "category": "object",
+   "name": "City 3 prop 07",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-07.json"
+  },
+  {
+   "id": "obj-cy3-24",
+   "category": "object",
+   "name": "City 3 prop 24",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-24.json"
+  },
+  {
+   "id": "obj-cy3-18",
+   "category": "object",
+   "name": "City 3 prop 18",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-18.json"
+  },
+  {
+   "id": "obj-cy3-26",
+   "category": "object",
+   "name": "City 3 prop 26",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-26.json"
+  },
+  {
+   "id": "obj-cy3-02",
+   "category": "object",
+   "name": "City 3 prop 02",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-02.json"
+  },
+  {
+   "id": "obj-cy3-22",
+   "category": "object",
+   "name": "City 3 prop 22",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-22.json"
+  },
+  {
+   "id": "obj-cy3-20",
+   "category": "object",
+   "name": "City 3 prop 20",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-20.json"
+  },
+  {
+   "id": "obj-cy3-00",
+   "category": "object",
+   "name": "City 3 prop 00",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-00.json"
+  },
+  {
+   "id": "obj-cy3-32",
+   "category": "object",
+   "name": "City 3 prop 32",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-32.json"
+  },
+  {
+   "id": "obj-cy3-14",
+   "category": "object",
+   "name": "City 3 prop 14",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-14.json"
+  },
+  {
+   "id": "obj-cy3-10",
+   "category": "object",
+   "name": "City 3 prop 10",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-10.json"
+  },
+  {
+   "id": "obj-cy3-17",
+   "category": "object",
+   "name": "City 3 prop 17",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-17.json"
+  },
+  {
+   "id": "obj-cy3-08",
+   "category": "object",
+   "name": "City 3 prop 08",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-08.json"
+  },
+  {
+   "id": "obj-cy3-16",
+   "category": "object",
+   "name": "City 3 prop 16",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-16.json"
+  },
+  {
+   "id": "obj-cy3-33",
+   "category": "object",
+   "name": "City 3 prop 33",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-33.json"
+  },
+  {
+   "id": "obj-cy3-04",
+   "category": "object",
+   "name": "City 3 prop 04",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-04.json"
+  },
+  {
+   "id": "obj-cy3-01",
+   "category": "object",
+   "name": "City 3 prop 01",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-01.json"
+  },
+  {
+   "id": "obj-cy3-11",
+   "category": "object",
+   "name": "City 3 prop 11",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-11.json"
+  },
+  {
+   "id": "obj-cy3-03",
+   "category": "object",
+   "name": "City 3 prop 03",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-03.json"
+  },
+  {
+   "id": "obj-cy3-31",
+   "category": "object",
+   "name": "City 3 prop 31",
+   "group": "City scenery",
+   "file": "objects/obj-cy3-31.json"
+  },
+  {
+   "id": "cy3",
+   "category": "level",
+   "name": "City 3",
+   "group": "City tracks",
+   "file": "levels/cy3.json"
+  },
+  {
+   "id": "obj-cl1-17",
+   "category": "object",
+   "name": "Coastal 1 prop 17",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-17.json"
+  },
+  {
+   "id": "obj-cl1-08",
+   "category": "object",
+   "name": "Coastal 1 prop 08",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-08.json"
+  },
+  {
+   "id": "obj-cl1-18",
+   "category": "object",
+   "name": "Coastal 1 prop 18",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-18.json"
+  },
+  {
+   "id": "obj-cl1-02",
+   "category": "object",
+   "name": "Coastal 1 prop 02",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-02.json"
+  },
+  {
+   "id": "obj-cl1-09",
+   "category": "object",
+   "name": "Coastal 1 prop 09",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-09.json"
+  },
+  {
+   "id": "obj-cl1-11",
+   "category": "object",
+   "name": "Coastal 1 prop 11",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-11.json"
+  },
+  {
+   "id": "obj-cl1-14",
+   "category": "object",
+   "name": "Coastal 1 prop 14",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-14.json"
+  },
+  {
+   "id": "obj-cl1-15",
+   "category": "object",
+   "name": "Coastal 1 prop 15",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-15.json"
+  },
+  {
+   "id": "obj-cl1-07",
+   "category": "object",
+   "name": "Coastal 1 prop 07",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-07.json"
+  },
+  {
+   "id": "obj-cl1-16",
+   "category": "object",
+   "name": "Coastal 1 prop 16",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-16.json"
+  },
+  {
+   "id": "obj-cl1-00",
+   "category": "object",
+   "name": "Coastal 1 prop 00",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-00.json"
+  },
+  {
+   "id": "obj-cl1-10",
+   "category": "object",
+   "name": "Coastal 1 prop 10",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-10.json"
+  },
+  {
+   "id": "obj-cl1-34",
+   "category": "object",
+   "name": "Coastal 1 prop 34",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-34.json"
+  },
+  {
+   "id": "obj-cl1-32",
+   "category": "object",
+   "name": "Coastal 1 prop 32",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-32.json"
+  },
+  {
+   "id": "obj-cl1-33",
+   "category": "object",
+   "name": "Coastal 1 prop 33",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-33.json"
+  },
+  {
+   "id": "obj-cl1-05",
+   "category": "object",
+   "name": "Coastal 1 prop 05",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-05.json"
+  },
+  {
+   "id": "obj-cl1-12",
+   "category": "object",
+   "name": "Coastal 1 prop 12",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-12.json"
+  },
+  {
+   "id": "obj-cl1-06",
+   "category": "object",
+   "name": "Coastal 1 prop 06",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-06.json"
+  },
+  {
+   "id": "obj-cl1-04",
+   "category": "object",
+   "name": "Coastal 1 prop 04",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-04.json"
+  },
+  {
+   "id": "obj-cl1-03",
+   "category": "object",
+   "name": "Coastal 1 prop 03",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-03.json"
+  },
+  {
+   "id": "obj-cl1-31",
+   "category": "object",
+   "name": "Coastal 1 prop 31",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl1-31.json"
+  },
+  {
+   "id": "cl1",
+   "category": "level",
+   "name": "Coastal 1",
+   "group": "Coastal tracks",
+   "file": "levels/cl1.json"
+  },
+  {
+   "id": "obj-cl2-11",
+   "category": "object",
+   "name": "Coastal 2 prop 11",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl2-11.json"
+  },
+  {
+   "id": "obj-cl2-02",
+   "category": "object",
+   "name": "Coastal 2 prop 02",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl2-02.json"
+  },
+  {
+   "id": "obj-cl2-10",
+   "category": "object",
+   "name": "Coastal 2 prop 10",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl2-10.json"
+  },
+  {
+   "id": "obj-cl2-00",
+   "category": "object",
+   "name": "Coastal 2 prop 00",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl2-00.json"
+  },
+  {
+   "id": "obj-cl2-07",
+   "category": "object",
+   "name": "Coastal 2 prop 07",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl2-07.json"
+  },
+  {
+   "id": "obj-cl2-04",
+   "category": "object",
+   "name": "Coastal 2 prop 04",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl2-04.json"
+  },
+  {
+   "id": "obj-cl2-03",
+   "category": "object",
+   "name": "Coastal 2 prop 03",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl2-03.json"
+  },
+  {
+   "id": "obj-cl2-06",
+   "category": "object",
+   "name": "Coastal 2 prop 06",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl2-06.json"
+  },
+  {
+   "id": "obj-cl2-14",
+   "category": "object",
+   "name": "Coastal 2 prop 14",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl2-14.json"
+  },
+  {
+   "id": "obj-cl2-13",
+   "category": "object",
+   "name": "Coastal 2 prop 13",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl2-13.json"
+  },
+  {
+   "id": "obj-cl2-12",
+   "category": "object",
+   "name": "Coastal 2 prop 12",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl2-12.json"
+  },
+  {
+   "id": "obj-cl2-05",
+   "category": "object",
+   "name": "Coastal 2 prop 05",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl2-05.json"
+  },
+  {
+   "id": "obj-cl2-32",
+   "category": "object",
+   "name": "Coastal 2 prop 32",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl2-32.json"
+  },
+  {
+   "id": "obj-cl2-01",
+   "category": "object",
+   "name": "Coastal 2 prop 01",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl2-01.json"
+  },
+  {
+   "id": "obj-cl2-31",
+   "category": "object",
+   "name": "Coastal 2 prop 31",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl2-31.json"
+  },
+  {
+   "id": "cl2",
+   "category": "level",
+   "name": "Coastal 2",
+   "group": "Coastal tracks",
+   "file": "levels/cl2.json"
+  },
+  {
+   "id": "obj-cl3-07",
+   "category": "object",
+   "name": "Coastal 3 prop 07",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-07.json"
+  },
+  {
+   "id": "obj-cl3-05",
+   "category": "object",
+   "name": "Coastal 3 prop 05",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-05.json"
+  },
+  {
+   "id": "obj-cl3-02",
+   "category": "object",
+   "name": "Coastal 3 prop 02",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-02.json"
+  },
+  {
+   "id": "obj-cl3-14",
+   "category": "object",
+   "name": "Coastal 3 prop 14",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-14.json"
+  },
+  {
+   "id": "obj-cl3-15",
+   "category": "object",
+   "name": "Coastal 3 prop 15",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-15.json"
+  },
+  {
+   "id": "obj-cl3-00",
+   "category": "object",
+   "name": "Coastal 3 prop 00",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-00.json"
+  },
+  {
+   "id": "obj-cl3-29",
+   "category": "object",
+   "name": "Coastal 3 prop 29",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-29.json"
+  },
+  {
+   "id": "obj-cl3-03",
+   "category": "object",
+   "name": "Coastal 3 prop 03",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-03.json"
+  },
+  {
+   "id": "obj-cl3-04",
+   "category": "object",
+   "name": "Coastal 3 prop 04",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-04.json"
+  },
+  {
+   "id": "obj-cl3-09",
+   "category": "object",
+   "name": "Coastal 3 prop 09",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-09.json"
+  },
+  {
+   "id": "obj-cl3-11",
+   "category": "object",
+   "name": "Coastal 3 prop 11",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-11.json"
+  },
+  {
+   "id": "obj-cl3-16",
+   "category": "object",
+   "name": "Coastal 3 prop 16",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-16.json"
+  },
+  {
+   "id": "obj-cl3-10",
+   "category": "object",
+   "name": "Coastal 3 prop 10",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-10.json"
+  },
+  {
+   "id": "obj-cl3-08",
+   "category": "object",
+   "name": "Coastal 3 prop 08",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-08.json"
+  },
+  {
+   "id": "obj-cl3-12",
+   "category": "object",
+   "name": "Coastal 3 prop 12",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-12.json"
+  },
+  {
+   "id": "obj-cl3-13",
+   "category": "object",
+   "name": "Coastal 3 prop 13",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-13.json"
+  },
+  {
+   "id": "obj-cl3-01",
+   "category": "object",
+   "name": "Coastal 3 prop 01",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-01.json"
+  },
+  {
+   "id": "obj-cl3-17",
+   "category": "object",
+   "name": "Coastal 3 prop 17",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-17.json"
+  },
+  {
+   "id": "obj-cl3-27",
+   "category": "object",
+   "name": "Coastal 3 prop 27",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-27.json"
+  },
+  {
+   "id": "obj-cl3-25",
+   "category": "object",
+   "name": "Coastal 3 prop 25",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-25.json"
+  },
+  {
+   "id": "obj-cl3-23",
+   "category": "object",
+   "name": "Coastal 3 prop 23",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-23.json"
+  },
+  {
+   "id": "obj-cl3-22",
+   "category": "object",
+   "name": "Coastal 3 prop 22",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-22.json"
+  },
+  {
+   "id": "obj-cl3-32",
+   "category": "object",
+   "name": "Coastal 3 prop 32",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-32.json"
+  },
+  {
+   "id": "obj-cl3-31",
+   "category": "object",
+   "name": "Coastal 3 prop 31",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-31.json"
+  },
+  {
+   "id": "obj-cl3-30",
+   "category": "object",
+   "name": "Coastal 3 prop 30",
+   "group": "Coastal scenery",
+   "file": "objects/obj-cl3-30.json"
+  },
+  {
+   "id": "cl3",
+   "category": "level",
+   "name": "Coastal 3",
+   "group": "Coastal tracks",
+   "file": "levels/cl3.json"
+  },
+  {
+   "id": "obj-al1-10",
+   "category": "object",
+   "name": "Alpine 1 prop 10",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-10.json"
+  },
+  {
+   "id": "obj-al1-05",
+   "category": "object",
+   "name": "Alpine 1 prop 05",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-05.json"
+  },
+  {
+   "id": "obj-al1-11",
+   "category": "object",
+   "name": "Alpine 1 prop 11",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-11.json"
+  },
+  {
+   "id": "obj-al1-07",
+   "category": "object",
+   "name": "Alpine 1 prop 07",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-07.json"
+  },
+  {
+   "id": "obj-al1-06",
+   "category": "object",
+   "name": "Alpine 1 prop 06",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-06.json"
+  },
+  {
+   "id": "obj-al1-15",
+   "category": "object",
+   "name": "Alpine 1 prop 15",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-15.json"
+  },
+  {
+   "id": "obj-al1-14",
+   "category": "object",
+   "name": "Alpine 1 prop 14",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-14.json"
+  },
+  {
+   "id": "obj-al1-09",
+   "category": "object",
+   "name": "Alpine 1 prop 09",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-09.json"
+  },
+  {
+   "id": "obj-al1-16",
+   "category": "object",
+   "name": "Alpine 1 prop 16",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-16.json"
+  },
+  {
+   "id": "obj-al1-17",
+   "category": "object",
+   "name": "Alpine 1 prop 17",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-17.json"
+  },
+  {
+   "id": "obj-al1-19",
+   "category": "object",
+   "name": "Alpine 1 prop 19",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-19.json"
+  },
+  {
+   "id": "obj-al1-00",
+   "category": "object",
+   "name": "Alpine 1 prop 00",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-00.json"
+  },
+  {
+   "id": "obj-al1-02",
+   "category": "object",
+   "name": "Alpine 1 prop 02",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-02.json"
+  },
+  {
+   "id": "obj-al1-08",
+   "category": "object",
+   "name": "Alpine 1 prop 08",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-08.json"
+  },
+  {
+   "id": "obj-al1-20",
+   "category": "object",
+   "name": "Alpine 1 prop 20",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-20.json"
+  },
+  {
+   "id": "obj-al1-12",
+   "category": "object",
+   "name": "Alpine 1 prop 12",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-12.json"
+  },
+  {
+   "id": "obj-al1-18",
+   "category": "object",
+   "name": "Alpine 1 prop 18",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-18.json"
+  },
+  {
+   "id": "obj-al1-04",
+   "category": "object",
+   "name": "Alpine 1 prop 04",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-04.json"
+  },
+  {
+   "id": "obj-al1-03",
+   "category": "object",
+   "name": "Alpine 1 prop 03",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-03.json"
+  },
+  {
+   "id": "obj-al1-13",
+   "category": "object",
+   "name": "Alpine 1 prop 13",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-13.json"
+  },
+  {
+   "id": "obj-al1-32",
+   "category": "object",
+   "name": "Alpine 1 prop 32",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-32.json"
+  },
+  {
+   "id": "obj-al1-31",
+   "category": "object",
+   "name": "Alpine 1 prop 31",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al1-31.json"
+  },
+  {
+   "id": "al1",
+   "category": "level",
+   "name": "Alpine 1",
+   "group": "Alpine tracks",
+   "file": "levels/al1.json"
+  },
+  {
+   "id": "obj-al2-07",
+   "category": "object",
+   "name": "Alpine 2 prop 07",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al2-07.json"
+  },
+  {
+   "id": "obj-al2-12",
+   "category": "object",
+   "name": "Alpine 2 prop 12",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al2-12.json"
+  },
+  {
+   "id": "obj-al2-08",
+   "category": "object",
+   "name": "Alpine 2 prop 08",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al2-08.json"
+  },
+  {
+   "id": "obj-al2-09",
+   "category": "object",
+   "name": "Alpine 2 prop 09",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al2-09.json"
+  },
+  {
+   "id": "obj-al2-02",
+   "category": "object",
+   "name": "Alpine 2 prop 02",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al2-02.json"
+  },
+  {
+   "id": "obj-al2-11",
+   "category": "object",
+   "name": "Alpine 2 prop 11",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al2-11.json"
+  },
+  {
+   "id": "obj-al2-00",
+   "category": "object",
+   "name": "Alpine 2 prop 00",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al2-00.json"
+  },
+  {
+   "id": "obj-al2-13",
+   "category": "object",
+   "name": "Alpine 2 prop 13",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al2-13.json"
+  },
+  {
+   "id": "obj-al2-10",
+   "category": "object",
+   "name": "Alpine 2 prop 10",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al2-10.json"
+  },
+  {
+   "id": "obj-al2-01",
+   "category": "object",
+   "name": "Alpine 2 prop 01",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al2-01.json"
+  },
+  {
+   "id": "obj-al2-04",
+   "category": "object",
+   "name": "Alpine 2 prop 04",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al2-04.json"
+  },
+  {
+   "id": "obj-al2-03",
+   "category": "object",
+   "name": "Alpine 2 prop 03",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al2-03.json"
+  },
+  {
+   "id": "obj-al2-32",
+   "category": "object",
+   "name": "Alpine 2 prop 32",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al2-32.json"
+  },
+  {
+   "id": "obj-al2-06",
+   "category": "object",
+   "name": "Alpine 2 prop 06",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al2-06.json"
+  },
+  {
+   "id": "obj-al2-31",
+   "category": "object",
+   "name": "Alpine 2 prop 31",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al2-31.json"
+  },
+  {
+   "id": "al2",
+   "category": "level",
+   "name": "Alpine 2",
+   "group": "Alpine tracks",
+   "file": "levels/al2.json"
+  },
+  {
+   "id": "obj-al3-03",
+   "category": "object",
+   "name": "Alpine 3 prop 03",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al3-03.json"
+  },
+  {
+   "id": "obj-al3-07",
+   "category": "object",
+   "name": "Alpine 3 prop 07",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al3-07.json"
+  },
+  {
+   "id": "obj-al3-12",
+   "category": "object",
+   "name": "Alpine 3 prop 12",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al3-12.json"
+  },
+  {
+   "id": "obj-al3-13",
+   "category": "object",
+   "name": "Alpine 3 prop 13",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al3-13.json"
+  },
+  {
+   "id": "obj-al3-06",
+   "category": "object",
+   "name": "Alpine 3 prop 06",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al3-06.json"
+  },
+  {
+   "id": "obj-al3-00",
+   "category": "object",
+   "name": "Alpine 3 prop 00",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al3-00.json"
+  },
+  {
+   "id": "obj-al3-05",
+   "category": "object",
+   "name": "Alpine 3 prop 05",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al3-05.json"
+  },
+  {
+   "id": "obj-al3-10",
+   "category": "object",
+   "name": "Alpine 3 prop 10",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al3-10.json"
+  },
+  {
+   "id": "obj-al3-01",
+   "category": "object",
+   "name": "Alpine 3 prop 01",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al3-01.json"
+  },
+  {
+   "id": "obj-al3-04",
+   "category": "object",
+   "name": "Alpine 3 prop 04",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al3-04.json"
+  },
+  {
+   "id": "obj-al3-02",
+   "category": "object",
+   "name": "Alpine 3 prop 02",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al3-02.json"
+  },
+  {
+   "id": "obj-al3-09",
+   "category": "object",
+   "name": "Alpine 3 prop 09",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al3-09.json"
+  },
+  {
+   "id": "obj-al3-08",
+   "category": "object",
+   "name": "Alpine 3 prop 08",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al3-08.json"
+  },
+  {
+   "id": "obj-al3-32",
+   "category": "object",
+   "name": "Alpine 3 prop 32",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al3-32.json"
+  },
+  {
+   "id": "obj-al3-33",
+   "category": "object",
+   "name": "Alpine 3 prop 33",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al3-33.json"
+  },
+  {
+   "id": "obj-al3-31",
+   "category": "object",
+   "name": "Alpine 3 prop 31",
+   "group": "Alpine scenery",
+   "file": "objects/obj-al3-31.json"
+  },
+  {
+   "id": "al3",
+   "category": "level",
+   "name": "Alpine 3",
+   "group": "Alpine tracks",
+   "file": "levels/al3.json"
+  },
+  {
+   "id": "car-ldiablo",
+   "category": "object",
+   "name": "Diablo",
+   "group": "Player cars",
+   "file": "objects/car-ldiablo.json"
+  },
+  {
+   "id": "car-f512tr",
+   "category": "object",
+   "name": "512 TR",
+   "group": "Player cars",
+   "file": "objects/car-f512tr.json"
+  },
+  {
+   "id": "car-p911",
+   "category": "object",
+   "name": "911",
+   "group": "Player cars",
+   "file": "objects/car-p911.json"
+  },
+  {
+   "id": "car-czr1",
+   "category": "object",
+   "name": "ZR-1",
+   "group": "Player cars",
+   "file": "objects/car-czr1.json"
+  },
+  {
+   "id": "car-dviper",
+   "category": "object",
+   "name": "Viper",
+   "group": "Player cars",
+   "file": "objects/car-dviper.json"
+  },
+  {
+   "id": "car-ansx",
+   "category": "object",
+   "name": "NSX",
+   "group": "Player cars",
+   "file": "objects/car-ansx.json"
+  },
+  {
+   "id": "car-mrx7",
+   "category": "object",
+   "name": "RX-7",
+   "group": "Player cars",
+   "file": "objects/car-mrx7.json"
+  },
+  {
+   "id": "car-tsupra",
+   "category": "object",
+   "name": "Supra",
+   "group": "Player cars",
+   "file": "objects/car-tsupra.json"
+  },
+  {
+   "id": "car-copmust",
+   "category": "object",
+   "name": "Police Mustang",
+   "group": "Traffic vehicles",
+   "file": "objects/car-copmust.json"
+  },
+  {
+   "id": "car-bmw",
+   "category": "object",
+   "name": "BMW",
+   "group": "Traffic vehicles",
+   "file": "objects/car-bmw.json"
+  },
+  {
+   "id": "car-bmw-plt1",
+   "category": "object",
+   "name": "BMW (scheme 2)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-bmw-plt1.json"
+  },
+  {
+   "id": "car-bmw-plt2",
+   "category": "object",
+   "name": "BMW (scheme 3)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-bmw-plt2.json"
+  },
+  {
+   "id": "car-bmw-plt3",
+   "category": "object",
+   "name": "BMW (scheme 4)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-bmw-plt3.json"
+  },
+  {
+   "id": "car-crx",
+   "category": "object",
+   "name": "CRX",
+   "group": "Traffic vehicles",
+   "file": "objects/car-crx.json"
+  },
+  {
+   "id": "car-crx-plt1",
+   "category": "object",
+   "name": "CRX (scheme 2)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-crx-plt1.json"
+  },
+  {
+   "id": "car-crx-plt2",
+   "category": "object",
+   "name": "CRX (scheme 3)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-crx-plt2.json"
+  },
+  {
+   "id": "car-crx-plt3",
+   "category": "object",
+   "name": "CRX (scheme 4)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-crx-plt3.json"
+  },
+  {
+   "id": "car-gmctruck",
+   "category": "object",
+   "name": "GMC Truck",
+   "group": "Traffic vehicles",
+   "file": "objects/car-gmctruck.json"
+  },
+  {
+   "id": "car-jeep",
+   "category": "object",
+   "name": "Jeep",
+   "group": "Traffic vehicles",
+   "file": "objects/car-jeep.json"
+  },
+  {
+   "id": "car-jeep-plt1",
+   "category": "object",
+   "name": "Jeep (scheme 2)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-jeep-plt1.json"
+  },
+  {
+   "id": "car-jeep-plt2",
+   "category": "object",
+   "name": "Jeep (scheme 3)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-jeep-plt2.json"
+  },
+  {
+   "id": "car-jeep-plt3",
+   "category": "object",
+   "name": "Jeep (scheme 4)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-jeep-plt3.json"
+  },
+  {
+   "id": "car-jetta",
+   "category": "object",
+   "name": "Jetta",
+   "group": "Traffic vehicles",
+   "file": "objects/car-jetta.json"
+  },
+  {
+   "id": "car-jetta-plt1",
+   "category": "object",
+   "name": "Jetta (scheme 2)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-jetta-plt1.json"
+  },
+  {
+   "id": "car-jetta-plt2",
+   "category": "object",
+   "name": "Jetta (scheme 3)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-jetta-plt2.json"
+  },
+  {
+   "id": "car-jetta-plt3",
+   "category": "object",
+   "name": "Jetta (scheme 4)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-jetta-plt3.json"
+  },
+  {
+   "id": "car-lemans",
+   "category": "object",
+   "name": "Lemans",
+   "group": "Traffic vehicles",
+   "file": "objects/car-lemans.json"
+  },
+  {
+   "id": "car-lemans-plt1",
+   "category": "object",
+   "name": "Lemans (scheme 2)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-lemans-plt1.json"
+  },
+  {
+   "id": "car-lemans-plt2",
+   "category": "object",
+   "name": "Lemans (scheme 3)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-lemans-plt2.json"
+  },
+  {
+   "id": "car-lemans-plt3",
+   "category": "object",
+   "name": "Lemans (scheme 4)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-lemans-plt3.json"
+  },
+  {
+   "id": "car-pickup",
+   "category": "object",
+   "name": "Pickup",
+   "group": "Traffic vehicles",
+   "file": "objects/car-pickup.json"
+  },
+  {
+   "id": "car-pickup-plt1",
+   "category": "object",
+   "name": "Pickup (scheme 2)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-pickup-plt1.json"
+  },
+  {
+   "id": "car-pickup-plt2",
+   "category": "object",
+   "name": "Pickup (scheme 3)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-pickup-plt2.json"
+  },
+  {
+   "id": "car-pickup-plt3",
+   "category": "object",
+   "name": "Pickup (scheme 4)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-pickup-plt3.json"
+  },
+  {
+   "id": "car-prelude",
+   "category": "object",
+   "name": "Prelude",
+   "group": "Traffic vehicles",
+   "file": "objects/car-prelude.json"
+  },
+  {
+   "id": "car-probe",
+   "category": "object",
+   "name": "Probe",
+   "group": "Traffic vehicles",
+   "file": "objects/car-probe.json"
+  },
+  {
+   "id": "car-probe-plt1",
+   "category": "object",
+   "name": "Probe (scheme 2)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-probe-plt1.json"
+  },
+  {
+   "id": "car-probe-plt2",
+   "category": "object",
+   "name": "Probe (scheme 3)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-probe-plt2.json"
+  },
+  {
+   "id": "car-probe-plt3",
+   "category": "object",
+   "name": "Probe (scheme 4)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-probe-plt3.json"
+  },
+  {
+   "id": "car-rodeo",
+   "category": "object",
+   "name": "Rodeo",
+   "group": "Traffic vehicles",
+   "file": "objects/car-rodeo.json"
+  },
+  {
+   "id": "car-rodeo-plt1",
+   "category": "object",
+   "name": "Rodeo (scheme 2)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-rodeo-plt1.json"
+  },
+  {
+   "id": "car-rodeo-plt2",
+   "category": "object",
+   "name": "Rodeo (scheme 3)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-rodeo-plt2.json"
+  },
+  {
+   "id": "car-rodeo-plt3",
+   "category": "object",
+   "name": "Rodeo (scheme 4)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-rodeo-plt3.json"
+  },
+  {
+   "id": "car-sunbird",
+   "category": "object",
+   "name": "Sunbird",
+   "group": "Traffic vehicles",
+   "file": "objects/car-sunbird.json"
+  },
+  {
+   "id": "car-sunbird-plt1",
+   "category": "object",
+   "name": "Sunbird (scheme 2)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-sunbird-plt1.json"
+  },
+  {
+   "id": "car-sunbird-plt2",
+   "category": "object",
+   "name": "Sunbird (scheme 3)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-sunbird-plt2.json"
+  },
+  {
+   "id": "car-sunbird-plt3",
+   "category": "object",
+   "name": "Sunbird (scheme 4)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-sunbird-plt3.json"
+  },
+  {
+   "id": "car-vandura",
+   "category": "object",
+   "name": "Vandura",
+   "group": "Traffic vehicles",
+   "file": "objects/car-vandura.json"
+  },
+  {
+   "id": "car-vandura-plt1",
+   "category": "object",
+   "name": "Vandura (scheme 2)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-vandura-plt1.json"
+  },
+  {
+   "id": "car-vandura-plt2",
+   "category": "object",
+   "name": "Vandura (scheme 3)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-vandura-plt2.json"
+  },
+  {
+   "id": "car-vandura-plt3",
+   "category": "object",
+   "name": "Vandura (scheme 4)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-vandura-plt3.json"
+  },
+  {
+   "id": "car-wagon",
+   "category": "object",
+   "name": "Wagon",
+   "group": "Traffic vehicles",
+   "file": "objects/car-wagon.json"
+  },
+  {
+   "id": "car-wagon-plt1",
+   "category": "object",
+   "name": "Wagon (scheme 2)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-wagon-plt1.json"
+  },
+  {
+   "id": "car-wagon-plt2",
+   "category": "object",
+   "name": "Wagon (scheme 3)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-wagon-plt2.json"
+  },
+  {
+   "id": "car-wagon-plt3",
+   "category": "object",
+   "name": "Wagon (scheme 4)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-wagon-plt3.json"
+  },
+  {
+   "id": "car-axxess",
+   "category": "object",
+   "name": "Axxess",
+   "group": "Traffic vehicles",
+   "file": "objects/car-axxess.json"
+  },
+  {
+   "id": "car-axxess-plt1",
+   "category": "object",
+   "name": "Axxess (scheme 2)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-axxess-plt1.json"
+  },
+  {
+   "id": "car-axxess-plt2",
+   "category": "object",
+   "name": "Axxess (scheme 3)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-axxess-plt2.json"
+  },
+  {
+   "id": "car-axxess-plt3",
+   "category": "object",
+   "name": "Axxess (scheme 4)",
+   "group": "Traffic vehicles",
+   "file": "objects/car-axxess-plt3.json"
+  },
+  {
+   "id": "car-scooter",
+   "category": "object",
+   "name": "Scooter",
+   "group": "Unused vehicles",
+   "file": "objects/car-scooter.json"
+  },
+  {
+   "id": "car-porsche",
+   "category": "object",
+   "name": "911 (classic body)",
+   "group": "Unused vehicles",
+   "file": "objects/car-porsche.json"
+  },
+  {
+   "id": "car-copmust-new",
+   "category": "object",
+   "name": "Police Mustang (dev)",
+   "group": "Unused vehicles",
+   "file": "objects/car-copmust-new.json"
+  },
+  {
+   "id": "car-probe94",
+   "category": "object",
+   "name": "Probe94 (SASCO model)",
+   "group": "Unused vehicles",
+   "file": "objects/car-probe94.json"
+  },
+  {
+   "id": "car-sasco",
+   "category": "object",
+   "name": "SASCO",
+   "group": "Unused vehicles",
+   "file": "objects/car-sasco.json"
+  }
+ ]
 }

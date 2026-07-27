@@ -1,0 +1,7 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Probe (scheme 2)",
+ "model": "car-probe-plt1.glb"
+}

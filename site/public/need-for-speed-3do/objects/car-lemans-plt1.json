@@ -1,0 +1,7 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Lemans (scheme 2)",
+ "model": "car-lemans-plt1.glb"
+}

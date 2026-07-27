@@ -1,0 +1,7 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Pickup (scheme 2)",
+ "model": "car-pickup-plt1.glb"
+}

@@ -1,0 +1,6 @@
+{
+ "title": "The Need for Speed",
+ "platform": "3DO",
+ "year": 1994,
+ "description": "Road & Track Presents: The Need for Speed on the 3DO — the repo's first ARM60 target, whose Portfolio OS HLE runs the game's own movie player through the full attract sequence. All nine courses (the announcer's CITY, COASTAL and ALPINE runs) are rebuilt from the .trk segment spline, the streamed slice rows and the static slice topology in LaunchMe, each opening at the grid camera captured from the running game, under its own horizon-ring sky dome, with every roadside prop at its engine placement. The whole car fleet ships too: the eight player cars, the traffic the player weaves through, and the vehicles nothing in the game ever spawns."
+}
