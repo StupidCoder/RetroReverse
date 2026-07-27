@@ -89,6 +89,26 @@ func mansionExport(image, outDir string) error {
 		if err != nil {
 			return err
 		}
+		// The arc's anm/ directory: clips keyed by the furniture base name
+		// (anm/chest_0.anm and anm/chest_1.anm belong to chest.bin).
+		clipsFor := map[string][]anmClip{}
+		for _, mem := range members {
+			if mem.Dir != "anm" || !strings.HasSuffix(mem.Name, ".anm") {
+				continue
+			}
+			clip := strings.TrimSuffix(mem.Name, ".anm")
+			base := clip
+			if i := strings.LastIndex(clip, "_"); i > 0 {
+				base = clip[:i]
+			}
+			a, err := lm.ParseAnm(mem.Data)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "  skip %s:anm/%s: %v\n", roomName, mem.Name, err)
+				failCount++
+				continue
+			}
+			clipsFor[base] = append(clipsFor[base], anmClip{Name: clip, Anm: a})
+		}
 		for _, mem := range members {
 			if !strings.HasSuffix(mem.Name, ".bin") || len(mem.Data) < 0x60 {
 				continue
@@ -120,7 +140,14 @@ func mansionExport(image, outDir string) error {
 				if n := len(byName[base]); n > 0 {
 					file = fmt.Sprintf("%s-%d.glb", base, n+1)
 				}
-				if err := binGLB(m, filepath.Join(outDir, "furniture", file), base); err != nil {
+				var err error
+				if clips := clipsFor[base]; len(clips) > 0 {
+					sortClips(clips)
+					err = binGLBAnimated(m, clips, filepath.Join(outDir, "furniture", file), base)
+				} else {
+					err = binGLB(m, filepath.Join(outDir, "furniture", file), base)
+				}
+				if err != nil {
 					fmt.Fprintf(os.Stderr, "  skip %s:%s: %v\n", roomName, mem.Name, err)
 					failCount++
 					continue

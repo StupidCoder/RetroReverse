@@ -431,6 +431,34 @@ from `room_45.arc`). The Studio's `lm-room` renderer assembles a room the same w
 game does: shell GLB + placement instances, each under a holder with the record's
 TRS (rotation ZYX, degrees).
 
+## Part XI — .anm: the furniture moves
+
+The `.anm` files (each room arc's `anm/` directory, plus the door swings in
+`/Game/game_usa.szp`) animate the `.bin` scene graph directly — the fourth wearing of the
+same hermite-channel mechanism. Found statically: the DOL's door-path table
+(`/iwamoto/Door/pull.anm`, …, at 0x802FF944) leads to the list loader `0x8001FB10`, the
+binder `0x8001DE90`, and the evaluator `0x8001E04C`, which read:
+
+```
++0 u8 version   +1 u8 loop   +4 u32 frame count
++8/+0xC/+0x10   pool offsets (scale / rotation / translation floats)
++0x14           descriptor table offset (0x18)
+```
+
+Descriptors are **54 bytes per graph node**: 9 channels of `{s16 count, s16 offset,
+s16 fourFlag}` in the order `sx sy sz rx ry rz tx ty tz`, channel group *n* indexing
+pool *n*. `count` 1 is a constant at `pool[offset]`; otherwise `count` hermite keys of
+`{time, value, tangent}` (separate in/out tangents when flagged), times in 30 fps frames,
+rotations in degrees — `lm/anm.go` shares `key.go`'s evaluator verbatim. The evaluated
+TRS *replaces* the node's own, which is also the decode's verification: `chest_0.anm`
+(the rest clip) reproduces `chest.bin`'s five nodes' graph TRS to the last float, all 45
+channels. `chest_1` then slides the drawer node out (`tz` keys 19→64 over 15 frames)
+— the visible "chest opens" moment. `lmtool -mansion` exports any furniture with clips
+through a node-hierarchy GLB (`binGLBAnimated`) carrying one glTF animation per clip;
+the Studio's gallery plays them (click cycles clips). Still unread: the 136–264-byte
+`.bas` records that pair with animated furniture (interaction metadata — trigger
+volumes and sounds by the look of the floats).
+
 ## Open items
 
 * The demo's binding of shots to archives and archive members to actors (the `.scd` names
