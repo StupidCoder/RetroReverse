@@ -127,9 +127,9 @@ The per-game entry point: game metadata plus a flat list of assets.
   "format": "retro-x", "version": 1,                       // ✱
   "id": "sonic-gg",                                        // ✱ matches the directory name
   "title": "Sonic the Hedgehog",                           // ✱ display title
-  "platform": "Game Gear",                                 // ✱ display string
-  "year": 1991,                                            // ✱ original release year
-  "description": "One-paragraph editorial description.",   // ✱ landing-page blurb
+  "platform": "Game Gear",                                 // display string
+  "year": 1991,                                            // original release year
+  "description": "One-paragraph editorial description.",   // landing-page blurb
   "logo": "logo.png",                                      // small logo bitmap
 
   "display": {                                             // ✱
@@ -147,7 +147,9 @@ The per-game entry point: game metadata plus a flat list of assets.
 }
 ```
 
-`display.native` doubles as the screen filter's pixel grid. An individual asset whose
+`platform`, `year`, `description` and `logo` are presentation niceties for the game
+list — assets work without them, so they are optional. `display.native` doubles as the
+screen filter's pixel grid. An individual asset whose
 internal render raster differs from the platform (e.g. a 200-line 3-D race view on a
 256-line machine) declares a `pixelGrid` override in its own document (§5.1).
 
@@ -407,17 +409,15 @@ particular roll is shareable/reproducible.
     "object": "prisoner",                    // ✱ object asset id
     "candidates": [ [x,y], ... ],            // ✱ possible positions (pick count of them)
     "seedable": true,                        // honour a user-supplied RNG seed
-    "skins": [                               // optional random per-placement variation:
-      { "anim": "side", "tint": "#352879" },
-      { "object": "chopper" }                //   a skin may swap the object entirely
-    ],
+    "anim": "stand", "tint": "#352879",      // as on a placement (applied to every instance)
     "variants": ["day"]                      // level-variant membership (as placements)
   }
 ]
 ```
 
-Pools are static in version 1: instances do not move. (The candidate format and `skins`
-leave room for a future motion extension without a version bump.)
+Pools are static in version 1: instances do not move, and every instance of a pool looks
+the same (per-instance random variation would be an additive future field — no exported
+game needs it).
 
 ## 6. Object documents
 
@@ -471,6 +471,10 @@ This makes the sheet directly usable in other projects and legible to a human.
                                              //   morph targets and clips all live inside)
   "instanced": true,                         // geometry safe to share across placements
   "skinnedClone": false,                     // placements must deep-clone (skinned meshes)
+  "billboard": "yaw",                        // rotate the whole model to face the camera
+                                             //   about world-up (flat "tree quad" models);
+                                             //   per-BONE billboarding is a GLB node extra
+                                             //   ({"billboard": true}), not a document field
   "animations": [                            // metadata over the GLB's named clips
     { "id": "spin", "clip": "spin",          // ✱ clip = the GLB animation name
       "name": "Victory spin", "fps": 30,     // authored frame rate (step-quantized playback)
@@ -498,10 +502,14 @@ This makes the sheet directly usable in other projects and legible to a human.
 
 ### 6.3 `billboard3d`
 
-A camera-facing sprite in a 3-D scene (creatures and props in engines that draw flats).
-First-class object — 100 billboard trees are one object and 100 placements. The atlas
-convention matches `sprite2d` with one twist: **rows are view directions** (for sprites
-with per-angle art), and an animation is a run of columns.
+A **view-angle-dependent sprite** in a 3-D scene: the art shown depends on the camera's
+bearing to the object (8-view creatures and props in engines that draw flats). This is
+the one behaviour glTF cannot express — there is no way to encode "select an atlas
+region from the viewing angle" inside a GLB — and it keeps such art as an inspectable
+sprite sheet. A flat model that merely turns to face the camera is NOT this type; that is
+a `model3d` with `billboard:"yaw"`. First-class object — 100 billboard ghosts are one
+object and 100 placements. The atlas convention matches `sprite2d` with one twist:
+**rows are view directions**, and an animation is a run of columns.
 
 ```jsonc
 { "format": "retro-x", "version": 1, "type": "billboard3d",
