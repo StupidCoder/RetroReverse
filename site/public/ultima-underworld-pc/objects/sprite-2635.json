@@ -1,0 +1,25 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "billboard3d",
+ "name": "Sprite 2635",
+ "atlas": {
+  "file": "sprite-2635.png",
+  "cellW": 35,
+  "cellH": 52
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "fps": 1,
+   "framesPerView": 4
+  }
+ ],
+ "views": 8,
+ "heading": 1.5707963267948966,
+ "mode": "yaw",
+ "size": [0.60546875, 0.95703125],
+ "anchorMode": "bottom",
+ "blend": "alpha"
+}

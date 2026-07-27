@@ -1,1 +1,1895 @@
-{"format":2,"game":"ultima-underworld-pc","platform":"MS-DOS","native":{"h":200,"w":320},"tickHz":60,"levels":[{"name":"Level 1","file":"levels/level1.json","kind":"mesh3d","objects":"levels/level1.objects.json"},{"name":"Level 2","file":"levels/level2.json","kind":"mesh3d","objects":"levels/level2.objects.json"},{"name":"Level 3","file":"levels/level3.json","kind":"mesh3d","objects":"levels/level3.objects.json"},{"name":"Level 4","file":"levels/level4.json","kind":"mesh3d","objects":"levels/level4.objects.json"},{"name":"Level 5","file":"levels/level5.json","kind":"mesh3d","objects":"levels/level5.objects.json"},{"name":"Level 6","file":"levels/level6.json","kind":"mesh3d","objects":"levels/level6.objects.json"},{"name":"Level 7","file":"levels/level7.json","kind":"mesh3d","objects":"levels/level7.objects.json"},{"name":"Level 8","file":"levels/level8.json","kind":"mesh3d","objects":"levels/level8.objects.json"},{"name":"Level 9","file":"levels/level9.json","kind":"mesh3d","objects":"levels/level9.objects.json"}]}
+{
+ "format": "retro-x",
+ "version": 1,
+ "id": "ultima-underworld-pc",
+ "title": "Ultima Underworld: The Stygian Abyss",
+ "platform": "MS-DOS",
+ "year": 1992,
+ "description": "The first real-time 3D dungeon RPG, rebuilt from the installed game's own files — the repo's first x86/MS-DOS target, whose oracle plays the game into the Abyss through its own interrupt handlers. All nine levels of the Stygian Abyss are decoded from LEV.ARK into textured meshes (the ceiling stays single-sided so you can peer into rooms from above), and every placed object — items, creatures with their eight-view directional sprites, additive glow overlays — stands at its engine position as a camera-facing billboard, with readable signs carrying their actual game text.",
+ "display": {
+  "native": {
+   "w": 320,
+   "h": 200
+  },
+  "tickHz": 60,
+  "filter": "crt"
+ },
+ "assets": [
+  {
+   "id": "sprite-0",
+   "category": "object",
+   "name": "Sprite 0",
+   "group": "Items",
+   "file": "objects/sprite-0.json"
+  },
+  {
+   "id": "sprite-3",
+   "category": "object",
+   "name": "Sprite 3",
+   "group": "Items",
+   "file": "objects/sprite-3.json"
+  },
+  {
+   "id": "sprite-4",
+   "category": "object",
+   "name": "Sprite 4",
+   "group": "Items",
+   "file": "objects/sprite-4.json"
+  },
+  {
+   "id": "sprite-5",
+   "category": "object",
+   "name": "Sprite 5",
+   "group": "Items",
+   "file": "objects/sprite-5.json"
+  },
+  {
+   "id": "sprite-12",
+   "category": "object",
+   "name": "Sprite 12",
+   "group": "Items",
+   "file": "objects/sprite-12.json"
+  },
+  {
+   "id": "sprite-13",
+   "category": "object",
+   "name": "Sprite 13",
+   "group": "Items",
+   "file": "objects/sprite-13.json"
+  },
+  {
+   "id": "sprite-14",
+   "category": "object",
+   "name": "Sprite 14",
+   "group": "Items",
+   "file": "objects/sprite-14.json"
+  },
+  {
+   "id": "sprite-16",
+   "category": "object",
+   "name": "Sprite 16",
+   "group": "Items",
+   "file": "objects/sprite-16.json"
+  },
+  {
+   "id": "sprite-18",
+   "category": "object",
+   "name": "Sprite 18",
+   "group": "Items",
+   "file": "objects/sprite-18.json"
+  },
+  {
+   "id": "sprite-19",
+   "category": "object",
+   "name": "Sprite 19",
+   "group": "Items",
+   "file": "objects/sprite-19.json"
+  },
+  {
+   "id": "sprite-20",
+   "category": "object",
+   "name": "Sprite 20",
+   "group": "Items",
+   "file": "objects/sprite-20.json"
+  },
+  {
+   "id": "sprite-22",
+   "category": "object",
+   "name": "Sprite 22",
+   "group": "Items",
+   "file": "objects/sprite-22.json"
+  },
+  {
+   "id": "sprite-23",
+   "category": "object",
+   "name": "Sprite 23",
+   "group": "Items",
+   "file": "objects/sprite-23.json"
+  },
+  {
+   "id": "sprite-24",
+   "category": "object",
+   "name": "Sprite 24",
+   "group": "Items",
+   "file": "objects/sprite-24.json"
+  },
+  {
+   "id": "sprite-25",
+   "category": "object",
+   "name": "Sprite 25",
+   "group": "Items",
+   "file": "objects/sprite-25.json"
+  },
+  {
+   "id": "sprite-28",
+   "category": "object",
+   "name": "Sprite 28",
+   "group": "Items",
+   "file": "objects/sprite-28.json"
+  },
+  {
+   "id": "sprite-30",
+   "category": "object",
+   "name": "Sprite 30",
+   "group": "Items",
+   "file": "objects/sprite-30.json"
+  },
+  {
+   "id": "sprite-32",
+   "category": "object",
+   "name": "Sprite 32",
+   "group": "Items",
+   "file": "objects/sprite-32.json"
+  },
+  {
+   "id": "sprite-35",
+   "category": "object",
+   "name": "Sprite 35",
+   "group": "Items",
+   "file": "objects/sprite-35.json"
+  },
+  {
+   "id": "sprite-39",
+   "category": "object",
+   "name": "Sprite 39",
+   "group": "Items",
+   "file": "objects/sprite-39.json"
+  },
+  {
+   "id": "sprite-40",
+   "category": "object",
+   "name": "Sprite 40",
+   "group": "Items",
+   "file": "objects/sprite-40.json"
+  },
+  {
+   "id": "sprite-41",
+   "category": "object",
+   "name": "Sprite 41",
+   "group": "Items",
+   "file": "objects/sprite-41.json"
+  },
+  {
+   "id": "sprite-42",
+   "category": "object",
+   "name": "Sprite 42",
+   "group": "Items",
+   "file": "objects/sprite-42.json"
+  },
+  {
+   "id": "sprite-43",
+   "category": "object",
+   "name": "Sprite 43",
+   "group": "Items",
+   "file": "objects/sprite-43.json"
+  },
+  {
+   "id": "sprite-44",
+   "category": "object",
+   "name": "Sprite 44",
+   "group": "Items",
+   "file": "objects/sprite-44.json"
+  },
+  {
+   "id": "sprite-45",
+   "category": "object",
+   "name": "Sprite 45",
+   "group": "Items",
+   "file": "objects/sprite-45.json"
+  },
+  {
+   "id": "sprite-49",
+   "category": "object",
+   "name": "Sprite 49",
+   "group": "Items",
+   "file": "objects/sprite-49.json"
+  },
+  {
+   "id": "sprite-50",
+   "category": "object",
+   "name": "Sprite 50",
+   "group": "Items",
+   "file": "objects/sprite-50.json"
+  },
+  {
+   "id": "sprite-52",
+   "category": "object",
+   "name": "Sprite 52",
+   "group": "Items",
+   "file": "objects/sprite-52.json"
+  },
+  {
+   "id": "sprite-53",
+   "category": "object",
+   "name": "Sprite 53",
+   "group": "Items",
+   "file": "objects/sprite-53.json"
+  },
+  {
+   "id": "sprite-61",
+   "category": "object",
+   "name": "Sprite 61",
+   "group": "Items",
+   "file": "objects/sprite-61.json"
+  },
+  {
+   "id": "sprite-62",
+   "category": "object",
+   "name": "Sprite 62",
+   "group": "Items",
+   "file": "objects/sprite-62.json"
+  },
+  {
+   "id": "sprite-63",
+   "category": "object",
+   "name": "Sprite 63",
+   "group": "Items",
+   "file": "objects/sprite-63.json"
+  },
+  {
+   "id": "sprite-64",
+   "category": "object",
+   "name": "Sprite 64",
+   "group": "Items",
+   "file": "objects/sprite-64.json"
+  },
+  {
+   "id": "sprite-65",
+   "category": "object",
+   "name": "Sprite 65",
+   "group": "Items",
+   "file": "objects/sprite-65.json"
+  },
+  {
+   "id": "sprite-66",
+   "category": "object",
+   "name": "Sprite 66",
+   "group": "Items",
+   "file": "objects/sprite-66.json"
+  },
+  {
+   "id": "sprite-68",
+   "category": "object",
+   "name": "Sprite 68",
+   "group": "Items",
+   "file": "objects/sprite-68.json"
+  },
+  {
+   "id": "sprite-70",
+   "category": "object",
+   "name": "Sprite 70",
+   "group": "Items",
+   "file": "objects/sprite-70.json"
+  },
+  {
+   "id": "sprite-73",
+   "category": "object",
+   "name": "Sprite 73",
+   "group": "Items",
+   "file": "objects/sprite-73.json"
+  },
+  {
+   "id": "sprite-76",
+   "category": "object",
+   "name": "Sprite 76",
+   "group": "Items",
+   "file": "objects/sprite-76.json"
+  },
+  {
+   "id": "sprite-81",
+   "category": "object",
+   "name": "Sprite 81",
+   "group": "Items",
+   "file": "objects/sprite-81.json"
+  },
+  {
+   "id": "sprite-87",
+   "category": "object",
+   "name": "Sprite 87",
+   "group": "Items",
+   "file": "objects/sprite-87.json"
+  },
+  {
+   "id": "sprite-88",
+   "category": "object",
+   "name": "Sprite 88",
+   "group": "Items",
+   "file": "objects/sprite-88.json"
+  },
+  {
+   "id": "sprite-89",
+   "category": "object",
+   "name": "Sprite 89",
+   "group": "Items",
+   "file": "objects/sprite-89.json"
+  },
+  {
+   "id": "sprite-91",
+   "category": "object",
+   "name": "Sprite 91",
+   "group": "Items",
+   "file": "objects/sprite-91.json"
+  },
+  {
+   "id": "sprite-93",
+   "category": "object",
+   "name": "Sprite 93",
+   "group": "Items",
+   "file": "objects/sprite-93.json"
+  },
+  {
+   "id": "sprite-97",
+   "category": "object",
+   "name": "Sprite 97",
+   "group": "Items",
+   "file": "objects/sprite-97.json"
+  },
+  {
+   "id": "sprite-103",
+   "category": "object",
+   "name": "Sprite 103",
+   "group": "Items",
+   "file": "objects/sprite-103.json"
+  },
+  {
+   "id": "sprite-104",
+   "category": "object",
+   "name": "Sprite 104",
+   "group": "Items",
+   "file": "objects/sprite-104.json"
+  },
+  {
+   "id": "sprite-105",
+   "category": "object",
+   "name": "Sprite 105",
+   "group": "Items",
+   "file": "objects/sprite-105.json"
+  },
+  {
+   "id": "sprite-106",
+   "category": "object",
+   "name": "Sprite 106",
+   "group": "Items",
+   "file": "objects/sprite-106.json"
+  },
+  {
+   "id": "sprite-107",
+   "category": "object",
+   "name": "Sprite 107",
+   "group": "Items",
+   "file": "objects/sprite-107.json"
+  },
+  {
+   "id": "sprite-109",
+   "category": "object",
+   "name": "Sprite 109",
+   "group": "Items",
+   "file": "objects/sprite-109.json"
+  },
+  {
+   "id": "sprite-110",
+   "category": "object",
+   "name": "Sprite 110",
+   "group": "Items",
+   "file": "objects/sprite-110.json"
+  },
+  {
+   "id": "sprite-112",
+   "category": "object",
+   "name": "Sprite 112",
+   "group": "Items",
+   "file": "objects/sprite-112.json"
+  },
+  {
+   "id": "sprite-114",
+   "category": "object",
+   "name": "Sprite 114",
+   "group": "Items",
+   "file": "objects/sprite-114.json"
+  },
+  {
+   "id": "sprite-115",
+   "category": "object",
+   "name": "Sprite 115",
+   "group": "Items",
+   "file": "objects/sprite-115.json"
+  },
+  {
+   "id": "sprite-117",
+   "category": "object",
+   "name": "Sprite 117",
+   "group": "Items",
+   "file": "objects/sprite-117.json"
+  },
+  {
+   "id": "sprite-119",
+   "category": "object",
+   "name": "Sprite 119",
+   "group": "Items",
+   "file": "objects/sprite-119.json"
+  },
+  {
+   "id": "sprite-126",
+   "category": "object",
+   "name": "Sprite 126",
+   "group": "Items",
+   "file": "objects/sprite-126.json"
+  },
+  {
+   "id": "sprite-127",
+   "category": "object",
+   "name": "Sprite 127",
+   "group": "Items",
+   "file": "objects/sprite-127.json"
+  },
+  {
+   "id": "sprite-128",
+   "category": "object",
+   "name": "Sprite 128",
+   "group": "Items",
+   "file": "objects/sprite-128.json"
+  },
+  {
+   "id": "sprite-144",
+   "category": "object",
+   "name": "Sprite 144",
+   "group": "Items",
+   "file": "objects/sprite-144.json"
+  },
+  {
+   "id": "sprite-146",
+   "category": "object",
+   "name": "Sprite 146",
+   "group": "Items",
+   "file": "objects/sprite-146.json"
+  },
+  {
+   "id": "sprite-150",
+   "category": "object",
+   "name": "Sprite 150",
+   "group": "Items",
+   "file": "objects/sprite-150.json"
+  },
+  {
+   "id": "sprite-155",
+   "category": "object",
+   "name": "Sprite 155",
+   "group": "Items",
+   "file": "objects/sprite-155.json"
+  },
+  {
+   "id": "sprite-156",
+   "category": "object",
+   "name": "Sprite 156",
+   "group": "Items",
+   "file": "objects/sprite-156.json"
+  },
+  {
+   "id": "sprite-158",
+   "category": "object",
+   "name": "Sprite 158",
+   "group": "Items",
+   "file": "objects/sprite-158.json"
+  },
+  {
+   "id": "sprite-167",
+   "category": "object",
+   "name": "Sprite 167",
+   "group": "Items",
+   "file": "objects/sprite-167.json"
+  },
+  {
+   "id": "sprite-168",
+   "category": "object",
+   "name": "Sprite 168",
+   "group": "Items",
+   "file": "objects/sprite-168.json"
+  },
+  {
+   "id": "sprite-178",
+   "category": "object",
+   "name": "Sprite 178",
+   "group": "Items",
+   "file": "objects/sprite-178.json"
+  },
+  {
+   "id": "sprite-185",
+   "category": "object",
+   "name": "Sprite 185",
+   "group": "Items",
+   "file": "objects/sprite-185.json"
+  },
+  {
+   "id": "sprite-209",
+   "category": "object",
+   "name": "Sprite 209",
+   "group": "Items",
+   "file": "objects/sprite-209.json"
+  },
+  {
+   "id": "sprite-219",
+   "category": "object",
+   "name": "Sprite 219",
+   "group": "Items",
+   "file": "objects/sprite-219.json"
+  },
+  {
+   "id": "sprite-220",
+   "category": "object",
+   "name": "Sprite 220",
+   "group": "Items",
+   "file": "objects/sprite-220.json"
+  },
+  {
+   "id": "sprite-221",
+   "category": "object",
+   "name": "Sprite 221",
+   "group": "Items",
+   "file": "objects/sprite-221.json"
+  },
+  {
+   "id": "sprite-225",
+   "category": "object",
+   "name": "Sprite 225",
+   "group": "Items",
+   "file": "objects/sprite-225.json"
+  },
+  {
+   "id": "sprite-226",
+   "category": "object",
+   "name": "Sprite 226",
+   "group": "Items",
+   "file": "objects/sprite-226.json"
+  },
+  {
+   "id": "sprite-228",
+   "category": "object",
+   "name": "Sprite 228",
+   "group": "Items",
+   "file": "objects/sprite-228.json"
+  },
+  {
+   "id": "sprite-238",
+   "category": "object",
+   "name": "Sprite 238",
+   "group": "Items",
+   "file": "objects/sprite-238.json"
+  },
+  {
+   "id": "sprite-240",
+   "category": "object",
+   "name": "Sprite 240",
+   "group": "Items",
+   "file": "objects/sprite-240.json"
+  },
+  {
+   "id": "sprite-254",
+   "category": "object",
+   "name": "Sprite 254",
+   "group": "Items",
+   "file": "objects/sprite-254.json"
+  },
+  {
+   "id": "sprite-255",
+   "category": "object",
+   "name": "Sprite 255",
+   "group": "Creatures",
+   "file": "objects/sprite-255.json"
+  },
+  {
+   "id": "sprite-256",
+   "category": "object",
+   "name": "Sprite 256",
+   "group": "Creatures",
+   "file": "objects/sprite-256.json"
+  },
+  {
+   "id": "sprite-258",
+   "category": "object",
+   "name": "Sprite 258",
+   "group": "Creatures",
+   "file": "objects/sprite-258.json"
+  },
+  {
+   "id": "sprite-260",
+   "category": "object",
+   "name": "Sprite 260",
+   "group": "Creatures",
+   "file": "objects/sprite-260.json"
+  },
+  {
+   "id": "sprite-261",
+   "category": "object",
+   "name": "Sprite 261",
+   "group": "Creatures",
+   "file": "objects/sprite-261.json"
+  },
+  {
+   "id": "sprite-265",
+   "category": "object",
+   "name": "Sprite 265",
+   "group": "Creatures",
+   "file": "objects/sprite-265.json"
+  },
+  {
+   "id": "sprite-268",
+   "category": "object",
+   "name": "Sprite 268",
+   "group": "Creatures",
+   "file": "objects/sprite-268.json"
+  },
+  {
+   "id": "sprite-271",
+   "category": "object",
+   "name": "Sprite 271",
+   "group": "Creatures",
+   "file": "objects/sprite-271.json"
+  },
+  {
+   "id": "sprite-274",
+   "category": "object",
+   "name": "Sprite 274",
+   "group": "Creatures",
+   "file": "objects/sprite-274.json"
+  },
+  {
+   "id": "sprite-276",
+   "category": "object",
+   "name": "Sprite 276",
+   "group": "Creatures",
+   "file": "objects/sprite-276.json"
+  },
+  {
+   "id": "sprite-277",
+   "category": "object",
+   "name": "Sprite 277",
+   "group": "Creatures",
+   "file": "objects/sprite-277.json"
+  },
+  {
+   "id": "sprite-278",
+   "category": "object",
+   "name": "Sprite 278",
+   "group": "Creatures",
+   "file": "objects/sprite-278.json"
+  },
+  {
+   "id": "sprite-279",
+   "category": "object",
+   "name": "Sprite 279",
+   "group": "Creatures",
+   "file": "objects/sprite-279.json"
+  },
+  {
+   "id": "sprite-280",
+   "category": "object",
+   "name": "Sprite 280",
+   "group": "Creatures",
+   "file": "objects/sprite-280.json"
+  },
+  {
+   "id": "sprite-284",
+   "category": "object",
+   "name": "Sprite 284",
+   "group": "Creatures",
+   "file": "objects/sprite-284.json"
+  },
+  {
+   "id": "sprite-285",
+   "category": "object",
+   "name": "Sprite 285",
+   "group": "Creatures",
+   "file": "objects/sprite-285.json"
+  },
+  {
+   "id": "sprite-291",
+   "category": "object",
+   "name": "Sprite 291",
+   "group": "Creatures",
+   "file": "objects/sprite-291.json"
+  },
+  {
+   "id": "sprite-292",
+   "category": "object",
+   "name": "Sprite 292",
+   "group": "Creatures",
+   "file": "objects/sprite-292.json"
+  },
+  {
+   "id": "sprite-294",
+   "category": "object",
+   "name": "Sprite 294",
+   "group": "Creatures",
+   "file": "objects/sprite-294.json"
+  },
+  {
+   "id": "sprite-752",
+   "category": "object",
+   "name": "Sprite 752",
+   "group": "Items",
+   "file": "objects/sprite-752.json"
+  },
+  {
+   "id": "sprite-755",
+   "category": "object",
+   "name": "Sprite 755",
+   "group": "Items",
+   "file": "objects/sprite-755.json"
+  },
+  {
+   "id": "sprite-757",
+   "category": "object",
+   "name": "Sprite 757",
+   "group": "Items",
+   "file": "objects/sprite-757.json"
+  },
+  {
+   "id": "sprite-760",
+   "category": "object",
+   "name": "Sprite 760",
+   "group": "Items",
+   "file": "objects/sprite-760.json"
+  },
+  {
+   "id": "sprite-769",
+   "category": "object",
+   "name": "Sprite 769",
+   "group": "Items",
+   "file": "objects/sprite-769.json"
+  },
+  {
+   "id": "sprite-777",
+   "category": "object",
+   "name": "Sprite 777",
+   "group": "Items",
+   "file": "objects/sprite-777.json"
+  },
+  {
+   "id": "sprite-792",
+   "category": "object",
+   "name": "Sprite 792",
+   "group": "Items",
+   "file": "objects/sprite-792.json"
+  },
+  {
+   "id": "sprite-796",
+   "category": "object",
+   "name": "Sprite 796",
+   "group": "Items",
+   "file": "objects/sprite-796.json"
+  },
+  {
+   "id": "sprite-809",
+   "category": "object",
+   "name": "Sprite 809",
+   "group": "Items",
+   "file": "objects/sprite-809.json"
+  },
+  {
+   "id": "sprite-823",
+   "category": "object",
+   "name": "Sprite 823",
+   "group": "Items",
+   "file": "objects/sprite-823.json"
+  },
+  {
+   "id": "sprite-826",
+   "category": "object",
+   "name": "Sprite 826",
+   "group": "Items",
+   "file": "objects/sprite-826.json"
+  },
+  {
+   "id": "sprite-828",
+   "category": "object",
+   "name": "Sprite 828",
+   "group": "Items",
+   "file": "objects/sprite-828.json"
+  },
+  {
+   "id": "sprite-829",
+   "category": "object",
+   "name": "Sprite 829",
+   "group": "Items",
+   "file": "objects/sprite-829.json"
+  },
+  {
+   "id": "sprite-831",
+   "category": "object",
+   "name": "Sprite 831",
+   "group": "Items",
+   "file": "objects/sprite-831.json"
+  },
+  {
+   "id": "sprite-847",
+   "category": "object",
+   "name": "Sprite 847",
+   "group": "Items",
+   "file": "objects/sprite-847.json"
+  },
+  {
+   "id": "sprite-854",
+   "category": "object",
+   "name": "Sprite 854",
+   "group": "Items",
+   "file": "objects/sprite-854.json"
+  },
+  {
+   "id": "sprite-858",
+   "category": "object",
+   "name": "Sprite 858",
+   "group": "Items",
+   "file": "objects/sprite-858.json"
+  },
+  {
+   "id": "sprite-859",
+   "category": "object",
+   "name": "Sprite 859",
+   "group": "Items",
+   "file": "objects/sprite-859.json"
+  },
+  {
+   "id": "sprite-860",
+   "category": "object",
+   "name": "Sprite 860",
+   "group": "Items",
+   "file": "objects/sprite-860.json"
+  },
+  {
+   "id": "sprite-861",
+   "category": "object",
+   "name": "Sprite 861",
+   "group": "Items",
+   "file": "objects/sprite-861.json"
+  },
+  {
+   "id": "sprite-862",
+   "category": "object",
+   "name": "Sprite 862",
+   "group": "Items",
+   "file": "objects/sprite-862.json"
+  },
+  {
+   "id": "sprite-863",
+   "category": "object",
+   "name": "Sprite 863",
+   "group": "Items",
+   "file": "objects/sprite-863.json"
+  },
+  {
+   "id": "sprite-872",
+   "category": "object",
+   "name": "Sprite 872",
+   "group": "Items",
+   "file": "objects/sprite-872.json"
+  },
+  {
+   "id": "sprite-891",
+   "category": "object",
+   "name": "Sprite 891",
+   "group": "Items",
+   "file": "objects/sprite-891.json"
+  },
+  {
+   "id": "sprite-899",
+   "category": "object",
+   "name": "Sprite 899",
+   "group": "Items",
+   "file": "objects/sprite-899.json"
+  },
+  {
+   "id": "sprite-902",
+   "category": "object",
+   "name": "Sprite 902",
+   "group": "Items",
+   "file": "objects/sprite-902.json"
+  },
+  {
+   "id": "sprite-903",
+   "category": "object",
+   "name": "Sprite 903",
+   "group": "Items",
+   "file": "objects/sprite-903.json"
+  },
+  {
+   "id": "sprite-919",
+   "category": "object",
+   "name": "Sprite 919",
+   "group": "Items",
+   "file": "objects/sprite-919.json"
+  },
+  {
+   "id": "sprite-921",
+   "category": "object",
+   "name": "Sprite 921",
+   "group": "Items",
+   "file": "objects/sprite-921.json"
+  },
+  {
+   "id": "sprite-932",
+   "category": "object",
+   "name": "Sprite 932",
+   "group": "Items",
+   "file": "objects/sprite-932.json"
+  },
+  {
+   "id": "sprite-933",
+   "category": "object",
+   "name": "Sprite 933",
+   "group": "Items",
+   "file": "objects/sprite-933.json"
+  },
+  {
+   "id": "sprite-934",
+   "category": "object",
+   "name": "Sprite 934",
+   "group": "Items",
+   "file": "objects/sprite-934.json"
+  },
+  {
+   "id": "sprite-935",
+   "category": "object",
+   "name": "Sprite 935",
+   "group": "Items",
+   "file": "objects/sprite-935.json"
+  },
+  {
+   "id": "sprite-956",
+   "category": "object",
+   "name": "Sprite 956",
+   "group": "Items",
+   "file": "objects/sprite-956.json"
+  },
+  {
+   "id": "sprite-959",
+   "category": "object",
+   "name": "Sprite 959",
+   "group": "Items",
+   "file": "objects/sprite-959.json"
+  },
+  {
+   "id": "sprite-962",
+   "category": "object",
+   "name": "Sprite 962",
+   "group": "Items",
+   "file": "objects/sprite-962.json"
+  },
+  {
+   "id": "sprite-991",
+   "category": "object",
+   "name": "Sprite 991",
+   "group": "Items",
+   "file": "objects/sprite-991.json"
+  },
+  {
+   "id": "sprite-996",
+   "category": "object",
+   "name": "Sprite 996",
+   "group": "Items",
+   "file": "objects/sprite-996.json"
+  },
+  {
+   "id": "sprite-1004",
+   "category": "object",
+   "name": "Sprite 1004",
+   "group": "Items",
+   "file": "objects/sprite-1004.json"
+  },
+  {
+   "id": "sprite-1034",
+   "category": "object",
+   "name": "Sprite 1034",
+   "group": "Creatures",
+   "file": "objects/sprite-1034.json"
+  },
+  {
+   "id": "sprite-1041",
+   "category": "object",
+   "name": "Sprite 1041",
+   "group": "Creatures",
+   "file": "objects/sprite-1041.json"
+  },
+  {
+   "id": "sprite-1050",
+   "category": "object",
+   "name": "Sprite 1050",
+   "group": "Creatures",
+   "file": "objects/sprite-1050.json"
+  },
+  {
+   "id": "sprite-1051",
+   "category": "object",
+   "name": "Sprite 1051",
+   "group": "Creatures",
+   "file": "objects/sprite-1051.json"
+  },
+  {
+   "id": "sprite-1053",
+   "category": "object",
+   "name": "Sprite 1053",
+   "group": "Creatures",
+   "file": "objects/sprite-1053.json"
+  },
+  {
+   "id": "sprite-1055",
+   "category": "object",
+   "name": "Sprite 1055",
+   "group": "Creatures",
+   "file": "objects/sprite-1055.json"
+  },
+  {
+   "id": "sprite-1068",
+   "category": "object",
+   "name": "Sprite 1068",
+   "group": "Creatures",
+   "file": "objects/sprite-1068.json"
+  },
+  {
+   "id": "sprite-1548",
+   "category": "object",
+   "name": "Sprite 1548",
+   "group": "Items",
+   "file": "objects/sprite-1548.json"
+  },
+  {
+   "id": "sprite-1549",
+   "category": "object",
+   "name": "Sprite 1549",
+   "group": "Items",
+   "file": "objects/sprite-1549.json"
+  },
+  {
+   "id": "sprite-1551",
+   "category": "object",
+   "name": "Sprite 1551",
+   "group": "Items",
+   "file": "objects/sprite-1551.json"
+  },
+  {
+   "id": "sprite-1555",
+   "category": "object",
+   "name": "Sprite 1555",
+   "group": "Items",
+   "file": "objects/sprite-1555.json"
+  },
+  {
+   "id": "sprite-1559",
+   "category": "object",
+   "name": "Sprite 1559",
+   "group": "Items",
+   "file": "objects/sprite-1559.json"
+  },
+  {
+   "id": "sprite-1560",
+   "category": "object",
+   "name": "Sprite 1560",
+   "group": "Items",
+   "file": "objects/sprite-1560.json"
+  },
+  {
+   "id": "sprite-1576",
+   "category": "object",
+   "name": "Sprite 1576",
+   "group": "Items",
+   "file": "objects/sprite-1576.json"
+  },
+  {
+   "id": "sprite-1589",
+   "category": "object",
+   "name": "Sprite 1589",
+   "group": "Items",
+   "file": "objects/sprite-1589.json"
+  },
+  {
+   "id": "sprite-1592",
+   "category": "object",
+   "name": "Sprite 1592",
+   "group": "Items",
+   "file": "objects/sprite-1592.json"
+  },
+  {
+   "id": "sprite-1594",
+   "category": "object",
+   "name": "Sprite 1594",
+   "group": "Items",
+   "file": "objects/sprite-1594.json"
+  },
+  {
+   "id": "sprite-1602",
+   "category": "object",
+   "name": "Sprite 1602",
+   "group": "Items",
+   "file": "objects/sprite-1602.json"
+  },
+  {
+   "id": "sprite-1615",
+   "category": "object",
+   "name": "Sprite 1615",
+   "group": "Items",
+   "file": "objects/sprite-1615.json"
+  },
+  {
+   "id": "sprite-1665",
+   "category": "object",
+   "name": "Sprite 1665",
+   "group": "Items",
+   "file": "objects/sprite-1665.json"
+  },
+  {
+   "id": "sprite-1666",
+   "category": "object",
+   "name": "Sprite 1666",
+   "group": "Items",
+   "file": "objects/sprite-1666.json"
+  },
+  {
+   "id": "sprite-1673",
+   "category": "object",
+   "name": "Sprite 1673",
+   "group": "Items",
+   "file": "objects/sprite-1673.json"
+  },
+  {
+   "id": "sprite-1689",
+   "category": "object",
+   "name": "Sprite 1689",
+   "group": "Items",
+   "file": "objects/sprite-1689.json"
+  },
+  {
+   "id": "sprite-1724",
+   "category": "object",
+   "name": "Sprite 1724",
+   "group": "Items",
+   "file": "objects/sprite-1724.json"
+  },
+  {
+   "id": "sprite-1727",
+   "category": "object",
+   "name": "Sprite 1727",
+   "group": "Items",
+   "file": "objects/sprite-1727.json"
+  },
+  {
+   "id": "sprite-1746",
+   "category": "object",
+   "name": "Sprite 1746",
+   "group": "Items",
+   "file": "objects/sprite-1746.json"
+  },
+  {
+   "id": "sprite-1758",
+   "category": "object",
+   "name": "Sprite 1758",
+   "group": "Items",
+   "file": "objects/sprite-1758.json"
+  },
+  {
+   "id": "sprite-1776",
+   "category": "object",
+   "name": "Sprite 1776",
+   "group": "Items",
+   "file": "objects/sprite-1776.json"
+  },
+  {
+   "id": "sprite-1784",
+   "category": "object",
+   "name": "Sprite 1784",
+   "group": "Items",
+   "file": "objects/sprite-1784.json"
+  },
+  {
+   "id": "sprite-1788",
+   "category": "object",
+   "name": "Sprite 1788",
+   "group": "Items",
+   "file": "objects/sprite-1788.json"
+  },
+  {
+   "id": "sprite-1805",
+   "category": "object",
+   "name": "Sprite 1805",
+   "group": "Items",
+   "file": "objects/sprite-1805.json"
+  },
+  {
+   "id": "sprite-1817",
+   "category": "object",
+   "name": "Sprite 1817",
+   "group": "Creatures",
+   "file": "objects/sprite-1817.json"
+  },
+  {
+   "id": "sprite-1821",
+   "category": "object",
+   "name": "Sprite 1821",
+   "group": "Creatures",
+   "file": "objects/sprite-1821.json"
+  },
+  {
+   "id": "sprite-1822",
+   "category": "object",
+   "name": "Sprite 1822",
+   "group": "Creatures",
+   "file": "objects/sprite-1822.json"
+  },
+  {
+   "id": "sprite-1823",
+   "category": "object",
+   "name": "Sprite 1823",
+   "group": "Creatures",
+   "file": "objects/sprite-1823.json"
+  },
+  {
+   "id": "sprite-1824",
+   "category": "object",
+   "name": "Sprite 1824",
+   "group": "Creatures",
+   "file": "objects/sprite-1824.json"
+  },
+  {
+   "id": "sprite-1831",
+   "category": "object",
+   "name": "Sprite 1831",
+   "group": "Creatures",
+   "file": "objects/sprite-1831.json"
+  },
+  {
+   "id": "sprite-1833",
+   "category": "object",
+   "name": "Sprite 1833",
+   "group": "Creatures",
+   "file": "objects/sprite-1833.json"
+  },
+  {
+   "id": "sprite-1836",
+   "category": "object",
+   "name": "Sprite 1836",
+   "group": "Creatures",
+   "file": "objects/sprite-1836.json"
+  },
+  {
+   "id": "sprite-1855",
+   "category": "object",
+   "name": "Sprite 1855",
+   "group": "Creatures",
+   "file": "objects/sprite-1855.json"
+  },
+  {
+   "id": "sprite-1856",
+   "category": "object",
+   "name": "Sprite 1856",
+   "group": "Creatures",
+   "file": "objects/sprite-1856.json"
+  },
+  {
+   "id": "sprite-1864",
+   "category": "object",
+   "name": "Sprite 1864",
+   "group": "Creatures",
+   "file": "objects/sprite-1864.json"
+  },
+  {
+   "id": "sprite-1867",
+   "category": "object",
+   "name": "Sprite 1867",
+   "group": "Creatures",
+   "file": "objects/sprite-1867.json"
+  },
+  {
+   "id": "sprite-1868",
+   "category": "object",
+   "name": "Sprite 1868",
+   "group": "Creatures",
+   "file": "objects/sprite-1868.json"
+  },
+  {
+   "id": "sprite-1869",
+   "category": "object",
+   "name": "Sprite 1869",
+   "group": "Creatures",
+   "file": "objects/sprite-1869.json"
+  },
+  {
+   "id": "sprite-1872",
+   "category": "object",
+   "name": "Sprite 1872",
+   "group": "Creatures",
+   "file": "objects/sprite-1872.json"
+  },
+  {
+   "id": "sprite-1874",
+   "category": "object",
+   "name": "Sprite 1874",
+   "group": "Creatures",
+   "file": "objects/sprite-1874.json"
+  },
+  {
+   "id": "sprite-2352",
+   "category": "object",
+   "name": "Sprite 2352",
+   "group": "Items",
+   "file": "objects/sprite-2352.json"
+  },
+  {
+   "id": "sprite-2363",
+   "category": "object",
+   "name": "Sprite 2363",
+   "group": "Items",
+   "file": "objects/sprite-2363.json"
+  },
+  {
+   "id": "sprite-2383",
+   "category": "object",
+   "name": "Sprite 2383",
+   "group": "Items",
+   "file": "objects/sprite-2383.json"
+  },
+  {
+   "id": "sprite-2399",
+   "category": "object",
+   "name": "Sprite 2399",
+   "group": "Items",
+   "file": "objects/sprite-2399.json"
+  },
+  {
+   "id": "sprite-2402",
+   "category": "object",
+   "name": "Sprite 2402",
+   "group": "Items",
+   "file": "objects/sprite-2402.json"
+  },
+  {
+   "id": "sprite-2409",
+   "category": "object",
+   "name": "Sprite 2409",
+   "group": "Items",
+   "file": "objects/sprite-2409.json"
+  },
+  {
+   "id": "sprite-2410",
+   "category": "object",
+   "name": "Sprite 2410",
+   "group": "Items",
+   "file": "objects/sprite-2410.json"
+  },
+  {
+   "id": "sprite-2412",
+   "category": "object",
+   "name": "Sprite 2412",
+   "group": "Items",
+   "file": "objects/sprite-2412.json"
+  },
+  {
+   "id": "sprite-2414",
+   "category": "object",
+   "name": "Sprite 2414",
+   "group": "Items",
+   "file": "objects/sprite-2414.json"
+  },
+  {
+   "id": "sprite-2453",
+   "category": "object",
+   "name": "Sprite 2453",
+   "group": "Items",
+   "file": "objects/sprite-2453.json"
+  },
+  {
+   "id": "sprite-2544",
+   "category": "object",
+   "name": "Sprite 2544",
+   "group": "Items",
+   "file": "objects/sprite-2544.json"
+  },
+  {
+   "id": "sprite-2586",
+   "category": "object",
+   "name": "Sprite 2586",
+   "group": "Items",
+   "file": "objects/sprite-2586.json"
+  },
+  {
+   "id": "sprite-2624",
+   "category": "object",
+   "name": "Sprite 2624",
+   "group": "Creatures",
+   "file": "objects/sprite-2624.json"
+  },
+  {
+   "id": "sprite-2627",
+   "category": "object",
+   "name": "Sprite 2627",
+   "group": "Creatures",
+   "file": "objects/sprite-2627.json"
+  },
+  {
+   "id": "sprite-2635",
+   "category": "object",
+   "name": "Sprite 2635",
+   "group": "Creatures",
+   "file": "objects/sprite-2635.json"
+  },
+  {
+   "id": "sprite-2646",
+   "category": "object",
+   "name": "Sprite 2646",
+   "group": "Creatures",
+   "file": "objects/sprite-2646.json"
+  },
+  {
+   "id": "sprite-2665",
+   "category": "object",
+   "name": "Sprite 2665",
+   "group": "Creatures",
+   "file": "objects/sprite-2665.json"
+  },
+  {
+   "id": "sprite-2666",
+   "category": "object",
+   "name": "Sprite 2666",
+   "group": "Creatures",
+   "file": "objects/sprite-2666.json"
+  },
+  {
+   "id": "sprite-3181",
+   "category": "object",
+   "name": "Sprite 3181",
+   "group": "Items",
+   "file": "objects/sprite-3181.json"
+  },
+  {
+   "id": "sprite-3214",
+   "category": "object",
+   "name": "Sprite 3214",
+   "group": "Items",
+   "file": "objects/sprite-3214.json"
+  },
+  {
+   "id": "sprite-3347",
+   "category": "object",
+   "name": "Sprite 3347",
+   "group": "Items",
+   "file": "objects/sprite-3347.json"
+  },
+  {
+   "id": "sprite-3399",
+   "category": "object",
+   "name": "Sprite 3399",
+   "group": "Items",
+   "file": "objects/sprite-3399.json"
+  },
+  {
+   "id": "sprite-3404",
+   "category": "object",
+   "name": "Sprite 3404",
+   "group": "Items",
+   "file": "objects/sprite-3404.json"
+  },
+  {
+   "id": "sprite-3415",
+   "category": "object",
+   "name": "Sprite 3415",
+   "group": "Items",
+   "file": "objects/sprite-3415.json"
+  },
+  {
+   "id": "sprite-3450",
+   "category": "object",
+   "name": "Sprite 3450",
+   "group": "Items",
+   "file": "objects/sprite-3450.json"
+  },
+  {
+   "id": "sprite-3540",
+   "category": "object",
+   "name": "Sprite 3540",
+   "group": "Creatures",
+   "file": "objects/sprite-3540.json"
+  },
+  {
+   "id": "sprite-3542",
+   "category": "object",
+   "name": "Sprite 3542",
+   "group": "Creatures",
+   "file": "objects/sprite-3542.json"
+  },
+  {
+   "id": "sprite-3543",
+   "category": "object",
+   "name": "Sprite 3543",
+   "group": "Creatures",
+   "file": "objects/sprite-3543.json"
+  },
+  {
+   "id": "sprite-3544",
+   "category": "object",
+   "name": "Sprite 3544",
+   "group": "Creatures",
+   "file": "objects/sprite-3544.json"
+  },
+  {
+   "id": "sprite-3550",
+   "category": "object",
+   "name": "Sprite 3550",
+   "group": "Creatures",
+   "file": "objects/sprite-3550.json"
+  },
+  {
+   "id": "sprite-4098",
+   "category": "object",
+   "name": "Sprite 4098",
+   "group": "Items",
+   "file": "objects/sprite-4098.json"
+  },
+  {
+   "id": "sprite-4112",
+   "category": "object",
+   "name": "Sprite 4112",
+   "group": "Items",
+   "file": "objects/sprite-4112.json"
+  },
+  {
+   "id": "sprite-4121",
+   "category": "object",
+   "name": "Sprite 4121",
+   "group": "Items",
+   "file": "objects/sprite-4121.json"
+  },
+  {
+   "id": "sprite-4176",
+   "category": "object",
+   "name": "Sprite 4176",
+   "group": "Items",
+   "file": "objects/sprite-4176.json"
+  },
+  {
+   "id": "sprite-4209",
+   "category": "object",
+   "name": "Sprite 4209",
+   "group": "Items",
+   "file": "objects/sprite-4209.json"
+  },
+  {
+   "id": "sprite-4222",
+   "category": "object",
+   "name": "Sprite 4222",
+   "group": "Items",
+   "file": "objects/sprite-4222.json"
+  },
+  {
+   "id": "sprite-4233",
+   "category": "object",
+   "name": "Sprite 4233",
+   "group": "Items",
+   "file": "objects/sprite-4233.json"
+  },
+  {
+   "id": "sprite-4261",
+   "category": "object",
+   "name": "Sprite 4261",
+   "group": "Items",
+   "file": "objects/sprite-4261.json"
+  },
+  {
+   "id": "sprite-4311",
+   "category": "object",
+   "name": "Sprite 4311",
+   "group": "Items",
+   "file": "objects/sprite-4311.json"
+  },
+  {
+   "id": "sprite-4355",
+   "category": "object",
+   "name": "Sprite 4355",
+   "group": "Items",
+   "file": "objects/sprite-4355.json"
+  },
+  {
+   "id": "sprite-4412",
+   "category": "object",
+   "name": "Sprite 4412",
+   "group": "Creatures",
+   "file": "objects/sprite-4412.json"
+  },
+  {
+   "id": "sprite-4415",
+   "category": "object",
+   "name": "Sprite 4415",
+   "group": "Creatures",
+   "file": "objects/sprite-4415.json"
+  },
+  {
+   "id": "sprite-4416",
+   "category": "object",
+   "name": "Sprite 4416",
+   "group": "Creatures",
+   "file": "objects/sprite-4416.json"
+  },
+  {
+   "id": "sprite-4417",
+   "category": "object",
+   "name": "Sprite 4417",
+   "group": "Creatures",
+   "file": "objects/sprite-4417.json"
+  },
+  {
+   "id": "sprite-4418",
+   "category": "object",
+   "name": "Sprite 4418",
+   "group": "Creatures",
+   "file": "objects/sprite-4418.json"
+  },
+  {
+   "id": "sprite-4425",
+   "category": "object",
+   "name": "Sprite 4425",
+   "group": "Creatures",
+   "file": "objects/sprite-4425.json"
+  },
+  {
+   "id": "sprite-4429",
+   "category": "object",
+   "name": "Sprite 4429",
+   "group": "Creatures",
+   "file": "objects/sprite-4429.json"
+  },
+  {
+   "id": "sprite-4959",
+   "category": "object",
+   "name": "Sprite 4959",
+   "group": "Items",
+   "file": "objects/sprite-4959.json"
+  },
+  {
+   "id": "sprite-5031",
+   "category": "object",
+   "name": "Sprite 5031",
+   "group": "Items",
+   "file": "objects/sprite-5031.json"
+  },
+  {
+   "id": "sprite-5033",
+   "category": "object",
+   "name": "Sprite 5033",
+   "group": "Items",
+   "file": "objects/sprite-5033.json"
+  },
+  {
+   "id": "sprite-5052",
+   "category": "object",
+   "name": "Sprite 5052",
+   "group": "Items",
+   "file": "objects/sprite-5052.json"
+  },
+  {
+   "id": "sprite-5069",
+   "category": "object",
+   "name": "Sprite 5069",
+   "group": "Items",
+   "file": "objects/sprite-5069.json"
+  },
+  {
+   "id": "sprite-5071",
+   "category": "object",
+   "name": "Sprite 5071",
+   "group": "Items",
+   "file": "objects/sprite-5071.json"
+  },
+  {
+   "id": "sprite-5079",
+   "category": "object",
+   "name": "Sprite 5079",
+   "group": "Items",
+   "file": "objects/sprite-5079.json"
+  },
+  {
+   "id": "sprite-5106",
+   "category": "object",
+   "name": "Sprite 5106",
+   "group": "Items",
+   "file": "objects/sprite-5106.json"
+  },
+  {
+   "id": "sprite-5121",
+   "category": "object",
+   "name": "Sprite 5121",
+   "group": "Items",
+   "file": "objects/sprite-5121.json"
+  },
+  {
+   "id": "sprite-5170",
+   "category": "object",
+   "name": "Sprite 5170",
+   "group": "Creatures",
+   "file": "objects/sprite-5170.json"
+  },
+  {
+   "id": "sprite-5834",
+   "category": "object",
+   "name": "Sprite 5834",
+   "group": "Items",
+   "file": "objects/sprite-5834.json"
+  },
+  {
+   "id": "sprite-5835",
+   "category": "object",
+   "name": "Sprite 5835",
+   "group": "Items",
+   "file": "objects/sprite-5835.json"
+  },
+  {
+   "id": "sprite-5839",
+   "category": "object",
+   "name": "Sprite 5839",
+   "group": "Items",
+   "file": "objects/sprite-5839.json"
+  },
+  {
+   "id": "sprite-5841",
+   "category": "object",
+   "name": "Sprite 5841",
+   "group": "Items",
+   "file": "objects/sprite-5841.json"
+  },
+  {
+   "id": "sprite-5947",
+   "category": "object",
+   "name": "Sprite 5947",
+   "group": "Items",
+   "file": "objects/sprite-5947.json"
+  },
+  {
+   "id": "sprite-5949",
+   "category": "object",
+   "name": "Sprite 5949",
+   "group": "Items",
+   "file": "objects/sprite-5949.json"
+  },
+  {
+   "id": "sprite-5978",
+   "category": "object",
+   "name": "Sprite 5978",
+   "group": "Items",
+   "file": "objects/sprite-5978.json"
+  },
+  {
+   "id": "sprite-6010",
+   "category": "object",
+   "name": "Sprite 6010",
+   "group": "Items",
+   "file": "objects/sprite-6010.json"
+  },
+  {
+   "id": "sprite-6164",
+   "category": "object",
+   "name": "Sprite 6164",
+   "group": "Items",
+   "file": "objects/sprite-6164.json"
+  },
+  {
+   "id": "sprite-6166",
+   "category": "object",
+   "name": "Sprite 6166",
+   "group": "Items",
+   "file": "objects/sprite-6166.json"
+  },
+  {
+   "id": "sprite-6236",
+   "category": "object",
+   "name": "Sprite 6236",
+   "group": "Creatures",
+   "file": "objects/sprite-6236.json"
+  },
+  {
+   "id": "sprite-6881",
+   "category": "object",
+   "name": "Sprite 6881",
+   "group": "Items",
+   "file": "objects/sprite-6881.json"
+  },
+  {
+   "id": "sprite-6906",
+   "category": "object",
+   "name": "Sprite 6906",
+   "group": "Creatures",
+   "file": "objects/sprite-6906.json"
+  },
+  {
+   "id": "sprite-6907",
+   "category": "object",
+   "name": "Sprite 6907",
+   "group": "Creatures",
+   "file": "objects/sprite-6907.json"
+  },
+  {
+   "id": "sprite-6912",
+   "category": "object",
+   "name": "Sprite 6912",
+   "group": "Creatures",
+   "file": "objects/sprite-6912.json"
+  },
+  {
+   "id": "level-1",
+   "category": "level",
+   "name": "Level 1",
+   "group": "The Abyss",
+   "file": "levels/level-1.json"
+  },
+  {
+   "id": "level-2",
+   "category": "level",
+   "name": "Level 2",
+   "group": "The Abyss",
+   "file": "levels/level-2.json"
+  },
+  {
+   "id": "level-3",
+   "category": "level",
+   "name": "Level 3",
+   "group": "The Abyss",
+   "file": "levels/level-3.json"
+  },
+  {
+   "id": "level-4",
+   "category": "level",
+   "name": "Level 4",
+   "group": "The Abyss",
+   "file": "levels/level-4.json"
+  },
+  {
+   "id": "level-5",
+   "category": "level",
+   "name": "Level 5",
+   "group": "The Abyss",
+   "file": "levels/level-5.json"
+  },
+  {
+   "id": "level-6",
+   "category": "level",
+   "name": "Level 6",
+   "group": "The Abyss",
+   "file": "levels/level-6.json"
+  },
+  {
+   "id": "level-7",
+   "category": "level",
+   "name": "Level 7",
+   "group": "The Abyss",
+   "file": "levels/level-7.json"
+  },
+  {
+   "id": "level-8",
+   "category": "level",
+   "name": "Level 8",
+   "group": "The Abyss",
+   "file": "levels/level-8.json"
+  },
+  {
+   "id": "level-9",
+   "category": "level",
+   "name": "Level 9",
+   "group": "The Abyss",
+   "file": "levels/level-9.json"
+  }
+ ]
+}

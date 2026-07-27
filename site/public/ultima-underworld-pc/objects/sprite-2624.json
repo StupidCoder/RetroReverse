@@ -1,0 +1,24 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "billboard3d",
+ "name": "Sprite 2624",
+ "atlas": {
+  "file": "sprite-2624.png",
+  "cellW": 27,
+  "cellH": 49
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "fps": 1,
+   "framesPerView": 4
+  }
+ ],
+ "views": 8,
+ "mode": "yaw",
+ "size": [0.48828125, 0.91796875],
+ "anchorMode": "bottom",
+ "blend": "alpha"
+}

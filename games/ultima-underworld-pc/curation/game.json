@@ -1,0 +1,6 @@
+{
+ "title": "Ultima Underworld: The Stygian Abyss",
+ "platform": "MS-DOS",
+ "year": 1992,
+ "description": "The first real-time 3D dungeon RPG, rebuilt from the installed game's own files — the repo's first x86/MS-DOS target, whose oracle plays the game into the Abyss through its own interrupt handlers. All nine levels of the Stygian Abyss are decoded from LEV.ARK into textured meshes (the ceiling stays single-sided so you can peer into rooms from above), and every placed object — items, creatures with their eight-view directional sprites, additive glow overlays — stands at its engine position as a camera-facing billboard, with readable signs carrying their actual game text."
+}

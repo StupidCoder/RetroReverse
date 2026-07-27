@@ -22,9 +22,9 @@ package main
 
 import (
 	"bytes"
+	"crypto/md5"
 	"encoding/base64"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"image"
 	"image/draw"
@@ -35,6 +35,9 @@ import (
 	"strings"
 
 	"retroreverse.com/games/ultima-underworld-pc/extract/lev"
+	"retroreverse.com/tools/lib/glb"
+	"retroreverse.com/tools/lib/retrox/cli"
+	"retroreverse.com/tools/lib/retrox/schema"
 )
 
 // Manifest is the format-2 game index (STANDARDS.md §4.2). Sections gated out by
@@ -130,30 +133,25 @@ type FProps struct {
 }
 
 func main() {
-	game := flag.String("game", "../game", "path to the installed game/ folder")
-	in := flag.String("in", "", "alias for -game (input game dir); overrides -game when set")
-	outdir := flag.String("o", "../../site/public/ultima-underworld-pc", "output asset root")
-	only := flag.String("only", "all", "comma-separated subset of stages: levels,all")
-	palN := flag.Int("pal", 0, "PALS.DAT palette index")
-	ceil := flag.Bool("ceilings", true, "include ceiling faces (enclosed dungeon)")
-	flag.Parse()
+	cli.Main("ultima-underworld-pc", run)
+}
 
-	gameDir := *game
-	if *in != "" {
-		gameDir = *in
+func run(ctx *cli.Context) error {
+	if ctx.In == "" {
+		return fmt.Errorf("usage: webexport -in <game dir> [-o DIR]")
 	}
-	sel := parseOnly(*only)
-	chk(os.MkdirAll(*outdir, 0o755))
-
-	man := Manifest{
-		Format: 2, Game: "ultima-underworld-pc", Platform: "MS-DOS",
-		Native: map[string]int{"w": 320, "h": 200}, TickHz: 60,
-	}
-	if sel["levels"] {
-		man.Levels = exportLevels(gameDir, *outdir, *palN, *ceil)
-	}
-	writeJSON(filepath.Join(*outdir, "manifest.json"), man)
-	fmt.Fprintf(os.Stderr, "[manifest] %d levels -> %s\n", len(man.Levels), *outdir)
+	b := ctx.Builder
+	b.SetTitle("Ultima Underworld: The Stygian Abyss")
+	b.SetPlatform("MS-DOS")
+	b.SetYear(1992)
+	b.SetDisplay(schema.Display{
+		Native: schema.Size{W: 320, H: 200},
+		TickHz: 60,
+		Filter: "crt",
+	})
+	ctx.Stage("objects")
+	ctx.Stage("levels")
+	return exportAll(ctx, ctx.In, 0, true)
 }
 
 // countLevels reports how many LEV.ARK blocks are full dungeon-level blocks
@@ -175,55 +173,246 @@ func countLevels(gameDir string) int {
 // exportLevels emits every dungeon level's format-2 mesh3d tree and returns the
 // manifest levels[] index. Object ids run globally across levels so each sprite's
 // sprites/<id>.png atlas file name is unique.
-func exportLevels(gameDir, outdir string, palN int, ceil bool) []LevelIndex {
+// exportAll bakes each dungeon level's textured mesh to a GLB layer, dedups
+// every placed sprite's art into billboard3d objects, and writes the level
+// documents with camera-facing placements at the objects' engine positions.
+func exportAll(ctx *cli.Context, gameDir string, palN int, ceil bool) error {
+	b := ctx.Builder
 	nLevels := countLevels(gameDir)
-	levelsDir := filepath.Join(outdir, "levels")
-	spritesDir := filepath.Join(outdir, "sprites")
-	chk(os.MkdirAll(levelsDir, 0o755))
-	chk(os.MkdirAll(spritesDir, 0o755))
 
+	scratch, err := os.MkdirTemp("", "uw-sprites-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(scratch)
+
+	type levelData struct {
+		o  *outMesh
+		db ObjectsDB
+	}
+	var lvls []levelData
 	nextID := 0
-	var idx []LevelIndex
 	for n := 0; n < nLevels; n++ {
-		name := fmt.Sprintf("Level %d", n+1)
 		o := buildLevel(gameDir, n, palN, ceil)
+		db := ObjectsDB{Format: 2, Level: fmt.Sprintf("Level %d", n+1)}
+		buildObjects(&db, o, scratch, &nextID)
+		lvls = append(lvls, levelData{o, db})
+		ctx.Progress("objects", n+1, nLevels, fmt.Sprintf("level %d: %d objects decoded", n+1, len(db.Objects)))
+	}
 
-		// mesh3d envelope with inline geometry; carry each group's ceiling flag
-		// through as singleSided (the inline-mesh single-sided-material path).
-		mesh := MeshBody{Positions: o.Positions, UVs: o.UVs}
-		for _, t := range o.Textures {
-			mesh.Textures = append(mesh.Textures, t.PNG)
+	// ---- dedup sprite art into billboard3d assets --------------------------
+	type variant struct {
+		sp    *FSprite
+		name  string
+		asset string
+	}
+	byKey := map[string]*variant{}
+	usedIDs := map[string]bool{}
+	refs := map[string]string{} // sheet path -> asset id
+	for _, ld := range lvls {
+		for _, fo := range ld.db.Objects {
+			if fo.Sprite == nil {
+				continue
+			}
+			sp := fo.Sprite
+			stem := strings.TrimSuffix(filepath.Base(sp.Sheet), ".png")
+			png0, err := os.ReadFile(filepath.Join(scratch, stem+".png"))
+			if err != nil {
+				continue
+			}
+			key := fmt.Sprintf("%x|%v|%d|%d|%v|%s|%s|%v|%s",
+				md5sum(png0), sp.Frames, sp.Views, sp.PerView, sp.Size, sp.Anchor, sp.Blend, sp.Fps, fo.Name)
+			if v, ok := byKey[key]; ok {
+				refs[sp.Sheet] = v.asset
+				continue
+			}
+			name := fo.Name
+			if name == "" {
+				name = "Sprite " + stem
+			}
+			base := slug(name)
+			id := base
+			for n2 := 2; usedIDs[id]; n2++ {
+				id = fmt.Sprintf("%s-%d", base, n2)
+			}
+			usedIDs[id] = true
+
+			// Repack the (possibly ragged) frames onto a uniform cell grid:
+			// rows = views, cols = perView; frames centre-x, bottom-aligned so
+			// the feet stay on the anchor.
+			src, err := loadPNGFile(filepath.Join(scratch, stem+".png"))
+			if err != nil {
+				continue
+			}
+			cw, ch := 1, 1
+			for _, f := range sp.Frames {
+				if f[2] > cw {
+					cw = f[2]
+				}
+				if f[3] > ch {
+					ch = f[3]
+				}
+			}
+			rows := sp.Views
+			cols := sp.PerView
+			if rows < 1 {
+				rows = 1
+			}
+			if cols < 1 {
+				cols = 1
+			}
+			atlasImg := image.NewNRGBA(image.Rect(0, 0, cw*cols, ch*rows))
+			for fi, f := range sp.Frames {
+				r, c := fi/cols, fi%cols
+				if r >= rows {
+					break
+				}
+				ox := c*cw + (cw-f[2])/2
+				oy := r*ch + (ch - f[3])
+				draw.Draw(atlasImg, image.Rect(ox, oy, ox+f[2], oy+f[3]), src, image.Pt(f[0], f[1]), draw.Src)
+			}
+			f, err := b.CreateFile("objects", id+".png")
+			if err != nil {
+				return err
+			}
+			err = png.Encode(f, atlasImg)
+			f.Close()
+			if err != nil {
+				return err
+			}
+
+			group := "Items"
+			if sp.Views > 1 {
+				group = "Creatures"
+			} else if sp.Blend == "additive" {
+				group = "Glow overlays"
+			}
+			doc := &schema.Object{
+				Type: schema.ObjectBillboard3D, Name: name,
+				Atlas:      &schema.SpriteAtlas{File: id + ".png", CellW: cw, CellH: ch},
+				Views:      rows,
+				Mode:       "camera",
+				Size:       []float64{float64(sp.Size[0]), float64(sp.Size[1])},
+				AnchorMode: sp.Anchor,
+				Blend:      sp.Blend,
+				Animations: []schema.Animation{{ID: "main", Loop: "loop", Col: 0, FramesPerView: cols, FPS: float64(sp.Fps)}},
+			}
+			if sp.Billboard == "yaw" {
+				doc.Mode = "yaw"
+			}
+			if sp.Heading != 0 {
+				doc.Heading = sp.Heading
+			}
+			b.AddObject(schema.Asset{ID: id, Name: name, Group: group}, doc)
+			byKey[key] = &variant{sp: sp, name: name, asset: id}
+			refs[sp.Sheet] = id
 		}
+	}
+	ctx.Logf("%d distinct sprite assets from %d placed objects", len(byKey), nextID)
+
+	// ---- level documents ----------------------------------------------------
+	for n, ld := range lvls {
+		o := ld.o
+		// bake the inline textured mesh to a GLB layer
+		positions := make([][3]float32, len(o.Positions)/3)
+		for i := range positions {
+			positions[i] = [3]float32{o.Positions[i*3], o.Positions[i*3+1], o.Positions[i*3+2]}
+		}
+		uvs := make([][2]float32, len(o.UVs)/2)
+		for i := range uvs {
+			uvs[i] = [2]float32{o.UVs[i*2], o.UVs[i*2+1]}
+		}
+		var groups []glb.TexturedGroup
 		for _, g := range o.Groups {
-			single := g.Material >= 0 && g.Material < len(o.Textures) && o.Textures[g.Material].Ceiling
-			mesh.Groups = append(mesh.Groups, MeshGroup{
-				Material: g.Material, Start: g.Start, Count: g.Count, SingleSided: single,
+			if g.Material < 0 || g.Material >= len(o.Textures) {
+				continue
+			}
+			var tris [][3]uint32
+			for t := g.Start; t < g.Start+g.Count; t++ {
+				tris = append(tris, [3]uint32{uint32(t * 3), uint32(t*3 + 1), uint32(t*3 + 2)})
+			}
+			groups = append(groups, glb.TexturedGroup{
+				Tris:        tris,
+				Image:       decodeSpriteTex(o.Textures[g.Material].PNG),
+				SingleSided: o.Textures[g.Material].Ceiling,
+				WrapS:       10497, WrapT: 10497,
 			})
 		}
-		lf := LevelFile{
-			Format: 2, Name: name, Kind: "mesh3d", Mesh: mesh,
-			Spawn:       SpawnBody{Pos: vec3(o.Spawn), Dir: vec3(o.SpawnDir)},
-			ObjectsFile: fmt.Sprintf("level%d.objects.json", n+1),
+		glbFile := fmt.Sprintf("level%d.glb", n+1)
+		gp, err := b.Path("levels", glbFile)
+		if err != nil {
+			return err
 		}
-		levelFile := filepath.Join("levels", fmt.Sprintf("level%d.json", n+1))
-		writeJSON(filepath.Join(outdir, levelFile), lf)
+		if err := glb.WriteTextured(gp, positions, uvs, groups, nil); err != nil {
+			return err
+		}
 
-		// Object DB: first-class sprite/pick objects.
-		db := ObjectsDB{Format: 2, Level: name}
-		nSprite, nCreature, nOverlay, nPick := buildObjects(&db, o, spritesDir, &nextID)
-		objFile := filepath.Join("levels", lf.ObjectsFile)
-		writeJSON(filepath.Join(outdir, objFile), db)
-
-		idx = append(idx, LevelIndex{
-			Name: name, File: filepath.ToSlash(levelFile), Kind: "mesh3d",
-			Objects: filepath.ToSlash(objFile),
-		})
-		fmt.Fprintf(os.Stderr, "[levels] %2d/%2d  %-8s %6d tris, %2d groups, %d sprites, %d creatures, %d glow, %d picks\n",
-			n+1, nLevels, name, len(o.Positions)/9, len(mesh.Groups),
-			nSprite, nCreature, nOverlay, nPick)
+		spawn, dir := vec3(o.Spawn), vec3(o.SpawnDir)
+		doc := &schema.Level{
+			Type: schema.LevelScene3D,
+			Scene: &schema.Scene{Layers: []schema.Layer{{
+				ID: "dungeon", File: glbFile,
+			}}},
+			Camera: &schema.Camera{
+				Mode: "fly", FOV: 60, Near: 0.02, Far: 200, Fly: &schema.Fly{Speed: 3},
+				Pos: []float64{float64(spawn[0]), float64(spawn[1]), float64(spawn[2])},
+				Target: []float64{float64(spawn[0]) + float64(dir[0])*4,
+					float64(spawn[1]) + float64(dir[1])*4, float64(spawn[2]) + float64(dir[2])*4},
+			},
+		}
+		for _, fo := range ld.db.Objects {
+			if fo.Sprite == nil {
+				continue
+			}
+			asset, ok := refs[fo.Sprite.Sheet]
+			if !ok {
+				continue
+			}
+			pl := schema.Placement{
+				ID:     fo.ID,
+				Object: asset,
+				Pos:    []float64{float64(fo.Pos[0]), float64(fo.Pos[1]), float64(fo.Pos[2])},
+			}
+			if fo.Name != "" {
+				pl.Name = fo.Name
+			}
+			if fo.Props != nil && fo.Props.Text != "" {
+				pl.OnClick = &schema.OnClick{Action: schema.ActionText, Title: fo.Name, Body: fo.Props.Text}
+			}
+			doc.Placements = append(doc.Placements, pl)
+		}
+		b.AddLevel(schema.Asset{
+			ID: fmt.Sprintf("level-%d", n+1), Name: fmt.Sprintf("Level %d", n+1), Group: "The Abyss",
+		}, doc)
+		ctx.Progress("levels", n+1, len(lvls), fmt.Sprintf("level %d: %d placements", n+1, len(doc.Placements)))
 	}
-	fmt.Fprintf(os.Stderr, "[levels] done: %d levels\n", len(idx))
-	return idx
+	return nil
+}
+
+func md5sum(b []byte) [16]byte { return md5.Sum(b) }
+
+func slug(s string) string {
+	var out []rune
+	for _, r := range strings.ToLower(s) {
+		switch {
+		case r >= 'a' && r <= 'z' || r >= '0' && r <= '9':
+			out = append(out, r)
+		default:
+			if len(out) > 0 && out[len(out)-1] != '-' {
+				out = append(out, '-')
+			}
+		}
+	}
+	return strings.Trim(string(out), "-")
+}
+
+func loadPNGFile(path string) (image.Image, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return png.Decode(f)
 }
 
 // buildObjects appends the level's sprite and pick objects to db, writing each

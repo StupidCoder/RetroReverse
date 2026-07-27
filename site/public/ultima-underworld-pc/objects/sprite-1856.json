@@ -1,0 +1,25 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "billboard3d",
+ "name": "Sprite 1856",
+ "atlas": {
+  "file": "sprite-1856.png",
+  "cellW": 50,
+  "cellH": 22
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "fps": 1,
+   "framesPerView": 4
+  }
+ ],
+ "views": 8,
+ "heading": 0.7853981633974483,
+ "mode": "yaw",
+ "size": [0.9375, 0.390625],
+ "anchorMode": "bottom",
+ "blend": "alpha"
+}

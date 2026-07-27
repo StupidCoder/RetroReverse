@@ -1,0 +1,24 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "billboard3d",
+ "name": "Sprite 1034",
+ "atlas": {
+  "file": "sprite-1034.png",
+  "cellW": 27,
+  "cellH": 42
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "fps": 1,
+   "framesPerView": 4
+  }
+ ],
+ "views": 8,
+ "mode": "yaw",
+ "size": [0.52734375, 0.78125],
+ "anchorMode": "bottom",
+ "blend": "alpha"
+}

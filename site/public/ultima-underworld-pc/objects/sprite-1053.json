@@ -1,0 +1,25 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "billboard3d",
+ "name": "Sprite 1053",
+ "atlas": {
+  "file": "sprite-1053.png",
+  "cellW": 37,
+  "cellH": 54
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "fps": 1,
+   "framesPerView": 4
+  }
+ ],
+ "views": 8,
+ "heading": 1.5707963267948966,
+ "mode": "yaw",
+ "size": [0.625, 0.9765625],
+ "anchorMode": "bottom",
+ "blend": "alpha"
+}

@@ -1,0 +1,25 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "billboard3d",
+ "name": "Sprite 278",
+ "atlas": {
+  "file": "sprite-278.png",
+  "cellW": 40,
+  "cellH": 16
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "fps": 1,
+   "framesPerView": 4
+  }
+ ],
+ "views": 8,
+ "heading": 4.71238898038469,
+ "mode": "yaw",
+ "size": [0.33203125, 0.3125],
+ "anchorMode": "bottom",
+ "blend": "alpha"
+}

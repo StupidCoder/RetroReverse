@@ -1,0 +1,23 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "billboard3d",
+ "name": "Sprite 220",
+ "atlas": {
+  "file": "sprite-220.png",
+  "cellW": 18,
+  "cellH": 19
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "framesPerView": 1
+  }
+ ],
+ "views": 1,
+ "mode": "camera",
+ "size": [0.3515625, 0.37109375],
+ "anchorMode": "bottom",
+ "blend": "alpha"
+}

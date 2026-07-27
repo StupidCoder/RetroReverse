@@ -1,0 +1,24 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "billboard3d",
+ "name": "Sprite 6907",
+ "atlas": {
+  "file": "sprite-6907.png",
+  "cellW": 53,
+  "cellH": 65
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "fps": 1,
+   "framesPerView": 4
+  }
+ ],
+ "views": 8,
+ "mode": "yaw",
+ "size": [1.015625, 1.23046875],
+ "anchorMode": "bottom",
+ "blend": "alpha"
+}

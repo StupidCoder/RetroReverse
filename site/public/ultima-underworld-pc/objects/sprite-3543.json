@@ -1,0 +1,25 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "billboard3d",
+ "name": "Sprite 3543",
+ "atlas": {
+  "file": "sprite-3543.png",
+  "cellW": 24,
+  "cellH": 48
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "fps": 1,
+   "framesPerView": 4
+  }
+ ],
+ "views": 8,
+ "heading": 4.71238898038469,
+ "mode": "yaw",
+ "size": [0.37109375, 0.8984375],
+ "anchorMode": "bottom",
+ "blend": "alpha"
+}

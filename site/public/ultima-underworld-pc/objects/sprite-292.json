@@ -1,0 +1,25 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "billboard3d",
+ "name": "Sprite 292",
+ "atlas": {
+  "file": "sprite-292.png",
+  "cellW": 35,
+  "cellH": 47
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "fps": 1,
+   "framesPerView": 4
+  }
+ ],
+ "views": 8,
+ "heading": 4.71238898038469,
+ "mode": "yaw",
+ "size": [0.56640625, 0.8203125],
+ "anchorMode": "bottom",
+ "blend": "alpha"
+}

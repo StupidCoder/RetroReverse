@@ -1,0 +1,23 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "billboard3d",
+ "name": "Sprite 1758",
+ "atlas": {
+  "file": "sprite-1758.png",
+  "cellW": 16,
+  "cellH": 16
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "framesPerView": 1
+  }
+ ],
+ "views": 1,
+ "mode": "camera",
+ "size": [0.3125, 0.3125],
+ "anchorMode": "bottom",
+ "blend": "alpha"
+}

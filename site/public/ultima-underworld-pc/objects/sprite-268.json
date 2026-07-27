@@ -1,0 +1,24 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "billboard3d",
+ "name": "Sprite 268",
+ "atlas": {
+  "file": "sprite-268.png",
+  "cellW": 62,
+  "cellH": 21
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "fps": 1,
+   "framesPerView": 4
+  }
+ ],
+ "views": 8,
+ "mode": "yaw",
+ "size": [0.41015625, 0.41015625],
+ "anchorMode": "bottom",
+ "blend": "alpha"
+}

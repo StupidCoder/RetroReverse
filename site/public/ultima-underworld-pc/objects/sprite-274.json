@@ -1,0 +1,24 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "billboard3d",
+ "name": "Sprite 274",
+ "atlas": {
+  "file": "sprite-274.png",
+  "cellW": 26,
+  "cellH": 10
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "fps": 1,
+   "framesPerView": 4
+  }
+ ],
+ "views": 8,
+ "mode": "yaw",
+ "size": [0.37109375, 0.1953125],
+ "anchorMode": "bottom",
+ "blend": "alpha"
+}

@@ -1,0 +1,24 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "billboard3d",
+ "name": "Sprite 2666",
+ "atlas": {
+  "file": "sprite-2666.png",
+  "cellW": 23,
+  "cellH": 17
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "fps": 1,
+   "framesPerView": 4
+  }
+ ],
+ "views": 8,
+ "mode": "yaw",
+ "size": [0.37109375, 0.33203125],
+ "anchorMode": "bottom",
+ "blend": "additive"
+}

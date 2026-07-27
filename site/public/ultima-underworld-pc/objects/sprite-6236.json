@@ -1,0 +1,25 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "billboard3d",
+ "name": "Sprite 6236",
+ "atlas": {
+  "file": "sprite-6236.png",
+  "cellW": 52,
+  "cellH": 66
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "fps": 1,
+   "framesPerView": 4
+  }
+ ],
+ "views": 8,
+ "heading": 2.356194490192345,
+ "mode": "yaw",
+ "size": [0.83984375, 1.23046875],
+ "anchorMode": "bottom",
+ "blend": "alpha"
+}
