@@ -289,7 +289,7 @@
   "spawn": {
    "x": 64,
    "y": 912,
-   "object": "z5-sonic",
+   "object": "sonic",
    "anim": "idle"
   },
   "tileAnims": [
@@ -314,7 +314,7 @@
  "placements": [
   {
    "id": 0,
-   "object": "z5-3a",
+   "object": "object-3a",
    "pos": [1696, 640],
    "anim": "main",
    "props": {
@@ -323,7 +323,7 @@
   },
   {
    "id": 1,
-   "object": "z5-3a",
+   "object": "object-3a",
    "pos": [2144, 800],
    "anim": "main",
    "props": {
@@ -332,7 +332,7 @@
   },
   {
    "id": 2,
-   "object": "z5-3a",
+   "object": "object-3a",
    "pos": [2400, 640],
    "anim": "main",
    "props": {
@@ -341,7 +341,7 @@
   },
   {
    "id": 3,
-   "object": "z5-3a",
+   "object": "object-3a",
    "pos": [2496, 640],
    "anim": "main",
    "props": {
@@ -350,7 +350,7 @@
   },
   {
    "id": 4,
-   "object": "z5-3a",
+   "object": "object-3a",
    "pos": [3072, 416],
    "anim": "main",
    "props": {
@@ -359,7 +359,7 @@
   },
   {
    "id": 5,
-   "object": "z5-38",
+   "object": "object-38",
    "pos": [3200, 352],
    "anim": "main",
    "props": {
@@ -368,7 +368,7 @@
   },
   {
    "id": 6,
-   "object": "z5-bobbing-platform",
+   "object": "bobbing-platform-sky-base",
    "pos": [3296, 160],
    "anim": "main",
    "name": "bobbing platform",
@@ -378,7 +378,7 @@
   },
   {
    "id": 7,
-   "object": "z5-bobbing-platform",
+   "object": "bobbing-platform-sky-base",
    "pos": [3360, 128],
    "anim": "main",
    "name": "bobbing platform",
@@ -388,7 +388,7 @@
   },
   {
    "id": 8,
-   "object": "z5-38",
+   "object": "object-38",
    "pos": [2784, 608],
    "anim": "main",
    "props": {
@@ -397,7 +397,7 @@
   },
   {
    "id": 9,
-   "object": "z5-38",
+   "object": "object-38",
    "pos": [2976, 544],
    "anim": "main",
    "props": {
@@ -406,7 +406,7 @@
   },
   {
    "id": 10,
-   "object": "z5-bonus-03",
+   "object": "bonus-03",
    "pos": [3044, 728],
    "anim": "main",
    "name": "bonus",
@@ -416,7 +416,7 @@
   },
   {
    "id": 11,
-   "object": "z5-bonus",
+   "object": "bonus-01",
    "pos": [1732, 696],
    "anim": "main",
    "name": "bonus",
@@ -426,7 +426,7 @@
   },
   {
    "id": 12,
-   "object": "z5-35",
+   "object": "object-35-sky-base",
    "pos": [896, 800],
    "anim": "main",
    "props": {
@@ -435,7 +435,7 @@
   },
   {
    "id": 13,
-   "object": "z5-35",
+   "object": "object-35-sky-base",
    "pos": [1472, 864],
    "anim": "main",
    "props": {
@@ -444,7 +444,7 @@
   },
   {
    "id": 14,
-   "object": "z5-32",
+   "object": "object-32",
    "pos": [2720, 608],
    "anim": "main",
    "props": {
@@ -453,7 +453,7 @@
   },
   {
    "id": 15,
-   "object": "z5-32",
+   "object": "object-32",
    "pos": [1152, 800],
    "anim": "main",
    "props": {
@@ -462,7 +462,7 @@
   },
   {
    "id": 16,
-   "object": "z5-32",
+   "object": "object-32",
    "pos": [1248, 896],
    "anim": "main",
    "props": {
@@ -471,7 +471,7 @@
   },
   {
    "id": 17,
-   "object": "z5-shield",
+   "object": "shield",
    "pos": [1060, 760],
    "anim": "main",
    "name": "shield",
@@ -481,7 +481,7 @@
   },
   {
    "id": 18,
-   "object": "z5-goal",
+   "object": "goal",
    "pos": [3648, 128],
    "anim": "spin",
    "name": "goal",
@@ -491,7 +491,7 @@
   },
   {
    "id": 19,
-   "object": "z5-1b",
+   "object": "object-1b-sky-base",
    "pos": [1536, 320],
    "anim": "main",
    "props": {

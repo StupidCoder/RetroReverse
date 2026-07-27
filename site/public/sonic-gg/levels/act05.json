@@ -289,7 +289,7 @@
   "spawn": {
    "x": 64,
    "y": 944,
-   "object": "z1-sonic",
+   "object": "sonic",
    "anim": "idle"
   },
   "tileAnims": [
@@ -323,7 +323,7 @@
  "placements": [
   {
    "id": 0,
-   "object": "z1-fish",
+   "object": "fish",
    "pos": [256, 992],
    "anim": "main",
    "name": "fish",
@@ -333,7 +333,7 @@
   },
   {
    "id": 1,
-   "object": "z1-fish",
+   "object": "fish",
    "pos": [352, 992],
    "anim": "main",
    "name": "fish",
@@ -343,7 +343,7 @@
   },
   {
    "id": 2,
-   "object": "z1-fish",
+   "object": "fish",
    "pos": [448, 992],
    "anim": "main",
    "name": "fish",
@@ -353,7 +353,7 @@
   },
   {
    "id": 3,
-   "object": "z1-porcupine",
+   "object": "porcupine",
    "pos": [736, 915],
    "anim": "main",
    "name": "porcupine",
@@ -363,7 +363,7 @@
   },
   {
    "id": 4,
-   "object": "z1-bird",
+   "object": "bird-bridge",
    "pos": [1120, 800],
    "anim": "main",
    "name": "bird",
@@ -373,7 +373,7 @@
   },
   {
    "id": 5,
-   "object": "z1-porcupine",
+   "object": "porcupine",
    "pos": [1600, 784],
    "anim": "main",
    "name": "porcupine",
@@ -383,7 +383,7 @@
   },
   {
    "id": 6,
-   "object": "z1-seesaw",
+   "object": "seesaw",
    "pos": [1856, 800],
    "anim": "main",
    "name": "seesaw",
@@ -393,7 +393,7 @@
   },
   {
    "id": 7,
-   "object": "z1-porcupine",
+   "object": "porcupine",
    "pos": [2112, 864],
    "anim": "main",
    "name": "porcupine",
@@ -403,7 +403,7 @@
   },
   {
    "id": 8,
-   "object": "z1-bird",
+   "object": "bird-bridge",
    "pos": [2496, 544],
    "anim": "main",
    "name": "bird",
@@ -413,7 +413,7 @@
   },
   {
    "id": 9,
-   "object": "z1-fish",
+   "object": "fish",
    "pos": [3200, 512],
    "anim": "main",
    "name": "fish",
@@ -423,7 +423,7 @@
   },
   {
    "id": 10,
-   "object": "z1-fish",
+   "object": "fish",
    "pos": [3360, 512],
    "anim": "main",
    "name": "fish",
@@ -433,7 +433,7 @@
   },
   {
    "id": 11,
-   "object": "z1-bird",
+   "object": "bird-bridge",
    "pos": [3008, 384],
    "anim": "main",
    "name": "bird",
@@ -443,7 +443,7 @@
   },
   {
    "id": 12,
-   "object": "z1-checkpoint",
+   "object": "checkpoint",
    "pos": [2148, 664],
    "anim": "main",
    "name": "checkpoint",
@@ -453,7 +453,7 @@
   },
   {
    "id": 13,
-   "object": "z1-shield",
+   "object": "shield",
    "pos": [868, 856],
    "anim": "main",
    "name": "shield",
@@ -463,7 +463,7 @@
   },
   {
    "id": 14,
-   "object": "z1-bonus-03",
+   "object": "bonus-03",
    "pos": [2596, 640],
    "anim": "main",
    "name": "bonus",
@@ -473,7 +473,7 @@
   },
   {
    "id": 15,
-   "object": "z1-bonus",
+   "object": "bonus-01",
    "pos": [1380, 792],
    "anim": "main",
    "name": "bonus",
@@ -483,7 +483,7 @@
   },
   {
    "id": 16,
-   "object": "z1-goal",
+   "object": "goal",
    "pos": [3680, 352],
    "anim": "spin",
    "name": "goal",
@@ -493,7 +493,7 @@
   },
   {
    "id": 17,
-   "object": "z1-crab",
+   "object": "crab-bridge",
    "pos": [8160, 0],
    "anim": "main",
    "name": "crab",

@@ -1,0 +1,23 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Object $41",
+ "atlas": {
+  "file": "object-41.png",
+  "cellW": 48,
+  "cellH": 48
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 4,
+   "durations": [11, 11, 11, 11]
+  }
+ ],
+ "props": {
+  "type": "0x41",
+  "zones": ["Labyrinth"]
+ }
+}

@@ -289,7 +289,7 @@
   "spawn": {
    "x": 1248,
    "y": 912,
-   "object": "z4-sonic",
+   "object": "sonic",
    "anim": "idle"
   },
   "tileAnims": [
@@ -328,7 +328,7 @@
  "placements": [
   {
    "id": 0,
-   "object": "z4-teleporter",
+   "object": "teleporter",
    "pos": [32, 1888],
    "anim": "main",
    "name": "teleporter",
@@ -338,7 +338,7 @@
   },
   {
    "id": 1,
-   "object": "z4-16",
+   "object": "object-16",
    "pos": [736, 1568],
    "anim": "main",
    "props": {
@@ -347,7 +347,7 @@
   },
   {
    "id": 2,
-   "object": "z4-16",
+   "object": "object-16",
    "pos": [864, 1568],
    "anim": "main",
    "props": {
@@ -356,7 +356,7 @@
   },
   {
    "id": 3,
-   "object": "z4-16",
+   "object": "object-16",
    "pos": [992, 1568],
    "anim": "main",
    "props": {
@@ -365,7 +365,7 @@
   },
   {
    "id": 4,
-   "object": "z4-17",
+   "object": "object-17",
    "pos": [1568, 1920],
    "anim": "main",
    "props": {
@@ -374,7 +374,7 @@
   },
   {
    "id": 5,
-   "object": "z4-18",
+   "object": "object-18",
    "pos": [1440, 1504],
    "anim": "main",
    "props": {
@@ -383,7 +383,7 @@
   },
   {
    "id": 6,
-   "object": "z4-19",
+   "object": "object-19",
    "pos": [1184, 1184],
    "anim": "main",
    "props": {
@@ -392,7 +392,7 @@
   },
   {
    "id": 7,
-   "object": "z4-1e",
+   "object": "object-1e",
    "pos": [928, 1056],
    "anim": "main",
    "props": {
@@ -401,7 +401,7 @@
   },
   {
    "id": 8,
-   "object": "z4-1e",
+   "object": "object-1e",
    "pos": [864, 1056],
    "anim": "main",
    "props": {
@@ -410,7 +410,7 @@
   },
   {
    "id": 9,
-   "object": "z4-1d",
+   "object": "object-1d-scrap-brain",
    "pos": [992, 1087],
    "anim": "main",
    "props": {
@@ -419,7 +419,7 @@
   },
   {
    "id": 10,
-   "object": "z4-1a",
+   "object": "object-1a",
    "pos": [672, 1136],
    "anim": "main",
    "props": {
@@ -428,7 +428,7 @@
   },
   {
    "id": 11,
-   "object": "z4-1a",
+   "object": "object-1a",
    "pos": [576, 1136],
    "anim": "main",
    "props": {
@@ -437,7 +437,7 @@
   },
   {
    "id": 12,
-   "object": "z4-16",
+   "object": "object-16",
    "pos": [704, 960],
    "anim": "main",
    "props": {
@@ -446,7 +446,7 @@
   },
   {
    "id": 13,
-   "object": "z4-16",
+   "object": "object-16",
    "pos": [544, 960],
    "anim": "main",
    "props": {
@@ -455,7 +455,7 @@
   },
   {
    "id": 14,
-   "object": "z4-18",
+   "object": "object-18",
    "pos": [448, 992],
    "anim": "main",
    "props": {
@@ -464,7 +464,7 @@
   },
   {
    "id": 15,
-   "object": "z4-16",
+   "object": "object-16",
    "pos": [416, 384],
    "anim": "main",
    "props": {
@@ -473,7 +473,7 @@
   },
   {
    "id": 16,
-   "object": "z4-16",
+   "object": "object-16",
    "pos": [544, 384],
    "anim": "main",
    "props": {
@@ -482,7 +482,7 @@
   },
   {
    "id": 17,
-   "object": "z4-16",
+   "object": "object-16",
    "pos": [672, 384],
    "anim": "main",
    "props": {
@@ -491,7 +491,7 @@
   },
   {
    "id": 18,
-   "object": "z4-17",
+   "object": "object-17",
    "pos": [800, 416],
    "anim": "main",
    "props": {
@@ -500,7 +500,7 @@
   },
   {
    "id": 19,
-   "object": "z4-19",
+   "object": "object-19",
    "pos": [1184, 1600],
    "anim": "main",
    "props": {
@@ -509,7 +509,7 @@
   },
   {
    "id": 20,
-   "object": "z4-1b",
+   "object": "object-1b-scrap-brain",
    "pos": [1216, 1408],
    "anim": "main",
    "props": {
@@ -518,7 +518,7 @@
   },
   {
    "id": 21,
-   "object": "z4-1b",
+   "object": "object-1b-scrap-brain",
    "pos": [1408, 1280],
    "anim": "main",
    "props": {
@@ -527,7 +527,7 @@
   },
   {
    "id": 22,
-   "object": "z4-emerald",
+   "object": "emerald",
    "pos": [1604, 1535],
    "anim": "main",
    "name": "emerald",
@@ -537,7 +537,7 @@
   },
   {
    "id": 23,
-   "object": "z4-1f",
+   "object": "object-1f",
    "pos": [608, 448],
    "anim": "main",
    "props": {
@@ -546,7 +546,7 @@
   },
   {
    "id": 24,
-   "object": "z4-goal",
+   "object": "goal",
    "pos": [1248, 416],
    "anim": "spin",
    "name": "goal",
@@ -556,7 +556,7 @@
   },
   {
    "id": 25,
-   "object": "z4-0c",
+   "object": "object-0c-scrap-brain",
    "pos": [864, 559],
    "anim": "main",
    "props": {

@@ -289,7 +289,7 @@
   "spawn": {
    "x": 3936,
    "y": 880,
-   "object": "z4-sonic",
+   "object": "sonic",
    "anim": "idle"
   },
   "tileAnims": [
@@ -328,7 +328,7 @@
  "placements": [
   {
    "id": 0,
-   "object": "z4-19",
+   "object": "object-19",
    "pos": [864, 704],
    "anim": "main",
    "props": {
@@ -337,7 +337,7 @@
   },
   {
    "id": 1,
-   "object": "z4-16",
+   "object": "object-16",
    "pos": [992, 672],
    "anim": "main",
    "props": {
@@ -346,7 +346,7 @@
   },
   {
    "id": 2,
-   "object": "z4-16",
+   "object": "object-16",
    "pos": [1184, 672],
    "anim": "main",
    "props": {
@@ -355,7 +355,7 @@
   },
   {
    "id": 3,
-   "object": "z4-16",
+   "object": "object-16",
    "pos": [1440, 672],
    "anim": "main",
    "props": {
@@ -364,7 +364,7 @@
   },
   {
    "id": 4,
-   "object": "z4-17",
+   "object": "object-17",
    "pos": [1504, 704],
    "anim": "main",
    "props": {
@@ -373,7 +373,7 @@
   },
   {
    "id": 5,
-   "object": "z4-1a",
+   "object": "object-1a",
    "pos": [1664, 720],
    "anim": "main",
    "props": {
@@ -382,7 +382,7 @@
   },
   {
    "id": 6,
-   "object": "z4-14",
+   "object": "object-14",
    "pos": [1600, 608],
    "anim": "main",
    "props": {
@@ -391,7 +391,7 @@
   },
   {
    "id": 7,
-   "object": "z4-15",
+   "object": "object-15",
    "pos": [1952, 608],
    "anim": "main",
    "props": {
@@ -400,7 +400,7 @@
   },
   {
    "id": 8,
-   "object": "z4-15",
+   "object": "object-15",
    "pos": [2112, 352],
    "anim": "main",
    "props": {
@@ -409,7 +409,7 @@
   },
   {
    "id": 9,
-   "object": "z4-16",
+   "object": "object-16",
    "pos": [1760, 160],
    "anim": "main",
    "props": {
@@ -418,7 +418,7 @@
   },
   {
    "id": 10,
-   "object": "z4-16",
+   "object": "object-16",
    "pos": [1920, 160],
    "anim": "main",
    "props": {
@@ -427,7 +427,7 @@
   },
   {
    "id": 11,
-   "object": "z4-16",
+   "object": "object-16",
    "pos": [2208, 160],
    "anim": "main",
    "props": {
@@ -436,7 +436,7 @@
   },
   {
    "id": 12,
-   "object": "z4-16",
+   "object": "object-16",
    "pos": [2368, 160],
    "anim": "main",
    "props": {
@@ -445,7 +445,7 @@
   },
   {
    "id": 13,
-   "object": "z4-16",
+   "object": "object-16",
    "pos": [2528, 160],
    "anim": "main",
    "props": {
@@ -454,7 +454,7 @@
   },
   {
    "id": 14,
-   "object": "z4-16",
+   "object": "object-16",
    "pos": [2688, 160],
    "anim": "main",
    "props": {
@@ -463,7 +463,7 @@
   },
   {
    "id": 15,
-   "object": "z4-17",
+   "object": "object-17",
    "pos": [2784, 512],
    "anim": "main",
    "props": {
@@ -472,7 +472,7 @@
   },
   {
    "id": 16,
-   "object": "z4-teleporter",
+   "object": "teleporter",
    "pos": [3968, 32],
    "anim": "main",
    "name": "teleporter",
@@ -482,7 +482,7 @@
   },
   {
    "id": 17,
-   "object": "z4-teleporter",
+   "object": "teleporter",
    "pos": [3968, 800],
    "anim": "main",
    "name": "teleporter",
@@ -492,7 +492,7 @@
   },
   {
    "id": 18,
-   "object": "z4-1f",
+   "object": "object-1f",
    "pos": [2464, 224],
    "anim": "main",
    "props": {
@@ -501,7 +501,7 @@
   },
   {
    "id": 19,
-   "object": "z4-bonus",
+   "object": "bonus-01",
    "pos": [1636, 248],
    "anim": "main",
    "name": "bonus",
@@ -511,7 +511,7 @@
   },
   {
    "id": 20,
-   "object": "z4-bonus-03",
+   "object": "bonus-03",
    "pos": [2756, 536],
    "anim": "main",
    "name": "bonus",
@@ -521,7 +521,7 @@
   },
   {
    "id": 21,
-   "object": "z4-1a",
+   "object": "object-1a",
    "pos": [608, 48],
    "anim": "main",
    "props": {

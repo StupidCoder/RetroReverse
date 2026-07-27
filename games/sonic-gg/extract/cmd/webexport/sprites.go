@@ -12,6 +12,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"image"
 	"image/color"
@@ -311,8 +312,35 @@ func displayName(name string, typ int) string {
 	return strings.ToUpper(name[:1]) + name[1:]
 }
 
-// exportObjects writes one sprite2d object per placed (zone, type) with art,
-// plus the shared marker object, and returns the (zone,type) -> asset map.
+// objCategories buckets the identified types for the browse list (the Part V
+// handler map is the source); unnamed types land in "Misc". The order below
+// is the order the groups appear in the viewer's object menu.
+var categoryOrder = []string{"Player", "Enemies", "Bosses", "Platforms", "Pickups", "Level objects", "Misc"}
+
+var objCategories = map[byte]string{
+	0x00: "Player",
+	0x08: "Enemies", 0x0E: "Enemies", 0x10: "Enemies", 0x26: "Enemies", 0x2D: "Enemies",
+	0x12: "Bosses", 0x2C: "Bosses", 0x48: "Bosses", 0x49: "Bosses",
+	0x09: "Platforms", 0x0B: "Platforms", 0x0F: "Platforms", 0x29: "Platforms",
+	0x3B: "Platforms", 0x4E: "Platforms",
+	0x01: "Pickups", 0x02: "Pickups", 0x03: "Pickups", 0x04: "Pickups",
+	0x06: "Pickups", 0x52: "Pickups",
+	0x07: "Level objects", 0x13: "Level objects", 0x21: "Level objects",
+	0x25: "Level objects", 0x51: "Level objects",
+}
+
+func categoryOf(typ int) string {
+	if c := objCategories[byte(typ)]; c != "" {
+		return c
+	}
+	return "Misc"
+}
+
+// exportObjects writes the object assets and returns the (zone,type) -> asset
+// map placements resolve through. An object type is ONE asset shared by every
+// zone whose rendered art is identical; zones whose sheet/palette give it
+// different art get their own zone-named variant. Assets are grouped by
+// category (enemies, platforms, ...) rather than by zone.
 func exportObjects(ctx *cli.Context, rom []byte) (map[string]objRef, error) {
 	b := ctx.Builder
 	index := map[string]objRef{}
@@ -320,50 +348,18 @@ func exportObjects(ctx *cli.Context, rom []byte) (map[string]objRef, error) {
 	// representative act (and thus sprite sheet/palette) for each of the 7 viewer zones.
 	zoneAct := []int{0, 3, 6, 9, 12, 15, 28}
 
-	usedIDs := map[string]bool{}
-	assetID := func(zone, typ int, name string) string {
-		base := slugify(name)
-		if base == "" {
-			base = fmt.Sprintf("%02x", typ)
-		}
-		id := fmt.Sprintf("z%d-%s", zone, base)
-		if usedIDs[id] {
-			id = fmt.Sprintf("%s-%02x", id, typ) // same name twice in a zone (the bonus TVs)
-		}
-		usedIDs[id] = true
-		return id
+	// ---- pass 1: render every placed (zone, type), keeping strips in memory ----
+	type record struct {
+		zone, typ int
+		animID    string
+		strip     *image.RGBA // nil = marker-backed (art not extractable)
+		durations []int
+		steps     [][]int
+		path      [][]int
 	}
-
-	// One animation per object; loop mode reflects what the data does.
-	addSprite := func(zone, typ int, name, animID string, strip *image.RGBA,
-		durations []int, steps [][]int, path [][]int) string {
-		id := assetID(zone, typ, name)
-		frames := strip.Rect.Dx() / 48
-		anim := schema.Animation{ID: animID, Frames: frames, Loop: "loop"}
-		if frames == 1 {
-			anim.Loop = "hold"
-		}
-		if len(steps) > 0 {
-			anim.Steps = steps
-		} else if frames > 1 {
-			anim.Durations = durations
-		}
-		anim.Path = path
-		doc := &schema.Object{
-			Type: schema.ObjectSprite2D,
-			Name: displayName(name, typ),
-			Atlas: &schema.SpriteAtlas{
-				File: id + ".png", CellW: 48, CellH: 48,
-			},
-			Animations: []schema.Animation{anim},
-			Props:      map[string]any{"type": fmt.Sprintf("0x%02X", typ), "zone": zoneNames[zone]},
-		}
-		if err := writePNG(b, strip, "objects", id+".png"); err != nil {
-			panic(err)
-		}
-		b.AddObject(schema.Asset{ID: id, Name: doc.Name, Group: zoneNames[zone]}, doc)
-		index[objKey(zone, typ)] = objRef{asset: id, anim: animID}
-		return id
+	var recs []record
+	add := func(zone, typ int, animID string, strip *image.RGBA, durations []int, steps [][]int, path [][]int) {
+		recs = append(recs, record{zone, typ, animID, strip, durations, steps, path})
 	}
 
 	paths := objplace.PlatformPaths(rom)
@@ -375,23 +371,20 @@ func exportObjects(ctx *cli.Context, rom []byte) (map[string]objRef, error) {
 		return out
 	}
 	placed := placedTypesByZone(rom)
-	total := 0
 	for z, act := range zoneAct {
 		tiles, pal := spriteTiles(rom, act)
 
 		// Sonic (type $00): his own ROM tiles, this zone's sprite palette.
 		sonic, seq := sonicStrip(rom, pal)
-		addSprite(z, 0, "Sonic", "idle", sonic, nil, seq, nil)
-		total++
+		add(z, 0, "idle", sonic, nil, seq, nil)
 
 		for _, t := range placed[z] {
-			if t == 0 {
+			if t == 0 || t == 0x50 || t == 0x40 { // handled elsewhere / not visible objects
 				continue
 			}
 			if t == 0x07 { // the goal sign: own gfx but a plain metasprite — render its spin
 				strip, seq := goalStrip(rom)
-				addSprite(z, t, objNames[byte(t)], "spin", strip, nil, seq, nil)
-				total++
+				add(z, t, "spin", strip, nil, seq, nil)
 				continue
 			}
 			if t == 0x29 { // the floating log: 3 table-driven roll layouts ($803A+)
@@ -404,67 +397,159 @@ func exportObjects(ctx *cli.Context, rom []byte) (map[string]objRef, error) {
 				for c := 0; c < 2; c++ {
 					seq = append(seq, []int{0, 6}, []int{1, 6}, []int{2, 6})
 				}
-				addSprite(z, t, objNames[byte(t)], "roll", strip, nil, seq, pathOf(t))
-				total++
+				add(z, t, "roll", strip, nil, seq, pathOf(t))
 				continue
 			}
+			// Types whose art cannot be extracted fall through to a nil strip:
+			// the bosses are self-contained set-pieces that decompress their
+			// OWN graphics over the zone sprite sheet and draw multi-part
+			// sprites from a bytecode script — a single extracted metasprite
+			// renders as garbage. They still get their own (marker-backed)
+			// asset so their identity, prose and stats have a home.
 			r := objplace.AnalyzeSprite(rom, t, z)
-			if r.Kind == "" || r.Layout == 0 || r.Layout+18 > len(rom) {
-				continue
-			}
-			// The bosses are self-contained set-pieces: they decompress their OWN graphics over
-			// the zone sprite sheet and draw multi-part sprites from a bytecode script — a single
-			// extracted metasprite renders as garbage. Skip them; placements use the marker.
+			ownGfx := false
 			if _, _, own := objplace.OwnGfx(rom, t); own || t == 0x25 {
+				ownGfx = true
+			}
+			if r.Kind == "" || r.Layout == 0 || r.Layout+18 > len(rom) || ownGfx {
+				add(z, t, "main", nil, nil, nil, nil)
 				continue
 			}
 			tt := objplace.ApplyIconUpload(rom, tiles, t)
 			strip, durs := renderAnimStrip(rom, tt, pal, t, z)
-			if strip == nil {
+			empty := strip == nil
+			if !empty {
+				if _, _, bb := trimBBox(strip); bb.Rect.Dx() <= 1 && bb.Rect.Dy() <= 1 {
+					empty = true // empty layout
+				}
+			}
+			if empty {
+				add(z, t, "main", nil, nil, nil, nil)
 				continue
 			}
-			if _, _, bb := trimBBox(strip); bb.Rect.Dx() <= 1 && bb.Rect.Dy() <= 1 {
-				continue // empty layout
-			}
-			addSprite(z, t, objNames[byte(t)], "main", strip, durs, nil, pathOf(t))
-			total++
+			add(z, t, "main", strip, durs, nil, pathOf(t))
 		}
-		ctx.Progress("objects", z+1, len(zoneAct), fmt.Sprintf("%-12s %d objects so far", zoneNames[z], total))
+		ctx.Progress("objects", z+1, len(zoneAct), fmt.Sprintf("%-12s %d (zone,type) pairs rendered", zoneNames[z], len(recs)))
 	}
 
-	// Placed types whose art cannot be extracted (the bosses and other
-	// own-graphics set-pieces) still get their OWN object asset — sharing the
-	// generic marker artwork — so their identity, prose and stats have a home.
+	// ---- pass 2: collapse identical art, emit one asset per variant ----------
+	// The signature is the rendered strip's pixels plus its animation program;
+	// two zones whose sheets/palettes draw the type identically share one asset.
+	sig := func(r record) string {
+		h := sha256.New()
+		if r.strip != nil {
+			h.Write(r.strip.Pix)
+			fmt.Fprint(h, r.strip.Rect)
+		}
+		fmt.Fprintf(h, "|%s|%v|%v|%v", r.animID, r.durations, r.steps, r.path)
+		return fmt.Sprintf("%x", h.Sum(nil))
+	}
+	type variant struct {
+		rec   record
+		zones []int
+	}
+	variants := map[int][]*variant{} // type -> distinct-art variants, in zone order
+	var types []int
+	for _, r := range recs {
+		vs := variants[r.typ]
+		if vs == nil {
+			types = append(types, r.typ)
+		}
+		s := sig(r)
+		found := false
+		for _, v := range vs {
+			if sig(v.rec) == s {
+				v.zones = append(v.zones, r.zone)
+				found = true
+				break
+			}
+		}
+		if !found {
+			variants[r.typ] = append(vs, &variant{rec: r, zones: []int{r.zone}})
+		}
+	}
+	sortInts(types)
+
 	if err := writePNG(b, markerImage(), "objects", "marker.png"); err != nil {
 		return nil, err
 	}
-	markers := 0
-	for z := range zoneAct {
-		for _, t := range placed[z] {
-			if t == 0 || t == 0x50 || t == 0x40 { // handled elsewhere / not visible objects
+	usedIDs := map[string]bool{}
+	uniqueID := func(base string) string {
+		id := base
+		for n := 2; usedIDs[id]; n++ {
+			id = fmt.Sprintf("%s-%d", base, n)
+		}
+		usedIDs[id] = true
+		return id
+	}
+	// Types sharing one display name (the three bonus-TV types) carry their
+	// type byte so the list can tell them apart.
+	nameTypes := map[string]int{}
+	for _, t := range types {
+		nameTypes[displayName(objNames[byte(t)], t)]++
+	}
+	total, markers := 0, 0
+	for _, cat := range categoryOrder {
+		for _, t := range types {
+			if categoryOf(t) != cat {
 				continue
 			}
-			if _, ok := index[objKey(z, t)]; ok {
-				continue
+			vs := variants[t]
+			for _, v := range vs {
+				name := displayName(objNames[byte(t)], t)
+				if nameTypes[name] > 1 {
+					name = fmt.Sprintf("%s ($%02X)", name, t)
+				}
+				// A type with several looks names each confined variant by its
+				// zone; a variant shared across zones is the common look and
+				// keeps the plain name.
+				if len(vs) > 1 && len(v.zones) == 1 {
+					name = fmt.Sprintf("%s (%s)", name, zoneNames[v.zones[0]])
+				}
+				id := uniqueID(slugify(name))
+				zones := make([]string, len(v.zones))
+				for i, z := range v.zones {
+					zones[i] = zoneNames[z]
+				}
+				doc := &schema.Object{
+					Type:  schema.ObjectSprite2D,
+					Name:  name,
+					Props: map[string]any{"type": fmt.Sprintf("0x%02X", t), "zones": zones},
+				}
+				r := v.rec
+				if r.strip == nil {
+					doc.Atlas = &schema.SpriteAtlas{File: "marker.png", CellW: 32, CellH: 32}
+					doc.Animations = []schema.Animation{{ID: "main", Frames: 1, Loop: "hold"}}
+					doc.Props["art"] = "not extractable (own-graphics set-piece); shared marker shown"
+					markers++
+				} else {
+					frames := r.strip.Rect.Dx() / 48
+					anim := schema.Animation{ID: r.animID, Frames: frames, Loop: "loop"}
+					if frames == 1 {
+						anim.Loop = "hold"
+					}
+					if len(r.steps) > 0 {
+						anim.Steps = r.steps
+					} else if frames > 1 {
+						anim.Durations = r.durations
+					}
+					anim.Path = r.path
+					doc.Atlas = &schema.SpriteAtlas{File: id + ".png", CellW: 48, CellH: 48}
+					doc.Animations = []schema.Animation{anim}
+					if err := writePNG(b, r.strip, "objects", id+".png"); err != nil {
+						return nil, err
+					}
+					total++
+				}
+				b.AddObject(schema.Asset{ID: id, Name: name, Group: cat}, doc)
+				for _, z := range v.zones {
+					index[objKey(z, t)] = objRef{asset: id, anim: r.animID}
+				}
 			}
-			name := objNames[byte(t)]
-			id := assetID(z, t, name)
-			doc := &schema.Object{
-				Type: schema.ObjectSprite2D,
-				Name: displayName(name, t),
-				Atlas: &schema.SpriteAtlas{
-					File: "marker.png", CellW: 32, CellH: 32,
-				},
-				Animations: []schema.Animation{{ID: "main", Frames: 1, Loop: "hold"}},
-				Props: map[string]any{"type": fmt.Sprintf("0x%02X", t), "zone": zoneNames[z],
-					"art": "not extractable (own-graphics set-piece); shared marker shown"},
-			}
-			b.AddObject(schema.Asset{ID: id, Name: doc.Name, Group: zoneNames[z]}, doc)
-			index[objKey(z, t)] = objRef{asset: id, anim: "main"}
-			markers++
 		}
 	}
-	ctx.Logf("objects: %d with art, %d marker-backed", total, markers)
+	ctx.Logf("objects: %d assets (%d with art, %d marker-backed) from %d placed (zone,type) pairs",
+		total+markers, total, markers, len(recs))
 	return index, nil
 }
 

@@ -289,7 +289,7 @@
   "spawn": {
    "x": 1664,
    "y": 528,
-   "object": "z6-sonic",
+   "object": "sonic-special-stage",
    "anim": "idle"
   },
   "tileAnims": [
@@ -314,7 +314,7 @@
  "placements": [
   {
    "id": 0,
-   "object": "z6-bumper",
+   "object": "bumper",
    "pos": [1728, 672],
    "anim": "main",
    "name": "bumper",
@@ -324,7 +324,7 @@
   },
   {
    "id": 1,
-   "object": "z6-bumper",
+   "object": "bumper",
    "pos": [1824, 1024],
    "anim": "main",
    "name": "bumper",
@@ -334,7 +334,7 @@
   },
   {
    "id": 2,
-   "object": "z6-bumper",
+   "object": "bumper",
    "pos": [1728, 1344],
    "anim": "main",
    "name": "bumper",
@@ -344,7 +344,7 @@
   },
   {
    "id": 3,
-   "object": "z6-4c",
+   "object": "object-4c",
    "pos": [1824, 1248],
    "anim": "main",
    "props": {
@@ -353,7 +353,7 @@
   },
   {
    "id": 4,
-   "object": "z6-4c",
+   "object": "object-4c",
    "pos": [1824, 480],
    "anim": "main",
    "props": {
@@ -362,7 +362,7 @@
   },
   {
    "id": 5,
-   "object": "z6-continue",
+   "object": "continue",
    "pos": [1732, 1376],
    "anim": "main",
    "name": "continue",
@@ -372,7 +372,7 @@
   },
   {
    "id": 6,
-   "object": "z6-bonus",
+   "object": "bonus-03",
    "pos": [1700, 1024],
    "anim": "main",
    "name": "bonus",
@@ -382,7 +382,7 @@
   },
   {
    "id": 7,
-   "object": "z6-bonus",
+   "object": "bonus-03",
    "pos": [1764, 1024],
    "anim": "main",
    "name": "bonus",
@@ -392,7 +392,7 @@
   },
   {
    "id": 8,
-   "object": "z6-goal",
+   "object": "goal",
    "pos": [1920, 1632],
    "anim": "spin",
    "name": "goal",
@@ -402,7 +402,7 @@
   },
   {
    "id": 9,
-   "object": "z6-shield",
+   "object": "shield",
    "pos": [8164, 0],
    "anim": "main",
    "name": "shield",

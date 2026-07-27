@@ -1,0 +1,23 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Bird (Bridge)",
+ "atlas": {
+  "file": "bird-bridge.png",
+  "cellW": 48,
+  "cellH": 48
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 2,
+   "durations": [3, 3]
+  }
+ ],
+ "props": {
+  "type": "0x0E",
+  "zones": ["Bridge"]
+ }
+}

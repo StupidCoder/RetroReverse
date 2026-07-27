@@ -289,7 +289,7 @@
   "spawn": {
    "x": 1664,
    "y": 528,
-   "object": "z6-sonic",
+   "object": "sonic-special-stage",
    "anim": "idle"
   },
   "tileAnims": [
@@ -314,7 +314,7 @@
  "placements": [
   {
    "id": 0,
-   "object": "z6-4c",
+   "object": "object-4c",
    "pos": [1824, 1248],
    "anim": "main",
    "props": {
@@ -323,7 +323,7 @@
   },
   {
    "id": 1,
-   "object": "z6-4c",
+   "object": "object-4c",
    "pos": [1824, 480],
    "anim": "main",
    "props": {
@@ -332,7 +332,7 @@
   },
   {
    "id": 2,
-   "object": "z6-continue",
+   "object": "continue",
    "pos": [1732, 1376],
    "anim": "main",
    "name": "continue",
@@ -342,7 +342,7 @@
   },
   {
    "id": 3,
-   "object": "z6-bonus",
+   "object": "bonus-03",
    "pos": [1700, 1024],
    "anim": "main",
    "name": "bonus",
@@ -352,7 +352,7 @@
   },
   {
    "id": 4,
-   "object": "z6-bonus",
+   "object": "bonus-03",
    "pos": [1764, 1024],
    "anim": "main",
    "name": "bonus",
@@ -362,7 +362,7 @@
   },
   {
    "id": 5,
-   "object": "z6-goal",
+   "object": "goal",
    "pos": [1920, 1632],
    "anim": "spin",
    "name": "goal",
@@ -372,7 +372,7 @@
   },
   {
    "id": 6,
-   "object": "z6-swing-platform",
+   "object": "swing-platform-special-stage",
    "pos": [2624, 1120],
    "anim": "main",
    "name": "swing platform",

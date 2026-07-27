@@ -289,7 +289,7 @@
   "spawn": {
    "x": 224,
    "y": 720,
-   "object": "z0-sonic",
+   "object": "sonic",
    "anim": "idle"
   },
   "tileAnims": [
@@ -328,7 +328,7 @@
  "placements": [
   {
    "id": 0,
-   "object": "z0-ff",
+   "object": "object-ff",
    "pos": [0, 0],
    "anim": "main",
    "props": {
@@ -337,7 +337,7 @@
   },
   {
    "id": 1,
-   "object": "z0-ff",
+   "object": "object-ff",
    "pos": [0, 0],
    "anim": "main",
    "props": {
@@ -346,7 +346,7 @@
   },
   {
    "id": 2,
-   "object": "z0-ff",
+   "object": "object-ff",
    "pos": [0, 0],
    "anim": "main",
    "props": {
@@ -355,7 +355,7 @@
   },
   {
    "id": 3,
-   "object": "z0-bonus-03",
+   "object": "bonus-03",
    "pos": [932, 920],
    "anim": "main",
    "name": "bonus",
@@ -365,7 +365,7 @@
   },
   {
    "id": 4,
-   "object": "z0-world-1-boss",
+   "object": "world-1-boss",
    "pos": [2336, 256],
    "anim": "main",
    "name": "world 1 boss",
@@ -375,7 +375,7 @@
   },
   {
    "id": 5,
-   "object": "z0-capsule",
+   "object": "capsule",
    "pos": [2336, 336],
    "anim": "main",
    "name": "capsule",
@@ -385,7 +385,7 @@
   },
   {
    "id": 6,
-   "object": "z0-18",
+   "object": "object-18",
    "pos": [480, 2816],
    "anim": "main",
    "props": {

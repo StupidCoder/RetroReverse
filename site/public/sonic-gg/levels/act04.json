@@ -289,7 +289,7 @@
   "spawn": {
    "x": 96,
    "y": 368,
-   "object": "z1-sonic",
+   "object": "sonic",
    "anim": "idle"
   },
   "tileAnims": [
@@ -323,7 +323,7 @@
  "placements": [
   {
    "id": 0,
-   "object": "z1-moving-platform",
+   "object": "moving-platform-bridge",
    "pos": [2816, 320],
    "anim": "main",
    "name": "moving platform",
@@ -333,7 +333,7 @@
   },
   {
    "id": 1,
-   "object": "z1-porcupine",
+   "object": "porcupine",
    "pos": [480, 368],
    "anim": "main",
    "name": "porcupine",
@@ -343,7 +343,7 @@
   },
   {
    "id": 2,
-   "object": "z1-fish",
+   "object": "fish",
    "pos": [640, 480],
    "anim": "main",
    "name": "fish",
@@ -353,7 +353,7 @@
   },
   {
    "id": 3,
-   "object": "z1-fish",
+   "object": "fish",
    "pos": [768, 480],
    "anim": "main",
    "name": "fish",
@@ -363,7 +363,7 @@
   },
   {
    "id": 4,
-   "object": "z1-fish",
+   "object": "fish",
    "pos": [896, 480],
    "anim": "main",
    "name": "fish",
@@ -373,7 +373,7 @@
   },
   {
    "id": 5,
-   "object": "z1-bird",
+   "object": "bird-bridge",
    "pos": [2080, 256],
    "anim": "main",
    "name": "bird",
@@ -383,7 +383,7 @@
   },
   {
    "id": 6,
-   "object": "z1-bird",
+   "object": "bird-bridge",
    "pos": [3232, 256],
    "anim": "main",
    "name": "bird",
@@ -393,7 +393,7 @@
   },
   {
    "id": 7,
-   "object": "z1-bird",
+   "object": "bird-bridge",
    "pos": [3808, 320],
    "anim": "main",
    "name": "bird",
@@ -403,7 +403,7 @@
   },
   {
    "id": 8,
-   "object": "z1-fish",
+   "object": "fish",
    "pos": [4384, 480],
    "anim": "main",
    "name": "fish",
@@ -413,7 +413,7 @@
   },
   {
    "id": 9,
-   "object": "z1-fish",
+   "object": "fish",
    "pos": [4512, 480],
    "anim": "main",
    "name": "fish",
@@ -423,7 +423,7 @@
   },
   {
    "id": 10,
-   "object": "z1-seesaw",
+   "object": "seesaw",
    "pos": [4032, 384],
    "anim": "main",
    "name": "seesaw",
@@ -433,7 +433,7 @@
   },
   {
    "id": 11,
-   "object": "z1-bobbing-platform",
+   "object": "bobbing-platform-bridge",
    "pos": [3424, 288],
    "anim": "main",
    "name": "bobbing platform",
@@ -443,7 +443,7 @@
   },
   {
    "id": 12,
-   "object": "z1-bobbing-platform",
+   "object": "bobbing-platform-bridge",
    "pos": [3488, 256],
    "anim": "main",
    "name": "bobbing platform",
@@ -453,7 +453,7 @@
   },
   {
    "id": 13,
-   "object": "z1-bonus",
+   "object": "bonus-01",
    "pos": [3108, 312],
    "anim": "main",
    "name": "bonus",
@@ -463,7 +463,7 @@
   },
   {
    "id": 14,
-   "object": "z1-fish",
+   "object": "fish",
    "pos": [1280, 480],
    "anim": "main",
    "name": "fish",
@@ -473,7 +473,7 @@
   },
   {
    "id": 15,
-   "object": "z1-fish",
+   "object": "fish",
    "pos": [1472, 480],
    "anim": "main",
    "name": "fish",
@@ -483,7 +483,7 @@
   },
   {
    "id": 16,
-   "object": "z1-bonus-03",
+   "object": "bonus-03",
    "pos": [4196, 280],
    "anim": "main",
    "name": "bonus",
@@ -493,7 +493,7 @@
   },
   {
    "id": 17,
-   "object": "z1-shield",
+   "object": "shield",
    "pos": [1156, 376],
    "anim": "main",
    "name": "shield",
@@ -503,7 +503,7 @@
   },
   {
    "id": 18,
-   "object": "z1-seesaw",
+   "object": "seesaw",
    "pos": [2112, 384],
    "anim": "main",
    "name": "seesaw",
@@ -513,7 +513,7 @@
   },
   {
    "id": 19,
-   "object": "z1-bird",
+   "object": "bird-bridge",
    "pos": [1088, 320],
    "anim": "main",
    "name": "bird",
@@ -523,7 +523,7 @@
   },
   {
    "id": 20,
-   "object": "z1-goal",
+   "object": "goal",
    "pos": [5376, 320],
    "anim": "spin",
    "name": "goal",
@@ -533,7 +533,7 @@
   },
   {
    "id": 21,
-   "object": "z1-checkpoint",
+   "object": "checkpoint",
    "pos": [2308, 248],
    "anim": "main",
    "name": "checkpoint",
@@ -543,7 +543,7 @@
   },
   {
    "id": 22,
-   "object": "z1-emerald",
+   "object": "emerald",
    "pos": [4708, 418],
    "anim": "main",
    "name": "emerald",
@@ -553,7 +553,7 @@
   },
   {
    "id": 23,
-   "object": "z1-world-1-boss",
+   "object": "world-1-boss",
    "pos": [1216, 256],
    "anim": "main",
    "name": "world 1 boss",

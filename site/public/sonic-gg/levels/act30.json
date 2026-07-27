@@ -289,7 +289,7 @@
   "spawn": {
    "x": 128,
    "y": 624,
-   "object": "z6-sonic",
+   "object": "sonic-special-stage",
    "anim": "idle"
   },
   "tileAnims": [
@@ -314,7 +314,7 @@
  "placements": [
   {
    "id": 0,
-   "object": "z6-continue",
+   "object": "continue",
    "pos": [836, 632],
    "anim": "main",
    "name": "continue",
@@ -324,7 +324,7 @@
   },
   {
    "id": 1,
-   "object": "z6-bonus",
+   "object": "bonus-03",
    "pos": [324, 1056],
    "anim": "main",
    "name": "bonus",
@@ -334,7 +334,7 @@
   },
   {
    "id": 2,
-   "object": "z6-goal",
+   "object": "goal",
    "pos": [544, 1536],
    "anim": "spin",
    "name": "goal",
@@ -344,7 +344,7 @@
   },
   {
    "id": 3,
-   "object": "z6-bonus",
+   "object": "bonus-03",
    "pos": [2628, 1280],
    "anim": "main",
    "name": "bonus",

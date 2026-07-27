@@ -289,7 +289,7 @@
   "spawn": {
    "x": 320,
    "y": 752,
-   "object": "z5-sonic",
+   "object": "sonic",
    "anim": "idle"
   },
   "tileAnims": [
@@ -328,7 +328,7 @@
  "placements": [
   {
    "id": 0,
-   "object": "z5-30",
+   "object": "object-30",
    "pos": [320, 192],
    "anim": "main",
    "props": {
@@ -337,7 +337,7 @@
   },
   {
    "id": 1,
-   "object": "z5-30",
+   "object": "object-30",
    "pos": [768, 768],
    "anim": "main",
    "props": {
@@ -346,7 +346,7 @@
   },
   {
    "id": 2,
-   "object": "z5-30",
+   "object": "object-30",
    "pos": [736, 672],
    "anim": "main",
    "props": {
@@ -355,7 +355,7 @@
   },
   {
    "id": 3,
-   "object": "z5-30",
+   "object": "object-30",
    "pos": [256, 320],
    "anim": "main",
    "props": {
@@ -364,7 +364,7 @@
   },
   {
    "id": 4,
-   "object": "z5-30",
+   "object": "object-30",
    "pos": [1440, 416],
    "anim": "main",
    "props": {
@@ -373,7 +373,7 @@
   },
   {
    "id": 5,
-   "object": "z5-30",
+   "object": "object-30",
    "pos": [1312, 608],
    "anim": "main",
    "props": {
@@ -382,7 +382,7 @@
   },
   {
    "id": 6,
-   "object": "z5-teleporter",
+   "object": "teleporter",
    "pos": [640, 480],
    "anim": "main",
    "name": "teleporter",
@@ -392,7 +392,7 @@
   },
   {
    "id": 7,
-   "object": "z5-39",
+   "object": "object-39",
    "pos": [64, 226],
    "anim": "main",
    "props": {
@@ -401,7 +401,7 @@
   },
   {
    "id": 8,
-   "object": "z5-37",
+   "object": "object-37",
    "pos": [256, 480],
    "anim": "main",
    "props": {
@@ -410,7 +410,7 @@
   },
   {
    "id": 9,
-   "object": "z5-37",
+   "object": "object-37",
    "pos": [352, 544],
    "anim": "main",
    "props": {
@@ -419,7 +419,7 @@
   },
   {
    "id": 10,
-   "object": "z5-37",
+   "object": "object-37",
    "pos": [448, 608],
    "anim": "main",
    "props": {
@@ -428,7 +428,7 @@
   },
   {
    "id": 11,
-   "object": "z5-33",
+   "object": "object-33",
    "pos": [1088, 480],
    "anim": "main",
    "props": {
@@ -437,7 +437,7 @@
   },
   {
    "id": 12,
-   "object": "z5-33",
+   "object": "object-33",
    "pos": [1248, 448],
    "anim": "main",
    "props": {
@@ -446,7 +446,7 @@
   },
   {
    "id": 13,
-   "object": "z5-32",
+   "object": "object-32",
    "pos": [416, 256],
    "anim": "main",
    "props": {
@@ -455,7 +455,7 @@
   },
   {
    "id": 14,
-   "object": "z5-31",
+   "object": "object-31",
    "pos": [224, 602],
    "anim": "main",
    "props": {
@@ -464,7 +464,7 @@
   },
   {
    "id": 15,
-   "object": "z5-bonus-03",
+   "object": "bonus-03",
    "pos": [836, 632],
    "anim": "main",
    "name": "bonus",
@@ -474,7 +474,7 @@
   },
   {
    "id": 16,
-   "object": "z5-38",
+   "object": "object-38",
    "pos": [256, 864],
    "anim": "main",
    "props": {
@@ -483,7 +483,7 @@
   },
   {
    "id": 17,
-   "object": "z5-38",
+   "object": "object-38",
    "pos": [864, 800],
    "anim": "main",
    "props": {
@@ -492,7 +492,7 @@
   },
   {
    "id": 18,
-   "object": "z5-38",
+   "object": "object-38",
    "pos": [1024, 736],
    "anim": "main",
    "props": {
@@ -501,7 +501,7 @@
   },
   {
    "id": 19,
-   "object": "z5-38",
+   "object": "object-38",
    "pos": [1280, 704],
    "anim": "main",
    "props": {
@@ -510,7 +510,7 @@
   },
   {
    "id": 20,
-   "object": "z5-3a",
+   "object": "object-3a",
    "pos": [864, 512],
    "anim": "main",
    "props": {
@@ -519,7 +519,7 @@
   },
   {
    "id": 21,
-   "object": "z5-bobbing-platform",
+   "object": "bobbing-platform-sky-base",
    "pos": [1664, 480],
    "anim": "main",
    "name": "bobbing platform",
@@ -529,7 +529,7 @@
   },
   {
    "id": 22,
-   "object": "z5-37",
+   "object": "object-37",
    "pos": [960, 640],
    "anim": "main",
    "props": {
@@ -538,7 +538,7 @@
   },
   {
    "id": 23,
-   "object": "z5-37",
+   "object": "object-37",
    "pos": [1056, 608],
    "anim": "main",
    "props": {
@@ -547,7 +547,7 @@
   },
   {
    "id": 24,
-   "object": "z5-37",
+   "object": "object-37",
    "pos": [1280, 608],
    "anim": "main",
    "props": {
@@ -556,7 +556,7 @@
   },
   {
    "id": 25,
-   "object": "z5-emerald",
+   "object": "emerald",
    "pos": [1540, 511],
    "anim": "main",
    "name": "emerald",
@@ -566,7 +566,7 @@
   },
   {
    "id": 26,
-   "object": "z5-shield",
+   "object": "shield",
    "pos": [2372, 1024],
    "anim": "main",
    "name": "shield",

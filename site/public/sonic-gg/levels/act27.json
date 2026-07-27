@@ -289,7 +289,7 @@
   "spawn": {
    "x": 96,
    "y": 1904,
-   "object": "z5-sonic",
+   "object": "sonic",
    "anim": "idle"
   },
   "tileAnims": [
@@ -314,7 +314,7 @@
  "placements": [
   {
    "id": 0,
-   "object": "z5-goal",
+   "object": "goal",
    "pos": [640, 1888],
    "anim": "spin",
    "name": "goal",
@@ -324,7 +324,7 @@
   },
   {
    "id": 1,
-   "object": "z5-emerald",
+   "object": "emerald",
    "pos": [2628, 1120],
    "anim": "main",
    "name": "emerald",

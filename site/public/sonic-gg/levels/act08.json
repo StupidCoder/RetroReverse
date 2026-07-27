@@ -289,7 +289,7 @@
   "spawn": {
    "x": 64,
    "y": 8016,
-   "object": "z2-sonic",
+   "object": "sonic",
    "anim": "idle"
   },
   "tileAnims": [
@@ -323,7 +323,7 @@
  "placements": [
   {
    "id": 0,
-   "object": "z2-fish",
+   "object": "fish",
    "pos": [256, 8064],
    "anim": "main",
    "name": "fish",
@@ -333,7 +333,7 @@
   },
   {
    "id": 1,
-   "object": "z2-fish",
+   "object": "fish",
    "pos": [192, 7776],
    "anim": "main",
    "name": "fish",
@@ -343,7 +343,7 @@
   },
   {
    "id": 2,
-   "object": "z2-bonus",
+   "object": "bonus-01",
    "pos": [164, 7672],
    "anim": "main",
    "name": "bonus",
@@ -353,7 +353,7 @@
   },
   {
    "id": 3,
-   "object": "z2-0c",
+   "object": "object-0c-jungle",
    "pos": [224, 7392],
    "anim": "main",
    "props": {
@@ -362,7 +362,7 @@
   },
   {
    "id": 4,
-   "object": "z2-moving-platform",
+   "object": "moving-platform-jungle",
    "pos": [96, 7264],
    "anim": "main",
    "name": "moving platform",
@@ -372,7 +372,7 @@
   },
   {
    "id": 5,
-   "object": "z2-shield",
+   "object": "shield",
    "pos": [68, 7192],
    "anim": "main",
    "name": "shield",
@@ -382,7 +382,7 @@
   },
   {
    "id": 6,
-   "object": "z2-crab",
+   "object": "crab-jungle",
    "pos": [256, 7185],
    "anim": "main",
    "name": "crab",
@@ -392,7 +392,7 @@
   },
   {
    "id": 7,
-   "object": "z2-fish",
+   "object": "fish",
    "pos": [288, 6944],
    "anim": "main",
    "name": "fish",
@@ -402,7 +402,7 @@
   },
   {
    "id": 8,
-   "object": "z2-bonus",
+   "object": "bonus-01",
    "pos": [452, 6072],
    "anim": "main",
    "name": "bonus",
@@ -412,7 +412,7 @@
   },
   {
    "id": 9,
-   "object": "z2-fish",
+   "object": "fish",
    "pos": [224, 6624],
    "anim": "main",
    "name": "fish",
@@ -422,7 +422,7 @@
   },
   {
    "id": 10,
-   "object": "z2-sinking-platform",
+   "object": "sinking-platform-jungle",
    "pos": [320, 6400],
    "anim": "main",
    "name": "sinking platform",
@@ -432,7 +432,7 @@
   },
   {
    "id": 11,
-   "object": "z2-0c",
+   "object": "object-0c-jungle",
    "pos": [256, 6272],
    "anim": "main",
    "props": {
@@ -441,7 +441,7 @@
   },
   {
    "id": 12,
-   "object": "z2-0c",
+   "object": "object-0c-jungle",
    "pos": [320, 6240],
    "anim": "main",
    "props": {
@@ -450,7 +450,7 @@
   },
   {
    "id": 13,
-   "object": "z2-0c",
+   "object": "object-0c-jungle",
    "pos": [288, 6016],
    "anim": "main",
    "props": {
@@ -459,7 +459,7 @@
   },
   {
    "id": 14,
-   "object": "z2-0c",
+   "object": "object-0c-jungle",
    "pos": [224, 5984],
    "anim": "main",
    "props": {
@@ -468,7 +468,7 @@
   },
   {
    "id": 15,
-   "object": "z2-bonus",
+   "object": "bonus-01",
    "pos": [100, 5624],
    "anim": "main",
    "name": "bonus",
@@ -478,7 +478,7 @@
   },
   {
    "id": 16,
-   "object": "z2-crab",
+   "object": "crab-jungle",
    "pos": [224, 5777],
    "anim": "main",
    "name": "crab",
@@ -488,7 +488,7 @@
   },
   {
    "id": 17,
-   "object": "z2-fish",
+   "object": "fish",
    "pos": [320, 6304],
    "anim": "main",
    "name": "fish",
@@ -498,7 +498,7 @@
   },
   {
    "id": 18,
-   "object": "z2-bonus-03",
+   "object": "bonus-03",
    "pos": [388, 6712],
    "anim": "main",
    "name": "bonus",
@@ -508,7 +508,7 @@
   },
   {
    "id": 19,
-   "object": "z2-moving-platform",
+   "object": "moving-platform-jungle",
    "pos": [160, 5632],
    "anim": "main",
    "name": "moving platform",
@@ -518,7 +518,7 @@
   },
   {
    "id": 20,
-   "object": "z2-goal",
+   "object": "goal",
    "pos": [384, 5248],
    "anim": "spin",
    "name": "goal",
@@ -528,7 +528,7 @@
   },
   {
    "id": 21,
-   "object": "z2-checkpoint",
+   "object": "checkpoint",
    "pos": [164, 6360],
    "anim": "main",
    "name": "checkpoint",
@@ -538,7 +538,7 @@
   },
   {
    "id": 22,
-   "object": "z2-crab",
+   "object": "crab-jungle",
    "pos": [8160, 0],
    "anim": "main",
    "name": "crab",

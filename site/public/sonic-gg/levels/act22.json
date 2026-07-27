@@ -289,7 +289,7 @@
   "spawn": {
    "x": 96,
    "y": 112,
-   "object": "z4-sonic",
+   "object": "sonic",
    "anim": "idle"
   },
   "tileAnims": [
@@ -328,7 +328,7 @@
  "placements": [
   {
    "id": 0,
-   "object": "z4-1b",
+   "object": "object-1b-scrap-brain",
    "pos": [576, 320],
    "anim": "main",
    "props": {
@@ -337,7 +337,7 @@
   },
   {
    "id": 1,
-   "object": "z4-1b",
+   "object": "object-1b-scrap-brain",
    "pos": [64, 544],
    "anim": "main",
    "props": {
@@ -346,7 +346,7 @@
   },
   {
    "id": 2,
-   "object": "z4-1b",
+   "object": "object-1b-scrap-brain",
    "pos": [576, 768],
    "anim": "main",
    "props": {
@@ -355,7 +355,7 @@
   },
   {
    "id": 3,
-   "object": "z4-1b",
+   "object": "object-1b-scrap-brain",
    "pos": [64, 992],
    "anim": "main",
    "props": {
@@ -364,7 +364,7 @@
   },
   {
    "id": 4,
-   "object": "z4-1b",
+   "object": "object-1b-scrap-brain",
    "pos": [576, 1216],
    "anim": "main",
    "props": {
@@ -373,7 +373,7 @@
   },
   {
    "id": 5,
-   "object": "z4-1b",
+   "object": "object-1b-scrap-brain",
    "pos": [64, 1440],
    "anim": "main",
    "props": {
@@ -382,7 +382,7 @@
   },
   {
    "id": 6,
-   "object": "z4-17",
+   "object": "object-17",
    "pos": [768, 1568],
    "anim": "main",
    "props": {
@@ -391,7 +391,7 @@
   },
   {
    "id": 7,
-   "object": "z4-17",
+   "object": "object-17",
    "pos": [640, 1824],
    "anim": "main",
    "props": {
@@ -400,7 +400,7 @@
   },
   {
    "id": 8,
-   "object": "z4-18",
+   "object": "object-18",
    "pos": [576, 1824],
    "anim": "main",
    "props": {
@@ -409,7 +409,7 @@
   },
   {
    "id": 9,
-   "object": "z4-18",
+   "object": "object-18",
    "pos": [704, 96],
    "anim": "main",
    "props": {
@@ -418,7 +418,7 @@
   },
   {
    "id": 10,
-   "object": "z4-teleporter",
+   "object": "teleporter",
    "pos": [32, 32],
    "anim": "main",
    "name": "teleporter",
@@ -428,7 +428,7 @@
   },
   {
    "id": 11,
-   "object": "z4-1a",
+   "object": "object-1a",
    "pos": [800, 499],
    "anim": "main",
    "props": {

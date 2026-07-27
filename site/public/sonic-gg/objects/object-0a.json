@@ -1,0 +1,23 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Object $0A",
+ "atlas": {
+  "file": "object-0a.png",
+  "cellW": 48,
+  "cellH": 48
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 3,
+   "durations": [9, 9, 9]
+  }
+ ],
+ "props": {
+  "type": "0x0A",
+  "zones": ["Special Stage"]
+ }
+}

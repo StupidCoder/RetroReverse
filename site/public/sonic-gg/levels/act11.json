@@ -289,7 +289,7 @@
   "spawn": {
    "x": 256,
    "y": 432,
-   "object": "z3-sonic",
+   "object": "sonic",
    "anim": "idle"
   },
   "tileAnims": [
@@ -335,7 +335,7 @@
  "placements": [
   {
    "id": 0,
-   "object": "z3-shield",
+   "object": "shield",
    "pos": [356, 632],
    "anim": "main",
    "name": "shield",
@@ -345,7 +345,7 @@
   },
   {
    "id": 1,
-   "object": "z3-bonus",
+   "object": "bonus-01",
    "pos": [324, 856],
    "anim": "main",
    "name": "bonus",
@@ -355,7 +355,7 @@
   },
   {
    "id": 2,
-   "object": "z3-bonus-03",
+   "object": "bonus-03",
    "pos": [420, 1720],
    "anim": "main",
    "name": "bonus",
@@ -365,7 +365,7 @@
   },
   {
    "id": 3,
-   "object": "z3-44",
+   "object": "object-44",
    "pos": [512, 447],
    "anim": "main",
    "props": {
@@ -374,7 +374,7 @@
   },
   {
    "id": 4,
-   "object": "z3-35",
+   "object": "object-35-labyrinth",
    "pos": [800, 896],
    "anim": "main",
    "props": {
@@ -383,7 +383,7 @@
   },
   {
    "id": 5,
-   "object": "z3-44",
+   "object": "object-44",
    "pos": [704, 1151],
    "anim": "main",
    "props": {
@@ -392,7 +392,7 @@
   },
   {
    "id": 6,
-   "object": "z3-3d",
+   "object": "object-3d",
    "pos": [864, 1216],
    "anim": "main",
    "props": {
@@ -401,7 +401,7 @@
   },
   {
    "id": 7,
-   "object": "z3-3d",
+   "object": "object-3d",
    "pos": [960, 1344],
    "anim": "main",
    "props": {
@@ -410,7 +410,7 @@
   },
   {
    "id": 8,
-   "object": "z3-45",
+   "object": "object-45",
    "pos": [800, 1716],
    "anim": "main",
    "props": {
@@ -419,7 +419,7 @@
   },
   {
    "id": 9,
-   "object": "z3-3e",
+   "object": "object-3e",
    "pos": [1024, 1696],
    "anim": "main",
    "props": {
@@ -428,7 +428,7 @@
   },
   {
    "id": 10,
-   "object": "z3-3f",
+   "object": "object-3f",
    "pos": [1120, 1608],
    "anim": "main",
    "props": {
@@ -437,7 +437,7 @@
   },
   {
    "id": 11,
-   "object": "z3-3f",
+   "object": "object-3f",
    "pos": [1184, 1544],
    "anim": "main",
    "props": {
@@ -446,7 +446,7 @@
   },
   {
    "id": 12,
-   "object": "z3-3f",
+   "object": "object-3f",
    "pos": [1536, 1544],
    "anim": "main",
    "props": {
@@ -455,7 +455,7 @@
   },
   {
    "id": 13,
-   "object": "z3-3f",
+   "object": "object-3f",
    "pos": [1600, 1640],
    "anim": "main",
    "props": {
@@ -464,7 +464,7 @@
   },
   {
    "id": 14,
-   "object": "z3-45",
+   "object": "object-45",
    "pos": [1696, 1716],
    "anim": "main",
    "props": {
@@ -473,7 +473,7 @@
   },
   {
    "id": 15,
-   "object": "z3-44",
+   "object": "object-44",
    "pos": [1440, 1343],
    "anim": "main",
    "props": {
@@ -482,7 +482,7 @@
   },
   {
    "id": 16,
-   "object": "z3-3d",
+   "object": "object-3d",
    "pos": [1280, 1216],
    "anim": "main",
    "props": {
@@ -491,7 +491,7 @@
   },
   {
    "id": 17,
-   "object": "z3-05",
+   "object": "object-05",
    "pos": [1124, 984],
    "anim": "main",
    "props": {
@@ -500,7 +500,7 @@
   },
   {
    "id": 18,
-   "object": "z3-3f",
+   "object": "object-3f",
    "pos": [1696, 1064],
    "anim": "main",
    "props": {
@@ -509,7 +509,7 @@
   },
   {
    "id": 19,
-   "object": "z3-3f",
+   "object": "object-3f",
    "pos": [1568, 1000],
    "anim": "main",
    "props": {
@@ -518,7 +518,7 @@
   },
   {
    "id": 20,
-   "object": "z3-3f",
+   "object": "object-3f",
    "pos": [1696, 936],
    "anim": "main",
    "props": {
@@ -527,7 +527,7 @@
   },
   {
    "id": 21,
-   "object": "z3-3f",
+   "object": "object-3f",
    "pos": [1568, 872],
    "anim": "main",
    "props": {
@@ -536,7 +536,7 @@
   },
   {
    "id": 22,
-   "object": "z3-41",
+   "object": "object-41",
    "pos": [864, 1536],
    "anim": "main",
    "props": {
@@ -545,7 +545,7 @@
   },
   {
    "id": 23,
-   "object": "z3-41",
+   "object": "object-41",
    "pos": [1440, 1536],
    "anim": "main",
    "props": {
@@ -554,7 +554,7 @@
   },
   {
    "id": 24,
-   "object": "z3-41",
+   "object": "object-41",
    "pos": [1504, 1344],
    "anim": "main",
    "props": {
@@ -563,7 +563,7 @@
   },
   {
    "id": 25,
-   "object": "z3-checkpoint",
+   "object": "checkpoint",
    "pos": [1156, 1720],
    "anim": "main",
    "name": "checkpoint",
@@ -573,7 +573,7 @@
   },
   {
    "id": 26,
-   "object": "z3-emerald",
+   "object": "emerald",
    "pos": [1060, 511],
    "anim": "main",
    "name": "emerald",
@@ -583,7 +583,7 @@
   },
   {
    "id": 27,
-   "object": "z3-goal",
+   "object": "goal",
    "pos": [1504, 480],
    "anim": "spin",
    "name": "goal",
@@ -593,7 +593,7 @@
   },
   {
    "id": 28,
-   "object": "z3-sinking-platform",
+   "object": "sinking-platform-labyrinth",
    "pos": [2048, 640],
    "anim": "main",
    "name": "sinking platform",

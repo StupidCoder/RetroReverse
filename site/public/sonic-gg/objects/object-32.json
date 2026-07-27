@@ -1,0 +1,23 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Object $32",
+ "atlas": {
+  "file": "object-32.png",
+  "cellW": 48,
+  "cellH": 48
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 2,
+   "durations": [33, 33]
+  }
+ ],
+ "props": {
+  "type": "0x32",
+  "zones": ["Sky Base"]
+ }
+}

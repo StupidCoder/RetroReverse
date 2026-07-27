@@ -289,7 +289,7 @@
   "spawn": {
    "x": 64,
    "y": 368,
-   "object": "z2-sonic",
+   "object": "sonic",
    "anim": "idle"
   },
   "tileAnims": [
@@ -323,7 +323,7 @@
  "placements": [
   {
    "id": 0,
-   "object": "z2-swing-platform",
+   "object": "swing-platform-jungle",
    "pos": [2752, 224],
    "anim": "main",
    "name": "swing platform",
@@ -333,7 +333,7 @@
   },
   {
    "id": 1,
-   "object": "z2-swing-platform",
+   "object": "swing-platform-jungle",
    "pos": [5056, 256],
    "anim": "main",
    "name": "swing platform",
@@ -343,7 +343,7 @@
   },
   {
    "id": 2,
-   "object": "z2-crab",
+   "object": "crab-jungle",
    "pos": [224, 305],
    "anim": "main",
    "name": "crab",
@@ -353,7 +353,7 @@
   },
   {
    "id": 3,
-   "object": "z2-fish",
+   "object": "fish",
    "pos": [480, 416],
    "anim": "main",
    "name": "fish",
@@ -363,7 +363,7 @@
   },
   {
    "id": 4,
-   "object": "z2-11",
+   "object": "object-11",
    "pos": [1216, 192],
    "anim": "main",
    "props": {
@@ -372,7 +372,7 @@
   },
   {
    "id": 5,
-   "object": "z2-crab",
+   "object": "crab-jungle",
    "pos": [1568, 337],
    "anim": "main",
    "name": "crab",
@@ -382,7 +382,7 @@
   },
   {
    "id": 6,
-   "object": "z2-moving-platform",
+   "object": "moving-platform-jungle",
    "pos": [2016, 320],
    "anim": "main",
    "name": "moving platform",
@@ -392,7 +392,7 @@
   },
   {
    "id": 7,
-   "object": "z2-27",
+   "object": "object-27",
    "pos": [2400, 128],
    "anim": "main",
    "props": {
@@ -401,7 +401,7 @@
   },
   {
    "id": 8,
-   "object": "z2-28",
+   "object": "object-28",
    "pos": [2464, 96],
    "anim": "main",
    "props": {
@@ -410,7 +410,7 @@
   },
   {
    "id": 9,
-   "object": "z2-fish",
+   "object": "fish",
    "pos": [2080, 416],
    "anim": "main",
    "name": "fish",
@@ -420,7 +420,7 @@
   },
   {
    "id": 10,
-   "object": "z2-crab",
+   "object": "crab-jungle",
    "pos": [2848, 241],
    "anim": "main",
    "name": "crab",
@@ -430,7 +430,7 @@
   },
   {
    "id": 11,
-   "object": "z2-floating-log",
+   "object": "floating-log",
    "pos": [3008, 264],
    "anim": "roll",
    "name": "floating log",
@@ -440,7 +440,7 @@
   },
   {
    "id": 12,
-   "object": "z2-fish",
+   "object": "fish",
    "pos": [3168, 288],
    "anim": "main",
    "name": "fish",
@@ -450,7 +450,7 @@
   },
   {
    "id": 13,
-   "object": "z2-fish",
+   "object": "fish",
    "pos": [3296, 288],
    "anim": "main",
    "name": "fish",
@@ -460,7 +460,7 @@
   },
   {
    "id": 14,
-   "object": "z2-11",
+   "object": "object-11",
    "pos": [3616, 224],
    "anim": "main",
    "props": {
@@ -469,7 +469,7 @@
   },
   {
    "id": 15,
-   "object": "z2-crab",
+   "object": "crab-jungle",
    "pos": [3808, 241],
    "anim": "main",
    "name": "crab",
@@ -479,7 +479,7 @@
   },
   {
    "id": 16,
-   "object": "z2-floating-log",
+   "object": "floating-log",
    "pos": [3808, 392],
    "anim": "roll",
    "name": "floating log",
@@ -489,7 +489,7 @@
   },
   {
    "id": 17,
-   "object": "z2-27",
+   "object": "object-27",
    "pos": [4000, 96],
    "anim": "main",
    "props": {
@@ -498,7 +498,7 @@
   },
   {
    "id": 18,
-   "object": "z2-27",
+   "object": "object-27",
    "pos": [4416, 96],
    "anim": "main",
    "props": {
@@ -507,7 +507,7 @@
   },
   {
    "id": 19,
-   "object": "z2-27",
+   "object": "object-27",
    "pos": [4640, 96],
    "anim": "main",
    "props": {
@@ -516,7 +516,7 @@
   },
   {
    "id": 20,
-   "object": "z2-28",
+   "object": "object-28",
    "pos": [4704, 128],
    "anim": "main",
    "props": {
@@ -525,7 +525,7 @@
   },
   {
    "id": 21,
-   "object": "z2-floating-log",
+   "object": "floating-log",
    "pos": [5824, 232],
    "anim": "roll",
    "name": "floating log",
@@ -535,7 +535,7 @@
   },
   {
    "id": 22,
-   "object": "z2-floating-log",
+   "object": "floating-log",
    "pos": [6048, 232],
    "anim": "roll",
    "name": "floating log",
@@ -545,7 +545,7 @@
   },
   {
    "id": 23,
-   "object": "z2-shield",
+   "object": "shield",
    "pos": [996, 280],
    "anim": "main",
    "name": "shield",
@@ -555,7 +555,7 @@
   },
   {
    "id": 24,
-   "object": "z2-bonus-03",
+   "object": "bonus-03",
    "pos": [1508, 120],
    "anim": "main",
    "name": "bonus",
@@ -565,7 +565,7 @@
   },
   {
    "id": 25,
-   "object": "z2-checkpoint",
+   "object": "checkpoint",
    "pos": [2148, 184],
    "anim": "main",
    "name": "checkpoint",
@@ -575,7 +575,7 @@
   },
   {
    "id": 26,
-   "object": "z2-emerald",
+   "object": "emerald",
    "pos": [3428, 383],
    "anim": "main",
    "name": "emerald",
@@ -585,7 +585,7 @@
   },
   {
    "id": 27,
-   "object": "z2-checkpoint",
+   "object": "checkpoint",
    "pos": [4932, 312],
    "anim": "main",
    "name": "checkpoint",
@@ -595,7 +595,7 @@
   },
   {
    "id": 28,
-   "object": "z2-bonus",
+   "object": "bonus-01",
    "pos": [4164, 248],
    "anim": "main",
    "name": "bonus",
@@ -605,7 +605,7 @@
   },
   {
    "id": 29,
-   "object": "z2-goal",
+   "object": "goal",
    "pos": [6656, 224],
    "anim": "spin",
    "name": "goal",
@@ -615,7 +615,7 @@
   },
   {
    "id": 30,
-   "object": "z2-17",
+   "object": "object-17",
    "pos": [1216, 256],
    "anim": "main",
    "props": {

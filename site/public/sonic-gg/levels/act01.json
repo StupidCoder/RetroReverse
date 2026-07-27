@@ -289,7 +289,7 @@
   "spawn": {
    "x": 160,
    "y": 368,
-   "object": "z0-sonic",
+   "object": "sonic",
    "anim": "idle"
   },
   "tileAnims": [
@@ -522,7 +522,7 @@
  "placements": [
   {
    "id": 0,
-   "object": "z0-beetle",
+   "object": "beetle",
    "pos": [576, 352],
    "anim": "main",
    "name": "beetle",
@@ -532,7 +532,7 @@
   },
   {
    "id": 1,
-   "object": "z0-crab",
+   "object": "crab-green-hills",
    "pos": [1344, 401],
    "anim": "main",
    "name": "crab",
@@ -542,7 +542,7 @@
   },
   {
    "id": 2,
-   "object": "z0-05",
+   "object": "object-05",
    "pos": [1988, 248],
    "anim": "main",
    "props": {
@@ -551,7 +551,7 @@
   },
   {
    "id": 3,
-   "object": "z0-bonus",
+   "object": "bonus-01",
    "pos": [932, 280],
    "anim": "main",
    "name": "bonus",
@@ -561,7 +561,7 @@
   },
   {
    "id": 4,
-   "object": "z0-goal",
+   "object": "goal",
    "pos": [6432, 384],
    "anim": "spin",
    "name": "goal",
@@ -571,7 +571,7 @@
   },
   {
    "id": 5,
-   "object": "z0-crab",
+   "object": "crab-green-hills",
    "pos": [2400, 401],
    "anim": "main",
    "name": "crab",
@@ -581,7 +581,7 @@
   },
   {
    "id": 6,
-   "object": "z0-swing-platform",
+   "object": "swing-platform-green-hills",
    "pos": [3040, 288],
    "anim": "main",
    "name": "swing platform",
@@ -591,7 +591,7 @@
   },
   {
    "id": 7,
-   "object": "z0-bird",
+   "object": "bird-green-hills",
    "pos": [3424, 256],
    "anim": "main",
    "name": "bird",
@@ -601,7 +601,7 @@
   },
   {
    "id": 8,
-   "object": "z0-crab",
+   "object": "crab-green-hills",
    "pos": [3936, 433],
    "anim": "main",
    "name": "crab",
@@ -611,7 +611,7 @@
   },
   {
    "id": 9,
-   "object": "z0-sinking-platform",
+   "object": "sinking-platform-green-hills",
    "pos": [4224, 352],
    "anim": "main",
    "name": "sinking platform",
@@ -621,7 +621,7 @@
   },
   {
    "id": 10,
-   "object": "z0-beetle",
+   "object": "beetle",
    "pos": [4896, 224],
    "anim": "main",
    "name": "beetle",
@@ -631,7 +631,7 @@
   },
   {
    "id": 11,
-   "object": "z0-moving-platform",
+   "object": "moving-platform-green-hills",
    "pos": [5408, 352],
    "anim": "main",
    "name": "moving platform",
@@ -641,7 +641,7 @@
   },
   {
    "id": 12,
-   "object": "z0-bird",
+   "object": "bird-green-hills",
    "pos": [5344, 192],
    "anim": "main",
    "name": "bird",
@@ -651,7 +651,7 @@
   },
   {
    "id": 13,
-   "object": "z0-crab",
+   "object": "crab-green-hills",
    "pos": [5952, 401],
    "anim": "main",
    "name": "crab",
@@ -661,7 +661,7 @@
   },
   {
    "id": 14,
-   "object": "z0-bonus-02",
+   "object": "bonus-02",
    "pos": [2660, 344],
    "anim": "main",
    "name": "bonus",
@@ -671,7 +671,7 @@
   },
   {
    "id": 15,
-   "object": "z0-bonus-03",
+   "object": "bonus-03",
    "pos": [3542, 310],
    "anim": "main",
    "name": "bonus",
@@ -681,7 +681,7 @@
   },
   {
    "id": 16,
-   "object": "z0-checkpoint",
+   "object": "checkpoint",
    "pos": [4132, 440],
    "anim": "main",
    "name": "checkpoint",
@@ -691,7 +691,7 @@
   },
   {
    "id": 17,
-   "object": "z0-17",
+   "object": "object-17",
    "pos": [32, 704],
    "anim": "main",
    "props": {

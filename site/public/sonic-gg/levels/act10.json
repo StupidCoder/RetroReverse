@@ -289,7 +289,7 @@
   "spawn": {
    "x": 64,
    "y": 144,
-   "object": "z3-sonic",
+   "object": "sonic",
    "anim": "idle"
   },
   "tileAnims": [
@@ -335,7 +335,7 @@
  "placements": [
   {
    "id": 0,
-   "object": "z3-bonus-03",
+   "object": "bonus-03",
    "pos": [1060, 216],
    "anim": "main",
    "name": "bonus",
@@ -345,7 +345,7 @@
   },
   {
    "id": 1,
-   "object": "z3-1d",
+   "object": "object-1d-labyrinth",
    "pos": [832, 223],
    "anim": "main",
    "props": {
@@ -354,7 +354,7 @@
   },
   {
    "id": 2,
-   "object": "z3-3c",
+   "object": "object-3c",
    "pos": [512, 608],
    "anim": "main",
    "props": {
@@ -363,7 +363,7 @@
   },
   {
    "id": 3,
-   "object": "z3-41",
+   "object": "object-41",
    "pos": [128, 864],
    "anim": "main",
    "props": {
@@ -372,7 +372,7 @@
   },
   {
    "id": 4,
-   "object": "z3-44",
+   "object": "object-44",
    "pos": [544, 832],
    "anim": "main",
    "props": {
@@ -381,7 +381,7 @@
   },
   {
    "id": 5,
-   "object": "z3-41",
+   "object": "object-41",
    "pos": [672, 1120],
    "anim": "main",
    "props": {
@@ -390,7 +390,7 @@
   },
   {
    "id": 6,
-   "object": "z3-3e",
+   "object": "object-3e",
    "pos": [832, 1088],
    "anim": "main",
    "props": {
@@ -399,7 +399,7 @@
   },
   {
    "id": 7,
-   "object": "z3-3e",
+   "object": "object-3e",
    "pos": [992, 1088],
    "anim": "main",
    "props": {
@@ -408,7 +408,7 @@
   },
   {
    "id": 8,
-   "object": "z3-41",
+   "object": "object-41",
    "pos": [1056, 1120],
    "anim": "main",
    "props": {
@@ -417,7 +417,7 @@
   },
   {
    "id": 9,
-   "object": "z3-45",
+   "object": "object-45",
    "pos": [1152, 1108],
    "anim": "main",
    "props": {
@@ -426,7 +426,7 @@
   },
   {
    "id": 10,
-   "object": "z3-45",
+   "object": "object-45",
    "pos": [1088, 948],
    "anim": "main",
    "props": {
@@ -435,7 +435,7 @@
   },
   {
    "id": 11,
-   "object": "z3-3d",
+   "object": "object-3d",
    "pos": [768, 563],
    "anim": "main",
    "props": {
@@ -444,7 +444,7 @@
   },
   {
    "id": 12,
-   "object": "z3-bonus",
+   "object": "bonus-01",
    "pos": [868, 440],
    "anim": "main",
    "name": "bonus",
@@ -454,7 +454,7 @@
   },
   {
    "id": 13,
-   "object": "z3-bonus",
+   "object": "bonus-01",
    "pos": [772, 760],
    "anim": "main",
    "name": "bonus",
@@ -464,7 +464,7 @@
   },
   {
    "id": 14,
-   "object": "z3-3f",
+   "object": "object-3f",
    "pos": [864, 776],
    "anim": "main",
    "props": {
@@ -473,7 +473,7 @@
   },
   {
    "id": 15,
-   "object": "z3-3c",
+   "object": "object-3c",
    "pos": [640, 928],
    "anim": "main",
    "props": {
@@ -482,7 +482,7 @@
   },
   {
    "id": 16,
-   "object": "z3-45",
+   "object": "object-45",
    "pos": [224, 788],
    "anim": "main",
    "props": {
@@ -491,7 +491,7 @@
   },
   {
    "id": 17,
-   "object": "z3-shield",
+   "object": "shield",
    "pos": [548, 632],
    "anim": "main",
    "name": "shield",
@@ -501,7 +501,7 @@
   },
   {
    "id": 18,
-   "object": "z3-goal",
+   "object": "goal",
    "pos": [1440, 192],
    "anim": "spin",
    "name": "goal",
@@ -511,7 +511,7 @@
   },
   {
    "id": 19,
-   "object": "z3-checkpoint",
+   "object": "checkpoint",
    "pos": [580, 984],
    "anim": "main",
    "name": "checkpoint",
@@ -521,7 +521,7 @@
   },
   {
    "id": 20,
-   "object": "z3-1e",
+   "object": "object-1e",
    "pos": [2048, 1024],
    "anim": "main",
    "props": {

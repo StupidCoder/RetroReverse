@@ -1,0 +1,23 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Fish",
+ "atlas": {
+  "file": "fish.png",
+  "cellW": 48,
+  "cellH": 48
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 2,
+   "durations": [5, 5]
+  }
+ ],
+ "props": {
+  "type": "0x26",
+  "zones": ["Bridge", "Jungle"]
+ }
+}

@@ -16,1030 +16,624 @@
  },
  "assets": [
   {
-   "id": "z0-sonic",
+   "id": "sonic",
    "category": "object",
    "name": "Sonic",
-   "group": "Green Hills",
+   "group": "Player",
    "description": "The level spawn point (object type $00). At load the engine settles him onto the ground at this position; from there his momentum-based run/jump/roll physics take over — the subject of Part V. The viewer shows him as a static placement.",
-   "file": "objects/z0-sonic.json"
+   "file": "objects/sonic.json"
   },
   {
-   "id": "z0-bonus",
+   "id": "sonic-special-stage",
    "category": "object",
-   "name": "Bonus",
-   "group": "Green Hills",
-   "description": "An item monitor (TV), part of the pickup family (handlers bank 1 $5DE1/$5EB1/$5EDD). Each lazily streams its own 16×16 screen icon into sprite tiles $5C–$5F ($01 = $15200, $02 = $15280) over the common item-box base. Its “blink” is actually a sprite-per-scanline budget trick — the game drops an icon-covered cell most frames — so it renders and plays as static.",
-   "file": "objects/z0-bonus.json"
+   "name": "Sonic (Special Stage)",
+   "group": "Player",
+   "description": "The level spawn point (object type $00). At load the engine settles him onto the ground at this position; from there his momentum-based run/jump/roll physics take over — the subject of Part V. The viewer shows him as a static placement.",
+   "file": "objects/sonic-special-stage.json"
   },
   {
-   "id": "z0-emerald",
+   "id": "crab-green-hills",
    "category": "object",
-   "name": "Emerald",
-   "group": "Green Hills",
-   "description": "A Chaos Emerald pickup (handler bank 1 $6183). Like the other monitors it streams its own 16×16 icon (from $15480) into sprite tiles $5C–$5F over its item-box base.",
-   "file": "objects/z0-emerald.json"
-  },
-  {
-   "id": "z0-goal",
-   "category": "object",
-   "name": "Goal",
-   "group": "Green Hills",
-   "description": "The end-of-act goal sign (handler bank 1 $61F8). On its first frame it loads its own sprite sheet over VRAM $2000 (bank 9 file $27AB8) plus palette $0E, and clamps the camera ($D26D/$D26F) so the act ends at the sign. It idles static on the “?” plate; when Sonic crosses it, it hops and spins (plates 0→3→2→4 × 6 frames each) and stops on the outcome plate.",
-   "file": "objects/z0-goal.json"
-  },
-  {
-   "id": "z0-crab",
-   "category": "object",
-   "name": "Crab",
-   "group": "Green Hills",
+   "name": "Crab (Green Hills)",
+   "group": "Enemies",
    "description": "An enemy walker (~0.16 px/frame) that periodically stops to fire a projectile to each side; four appear in Green Hills Act 1 (handler bank 1 $65F9). It runs a four-step claw-walk animation (frames 0,1,2,1 held ~13 frames each) through the shared $7C75 routine, and starts out walking toward the player.",
-   "file": "objects/z0-crab.json"
+   "file": "objects/crab-green-hills.json"
   },
   {
-   "id": "z0-swing-platform",
+   "id": "crab-bridge",
    "category": "object",
-   "name": "Swing platform",
-   "group": "Green Hills",
-   "description": "A pendulum platform that carries Sonic (handler bank 1 $6747): it swings a 180° arc of about 51-px radius on roughly a 3.7-second cycle. Its metasprite layout is chosen by zone ($6910 in Green Hills, else $6922).",
-   "file": "objects/z0-swing-platform.json"
+   "name": "Crab (Bridge)",
+   "group": "Enemies",
+   "description": "An enemy walker (~0.16 px/frame) that periodically stops to fire a projectile to each side; four appear in Green Hills Act 1 (handler bank 1 $65F9). It runs a four-step claw-walk animation (frames 0,1,2,1 held ~13 frames each) through the shared $7C75 routine, and starts out walking toward the player.",
+   "file": "objects/crab-bridge.json"
   },
   {
-   "id": "z0-sinking-platform",
+   "id": "crab-jungle",
    "category": "object",
-   "name": "Sinking platform",
-   "group": "Green Hills",
-   "description": "A platform that gives under Sonic’s weight (handler bank 1 $69ED): it sinks 16 px at ½ px/frame while he stands on it, and floats back up when he steps off.",
-   "file": "objects/z0-sinking-platform.json"
+   "name": "Crab (Jungle)",
+   "group": "Enemies",
+   "description": "An enemy walker (~0.16 px/frame) that periodically stops to fire a projectile to each side; four appear in Green Hills Act 1 (handler bank 1 $65F9). It runs a four-step claw-walk animation (frames 0,1,2,1 held ~13 frames each) through the shared $7C75 routine, and starts out walking toward the player.",
+   "file": "objects/crab-jungle.json"
   },
   {
-   "id": "z0-bird",
+   "id": "crab-special-stage",
    "category": "object",
-   "name": "Bird",
-   "group": "Green Hills",
+   "name": "Crab (Special Stage)",
+   "group": "Enemies",
+   "description": "An enemy walker (~0.16 px/frame) that periodically stops to fire a projectile to each side; four appear in Green Hills Act 1 (handler bank 1 $65F9). It runs a four-step claw-walk animation (frames 0,1,2,1 held ~13 frames each) through the shared $7C75 routine, and starts out walking toward the player.",
+   "file": "objects/crab-special-stage.json"
+  },
+  {
+   "id": "bird-green-hills",
+   "category": "object",
+   "name": "Bird (Green Hills)",
+   "group": "Enemies",
    "description": "A flying enemy (handler bank 1 $6BD9). It plays a fast two-frame wing-flap (frames 0,1 held ~3 frames each) through the shared $7C75 animation routine. Beyond that flap our notes do not detail its flight path.",
-   "file": "objects/z0-bird.json"
+   "file": "objects/bird-green-hills.json"
   },
   {
-   "id": "z0-moving-platform",
+   "id": "bird-bridge",
    "category": "object",
-   "name": "Moving platform",
-   "group": "Green Hills",
-   "description": "A back-and-forth platform that carries Sonic (handler bank 1 $6DCA). It glides at exactly 1 px/frame with no sub-pixel fraction, keeping a 16-bit phase counter and a direction byte; when the counter reaches $A0 = 160 it resets and flips sign — a symmetric 160-px (5-block) out-and-back that reverses every 160 frames. In the Jungle this same slot is instead a floating log.",
-   "file": "objects/z0-moving-platform.json"
+   "name": "Bird (Bridge)",
+   "group": "Enemies",
+   "description": "A flying enemy (handler bank 1 $6BD9). It plays a fast two-frame wing-flap (frames 0,1 held ~3 frames each) through the shared $7C75 animation routine. Beyond that flap our notes do not detail its flight path.",
+   "file": "objects/bird-bridge.json"
   },
   {
-   "id": "z0-beetle",
+   "id": "beetle",
    "category": "object",
    "name": "Beetle",
-   "group": "Green Hills",
+   "group": "Enemies",
    "description": "An enemy walker that marches back and forth at 1 px/frame with no attack, driven by the same script engine as the crab (handler bank 1 $6E65). Its two-frame walk (frames 0,1 held ~9 frames each) plays through the shared animation routine. Its 16-px height happens to equal its block’s surface offset, so it sits exactly on the ground where it is placed.",
-   "file": "objects/z0-beetle.json"
+   "file": "objects/beetle.json"
   },
   {
-   "id": "z1-sonic",
-   "category": "object",
-   "name": "Sonic",
-   "group": "Bridge",
-   "description": "The level spawn point (object type $00). At load the engine settles him onto the ground at this position; from there his momentum-based run/jump/roll physics take over — the subject of Part V. The viewer shows him as a static placement.",
-   "file": "objects/z1-sonic.json"
-  },
-  {
-   "id": "z1-bonus",
-   "category": "object",
-   "name": "Bonus",
-   "group": "Bridge",
-   "description": "An item monitor (TV), part of the pickup family (handlers bank 1 $5DE1/$5EB1/$5EDD). Each lazily streams its own 16×16 screen icon into sprite tiles $5C–$5F ($01 = $15200, $02 = $15280) over the common item-box base. Its “blink” is actually a sprite-per-scanline budget trick — the game drops an icon-covered cell most frames — so it renders and plays as static.",
-   "file": "objects/z1-bonus.json"
-  },
-  {
-   "id": "z1-emerald",
-   "category": "object",
-   "name": "Emerald",
-   "group": "Bridge",
-   "description": "A Chaos Emerald pickup (handler bank 1 $6183). Like the other monitors it streams its own 16×16 icon (from $15480) into sprite tiles $5C–$5F over its item-box base.",
-   "file": "objects/z1-emerald.json"
-  },
-  {
-   "id": "z1-goal",
-   "category": "object",
-   "name": "Goal",
-   "group": "Bridge",
-   "description": "The end-of-act goal sign (handler bank 1 $61F8). On its first frame it loads its own sprite sheet over VRAM $2000 (bank 9 file $27AB8) plus palette $0E, and clamps the camera ($D26D/$D26F) so the act ends at the sign. It idles static on the “?” plate; when Sonic crosses it, it hops and spins (plates 0→3→2→4 × 6 frames each) and stops on the outcome plate.",
-   "file": "objects/z1-goal.json"
-  },
-  {
-   "id": "z1-crab",
-   "category": "object",
-   "name": "Crab",
-   "group": "Bridge",
-   "description": "An enemy walker (~0.16 px/frame) that periodically stops to fire a projectile to each side; four appear in Green Hills Act 1 (handler bank 1 $65F9). It runs a four-step claw-walk animation (frames 0,1,2,1 held ~13 frames each) through the shared $7C75 routine, and starts out walking toward the player.",
-   "file": "objects/z1-crab.json"
-  },
-  {
-   "id": "z1-bird",
-   "category": "object",
-   "name": "Bird",
-   "group": "Bridge",
-   "description": "A flying enemy (handler bank 1 $6BD9). It plays a fast two-frame wing-flap (frames 0,1 held ~3 frames each) through the shared $7C75 animation routine. Beyond that flap our notes do not detail its flight path.",
-   "file": "objects/z1-bird.json"
-  },
-  {
-   "id": "z1-moving-platform",
-   "category": "object",
-   "name": "Moving platform",
-   "group": "Bridge",
-   "description": "A back-and-forth platform that carries Sonic (handler bank 1 $6DCA). It glides at exactly 1 px/frame with no sub-pixel fraction, keeping a 16-bit phase counter and a direction byte; when the counter reaches $A0 = 160 it resets and flips sign — a symmetric 160-px (5-block) out-and-back that reverses every 160 frames. In the Jungle this same slot is instead a floating log.",
-   "file": "objects/z1-moving-platform.json"
-  },
-  {
-   "id": "z1-fish",
+   "id": "fish",
    "category": "object",
    "name": "Fish",
-   "group": "Bridge",
+   "group": "Enemies",
    "description": "An enemy that leaps 128 px (four blocks) straight up and back down on roughly a 2.6-second cycle (handler bank 1 $7D25).",
-   "file": "objects/z1-fish.json"
+   "file": "objects/fish.json"
   },
   {
-   "id": "z1-porcupine",
+   "id": "porcupine",
    "category": "object",
    "name": "Porcupine",
-   "group": "Bridge",
+   "group": "Enemies",
    "description": "A spiky walker (handler bank 2 $82FB) that patrols about 160 px each way at 0.25 px/frame with no attack. Its handler has gravity, so where it spawns over a gap (Bridge Act 1, at 480,320) it drops 48 px onto the lower ground the moment it activates. It starts facing right.",
-   "file": "objects/z1-porcupine.json"
+   "file": "objects/porcupine.json"
   },
   {
-   "id": "z1-bobbing-platform",
-   "category": "object",
-   "name": "Bobbing platform",
-   "group": "Bridge",
-   "description": "A free-floating platform with no terrain contact (the Bridge’s floating logs). Its Y-velocity ramps ±$10 sub-px/frame on a 160-frame phase, clamped to ±2 px/frame: from its spawn it sinks about 160 px, then bobs in a 96-px, 160-frame cycle. Sonic can ride it (via $7CF5).",
-   "file": "objects/z1-bobbing-platform.json"
-  },
-  {
-   "id": "z2-sonic",
-   "category": "object",
-   "name": "Sonic",
-   "group": "Jungle",
-   "description": "The level spawn point (object type $00). At load the engine settles him onto the ground at this position; from there his momentum-based run/jump/roll physics take over — the subject of Part V. The viewer shows him as a static placement.",
-   "file": "objects/z2-sonic.json"
-  },
-  {
-   "id": "z2-bonus",
-   "category": "object",
-   "name": "Bonus",
-   "group": "Jungle",
-   "description": "An item monitor (TV), part of the pickup family (handlers bank 1 $5DE1/$5EB1/$5EDD). Each lazily streams its own 16×16 screen icon into sprite tiles $5C–$5F ($01 = $15200, $02 = $15280) over the common item-box base. Its “blink” is actually a sprite-per-scanline budget trick — the game drops an icon-covered cell most frames — so it renders and plays as static.",
-   "file": "objects/z2-bonus.json"
-  },
-  {
-   "id": "z2-emerald",
-   "category": "object",
-   "name": "Emerald",
-   "group": "Jungle",
-   "description": "A Chaos Emerald pickup (handler bank 1 $6183). Like the other monitors it streams its own 16×16 icon (from $15480) into sprite tiles $5C–$5F over its item-box base.",
-   "file": "objects/z2-emerald.json"
-  },
-  {
-   "id": "z2-goal",
-   "category": "object",
-   "name": "Goal",
-   "group": "Jungle",
-   "description": "The end-of-act goal sign (handler bank 1 $61F8). On its first frame it loads its own sprite sheet over VRAM $2000 (bank 9 file $27AB8) plus palette $0E, and clamps the camera ($D26D/$D26F) so the act ends at the sign. It idles static on the “?” plate; when Sonic crosses it, it hops and spins (plates 0→3→2→4 × 6 frames each) and stops on the outcome plate.",
-   "file": "objects/z2-goal.json"
-  },
-  {
-   "id": "z2-crab",
-   "category": "object",
-   "name": "Crab",
-   "group": "Jungle",
-   "description": "An enemy walker (~0.16 px/frame) that periodically stops to fire a projectile to each side; four appear in Green Hills Act 1 (handler bank 1 $65F9). It runs a four-step claw-walk animation (frames 0,1,2,1 held ~13 frames each) through the shared $7C75 routine, and starts out walking toward the player.",
-   "file": "objects/z2-crab.json"
-  },
-  {
-   "id": "z2-swing-platform",
-   "category": "object",
-   "name": "Swing platform",
-   "group": "Jungle",
-   "description": "A pendulum platform that carries Sonic (handler bank 1 $6747): it swings a 180° arc of about 51-px radius on roughly a 3.7-second cycle. Its metasprite layout is chosen by zone ($6910 in Green Hills, else $6922).",
-   "file": "objects/z2-swing-platform.json"
-  },
-  {
-   "id": "z2-sinking-platform",
-   "category": "object",
-   "name": "Sinking platform",
-   "group": "Jungle",
-   "description": "A platform that gives under Sonic’s weight (handler bank 1 $69ED): it sinks 16 px at ½ px/frame while he stands on it, and floats back up when he steps off.",
-   "file": "objects/z2-sinking-platform.json"
-  },
-  {
-   "id": "z2-0c",
-   "category": "object",
-   "name": "Object $0C",
-   "group": "Jungle",
-   "file": "objects/z2-0c.json"
-  },
-  {
-   "id": "z2-moving-platform",
-   "category": "object",
-   "name": "Moving platform",
-   "group": "Jungle",
-   "description": "A back-and-forth platform that carries Sonic (handler bank 1 $6DCA). It glides at exactly 1 px/frame with no sub-pixel fraction, keeping a 16-bit phase counter and a direction byte; when the counter reaches $A0 = 160 it resets and flips sign — a symmetric 160-px (5-block) out-and-back that reverses every 160 frames. In the Jungle this same slot is instead a floating log.",
-   "file": "objects/z2-moving-platform.json"
-  },
-  {
-   "id": "z2-fish",
-   "category": "object",
-   "name": "Fish",
-   "group": "Jungle",
-   "description": "An enemy that leaps 128 px (four blocks) straight up and back down on roughly a 2.6-second cycle (handler bank 1 $7D25).",
-   "file": "objects/z2-fish.json"
-  },
-  {
-   "id": "z2-27",
-   "category": "object",
-   "name": "Object $27",
-   "group": "Jungle",
-   "file": "objects/z2-27.json"
-  },
-  {
-   "id": "z2-28",
-   "category": "object",
-   "name": "Object $28",
-   "group": "Jungle",
-   "file": "objects/z2-28.json"
-  },
-  {
-   "id": "z2-floating-log",
-   "category": "object",
-   "name": "Floating log",
-   "group": "Jungle",
-   "description": "The Jungle’s rideable log (handler bank 2 $7EFC). It floats on the water — spawning lifted 24 px, then a gentle 5-px bob on a 40-frame cycle. Ridden, it becomes a log-roll: Sonic steers it at half his speed (the handler moves the log by vel/2 and writes the log’s X back to Sonic), the roll phase picking one of three rotating-grain layouts, and it stops against solid terrain probed beside it.",
-   "file": "objects/z2-floating-log.json"
-  },
-  {
-   "id": "z3-sonic",
-   "category": "object",
-   "name": "Sonic",
-   "group": "Labyrinth",
-   "description": "The level spawn point (object type $00). At load the engine settles him onto the ground at this position; from there his momentum-based run/jump/roll physics take over — the subject of Part V. The viewer shows him as a static placement.",
-   "file": "objects/z3-sonic.json"
-  },
-  {
-   "id": "z3-bonus",
-   "category": "object",
-   "name": "Bonus",
-   "group": "Labyrinth",
-   "description": "An item monitor (TV), part of the pickup family (handlers bank 1 $5DE1/$5EB1/$5EDD). Each lazily streams its own 16×16 screen icon into sprite tiles $5C–$5F ($01 = $15200, $02 = $15280) over the common item-box base. Its “blink” is actually a sprite-per-scanline budget trick — the game drops an icon-covered cell most frames — so it renders and plays as static.",
-   "file": "objects/z3-bonus.json"
-  },
-  {
-   "id": "z3-emerald",
-   "category": "object",
-   "name": "Emerald",
-   "group": "Labyrinth",
-   "description": "A Chaos Emerald pickup (handler bank 1 $6183). Like the other monitors it streams its own 16×16 icon (from $15480) into sprite tiles $5C–$5F over its item-box base.",
-   "file": "objects/z3-emerald.json"
-  },
-  {
-   "id": "z3-goal",
-   "category": "object",
-   "name": "Goal",
-   "group": "Labyrinth",
-   "description": "The end-of-act goal sign (handler bank 1 $61F8). On its first frame it loads its own sprite sheet over VRAM $2000 (bank 9 file $27AB8) plus palette $0E, and clamps the camera ($D26D/$D26F) so the act ends at the sign. It idles static on the “?” plate; when Sonic crosses it, it hops and spins (plates 0→3→2→4 × 6 frames each) and stops on the outcome plate.",
-   "file": "objects/z3-goal.json"
-  },
-  {
-   "id": "z3-sinking-platform",
-   "category": "object",
-   "name": "Sinking platform",
-   "group": "Labyrinth",
-   "description": "A platform that gives under Sonic’s weight (handler bank 1 $69ED): it sinks 16 px at ½ px/frame while he stands on it, and floats back up when he steps off.",
-   "file": "objects/z3-sinking-platform.json"
-  },
-  {
-   "id": "z3-1b",
-   "category": "object",
-   "name": "Object $1B",
-   "group": "Labyrinth",
-   "file": "objects/z3-1b.json"
-  },
-  {
-   "id": "z3-1d",
-   "category": "object",
-   "name": "Object $1D",
-   "group": "Labyrinth",
-   "file": "objects/z3-1d.json"
-  },
-  {
-   "id": "z3-35",
-   "category": "object",
-   "name": "Object $35",
-   "group": "Labyrinth",
-   "file": "objects/z3-35.json"
-  },
-  {
-   "id": "z3-3c",
-   "category": "object",
-   "name": "Object $3C",
-   "group": "Labyrinth",
-   "file": "objects/z3-3c.json"
-  },
-  {
-   "id": "z3-3d",
-   "category": "object",
-   "name": "Object $3D",
-   "group": "Labyrinth",
-   "file": "objects/z3-3d.json"
-  },
-  {
-   "id": "z3-3f",
-   "category": "object",
-   "name": "Object $3F",
-   "group": "Labyrinth",
-   "file": "objects/z3-3f.json"
-  },
-  {
-   "id": "z3-41",
-   "category": "object",
-   "name": "Object $41",
-   "group": "Labyrinth",
-   "file": "objects/z3-41.json"
-  },
-  {
-   "id": "z3-44",
-   "category": "object",
-   "name": "Object $44",
-   "group": "Labyrinth",
-   "file": "objects/z3-44.json"
-  },
-  {
-   "id": "z3-45",
-   "category": "object",
-   "name": "Object $45",
-   "group": "Labyrinth",
-   "file": "objects/z3-45.json"
-  },
-  {
-   "id": "z4-sonic",
-   "category": "object",
-   "name": "Sonic",
-   "group": "Scrap Brain",
-   "description": "The level spawn point (object type $00). At load the engine settles him onto the ground at this position; from there his momentum-based run/jump/roll physics take over — the subject of Part V. The viewer shows him as a static placement.",
-   "file": "objects/z4-sonic.json"
-  },
-  {
-   "id": "z4-bonus",
-   "category": "object",
-   "name": "Bonus",
-   "group": "Scrap Brain",
-   "description": "An item monitor (TV), part of the pickup family (handlers bank 1 $5DE1/$5EB1/$5EDD). Each lazily streams its own 16×16 screen icon into sprite tiles $5C–$5F ($01 = $15200, $02 = $15280) over the common item-box base. Its “blink” is actually a sprite-per-scanline budget trick — the game drops an icon-covered cell most frames — so it renders and plays as static.",
-   "file": "objects/z4-bonus.json"
-  },
-  {
-   "id": "z4-emerald",
-   "category": "object",
-   "name": "Emerald",
-   "group": "Scrap Brain",
-   "description": "A Chaos Emerald pickup (handler bank 1 $6183). Like the other monitors it streams its own 16×16 icon (from $15480) into sprite tiles $5C–$5F over its item-box base.",
-   "file": "objects/z4-emerald.json"
-  },
-  {
-   "id": "z4-goal",
-   "category": "object",
-   "name": "Goal",
-   "group": "Scrap Brain",
-   "description": "The end-of-act goal sign (handler bank 1 $61F8). On its first frame it loads its own sprite sheet over VRAM $2000 (bank 9 file $27AB8) plus palette $0E, and clamps the camera ($D26D/$D26F) so the act ends at the sign. It idles static on the “?” plate; when Sonic crosses it, it hops and spins (plates 0→3→2→4 × 6 frames each) and stops on the outcome plate.",
-   "file": "objects/z4-goal.json"
-  },
-  {
-   "id": "z4-0c",
-   "category": "object",
-   "name": "Object $0C",
-   "group": "Scrap Brain",
-   "file": "objects/z4-0c.json"
-  },
-  {
-   "id": "z4-14",
-   "category": "object",
-   "name": "Object $14",
-   "group": "Scrap Brain",
-   "file": "objects/z4-14.json"
-  },
-  {
-   "id": "z4-15",
-   "category": "object",
-   "name": "Object $15",
-   "group": "Scrap Brain",
-   "file": "objects/z4-15.json"
-  },
-  {
-   "id": "z4-1a",
-   "category": "object",
-   "name": "Object $1A",
-   "group": "Scrap Brain",
-   "file": "objects/z4-1a.json"
-  },
-  {
-   "id": "z4-1b",
-   "category": "object",
-   "name": "Object $1B",
-   "group": "Scrap Brain",
-   "file": "objects/z4-1b.json"
-  },
-  {
-   "id": "z4-1d",
-   "category": "object",
-   "name": "Object $1D",
-   "group": "Scrap Brain",
-   "file": "objects/z4-1d.json"
-  },
-  {
-   "id": "z5-sonic",
-   "category": "object",
-   "name": "Sonic",
-   "group": "Sky Base",
-   "description": "The level spawn point (object type $00). At load the engine settles him onto the ground at this position; from there his momentum-based run/jump/roll physics take over — the subject of Part V. The viewer shows him as a static placement.",
-   "file": "objects/z5-sonic.json"
-  },
-  {
-   "id": "z5-bonus",
-   "category": "object",
-   "name": "Bonus",
-   "group": "Sky Base",
-   "description": "An item monitor (TV), part of the pickup family (handlers bank 1 $5DE1/$5EB1/$5EDD). Each lazily streams its own 16×16 screen icon into sprite tiles $5C–$5F ($01 = $15200, $02 = $15280) over the common item-box base. Its “blink” is actually a sprite-per-scanline budget trick — the game drops an icon-covered cell most frames — so it renders and plays as static.",
-   "file": "objects/z5-bonus.json"
-  },
-  {
-   "id": "z5-emerald",
-   "category": "object",
-   "name": "Emerald",
-   "group": "Sky Base",
-   "description": "A Chaos Emerald pickup (handler bank 1 $6183). Like the other monitors it streams its own 16×16 icon (from $15480) into sprite tiles $5C–$5F over its item-box base.",
-   "file": "objects/z5-emerald.json"
-  },
-  {
-   "id": "z5-goal",
-   "category": "object",
-   "name": "Goal",
-   "group": "Sky Base",
-   "description": "The end-of-act goal sign (handler bank 1 $61F8). On its first frame it loads its own sprite sheet over VRAM $2000 (bank 9 file $27AB8) plus palette $0E, and clamps the camera ($D26D/$D26F) so the act ends at the sign. It idles static on the “?” plate; when Sonic crosses it, it hops and spins (plates 0→3→2→4 × 6 frames each) and stops on the outcome plate.",
-   "file": "objects/z5-goal.json"
-  },
-  {
-   "id": "z5-1b",
-   "category": "object",
-   "name": "Object $1B",
-   "group": "Sky Base",
-   "file": "objects/z5-1b.json"
-  },
-  {
-   "id": "z5-32",
-   "category": "object",
-   "name": "Object $32",
-   "group": "Sky Base",
-   "file": "objects/z5-32.json"
-  },
-  {
-   "id": "z5-33",
-   "category": "object",
-   "name": "Object $33",
-   "group": "Sky Base",
-   "file": "objects/z5-33.json"
-  },
-  {
-   "id": "z5-35",
-   "category": "object",
-   "name": "Object $35",
-   "group": "Sky Base",
-   "file": "objects/z5-35.json"
-  },
-  {
-   "id": "z5-38",
-   "category": "object",
-   "name": "Object $38",
-   "group": "Sky Base",
-   "file": "objects/z5-38.json"
-  },
-  {
-   "id": "z5-39",
-   "category": "object",
-   "name": "Object $39",
-   "group": "Sky Base",
-   "file": "objects/z5-39.json"
-  },
-  {
-   "id": "z5-bobbing-platform",
-   "category": "object",
-   "name": "Bobbing platform",
-   "group": "Sky Base",
-   "description": "A free-floating platform with no terrain contact (the Bridge’s floating logs). Its Y-velocity ramps ±$10 sub-px/frame on a 160-frame phase, clamped to ±2 px/frame: from its spawn it sinks about 160 px, then bobs in a 96-px, 160-frame cycle. Sonic can ride it (via $7CF5).",
-   "file": "objects/z5-bobbing-platform.json"
-  },
-  {
-   "id": "z6-sonic",
-   "category": "object",
-   "name": "Sonic",
-   "group": "Special Stage",
-   "description": "The level spawn point (object type $00). At load the engine settles him onto the ground at this position; from there his momentum-based run/jump/roll physics take over — the subject of Part V. The viewer shows him as a static placement.",
-   "file": "objects/z6-sonic.json"
-  },
-  {
-   "id": "z6-goal",
-   "category": "object",
-   "name": "Goal",
-   "group": "Special Stage",
-   "description": "The end-of-act goal sign (handler bank 1 $61F8). On its first frame it loads its own sprite sheet over VRAM $2000 (bank 9 file $27AB8) plus palette $0E, and clamps the camera ($D26D/$D26F) so the act ends at the sign. It idles static on the “?” plate; when Sonic crosses it, it hops and spins (plates 0→3→2→4 × 6 frames each) and stops on the outcome plate.",
-   "file": "objects/z6-goal.json"
-  },
-  {
-   "id": "z6-crab",
-   "category": "object",
-   "name": "Crab",
-   "group": "Special Stage",
-   "description": "An enemy walker (~0.16 px/frame) that periodically stops to fire a projectile to each side; four appear in Green Hills Act 1 (handler bank 1 $65F9). It runs a four-step claw-walk animation (frames 0,1,2,1 held ~13 frames each) through the shared $7C75 routine, and starts out walking toward the player.",
-   "file": "objects/z6-crab.json"
-  },
-  {
-   "id": "z6-swing-platform",
-   "category": "object",
-   "name": "Swing platform",
-   "group": "Special Stage",
-   "description": "A pendulum platform that carries Sonic (handler bank 1 $6747): it swings a 180° arc of about 51-px radius on roughly a 3.7-second cycle. Its metasprite layout is chosen by zone ($6910 in Green Hills, else $6922).",
-   "file": "objects/z6-swing-platform.json"
-  },
-  {
-   "id": "z6-0a",
-   "category": "object",
-   "name": "Object $0A",
-   "group": "Special Stage",
-   "file": "objects/z6-0a.json"
-  },
-  {
-   "id": "z6-bumper",
-   "category": "object",
-   "name": "Bumper",
-   "group": "Special Stage",
-   "description": "Named from play-testing as a special-stage bumper. It falls in the unnamed $13–$24 dispatch band in our notes, so its behaviour is not yet reverse-engineered beyond the name.",
-   "file": "objects/z6-bumper.json"
-  },
-  {
-   "id": "z6-4c",
-   "category": "object",
-   "name": "Object $4C",
-   "group": "Special Stage",
-   "file": "objects/z6-4c.json"
-  },
-  {
-   "id": "z0-bonus-02",
-   "category": "object",
-   "name": "Bonus",
-   "group": "Green Hills",
-   "description": "An item monitor (TV), part of the pickup family (handlers bank 1 $5DE1/$5EB1/$5EDD). Each lazily streams its own 16×16 screen icon into sprite tiles $5C–$5F ($01 = $15200, $02 = $15280) over the common item-box base. Its “blink” is actually a sprite-per-scanline budget trick — the game drops an icon-covered cell most frames — so it renders and plays as static.",
-   "file": "objects/z0-bonus-02.json"
-  },
-  {
-   "id": "z0-bonus-03",
-   "category": "object",
-   "name": "Bonus",
-   "group": "Green Hills",
-   "description": "An item monitor (TV), part of the pickup family (handlers bank 1 $5DE1/$5EB1/$5EDD). Each lazily streams its own 16×16 screen icon into sprite tiles $5C–$5F ($01 = $15200, $02 = $15280) over the common item-box base. Its “blink” is actually a sprite-per-scanline budget trick — the game drops an icon-covered cell most frames — so it renders and plays as static.",
-   "file": "objects/z0-bonus-03.json"
-  },
-  {
-   "id": "z0-shield",
-   "category": "object",
-   "name": "Shield",
-   "group": "Green Hills",
-   "description": "The shield power-up monitor (handler bank 1 $5FAF), part of the pickup/item-box family. Like the other monitors it composites a streamed 16×16 icon over the common item-box base tiles.",
-   "file": "objects/z0-shield.json"
-  },
-  {
-   "id": "z0-05",
-   "category": "object",
-   "name": "Object $05",
-   "group": "Green Hills",
-   "file": "objects/z0-05.json"
-  },
-  {
-   "id": "z0-world-1-boss",
+   "id": "world-1-boss",
    "category": "object",
    "name": "World 1 boss",
-   "group": "Green Hills",
+   "group": "Bosses",
    "description": "Robotnik’s pod for World 1 (handler bank 1 $7065): a bytecode-scripted set-piece that sweeps across the arena and takes 8 hits to defeat (hit counter $D2ED). It decompresses its own graphics over the zone sprite sheet, so the extractor skips it and the viewer shows a labelled marker.",
-   "file": "objects/z0-world-1-boss.json"
+   "file": "objects/world-1-boss.json"
   },
   {
-   "id": "z0-17",
-   "category": "object",
-   "name": "Object $17",
-   "group": "Green Hills",
-   "file": "objects/z0-17.json"
-  },
-  {
-   "id": "z0-18",
-   "category": "object",
-   "name": "Object $18",
-   "group": "Green Hills",
-   "file": "objects/z0-18.json"
-  },
-  {
-   "id": "z0-capsule",
-   "category": "object",
-   "name": "Capsule",
-   "group": "Green Hills",
-   "description": "The animal-prison capsule that ends each world: Sonic jumps on it to free the animals (handler bank 1 $736B). It draws with the boss’s runtime tiles (own-graphics), so the extractor skips it and the viewer shows a labelled marker instead of an extracted sprite.",
-   "file": "objects/z0-capsule.json"
-  },
-  {
-   "id": "z0-4b",
-   "category": "object",
-   "name": "Object $4B",
-   "group": "Green Hills",
-   "file": "objects/z0-4b.json"
-  },
-  {
-   "id": "z0-checkpoint",
-   "category": "object",
-   "name": "Checkpoint",
-   "group": "Green Hills",
-   "description": "The mid-act checkpoint (handler bank 1 $6010). On contact it writes its own block position into the respawn table at $D32F + act×2 (the $6034 respawn-save code), so Sonic restarts here after a death.",
-   "file": "objects/z0-checkpoint.json"
-  },
-  {
-   "id": "z0-ff",
-   "category": "object",
-   "name": "Object $FF",
-   "group": "Green Hills",
-   "file": "objects/z0-ff.json"
-  },
-  {
-   "id": "z1-bonus-03",
-   "category": "object",
-   "name": "Bonus",
-   "group": "Bridge",
-   "description": "An item monitor (TV), part of the pickup family (handlers bank 1 $5DE1/$5EB1/$5EDD). Each lazily streams its own 16×16 screen icon into sprite tiles $5C–$5F ($01 = $15200, $02 = $15280) over the common item-box base. Its “blink” is actually a sprite-per-scanline budget trick — the game drops an icon-covered cell most frames — so it renders and plays as static.",
-   "file": "objects/z1-bonus-03.json"
-  },
-  {
-   "id": "z1-shield",
-   "category": "object",
-   "name": "Shield",
-   "group": "Bridge",
-   "description": "The shield power-up monitor (handler bank 1 $5FAF), part of the pickup/item-box family. Like the other monitors it composites a streamed 16×16 icon over the common item-box base tiles.",
-   "file": "objects/z1-shield.json"
-  },
-  {
-   "id": "z1-world-1-boss",
-   "category": "object",
-   "name": "World 1 boss",
-   "group": "Bridge",
-   "description": "Robotnik’s pod for World 1 (handler bank 1 $7065): a bytecode-scripted set-piece that sweeps across the arena and takes 8 hits to defeat (hit counter $D2ED). It decompresses its own graphics over the zone sprite sheet, so the extractor skips it and the viewer shows a labelled marker.",
-   "file": "objects/z1-world-1-boss.json"
-  },
-  {
-   "id": "z1-1f",
-   "category": "object",
-   "name": "Object $1F",
-   "group": "Bridge",
-   "file": "objects/z1-1f.json"
-  },
-  {
-   "id": "z1-capsule",
-   "category": "object",
-   "name": "Capsule",
-   "group": "Bridge",
-   "description": "The animal-prison capsule that ends each world: Sonic jumps on it to free the animals (handler bank 1 $736B). It draws with the boss’s runtime tiles (own-graphics), so the extractor skips it and the viewer shows a labelled marker instead of an extracted sprite.",
-   "file": "objects/z1-capsule.json"
-  },
-  {
-   "id": "z1-world-2-boss",
-   "category": "object",
-   "name": "World 2 boss",
-   "group": "Bridge",
-   "description": "The World 2 boss (handler bank 2 $84AB). Like the other bosses it is a self-contained set-piece that loads its own graphics over the zone sprite sheet, so the extractor skips it and the viewer shows a labelled marker; its script is not further detailed in our notes.",
-   "file": "objects/z1-world-2-boss.json"
-  },
-  {
-   "id": "z1-seesaw",
-   "category": "object",
-   "name": "Seesaw",
-   "group": "Bridge",
-   "description": "A tilt-arm catapult (handler bank 2 $8681): its launch height scales with Sonic’s landing impact, transferring his downward momentum into the launch.",
-   "file": "objects/z1-seesaw.json"
-  },
-  {
-   "id": "z1-checkpoint",
-   "category": "object",
-   "name": "Checkpoint",
-   "group": "Bridge",
-   "description": "The mid-act checkpoint (handler bank 1 $6010). On contact it writes its own block position into the respawn table at $D32F + act×2 (the $6034 respawn-save code), so Sonic restarts here after a death.",
-   "file": "objects/z1-checkpoint.json"
-  },
-  {
-   "id": "z1-ff",
-   "category": "object",
-   "name": "Object $FF",
-   "group": "Bridge",
-   "file": "objects/z1-ff.json"
-  },
-  {
-   "id": "z2-bonus-03",
-   "category": "object",
-   "name": "Bonus",
-   "group": "Jungle",
-   "description": "An item monitor (TV), part of the pickup family (handlers bank 1 $5DE1/$5EB1/$5EDD). Each lazily streams its own 16×16 screen icon into sprite tiles $5C–$5F ($01 = $15200, $02 = $15280) over the common item-box base. Its “blink” is actually a sprite-per-scanline budget trick — the game drops an icon-covered cell most frames — so it renders and plays as static.",
-   "file": "objects/z2-bonus-03.json"
-  },
-  {
-   "id": "z2-shield",
-   "category": "object",
-   "name": "Shield",
-   "group": "Jungle",
-   "description": "The shield power-up monitor (handler bank 1 $5FAF), part of the pickup/item-box family. Like the other monitors it composites a streamed 16×16 icon over the common item-box base tiles.",
-   "file": "objects/z2-shield.json"
-  },
-  {
-   "id": "z2-11",
-   "category": "object",
-   "name": "Object $11",
-   "group": "Jungle",
-   "file": "objects/z2-11.json"
-  },
-  {
-   "id": "z2-16",
-   "category": "object",
-   "name": "Object $16",
-   "group": "Jungle",
-   "file": "objects/z2-16.json"
-  },
-  {
-   "id": "z2-17",
-   "category": "object",
-   "name": "Object $17",
-   "group": "Jungle",
-   "file": "objects/z2-17.json"
-  },
-  {
-   "id": "z2-capsule",
-   "category": "object",
-   "name": "Capsule",
-   "group": "Jungle",
-   "description": "The animal-prison capsule that ends each world: Sonic jumps on it to free the animals (handler bank 1 $736B). It draws with the boss’s runtime tiles (own-graphics), so the extractor skips it and the viewer shows a labelled marker instead of an extracted sprite.",
-   "file": "objects/z2-capsule.json"
-  },
-  {
-   "id": "z2-world-3-boss",
+   "id": "world-3-boss",
    "category": "object",
    "name": "World 3 boss",
-   "group": "Jungle",
+   "group": "Bosses",
    "description": "The World 3 boss (handler bank 2 $806B). Like the other bosses it is a self-contained set-piece that loads its own graphics over the zone sprite sheet, so the extractor skips it and the viewer shows a labelled marker; its script is not further detailed in our notes.",
-   "file": "objects/z2-world-3-boss.json"
+   "file": "objects/world-3-boss.json"
   },
   {
-   "id": "z2-checkpoint",
+   "id": "world-2-boss",
    "category": "object",
-   "name": "Checkpoint",
-   "group": "Jungle",
-   "description": "The mid-act checkpoint (handler bank 1 $6010). On contact it writes its own block position into the respawn table at $D32F + act×2 (the $6034 respawn-save code), so Sonic restarts here after a death.",
-   "file": "objects/z2-checkpoint.json"
+   "name": "World 2 boss",
+   "group": "Bosses",
+   "description": "The World 2 boss (handler bank 2 $84AB). Like the other bosses it is a self-contained set-piece that loads its own graphics over the zone sprite sheet, so the extractor skips it and the viewer shows a labelled marker; its script is not further detailed in our notes.",
+   "file": "objects/world-2-boss.json"
   },
   {
-   "id": "z2-ff",
-   "category": "object",
-   "name": "Object $FF",
-   "group": "Jungle",
-   "file": "objects/z2-ff.json"
-  },
-  {
-   "id": "z3-bonus-03",
-   "category": "object",
-   "name": "Bonus",
-   "group": "Labyrinth",
-   "description": "An item monitor (TV), part of the pickup family (handlers bank 1 $5DE1/$5EB1/$5EDD). Each lazily streams its own 16×16 screen icon into sprite tiles $5C–$5F ($01 = $15200, $02 = $15280) over the common item-box base. Its “blink” is actually a sprite-per-scanline budget trick — the game drops an icon-covered cell most frames — so it renders and plays as static.",
-   "file": "objects/z3-bonus-03.json"
-  },
-  {
-   "id": "z3-shield",
-   "category": "object",
-   "name": "Shield",
-   "group": "Labyrinth",
-   "description": "The shield power-up monitor (handler bank 1 $5FAF), part of the pickup/item-box family. Like the other monitors it composites a streamed 16×16 icon over the common item-box base tiles.",
-   "file": "objects/z3-shield.json"
-  },
-  {
-   "id": "z3-05",
-   "category": "object",
-   "name": "Object $05",
-   "group": "Labyrinth",
-   "file": "objects/z3-05.json"
-  },
-  {
-   "id": "z3-1e",
-   "category": "object",
-   "name": "Object $1E",
-   "group": "Labyrinth",
-   "file": "objects/z3-1e.json"
-  },
-  {
-   "id": "z3-capsule",
-   "category": "object",
-   "name": "Capsule",
-   "group": "Labyrinth",
-   "description": "The animal-prison capsule that ends each world: Sonic jumps on it to free the animals (handler bank 1 $736B). It draws with the boss’s runtime tiles (own-graphics), so the extractor skips it and the viewer shows a labelled marker instead of an extracted sprite.",
-   "file": "objects/z3-capsule.json"
-  },
-  {
-   "id": "z3-3e",
-   "category": "object",
-   "name": "Object $3E",
-   "group": "Labyrinth",
-   "file": "objects/z3-3e.json"
-  },
-  {
-   "id": "z3-world-4-boss",
+   "id": "world-4-boss",
    "category": "object",
    "name": "World 4 boss",
-   "group": "Labyrinth",
+   "group": "Bosses",
    "description": "The World 4 boss (handler bank 2 $9271). Like the other bosses it is a self-contained set-piece that loads its own graphics over the zone sprite sheet, so the extractor skips it and the viewer shows a labelled marker; its script is not further detailed in our notes.",
-   "file": "objects/z3-world-4-boss.json"
+   "file": "objects/world-4-boss.json"
   },
   {
-   "id": "z3-checkpoint",
+   "id": "swing-platform-green-hills",
    "category": "object",
-   "name": "Checkpoint",
-   "group": "Labyrinth",
-   "description": "The mid-act checkpoint (handler bank 1 $6010). On contact it writes its own block position into the respawn table at $D32F + act×2 (the $6034 respawn-save code), so Sonic restarts here after a death.",
-   "file": "objects/z3-checkpoint.json"
+   "name": "Swing platform (Green Hills)",
+   "group": "Platforms",
+   "description": "A pendulum platform that carries Sonic (handler bank 1 $6747): it swings a 180° arc of about 51-px radius on roughly a 3.7-second cycle. Its metasprite layout is chosen by zone ($6910 in Green Hills, else $6922).",
+   "file": "objects/swing-platform-green-hills.json"
   },
   {
-   "id": "z3-ff",
+   "id": "swing-platform-jungle",
    "category": "object",
-   "name": "Object $FF",
-   "group": "Labyrinth",
-   "file": "objects/z3-ff.json"
+   "name": "Swing platform (Jungle)",
+   "group": "Platforms",
+   "description": "A pendulum platform that carries Sonic (handler bank 1 $6747): it swings a 180° arc of about 51-px radius on roughly a 3.7-second cycle. Its metasprite layout is chosen by zone ($6910 in Green Hills, else $6922).",
+   "file": "objects/swing-platform-jungle.json"
   },
   {
-   "id": "z4-bonus-03",
+   "id": "swing-platform-special-stage",
    "category": "object",
-   "name": "Bonus",
-   "group": "Scrap Brain",
+   "name": "Swing platform (Special Stage)",
+   "group": "Platforms",
+   "description": "A pendulum platform that carries Sonic (handler bank 1 $6747): it swings a 180° arc of about 51-px radius on roughly a 3.7-second cycle. Its metasprite layout is chosen by zone ($6910 in Green Hills, else $6922).",
+   "file": "objects/swing-platform-special-stage.json"
+  },
+  {
+   "id": "sinking-platform-green-hills",
+   "category": "object",
+   "name": "Sinking platform (Green Hills)",
+   "group": "Platforms",
+   "description": "A platform that gives under Sonic’s weight (handler bank 1 $69ED): it sinks 16 px at ½ px/frame while he stands on it, and floats back up when he steps off.",
+   "file": "objects/sinking-platform-green-hills.json"
+  },
+  {
+   "id": "sinking-platform-jungle",
+   "category": "object",
+   "name": "Sinking platform (Jungle)",
+   "group": "Platforms",
+   "description": "A platform that gives under Sonic’s weight (handler bank 1 $69ED): it sinks 16 px at ½ px/frame while he stands on it, and floats back up when he steps off.",
+   "file": "objects/sinking-platform-jungle.json"
+  },
+  {
+   "id": "sinking-platform-labyrinth",
+   "category": "object",
+   "name": "Sinking platform (Labyrinth)",
+   "group": "Platforms",
+   "description": "A platform that gives under Sonic’s weight (handler bank 1 $69ED): it sinks 16 px at ½ px/frame while he stands on it, and floats back up when he steps off.",
+   "file": "objects/sinking-platform-labyrinth.json"
+  },
+  {
+   "id": "moving-platform-green-hills",
+   "category": "object",
+   "name": "Moving platform (Green Hills)",
+   "group": "Platforms",
+   "description": "A back-and-forth platform that carries Sonic (handler bank 1 $6DCA). It glides at exactly 1 px/frame with no sub-pixel fraction, keeping a 16-bit phase counter and a direction byte; when the counter reaches $A0 = 160 it resets and flips sign — a symmetric 160-px (5-block) out-and-back that reverses every 160 frames. In the Jungle this same slot is instead a floating log.",
+   "file": "objects/moving-platform-green-hills.json"
+  },
+  {
+   "id": "moving-platform-bridge",
+   "category": "object",
+   "name": "Moving platform (Bridge)",
+   "group": "Platforms",
+   "description": "A back-and-forth platform that carries Sonic (handler bank 1 $6DCA). It glides at exactly 1 px/frame with no sub-pixel fraction, keeping a 16-bit phase counter and a direction byte; when the counter reaches $A0 = 160 it resets and flips sign — a symmetric 160-px (5-block) out-and-back that reverses every 160 frames. In the Jungle this same slot is instead a floating log.",
+   "file": "objects/moving-platform-bridge.json"
+  },
+  {
+   "id": "moving-platform-jungle",
+   "category": "object",
+   "name": "Moving platform (Jungle)",
+   "group": "Platforms",
+   "description": "A back-and-forth platform that carries Sonic (handler bank 1 $6DCA). It glides at exactly 1 px/frame with no sub-pixel fraction, keeping a 16-bit phase counter and a direction byte; when the counter reaches $A0 = 160 it resets and flips sign — a symmetric 160-px (5-block) out-and-back that reverses every 160 frames. In the Jungle this same slot is instead a floating log.",
+   "file": "objects/moving-platform-jungle.json"
+  },
+  {
+   "id": "floating-log",
+   "category": "object",
+   "name": "Floating log",
+   "group": "Platforms",
+   "description": "The Jungle’s rideable log (handler bank 2 $7EFC). It floats on the water — spawning lifted 24 px, then a gentle 5-px bob on a 40-frame cycle. Ridden, it becomes a log-roll: Sonic steers it at half his speed (the handler moves the log by vel/2 and writes the log’s X back to Sonic), the roll phase picking one of three rotating-grain layouts, and it stops against solid terrain probed beside it.",
+   "file": "objects/floating-log.json"
+  },
+  {
+   "id": "bobbing-platform-bridge",
+   "category": "object",
+   "name": "Bobbing platform (Bridge)",
+   "group": "Platforms",
+   "description": "A free-floating platform with no terrain contact (the Bridge’s floating logs). Its Y-velocity ramps ±$10 sub-px/frame on a 160-frame phase, clamped to ±2 px/frame: from its spawn it sinks about 160 px, then bobs in a 96-px, 160-frame cycle. Sonic can ride it (via $7CF5).",
+   "file": "objects/bobbing-platform-bridge.json"
+  },
+  {
+   "id": "bobbing-platform-sky-base",
+   "category": "object",
+   "name": "Bobbing platform (Sky Base)",
+   "group": "Platforms",
+   "description": "A free-floating platform with no terrain contact (the Bridge’s floating logs). Its Y-velocity ramps ±$10 sub-px/frame on a 160-frame phase, clamped to ±2 px/frame: from its spawn it sinks about 160 px, then bobs in a 96-px, 160-frame cycle. Sonic can ride it (via $7CF5).",
+   "file": "objects/bobbing-platform-sky-base.json"
+  },
+  {
+   "id": "seesaw",
+   "category": "object",
+   "name": "Seesaw",
+   "group": "Platforms",
+   "description": "A tilt-arm catapult (handler bank 2 $8681): its launch height scales with Sonic’s landing impact, transferring his downward momentum into the launch.",
+   "file": "objects/seesaw.json"
+  },
+  {
+   "id": "bonus-01",
+   "category": "object",
+   "name": "Bonus ($01)",
+   "group": "Pickups",
    "description": "An item monitor (TV), part of the pickup family (handlers bank 1 $5DE1/$5EB1/$5EDD). Each lazily streams its own 16×16 screen icon into sprite tiles $5C–$5F ($01 = $15200, $02 = $15280) over the common item-box base. Its “blink” is actually a sprite-per-scanline budget trick — the game drops an icon-covered cell most frames — so it renders and plays as static.",
-   "file": "objects/z4-bonus-03.json"
+   "file": "objects/bonus-01.json"
   },
   {
-   "id": "z4-teleporter",
+   "id": "bonus-02",
    "category": "object",
-   "name": "Teleporter",
-   "group": "Scrap Brain",
-   "description": "Named from play-testing as a teleporter. Scrap Brain and Sky Base carry teleporter-only sub-scenes (engine zone 7) that our loader lists as hidden scenes; this object is understood to warp between them, but its exact behaviour is otherwise not detailed in our notes.",
-   "file": "objects/z4-teleporter.json"
-  },
-  {
-   "id": "z4-16",
-   "category": "object",
-   "name": "Object $16",
-   "group": "Scrap Brain",
-   "file": "objects/z4-16.json"
-  },
-  {
-   "id": "z4-17",
-   "category": "object",
-   "name": "Object $17",
-   "group": "Scrap Brain",
-   "file": "objects/z4-17.json"
-  },
-  {
-   "id": "z4-18",
-   "category": "object",
-   "name": "Object $18",
-   "group": "Scrap Brain",
-   "file": "objects/z4-18.json"
-  },
-  {
-   "id": "z4-19",
-   "category": "object",
-   "name": "Object $19",
-   "group": "Scrap Brain",
-   "file": "objects/z4-19.json"
-  },
-  {
-   "id": "z4-1e",
-   "category": "object",
-   "name": "Object $1E",
-   "group": "Scrap Brain",
-   "file": "objects/z4-1e.json"
-  },
-  {
-   "id": "z4-1f",
-   "category": "object",
-   "name": "Object $1F",
-   "group": "Scrap Brain",
-   "file": "objects/z4-1f.json"
-  },
-  {
-   "id": "z4-22",
-   "category": "object",
-   "name": "Object $22",
-   "group": "Scrap Brain",
-   "file": "objects/z4-22.json"
-  },
-  {
-   "id": "z5-bonus-02",
-   "category": "object",
-   "name": "Bonus",
-   "group": "Sky Base",
+   "name": "Bonus ($02)",
+   "group": "Pickups",
    "description": "An item monitor (TV), part of the pickup family (handlers bank 1 $5DE1/$5EB1/$5EDD). Each lazily streams its own 16×16 screen icon into sprite tiles $5C–$5F ($01 = $15200, $02 = $15280) over the common item-box base. Its “blink” is actually a sprite-per-scanline budget trick — the game drops an icon-covered cell most frames — so it renders and plays as static.",
-   "file": "objects/z5-bonus-02.json"
+   "file": "objects/bonus-02.json"
   },
   {
-   "id": "z5-bonus-03",
+   "id": "bonus-03",
    "category": "object",
-   "name": "Bonus",
-   "group": "Sky Base",
+   "name": "Bonus ($03)",
+   "group": "Pickups",
    "description": "An item monitor (TV), part of the pickup family (handlers bank 1 $5DE1/$5EB1/$5EDD). Each lazily streams its own 16×16 screen icon into sprite tiles $5C–$5F ($01 = $15200, $02 = $15280) over the common item-box base. Its “blink” is actually a sprite-per-scanline budget trick — the game drops an icon-covered cell most frames — so it renders and plays as static.",
-   "file": "objects/z5-bonus-03.json"
+   "file": "objects/bonus-03.json"
   },
   {
-   "id": "z5-shield",
+   "id": "shield",
    "category": "object",
    "name": "Shield",
-   "group": "Sky Base",
+   "group": "Pickups",
    "description": "The shield power-up monitor (handler bank 1 $5FAF), part of the pickup/item-box family. Like the other monitors it composites a streamed 16×16 icon over the common item-box base tiles.",
-   "file": "objects/z5-shield.json"
+   "file": "objects/shield.json"
   },
   {
-   "id": "z5-teleporter",
+   "id": "emerald",
    "category": "object",
-   "name": "Teleporter",
-   "group": "Sky Base",
-   "description": "Named from play-testing as a teleporter. Scrap Brain and Sky Base carry teleporter-only sub-scenes (engine zone 7) that our loader lists as hidden scenes; this object is understood to warp between them, but its exact behaviour is otherwise not detailed in our notes.",
-   "file": "objects/z5-teleporter.json"
+   "name": "Emerald",
+   "group": "Pickups",
+   "description": "A Chaos Emerald pickup (handler bank 1 $6183). Like the other monitors it streams its own 16×16 icon (from $15480) into sprite tiles $5C–$5F over its item-box base.",
+   "file": "objects/emerald.json"
   },
   {
-   "id": "z5-30",
-   "category": "object",
-   "name": "Object $30",
-   "group": "Sky Base",
-   "file": "objects/z5-30.json"
-  },
-  {
-   "id": "z5-31",
-   "category": "object",
-   "name": "Object $31",
-   "group": "Sky Base",
-   "file": "objects/z5-31.json"
-  },
-  {
-   "id": "z5-37",
-   "category": "object",
-   "name": "Object $37",
-   "group": "Sky Base",
-   "file": "objects/z5-37.json"
-  },
-  {
-   "id": "z5-3a",
-   "category": "object",
-   "name": "Object $3A",
-   "group": "Sky Base",
-   "file": "objects/z5-3a.json"
-  },
-  {
-   "id": "z5-4a",
-   "category": "object",
-   "name": "Object $4A",
-   "group": "Sky Base",
-   "file": "objects/z5-4a.json"
-  },
-  {
-   "id": "z5-56",
-   "category": "object",
-   "name": "Object $56",
-   "group": "Sky Base",
-   "file": "objects/z5-56.json"
-  },
-  {
-   "id": "z6-bonus",
-   "category": "object",
-   "name": "Bonus",
-   "group": "Special Stage",
-   "description": "An item monitor (TV), part of the pickup family (handlers bank 1 $5DE1/$5EB1/$5EDD). Each lazily streams its own 16×16 screen icon into sprite tiles $5C–$5F ($01 = $15200, $02 = $15280) over the common item-box base. Its “blink” is actually a sprite-per-scanline budget trick — the game drops an icon-covered cell most frames — so it renders and plays as static.",
-   "file": "objects/z6-bonus.json"
-  },
-  {
-   "id": "z6-shield",
-   "category": "object",
-   "name": "Shield",
-   "group": "Special Stage",
-   "description": "The shield power-up monitor (handler bank 1 $5FAF), part of the pickup/item-box family. Like the other monitors it composites a streamed 16×16 icon over the common item-box base tiles.",
-   "file": "objects/z6-shield.json"
-  },
-  {
-   "id": "z6-continue",
+   "id": "continue",
    "category": "object",
    "name": "Continue",
-   "group": "Special Stage",
+   "group": "Pickups",
    "description": "A special-stage pickup, tagged in our objNames map as the Continue power-up. It belongs to the icon-overlay pickup family; our notes list $52 among the types whose behaviour is not yet reverse-engineered beyond the name.",
-   "file": "objects/z6-continue.json"
+   "file": "objects/continue.json"
+  },
+  {
+   "id": "goal",
+   "category": "object",
+   "name": "Goal",
+   "group": "Level objects",
+   "description": "The end-of-act goal sign (handler bank 1 $61F8). On its first frame it loads its own sprite sheet over VRAM $2000 (bank 9 file $27AB8) plus palette $0E, and clamps the camera ($D26D/$D26F) so the act ends at the sign. It idles static on the “?” plate; when Sonic crosses it, it hops and spins (plates 0→3→2→4 × 6 frames each) and stops on the outcome plate.",
+   "file": "objects/goal.json"
+  },
+  {
+   "id": "teleporter",
+   "category": "object",
+   "name": "Teleporter",
+   "group": "Level objects",
+   "description": "Named from play-testing as a teleporter. Scrap Brain and Sky Base carry teleporter-only sub-scenes (engine zone 7) that our loader lists as hidden scenes; this object is understood to warp between them, but its exact behaviour is otherwise not detailed in our notes.",
+   "file": "objects/teleporter.json"
+  },
+  {
+   "id": "bumper",
+   "category": "object",
+   "name": "Bumper",
+   "group": "Level objects",
+   "description": "Named from play-testing as a special-stage bumper. It falls in the unnamed $13–$24 dispatch band in our notes, so its behaviour is not yet reverse-engineered beyond the name.",
+   "file": "objects/bumper.json"
+  },
+  {
+   "id": "capsule",
+   "category": "object",
+   "name": "Capsule",
+   "group": "Level objects",
+   "description": "The animal-prison capsule that ends each world: Sonic jumps on it to free the animals (handler bank 1 $736B). It draws with the boss’s runtime tiles (own-graphics), so the extractor skips it and the viewer shows a labelled marker instead of an extracted sprite.",
+   "file": "objects/capsule.json"
+  },
+  {
+   "id": "checkpoint",
+   "category": "object",
+   "name": "Checkpoint",
+   "group": "Level objects",
+   "description": "The mid-act checkpoint (handler bank 1 $6010). On contact it writes its own block position into the respawn table at $D32F + act×2 (the $6034 respawn-save code), so Sonic restarts here after a death.",
+   "file": "objects/checkpoint.json"
+  },
+  {
+   "id": "object-05",
+   "category": "object",
+   "name": "Object $05",
+   "group": "Misc",
+   "file": "objects/object-05.json"
+  },
+  {
+   "id": "object-0a",
+   "category": "object",
+   "name": "Object $0A",
+   "group": "Misc",
+   "file": "objects/object-0a.json"
+  },
+  {
+   "id": "object-0c-jungle",
+   "category": "object",
+   "name": "Object $0C (Jungle)",
+   "group": "Misc",
+   "file": "objects/object-0c-jungle.json"
+  },
+  {
+   "id": "object-0c-scrap-brain",
+   "category": "object",
+   "name": "Object $0C (Scrap Brain)",
+   "group": "Misc",
+   "file": "objects/object-0c-scrap-brain.json"
+  },
+  {
+   "id": "object-11",
+   "category": "object",
+   "name": "Object $11",
+   "group": "Misc",
+   "file": "objects/object-11.json"
+  },
+  {
+   "id": "object-14",
+   "category": "object",
+   "name": "Object $14",
+   "group": "Misc",
+   "file": "objects/object-14.json"
+  },
+  {
+   "id": "object-15",
+   "category": "object",
+   "name": "Object $15",
+   "group": "Misc",
+   "file": "objects/object-15.json"
+  },
+  {
+   "id": "object-16",
+   "category": "object",
+   "name": "Object $16",
+   "group": "Misc",
+   "file": "objects/object-16.json"
+  },
+  {
+   "id": "object-17",
+   "category": "object",
+   "name": "Object $17",
+   "group": "Misc",
+   "file": "objects/object-17.json"
+  },
+  {
+   "id": "object-18",
+   "category": "object",
+   "name": "Object $18",
+   "group": "Misc",
+   "file": "objects/object-18.json"
+  },
+  {
+   "id": "object-19",
+   "category": "object",
+   "name": "Object $19",
+   "group": "Misc",
+   "file": "objects/object-19.json"
+  },
+  {
+   "id": "object-1a",
+   "category": "object",
+   "name": "Object $1A",
+   "group": "Misc",
+   "file": "objects/object-1a.json"
+  },
+  {
+   "id": "object-1b-labyrinth",
+   "category": "object",
+   "name": "Object $1B (Labyrinth)",
+   "group": "Misc",
+   "file": "objects/object-1b-labyrinth.json"
+  },
+  {
+   "id": "object-1b-scrap-brain",
+   "category": "object",
+   "name": "Object $1B (Scrap Brain)",
+   "group": "Misc",
+   "file": "objects/object-1b-scrap-brain.json"
+  },
+  {
+   "id": "object-1b-sky-base",
+   "category": "object",
+   "name": "Object $1B (Sky Base)",
+   "group": "Misc",
+   "file": "objects/object-1b-sky-base.json"
+  },
+  {
+   "id": "object-1d-labyrinth",
+   "category": "object",
+   "name": "Object $1D (Labyrinth)",
+   "group": "Misc",
+   "file": "objects/object-1d-labyrinth.json"
+  },
+  {
+   "id": "object-1d-scrap-brain",
+   "category": "object",
+   "name": "Object $1D (Scrap Brain)",
+   "group": "Misc",
+   "file": "objects/object-1d-scrap-brain.json"
+  },
+  {
+   "id": "object-1e",
+   "category": "object",
+   "name": "Object $1E",
+   "group": "Misc",
+   "file": "objects/object-1e.json"
+  },
+  {
+   "id": "object-1f",
+   "category": "object",
+   "name": "Object $1F",
+   "group": "Misc",
+   "file": "objects/object-1f.json"
+  },
+  {
+   "id": "object-22",
+   "category": "object",
+   "name": "Object $22",
+   "group": "Misc",
+   "file": "objects/object-22.json"
+  },
+  {
+   "id": "object-27",
+   "category": "object",
+   "name": "Object $27",
+   "group": "Misc",
+   "file": "objects/object-27.json"
+  },
+  {
+   "id": "object-28",
+   "category": "object",
+   "name": "Object $28",
+   "group": "Misc",
+   "file": "objects/object-28.json"
+  },
+  {
+   "id": "object-30",
+   "category": "object",
+   "name": "Object $30",
+   "group": "Misc",
+   "file": "objects/object-30.json"
+  },
+  {
+   "id": "object-31",
+   "category": "object",
+   "name": "Object $31",
+   "group": "Misc",
+   "file": "objects/object-31.json"
+  },
+  {
+   "id": "object-32",
+   "category": "object",
+   "name": "Object $32",
+   "group": "Misc",
+   "file": "objects/object-32.json"
+  },
+  {
+   "id": "object-33",
+   "category": "object",
+   "name": "Object $33",
+   "group": "Misc",
+   "file": "objects/object-33.json"
+  },
+  {
+   "id": "object-35-labyrinth",
+   "category": "object",
+   "name": "Object $35 (Labyrinth)",
+   "group": "Misc",
+   "file": "objects/object-35-labyrinth.json"
+  },
+  {
+   "id": "object-35-sky-base",
+   "category": "object",
+   "name": "Object $35 (Sky Base)",
+   "group": "Misc",
+   "file": "objects/object-35-sky-base.json"
+  },
+  {
+   "id": "object-37",
+   "category": "object",
+   "name": "Object $37",
+   "group": "Misc",
+   "file": "objects/object-37.json"
+  },
+  {
+   "id": "object-38",
+   "category": "object",
+   "name": "Object $38",
+   "group": "Misc",
+   "file": "objects/object-38.json"
+  },
+  {
+   "id": "object-39",
+   "category": "object",
+   "name": "Object $39",
+   "group": "Misc",
+   "file": "objects/object-39.json"
+  },
+  {
+   "id": "object-3a",
+   "category": "object",
+   "name": "Object $3A",
+   "group": "Misc",
+   "file": "objects/object-3a.json"
+  },
+  {
+   "id": "object-3c",
+   "category": "object",
+   "name": "Object $3C",
+   "group": "Misc",
+   "file": "objects/object-3c.json"
+  },
+  {
+   "id": "object-3d",
+   "category": "object",
+   "name": "Object $3D",
+   "group": "Misc",
+   "file": "objects/object-3d.json"
+  },
+  {
+   "id": "object-3e",
+   "category": "object",
+   "name": "Object $3E",
+   "group": "Misc",
+   "file": "objects/object-3e.json"
+  },
+  {
+   "id": "object-3f",
+   "category": "object",
+   "name": "Object $3F",
+   "group": "Misc",
+   "file": "objects/object-3f.json"
+  },
+  {
+   "id": "object-41",
+   "category": "object",
+   "name": "Object $41",
+   "group": "Misc",
+   "file": "objects/object-41.json"
+  },
+  {
+   "id": "object-44",
+   "category": "object",
+   "name": "Object $44",
+   "group": "Misc",
+   "file": "objects/object-44.json"
+  },
+  {
+   "id": "object-45",
+   "category": "object",
+   "name": "Object $45",
+   "group": "Misc",
+   "file": "objects/object-45.json"
+  },
+  {
+   "id": "object-4a",
+   "category": "object",
+   "name": "Object $4A",
+   "group": "Misc",
+   "file": "objects/object-4a.json"
+  },
+  {
+   "id": "object-4b",
+   "category": "object",
+   "name": "Object $4B",
+   "group": "Misc",
+   "file": "objects/object-4b.json"
+  },
+  {
+   "id": "object-4c",
+   "category": "object",
+   "name": "Object $4C",
+   "group": "Misc",
+   "file": "objects/object-4c.json"
+  },
+  {
+   "id": "object-56",
+   "category": "object",
+   "name": "Object $56",
+   "group": "Misc",
+   "file": "objects/object-56.json"
+  },
+  {
+   "id": "object-ff",
+   "category": "object",
+   "name": "Object $FF",
+   "group": "Misc",
+   "file": "objects/object-ff.json"
   },
   {
    "id": "greenhills",
