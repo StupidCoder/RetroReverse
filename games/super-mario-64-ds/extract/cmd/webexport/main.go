@@ -60,7 +60,9 @@ func run(ctx *cli.Context) error {
 	b.SetDisplay(schema.Display{
 		Native: schema.Size{W: 256, H: 192},
 		TickHz: 60,
-		// The DS renders unfiltered texels; keep them point-sampled.
+		// The DS's backlit TFT: the colour dot-matrix profile, and
+		// point-sampled texels (the DS renders unfiltered).
+		Filter:    "ds",
 		TexFilter: "nearest",
 	})
 

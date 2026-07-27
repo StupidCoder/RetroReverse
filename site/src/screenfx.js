@@ -341,6 +341,9 @@ const PROFILE_DEFAULTS = {
   // The actual on-screen cell size is derived per frame from the camera zoom (see _render).
   gb: { pixelsPerCell: 1, tint: 1.0, gridStrength: 0.2, shadowOpacity: 0.25, shadowOffset: 0.5, contrast: 1.15, ghost: 0.0 },
   gg: { pixelsPerCell: 1, gridStrength: 0.2, subpixel: 0.75, saturation: 0.5, glow: 0.18, ghost: 0.0 },
+  // ds = the same colour dot-matrix shader as gg, tuned for the DS's backlit
+  // TFT: crisp saturated cells, a faint grid, no STN wash or heavy bloom.
+  ds: { pixelsPerCell: 1, gridStrength: 0.12, subpixel: 0.45, saturation: 0.92, glow: 0.06, ghost: 0.0 },
 };
 
 // The uniforms each profile's fragment shader declares (cached at link time, uploaded per frame).
@@ -350,9 +353,10 @@ const PROFILE_UNIFORMS = {
     'u_beamBloom', 'u_maskType', 'u_maskStrength', 'u_maskPeriod', 'u_maskOrigin', 'u_curvature', 'u_glow'],
   gb: ['u_resolution', 'u_cellSize', 'u_gridOrigin', 'u_tint', 'u_gridStrength', 'u_shadowOpacity', 'u_shadowOffset', 'u_contrast'],
   gg: ['u_resolution', 'u_cellSize', 'u_gridOrigin', 'u_gridStrength', 'u_subpixel', 'u_saturation', 'u_glow'],
+  ds: ['u_resolution', 'u_cellSize', 'u_gridOrigin', 'u_gridStrength', 'u_subpixel', 'u_saturation', 'u_glow'],
 };
 
-const FRAG = { crt: FRAG_CRT, gb: FRAG_GB, gg: FRAG_GG };
+const FRAG = { crt: FRAG_CRT, gb: FRAG_GB, gg: FRAG_GG, ds: FRAG_GG };
 
 export class ScreenFilter {
   constructor(stageEl) {
@@ -465,6 +469,9 @@ export class ScreenFilter {
     // A view being torn down mid-frame must not kill the loop.
     let sources;
     try { sources = this.source(); } catch { sources = []; }
+    // DOM-based views (the music player, soundboards) have no canvas to
+    // capture: hide the overlay or it keeps showing the last captured frame.
+    this.canvas.style.visibility = sources.length ? 'visible' : 'hidden';
     if (!sources.length) return;
     this.sctx.clearRect(0, 0, w, h);
     for (const c of sources) {
