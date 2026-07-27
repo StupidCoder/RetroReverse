@@ -28,8 +28,8 @@
   "spawn": {
    "x": 152,
    "y": 8,
-   "object": "chopper",
-   "anim": "main",
+   "object": "helicopter",
+   "anim": "level",
    "tint": "#b8c76f"
   },
   "tileAnims": [
@@ -805,12 +805,13 @@
     [1648, 304]
    ],
    "seedable": true,
-   "anim": "walk"
+   "anim": "walk",
+   "name": "Prisoner"
   },
   {
    "id": "mines",
    "count": 13,
-   "object": "mine-vaults",
+   "object": "mine",
    "candidates": [
     [360, 8],
     [368, 8],
@@ -5236,12 +5237,13 @@
     [1504, 304]
    ],
    "seedable": true,
-   "anim": "creep"
+   "anim": "creep",
+   "name": "Self-Propelled Mine"
   },
   {
    "id": "enemy-helicopter",
    "count": 1,
-   "object": "enemy-helicopter",
+   "object": "helicopter",
    "candidates": [
     [360, 8],
     [368, 8],
@@ -9022,8 +9024,13 @@
     [1488, 296]
    ],
    "seedable": true,
-   "anim": "main",
-   "tint": "#352879"
+   "anim": "left-full",
+   "tint": "#352879",
+   "name": "Enemy Helicopter",
+   "info": {
+    "title": "Enemy Helicopter",
+    "body": "Only one is active at a time. After a delay it spawns at a random patrol point — but never within ~34 columns or 8 rows of the player, so it can’t materialise on top of you — then hunts by pure per-axis pursuit: each tick it steps one cell toward the player horizontally, then vertically, testing the cells ahead so it only advances into clear corridor. It banks into its motion (which aims its shots) and fires while on screen, but can’t chase across the cylinder’s wrap. Its only exits are death — flying into terrain, or a player bullet through the VIC collision latch. (This viewer leaves it static; in play it is a pursuit AI, not a patroller.)"
+   }
   }
  ]
 }

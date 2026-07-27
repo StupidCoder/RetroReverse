@@ -1,0 +1,72 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Helicopter",
+ "atlas": {
+  "file": "helicopter.png",
+  "cellW": 32,
+  "cellH": 18,
+  "anchor": [0, 0]
+ },
+ "animations": [
+  {
+   "id": "left-full",
+   "name": "Full left bank",
+   "loop": "loop",
+   "frames": 2,
+   "durations": [2, 3]
+  },
+  {
+   "id": "left-2",
+   "name": "Left bank",
+   "loop": "loop",
+   "row": 1,
+   "frames": 2,
+   "durations": [2, 3]
+  },
+  {
+   "id": "left-1",
+   "name": "Slight left bank",
+   "loop": "loop",
+   "row": 2,
+   "frames": 2,
+   "durations": [2, 3]
+  },
+  {
+   "id": "level",
+   "name": "Level flight",
+   "loop": "loop",
+   "row": 3,
+   "frames": 2,
+   "durations": [2, 3]
+  },
+  {
+   "id": "right-1",
+   "name": "Slight right bank",
+   "loop": "loop",
+   "row": 4,
+   "frames": 2,
+   "durations": [2, 3]
+  },
+  {
+   "id": "right-2",
+   "name": "Right bank",
+   "loop": "loop",
+   "row": 5,
+   "frames": 2,
+   "durations": [2, 3]
+  },
+  {
+   "id": "right-full",
+   "name": "Full right bank",
+   "loop": "loop",
+   "row": 6,
+   "frames": 2,
+   "durations": [2, 3]
+  }
+ ],
+ "props": {
+  "art": "hardware sprite, white; the player (yellow) and the enemy (blue) are tints of this one craft"
+ }
+}

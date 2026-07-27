@@ -218,9 +218,9 @@ type CellPhase struct {
 }
 
 type PaletteFx struct {
-	Palette   []string      `json:"palette,omitempty"`
-	Cycle     *PaletteCycle `json:"cycle,omitempty"`
-	WaterLine *WaterLine    `json:"waterLine,omitempty"`
+	Palette []string        `json:"palette,omitempty"`
+	Cycle   *PaletteCycle   `json:"cycle,omitempty"`
+	Regions []PaletteRegion `json:"regions,omitempty"`
 }
 
 type PaletteCycle struct {
@@ -230,8 +230,11 @@ type PaletteCycle struct {
 	Tiles        []int      `json:"tiles,omitempty"` // tile ids that use a cycling slot
 }
 
-type WaterLine struct {
-	Y       int      `json:"y"`
+// PaletteRegion is a rectangular area drawn with an alternate palette (a
+// raster split on the original hardware — an underwater zone, a cave veil).
+type PaletteRegion struct {
+	Name    string   `json:"name,omitempty"`
+	Rect    Rect     `json:"rect"` // world pixels
 	Palette []string `json:"palette"`
 }
 
@@ -448,6 +451,8 @@ type Pool struct {
 	Seedable   bool        `json:"seedable,omitempty"`
 	Anim       string      `json:"anim,omitempty"`
 	Tint       string      `json:"tint,omitempty"`
+	Name       string      `json:"name,omitempty"` // instance display name
+	Info       *Info       `json:"info,omitempty"` // instance info-card text
 	Variants   []string    `json:"variants,omitempty"`
 }
 

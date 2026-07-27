@@ -28,8 +28,8 @@
   "spawn": {
    "x": 1008,
    "y": 8,
-   "object": "chopper",
-   "anim": "main",
+   "object": "helicopter",
+   "anim": "level",
    "tint": "#b8c76f"
   },
   "tileAnims": [
@@ -810,12 +810,13 @@
     [1088, 304]
    ],
    "seedable": true,
-   "anim": "walk"
+   "anim": "walk",
+   "name": "Prisoner"
   },
   {
    "id": "mines",
    "count": 13,
-   "object": "mine-caves",
+   "object": "mine",
    "candidates": [
     [360, 16],
     [368, 16],
@@ -3598,12 +3599,13 @@
     [808, 296]
    ],
    "seedable": true,
-   "anim": "creep"
+   "anim": "creep",
+   "name": "Self-Propelled Mine"
   },
   {
    "id": "enemy-helicopter",
    "count": 1,
-   "object": "enemy-helicopter",
+   "object": "helicopter",
    "candidates": [
     [360, 16],
     [368, 16],
@@ -5600,8 +5602,9 @@
     [792, 288]
    ],
    "seedable": true,
-   "anim": "main",
-   "tint": "#352879"
+   "anim": "left-full",
+   "tint": "#352879",
+   "name": "Enemy Helicopter"
   }
  ]
 }

@@ -649,9 +649,16 @@ func exportLevels(ctx *cli.Context, rom []byte, objIndex map[string]objRef) erro
 			fx.Cycle = &actPC
 		}
 		if ly := waterLine(rom, a.num); ly >= 0 {
-			fx.WaterLine = &schema.WaterLine{Y: ly, Palette: underwaterPalette(rom)}
+			// The engine's raster split becomes a palette region covering the
+			// full level width from the water surface down (cells are 4x4
+			// tiles of 8 px = 32 px).
+			fx.Regions = []schema.PaletteRegion{{
+				Name:    "Underwater",
+				Rect:    schema.Rect{X: 0, Y: ly, W: cols * 32, H: rows*32 - ly},
+				Palette: underwaterPalette(rom),
+			}}
 		}
-		if fx.Cycle != nil || fx.WaterLine != nil {
+		if fx.Cycle != nil || len(fx.Regions) > 0 {
 			doc.Tilemap.PaletteFx = fx
 		}
 

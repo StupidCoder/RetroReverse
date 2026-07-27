@@ -258,8 +258,11 @@ the first is the default).
     "cycle":   { "slots": [10,11,12],                  // palette indices that cycle
                  "steps": [["#..","#..","#.."], ...],  // per step: one colour per slot
                  "periodFrames": 32, "tiles": [12,13] },  // tiles that use a cycling slot
-
-    "waterLine": { "y": 416, "palette": ["#...", ...] } // raster split: rows below y use this palette
+    "regions": [                            // areas drawn with an alternate palette
+      { "name": "Underwater",               //   (raster splits on the original hardware)
+        "rect": { "x": 0, "y": 416, "w": 1952, "h": 1632 },   // world px
+        "palette": ["#...", ...] }
+    ]
   }
 }
 ```
@@ -412,6 +415,8 @@ particular roll is shareable/reproducible.
     "candidates": [ [x,y], ... ],            // ✱ possible positions (pick count of them)
     "seedable": true,                        // honour a user-supplied RNG seed
     "anim": "stand", "tint": "#352879",      // as on a placement (applied to every instance)
+    "name": "Prisoner",                      // instance display name for info cards
+    "info": { "title": "…", "body": "…" },   // instance info-card text
     "variants": ["day"]                      // level-variant membership (as placements)
   }
 ]

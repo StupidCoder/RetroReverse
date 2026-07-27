@@ -14,7 +14,7 @@
    "id": "walk",
    "name": "Walk (right)",
    "loop": "loop",
-   "description": "The walkway run: torso $49 over alternating legs $3B/$3C, one step every ~20 frames.",
+   "description": "The walkway run: torso $49 over alternating legs $3B/$3C, one step every ~20 frames. The bottom two rows are the walkway char $48's own floor line — the engine stamps the prisoner INTO the walkway cell, and the baked floor keeps it continuous.",
    "frames": 2,
    "durations": [20, 20],
    "mirror": "walk-left"
@@ -28,8 +28,5 @@
    "frames": 2,
    "durations": [20, 20]
   }
- ],
- "props": {
-  "level": "Vaults of Draconis"
- }
+ ]
 }

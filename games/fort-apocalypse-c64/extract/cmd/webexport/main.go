@@ -26,6 +26,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"image"
 	"image/color"
@@ -112,18 +113,28 @@ func run(ctx *cli.Context) error {
 	return nil
 }
 
+// charObject is one char-composed object rendered at a level's palette,
+// held in memory so identical renders can be deduplicated across levels.
+type charObject struct {
+	png  []byte
+	doc  schema.Object
+	name string
+}
+
 // exportObjects writes the sprite2d objects. The char-composed ones
-// (prisoner/tank/mine) are rendered per level because the multicolor slot 01
-// is the per-level $D022 colour; the helicopter hardware sprites are shared
-// (white art, tinted per instance like the VIC colours them).
+// (prisoner/tank/mine) are rendered per level — the multicolor slot 01 is the
+// per-level $D022 colour — then DEDUPLICATED: a kind whose pixels come out
+// identical in both levels (the mine uses no $D022 pixel) ships once, without
+// a level suffix. The helicopter is ONE object: the game has a single craft
+// sprite set (7 bank poses x 2 rotor frames); player and enemy instances
+// differ only by tint, exactly like the VIC colours the hardware sprite.
 func exportObjects(ctx *cli.Context, game *fortgfx.Game) (map[string]string, error) {
 	b := ctx.Builder
 	refs := map[string]string{}
 	cs := game.PlayfieldCharset()
 
-	for li, lv := range levels {
+	render := func(li int) (map[string]charObject, error) {
 		pal := palette(game.MulticolorValue(li))
-
 		frame := func(stamps []stamp) atlas.Frame {
 			minX, minY, maxX, maxY := 0, 0, 0, 0
 			for _, s := range stamps {
@@ -148,42 +159,37 @@ func exportObjects(ctx *cli.Context, game *fortgfx.Game) (map[string]string, err
 			}
 			return out
 		}
-
-		add := func(key, name string, anims []atlas.Animation, meta []schema.Animation, desc string) error {
-			id := key + "-" + lv.id
+		pack := func(name string, anims []atlas.Animation, meta []schema.Animation) (charObject, error) {
 			packed, err := atlas.Pack(anims)
 			if err != nil {
-				return err
+				return charObject{}, err
 			}
-			// Opaque black everywhere, including cell padding: stamped into the
-			// map these chars sit on the black playfield, so a fully black cell
-			// reproduces the in-game look exactly.
+			// Opaque black everywhere, including cell padding: stamped into
+			// the map these chars sit on the black playfield, so a fully
+			// black cell reproduces the in-game look exactly.
 			blackout(packed.Image)
-			f, err := b.CreateFile("objects", id+".png")
-			if err != nil {
-				return err
+			var buf bytes.Buffer
+			if err := packed.EncodePNG(&buf); err != nil {
+				return charObject{}, err
 			}
-			if err := packed.EncodePNG(f); err != nil {
-				f.Close()
-				return err
-			}
-			f.Close()
-			doc := &schema.Object{
-				Type: schema.ObjectSprite2D,
-				Name: name,
-				Atlas: &schema.SpriteAtlas{
-					File: id + ".png", CellW: packed.CellW, CellH: packed.CellH,
-					Anchor: []int{packed.Anchor.X, packed.Anchor.Y},
+			return charObject{
+				png:  buf.Bytes(),
+				name: name,
+				doc: schema.Object{
+					Type: schema.ObjectSprite2D,
+					Name: name,
+					Atlas: &schema.SpriteAtlas{
+						CellW: packed.CellW, CellH: packed.CellH,
+						Anchor: []int{packed.Anchor.X, packed.Anchor.Y},
+					},
+					Animations: meta,
 				},
-				Animations: meta,
-				Props:      map[string]any{"level": lv.name},
-			}
-			b.AddObject(schema.Asset{ID: id, Name: name, Group: lv.name, Description: desc}, doc)
-			refs[fmt.Sprintf("%d/%s", li, key)] = id
-			return nil
+			}, nil
 		}
 
-		if err := add("prisoner", "Prisoner",
+		out := map[string]charObject{}
+		var err error
+		if out["prisoner"], err = pack("Prisoner",
 			[]atlas.Animation{
 				{ID: "walk", Frames: frames(prisonerRight)},
 				{ID: "walk-left", Frames: frames(prisonerLeft)},
@@ -191,14 +197,16 @@ func exportObjects(ctx *cli.Context, game *fortgfx.Game) (map[string]string, err
 			[]schema.Animation{
 				{ID: "walk", Name: "Walk (right)", Row: 0, Frames: 2, Loop: "loop",
 					Durations: []int{20, 20}, Mirror: "walk-left",
-					Description: "The walkway run: torso $49 over alternating legs $3B/$3C, one step every ~20 frames."},
+					Description: "The walkway run: torso $49 over alternating legs $3B/$3C, one step every ~20 frames. " +
+						"The bottom two rows are the walkway char $48's own floor line — the engine stamps the prisoner " +
+						"INTO the walkway cell, and the baked floor keeps it continuous."},
 				{ID: "walk-left", Name: "Walk (left)", Row: 1, Frames: 2, Loop: "loop",
-					Durations: []int{20, 20},
+					Durations:   []int{20, 20},
 					Description: "The left-facing art ($4A + $3E/$3D) the engine draws after a turn."},
-			}, ""); err != nil {
+			}); err != nil {
 			return nil, err
 		}
-		if err := add("tank", "Tank",
+		if out["tank"], err = pack("Tank",
 			[]atlas.Animation{
 				{ID: "main", Frames: []atlas.Frame{frame(tankAimLeft)}},
 				{ID: "aim-right", Frames: []atlas.Frame{frame(tankAimRight)}},
@@ -208,57 +216,120 @@ func exportObjects(ctx *cli.Context, game *fortgfx.Game) (map[string]string, err
 					Description: "Body $6C $6D $6E with the $6F turret; in play the turret always aims at the player."},
 				{ID: "aim-right", Name: "Turret right", Row: 1, Frames: 1, Loop: "hold",
 					Description: "The mirrored $70 turret pose."},
-			}, ""); err != nil {
+			}); err != nil {
 			return nil, err
 		}
-		if err := add("mine", "Self-Propelled Mine",
+		if out["mine"], err = pack("Self-Propelled Mine",
 			[]atlas.Animation{{ID: "creep", Frames: frames(minePhases)}},
 			[]schema.Animation{
 				{ID: "creep", Name: "Creep", Row: 0, Frames: 4, Loop: "pingpong",
 					Durations: []int{7, 6, 7, 6},
 					Description: "The four $963C sub-cell phases — the mine slides 2 px per phase " +
 						"through its 2-cell window (~6.5 frames per phase), reversing at the ends."},
-			}, ""); err != nil {
+			}); err != nil {
 			return nil, err
 		}
-		ctx.Progress("objects", li+1, len(levels), lv.name+" char objects")
+		return out, nil
 	}
 
-	// The helicopter hardware sprites, shared by both levels: white on
-	// transparent (the VIC colours the sprite; instances carry the tint).
-	poses := game.HelicopterPoses()
-	shapes := game.SpriteShapes()
-	heli := func(id, name, desc string, block []byte) error {
-		img := chopperImg(block)
+	l0, err := render(0)
+	if err != nil {
+		return nil, err
+	}
+	l1, err := render(1)
+	if err != nil {
+		return nil, err
+	}
+	emit := func(id string, co charObject, group string) error {
 		f, err := b.CreateFile("objects", id+".png")
 		if err != nil {
 			return err
 		}
-		if err := png.Encode(f, img); err != nil {
+		if _, err := f.Write(co.png); err != nil {
 			f.Close()
 			return err
 		}
 		f.Close()
-		b.AddObject(schema.Asset{ID: id, Name: name, Group: "Helicopters", Description: desc}, &schema.Object{
-			Type:  schema.ObjectSprite2D,
-			Name:  name,
-			Atlas: &schema.SpriteAtlas{File: id + ".png", CellW: 32, CellH: 18},
-			Animations: []schema.Animation{
-				{ID: "main", Frames: 1, Loop: "hold"},
-			},
-			Props: map[string]any{"art": "hardware sprite, white; instances are tinted like the VIC colours them"},
-		})
-		refs[id] = id
+		doc := co.doc
+		doc.Atlas.File = id + ".png"
+		b.AddObject(schema.Asset{ID: id, Name: co.name, Group: group}, &doc)
 		return nil
 	}
-	// poses are in tilt order full-left .. level .. full-right; [0] is the
-	// sprite block of each pose's first rotor frame.
-	if err := heli("chopper", "Rocket Copter", "", shapes[poses[len(poses)/2][0]-1]); err != nil {
+	for _, kind := range []string{"prisoner", "tank", "mine"} {
+		if bytes.Equal(l0[kind].png, l1[kind].png) {
+			if err := emit(kind, l0[kind], "Objects"); err != nil {
+				return nil, err
+			}
+			refs["0/"+kind], refs["1/"+kind] = kind, kind
+			ctx.Logf("objects: %s is level-independent (no $D022 pixel) — shared", kind)
+			continue
+		}
+		for li, co := range []charObject{l0[kind], l1[kind]} {
+			id := kind + "-" + levels[li].id
+			if err := emit(id, co, levels[li].name); err != nil {
+				return nil, err
+			}
+			refs[fmt.Sprintf("%d/%s", li, kind)] = id
+		}
+	}
+	ctx.Progress("objects", 1, 2, "char objects (deduped across levels)")
+
+	// The helicopter: ONE craft, the game's full sprite set — 7 bank poses
+	// (full-left .. level .. full-right), each with 2 rotor frames. White on
+	// transparent; instances are tinted like the VIC colours the sprite.
+	// The rotor flips once per engine main-loop pass (~2.5 frames, the
+	// measured gameplay cadence) — exported as alternating 2/3-frame holds.
+	poses := game.HelicopterPoses()
+	shapes := game.SpriteShapes()
+	poseIDs := []string{"left-full", "left-2", "left-1", "level", "right-1", "right-2", "right-full"}
+	poseNames := []string{"Full left bank", "Left bank", "Slight left bank", "Level flight",
+		"Slight right bank", "Right bank", "Full right bank"}
+	var anims []atlas.Animation
+	var meta []schema.Animation
+	for i, p := range poses {
+		var fr []atlas.Frame
+		for _, block := range p {
+			fr = append(fr, atlas.Frame{Image: chopperImg(shapes[block-1]), Anchor: image.Pt(0, 0)})
+		}
+		anims = append(anims, atlas.Animation{ID: poseIDs[i], Frames: fr})
+		m := schema.Animation{ID: poseIDs[i], Name: poseNames[i], Row: i, Frames: len(p), Loop: "loop"}
+		if len(p) == 1 {
+			m.Loop = "hold"
+		} else {
+			m.Durations = make([]int, len(p))
+			for j := range m.Durations {
+				m.Durations[j] = []int{2, 3}[j%2] // the ~2.5-frame main-loop pass
+			}
+		}
+		meta = append(meta, m)
+	}
+	packed, err := atlas.Pack(anims)
+	if err != nil {
 		return nil, err
 	}
-	if err := heli("enemy-helicopter", "Enemy Helicopter", "", shapes[poses[0][0]-1]); err != nil {
+	f, err := b.CreateFile("objects", "helicopter.png")
+	if err != nil {
 		return nil, err
 	}
+	if err := packed.EncodePNG(f); err != nil {
+		f.Close()
+		return nil, err
+	}
+	f.Close()
+	b.AddObject(schema.Asset{ID: "helicopter", Name: "Helicopter", Group: "Objects"}, &schema.Object{
+		Type: schema.ObjectSprite2D,
+		Name: "Helicopter",
+		Atlas: &schema.SpriteAtlas{
+			File: "helicopter.png", CellW: packed.CellW, CellH: packed.CellH,
+			Anchor: []int{packed.Anchor.X, packed.Anchor.Y},
+		},
+		Animations: meta,
+		Props: map[string]any{
+			"art": "hardware sprite, white; the player (yellow) and the enemy (blue) are tints of this one craft",
+		},
+	})
+	refs["helicopter"] = "helicopter"
+	ctx.Progress("objects", 2, 2, fmt.Sprintf("helicopter: %d poses x 2 rotor frames", len(poses)))
 	return refs, nil
 }
 
@@ -336,8 +407,8 @@ func exportLevels(ctx *cli.Context, game *fortgfx.Game, refs map[string]string) 
 			},
 		}
 		if refs != nil {
-			doc.Tilemap.Spawn.Object = refs["chopper"]
-			doc.Tilemap.Spawn.Anim = "main"
+			doc.Tilemap.Spawn.Object = refs["helicopter"]
+			doc.Tilemap.Spawn.Anim = "level"
 
 			// The six tanks spawn at every fixed home — ordinary placements.
 			obst := game.ObstacleChars()
@@ -365,7 +436,7 @@ func exportLevels(ctx *cli.Context, game *fortgfx.Game, refs map[string]string) 
 				prisoners = append(prisoners, []float64{float64(p.Col * 8), float64(p.Row * 8)})
 			}
 			doc.Pools = append(doc.Pools, schema.Pool{
-				ID: "prisoners", Count: 8,
+				ID: "prisoners", Count: 8, Name: "Prisoner",
 				Object:     refs[fmt.Sprintf("%d/prisoner", li)],
 				Anim:       "walk",
 				Candidates: prisoners,
@@ -383,7 +454,7 @@ func exportLevels(ctx *cli.Context, game *fortgfx.Game, refs map[string]string) 
 				}
 			}
 			doc.Pools = append(doc.Pools, schema.Pool{
-				ID: "mines", Count: 13,
+				ID: "mines", Count: 13, Name: "Self-Propelled Mine",
 				Object:     refs[fmt.Sprintf("%d/mine", li)],
 				Anim:       "creep",
 				Candidates: spmSpots,
@@ -408,14 +479,21 @@ func exportLevels(ctx *cli.Context, game *fortgfx.Game, refs map[string]string) 
 					}
 				}
 			}
-			doc.Pools = append(doc.Pools, schema.Pool{
-				ID: "enemy-helicopter", Count: 1,
-				Object:     refs["enemy-helicopter"],
-				Anim:       "main",
+			enemy := schema.Pool{
+				ID: "enemy-helicopter", Count: 1, Name: "Enemy Helicopter",
+				Object:     refs["helicopter"],
+				Anim:       "left-full", // it banks into its pursuit; the classic on-screen pose
 				Tint:       "#352879",
 				Candidates: heliSpots,
 				Seedable:   true,
-			})
+			}
+			// The enemy prose describes these INSTANCES (the object is the
+			// shared craft), so it rides the pool's info card.
+			if info, ok := ctx.Curation.Objects["enemy-helicopter"]; ok {
+				enemy.Info = &schema.Info{Title: info.Title, Body: info.Text}
+				delete(ctx.Curation.Objects, "enemy-helicopter")
+			}
+			doc.Pools = append(doc.Pools, enemy)
 		}
 
 		b.AddLevel(schema.Asset{ID: lvMeta.id, Name: lvMeta.name}, doc)

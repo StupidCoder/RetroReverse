@@ -4,7 +4,7 @@
  "type": "sprite2d",
  "name": "Self-Propelled Mine",
  "atlas": {
-  "file": "mine-caves.png",
+  "file": "mine.png",
   "cellW": 16,
   "cellH": 8,
   "anchor": [0, 0]
@@ -18,8 +18,5 @@
    "frames": 4,
    "durations": [7, 6, 7, 6]
   }
- ],
- "props": {
-  "level": "Crystalline Caves"
- }
+ ]
 }
