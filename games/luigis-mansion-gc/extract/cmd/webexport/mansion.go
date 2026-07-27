@@ -288,9 +288,10 @@ func exportMansion(ctx *cli.Context, src *export.Source, doObjects, doLevels boo
 
 	// --- the level document -------------------------------------------------
 	// The tour starts inside the lobby: room_02 is the foyer (the room whose
-	// jmp/furnitureinfo record carries the foyer mirror), entered through the
-	// mansion's front (negative-z) face. Eye height just inside the doors,
-	// looking across the room. If the shell is ever missing, fall back to an
+	// jmp/furnitureinfo record carries the foyer mirror). The front doors are
+	// on the room's high-z face, so the walk-in pose stands just inside them
+	// at eye height looking toward low z — into the mansion, the way Luigi
+	// faces when he enters. If the shell is ever missing, fall back to an
 	// establishing shot derived from the assembled shells' bounds.
 	var lo, hi [3]float64
 	first := true
@@ -317,8 +318,8 @@ func exportMansion(ctx *cli.Context, src *export.Source, doObjects, doLevels boo
 			continue
 		}
 		lx := (r.aabb.Min[0] + r.aabb.Max[0]) / 2
-		pos = []float64{lx, r.aabb.Min[1] + 220, r.aabb.Min[2] + 180}
-		target = []float64{lx, r.aabb.Min[1] + 400, r.aabb.Max[2]}
+		pos = []float64{lx, r.aabb.Min[1] + 220, r.aabb.Max[2] - 180}
+		target = []float64{lx, r.aabb.Min[1] + 400, r.aabb.Min[2]}
 		break
 	}
 	doc := &schema.Level{

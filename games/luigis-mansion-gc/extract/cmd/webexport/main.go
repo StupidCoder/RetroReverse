@@ -48,6 +48,10 @@ func run(ctx *cli.Context) error {
 	b.SetDisplay(schema.Display{
 		Native: schema.Size{W: 640, H: 480},
 		TickHz: 60,
+		// The GameCube played on the same CRT TVs as the C64/N64 exports,
+		// and Flipper's TEV samples textures bilinearly.
+		Filter:    "crt",
+		TexFilter: "linear",
 	})
 
 	doObjects := ctx.Stage("objects")

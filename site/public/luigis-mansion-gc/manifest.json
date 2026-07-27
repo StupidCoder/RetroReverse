@@ -11,9 +11,32 @@
    "w": 640,
    "h": 480
   },
-  "tickHz": 60
+  "tickHz": 60,
+  "filter": "crt",
+  "texFilter": "linear"
  },
  "assets": [
+  {
+   "id": "door-14",
+   "category": "object",
+   "name": "Door 14",
+   "group": "Doors",
+   "file": "objects/door-14.json"
+  },
+  {
+   "id": "door-01",
+   "category": "object",
+   "name": "Door 01",
+   "group": "Doors",
+   "file": "objects/door-01.json"
+  },
+  {
+   "id": "door-09",
+   "category": "object",
+   "name": "Door 09",
+   "group": "Doors",
+   "file": "objects/door-09.json"
+  },
   {
    "id": "door-10",
    "category": "object",
@@ -22,18 +45,18 @@
    "file": "objects/door-10.json"
   },
   {
+   "id": "door-13",
+   "category": "object",
+   "name": "Door 13",
+   "group": "Doors",
+   "file": "objects/door-13.json"
+  },
+  {
    "id": "door-04",
    "category": "object",
    "name": "Door 04",
    "group": "Doors",
    "file": "objects/door-04.json"
-  },
-  {
-   "id": "door-11",
-   "category": "object",
-   "name": "Door 11",
-   "group": "Doors",
-   "file": "objects/door-11.json"
   },
   {
    "id": "door-03",
@@ -57,32 +80,11 @@
    "file": "objects/door-02.json"
   },
   {
-   "id": "door-14",
+   "id": "door-11",
    "category": "object",
-   "name": "Door 14",
+   "name": "Door 11",
    "group": "Doors",
-   "file": "objects/door-14.json"
-  },
-  {
-   "id": "door-09",
-   "category": "object",
-   "name": "Door 09",
-   "group": "Doors",
-   "file": "objects/door-09.json"
-  },
-  {
-   "id": "door-13",
-   "category": "object",
-   "name": "Door 13",
-   "group": "Doors",
-   "file": "objects/door-13.json"
-  },
-  {
-   "id": "door-01",
-   "category": "object",
-   "name": "Door 01",
-   "group": "Doors",
-   "file": "objects/door-01.json"
+   "file": "objects/door-11.json"
   },
   {
    "id": "oba",
