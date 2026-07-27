@@ -1,0 +1,23 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Object $0A",
+ "atlas": {
+  "file": "object-0a.png",
+  "cellW": 40,
+  "cellH": 40,
+  "anchor": [8, 24]
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "hold",
+   "frames": 1
+  }
+ ],
+ "props": {
+  "type": "0x0A",
+  "worlds": ["World 1", "World 2", "World 3", "World 4"]
+ }
+}

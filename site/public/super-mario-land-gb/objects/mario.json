@@ -1,0 +1,22 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Mario",
+ "atlas": {
+  "file": "mario.png",
+  "cellW": 40,
+  "cellH": 40,
+  "anchor": [8, 24]
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "hold",
+   "frames": 1
+  }
+ ],
+ "props": {
+  "worlds": ["World 1", "World 2", "World 3", "World 4"]
+ }
+}

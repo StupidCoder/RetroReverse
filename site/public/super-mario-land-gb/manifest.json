@@ -1,1 +1,453 @@
-{"format":2,"game":"super-mario-land-gb","platform":"Nintendo Game Boy","native":{"h":144,"w":160},"tickHz":60,"levels":[{"name":"1-1","section":"World 1","file":"levels/level-1-1.json","kind":"tilemap2d","atlas":"levels/world1.png","objects":"levels/level-1-1.objects.json"},{"name":"1-2","section":"World 1","file":"levels/level-1-2.json","kind":"tilemap2d","atlas":"levels/world1.png","objects":"levels/level-1-2.objects.json"},{"name":"1-3","section":"World 1","file":"levels/level-1-3.json","kind":"tilemap2d","atlas":"levels/world1.png","objects":"levels/level-1-3.objects.json"},{"name":"2-1","section":"World 2","file":"levels/level-2-1.json","kind":"tilemap2d","atlas":"levels/world2.png","objects":"levels/level-2-1.objects.json"},{"name":"2-2","section":"World 2","file":"levels/level-2-2.json","kind":"tilemap2d","atlas":"levels/world2.png","objects":"levels/level-2-2.objects.json"},{"name":"2-3","section":"World 2","file":"levels/level-2-3.json","kind":"tilemap2d","atlas":"levels/world2.png","objects":"levels/level-2-3.objects.json"},{"name":"3-1","section":"World 3","file":"levels/level-3-1.json","kind":"tilemap2d","atlas":"levels/world3.png","objects":"levels/level-3-1.objects.json"},{"name":"3-2","section":"World 3","file":"levels/level-3-2.json","kind":"tilemap2d","atlas":"levels/world3.png","objects":"levels/level-3-2.objects.json"},{"name":"3-3","section":"World 3","file":"levels/level-3-3.json","kind":"tilemap2d","atlas":"levels/world3.png","objects":"levels/level-3-3.objects.json"},{"name":"4-1","section":"World 4","file":"levels/level-4-1.json","kind":"tilemap2d","atlas":"levels/world4.png","objects":"levels/level-4-1.objects.json"},{"name":"4-2","section":"World 4","file":"levels/level-4-2.json","kind":"tilemap2d","atlas":"levels/world4.png","objects":"levels/level-4-2.objects.json"},{"name":"4-3","section":"World 4","file":"levels/level-4-3.json","kind":"tilemap2d","atlas":"levels/world4.png","objects":"levels/level-4-3.objects.json"}],"music":[{"name":"Level 1-1","file":"music/level-1-1.mp3"},{"name":"Level 1-3","file":"music/level-1-3.mp3"},{"name":"Level 2-1","file":"music/level-2-1.mp3"},{"name":"Level 4-1","file":"music/level-4-1.mp3"},{"name":"Level 2-3","file":"music/level-2-3.mp3"},{"name":"Bonus","file":"music/bonus.mp3"}],"sprites":"sprites/index.json"}
+{
+ "format": "retro-x",
+ "version": 1,
+ "id": "super-mario-land-gb",
+ "title": "Super Mario Land",
+ "platform": "Nintendo Game Boy",
+ "year": 1989,
+ "description": "Mario's Game Boy launch outing, rebuilt from the 64KB cartridge. The twelve levels are decoded straight from the ROM's column-stream maps and drawn with each world's own background tiles; every enemy and item placement comes from the game's object lists at its engine-verified position, with the metasprite animations played from their own script timelines. The soundtrack is synthesised from the ROM's bank-3 song data through a Go port of the sound engine driving our DMG APU model — no emulator in the render loop.",
+ "display": {
+  "native": {
+   "w": 160,
+   "h": 144
+  },
+  "tickHz": 60,
+  "filter": "gb"
+ },
+ "assets": [
+  {
+   "id": "mario",
+   "category": "object",
+   "name": "Mario",
+   "group": "Player",
+   "file": "objects/mario.json"
+  },
+  {
+   "id": "object-00",
+   "category": "object",
+   "name": "Object $00",
+   "group": "Objects",
+   "file": "objects/object-00.json"
+  },
+  {
+   "id": "object-02",
+   "category": "object",
+   "name": "Object $02",
+   "group": "Objects",
+   "file": "objects/object-02.json"
+  },
+  {
+   "id": "object-03",
+   "category": "object",
+   "name": "Object $03",
+   "group": "Objects",
+   "file": "objects/object-03.json"
+  },
+  {
+   "id": "object-04",
+   "category": "object",
+   "name": "Object $04",
+   "group": "Objects",
+   "file": "objects/object-04.json"
+  },
+  {
+   "id": "object-06",
+   "category": "object",
+   "name": "Object $06",
+   "group": "Objects",
+   "file": "objects/object-06.json"
+  },
+  {
+   "id": "object-08",
+   "category": "object",
+   "name": "Object $08",
+   "group": "Objects",
+   "file": "objects/object-08.json"
+  },
+  {
+   "id": "object-09",
+   "category": "object",
+   "name": "Object $09",
+   "group": "Objects",
+   "file": "objects/object-09.json"
+  },
+  {
+   "id": "object-0a",
+   "category": "object",
+   "name": "Object $0A",
+   "group": "Objects",
+   "file": "objects/object-0a.json"
+  },
+  {
+   "id": "object-0b",
+   "category": "object",
+   "name": "Object $0B",
+   "group": "Objects",
+   "file": "objects/object-0b.json"
+  },
+  {
+   "id": "object-0c",
+   "category": "object",
+   "name": "Object $0C",
+   "group": "Objects",
+   "file": "objects/object-0c.json"
+  },
+  {
+   "id": "object-0e-world-1",
+   "category": "object",
+   "name": "Object $0E (World 1)",
+   "group": "Objects",
+   "file": "objects/object-0e-world-1.json"
+  },
+  {
+   "id": "object-0e-world-3",
+   "category": "object",
+   "name": "Object $0E (World 3)",
+   "group": "Objects",
+   "file": "objects/object-0e-world-3.json"
+  },
+  {
+   "id": "object-10",
+   "category": "object",
+   "name": "Object $10",
+   "group": "Objects",
+   "file": "objects/object-10.json"
+  },
+  {
+   "id": "object-16",
+   "category": "object",
+   "name": "Object $16",
+   "group": "Objects",
+   "file": "objects/object-16.json"
+  },
+  {
+   "id": "object-1a",
+   "category": "object",
+   "name": "Object $1A",
+   "group": "Objects",
+   "file": "objects/object-1a.json"
+  },
+  {
+   "id": "object-1d",
+   "category": "object",
+   "name": "Object $1D",
+   "group": "Objects",
+   "file": "objects/object-1d.json"
+  },
+  {
+   "id": "object-20",
+   "category": "object",
+   "name": "Object $20",
+   "group": "Objects",
+   "file": "objects/object-20.json"
+  },
+  {
+   "id": "object-24",
+   "category": "object",
+   "name": "Object $24",
+   "group": "Objects",
+   "file": "objects/object-24.json"
+  },
+  {
+   "id": "object-25",
+   "category": "object",
+   "name": "Object $25",
+   "group": "Objects",
+   "file": "objects/object-25.json"
+  },
+  {
+   "id": "object-2f",
+   "category": "object",
+   "name": "Object $2F",
+   "group": "Objects",
+   "file": "objects/object-2f.json"
+  },
+  {
+   "id": "object-31",
+   "category": "object",
+   "name": "Object $31",
+   "group": "Objects",
+   "file": "objects/object-31.json"
+  },
+  {
+   "id": "object-32",
+   "category": "object",
+   "name": "Object $32",
+   "group": "Objects",
+   "file": "objects/object-32.json"
+  },
+  {
+   "id": "object-35",
+   "category": "object",
+   "name": "Object $35",
+   "group": "Objects",
+   "file": "objects/object-35.json"
+  },
+  {
+   "id": "object-36",
+   "category": "object",
+   "name": "Object $36",
+   "group": "Objects",
+   "file": "objects/object-36.json"
+  },
+  {
+   "id": "object-38",
+   "category": "object",
+   "name": "Object $38",
+   "group": "Objects",
+   "file": "objects/object-38.json"
+  },
+  {
+   "id": "object-39",
+   "category": "object",
+   "name": "Object $39",
+   "group": "Objects",
+   "file": "objects/object-39.json"
+  },
+  {
+   "id": "object-3a",
+   "category": "object",
+   "name": "Object $3A",
+   "group": "Objects",
+   "file": "objects/object-3a.json"
+  },
+  {
+   "id": "object-3b",
+   "category": "object",
+   "name": "Object $3B",
+   "group": "Objects",
+   "file": "objects/object-3b.json"
+  },
+  {
+   "id": "object-3c",
+   "category": "object",
+   "name": "Object $3C",
+   "group": "Objects",
+   "file": "objects/object-3c.json"
+  },
+  {
+   "id": "object-3f-world-1",
+   "category": "object",
+   "name": "Object $3F (World 1)",
+   "group": "Objects",
+   "file": "objects/object-3f-world-1.json"
+  },
+  {
+   "id": "object-3f-world-4",
+   "category": "object",
+   "name": "Object $3F (World 4)",
+   "group": "Objects",
+   "file": "objects/object-3f-world-4.json"
+  },
+  {
+   "id": "object-42",
+   "category": "object",
+   "name": "Object $42",
+   "group": "Objects",
+   "file": "objects/object-42.json"
+  },
+  {
+   "id": "object-47",
+   "category": "object",
+   "name": "Object $47",
+   "group": "Objects",
+   "file": "objects/object-47.json"
+  },
+  {
+   "id": "object-48",
+   "category": "object",
+   "name": "Object $48",
+   "group": "Objects",
+   "file": "objects/object-48.json"
+  },
+  {
+   "id": "object-49",
+   "category": "object",
+   "name": "Object $49",
+   "group": "Objects",
+   "file": "objects/object-49.json"
+  },
+  {
+   "id": "object-4b",
+   "category": "object",
+   "name": "Object $4B",
+   "group": "Objects",
+   "file": "objects/object-4b.json"
+  },
+  {
+   "id": "object-52",
+   "category": "object",
+   "name": "Object $52",
+   "group": "Objects",
+   "file": "objects/object-52.json"
+  },
+  {
+   "id": "object-53",
+   "category": "object",
+   "name": "Object $53",
+   "group": "Objects",
+   "file": "objects/object-53.json"
+  },
+  {
+   "id": "object-54",
+   "category": "object",
+   "name": "Object $54",
+   "group": "Objects",
+   "file": "objects/object-54.json"
+  },
+  {
+   "id": "object-55",
+   "category": "object",
+   "name": "Object $55",
+   "group": "Objects",
+   "file": "objects/object-55.json"
+  },
+  {
+   "id": "object-56",
+   "category": "object",
+   "name": "Object $56",
+   "group": "Objects",
+   "file": "objects/object-56.json"
+  },
+  {
+   "id": "object-59",
+   "category": "object",
+   "name": "Object $59",
+   "group": "Objects",
+   "file": "objects/object-59.json"
+  },
+  {
+   "id": "object-61",
+   "category": "object",
+   "name": "Object $61",
+   "group": "Objects",
+   "file": "objects/object-61.json"
+  },
+  {
+   "id": "level-1-1",
+   "category": "level",
+   "name": "1-1",
+   "group": "World 1",
+   "file": "levels/level-1-1.json"
+  },
+  {
+   "id": "level-1-2",
+   "category": "level",
+   "name": "1-2",
+   "group": "World 1",
+   "file": "levels/level-1-2.json"
+  },
+  {
+   "id": "level-1-3",
+   "category": "level",
+   "name": "1-3",
+   "group": "World 1",
+   "file": "levels/level-1-3.json"
+  },
+  {
+   "id": "level-2-1",
+   "category": "level",
+   "name": "2-1",
+   "group": "World 2",
+   "file": "levels/level-2-1.json"
+  },
+  {
+   "id": "level-2-2",
+   "category": "level",
+   "name": "2-2",
+   "group": "World 2",
+   "file": "levels/level-2-2.json"
+  },
+  {
+   "id": "level-2-3",
+   "category": "level",
+   "name": "2-3",
+   "group": "World 2",
+   "file": "levels/level-2-3.json"
+  },
+  {
+   "id": "level-3-1",
+   "category": "level",
+   "name": "3-1",
+   "group": "World 3",
+   "file": "levels/level-3-1.json"
+  },
+  {
+   "id": "level-3-2",
+   "category": "level",
+   "name": "3-2",
+   "group": "World 3",
+   "file": "levels/level-3-2.json"
+  },
+  {
+   "id": "level-3-3",
+   "category": "level",
+   "name": "3-3",
+   "group": "World 3",
+   "file": "levels/level-3-3.json"
+  },
+  {
+   "id": "level-4-1",
+   "category": "level",
+   "name": "4-1",
+   "group": "World 4",
+   "file": "levels/level-4-1.json"
+  },
+  {
+   "id": "level-4-2",
+   "category": "level",
+   "name": "4-2",
+   "group": "World 4",
+   "file": "levels/level-4-2.json"
+  },
+  {
+   "id": "level-4-3",
+   "category": "level",
+   "name": "4-3",
+   "group": "World 4",
+   "file": "levels/level-4-3.json"
+  },
+  {
+   "id": "theme-1-1",
+   "category": "music",
+   "name": "Level 1-1 theme",
+   "file": "music/theme-1-1.mp3",
+   "duration": 50
+  },
+  {
+   "id": "theme-1-3",
+   "category": "music",
+   "name": "Level 1-3 theme",
+   "file": "music/theme-1-3.mp3",
+   "duration": 48.37498866213152
+  },
+  {
+   "id": "theme-2-1",
+   "category": "music",
+   "name": "Level 2-1 theme",
+   "file": "music/theme-2-1.mp3",
+   "duration": 51
+  },
+  {
+   "id": "theme-4-1",
+   "category": "music",
+   "name": "Level 4-1 theme",
+   "file": "music/theme-4-1.mp3",
+   "duration": 98
+  },
+  {
+   "id": "theme-2-3",
+   "category": "music",
+   "name": "Level 2-3 theme",
+   "file": "music/theme-2-3.mp3",
+   "duration": 37.5
+  },
+  {
+   "id": "bonus",
+   "category": "music",
+   "name": "Bonus jingle",
+   "file": "music/bonus.mp3",
+   "duration": 9
+  }
+ ]
+}

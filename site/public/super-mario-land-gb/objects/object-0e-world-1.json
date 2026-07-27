@@ -1,0 +1,24 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Object $0E (World 1)",
+ "atlas": {
+  "file": "object-0e-world-1.png",
+  "cellW": 40,
+  "cellH": 40,
+  "anchor": [8, 24]
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 8,
+   "durations": [243, 12, 12, 12, 12, 12, 12, 12]
+  }
+ ],
+ "props": {
+  "type": "0x0E",
+  "worlds": ["World 1"]
+ }
+}

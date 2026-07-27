@@ -1,0 +1,6 @@
+{
+ "title": "Super Mario Land",
+ "platform": "Nintendo Game Boy",
+ "year": 1989,
+ "description": "Mario's Game Boy launch outing, rebuilt from the 64KB cartridge. The twelve levels are decoded straight from the ROM's column-stream maps and drawn with each world's own background tiles; every enemy and item placement comes from the game's object lists at its engine-verified position, with the metasprite animations played from their own script timelines. The soundtrack is synthesised from the ROM's bank-3 song data through a Go port of the sound engine driving our DMG APU model — no emulator in the render loop."
+}

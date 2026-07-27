@@ -1,0 +1,24 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Object $31",
+ "atlas": {
+  "file": "object-31.png",
+  "cellW": 40,
+  "cellH": 40,
+  "anchor": [8, 24]
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 2,
+   "durations": [5, 5]
+  }
+ ],
+ "props": {
+  "type": "0x31",
+  "worlds": ["World 3"]
+ }
+}

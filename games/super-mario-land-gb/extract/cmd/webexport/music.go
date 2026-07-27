@@ -19,13 +19,13 @@
 package main
 
 import (
-	"encoding/binary"
 	"fmt"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"sort"
 
+	"retroreverse.com/tools/lib/retrox/audio"
+	"retroreverse.com/tools/lib/retrox/cli"
+	"retroreverse.com/tools/lib/retrox/schema"
 	"retroreverse.com/tools/platform/gameboy"
 )
 
@@ -286,55 +286,37 @@ var musicTracks = []struct {
 	name string // file stem
 	disp string // manifest display name
 }{
-	{0x07, "level-1-1", "Level 1-1"}, // 1-1, 1-2, 3-1
-	{0x03, "level-1-3", "Level 1-3"}, // 1-3, 3-2, 3-3
-	{0x08, "level-2-1", "Level 2-1"}, // 2-1, 2-2 (Muda)
-	{0x06, "level-4-1", "Level 4-1"}, // 4-1, 4-2 (Chai)
-	{0x05, "level-2-3", "Level 2-3"}, // 2-3, 4-3 (boss/vehicle stages)
-	{0x04, "bonus", "Bonus"},         // pipe bonus rooms
+	{0x07, "theme-1-1", "Level 1-1 theme"}, // 1-1, 1-2, 3-1
+	{0x03, "theme-1-3", "Level 1-3 theme"}, // 1-3, 3-2, 3-3
+	{0x08, "theme-2-1", "Level 2-1 theme"}, // 2-1, 2-2 (Muda)
+	{0x06, "theme-4-1", "Level 4-1 theme"}, // 4-1, 4-2 (Chai)
+	{0x05, "theme-2-3", "Level 2-3 theme"}, // 2-3, 4-3 (boss/vehicle stages)
+	{0x04, "bonus", "Bonus jingle"},         // pipe bonus rooms
 }
 
-// exportMusic renders the level themes + bonus jingle to music/<stem>.mp3 (WAV via ffmpeg, then
-// removed) and returns the manifest music index. NO oracle. Deterministic order.
-func exportMusic(romBytes []byte, outdir string) []MusicEntry {
+// exportMusic renders the level themes + bonus jingle to music/<stem>.mp3 and
+// registers them as music assets (ids = the stems the levels reference). NO
+// oracle. Deterministic order.
+func exportMusic(ctx *cli.Context, romBytes []byte) error {
 	mrom = romBytes
-	musicDir := filepath.Join(outdir, "music")
-	must(os.MkdirAll(musicDir, 0o755))
-	var entries []MusicEntry
 	for i, t := range musicTracks {
 		pcm := render(song(t.id), 2) // intro + 2 loops
-		wav := filepath.Join(musicDir, t.name+".wav")
-		writeWAV(wav, pcm)
-		mp3 := filepath.Join(musicDir, t.name+".mp3")
-		c := exec.Command("ffmpeg", "-y", "-loglevel", "error", "-i", wav,
-			"-c:a", "libmp3lame", "-b:a", "96k", "-ac", "1", mp3)
-		must(c.Run())
-		os.Remove(wav)
-		fi, _ := os.Stat(mp3)
-		entries = append(entries, MusicEntry{Name: t.disp, File: "music/" + t.name + ".mp3"})
-		fmt.Fprintf(os.Stderr, "[music] %d/%d  %-12s id $%02X -> %s (%d KB, %.1fs)\n",
-			i+1, len(musicTracks), t.name, t.id, t.name+".mp3", fi.Size()/1024, float64(len(pcm))/gameboy.APURate)
+		out, err := ctx.Builder.Path("music", t.name+".mp3")
+		if err != nil {
+			return err
+		}
+		wave := audio.PCM16{Rate: gameboy.APURate, Channels: 1, Samples: pcm}
+		if err := audio.EncodeMP3(wave, out); err != nil {
+			return err
+		}
+		ctx.Builder.AddMedia(schema.Asset{
+			ID: t.name, Category: schema.CategoryMusic,
+			Name:     t.disp,
+			File:     "music/" + t.name + ".mp3",
+			Duration: wave.Duration(),
+		})
+		ctx.Progress("music", i+1, len(musicTracks),
+			fmt.Sprintf("%-12s id $%02X  %.1fs", t.name, t.id, wave.Duration()))
 	}
-	fmt.Fprintf(os.Stderr, "[music] done: %d tracks\n", len(entries))
-	return entries
-}
-
-func writeWAV(path string, pcm []int16) {
-	f, err := os.Create(path)
-	must(err)
-	defer f.Close()
-	dataLen := len(pcm) * 2
-	f.Write([]byte("RIFF"))
-	binary.Write(f, binary.LittleEndian, uint32(36+dataLen))
-	f.Write([]byte("WAVEfmt "))
-	binary.Write(f, binary.LittleEndian, uint32(16))
-	binary.Write(f, binary.LittleEndian, uint16(1))
-	binary.Write(f, binary.LittleEndian, uint16(1))
-	binary.Write(f, binary.LittleEndian, uint32(gameboy.APURate))
-	binary.Write(f, binary.LittleEndian, uint32(gameboy.APURate*2))
-	binary.Write(f, binary.LittleEndian, uint16(2))
-	binary.Write(f, binary.LittleEndian, uint16(16))
-	f.Write([]byte("data"))
-	binary.Write(f, binary.LittleEndian, uint32(dataLen))
-	binary.Write(f, binary.LittleEndian, pcm)
+	return nil
 }
