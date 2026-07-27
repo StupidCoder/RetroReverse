@@ -1,0 +1,35 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Prisoner",
+ "atlas": {
+  "file": "prisoner-vaults.png",
+  "cellW": 8,
+  "cellH": 16,
+  "anchor": [0, 8]
+ },
+ "animations": [
+  {
+   "id": "walk",
+   "name": "Walk (right)",
+   "loop": "loop",
+   "description": "The walkway run: torso $49 over alternating legs $3B/$3C, one step every ~20 frames.",
+   "frames": 2,
+   "durations": [20, 20],
+   "mirror": "walk-left"
+  },
+  {
+   "id": "walk-left",
+   "name": "Walk (left)",
+   "loop": "loop",
+   "description": "The left-facing art ($4A + $3E/$3D) the engine draws after a turn.",
+   "row": 1,
+   "frames": 2,
+   "durations": [20, 20]
+  }
+ ],
+ "props": {
+  "level": "Vaults of Draconis"
+ }
+}

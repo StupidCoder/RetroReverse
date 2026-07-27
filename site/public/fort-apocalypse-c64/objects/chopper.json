@@ -1,0 +1,21 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Rocket Copter",
+ "atlas": {
+  "file": "chopper.png",
+  "cellW": 32,
+  "cellH": 18
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "hold",
+   "frames": 1
+  }
+ ],
+ "props": {
+  "art": "hardware sprite, white; instances are tinted like the VIC colours them"
+ }
+}

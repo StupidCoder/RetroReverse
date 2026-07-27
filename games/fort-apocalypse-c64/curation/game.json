@@ -1,0 +1,6 @@
+{
+ "title": "Fort Apocalypse",
+ "platform": "Commodore 64",
+ "year": 1982,
+ "description": "Synapse Software's helicopter rescue classic (1982, by Steve Hales). Fly the Rocket Copter into two vast underground fortresses — the Vaults of Draconis and the Crystalline Caves — rescue eight prisoners per level, and blast your way out. The playfield is a horizontal cylinder of 215 columns of 8-pixel characters that wraps seamlessly. This export decodes the char grid, the soft-char animations, and the game's own load-time seeding rules: prisoner, mine and enemy-helicopter positions come from the engine's candidate sets and re-roll like a fresh game boot, while the six tanks hold their fixed homes."
+}

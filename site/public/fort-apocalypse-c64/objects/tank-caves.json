@@ -1,0 +1,32 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Tank",
+ "atlas": {
+  "file": "tank-caves.png",
+  "cellW": 24,
+  "cellH": 16,
+  "anchor": [0, 8]
+ },
+ "animations": [
+  {
+   "id": "main",
+   "name": "Turret left",
+   "loop": "hold",
+   "description": "Body $6C $6D $6E with the $6F turret; in play the turret always aims at the player.",
+   "frames": 1
+  },
+  {
+   "id": "aim-right",
+   "name": "Turret right",
+   "loop": "hold",
+   "description": "The mirrored $70 turret pose.",
+   "row": 1,
+   "frames": 1
+  }
+ ],
+ "props": {
+  "level": "Crystalline Caves"
+ }
+}

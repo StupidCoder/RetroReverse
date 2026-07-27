@@ -243,7 +243,7 @@ the first is the default).
   "wrap": "none" | "x",                     // "x": horizontal cylinder — the viewer tiles the
                                             //   map seamlessly and clamps zoom-out to one period
   "view":  { "x": 0, "y": 256, "w": 160, "h": 144 },   // initial framing, world px
-  "spawn": { "x": 160, "y": 368, "object": "sonic", "anim": "stand" },  // player marker
+  "spawn": { "x": 160, "y": 368, "object": "sonic", "anim": "stand", "tint": "#b8c76f" },
   "tileAnims": [                            // global tile animation (tile replacement):
     { "tiles": [252,253,254,255],           //   any cell showing tiles[i] cycles through
       "frames": [[...4 ids], ...],          //   frames[step][i]

@@ -195,6 +195,7 @@ type Spawn struct {
 	Y      int    `json:"y"`
 	Object string `json:"object,omitempty"`
 	Anim   string `json:"anim,omitempty"`
+	Tint   string `json:"tint,omitempty"`
 }
 
 type TileAnim struct {
