@@ -398,6 +398,39 @@ pair count when it is flags (node 3's 0x80 pulled 128 pairs from the following n
 including its upper-wall window frames — and drew them untransformed). Eyeballing an export
 is not acceptance.)
 
+## Part X — the placement database: furniture as instances
+
+Furniture is *not* baked into the rooms: each piece is modelled around its own origin
+(floor at y=0) and instanced into the mansion-global frame at load. The placements live in
+`/Map/map2.szp` — the archive the game reads alongside the room arcs — under `jmp/`, a
+directory of **JMap tables** (`furnitureinfo`, `roominfo`, `objinfo`, `characterinfo`, …).
+The format, read straight off the file (`lm/jmp.go`): a 16-byte header `{u32 recordCount,
+u32 fieldCount, u32 dataOffset, u32 recordSize}`, then 12-byte field descriptors
+`{u32 nameHash, u32 bitmask, u16 offset, u8 shift, u8 type}` — type 1 a 32-byte string,
+type 2 a f32, else a masked/shifted u32. Field names exist only as hashes (they lived in
+Nintendo's conversion tool); the columns were named by matching values against known data:
+
+- `jmp/furnitureinfo` — 730 records × 0xC4: actor class ("furniture"), **model name**
+  (the member base name in the room's arc: `chest`, `syan`, `o_isu`, …), a free tag
+  string, **pos/rot°/scale xyz** (three f32 triples at +0/+0xC/+0x18), and the **room
+  number** (+0x94), plus behaviour ints (move/appear flags, hitbox). Verified against the
+  foyer: its 6 placements name exactly `room_02.arc`'s furniture members, and the game's
+  own frame shows the chest of drawers at (-440, 0, -560) rot 14° and the mirror at
+  (420, 0, -400) rot -20° — where our assembled render puts them.
+- `jmp/roominfo` — 72 records of per-room engine params (ambient RGB etc.);
+  `jmp/objinfo` — 414 effect spawns ("fire": candle flames); enemy/character/observer
+  tables place the szp actor models (out of scope here).
+
+`lmtool -mansion DIR` exports the whole thing in one pass: all 75 `room_*.arc` shells
+(rooms are mansion-global, so Phase 3's "assembly" is just loading them together),
+every furniture `.bin` once — content-hash deduped across arcs (the eleven `o_isu`
+chairs ship one GLB; a name reused for different geometry gets a numbered variant) —
+and `placements.json` mapping each room to its furniture instances. 451 unique furniture
+GLBs, 632 resolved placements (one orphan: `syan45`, a chandelier whose member was cut
+from `room_45.arc`). The Studio's `lm-room` renderer assembles a room the same way the
+game does: shell GLB + placement instances, each under a holder with the record's
+TRS (rotation ZYX, degrees).
+
 ## Open items
 
 * The demo's binding of shots to archives and archive members to actors (the `.scd` names

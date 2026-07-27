@@ -344,6 +344,7 @@ const GAMES = [
       renderers: {
         'lm-set': () => import('../luigis-mansion-gc/set-renderer.js'),
         'lm-actor': () => import('../luigis-mansion-gc/actor-renderer.js'),
+        'lm-room': () => import('../luigis-mansion-gc/room-renderer.js'),
       },
     }),
     list: async (v) => await v.init(),
