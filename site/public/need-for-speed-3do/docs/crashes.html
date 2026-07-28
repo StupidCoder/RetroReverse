@@ -1,0 +1,40 @@
+<p>Ordinary barrier hits are handled inside the continuous model, not by a canned
+state: at an instrumented 116&nbsp;km/h berm impact the lateral position pins at the
+wall, speed scrubs from 32 to 9&nbsp;m/s over a second and a half, the body yaws thirty
+degrees and the slip angle spikes — tyre smoke and all — with not one flag changing in
+the car struct. Below the crash thresholds a glancing blow is just a kick: a shove on
+the yaw rate, clamped, scaled by how square-on you hit.</p>
+
+<h2>The spin and the rollover</h2>
+<p>Above the thresholds the game swaps the car's per-tick behaviour function — the car
+struct carries a handler pointer, and the crash entry replaces the driving model with a
+crash simulation. Two entries, one simulation. The <strong>spin</strong> arms when the
+car slides sideways faster than 22&nbsp;m/s (about 50&nbsp;mph laterally; the bar rises
+to 32&nbsp;m/s on some surfaces), gets a two-second budget and mostly yaw. The
+<strong>rollover</strong> demands a real wall: an impact component of at least
+16&nbsp;m/s <em>and</em> the car above 32&nbsp;m/s — 72&nbsp;mph — of speed. Its
+budget is thirteen seconds, enough for the tumble, the rest, and the tow to the
+respawn; it also raises the crashed flag for the HUD and cues the crash sound.</p>
+
+<p>Neither animation is a canned clip. The entry transforms the impact velocity through
+the car's own 3×3 orientation matrix into body frame — those are the tumble's initial
+conditions — and the angle of incidence, folded into a quarter circle, blends how much
+of the energy becomes yaw spin versus end-over-end roll: clip a wall shallow and you
+pirouette, hit it square at speed and you go over the roof. Each tick the handler then
+runs a stripped rigid body: no wheels, no suspension, just the orientation matrix spun
+by the seeded angular velocity, the position falling ballistically on the same
+1/30&nbsp;s fixed-point integrator the driving model uses, and a ground-plane bounce
+whose restitution comes from the track segment's surface bytes. The severity is
+tempered — six metres per second come off the impact before it seeds the tumble, and
+what remains is clamped — so every rollover reads as violent but stays on camera.</p>
+
+<h2>Four cars per season</h2>
+<p>The <em>CRASHED! CARS LEFT</em> banner is backed by real bookkeeping: a
+season-level crash count kept by the front-end, and an in-race spares counter seeded
+with three from the race configuration — four cars in all. A rollover consumes a car
+only when the contact carries the chargeable-surface bit; the crash state machine
+actually decrements at two hand-off points and refunds one when the crash wasn't
+chargeable. The banner samples its digit before the bookkeeping settles, which is why
+your first crash of a session always reads <em>CARS LEFT: 3</em>. What happens when
+the stock runs dry is decided between races by the front-end, not by the race engine —
+that judgement is the one piece of the crash system still untraced.</p>

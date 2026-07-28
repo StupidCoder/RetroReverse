@@ -40,6 +40,11 @@
    "id": "drivers",
    "title": "Drivers, cops and traffic",
    "file": "docs/drivers.html"
+  },
+  {
+   "id": "crashes",
+   "title": "The crashes",
+   "file": "docs/crashes.html"
   }
  ],
  "assets": [
