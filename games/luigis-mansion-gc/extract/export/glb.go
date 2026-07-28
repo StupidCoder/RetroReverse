@@ -75,7 +75,10 @@ func StaticGLB(m *lm.MDL, path, name string) error {
 					float32(mat.Tint[2]) / 255, float32(mat.Tint[3]) / 255,
 				}
 				pr.Blend = mat.Mode == 2 // the game's translucent pass
-				pr.DoubleSided = true
+				// Hardware back-culls the opaque passes (GEN_MODE bits
+				// 14..15); only translucents draw both sides. Mirror stamps
+				// flip winding — matched below per triangle.
+				pr.DoubleSided = mat.Mode == 2
 				pr.Unlit = true
 				prims[pair.Material] = pr
 				order = append(order, pair.Material)
@@ -87,7 +90,8 @@ func StaticGLB(m *lm.MDL, path, name string) error {
 				}
 				for _, p := range dl {
 					base := len(pr.Positions)
-					for _, v := range p.Verts {
+					firstMirror := false
+					for vi2, v := range p.Verts {
 						// The vertex names a PN slot; the packet maps slots to
 						// matrix indices; a static model's matrix index is a node.
 						mtx := world[ni]
@@ -95,6 +99,9 @@ func StaticGLB(m *lm.MDL, path, name string) error {
 							if mi := int(pk.MtxIdx[slot]); mi >= 0 && mi < len(world) {
 								mtx = world[mi]
 							}
+						}
+						if vi2 == 0 {
+							firstMirror = det33(mtx) < 0
 						}
 						pos := m.Positions[v.Pos]
 						pr.Positions = append(pr.Positions, mtx.Apply(pos))
@@ -108,8 +115,14 @@ func StaticGLB(m *lm.MDL, path, name string) error {
 							pr.Colors = append(pr.Colors, m.Colors[v.Clr])
 						}
 					}
+					// GX front face = the opposite winding from glTF CCW-front:
+					// unmirrored reverses, a mirror stamp keeps the strip order.
 					for _, t := range p.Triangulate() {
-						pr.Tris = append(pr.Tris, [3]uint32{uint32(base + t[0]), uint32(base + t[1]), uint32(base + t[2])})
+						if firstMirror {
+							pr.Tris = append(pr.Tris, [3]uint32{uint32(base + t[0]), uint32(base + t[1]), uint32(base + t[2])})
+						} else {
+							pr.Tris = append(pr.Tris, [3]uint32{uint32(base + t[0]), uint32(base + t[2]), uint32(base + t[1])})
+						}
 					}
 				}
 			}

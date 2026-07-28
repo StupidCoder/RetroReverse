@@ -21,6 +21,11 @@ import (
 	"retroreverse.com/games/luigis-mansion-gc/extract/lm"
 )
 
+// det33 is the determinant of the rotation block of a 3x4.
+func det33(m lm.Mtx34) float32 {
+	return m[0]*(m[5]*m[10]-m[6]*m[9]) - m[1]*(m[4]*m[10]-m[6]*m[8]) + m[2]*(m[4]*m[9]-m[5]*m[8])
+}
+
 // invert34 inverts an affine 3x4 matrix.
 func invert34(m lm.Mtx34) lm.Mtx34 {
 	a, b, c := m[0], m[1], m[2]
@@ -172,12 +177,13 @@ func SkinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace boo
 
 	// Per-material primitive accumulation.
 	type prim struct {
-		pos     [][3]float32
-		nrm     [][3]float32
-		uv      [][2]float32
-		joints  [][4]uint16
-		weights [][4]float32
-		idx     []uint32
+		pos      [][3]float32
+		nrm      [][3]float32
+		uv       [][2]float32
+		joints   [][4]uint16
+		weights  [][4]float32
+		idx      []uint32
+		mirrored []bool // per vertex: baked through a det<0 (mirror-stamp) matrix
 	}
 	prims := map[int]*prim{}
 	var order []int
@@ -240,8 +246,13 @@ func SkinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace boo
 						}
 						var js [4]uint16
 						var ws [4]float32
+						mirror := false
 						if mi < len(m.Nodes) {
-							// Rigid: joint-local vertex -> bind space.
+							// Rigid: joint-local vertex -> bind space. A mirror
+							// stamp (det < 0 — the sets instance trees this way)
+							// flips the triangle winding; the game flips its
+							// cull sense per draw, the GLB flips the indices.
+							mirror = det33(bind[mi]) < 0
 							pos = bind[mi].Apply(pos)
 							nrm = bind[mi].ApplyVec(nrm)
 							js[0], ws[0] = uint16(mi), 1
@@ -284,9 +295,18 @@ func SkinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace boo
 						}
 						pr.joints = append(pr.joints, js)
 						pr.weights = append(pr.weights, ws)
+						pr.mirrored = append(pr.mirrored, mirror)
 					}
+					// GX's front face is the opposite winding from glTF's
+					// CCW-front, so the unmirrored case reverses the strip
+					// order and a mirror stamp (already winding-flipped by
+					// its matrix) keeps it.
 					for _, t := range p.Triangulate() {
-						pr.idx = append(pr.idx, uint32(base+t[0]), uint32(base+t[1]), uint32(base+t[2]))
+						if pr.mirrored[base+t[0]] {
+							pr.idx = append(pr.idx, uint32(base+t[0]), uint32(base+t[1]), uint32(base+t[2]))
+						} else {
+							pr.idx = append(pr.idx, uint32(base+t[0]), uint32(base+t[2]), uint32(base+t[1]))
+						}
 					}
 				}
 			}
@@ -367,8 +387,14 @@ func SkinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace boo
 			float32(md.Tint[2]) / 255, float32(md.Tint[3]) / 255,
 		}
 		mat := map[string]any{
-			"name":        fmt.Sprintf("mat%02d", mi),
-			"doubleSided": true,
+			"name": fmt.Sprintf("mat%02d", mi),
+			// The game back-face-culls its draws (GEN_MODE bits 14..15 per
+			// the trace; mirrored stamps swap the sense, matched above by
+			// flipping their winding). Opaque/masked materials ship
+			// single-sided — the opod camera sits inside the doorway and
+			// must see through the hill's back faces, exactly as GX culls
+			// them on hardware. The translucent pass keeps both sides.
+			"doubleSided": md.Mode == 2,
 			"extensions":  map[string]any{"KHR_materials_unlit": struct{}{}},
 			"pbrMetallicRoughness": map[string]any{
 				"baseColorFactor": tint,

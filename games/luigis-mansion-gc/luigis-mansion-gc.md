@@ -197,6 +197,15 @@ opaque pass's `17`). Mode 2 marks both flashlight-cone materials, the torch flam
 mansion set's window glass and one all-invisible Luigi material (tint alpha 0 — its draws
 write zero pixels on hardware too). The export maps mode 2 to glTF `BLEND` plus
 `extras.blend:"alpha"` (the Studio turns off depth writes), everything else to `MASK`.
+**Culling.** The game back-face-culls its draws — GEN_MODE bits 14..15 in the trace, never
+0 except a few effect draws — and mirror-stamped instances (the sets place trees through
+det < 0 node matrices) swap the cull sense per draw to match their flipped winding. The
+export mirrors both: opaque and alpha-tested materials ship single-sided with the strip
+order reversed (GX's front face is the opposite winding from glTF's CCW), mirror-stamped
+triangles keep it, and only the translucent pass stays double-sided. This is what lets the
+opod camera sit inside the doorway and film the door opening through the hill's culled
+back faces — double-sided export filled the whole frame with the hillside's underside.
+
 Still open: the `.clr` sidecars are keyframed material-colour tracks (the oppm trace shows
 the lightning's register riding them, alpha 0 at rest and flashing to 255), and `.txp` is a
 texture-pattern flipbook (the torch fire) — neither is decoded yet, so those materials ship

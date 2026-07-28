@@ -354,11 +354,11 @@ func (g *gpu) drawPrimitive(m *Machine, prim uint32, vat, vsize int, data []byte
 		_, _, _, k0a := tevColorReg(g.TevKonstReg[0])
 		t0 := g.texSetup(0)
 		g.dumpTex0Once(m, t0.base)
-		fmt.Fprintf(os.Stderr, "DRAW prim 0x%02X vat %d n %d  v0 (%.1f,%.1f,z%.0f)%s rgba %d,%d,%d,%d ntc=%d uv (%.2f,%.2f)  tex0 0x%06X fmt%X %dx%d  px w=%d zrej=%d arej=%d  stages=%d bp41=%06X af=%06X zm=%02X a0=%.0f ka0=%.0f vcd=%03X mat0=%08X amb0=%08X cc0=%08X ca0=%08X\n",
+		fmt.Fprintf(os.Stderr, "DRAW prim 0x%02X vat %d n %d  v0 (%.1f,%.1f,z%.0f)%s rgba %d,%d,%d,%d ntc=%d uv (%.2f,%.2f)  tex0 0x%06X fmt%X %dx%d  px w=%d zrej=%d arej=%d  stages=%d cull=%d bp41=%06X af=%06X zm=%02X a0=%.0f ka0=%.0f vcd=%03X mat0=%08X amb0=%08X cc0=%08X ca0=%08X\n",
 			prim, vat, count, v0.x, v0.y, v0.z, clipped, v0.col[0][0], v0.col[0][1], v0.col[0][2], v0.col[0][3], v0.ntc, v0.tc[0].s, v0.tc[0].t,
 			t0.base, t0.format, t0.width, t0.height,
 			g.pixWritten-w0, g.pixZRej-z0, g.pixARej-a0,
-			int((g.BP[0x00]>>10)&0xF)+1, g.BP[0x41], g.BP[0xF3], g.BP[0x40], c0a, k0a,
+			int((g.BP[0x00]>>10)&0xF)+1, (g.BP[0x00]>>14)&3, g.BP[0x41], g.BP[0xF3], g.BP[0x40], c0a, k0a,
 			g.CPReg[0x50]&0xFFFF, g.XFMem[0x100C], g.XFMem[0x100A],
 			g.XFMem[0x100E], g.XFMem[0x1010])
 		// The scissor, decoded. Both corners carry hardware's fixed 342 bias, and the offset
