@@ -1,0 +1,29 @@
+<p>Each fortress is a character map: 40 rows of 215 columns, one byte per cell — and the
+bytes are screen character codes directly, with no tile indirection. The world is a
+horizontal cylinder: the camera wraps around, and each row stores a copy of its first
+column at position 255 so the seam renders seamlessly as the screen crosses it.</p>
+
+<h2>Table-selective RLE</h2>
+<p>One decompressor serves all level data. Its trick is a <em>run table</em>: a byte
+listed in the table is followed by a repeat count, any other byte is its own literal —
+no escape codes, at the cost of fixing in advance which values may repeat. The terrain
+uses a 23-entry table; a second 4-entry table (<code>00 55 AA FF</code>) decompresses the
+scanner: the whole map as a 320&times;40-pixel soft bitmap, from which a 12&times;3-character
+window is copied every frame into redefinable character glyphs — the radar is characters
+whose pixels change under a fixed piece of screen.</p>
+
+<h2>Two character sets per frame</h2>
+<p>The display is split by two raster interrupts per frame: the HUD rows use the charset
+at <code>$5000</code>, the playfield rows the one at <code>$5800</code>, switched
+mid-frame along with the scroll registers and per-level colours. Scrolling itself is
+brute force — a self-modifying unrolled loop block-copies 16 rows &times; 40 columns from
+the map buffer to the screen every character step. Moving objects draw themselves
+<em>into the map buffer</em>, so that periodic re-copy doubles as their screen update.</p>
+
+<h2>Noise as a texture generator</h2>
+<p>The game's random source is the SID's voice-3 noise oscillator, read at
+<code>$D41B</code>. After decompression, two placeholder codes in the map are re-rolled
+through it — each becoming one of three rock glyphs at random — producing the mottled
+cave texture from data that compresses as a flat run. The same noise seeds prisoner and
+mine positions, picks the enemy helicopter's patrol point, and flickers the explosion
+and fort-core glyphs every frame.</p>

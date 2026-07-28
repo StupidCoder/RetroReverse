@@ -1,0 +1,25 @@
+<p>The game never touches Paula's audio registers for music. It plays through the
+operating system's <code>audio.device</code>: for each voice it hands the OS a sample
+pointer, a period (pitch) and a volume, and lets the device do the DMA. The sound banks
+(<code>PrcSnd</code> … <code>UltSnd</code>) are pure data — hunk modules whose data
+blocks carry the chip-RAM memory flag so AmigaDOS loads them where Paula can reach
+them; the player lives in the main program.</p>
+
+<h2>Two clocks, again</h2>
+<p>The player is a separate task driven by two clocks: when <code>audio.device</code>
+finishes a voice's sample it replies the request, and the reply advances that voice to
+its next note; a 60&nbsp;Hz <code>timer.device</code> tick meanwhile runs the pitch and
+volume envelopes on the notes that are sounding, submitting an update only when a value
+actually changed. Note triggers are event-driven, expression is timer-driven.</p>
+
+<h2>A Soundtracker arrangement, one waveform</h2>
+<p>A course theme is the classic order-table-plus-patterns design: per channel, a list
+of <code>[repeat, pattern]</code> entries — the repeats matter, sections replay 4, 8 or
+24 times — over byte-stream patterns of note and length commands. Every note in a bank
+is voiced from a <em>single shared waveform</em>: a standard ProTracker period table
+gives the semitone, and the octave selects the length of the looped slice
+(<code>length &lt;&lt; (8&nbsp;&minus;&nbsp;octave)</code>) — the one-sample-many-octaves trick. A
+per-note volume envelope of ramp segments gives each note its pluck. Fourteen tunes ship
+across the six courses — two per course, with extra reels on Aerial and Ultimate — and
+the versions in this viewer are rendered by a from-scratch Go reimplementation of
+exactly this player, reading the notes straight off the disk image.</p>

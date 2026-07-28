@@ -1,0 +1,38 @@
+<p>The tape loads in two stages: a short recording in the C64's standard KERNAL format
+bootstraps a custom fastloader — it announces itself on screen as
+<code>NOVALOAD</code> — which then streams the entire game at one bit per pulse while a
+loading screen plays music and an advert scroller.</p>
+
+<h2>Code hidden in a filename</h2>
+<p>A tape header block is 192 bytes: a type byte, a load address, a 16-character name and
+padding. The KERNAL loads the whole block into the cassette buffer at <code>$033C</code> —
+so the 171 &ldquo;unused&rdquo; bytes after the name <code>FORT</code> carry machine code, planted at
+<code>$0351</code> before any program has officially loaded. That code is the fastloader's
+entire IRQ handler; the visible BASIC stub only has to bank the ROMs out and point the
+interrupt vector at it.</p>
+
+<h2>One bit per pulse</h2>
+<p>The KERNAL encoding spends two pulses per bit plus a parity bit per byte. The
+fastloader reads <strong>one bit per pulse</strong>: a CIA timer is force-reloaded on
+every cassette edge, and the handler reads its high byte — a short pulse is a 0, a long
+pulse a 1. Bytes assemble in a shift register pre-loaded with <code>$7F</code>, so the
+zero that falls out after eight shifts marks byte completion; during pilot search the
+register is never reset, which makes a run of zero-bits followed by a single one-bit read
+as the pilot byte and self-synchronises the decoder. The payload arrives as
+<code>[page#] [256 bytes] [checksum]</code> records that may come in <em>any order</em> —
+each page loads at <code>page&nbsp;&times;&nbsp;256</code> — and the game body streams in
+behind the loading screen, which decrements its <code>BLOCKS TO LOAD</code> counter once
+per page.</p>
+
+<h2>The entry address is hidden in the music</h2>
+<p>The loading-screen music is a command stream with three opcodes: play a note, loop the
+stream — and <em>copy the next n stream bytes to any address</em>. As loaded, the loader's
+epilogue ends in a plain <code>RTS</code> followed by decoy <code>:RUN</code> bytes, so a
+static reading (or a memory snapshot taken early) sees a harmless return to BASIC. The
+first commands of the tune, executed on its very first tick, patch RUN/STOP&ndash;RESTORE into
+a no-op and rewrite that <code>RTS</code> into <code>JMP $8600</code> — the real game
+entry. The address exists nowhere in the code; it is data inside the song.</p>
+
+<h2>The error path</h2>
+<p>On a tape error the loading screen does not retry: it wipes all of RAM except its own
+page and jumps through the reset vector — anti-tamper as much as error handling.</p>

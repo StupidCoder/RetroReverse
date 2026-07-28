@@ -1,0 +1,40 @@
+<p>The actors live in two different worlds. The player, the bullets and the enemy
+helicopter are hardware sprites, updated once per frame from the interrupt chain. The
+tanks, mines, missiles and prisoners are <em>characters</em>, drawn into the map buffer
+by engines called from the main loop — and during play that loop never waits for the
+frame counter: it free-runs, one pass taking about two and a half frames. Every enemy
+cadence is counted in loop passes, so the character world ticks at its own, slightly
+slower clock.</p>
+
+<h2>The explosion character is the universal bullet</h2>
+<p>Bullets fly as sprites but on impact stamp the explosion character <code>$20</code>
+into the hit map cell. Character actors do not take hits — they <em>find</em> the
+explosion in their own cell, die, and restore the background they had saved themselves.
+One mechanism kills mines, tanks, missiles — and prisoners: a stray shot, the player's or
+the enemy's, can shoot the floor from under the very men to rescue, or the men
+themselves.</p>
+
+<h2>Six tanks, one countdown</h2>
+<p>The six tanks share a single global step countdown, so they patrol in perfect
+lockstep. Each is three body cells plus a turret glyph that always aims at the player.
+Before a step a tank probes the destination against a 22-entry obstacle table that
+notably includes <em>empty air</em> and the barrier — so tanks reverse at ledges and
+gates but drive straight through fences, pads and rubble, saving and restoring the
+background as they pass.</p>
+
+<h2>The helicopter that cannot climb</h2>
+<p>The enemy helicopter is pure per-axis pursuit — one step toward your column, one
+toward your row, probing the cells ahead so it only advances into clear corridor. It
+spawns at fixed patrol points, never within 34 columns or 8 rows of the player. But its
+upward terrain probe is broken by a signature: the hidden ASCII string
+<code>N0:JOE VIERMON.Z</code> — the porter's name, never displayed — sits in the padding
+right before the routine, and its final byte lands on the first opcode, turning
+<code>LDA $76</code> into <code>EOR $76,X</code>. The column tested while climbing is
+garbage, so the machine climbs erratically and sometimes clips into ceilings that kill
+it. A name stored one byte too far is a bug shipped in every copy.</p>
+
+<h2>Other curiosities</h2>
+<p>The title's attract mode flies the helicopter by replaying 108 recorded joystick
+bytes — a table that reads like text (<code>NNNNKKKKIIII…</code>) because the stick
+values happen to be letter codes. And the second level's map data contains a graffito
+drawn in wall characters, off the beaten path: <code>PLEXAR WAS HERE</code>.</p>

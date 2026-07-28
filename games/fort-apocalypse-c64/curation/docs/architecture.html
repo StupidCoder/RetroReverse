@@ -1,0 +1,34 @@
+<p>None of the fortress's moving architecture uses an object slot. The map cells never
+change; the <em>character glyphs</em> they display are redefined at runtime — and because
+solidity is decided by scanning a glyph's eight pixel bytes (any non-zero byte is solid),
+redefining one character opens or closes every cell that uses it, everywhere on the map,
+at once. A blanked barrier is genuinely open air for everything simultaneously.</p>
+
+<h2>Energy barriers</h2>
+<p>Two barrier groups run on independent timers, started half a cycle apart so their
+flashes alternate. A barrier glyph is blank except during the single 8-frame window when
+its timer wraps — a brief, periodic lethal flash rather than a standing wall. On the
+first level the barriers form diagonal scissor gates across the cavern passages, and
+flying into a lit gate does not kill: it teleports the helicopter to one of four cavern
+drop points. The gates are the level's transport system — hover in the funnel and let the
+flash take you.</p>
+
+<h2>Laser grids</h2>
+<p>The grid corridors tile four glyphs in alternation. Every 128 frames all four are
+blanked and each is independently re-lit with 50% probability from the noise generator. A
+lit segment is solid and lethal, a dark one is open air — there is no pattern to learn;
+passage through a grid is genuinely probabilistic.</p>
+
+<h2>The sweeping walls</h2>
+<p>Corridor bands repeat runs of four wall characters of which exactly one is solid at a
+time; stepping the phase marches a 6-column wall section through the corridor. The
+direction of the march is toggled by — of all things — <strong>every press of the fire
+button</strong>, anywhere on the map: each shot reverses the sweep.</p>
+
+<h2>The reactor gates</h2>
+<p>The reactor chamber has two gate walls, one glyph each. At every life start both
+definitions are cleared and one of the two — chosen by the sign bit of the noise
+oscillator — is filled solid. Each life, one gate is a wall and the other is invisible
+and passable, at random. Destroying the fort core blanks both for the escape. (The
+shipped glyphs for these two characters are leftover font digits — they are overwritten
+before play ever begins, so they are never seen in the game.)</p>

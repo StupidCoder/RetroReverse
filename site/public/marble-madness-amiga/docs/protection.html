@@ -1,0 +1,33 @@
+<p>The main program and the track loader are stored encrypted — at full size, no
+compression; the near-random 7.95&nbsp;bits/byte is cipher, not packing. The decryptor,
+<code>c/zzz</code>, is a drop-in <code>LoadSeg</code> replacement: it walks the standard
+Amiga hunk format, but XORs every payload longword with a keystream.</p>
+
+<h2>Selective encryption</h2>
+<p>The encryption is deliberately partial. Hunk structure markers —
+<code>HUNK_HEADER</code>, <code>CODE</code>, <code>DATA</code>, <code>RELOC32</code> —
+and even the symbol <em>names</em> are stored in plaintext, so
+<code>_AllocMem</code> and <code>_FindTask</code> sit as readable ASCII inside the
+&ldquo;encrypted&rdquo; file while the code bodies around them scramble. The keystream is an
+additive lagged-Fibonacci generator over a 55-entry table seeded from the constant
+<code>$57319753</code> by a &times;31 hash.</p>
+
+<h2>The key is machine state</h2>
+<p>Before decrypting, the key table is perturbed with bytes from two pieces of the
+<em>running machine</em>: the CPU exception and TRAP vectors in low memory, and two
+handler pointers read out of the launcher's own task structure. On a Kickstart&nbsp;1.x
+machine every one of those vectors points into the ROM at <code>$FC0000</code>, so the
+extracted byte is uniformly <code>$FC</code> — the decryption key <em>is</em> the ROM
+page. Kickstart&nbsp;2.0 moved the ROM to <code>$F80000</code>, which is why a game like
+this is Kickstart-version-locked: on a newer machine the key changes and the program
+decrypts to garbage. The task-structure fields are the sharper teeth — they only exist
+once AmigaDOS has actually constructed the process, so no amount of reading the disk
+alone can produce them.</p>
+
+<h2>The key that keys the key</h2>
+<p>The main program's pass adds a 20-longword key array — and the track loader builds it
+itself at run time, as <code>datalen / ((i+1) &times; 300)</code>, before the launcher
+XORs every entry with the 16-bit integrity checksum of the loader's own code. The
+entire remaining secret of a 175&nbsp;KB encrypted program is thus one 16-bit constant
+(<code>$CDDA</code>) — small enough to find by trying all 65,536 values against a
+does-this-decode-to-a-valid-hunk-file test.</p>

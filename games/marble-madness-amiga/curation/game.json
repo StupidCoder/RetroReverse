@@ -2,5 +2,32 @@
  "title": "Marble Madness",
  "platform": "Amiga",
  "year": 1986,
- "description": "Atari's isometric marble-racing arcade classic in its Amiga port, decoded from the disk image with no emulation anywhere. The six courses come straight from their .mlb tilemaps with the engine's colour bands baked into recoloured atlas tiles and the gold shimmer replayed as tile animation; the scenery pieces (drawbridge, flags, the WAVE) are the Track files' own overlay scripts. Each course's true 3-D height field is rebuilt as a solid slope model with the Track-layer markers pinned on in colour — enemy routes, ooze spawns and scenery anchors. The themes are rendered by a from-scratch Go port of the game's music player."
+ "description": "Atari's isometric marble-racing arcade classic in its Amiga port, decoded from the disk image with no emulation anywhere. The six courses come straight from their .mlb tilemaps with the engine's colour bands baked into recoloured atlas tiles and the gold shimmer replayed as tile animation; the scenery pieces (drawbridge, flags, the WAVE) are the Track files' own overlay scripts. Each course's true 3-D height field is rebuilt as a solid slope model with the Track-layer markers pinned on in colour — enemy routes, ooze spawns and scenery anchors. The themes are rendered by a from-scratch Go port of the game's music player.",
+ "docs": [
+  {
+   "id": "disk",
+   "title": "On the disk",
+   "file": "disk.html"
+  },
+  {
+   "id": "protection",
+   "title": "The lock made of ROM",
+   "file": "protection.html"
+  },
+  {
+   "id": "courses",
+   "title": "Building a course",
+   "file": "courses.html"
+  },
+  {
+   "id": "drawing",
+   "title": "Sprites, punched through",
+   "file": "drawing.html"
+  },
+  {
+   "id": "music",
+   "title": "Music through the OS",
+   "file": "music.html"
+  }
+ ]
 }

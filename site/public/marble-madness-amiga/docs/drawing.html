@@ -1,0 +1,34 @@
+<p>The marble and the creatures ride the Amiga's hardware sprites — but the CPU never
+writes a sprite register. The <strong>copper</strong> does: sprite pointers and colours
+live inside the display list as data, rebuilt every frame, with the eight hardware
+channels re-assigned in bands down the screen so a handful of channels covers the whole
+cast. The stored sprite cells are laid out row-interleaved, which is exactly the
+hardware's sprite-DMA format — a cell is <code>memcpy</code>'d straight into a channel
+buffer at draw time.</p>
+
+<h2>Occlusion by subtraction</h2>
+<p>The display is configured with every sprite in front of the playfield, always — yet
+the marble visibly rolls <em>behind</em> the drawbridge. The engine does the most direct
+thing possible: it punches the scenery out of the marble. At load, each scenery cell's
+bitplanes are OR-ed into a one-plane silhouette mask; each frame, if the marble is
+behind a piece, the mask is shifted to sub-pixel position, inverted, and AND-ed into the
+sprite's own data words. Where scenery covers marble, the marble's pixels are simply
+deleted and the playfield shows through — per-pixel occlusion without any hardware
+priority at all. Sprite-vs-sprite layering then falls out of a depth-sorted display
+list: every drawable carries an isometric 3-D bounding box, bubble-sorted with a
+separating-axis comparator, and claims its sprite channel in that order.</p>
+
+<h2>Two clocks</h2>
+<p>The game runs as two cooperating tasks. A vblank-synced &ldquo;Framer&rdquo; task owns the
+display — it rebuilds the copper list and even keeps a histogram of how many vblanks
+each frame took. The world update runs in the game task and completes every
+<em>two</em> vblanks (~25 updates per second), so every script hold, actor step and
+palette-glitter phase is counted in world frames, at half the display rate.</p>
+
+<h2>Palette as level design</h2>
+<p>Colours 10–15 are not fixed: a per-course band table recolours them per vertical
+scroll position via copper waits, fading the accent palette as the marble descends —
+Beginner's emerald ice pit is a band, not a tile set. Rolling into an acid or ice pool
+overwrites the band with a pure red or blue ramp, and Ultimate's finale runs a
+three-phase gold rotation over its checkered goal — a classic copper sparkle, and the
+game's only ambient palette animation.</p>

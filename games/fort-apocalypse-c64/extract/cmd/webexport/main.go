@@ -240,40 +240,6 @@ func exportObjects(ctx *cli.Context, game *fortgfx.Game) (map[string]string, err
 	if err != nil {
 		return nil, err
 	}
-	emit := func(id string, co charObject, group string) error {
-		f, err := b.CreateFile("objects", id+".png")
-		if err != nil {
-			return err
-		}
-		if _, err := f.Write(co.png); err != nil {
-			f.Close()
-			return err
-		}
-		f.Close()
-		doc := co.doc
-		doc.Atlas.File = id + ".png"
-		b.AddObject(schema.Asset{ID: id, Name: co.name, Group: group}, &doc)
-		return nil
-	}
-	for _, kind := range []string{"prisoner", "tank", "mine"} {
-		if bytes.Equal(l0[kind].png, l1[kind].png) {
-			if err := emit(kind, l0[kind], "Objects"); err != nil {
-				return nil, err
-			}
-			refs["0/"+kind], refs["1/"+kind] = kind, kind
-			ctx.Logf("objects: %s is level-independent (no $D022 pixel) — shared", kind)
-			continue
-		}
-		for li, co := range []charObject{l0[kind], l1[kind]} {
-			id := kind + "-" + levels[li].id
-			if err := emit(id, co, levels[li].name); err != nil {
-				return nil, err
-			}
-			refs[fmt.Sprintf("%d/%s", li, kind)] = id
-		}
-	}
-	ctx.Progress("objects", 1, 2, "char objects (deduped across levels)")
-
 	// The helicopter: ONE craft, the game's full sprite set — 7 bank poses
 	// (full-left .. level .. full-right), each with 2 rotor frames. White on
 	// transparent; instances are tinted like the VIC colours the sprite.
@@ -316,7 +282,7 @@ func exportObjects(ctx *cli.Context, game *fortgfx.Game) (map[string]string, err
 		return nil, err
 	}
 	f.Close()
-	b.AddObject(schema.Asset{ID: "helicopter", Name: "Helicopter", Group: "Objects"}, &schema.Object{
+	b.AddObject(schema.Asset{ID: "helicopter", Name: "Helicopter", Group: "Both Levels"}, &schema.Object{
 		Type: schema.ObjectSprite2D,
 		Name: "Helicopter",
 		Atlas: &schema.SpriteAtlas{
@@ -329,7 +295,54 @@ func exportObjects(ctx *cli.Context, game *fortgfx.Game) (map[string]string, err
 		},
 	})
 	refs["helicopter"] = "helicopter"
-	ctx.Progress("objects", 2, 2, fmt.Sprintf("helicopter: %d poses x 2 rotor frames", len(poses)))
+	ctx.Progress("objects", 1, 2, fmt.Sprintf("helicopter: %d poses x 2 rotor frames", len(poses)))
+
+	emit := func(id string, co charObject, group string) error {
+		f, err := b.CreateFile("objects", id+".png")
+		if err != nil {
+			return err
+		}
+		if _, err := f.Write(co.png); err != nil {
+			f.Close()
+			return err
+		}
+		f.Close()
+		doc := co.doc
+		doc.Atlas.File = id + ".png"
+		b.AddObject(schema.Asset{ID: id, Name: co.name, Group: group}, &doc)
+		return nil
+	}
+	// Asset order is picker order, and the picker opens on the first entry:
+	// the "Both Levels" group leads (the helicopter above, then every kind
+	// whose art dedups identical across levels), and the per-level variants
+	// follow grouped by LEVEL — the picker sections by adjacency, so each
+	// level must ship its kinds together.
+	kinds := []string{"prisoner", "tank", "mine"}
+	shared := map[string]bool{}
+	for _, kind := range kinds {
+		if !bytes.Equal(l0[kind].png, l1[kind].png) {
+			continue
+		}
+		shared[kind] = true
+		if err := emit(kind, l0[kind], "Both Levels"); err != nil {
+			return nil, err
+		}
+		refs["0/"+kind], refs["1/"+kind] = kind, kind
+		ctx.Logf("objects: %s is level-independent (no $D022 pixel) — shared", kind)
+	}
+	for li, lv := range []map[string]charObject{l0, l1} {
+		for _, kind := range kinds {
+			if shared[kind] {
+				continue
+			}
+			id := kind + "-" + levels[li].id
+			if err := emit(id, lv[kind], levels[li].name); err != nil {
+				return nil, err
+			}
+			refs[fmt.Sprintf("%d/%s", li, kind)] = id
+		}
+	}
+	ctx.Progress("objects", 2, 2, "char objects (deduped across levels)")
 	return refs, nil
 }
 

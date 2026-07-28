@@ -14,7 +14,45 @@
   "tickHz": 50,
   "filter": "crt"
  },
+ "docs": [
+  {
+   "id": "tape",
+   "title": "On the tape",
+   "file": "docs/tape.html"
+  },
+  {
+   "id": "playfield",
+   "title": "A cylinder of characters",
+   "file": "docs/playfield.html"
+  },
+  {
+   "id": "architecture",
+   "title": "Architecture that animates",
+   "file": "docs/architecture.html"
+  },
+  {
+   "id": "clockwork",
+   "title": "The enemies' clockwork",
+   "file": "docs/clockwork.html"
+  }
+ ],
  "assets": [
+  {
+   "id": "helicopter",
+   "category": "object",
+   "name": "Helicopter",
+   "group": "Both Levels",
+   "description": "Your helicopter, and the level’s spawn point. Left/right build a bank that steers it, aims the gun and tilts the sprite; up/down move it directly; gravity pulls it down at the chosen Gravity Skill. Terrain is fatal unless the cell is a legal landing surface — the landing pad, a fuel depot, the walkway floor, or a prisoner — where it bounces gently and the spot becomes the respawn checkpoint. Setting down on a depot refuels; fuel falls slowly in flight and “LOW ON FUEL” flashes at zero. (The title attract mode flies it by replaying a recorded joystick sequence.)",
+   "file": "objects/helicopter.json"
+  },
+  {
+   "id": "mine",
+   "category": "object",
+   "name": "Self-Propelled Mine",
+   "group": "Both Levels",
+   "description": "The manual’s name for the small drones (engine $94D2). They patrol the corridors in numbers set by the Pilot Skill option — 13, 26 or 39 — spawning at random empty cells, flying horizontally and reversing at obstacles. Unlike the tanks they do not respawn once destroyed until the next level. They die the same way everything character-based does: an explosion character or a missile in their cell.",
+   "file": "objects/mine.json"
+  },
   {
    "id": "prisoner-vaults",
    "category": "object",
@@ -22,14 +60,6 @@
    "group": "Vaults of Draconis",
    "description": "Eight per level, placed wherever the level builder finds a floor cell with rock directly above (engine $AABA). Each runs back and forth along its walkway. Fly within a few cells to rescue him: he boards, the rescued count rises, and the HUD tally is reprinted. He can also be killed — by shooting away the floor beneath him, or by an explosion or missile — so a stray shot, yours or the enemy’s, can kill the very men you need. Either way he leaves the count, and both level exits stay locked until it reaches zero.",
    "file": "objects/prisoner-vaults.json"
-  },
-  {
-   "id": "prisoner-caves",
-   "category": "object",
-   "name": "Prisoner",
-   "group": "Crystalline Caves",
-   "description": "Eight per level, placed wherever the level builder finds a floor cell with rock directly above (engine $AABA). Each runs back and forth along its walkway. Fly within a few cells to rescue him: he boards, the rescued count rises, and the HUD tally is reprinted. He can also be killed — by shooting away the floor beneath him, or by an explosion or missile — so a stray shot, yours or the enemy’s, can kill the very men you need. Either way he leaves the count, and both level exits stay locked until it reaches zero.",
-   "file": "objects/prisoner-caves.json"
   },
   {
    "id": "tank-vaults",
@@ -40,28 +70,20 @@
    "file": "objects/tank-vaults.json"
   },
   {
+   "id": "prisoner-caves",
+   "category": "object",
+   "name": "Prisoner",
+   "group": "Crystalline Caves",
+   "description": "Eight per level, placed wherever the level builder finds a floor cell with rock directly above (engine $AABA). Each runs back and forth along its walkway. Fly within a few cells to rescue him: he boards, the rescued count rises, and the HUD tally is reprinted. He can also be killed — by shooting away the floor beneath him, or by an explosion or missile — so a stray shot, yours or the enemy’s, can kill the very men you need. Either way he leaves the count, and both level exits stay locked until it reaches zero.",
+   "file": "objects/prisoner-caves.json"
+  },
+  {
    "id": "tank-caves",
    "category": "object",
    "name": "Tank",
    "group": "Crystalline Caves",
    "description": "A character-based enemy, six per level (engine $992A). Three body cells plus a turret that always aims at the player. The six patrol horizontally in lockstep — one shared countdown steps them all together — turning back only at open air or the barrier and driving straight through every other kind of terrain; they respawn at fixed home positions once cleared. Each can launch one homing missile when the player passes within range above it. An explosion character or a missile in its cell destroys it.",
    "file": "objects/tank-caves.json"
-  },
-  {
-   "id": "mine",
-   "category": "object",
-   "name": "Self-Propelled Mine",
-   "group": "Objects",
-   "description": "The manual’s name for the small drones (engine $94D2). They patrol the corridors in numbers set by the Pilot Skill option — 13, 26 or 39 — spawning at random empty cells, flying horizontally and reversing at obstacles. Unlike the tanks they do not respawn once destroyed until the next level. They die the same way everything character-based does: an explosion character or a missile in their cell.",
-   "file": "objects/mine.json"
-  },
-  {
-   "id": "helicopter",
-   "category": "object",
-   "name": "Helicopter",
-   "group": "Objects",
-   "description": "Your helicopter, and the level’s spawn point. Left/right build a bank that steers it, aims the gun and tilts the sprite; up/down move it directly; gravity pulls it down at the chosen Gravity Skill. Terrain is fatal unless the cell is a legal landing surface — the landing pad, a fuel depot, the walkway floor, or a prisoner — where it bounces gently and the spot becomes the respawn checkpoint. Setting down on a depot refuels; fuel falls slowly in flight and “LOW ON FUEL” flashes at zero. (The title attract mode flies it by replaying a recorded joystick sequence.)",
-   "file": "objects/helicopter.json"
   },
   {
    "id": "vaults",

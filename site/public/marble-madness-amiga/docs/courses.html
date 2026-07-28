@@ -1,0 +1,37 @@
+<p>A course is three parallel files. The <code>.mlb</code> holds its look: a tile map 36
+tiles (288 pixels) wide, scrolling only vertically, built from 8&times;8 16-colour tiles.
+The <code>.ilb</code> holds the art for its objects. And the <code>*Track</code> holds
+everything else — slopes, respawn points, enemies, scripts, palette bands. The marble
+never rolls on the tile map at all: the picture and the physics are separate data.</p>
+
+<h2>A real height field</h2>
+<p>The marble is a genuine 3-D point mass — position and velocity in x, y and z, with the
+isometric look just a projection. The Track's slope records rasterise into a mesh storing
+the four corner heights of every tile; the downhill force is the sampled gradient of that
+mesh, and the walls fall out of the same data as height steps between neighbours. One
+height map produces both the roll and the collision. The Silly course flips a single
+sign — the slope force is <em>added</em> instead of subtracted — and that one change is
+the whole joke of the course: the marble accelerates uphill.</p>
+
+<h2>Hidden rows</h2>
+<p>The tile map's header stores the <em>playable</em> height, and the scroll clamp means
+rows beyond it can never appear on screen — which makes them free storage. Ultimate
+declares 108 rows but stores 198: the extra 90 are three alternate versions of its final
+screen. A dedicated engine cycles the four variants — repainting a 30-row band into a
+back buffer, patching the height mesh so the vanished paths are really gone, and
+re-pointing the bitplanes mid-frame from the copper list — the flickering finale is a
+whole screen on a flip-book, at about 1.4&nbsp;s per page. Silly stores one fully drawn
+extra wall row that nothing references: authored content the playable height simply
+excludes.</p>
+
+<h2>A tiny bytecode</h2>
+<p>The animated features run on a 19-opcode script interpreter: keyframes, loops, links
+to animation lists, marble-proximity conditionals. The drawbridge is an autonomous
+script looping forever between a raise and a lower animation with timed holds; the goal
+flags are one opcode playing four wave frames forever. The funnels are the opposite
+extreme — their scripts are trivial, and the entrance-to-exit teleport is hardcoded in
+the engine, one handler per terrain code. In all, the game uses <strong>eight</strong>
+distinct placement systems for its hazards — slope field, scripted regions, a
+code-spawned region (Intermediate's wave), an actor array (Aerial's pistons), fall
+regions with trigger scripts (the vacuums), creature spawners, a lane spawner and the
+screen-swap engine — almost every hazard family got its own bespoke mechanism.</p>

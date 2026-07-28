@@ -1,0 +1,28 @@
+<p>The disk is an ordinary bootable AmigaDOS volume — 50 catalogued files, the standard
+OFS filesystem, a two-line <code>startup-sequence</code> that boots to Workbench, and a
+marble-shaped icon the player double-clicks. There is no monolithic binary: a small
+launcher pulls in the 175&nbsp;KB main program, and the running game streams each
+course's overlays — tile map (<code>.mlb</code>), sprite banks
+(<code>.ilb</code>/<code>.vlb</code>), gameplay layout (<code>*Track</code>) and sound
+bank (<code>*Snd</code>) — through the operating system's own <code>LoadSeg</code> as the
+course starts.</p>
+
+<h2>A file read without its name</h2>
+<p>The main program, <code>c/MarbleMadness!.dat</code>, is a genuine file in the disk's
+directory — yet the string <code>MarbleMadness!.dat</code> appears nowhere in the
+launcher. It is never opened by name. Instead a second-stage loader,
+<code>c/xxx</code>, drives the floppy hardware directly — CIA step and select lines,
+Paula disk DMA pulling a full 14,066-byte raw MFM track in one burst — and reads the
+program's bytes off the platter <em>by physical position</em>, reimplementing the
+operating system's disk driver from scratch. The file exists so the volume stays a
+valid, bootable AmigaDOS disk and its 360 data blocks are reserved contiguously
+(tracks ~93–126); it is read by location for speed, and because a from-scratch reader
+is also a copy-protection hook.</p>
+
+<h2>Dead code that pulled its weight</h2>
+<p>The launcher contains a complete, byte-identical copy of the decryptor's engine that
+is never called — not one control-flow reference reaches it. It was dragged in by the
+linker because one routine in the same object module <em>is</em> used: a checksum that
+EOR-folds the decrypted loader's hunks into a 16-bit constant and feeds it into the
+decryption key for the next stage. Tampering with the loader corrupts the key — a small
+integrity chain, with 6&nbsp;KB of accidental cargo.</p>

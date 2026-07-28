@@ -14,6 +14,33 @@
   "tickHz": 50,
   "filter": "crt"
  },
+ "docs": [
+  {
+   "id": "disk",
+   "title": "On the disk",
+   "file": "docs/disk.html"
+  },
+  {
+   "id": "protection",
+   "title": "The lock made of ROM",
+   "file": "docs/protection.html"
+  },
+  {
+   "id": "courses",
+   "title": "Building a course",
+   "file": "docs/courses.html"
+  },
+  {
+   "id": "drawing",
+   "title": "Sprites, punched through",
+   "file": "docs/drawing.html"
+  },
+  {
+   "id": "music",
+   "title": "Music through the OS",
+   "file": "docs/music.html"
+  }
+ ],
  "assets": [
   {
    "id": "practy-a0",
