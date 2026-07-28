@@ -1,0 +1,35 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "DAYTS (player)",
+ "model": "plcar-dayts.glb",
+ "variants": [
+  {
+   "id": "car",
+   "name": "Car",
+   "scene": "car"
+  },
+  {
+   "id": "alt",
+   "name": "Alternate panels",
+   "scene": "alt",
+   "description": "the front-panel state variants the game swaps in (headlights, damage)"
+  },
+  {
+   "id": "overlays",
+   "name": "Light overlays",
+   "scene": "overlays",
+   "description": "the additively-blended brake/headlight glow quads"
+  },
+  {
+   "id": "shells",
+   "name": "Shells \u0026 extras",
+   "scene": "shells",
+   "description": "the record's static shell slots and parts outside the chassis record — proxy hulls and state shells"
+  }
+ ],
+ "props": {
+  "source": "/Cars/obj_plcar_dayts_pmt.sz"
+ }
+}
