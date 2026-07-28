@@ -43,6 +43,7 @@
    "description": "the livery texture-carrier quads (never rendered — the game binds their atlases in place of the body texture) and the additive glow quads"
   }
  ],
+ "envMap": ["rc-dayts-env-px.png", "rc-dayts-env-nx.png", "rc-dayts-env-py.png", "rc-dayts-env-ny.png", "rc-dayts-env-pz.png", "rc-dayts-env-nz.png"],
  "props": {
   "source": "/Cars/obj_rc_dayts_pmt.sz"
  }

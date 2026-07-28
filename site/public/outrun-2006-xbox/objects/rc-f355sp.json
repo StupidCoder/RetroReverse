@@ -43,6 +43,7 @@
    "description": "the livery texture-carrier quads (never rendered — the game binds their atlases in place of the body texture) and the additive glow quads"
   }
  ],
+ "envMap": ["rc-f355sp-env-px.png", "rc-f355sp-env-nx.png", "rc-f355sp-env-py.png", "rc-f355sp-env-ny.png", "rc-f355sp-env-pz.png", "rc-f355sp-env-nz.png"],
  "props": {
   "source": "/Cars/obj_rc_f355sp_pmt.sz"
  }

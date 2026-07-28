@@ -216,6 +216,15 @@ export const flyHint = COARSE ? 'sticks: left move Â· right look' : 'WASD move Â
 
 const gltfLoader = new GLTFLoader();
 
+function loadImage(url) {
+  return new Promise((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = () => rej(new Error(url));
+    i.src = url;
+  });
+}
+
 export function loadGLB(url) {
   return gltfLoader.loadAsync(url);
 }
@@ -269,6 +278,38 @@ export class ObjectLibrary {
       proto.gltf = await loadGLB(this.game.url(docPath, doc.model));
       for (const sc of proto.gltf.scenes?.length ? proto.gltf.scenes : [proto.gltf.scene]) {
         applyTexFilter(sc, texFilter);
+      }
+      // Retro-X material extras: additive blending, and env-cube sheen fed by
+      // the object's static cube faces (doc.envMap, +x,-x,+y,-y,+z,-z).
+      let cube = null;
+      if (doc.envMap?.length === 6) {
+        const imgs = await Promise.all(doc.envMap.map((f) => loadImage(this.game.url(docPath, f))));
+        cube = new THREE.CubeTexture(imgs);
+        cube.colorSpace = THREE.SRGBColorSpace;
+        cube.needsUpdate = true;
+      }
+      const mats = new Set();
+      for (const sc of proto.gltf.scenes?.length ? proto.gltf.scenes : [proto.gltf.scene]) {
+        sc.traverse((o) => {
+          for (const m of o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []) mats.add(m);
+        });
+      }
+      for (const m of mats) {
+        if (m.userData?.blend === 'additive') {
+          m.transparent = true;
+          m.blending = THREE.AdditiveBlending;
+          m.depthWrite = false;
+          m.needsUpdate = true;
+        }
+        if (cube && m.userData?.sheen) {
+          // The game's combiner ADDS the reflection; the fixed 0.3 amount is
+          // a declared approximation (the exact scale lives in the material
+          // state setup).
+          m.envMap = cube;
+          m.combine = THREE.AddOperation;
+          m.reflectivity = 0.3;
+          m.needsUpdate = true;
+        }
       }
       if (doc.flipbooks?.length) {
         proto.flipTex = {};

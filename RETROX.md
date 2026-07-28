@@ -514,6 +514,9 @@ This makes the sheet directly usable in other projects and legible to a human.
       "sequence": [0,1,1,0],                 //   indices into textures
       "step": 4 }                            //   engine frames per sequence entry
   ],
+  "envMap": ["env-px.png","env-nx.png",      // six static cube faces (+x,-x,+y,-y,+z,-z):
+             "env-py.png","env-ny.png",      //   the viewer applies them to materials whose
+             "env-pz.png","env-nz.png"],     //   GLB extras carry {"sheen": true}
   "atlasPicture": "tex/kart-atlas.png",      // the texture sheet, openable as a picture
   "stats": { ... }, "props": { ... }
 }
@@ -689,7 +692,12 @@ A conforming tree satisfies all of the following (the reference validator enforc
 7. `model3d`: every `animations[].clip` names a clip present in the GLB; every
    `uvAnims[].material` / `flipbooks[].material` names a GLB material; every
    `variants[].scene` names a GLB scene, variant ids are unique, the first variant is the
-   GLB's default scene (scene 0), and a one-entry `variants` list is rejected.
+   GLB's default scene (scene 0), and a one-entry `variants` list is rejected; `envMap`,
+   when present, has exactly six existing faces.
+
+   GLB material `extras` conventions the Studio honours: `{"blend": "additive"}` renders
+   the material additively (glTF itself has no additive alphaMode), and `{"sheen": true}`
+   marks a material for the object's `envMap` cube reflection.
 8. `wireframe3d`: edge vertex/face indices in range; `faces.length == faceCenters.length`.
 9. Camera tracks: `track.length == frames`.
 10. A `matrix` has 16 numbers; a placement `collision.matrix` has 12.

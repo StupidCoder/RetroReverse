@@ -43,6 +43,7 @@
    "description": "the livery texture-carrier quads (never rendered — the game binds their atlases in place of the body texture) and the additive glow quads"
   }
  ],
+ "envMap": ["rc-f50-env-px.png", "rc-f50-env-nx.png", "rc-f50-env-py.png", "rc-f50-env-ny.png", "rc-f50-env-pz.png", "rc-f50-env-nz.png"],
  "props": {
   "source": "/Cars/obj_rc_f50_pmt.sz"
  }

@@ -127,6 +127,11 @@ roadmap.)
   binds its livery atlases in place of the body texture per instance and never draws the
   quads — and the exports gain one named node per logical part, with double-click isolation
   in the Studio viewer. *(this document)*
+* **Part XXIV** — **sheen, glow, and the cars' own manual**: the material state keys decode
+  against the game's own blend-factor table (the glass is premultiplied alpha, the glow
+  discs genuinely additive), the static environment cubes ship as Retro-X `envMap` faces
+  for sheen-marked materials, and the findings become the Studio's first curated doc page.
+  *(this document)*
 
 ---
 
@@ -3033,4 +3038,30 @@ an honest raycast, so an occluded steering wheel is picked the way you'd expect:
 into the cockpit first. Verified headless: a double-click on the F40 isolates its body
 (48 meshes ghosted, 31 solid), Escape restores all, zero console errors, `retroxlint`
 clean.
+
+## Part XXIV — sheen, glow, and the cars' own manual
+
+Three viewer fidelities landed together, all from data already decoded:
+
+- **The material state keys gave up their blend modes.** The state routine (`0x15B90`)
+  indexes the game's own factor table (`0x248B54`) with the key's second byte — source
+  nibble, destination nibble — plus a blend-equation field and a depth-bias step for
+  decals. Factor byte `0x51` = `ONE / 1−SRC_ALPHA` (the glass, validated live: the census
+  gained per-draw blend state and the windshield draws with exactly those factors), and
+  `0x14` = `SRC_ALPHA / ONE` — **the glow overlays are genuinely additive in the file**,
+  which answers the floating red discs behind the Dino's lamps: they are additive flares
+  with a depth bias, and the exports now carry `extras {"blend":"additive"}` which the
+  Studio renders as real additive blending.
+- **The static environment cubes ship.** glTF has no per-material environment slot, so the
+  cube rides outside the GLB: six face PNGs per car (decoded straight from the XPR bank's
+  cube entry) named by a new Retro-X `envMap` field, applied by the viewer to materials
+  whose extras carry `{"sheen": true}` — exactly the materials whose game counterpart
+  sampled the cube. The combiner adds the reflection in-game; the viewer adds the static
+  cube at a declared fixed amount. The sun toggle's lit materials inherit both sheen and
+  blending.
+- **The findings became reading matter.** The curation system's doc pages (built for this
+  but never used by any game) get their first entry: `The cars`, a sectioned technical
+  text in the Studio's info panel covering the `.sz` stream, the `_pmt` tables, the state
+  keys, the chassis table, the LOD sets, the never-seen shadow caster and the livery
+  quads.
 

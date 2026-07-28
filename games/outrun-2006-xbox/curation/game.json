@@ -1,6 +1,13 @@
 {
- "title": "OutRun 2006: Coast 2 Coast",
- "platform": "Original Xbox",
- "year": 2006,
- "description": "Sumo Digital's OutRun2 port for the original Xbox — the game our Xbox oracle drives from cold boot into the race. So far the Studio carries the /Cars roster: the player's Dino 246 GTS and the fifteen AI rivals, each decompressed from its .sz container, decoded from the _pmt mesh format with its XPR0 textures, and rebuilt as a textured GLB."
+  "title": "OutRun 2006: Coast 2 Coast",
+  "platform": "Original Xbox",
+  "year": 2006,
+  "description": "Sumo Digital's OutRun2 port for the original Xbox — the game our Xbox oracle drives from cold boot into the race. So far the Studio carries the /Cars roster: the player's Dino 246 GTS and the fifteen AI rivals, each decompressed from its .sz container, decoded from the _pmt mesh format with its XPR0 textures, and rebuilt as a textured GLB.",
+  "docs": [
+    {
+      "id": "cars",
+      "title": "The cars",
+      "file": "cars.html"
+    }
+  ]
 }

@@ -67,6 +67,7 @@ type pmt struct {
 	nParts int
 	nTex   int
 	a, b   []byte
+	cube   []bool // per texture-bank entry: cube-map flag (set by parseTextures)
 }
 
 func parsePMT(name string, data []byte) (*pmt, error) {
@@ -134,6 +135,10 @@ func (p *pmt) parseTextures() ([]texInfo, int, error) {
 			t.img = decodeTexture(p.b[t.dataOff:], t.w, t.h, t.fmtByte)
 		}
 		texs[i] = t
+	}
+	p.cube = make([]bool, len(texs))
+	for i, t := range texs {
+		p.cube[i] = t.cube
 	}
 	return texs, pixBytes, nil
 }
@@ -266,6 +271,13 @@ type material struct {
 	texIdx  int // first bound 2-D texture, -1 if none
 	diffuse [3]float32
 	alpha   float32 // D3DMATERIAL8 diffuse alpha — the glass batches carry < 1
+	// additive: the stateKey's blend-factor byte (bits 8-15, indexing the
+	// game's own factor table at VA 0x248B54, applied by the state routine
+	// at 0x15B90 to NV2A methods 0x0344/0x0348) reads SRC_ALPHA/ONE — the
+	// glow overlays. sheen: a stage samples an environment cube (the game
+	// adds the reflection; the viewer applies the model's static cube).
+	additive bool
+	sheen    bool
 }
 
 type part struct {
@@ -327,11 +339,19 @@ func (p *pmt) parsePart(pi int) (*part, error) {
 			mat.diffuse = [3]float32{f32(p.a, c), f32(p.a, c+4), f32(p.a, c+8)}
 			mat.alpha = f32(p.a, c+12)
 		}
+		stateKey := u32(p.a, m+4)
+		mat.additive = stateKey>>8&0xFF == 0x14 // SRC_ALPHA / ONE
 		for s := 0; s < 4; s++ {
 			ti := u32(p.a, m+8+20*s+16)
-			if ti != 0xFFFFFFFF && int(ti) < p.nTex {
+			if ti == 0xFFFFFFFF || int(ti) >= p.nTex {
+				continue
+			}
+			if len(p.cube) > int(ti) && p.cube[ti] {
+				mat.sheen = true
+				continue
+			}
+			if mat.texIdx < 0 {
 				mat.texIdx = int(ti)
-				break
 			}
 		}
 		pt.mats = append(pt.mats, mat)
@@ -1228,13 +1248,21 @@ func export(p *pmt, texs []texInfo, outPath string) (string, error) {
 // label merges everything into a single anonymous node (the legacy shape for
 // uncurated models).
 func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, string, error) {
+	type texKey struct {
+		tex             int
+		additive, sheen bool
+	}
+	type colKey struct {
+		rgba            [4]int
+		additive, sheen bool
+	}
 	type nodeAcc struct {
 		name      string
 		positions [][3]float32
 		normals   [][3]float32
 		uvs       [][2]float32
-		texTris   map[int][][3]uint32
-		colorTris map[[4]int][][3]uint32
+		texTris   map[texKey][][3]uint32
+		colorTris map[colKey][][3]uint32
 	}
 	var order []*nodeAcc
 	byLabel := map[string]*nodeAcc{}
@@ -1242,7 +1270,7 @@ func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, s
 		if n, ok := byLabel[label]; ok {
 			return n
 		}
-		n := &nodeAcc{name: label, texTris: map[int][][3]uint32{}, colorTris: map[[4]int][][3]uint32{}}
+		n := &nodeAcc{name: label, texTris: map[texKey][][3]uint32{}, colorTris: map[colKey][][3]uint32{}}
 		byLabel[label] = n
 		order = append(order, n)
 		return n
@@ -1308,27 +1336,31 @@ func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, s
 			totalTris += len(tris)
 			m := pt.mats[b.matIdx]
 			if m.texIdx >= 0 && texs[m.texIdx].img != nil && !texs[m.texIdx].cube {
-				na.texTris[m.texIdx] = append(na.texTris[m.texIdx], tris...)
+				k := texKey{m.texIdx, m.additive, m.sheen}
+				na.texTris[k] = append(na.texTris[k], tris...)
 			} else {
-				key := [4]int{int(m.diffuse[0] * 255), int(m.diffuse[1] * 255), int(m.diffuse[2] * 255), int(m.alpha * 255)}
-				na.colorTris[key] = append(na.colorTris[key], tris...)
+				k := colKey{[4]int{int(m.diffuse[0] * 255), int(m.diffuse[1] * 255), int(m.diffuse[2] * 255), int(m.alpha * 255)}, m.additive, m.sheen}
+				na.colorTris[k] = append(na.colorTris[k], tris...)
 			}
 		}
 	}
 
 	finish := func(na *nodeAcc) glb.VariantNode {
 		var texGroups []glb.TexturedGroup
-		for ti, tris := range na.texTris {
+		for k, tris := range na.texTris {
 			texGroups = append(texGroups, glb.TexturedGroup{
-				Tris: tris, Image: texs[ti].img, WrapS: 10497, WrapT: 10497,
+				Tris: tris, Image: texs[k.tex].img, WrapS: 10497, WrapT: 10497,
+				Additive: k.additive, Sheen: k.sheen,
 			})
 		}
 		var colorGroups []glb.TriGroup
-		for key, tris := range na.colorTris {
+		for k, tris := range na.colorTris {
 			colorGroups = append(colorGroups, glb.TriGroup{
-				Tris:  tris,
-				Color: [3]float32{float32(key[0]) / 255, float32(key[1]) / 255, float32(key[2]) / 255},
-				Alpha: float32(key[3]) / 255,
+				Tris:     tris,
+				Color:    [3]float32{float32(k.rgba[0]) / 255, float32(k.rgba[1]) / 255, float32(k.rgba[2]) / 255},
+				Alpha:    float32(k.rgba[3]) / 255,
+				Additive: k.additive,
+				Sheen:    k.sheen,
 			})
 		}
 		totalVerts += len(na.positions)
@@ -1461,6 +1493,32 @@ func main() {
 	}
 }
 
+// envFaces decodes the six faces of the model's first environment cube (the
+// XPR bank stores them consecutively, face stride = the level-0 size, D3D
+// order +x,-x,+y,-y,+z,-z). Nil when the bank has no cube.
+func envFaces(p *pmt, texs []texInfo) []image.Image {
+	for _, t := range texs {
+		if !t.cube || t.fmtByte == 0 {
+			continue
+		}
+		blockLen := 16
+		if t.fmtByte == 0x0C {
+			blockLen = 8
+		}
+		faceSize := ((t.w + 3) / 4) * ((t.h + 3) / 4) * blockLen
+		out := make([]image.Image, 6)
+		for f := 0; f < 6; f++ {
+			img := decodeTexture(p.b[int(t.dataOff)+f*faceSize:], t.w, t.h, t.fmtByte)
+			if img == nil {
+				return nil
+			}
+			out[f] = img
+		}
+		return out
+	}
+	return nil
+}
+
 // exportSite writes the Studio's curated car set: the assembled player Dino
 // plus the fifteen AI ("rc") rivals, whose wheels are modeled in place. The
 // unassembled player models, the `_t` variants, the origin-stacked traffic
@@ -1535,6 +1593,21 @@ func exportSite(imagePath, siteDir string) {
 		obj := &schema.Object{
 			Type: schema.ObjectModel3D, Name: name, Model: outName,
 			Props: map[string]any{"source": discPath},
+		}
+		// The model's static environment cube (in the game the body materials
+		// sample it — substituted for the live reflection RTT at runtime; at
+		// rest it is the sheen). Exported as six face PNGs for sheen-marked
+		// materials in the viewer.
+		if faces := envFaces(p, texs); faces != nil {
+			for fi, img := range faces {
+				fn := fmt.Sprintf("%s-env-%s.png", id, [6]string{"px", "nx", "py", "ny", "pz", "nz"}[fi])
+				path, err := b.Path("objects", fn)
+				if err != nil {
+					fatal("%v", err)
+				}
+				writePNG(path, img)
+				obj.EnvMap = append(obj.EnvMap, fn)
+			}
 		}
 		if vars, err := p.variants(); err == nil && len(vars) > 1 {
 			for _, mv := range vars {

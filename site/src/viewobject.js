@@ -422,12 +422,17 @@ async function mount3D(ctx, doc) {
       const swap = (m) => {
         if (on) {
           if (!m.userData.lit) {
-            m.userData.lit = new THREE.MeshLambertMaterial({
+            const lit = new THREE.MeshLambertMaterial({
               map: m.map || null, color: m.color.clone(),
               transparent: m.transparent, opacity: m.opacity,
               alphaTest: m.alphaTest, side: m.side, name: m.name,
+              envMap: m.envMap || null, combine: m.combine ?? THREE.MultiplyOperation,
+              reflectivity: m.reflectivity ?? 1,
             });
-            m.userData.lit.userData.unlit = m;
+            lit.blending = m.blending;
+            lit.depthWrite = m.depthWrite;
+            m.userData.lit = lit;
+            lit.userData.unlit = m;
           }
           return m.userData.lit;
         }

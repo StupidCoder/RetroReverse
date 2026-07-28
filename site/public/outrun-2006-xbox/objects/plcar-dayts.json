@@ -29,6 +29,7 @@
    "description": "the record's static shell slots and parts outside the chassis record — proxy hulls and state shells"
   }
  ],
+ "envMap": ["plcar-dayts-env-px.png", "plcar-dayts-env-nx.png", "plcar-dayts-env-py.png", "plcar-dayts-env-ny.png", "plcar-dayts-env-pz.png", "plcar-dayts-env-nz.png"],
  "props": {
   "source": "/Cars/obj_plcar_dayts_pmt.sz"
  }

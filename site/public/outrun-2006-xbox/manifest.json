@@ -15,6 +15,13 @@
   "filter": "crt",
   "texFilter": "linear"
  },
+ "docs": [
+  {
+   "id": "cars",
+   "title": "The cars",
+   "file": "docs/cars.html"
+  }
+ ],
  "assets": [
   {
    "id": "plcar-dino",

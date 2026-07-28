@@ -130,9 +130,12 @@ func appendTextured(b *builder, st *sharedTex, matBase int,
 			"alphaCutoff": 0.5,
 			"doubleSided": !g.SingleSided,
 		}
-		if g.Blend {
+		if g.Blend || g.Additive {
 			mat["alphaMode"] = "BLEND"
 			delete(mat, "alphaCutoff")
+		}
+		if extras := groupExtras(g.Additive, g.Sheen); extras != nil {
+			mat["extras"] = extras
 		}
 		materials = append(materials, mat)
 	}
@@ -150,9 +153,31 @@ func appendTextured(b *builder, st *sharedTex, matBase int,
 			prim["attributes"].(map[string]int)["NORMAL"] = nrmAcc
 		}
 		prims = append(prims, prim)
-		materials = append(materials, unlitMaterial(g.Color, g.alphaOr1(), !g.SingleSided))
+		mat := unlitMaterial(g.Color, g.alphaOr1(), !g.SingleSided)
+		if g.Additive {
+			mat["alphaMode"] = "BLEND"
+		}
+		if extras := groupExtras(g.Additive, g.Sheen); extras != nil {
+			mat["extras"] = extras
+		}
+		materials = append(materials, mat)
 	}
 	return prims, materials, nil
+}
+
+// groupExtras builds the Retro-X material extras for additive/sheen flags.
+func groupExtras(additive, sheen bool) map[string]any {
+	if !additive && !sheen {
+		return nil
+	}
+	extras := map[string]any{}
+	if additive {
+		extras["blend"] = "additive"
+	}
+	if sheen {
+		extras["sheen"] = true
+	}
+	return extras
 }
 
 // WriteVariantScenes writes a multi-scene GLB: variant k becomes glTF scene k

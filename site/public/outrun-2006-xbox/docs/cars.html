@@ -1,0 +1,64 @@
+<p>The sixty-three files under <code>/Cars</code> hold every vehicle in the game: fifteen
+driveable Ferraris, their fifteen <code>_t</code> twins, fifteen lower-poly AI rivals, the
+traffic fleet and a bundle of every rival in one file. Each is a bare zlib stream —
+<code>.sz</code> has no container of its own — that the game inflates through two 64&nbsp;KB
+ping-pong buffers, so a whole car never needs to exist decompressed in one piece anywhere
+except video memory.</p>
+
+<h2>The _pmt model format</h2>
+<p>An inflated <code>_pmt</code> payload is a 16-byte header and two sections: section A
+carries the CPU-side tables, section B the GPU data — texture pixels first, vertex buffers
+after. At load, a fix-up pass walks the part records and turns every nonzero offset into a
+pointer; which fields it touches is what defines the format.</p>
+<h3>Parts, batches, materials</h3>
+<p>A car is a list of <em>parts</em> — body, doors, wheels, steering wheel — each a 15-word
+record pointing at its index-buffer slices, vertex-buffer pairs, draw batches and
+materials. Every batch names a primitive run in the part's slice of a shared 16-bit index
+pool, a base vertex, and a 0x58-byte material whose four stages carry texture indices into
+the file's <strong>XPR0</strong> texture bank. Vertices are compact: a position, a normal
+packed into one 11:11:10 word, and (on textured parts) one UV pair — 16 or 24 bytes each.
+Textures are DXT-compressed sheets; the bank also carries each car's static
+<strong>environment cube</strong>, six faces in a row.</p>
+<h3>Material state in one word</h3>
+<p>Each material carries a packed state key. Its second byte indexes the game's own blend
+factor table twice — source and destination — and three more bits pick the blend equation;
+other fields carry a depth-bias step for decal overlays and winding control for mirrored
+geometry. The window glass reads <code>ONE / 1−SRC_ALPHA</code> (premultiplied alpha,
+tinted by the material's diffuse alpha of 0.55), and the light glows read
+<code>SRC_ALPHA / ONE</code> — genuine additive blending, straight from the file. The
+Studio's exports reproduce exactly these modes.</p>
+
+<h2>Every part in local space</h2>
+<p>The model files hold every articulated part at the origin: wheels, doors, the steering
+wheel and gear stick all sit centred, and nothing in the file says where they belong. The
+placements live in a <strong>chassis table</strong> inside the executable: per car, the
+exact translation of each wheel (real wheelbases to the centimetre — the Dino's 2.34&nbsp;m,
+the Enzo's 2.65&nbsp;m), the door hinges, the gear stick, and the steering wheel with its
+column tilt in radians. The player cars stack up to four parts per wheel corner — tire,
+rim, disc — while one car's record has an empty gear-stick slot because its lever is
+modelled into the interior. The Studio assembles every car from this table.</p>
+
+<h2>Levels of detail</h2>
+<p>Each rival carries five versions of itself. The near model is a full group — body,
+front detail, separate spinning wheels — and four progressively simpler bodies take over
+with distance, most with their wheels baked in place. The farthest is a shell of a few
+dozen triangles with no wheels at all: at that range it only ever covers a handful of
+pixels. One car's mid model genuinely has no wheels anywhere — the game accepts a floating
+body at that distance. The Studio's variant picker shows each level as the game holds it.</p>
+
+<h2>The shadow caster that is never seen</h2>
+<p>One part of every rival is a closed grey hull, roughly the car up to its beltline. It
+never appears on screen: it is drawn only from the light's point of view, into the shadow
+map — a cheap silhouette standing in for the real car, so shadows cost a few hundred
+triangles instead of thousands. The Studio shows it as its own variant.</p>
+
+<h2>Liveries: textures riding on quads that never draw</h2>
+<p>The AI cars come in up to seven paint schemes, shipped as whole-car texture atlases in
+different colours. The format has no way to store a texture on its own — a texture exists
+only if a material references it, a material only exists on a batch, and a batch needs
+vertices. So each livery atlas is attached to a tiny unit quad, and the quads sit in a
+neat stack inside an effects part <em>that the game never submits for drawing</em>. At
+race time the engine simply binds the chosen livery atlas wherever a material names the
+body-texture slot — a per-instance texture substitution. The same trick swaps the file's
+static environment cube for a live-rendered reflection cube while driving; at rest, the
+static cube is the paint's sheen, and the Studio applies it the same way.</p>

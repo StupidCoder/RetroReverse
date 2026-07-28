@@ -43,6 +43,7 @@
    "description": "the livery texture-carrier quads (never rendered — the game binds their atlases in place of the body texture) and the additive glow quads"
   }
  ],
+ "envMap": ["rc-575sa-env-px.png", "rc-575sa-env-nx.png", "rc-575sa-env-py.png", "rc-575sa-env-ny.png", "rc-575sa-env-pz.png", "rc-575sa-env-nz.png"],
  "props": {
   "source": "/Cars/obj_rc_575sa_pmt.sz"
  }

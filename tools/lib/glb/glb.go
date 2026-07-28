@@ -106,11 +106,14 @@ func (b *builder) addIndices(idx []uint32) int {
 // Alpha 0 means opaque (the zero value keeps the legacy behaviour); a value in
 // (0,1) emits the material with that base-colour alpha and alphaMode BLEND —
 // how translucent untextured surfaces (window glass) survive into a GLB.
+// Additive and Sheen serialise as material extras (see TexturedGroup).
 type TriGroup struct {
 	Tris        [][3]uint32
 	Color       [3]float32
 	Alpha       float32
 	SingleSided bool
+	Additive    bool
+	Sheen       bool
 }
 
 // alphaOr1 maps the zero value of TriGroup.Alpha to fully opaque.
@@ -451,6 +454,12 @@ type TexturedGroup struct {
 	// MASK cutout — for textures carrying partial alpha (e.g. the 3DO cel
 	// engine's destination-shading pixels baked as translucent black).
 	Blend bool
+	// Additive marks the material extras {"blend":"additive"} (and BLEND):
+	// glTF has no additive mode, so the Retro-X viewer applies it from the
+	// extras. Sheen marks extras {"sheen":true} — the source material sampled
+	// an environment cube, and a viewer with the model's envMap applies it.
+	Additive bool
+	Sheen    bool
 }
 
 // addVec3 writes a tightly packed VEC3 float32 accessor without bounds (glTF

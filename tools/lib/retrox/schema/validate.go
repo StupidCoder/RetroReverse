@@ -868,6 +868,14 @@ func (c *checker) checkObject(p string, o *Object, assets map[string]*Asset) {
 		if o.AtlasPicture != "" {
 			c.ref(p, o.AtlasPicture)
 		}
+		if len(o.EnvMap) > 0 {
+			if len(o.EnvMap) != 6 {
+				c.errf(p, "envMap needs exactly 6 faces (+x,-x,+y,-y,+z,-z), got %d", len(o.EnvMap))
+			}
+			for _, f := range o.EnvMap {
+				c.ref(p, f)
+			}
+		}
 		for _, fb := range o.Flipbooks {
 			where := p + ": flipbook " + fb.Material
 			for _, tex := range fb.Textures {

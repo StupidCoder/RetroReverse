@@ -495,6 +495,7 @@ type Object struct {
 	// model3d
 	Model        string         `json:"model,omitempty"`
 	Variants     []ModelVariant `json:"variants,omitempty"` // independent alternates, one glTF scene each
+	EnvMap       []string       `json:"envMap,omitempty"`   // 6 cube faces (+x,-x,+y,-y,+z,-z) for sheen-marked materials
 	Instanced    bool           `json:"instanced,omitempty"`
 	SkinnedClone bool           `json:"skinnedClone,omitempty"`
 	Billboard    string         `json:"billboard,omitempty"` // "yaw"

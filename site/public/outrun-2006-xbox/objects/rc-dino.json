@@ -43,6 +43,7 @@
    "description": "the livery texture-carrier quads (never rendered — the game binds their atlases in place of the body texture) and the additive glow quads"
   }
  ],
+ "envMap": ["rc-dino-env-px.png", "rc-dino-env-nx.png", "rc-dino-env-py.png", "rc-dino-env-ny.png", "rc-dino-env-pz.png", "rc-dino-env-nz.png"],
  "props": {
   "source": "/Cars/obj_rc_dino_pmt.sz"
  }
