@@ -3000,6 +3000,16 @@ placement values, so their residual ambiguity is moot by construction. A pleasin
 detail: the 360 Spider's record has an empty gear-stick slot — its interior bakes the
 lever into the body.
 
+**The fifth slot** (found later by its hole): the record's five static slots are
+positional, and the player-car renderer treats the last one (+0x14) specially — it is
+drawn *unconditionally*, with the body, right after the doors (`0x11563C`: fetch, compare
+against −1, submit). Three cars use it — the F40's engine cover under the rear spoiler,
+the F50's and the 250 GTO-era cars' tail panels — and exporting it as a "shell" left a
+hole straight through to the F40's floor. The slot ships in the car variant as "body
+panel" now. Of the other four slots, one (+0x10) feeds a non-draw registration path in
+the renderer rather than the visible pass, consistent with the capture evidence that the
+grey hulls never draw; their exact consumers remain open.
+
 A polish pass followed the fleet: the mid-LOD variants borrow the placed LOD-1 wheels
 wherever the body itself never reaches the ground (a per-part lowest-vertex test — the
 328's LOD 2/3 and the 550b/575sa LOD 3; every car's LOD 4 is authentically wheel-less
@@ -3102,6 +3112,13 @@ shared shadow model (0xBA), not the traffic file. The vehicles' part ranges tile
 parts exactly, and the truck ranges carry a bonus the table never places: complete
 articulated semi-trailer rigs with liveried box trailers, fully assembled with baked
 wheels — shipped in each truck's "Extra parts" variant.
+
+The assembled semi-trailer rigs in the truck ranges resisted every reference hunt: they
+appear in no table (the traffic records cover only the twelve, even with relaxed wheel
+bounds — a semi's trailer axles were the first suspect), no handle list in the executable
+reaches their part indices (the crash/physics block's part groups stop at part 154), and
+no captured frame draws them. As far as this build's data goes they are dormant content —
+fully modelled, textured and baked, never placed. They stay in the trucks' extras.
 
 All twelve join the Studio as a Traffic group (variants: car / LOD 1 / shadow caster /
 light overlays / extra parts, plus the shared environment cube), and the doc page grew a

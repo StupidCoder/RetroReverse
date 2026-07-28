@@ -812,7 +812,10 @@ func trafficChassis(xbe []byte) ([]trafficVehicle, error) {
 // slots, +0x88 four wheel corners {up to four part handles, xyz} (the big
 // cars stack tire/rim/disc parts per corner), +0x108 two attach points.
 type plcarSpec struct {
-	statics []int       // body first, then the shadow/shell slots
+	statics []int       // body first, then the four shadow/shell slots (+0x04..+0x10)
+	panel   int         // the +0x14 slot: an extra body panel the renderer draws
+	// unconditionally with the body (the F40's engine cover under the rear
+	// spoiler, the F50's tail panel); -1 when absent (most cars).
 	attach  []placement // gear, doors, steering (tilt applied about X)
 	glows   []int
 	fronts  []int
@@ -878,12 +881,15 @@ func plcarChassis(xbe []byte) (map[string]plcarSpec, error) {
 		if !ok {
 			continue
 		}
-		var s plcarSpec
+		s := plcarSpec{panel: -1}
 		s.statics = append(s.statics, 0)
-		for i := 0; i < 5; i++ {
+		for i := 0; i < 4; i++ {
 			if pi, valid := part(off+4+4*i, id); valid {
 				s.statics = append(s.statics, pi)
 			}
+		}
+		if pi, valid := part(off+0x18-4, id); valid {
+			s.panel = pi
 		}
 		for i, a := range []int{0x18, 0x28, 0x38} {
 			if pi, valid := part(off+a, id); valid {
@@ -1206,6 +1212,9 @@ func plcarRoles(p *pmt, spec plcarSpec) (shadow int, shells, extras []int) {
 		shells = append(shells, pi)
 	}
 	ref := map[int]bool{}
+	if spec.panel >= 0 {
+		ref[spec.panel] = true
+	}
 	for _, pi := range spec.statics {
 		ref[pi] = true
 	}
@@ -1234,6 +1243,9 @@ func plcarRoles(p *pmt, spec plcarSpec) (shadow int, shells, extras []int) {
 func plcarCarPlan(p *pmt, spec plcarSpec) []placement {
 	shadow, _, _ := plcarRoles(p, spec)
 	plan := []placement{{part: spec.statics[0], label: "body"}}
+	if spec.panel >= 0 {
+		plan = append(plan, placement{part: spec.panel, label: "body panel"})
+	}
 	if shadow >= 0 {
 		plan = append(plan, placement{part: shadow, label: "ground shadow"})
 	}
