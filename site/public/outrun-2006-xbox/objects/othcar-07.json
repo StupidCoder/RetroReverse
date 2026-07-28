@@ -1,0 +1,42 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Compact",
+ "model": "othcar-07.glb",
+ "variants": [
+  {
+   "id": "car",
+   "name": "Car",
+   "scene": "car"
+  },
+  {
+   "id": "lod1",
+   "name": "LOD 1",
+   "scene": "lod1"
+  },
+  {
+   "id": "caster",
+   "name": "Shadow caster",
+   "scene": "caster",
+   "description": "the proxy hull the game draws into the shadow map — never directly visible"
+  },
+  {
+   "id": "overlays",
+   "name": "Light overlays",
+   "scene": "overlays",
+   "description": "headlight/brake flares and road glow, drawn additively at night"
+  },
+  {
+   "id": "extras",
+   "name": "Extra parts",
+   "scene": "extras",
+   "description": "parts of this vehicle's range the traffic table never places"
+  }
+ ],
+ "envMap": ["othcar-env-px.png", "othcar-env-nx.png", "othcar-env-py.png", "othcar-env-ny.png", "othcar-env-pz.png", "othcar-env-nz.png"],
+ "props": {
+  "bodyPart": 180,
+  "source": "/Cars/obj_othcar_pmt.sz"
+ }
+}

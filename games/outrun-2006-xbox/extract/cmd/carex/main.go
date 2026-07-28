@@ -48,6 +48,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"retroreverse.com/tools/lib/glb"
@@ -598,6 +599,9 @@ func loadChassis(disc *xbox.Image) error {
 	if plcars, err = plcarChassis(xbe); err != nil {
 		return err
 	}
+	if traffic, err = trafficChassis(xbe); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -673,6 +677,113 @@ func chassisWheels(xbe []byte) (map[string][2][]wheelSpec, error) {
 
 // chassis is the parsed table, loaded once per disc open.
 var chassis map[string][2][]wheelSpec
+
+// trafficVehicle is one traffic type from the traffic table: two LOD groups
+// (body + four placed wheels each), the additive glow parts, the caster hull
+// and the vehicle's part range within obj_othcar. The ground shadow slot
+// points into a separate shared shadow model and is not exported.
+type trafficVehicle struct {
+	bodies [2]int
+	wheels [2][]placement
+	glows  []int
+	caster int
+	lo, hi int
+}
+
+// traffic is the parsed traffic table (12 vehicles).
+var traffic []trafficVehicle
+
+// trafficChassis finds the traffic records in the XBE by signature: a record
+// opens with an othcar handle (model 0xE — its registry slot, pinned via the
+// model-object array against dayts=0x82 and the player dino=2), carries eight
+// role slots {body, shadow(0xBA:n), beam glow, -, glass glow x2, flare L/R},
+// four wheel entries {handle, x, y, z} at +0x38 and the caster at +0x98;
+// records pair into vehicles by their shared caster part.
+func trafficChassis(xbe []byte) ([]trafficVehicle, error) {
+	const othID = 0xE
+	type rec struct {
+		body, glow, glassA, glassB, flareL, flareR, caster int
+		wheels                                             []placement
+	}
+	part := func(off int) int {
+		v := u32(xbe, off)
+		if v == 0xFFFFFFFF || v>>16 != othID || v&0xFFFF >= 0x1BD {
+			return -1
+		}
+		return int(v & 0xFFFF)
+	}
+	var recs []rec
+	for off := 0; off+0xA8 <= len(xbe); off += 4 {
+		if part(off) < 0 {
+			continue
+		}
+		ok := true
+		var wheels []placement
+		for k := 0; k < 4 && ok; k++ {
+			w := off + 0x38 + k*16
+			pi := part(w)
+			t := [3]float32{f32(xbe, w+4), f32(xbe, w+8), f32(xbe, w+12)}
+			ax, ay, az := t[0], t[1], t[2]
+			if ax < 0 {
+				ax = -ax
+			}
+			if az < 0 {
+				az = -az
+			}
+			if pi < 0 || ax < 0.3 || ax > 2 || ay < 0.1 || ay > 1.2 || az < 0.5 || az > 6 {
+				ok = false
+				break
+			}
+			wheels = append(wheels, placement{part: pi, mirrorX: t[0] > 0, t: t, label: cornerLabel(t)})
+		}
+		if !ok || part(off+0x98) < 0 {
+			continue
+		}
+		r := rec{body: part(off), glow: part(off + 8), glassA: part(off + 0x10), glassB: part(off + 0x14),
+			flareL: part(off + 0x18), flareR: part(off + 0x1C), caster: part(off + 0x98), wheels: wheels}
+		recs = append(recs, r)
+		off += 0xA8 - 4
+	}
+	byCaster := map[int][]rec{}
+	var order []int
+	for _, r := range recs {
+		if len(byCaster[r.caster]) == 0 {
+			order = append(order, r.caster)
+		}
+		byCaster[r.caster] = append(byCaster[r.caster], r)
+	}
+	var out []trafficVehicle
+	for _, c := range order {
+		pair := byCaster[c]
+		if len(pair) != 2 {
+			return nil, fmt.Errorf("traffic: caster part %d has %d records, want 2", c, len(pair))
+		}
+		v := trafficVehicle{caster: c}
+		for i, r := range pair {
+			v.bodies[i] = r.body
+			v.wheels[i] = r.wheels
+			for _, g := range []int{r.glow, r.glassA, r.glassB, r.flareL, r.flareR} {
+				if g >= 0 {
+					v.glows = append(v.glows, g)
+				}
+			}
+		}
+		out = append(out, v)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].bodies[0] < out[j].bodies[0] })
+	for i := range out {
+		out[i].lo = out[i].bodies[0]
+		if i+1 < len(out) {
+			out[i].hi = out[i+1].bodies[0]
+		} else {
+			out[i].hi = 0x1BD
+		}
+	}
+	if len(out) != 12 {
+		return nil, fmt.Errorf("traffic: found %d vehicles, want 12", len(out))
+	}
+	return out, nil
+}
 
 // plcarSpec is one player car's 0x128-byte chassis record: the full rest pose
 // the Part XIX capture could only sample for the Dino. Layout (offsets from
@@ -1221,6 +1332,12 @@ func export(p *pmt, texs []texInfo, outPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	return exportVariantList(p, texs, outPath, vars, writeOne)
+}
+
+// exportVariantList builds and writes an explicit variant list.
+func exportVariantList(p *pmt, texs []texInfo, outPath string, vars []modelVariant,
+	writeOne func(glb.ModelVariant, string) (string, error)) (string, error) {
 	out := make([]glb.ModelVariant, len(vars))
 	var summary string
 	for i, mv := range vars {
@@ -1234,7 +1351,7 @@ func export(p *pmt, texs []texInfo, outPath string) (string, error) {
 			summary = s
 		}
 	}
-	if len(out) == 1 {
+	if len(out) == 1 && writeOne != nil {
 		return writeOne(out[0], summary)
 	}
 	if err := glb.WriteVariantScenes(outPath, out); err != nil {
@@ -1635,11 +1752,114 @@ func exportSite(imagePath, siteDir string) {
 			strings.ToUpper(code), "Rivals (AI)")
 	}
 
+	// The traffic fleet: twelve vehicles assembled out of obj_othcar per the
+	// traffic table (bodies, placed wheels, caster, additive glows). The
+	// shared ground-shadow model the table references is not part of this
+	// file and is left out.
+	exportTraffic(disc, b)
+
 	if err := b.Write(); err != nil {
 		fatal("%v", err)
 	}
 	for _, w := range b.Warnings {
 		fmt.Fprintln(os.Stderr, "warning:", w)
+	}
+}
+
+// trafficNames are display names for the twelve table vehicles, in body-part
+// order (curated from their renders; the data itself carries no names).
+var trafficNames = [12]string{
+	"Hatchback", "Coach", "Motorhome", "Pickup", "Coupé", "Sedan",
+	"Compact", "Minivan", "Taxi", "Flatbed truck", "Truck", "Tanker truck",
+}
+
+// exportTraffic writes the twelve traffic vehicles from obj_othcar.
+func exportTraffic(disc *xbox.Image, b *build.Builder) {
+	const discPath = "/Cars/obj_othcar_pmt.sz"
+	raw, err := disc.ReadFile(discPath)
+	if err != nil {
+		fatal("read %s: %v", discPath, err)
+	}
+	zr, err := zlib.NewReader(bytes.NewReader(raw))
+	if err != nil {
+		fatal("%s: zlib: %v", discPath, err)
+	}
+	data, err := io.ReadAll(zr)
+	if err != nil {
+		fatal("%s: inflate: %v", discPath, err)
+	}
+	p, err := parsePMT("obj_othcar", data)
+	if err != nil {
+		fatal("%s: %v", discPath, err)
+	}
+	texs, _, err := p.parseTextures()
+	if err != nil {
+		fatal("%s: %v", discPath, err)
+	}
+	// One shared set of environment-cube faces for the whole fleet.
+	var envRefs []string
+	if faces := envFaces(p, texs); faces != nil {
+		for fi, img := range faces {
+			fn := fmt.Sprintf("othcar-env-%s.png", [6]string{"px", "nx", "py", "ny", "pz", "nz"}[fi])
+			path, err := b.Path("objects", fn)
+			if err != nil {
+				fatal("%v", err)
+			}
+			writePNG(path, img)
+			envRefs = append(envRefs, fn)
+		}
+	}
+	for i, v := range traffic {
+		id := fmt.Sprintf("othcar-%02d", i+1)
+		name := trafficNames[i]
+		ref := map[int]bool{v.caster: true}
+		car := append(labeled("body", v.bodies[0]), v.wheels[0]...)
+		lod1 := append(labeled("body", v.bodies[1]), v.wheels[1]...)
+		for _, pl := range append(append([]placement{}, v.wheels[0]...), v.wheels[1]...) {
+			ref[pl.part] = true
+		}
+		ref[v.bodies[0]], ref[v.bodies[1]] = true, true
+		glows := map[int]bool{}
+		for _, g := range v.glows {
+			glows[g] = true
+			ref[g] = true
+		}
+		var glowList, extras []int
+		for pi := v.lo; pi < v.hi; pi++ {
+			if glows[pi] {
+				glowList = append(glowList, pi)
+			} else if !ref[pi] {
+				extras = append(extras, pi)
+			}
+		}
+		vars := []modelVariant{
+			{"car", "Car", "", car},
+			{"lod1", "LOD 1", "", lod1},
+			{"caster", "Shadow caster", "the proxy hull the game draws into the shadow map — never directly visible", labeled("caster hull", v.caster)},
+			{"overlays", "Light overlays", "headlight/brake flares and road glow, drawn additively at night", labeledEach("light overlay", glowList)},
+		}
+		if len(extras) > 0 {
+			vars = append(vars, modelVariant{"extras", "Extra parts",
+				"parts of this vehicle's range the traffic table never places", labeledEach("extra", extras)})
+		}
+		out, err := b.Path("objects", id+".glb")
+		if err != nil {
+			fatal("%v", err)
+		}
+		summary, err := exportVariantList(p, texs, out, vars, nil)
+		if err != nil {
+			fatal("traffic %s: %v", id, err)
+		}
+		obj := &schema.Object{
+			Type: schema.ObjectModel3D, Name: name, Model: id + ".glb",
+			EnvMap: envRefs,
+			Props:  map[string]any{"source": discPath, "bodyPart": v.bodies[0]},
+		}
+		for _, mv := range vars {
+			obj.Variants = append(obj.Variants, schema.ModelVariant{ID: mv.id, Name: mv.name, Scene: mv.id, Description: mv.desc})
+		}
+		b.AddObject(schema.Asset{ID: id, Name: name, Group: "Traffic"}, obj)
+		fmt.Printf("%-34s -> %s (%s)\n", discPath+"#"+id, out, summary)
 	}
 }
 

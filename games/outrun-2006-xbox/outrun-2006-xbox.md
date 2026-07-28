@@ -132,6 +132,10 @@ roadmap.)
   discs genuinely additive), the static environment cubes ship as Retro-X `envMap` faces
   for sheen-marked materials, and the findings become the Studio's first curated doc page.
   *(this document)*
+* **Part XXV** — **the traffic fleet**: obj_othcar's model id pinned through the registry
+  (0xE), its 24-record assembly table decoded into twelve vehicles with placed wheels,
+  casters and glows — all twelve join the Studio, with complete baked semi-trailer rigs
+  surfacing in the trucks' extras. *(this document)*
 
 ---
 
@@ -3067,4 +3071,32 @@ Three viewer fidelities landed together, all from data already decoded:
   disc layout, the per-frame reflection/shadow passes, and the game's RDTSC timekeeping.
   The info panel itself grew a section-tab bar ("This asset" + one tab per doc page),
   sideways-scrollable with the top bar's fade cues.
+
+## Part XXV — the traffic fleet
+
+The traffic file (`obj_othcar`, 445 parts) had been the one `/Cars` resident left as an
+origin-stacked pile. Its assembly data turned out to sit right beside the Ferraris'
+chassis records in the executable — found by first pinning the file's model id through
+the **registry**: the model-object array (stride 0x48) indexed by id, anchored with
+dayts (0x82) and the player Dino (2), puts `obj_othcar` at id 0xE, and the record
+cluster referencing 0xE-handles begins at file 0x27B4B0.
+
+The **traffic table** is 24 records of a leaner layout than the cars': eight role slots
+{body, shadow, beam glow, —, glass glow ×2, flare L/R}, no mirror points, four placed
+wheel entries and a caster slot. Records pair by their shared caster into **twelve
+vehicles** — hatchback, coach, motorhome, pickup, coupé, sedan, compact, minivan, a taxi
+with its roof sign, and three trucks — each with two LOD groups and exact wheel
+placements (one mirrored wheel part per car; the trucks run distinct front and rear
+wheels). Their ground shadows are the one external reference: every record points into a
+shared shadow model (0xBA), not the traffic file. The vehicles' part ranges tile the 445
+parts exactly, and the truck ranges carry a bonus the table never places: complete
+articulated semi-trailer rigs with liveried box trailers, fully assembled with baked
+wheels — shipped in each truck's "Extra parts" variant.
+
+All twelve join the Studio as a Traffic group (variants: car / LOD 1 / shadow caster /
+light overlays / extra parts, plus the shared environment cube), and the doc page grew a
+traffic section. No live capture was possible — the beach race fixtures never draw
+traffic — so the table's own self-consistency carries the derivation: 24 records pairing
+cleanly into 12, ranges tiling the file, wheel positions plausible per silhouette, and
+every vehicle rendering as exactly the road car its parts promise.
 

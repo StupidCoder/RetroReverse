@@ -52,6 +52,17 @@ never appears on screen: it is drawn only from the light's point of view, into t
 map — a cheap silhouette standing in for the real car, so shadows cost a few hundred
 triangles instead of thousands. The Studio shows it as its own variant.</p>
 
+<h2>The traffic fleet</h2>
+<p>All twelve civilian vehicles — hatchback, coach, motorhome, pickup, coupé, sedan,
+compact, minivan, taxi and three trucks — live in a single 445-part file, and their
+assembly table sits in the executable beside the Ferraris': per vehicle, two detail
+levels, four placed wheels (one wheel part mirrored across the car; the trucks carry
+distinct front and rear wheels), additive glow and flare parts, and a shadow-caster hull.
+Their ground-shadow quads are the one thing borrowed from outside the file, a shared
+shadow model all traffic points at. The truck part ranges hide a bonus: complete
+articulated semi-trailer rigs, fully assembled with baked wheels and liveried box
+trailers, beyond the two levels the table places.</p>
+
 <h2>Liveries: textures riding on quads that never draw</h2>
 <p>The AI cars come in up to seven paint schemes, shipped as whole-car texture atlases in
 different colours. The format has no way to store a texture on its own — a texture exists

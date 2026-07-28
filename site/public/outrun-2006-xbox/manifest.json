@@ -247,6 +247,90 @@
    "name": "TESTA",
    "group": "Rivals (AI)",
    "file": "objects/rc-testa.json"
+  },
+  {
+   "id": "othcar-01",
+   "category": "object",
+   "name": "Hatchback",
+   "group": "Traffic",
+   "file": "objects/othcar-01.json"
+  },
+  {
+   "id": "othcar-02",
+   "category": "object",
+   "name": "Coach",
+   "group": "Traffic",
+   "file": "objects/othcar-02.json"
+  },
+  {
+   "id": "othcar-03",
+   "category": "object",
+   "name": "Motorhome",
+   "group": "Traffic",
+   "file": "objects/othcar-03.json"
+  },
+  {
+   "id": "othcar-04",
+   "category": "object",
+   "name": "Pickup",
+   "group": "Traffic",
+   "file": "objects/othcar-04.json"
+  },
+  {
+   "id": "othcar-05",
+   "category": "object",
+   "name": "Coupé",
+   "group": "Traffic",
+   "file": "objects/othcar-05.json"
+  },
+  {
+   "id": "othcar-06",
+   "category": "object",
+   "name": "Sedan",
+   "group": "Traffic",
+   "file": "objects/othcar-06.json"
+  },
+  {
+   "id": "othcar-07",
+   "category": "object",
+   "name": "Compact",
+   "group": "Traffic",
+   "file": "objects/othcar-07.json"
+  },
+  {
+   "id": "othcar-08",
+   "category": "object",
+   "name": "Minivan",
+   "group": "Traffic",
+   "file": "objects/othcar-08.json"
+  },
+  {
+   "id": "othcar-09",
+   "category": "object",
+   "name": "Taxi",
+   "group": "Traffic",
+   "file": "objects/othcar-09.json"
+  },
+  {
+   "id": "othcar-10",
+   "category": "object",
+   "name": "Flatbed truck",
+   "group": "Traffic",
+   "file": "objects/othcar-10.json"
+  },
+  {
+   "id": "othcar-11",
+   "category": "object",
+   "name": "Truck",
+   "group": "Traffic",
+   "file": "objects/othcar-11.json"
+  },
+  {
+   "id": "othcar-12",
+   "category": "object",
+   "name": "Tanker truck",
+   "group": "Traffic",
+   "file": "objects/othcar-12.json"
   }
  ]
 }
