@@ -1,0 +1,51 @@
+<p>A course is two files: a <code>.trk</code> with the road's spine and everything that
+rides on it, and a DriveArt packet with every texture, scenery model and sky. City
+stage&nbsp;1 is a 9.7&nbsp;km point-to-point road described by <strong>2,400 segment
+records six metres apart</strong> — position, heading, per-segment bytes for shoulders
+and one-way zones — with the same slice construction shared by all nine courses.</p>
+
+<h2>A road that ships its own vertices</h2>
+<p>There is no extrusion math at runtime. Each group of four segments stores four road
+cross-sections as <strong>eleven world-space points each</strong> — centre, shoulder,
+curb, wall pairs, right side then left — already positioned in absolute coordinates.
+The geometry streams from disc in <strong>pre-baked sliding windows</strong>: each
+0x3000-aligned <code>TRKD</code> chunk concatenates a group with its twelve neighbours,
+so one disc read hands the renderer its whole &plusmn;13-group surroundings with no
+stitching — and consecutive chunks repeat twelve thirteenths of their content. Disc
+space traded for seek time, on a drive that reads 300&nbsp;KB/s at best.</p>
+
+<h2>Topology in the executable</h2>
+<p>Which points connect into which quads is not in the track file at all: the slice
+topology is three static tables in <code>LaunchMe</code>, shared by every course. A
+selector table picks a slice type by distance from the camera — a draw-LOD ramp where
+distant slices drop their wall points — and the face table's entries legitimately reach
+into the <em>next</em> group's first row, so wall quads span segment boundaries. Face
+materials remap through a per-group header into the packet's texture groups, each up to
+36 cels deep: the animated billboards and flashing signs are texture groups cycling
+their frames.</p>
+
+<h2>Pace notes in the track file</h2>
+<p>Tucked after the segment array sits a table the AI drives by: <strong>600 three-byte
+pace notes, one per four segments</strong> — a speed limit, an advisory speed that dips
+to walking pace at the hairpin, and a parameter byte. The opponent's throttle governor
+blends these notes with the live curvature it reads off consecutive segment headings;
+traffic simply cruises at the advisory speed for its side of the road.</p>
+
+<h2>The horizon is two rings of six cels</h2>
+<p>The sky is a panorama cylinder built from <strong>two rings of six 64&times;64
+cels</strong>, stored rotated 90&deg; so the cel engine's column walk becomes a screen
+row walk. The far ring is opaque — sky gradient and distant terrain — and the near ring
+draws over it: the treeline silhouette with transparent sky. Each cel spans exactly
+15&deg; of bearing, so the six-cel ring covers a quarter turn and <strong>repeats four
+times per revolution</strong> — the scenery loops every 90&deg; of heading and is never
+noticed. The near ring's seventh cel is a pre-composed preview of both layers stacked,
+and Coastal ships a taller near ring for its ocean while collapsing the far ring to a
+single 4&times;4 <em>destination-shading</em> cel — a cel with no picture at all that
+darkens whatever is already in the framebuffer.</p>
+
+<h2>Roadside objects</h2>
+<p>Each course places around a thousand roadside objects from a table of 64 definitions:
+most are upright billboard cels with four mip levels, a few are full 3D models —
+(model, shape) pairs in the packet, the same format as the cars. Their placements are
+segment-relative, so the one definition table serves signs, lamp posts, bridges and the
+Thru-Traffic gantries alike.</p>

@@ -1,0 +1,64 @@
+<p>Twenty-nine car families ship under <code>DriveData/CarData</code> for eight playable
+cars — the rest are the traffic fleet, the police Mustang, and a shelf of vehicles
+nothing in the game ever spawns. A family file is a <code>wwww</code> wrap container
+holding (model, texture-set) pairs per detail level plus the physics tunables; the
+highest-detail Diablo is <strong>61 textured quads over 102 vertices</strong>, and one
+model unit is 1/128&nbsp;m — the Diablo's &plusmn;292-unit length works out to
+4.56&nbsp;m, the real car to the centimetre.</p>
+
+<h2>ORI3: everything is a quad</h2>
+<p>An <code>ORI3</code> model is two flat arrays: vertices as integer XYZ triples and
+24-byte face records — a material word, an id, four vertex indices. Every face is a
+quad, because the Madam cel engine draws quads: a textured face is one <em>cel</em>
+mapped corner-to-corner. Triangles are quads with the fourth index repeated. The
+material word's top byte is a face-class tag (plain body, degenerate triangle, or the
+late-drawn wheel overlays); the texture binding lives outside the model, in the paired
+shape's <code>!ori</code> table — one {face, texture} entry per quad.</p>
+
+<h2>SPoT textures and the shading in the pixels</h2>
+<p>The textures are tiny — 4&times;8 to 32&times;32 — in the shape's <strong>SPoT</strong>
+records: palette-coded pixels at 1 to 8 bits, optionally run-length packed per line, each
+record pointing at its palette chunk by a <em>signed</em> 24-bit offset. The 8-bit types
+put a 5-bit palette index under a <strong>3-bit brightness multiplier</strong> in each
+pixel: the cel engine scales every channel by it, which is where the window
+reflections and panel gradients live — shading painted into the pixels of a 32-colour
+texture.</p>
+
+<h2>Four liveries, one palette pointer</h2>
+<p>A traffic-car shape carries four shared palette chunks, <code>plt0</code>–<code>plt3</code>:
+entries 0–13 hold the chrome, glass and tyre colours, identical in all four; entries 14+
+are the body ramp — teal, red, blue, white for the BMW. Every texture points at
+<code>plt0</code>; when a traffic car spawns, the engine simply <strong>retargets the
+cel's palette pointer</strong> at one of the four chunks, chosen by the same
+linear-congruential roll that places the car. Four liveries for the cost of 80 bytes
+each — the Studio's variant picker shows the same four schemes.</p>
+
+<h2>Drawing without a depth buffer</h2>
+<p>The renderer paints a car's quads in model order with <strong>no depth
+buffer</strong> — later faces simply cover earlier ones. The models are built for it:
+the silver wheel quads sit <em>inboard</em> of the body panels (the Diablo's rear rims a
+couple of centimetres inside its sills), the wheel arches are painted black in the body
+texture as a backdrop, and the wheels draw late, over the top. Behind each rim hangs a
+near-black disc — the far wheel you see through a wheel well is that disc, not the
+other rim's back. A depth-tested viewer inverts the trick — the outboard black arch wins
+and eats the wheel — so the Studio's export nudges each bright rim quad just outside the
+body surface that overlaps it, restoring the painted-over look from every angle.</p>
+
+<h2>Bilinear quads and the straight-line problem</h2>
+<p>The cel engine maps a texture onto a quad <strong>bilinearly</strong> — its corner
+matrix walks texture rows and columns with a per-row shear, linear in both coordinates
+together. On a trapezoid quad (the Rodeo's cabin side tapers a full metre front to
+back) no pair of affinely-textured triangles reproduces that mapping: straight painted
+lines like window pillars kink at the diagonal. The Studio's GLB export subdivides each
+non-parallelogram quad into a grid until it converges on the cel engine's mapping —
+which is why the viewer's triangle count dwarfs the native quad count in the stats
+panel.</p>
+
+<h2>The shelf of the unspawned</h2>
+<p>The disc carries vehicles the game never uses: a green <strong>scooter with a
+helmeted rider</strong>, fully textured; a classic-body 911 at <em>higher</em> polygon
+count than the retail 911; a development iteration of the police Mustang; and a
+<code>Probe94</code> family that actually contains the <code>SASCO000</code> van — a
+mislabeled file sitting next to the correctly named copy. The 512&nbsp;TR's internal
+model name is <code>TESTA000</code>: its body is a Testarossa. Several opponent-art
+files are byte-identical copies of the Viper's — placeholders that shipped.</p>

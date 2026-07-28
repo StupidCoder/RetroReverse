@@ -211,7 +211,7 @@ function loadImg(url) {
 
 async function mount3D(ctx, doc) {
   const { stage: el, game, asset, params } = ctx;
-  const { THREE, Stage, ObjectLibrary } = await import('./engine3d.js');
+  const { THREE, Stage, ObjectLibrary, wireMaterial } = await import('./engine3d.js');
 
   const stage = new Stage(el, { fov: 45 });
   let clearIsolationRef = null; // assigned by the part-isolation block below
@@ -436,18 +436,21 @@ async function mount3D(ctx, doc) {
   // Wireframe toggle that respects part isolation: the shared ghost material
   // stays wireframe no matter what, so the toggle only affects the isolated
   // part. Ghosted meshes' saved (real) materials are updated too, so clearing
-  // the isolation restores them in the current toggle state.
+  // the isolation restores them in the current toggle state. wireMaterial
+  // renders the wires in one constant bright colour (dark models are
+  // unreadable in their own), stashing each material's texture and tint.
   const applyWf = (on) => {
     inst.node.traverse((o) => {
       if (!o.isMesh) return;
       for (const m of [o.material, o.userData.savedMat].flat().filter(Boolean)) {
-        if (m !== ghost && 'wireframe' in m) m.wireframe = on;
+        if (m !== ghost) wireMaterial(m, on);
       }
     });
   };
   const setSunlight = (on) => {
     sunOn = on;
     clearIsolationRef?.();
+    applyWf(false); // swap on the real materials; re-applied below
     if (on && !sun) {
       sun = new THREE.DirectionalLight(0xffffff, 1.6);
       sun.position.set(1, 2, 1.2);

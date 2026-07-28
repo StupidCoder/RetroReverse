@@ -1,0 +1,45 @@
+<p>3DO discs don't use ISO&nbsp;9660. The 846 files here sit in the <strong>Opera file
+system</strong>: every field big-endian (the console's ARM60 runs big-endian), the volume
+label at block&nbsp;0 rather than ISO's block&nbsp;16, and every file present as one or
+more identical copies — <strong>avatars</strong> — scattered across the disc to cut seek
+time. A directory entry lists all its avatar block numbers; bulk file data pools near the
+front of the disc while the directory tree sits a couple of hundred thousand blocks away
+at the back, so the laser rarely travels far for content.</p>
+
+<h2>The boot chain</h2>
+<p><code>LaunchMe</code> (290&nbsp;KB) is a textbook big-endian ARM Image Format
+executable: a four-instruction header that self-relocates, zero-fills its BSS and jumps
+to the entry point. It carries the race engine, the physics, the AI and the static track
+tables. The front-end menus live in a second AIF, <code>frontovl</code>, loaded as an
+<strong>overlay module</strong>: the loader runs the overlay's own header in place, then
+hands it a table of engine function pointers — the overlay calls back into
+<code>LaunchMe</code> for memory, files and drawing. <code>System/</code> holds Portfolio
+OS itself — kernel, folios and 32 programs, all AIF ARM60 code like the game.</p>
+
+<h2>DriveData: cars as data, physics as text</h2>
+<p>Everything a car is lives under <code>DriveData/CarData</code>, keyed by a four-letter
+tag (<code>LDIA</code>, <code>ANSX</code>, <code>COP1</code>, …): the 3D model and its
+textures in a <code>.WrapFam</code>, the dashboard art in a <code>.dashFam</code>, tyre
+sprites in <code>.TireF/R</code> — and the entire physics setup in plain readable text.
+A <code>.TdDyn</code> file spells out <code>#Mass</code>,
+<code>#MomentOfInertia</code>, per-gear top speeds, the redline and a 100-sample power
+curve; the difficulty system is two more numbers per skill level in the same files. The
+cars were tuned in a text editor.</p>
+
+<h2>The movies</h2>
+<p>Each <code>Movies/*.Stream</code> is a flat chunk stream for the SDK's DataStreamer:
+<code>FILM</code> video subchunks interleaved with <code>SNDS</code> audio. The video is
+<strong>Cinepak</strong> at 15&nbsp;fps, 320&times;240 — the 3DO has no video-decode
+hardware, so the ARM60 decodes every frame in software while a DSP instrument plays the
+SDX2 audio. The intro, the attract reel and the showcase clips — 165 streams in all —
+ride this one player.</p>
+
+<h2>Time comes from the audio folio</h2>
+<p>One quirk ties the whole engine together: the race loop does not pace itself on the
+video beam. Each frame it asks the <strong>audio folio's 240&nbsp;Hz clock</strong> to
+wake it — <code>SignalAtTime(cue, GetAudioTime()&nbsp;+&nbsp;4)</code>, and four audio
+ticks are exactly one 60&nbsp;Hz field — then sleeps on the cue's signal. The frame clock
+lives in the same time domain the music and effects engine syncs to. Around it, the
+per-frame work — streaming track chunks in, running the drivers, building the display
+list — runs as cooperating Portfolio tasks passing kernel signals, closer to a small
+operating system than a bare-metal game loop.</p>

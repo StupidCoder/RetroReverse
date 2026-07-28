@@ -337,7 +337,10 @@ async function showInfoModal(game, asset) {
     const stats = await statsProvider();
     if (stats && Object.keys(stats).length) {
       assetHtml += '<h3>Stats</h3><table>';
-      for (const [k, v] of Object.entries(stats)) assetHtml += `<tr><td>${esc(k)}</td><td>${esc(String(v))}</td></tr>`;
+      for (const [k, v] of Object.entries(stats)) {
+        if (v == null) continue; // absent rows (e.g. Bones on unrigged models)
+        assetHtml += `<tr><td>${esc(k)}</td><td>${esc(String(v))}</td></tr>`;
+      }
       assetHtml += '</table>';
     }
   }

@@ -15,6 +15,28 @@
   "filter": "crt",
   "texFilter": "nearest"
  },
+ "docs": [
+  {
+   "id": "disc",
+   "title": "On the disc",
+   "file": "docs/disc.html"
+  },
+  {
+   "id": "cars",
+   "title": "The cars",
+   "file": "docs/cars.html"
+  },
+  {
+   "id": "road",
+   "title": "The road and the sky",
+   "file": "docs/road.html"
+  },
+  {
+   "id": "drivers",
+   "title": "Drivers, cops and traffic",
+   "file": "docs/drivers.html"
+  }
+ ],
  "assets": [
   {
    "id": "obj-cy1-10",

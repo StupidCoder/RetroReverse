@@ -579,11 +579,40 @@ function faceVisible(wf, fi, eye) {
 const _wp = new THREE.Vector3();
 const _m4 = new THREE.Matrix4();
 
+// Wireframe mode draws every material in one constant bright colour — wire
+// lines rendered in a dark model's own texture (NFS's black Diablo) are
+// unreadable. The material keeps its depth/blend/side settings (the sky dome
+// relies on depthTest:false), only its texture and tint are stashed away
+// while the toggle is on. The colour matches the part-isolation ghost.
+export const WIREFRAME_COLOR = 0x44608a;
+
+export function wireMaterial(mat, on) {
+  if (!('wireframe' in mat)) return;
+  mat.wireframe = on;
+  if (!mat.color?.isColor) return; // shader materials: flag only
+  if (on) {
+    if (!mat.userData.wfSave) {
+      mat.userData.wfSave = { map: mat.map ?? null, color: mat.color.getHex(), vertexColors: mat.vertexColors };
+      mat.map = null;
+      mat.color.setHex(WIREFRAME_COLOR);
+      mat.vertexColors = false;
+      mat.needsUpdate = true;
+    }
+  } else if (mat.userData.wfSave) {
+    const s = mat.userData.wfSave;
+    mat.map = s.map;
+    mat.color.setHex(s.color);
+    mat.vertexColors = s.vertexColors;
+    delete mat.userData.wfSave;
+    mat.needsUpdate = true;
+  }
+}
+
 export function applyWireframe(root, on) {
   root.traverse((o) => {
     const m = o.material;
     if (!m) return;
-    for (const mat of Array.isArray(m) ? m : [m]) if ('wireframe' in mat) mat.wireframe = on;
+    for (const mat of Array.isArray(m) ? m : [m]) wireMaterial(mat, on);
   });
 }
 

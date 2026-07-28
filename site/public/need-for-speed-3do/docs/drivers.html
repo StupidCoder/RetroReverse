@@ -1,0 +1,50 @@
+<p>Everything that moves on the road — the player, the rival, the traffic, the cop —
+lives in one pool of <strong>seven car structs</strong>, each carrying a driver function
+pointer as its brain. Three brains exist: the player's control path, one shared road AI,
+and a dormant-pool driver that counts down spawn gates and then <em>rewrites its own
+car's driver pointer</em> to the road AI. What makes a cop a cop and traffic traffic is
+not code but a per-car <strong>behaviour bitmask</strong> selecting which AI modules run:
+the pace governor, the cop module, lane steering, an oncoming-direction bit.</p>
+
+<h2>Two motion models on one road</h2>
+<p>Only the player is simulated. The player's car integrates forces into body-frame
+velocities through a full rigid-body model — orientation matrix, slip angle (the tyre
+smoke reads it), grip state, a 100-sample power curve and per-gear thresholds from the
+plain-text tunables. Every AI car — rival, cops, traffic alike — is <strong>kinematic:
+rails with a spring</strong>. Its position advances along a velocity vector, then a
+corrective spring pulls it toward a road anchor point; no forces, no slip, no
+orientation dynamics. The difficulty system rides the same split: per-skill
+<em>Handling</em> and <em>Speed</em> factors in the text files scale how much curves slow
+an AI car and what fraction of the reference top-speed line it may hold — the generic
+traffic class pins handling at 255, <em>never</em> slowed by a curve.</p>
+
+<h2>Eight lanes, scored</h2>
+<p>The steering module quantises the 40-metre road into <strong>eight five-metre
+lanes</strong> and scores each car's current lane against its neighbours: penalties keep
+same-way cars right of centre and oncoming cars left, the segment's own bytes narrow
+the drivable range, and an eight-slot occupancy map built from the other six cars feeds
+avoidance. The winning lane's centreline becomes the steering target. Oncoming traffic
+is the same code with one bit set — and its road-frame motion block negated
+wholesale.</p>
+
+<h2>A traffic system of seven cars</h2>
+<p>Traffic exists only in a window from 120&nbsp;m behind the player to 324&nbsp;m
+ahead; a car drifting outside re-enters the dormant pool and respawns ahead. Placement
+rolls an inline linear-congruential generator for a 50/50 direction coin (overridden in
+one-way zones), caps each direction at <strong>three active cars</strong>, and rolls the
+same stream again for the model and its livery — the four shared palette schemes each
+class carries. A handful of structs, recycled forever, reads as a living highway.</p>
+
+<h2>The cop's day</h2>
+<p>The cop idles pre-armed until the player comes within two segments at speed; that
+sets a pursuit flag on the <em>player's</em> mask. The bust compares a warning counter
+against a threshold from the constants files: under it a written warning, over it a
+speeding ticket — two different overlay cel families — while a pull-over choreography
+parks both cars at the roadside before the chase flags clear and the race resumes.</p>
+
+<h2>Crashes without scripts</h2>
+<p>Barrier hits are handled inside the continuous model, not by a canned state: at an
+instrumented 116&nbsp;km/h berm impact the lateral position pins at the wall, speed
+scrubs from 32 to 9&nbsp;m/s over a second and a half, the body yaws thirty degrees and
+the slip angle spikes — tyre smoke and all — with not one flag changing in the car
+struct. The rollover cinematics on hard frontal impacts are a separate, rarer path.</p>
