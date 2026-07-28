@@ -291,6 +291,12 @@ func run(ctx *cli.Context) error {
 		})
 		ctx.Progress("objects", i+1, len(cars), m.Name)
 	}
+
+	if ctx.Stage("videos") {
+		if err := exportIntroVideo(ctx, vol); err != nil {
+			return fmt.Errorf("videos: %v", err)
+		}
+	}
 	return nil
 }
 

@@ -284,17 +284,125 @@ function mountPicture(ctx) {
 
 // ---- video ------------------------------------------------------------------------
 
+const PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+const PAUSE_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>';
+const SND_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4z" fill="currentColor" stroke="none"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+const MUTE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4z" fill="currentColor" stroke="none"/><path d="M16 9l6 6M22 9l-6 6"/></svg>';
+
+// The video is decoded by a hidden <video> element but presented on a canvas,
+// like the picture stage: the screen filter captures the canvas and
+// phase-locks its scanline/mask grid to the video's native pixels. The
+// overlay transport is the model-animation bar — play/pause, a scrubber in
+// source frames and a frame counter — plus a mute toggle.
 function mountVideo(ctx) {
   const { stage, game, asset } = ctx;
+  const box = document.createElement('div');
+  box.className = 'video-stage';
+  stage.appendChild(box);
+
   const v = document.createElement('video');
   v.src = game.url('', asset.file);
-  v.controls = true;
   v.playsInline = true;
-  v.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;background:#000;object-fit:contain;';
-  stage.appendChild(v);
+  v.preload = 'auto';
+  // in the DOM (hidden) so the browser treats it as a live media element —
+  // detached videos can be throttled; the canvas is the visible surface
+  v.style.display = 'none';
+  box.appendChild(v);
+
+  const cv = document.createElement('canvas');
+  cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;';
+  box.appendChild(cv);
+  const c2 = cv.getContext('2d');
+  const dpr = Math.min(2, devicePixelRatio || 1);
+
+  const fps = asset.fps || 15;
+  // contain-fit transform in CSS px: one video pixel is z screen pixels
+  let z = 1, x = 0, y = 0;
+  const layout = () => {
+    const vw = v.videoWidth || asset.w || 320, vh = v.videoHeight || asset.h || 240;
+    z = Math.min(box.clientWidth / vw, box.clientHeight / vh);
+    x = (box.clientWidth - vw * z) / 2;
+    y = (box.clientHeight - vh * z) / 2;
+  };
+  const draw = () => {
+    const w = Math.max(1, Math.round(box.clientWidth * dpr));
+    const h = Math.max(1, Math.round(box.clientHeight * dpr));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    c2.setTransform(1, 0, 0, 1, 0, 0);
+    c2.clearRect(0, 0, w, h);
+    if (!v.videoWidth) return;
+    // nearest-neighbour, as the 3DO's point-sampled cels: crisp pixel edges
+    // are also what the filter's grid expects to find
+    c2.imageSmoothingEnabled = false;
+    c2.drawImage(v, x * dpr, y * dpr, v.videoWidth * z * dpr, v.videoHeight * z * dpr);
+  };
+
+  const bar = document.createElement('div');
+  bar.className = 'transport';
+  bar.innerHTML = `
+    <button class="t-play" title="Play/pause">${PLAY_SVG}</button>
+    <input type="range" min="0" max="1" value="0" step="1" />
+    <span class="t-label"></span>
+    <button class="t-mute" title="Mute">${SND_SVG}</button>`;
+  box.appendChild(bar);
+  const playBtn = bar.querySelector('.t-play');
+  const seek = bar.querySelector('input');
+  const label = bar.querySelector('.t-label');
+  const muteBtn = bar.querySelector('.t-mute');
+
+  const totalFrames = () => Math.max(1, Math.round((v.duration || asset.duration || 0) * fps));
+  const toggle = () => { if (v.paused) v.play(); else v.pause(); };
+  playBtn.onclick = toggle;
+  cv.addEventListener('pointerup', toggle);
+  seek.oninput = () => { v.currentTime = (+seek.value + 0.5) / fps; };
+  muteBtn.onclick = () => {
+    v.muted = !v.muted;
+    muteBtn.innerHTML = v.muted ? MUTE_SVG : SND_SVG;
+    muteBtn.classList.toggle('on', v.muted);
+  };
+  v.onplay = () => { playBtn.innerHTML = PAUSE_SVG; };
+  v.onpause = () => { playBtn.innerHTML = PLAY_SVG; };
+  v.onloadeddata = () => { layout(); draw(); };
+  // autoplay if the navigation gesture still counts as activation; if the
+  // browser declines we sit on frame 0 with the play button lit
+  v.play().catch(() => {});
+
+  let raf = 0;
+  const loop = () => {
+    raf = requestAnimationFrame(loop);
+    layout();
+    draw();
+    const total = totalFrames();
+    const frame = Math.min(total - 1, Math.floor(v.currentTime * fps));
+    if (+seek.max !== total - 1) seek.max = total - 1;
+    if (document.activeElement !== seek) seek.value = frame;
+    label.textContent = `f ${frame}/${total}`;
+  };
+  loop();
+  const ro = new ResizeObserver(() => { layout(); draw(); });
+  ro.observe(box);
+
   return {
-    unmount() { v.pause(); v.remove(); },
-    stats: () => ({ Size: `${asset.w || '?'} × ${asset.h || '?'}`, FPS: asset.fps || '?', Duration: asset.duration ? fmtTime(asset.duration) : '?' }),
+    unmount() {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      v.pause();
+      v.src = '';
+      box.remove();
+    },
+    sources: () => [cv],
+    pixelGrid: () => ({ cell: z, ox: x, oy: y, ref: box.clientWidth }),
+    // asset.stats carries the platform truth (original codec, data rate,
+    // colour depth); the MP4's own properties are only the web re-encode
+    stats: () => ({
+      File: asset.file,
+      ...(asset.stats ? {} : {
+        Size: `${asset.w || '?'} × ${asset.h || '?'}`,
+        FPS: asset.fps || '?',
+        Duration: asset.duration ? fmtTime(asset.duration) : '?',
+      }),
+      ...(asset.stats || {}),
+    }),
   };
 }
 

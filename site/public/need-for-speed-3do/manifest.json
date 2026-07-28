@@ -1584,6 +1584,26 @@
    "name": "SASCO",
    "group": "Unused vehicles",
    "file": "objects/car-sasco.json"
+  },
+  {
+   "id": "intro",
+   "category": "video",
+   "name": "Intro",
+   "description": "The Electronic Arts intro movie the game plays at boot — the first of the disc's 165 streamed Cinepak movies.",
+   "file": "videos/intro.mp4",
+   "duration": 8.333333333333334,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "192 KB/s streamed off the CD",
+    "Length": "125 frames @ 15 fps",
+    "Native": "320 × 240 px",
+    "Source": "Movies/eac.stream (1.6 MB)"
+   }
   }
  ]
 }

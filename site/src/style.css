@@ -244,6 +244,7 @@ body {
 
 /* picture view */
 .picture-stage { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
+.video-stage { position: absolute; inset: 0; overflow: hidden; background: #000; }
 .picture-stage img { position: absolute; image-rendering: pixelated; transform-origin: 0 0; user-select: none; -webkit-user-drag: none; }
 
 .toast {

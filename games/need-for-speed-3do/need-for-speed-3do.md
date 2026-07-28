@@ -233,6 +233,46 @@ the intro play in-sequence needs that flow modeled — the audio subscriber time
 the existing 240 Hz clock and silent, the video decoded by the game's own Cinepak
 through DrawCels. Until then `moviehle` remains the working FMV path.
 
+### The SNDS audio track: SDX2, decoded and verified
+
+The `.Stream` audio side is now decoded too (`tools/platform/threedo/snds.go`):
+`SNDS/SHDR` carries the sound header (16-bit, 22 050 Hz, 2 channels, fourcc
+`SDX2`) and each `SNDS/SSMP` a declared byteCount of SDX2 bytes — the SDK
+DataStreamer's "squareroot-delta-exact" DPCM, one byte per sample,
+channel-interleaved: sample = 2·b·|b|, taken absolutely when b is even,
+added to the channel's previous sample when b is odd. The decoder is verified
+against an independent reference (FFmpeg's `3dostr`/`sdx2_dpcm`): **byte-identical
+across every declared sample of all 164 sounded movies** (`Movies/38.1.Stream`
+has no SNDS track at all). The two implementations differ only past the end:
+FFmpeg decodes whole chunks (`chunkSize − 24`) and so emits the final chunk's
+padding as garbage samples, while ours honours each SSMP's own byteCount —
+confirmed by the invariant ffmpegBytes = Σ(chunkSize−24) vs ours = Σ(byteCount)
+holding on all 165 streams (`extract/cmd/lsmovies -sums`).
+
+### The intro movie as a Retro-X video asset
+
+`webexport`'s `videos` stage ships `Movies/eac.stream` — the Electronic Arts
+Canada logo film, the first movie the game arms at boot (MovieHLE open order:
+eac, then the 101.x magazine reels) — as `videos/intro.mp4`: our Cinepak frames
+and SDX2 PCM, ffmpeg only re-encoding to H.264 + AAC with the moov atom up
+front (RETROX.md §9). The manifest entry carries the platform truth in `stats`
+(codec, 192 KB/s CD data rate, native 320×240, VQ'd YCbCr shown as RGB555,
+125 frames @ 15 fps) and the Studio's video view renders it on a canvas — so
+the CRT screen filter captures and phase-locks to the video pixels — under a
+model-animation-style transport (play/pause, frame scrubber, frame counter,
+mute).
+
+A one-frame census of all 165 movies (`extract/cmd/census`) shows the disc's
+movie set is: the EA/Pioneer logos, `title`, 3 attract reels, 3 cop pull-over
+films, `win`, 6 car showcase films named after their car (diablo/nsx/rx7/
+supra/vette/viper — the 911 and 512TR have no named film), and ~150 numbered
+`N.M.Stream` magazine interview segments (live-action host clips pre-composited
+into tilted magazine-page frames; the numbering has gaps, e.g. 68.1/68.3
+missing around 68.2/68.4). Whether every numbered page is reachable from the
+shipped magazine — and where the 911/512TR showcases hide — needs the
+front-end's magazine tables (movie paths are built via `Movies/%s.stream` in
+`frontovl`), still open.
+
 ### Gamepad in framedbg
 
 The 3DO control pad is delivered through the OS **event broker**, not a latched
