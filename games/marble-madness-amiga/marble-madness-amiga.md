@@ -1724,7 +1724,11 @@ by `$9BA − slopeHdr+$10`; op14 SET-VEL stores its operands raw for these (and
 `<<8` into the fixed-point ref for `dur≠1` regions — the earlier "`<<8` when
 dur==1" note was inverted), and op16 MOVE accumulates them into the drift —
 Intermediate's WAVE is precisely this: anchor (9,98), velocity (8,−4), a
-19-step op4 loop. The **Aerial obstacle actors** (`$1D3EC`) are two blit
+19-step op4 loop; its last steps push into the playfield border, where
+`blit_object` clips (width-words narrowed to the $12-word row, `BLTALWM=$FF00`
+masking the partial word), and op15 then frees the region — the wave crashes
+over the channel-end waterfall, is cut by the screen edge, and vanishes until
+the next marble triggers it. The **Aerial obstacle actors** (`$1D3EC`) are two blit
 layers: the walkway base record always at `+$A/+$C`, and the pop-up animation
 at `x+(v10−v0E)·8, y+(v10+v0E)·4`, where the activation RNG rolls the variant
 and its spot (`v0E,v10` = 0,rnd4 / rnd3,rnd2 / 0,rnd2 / 0,rnd2 per variant) —

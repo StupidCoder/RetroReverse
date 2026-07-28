@@ -427,12 +427,10 @@ func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 	if p8 := ou32(im, dyn+8); p8 != 0 && int(p8)+20 < len(im) &&
 		ou16(im, p8) == 0 && os16(im, p8+8) == 1 {
 		if ovl, _ := scanScript(im, 90, p8, p8+0x180, base, nCells, mapRows, nil); ovl != nil && len(ovl.Steps) >= 3 {
-			// the engine frees the region after op15 (the wave is gone until
-			// the next marble triggers it); the viewer loops, so rest on the
-			// final calm-water frame before replaying
-			last := ovl.Steps[len(ovl.Steps)-1]
-			last.Hold, last.DX, last.DY = 60, 0, 0
-			ovl.Steps = append(ovl.Steps, last)
+			// op15 frees the region: after the collapse the wave is GONE until
+			// the next marble triggers it. The viewer loops, so idle on a blank
+			// frame — the water is plain tilemap again — before replaying.
+			ovl.Steps = append(ovl.Steps, step{Cell: -1, Hold: 60})
 			out = append(out, *ovl)
 		}
 	}

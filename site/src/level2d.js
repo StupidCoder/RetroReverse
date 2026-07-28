@@ -3,7 +3,7 @@
 // of sprite2d objects, seeded pools, cylinder wrap, pan/zoom/pinch camera.
 // Everything comes from the level document; there is no per-game code.
 
-import { Application, Container, Rectangle, Sprite, Texture } from 'pixi.js';
+import { Application, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import { SpriteObject, loadImage } from './sprite2d.js';
 import { mulberry32 } from './data.js';
 
@@ -138,6 +138,15 @@ export async function mount(ctx, doc) {
 
   // ---- placements, pools, spawn --------------------------------------------------
   world.addChild(objLayer);
+  // The playfield clips sprites/blits at its edges (Marble Madness's blit_object
+  // narrows any draw crossing the 288-px right edge), so a path-animated piece
+  // sweeping into the border must clip against the map, not overhang into the
+  // void. Wrap-scrolling maps are exempt: their pieces may straddle the seam.
+  if (tm.wrap !== 'x') {
+    const clip = new Graphics().rect(0, 0, map.widthPx, map.heightPx).fill(0xffffff);
+    world.addChild(clip);
+    objLayer.mask = clip;
+  }
   const objects = new Map(); // id -> SpriteObject (loaded on demand)
   const getObj = async (id) => {
     if (!objects.has(id)) objects.set(id, SpriteObject.load(game, id));
