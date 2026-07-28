@@ -56,12 +56,27 @@ type bind struct {
 	asset, name, mdl, key string
 }
 
-// introShots is the demo player's own shot order, with each shot's actors —
-// sets included — as (mdl, key) pairs from that shot's archive.
-var introShots = []struct {
+// shotSpec is one shot: its archive and its actors, sets included, as
+// (mdl, key) pairs from that archive.
+type shotSpec struct {
 	id, name string
 	actors   []bind
-}{
+}
+
+// cutsceneSpec is one cutscene level: a script of shots. The opening is the
+// seven-shot attract film; the lab farewell and the thunderbolt are
+// single-shot demos from the same /Ajioka/ADemo/ library.
+type cutsceneSpec struct {
+	levelID, levelName   string
+	scriptID, scriptName string
+	scriptDesc           string
+	group                string // object group for the actors
+	flySpeed             float64
+	shots                []shotSpec
+}
+
+// introShots is the demo player's own shot order.
+var introShots = []shotSpec{
 	{"opwf", "The forest walk", []bind{
 		{"forest", "The dark forest", "opwf_bg.mdl", "opwf_bg.key"},
 		{"luigi-walk", "Luigi — the forest walk", "opwf_luigi.mdl", "opwf_luigi.key"},
@@ -102,22 +117,78 @@ var introShots = []struct {
 	}},
 }
 
+var cutscenes = []cutsceneSpec{
+	{
+		levelID: "intro", levelName: "The opening",
+		scriptID: "opening", scriptName: "The opening cutscene",
+		scriptDesc: "The seven demo shots the game streams before the title: Luigi walks the forest path, " +
+			"the map points the way, the gate and the front door open. Sets, actor clips and camera cuts " +
+			"are the game's own data; sound cues await the .bas decoder.",
+		group: "Intro", flySpeed: 600,
+		shots: introShots,
+	},
+	{
+		levelID: "lab-byebye", levelName: "The lab — bye-bye",
+		scriptID: "byebye", scriptName: "Bye-bye (drbyebye)",
+		scriptDesc: "The Professor E. Gadd lab farewell demo (dodb.szp, the archive's own name is drbyebye): " +
+			"Gadd, Luigi with the flashlight and the Poltergust in the lab set, played by the same demo " +
+			"machinery as the opening. Blend-shape weight tracks (.slk) and texture flipbooks (.txp) are " +
+			"not yet decoded, so faces hold their rest shape.",
+		group: "Lab", flySpeed: 600,
+		shots: []shotSpec{{"dodb", "Bye-bye", []bind{
+			{"lab", "Professor E. Gadd's lab", "db_bg.mdl", "db_bg.key"},
+			{"lab-gadd", "Professor E. Gadd", "db_lohakase.mdl", "db_lohakase.key"},
+			{"lab-luigi", "Luigi — the lab", "db_luigi.mdl", "db_luigi.key"},
+			{"lab-poltergust", "The Poltergust", "db_sojiki.mdl", "db_sojiki.key"},
+			{"lab-cone", "Flashlight cone (lab)", "db_cone.mdl", "db_cone.key"},
+			{"lab-handlight", "Luigi's flashlight (lab)", "db_handlight.mdl", "db_handlight.key"},
+			{"lab-fire", "The lab brazier", "int02fir.mdl", "int02fir.key"},
+		}}},
+	},
+	{
+		levelID: "thunderbolt", levelName: "The thunderbolt",
+		scriptID: "thunderbolt", scriptName: "The thunderbolt",
+		scriptDesc: "The lightning-strike demo (dotb.szp): the same lab set under the storm — the drama is " +
+			"in the .scd camera and its keyed lights. The .clr material-colour flash tracks are not yet " +
+			"decoded, so the bolt's materials hold their rest colour.",
+		group: "Lab", flySpeed: 600,
+		shots: []shotSpec{{"dotb", "The thunderbolt", []bind{
+			{"lab-storm", "The lab under the storm", "tb_bg.mdl", "tb_bg.key"},
+		}}},
+	},
+}
+
+// demoArcs names each shot's archive; the intro shots follow the op<id>
+// convention, the demos are their own files.
+func demoArc(shotID string) string {
+	return "/Ajioka/ADemo/" + shotID + ".szp"
+}
+
 func exportIntro(ctx *cli.Context, src *export.Source, doObjects, doLevels bool) error {
+	for _, cs := range cutscenes {
+		if err := exportCutscene(ctx, src, cs, doObjects, doLevels); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func exportCutscene(ctx *cli.Context, src *export.Source, cs cutsceneSpec, doObjects, doLevels bool) error {
 	b := ctx.Builder
 
 	doc := &schema.Level{
 		Type:  schema.LevelScene3D,
 		Scene: &schema.Scene{},
 	}
-	script := &schema.Script{Name: "The opening cutscene", FPS: 30}
+	script := &schema.Script{Name: cs.scriptName, FPS: 30}
 
 	built := map[string]string{}    // asset id → clip id (dedup across shots)
 	placementOf := map[string]int{} // asset id → placement id
 	nextPlacement := 0
 	haveCamera := false
 
-	for si, shot := range introShots {
-		arcPath := "/Ajioka/ADemo/" + shot.id + ".szp"
+	for si, shot := range cs.shots {
+		arcPath := demoArc(shot.id)
 		files, err := src.Archive(arcPath)
 		if err != nil {
 			return fmt.Errorf("intro: %s: %w", arcPath, err)
@@ -145,7 +216,7 @@ func exportIntro(ctx *cli.Context, src *export.Source, doObjects, doLevels bool)
 			})
 		}
 		if doLevels {
-			b.AddSideDoc("levels/intro/cameras/"+shot.id+".json", track)
+			b.AddSideDoc("levels/"+cs.levelID+"/cameras/"+shot.id+".json", track)
 		}
 		if !haveCamera && len(track.Track) > 0 {
 			doc.Camera = &schema.Camera{
@@ -220,7 +291,7 @@ func exportIntro(ctx *cli.Context, src *export.Source, doObjects, doLevels bool)
 						return fmt.Errorf("%s %s: %w", shot.id, a.mdl, err)
 					}
 				}
-				b.AddObject(schema.Asset{ID: a.asset, Name: a.name, Group: "Intro"}, &schema.Object{
+				b.AddObject(schema.Asset{ID: a.asset, Name: a.name, Group: cs.group}, &schema.Object{
 					Type: schema.ObjectModel3D, Name: a.name, Model: a.asset + ".glb",
 					SkinnedClone: clipID != "",
 					Animations:   metas,
@@ -256,21 +327,19 @@ func exportIntro(ctx *cli.Context, src *export.Source, doObjects, doLevels bool)
 		if doLevels {
 			script.Shots = append(script.Shots, sh)
 		}
-		ctx.Progress("levels", si+1, len(introShots),
-			fmt.Sprintf("intro %s: %d frames, %d actors", shot.id, sh.Frames, len(sh.Actors)))
+		ctx.Progress("levels", si+1, len(cs.shots),
+			fmt.Sprintf("%s %s: %d frames, %d actors", cs.levelID, shot.id, sh.Frames, len(sh.Actors)))
 	}
 
 	if !doLevels || len(script.Shots) == 0 {
 		return nil
 	}
-	b.AddSideDoc("levels/intro/opening.json", script)
+	b.AddSideDoc("levels/"+cs.levelID+"/"+cs.scriptID+".json", script)
 	doc.Scripts = []schema.ScriptRef{{
-		ID: "opening", Name: "The opening cutscene", File: "intro/opening.json",
-		Description: "The seven demo shots the game streams before the title: Luigi walks the forest path, " +
-			"the map points the way, the gate and the front door open. Sets, actor clips and camera cuts " +
-			"are the game's own data; sound cues await the .bas decoder.",
+		ID: cs.scriptID, Name: cs.scriptName, File: cs.levelID + "/" + cs.scriptID + ".json",
+		Description: cs.scriptDesc,
 	}}
-	b.AddLevel(schema.Asset{ID: "intro", Name: "The opening"}, doc)
+	b.AddLevel(schema.Asset{ID: cs.levelID, Name: cs.levelName}, doc)
 	return nil
 }
 

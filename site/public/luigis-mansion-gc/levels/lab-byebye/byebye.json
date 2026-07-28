@@ -1,0 +1,49 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "name": "Bye-bye (drbyebye)",
+ "fps": 30,
+ "shots": [
+  {
+   "id": "dodb",
+   "name": "Bye-bye",
+   "frames": 460,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 0,
+     "clip": "db_bg"
+    },
+    {
+     "placement": 1,
+     "clip": "db_lohakase"
+    },
+    {
+     "placement": 2,
+     "clip": "db_luigi"
+    },
+    {
+     "placement": 3,
+     "clip": "db_sojiki"
+    },
+    {
+     "placement": 4,
+     "clip": "db_cone"
+    },
+    {
+     "placement": 5,
+     "clip": "db_handlight"
+    },
+    {
+     "placement": 6,
+     "clip": "int02fir"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/dodb.json"
+   }
+  }
+ ]
+}

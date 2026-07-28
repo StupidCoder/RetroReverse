@@ -1,0 +1,38 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [2277.58740234375, 513.8365478515625, -8862.763671875],
+  "target": [2263.959228515625, 522.3564453125, -8874.6669921875],
+  "fov": 50,
+  "near": 5,
+  "far": 200000,
+  "fly": {
+   "speed": 600
+  }
+ },
+ "scene": {
+  "layers": null
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "lab-storm",
+   "pos": [0, 0, 0],
+   "name": "The lab under the storm",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  }
+ ],
+ "scripts": [
+  {
+   "id": "thunderbolt",
+   "name": "The thunderbolt",
+   "file": "thunderbolt/thunderbolt.json",
+   "description": "The lightning-strike demo (dotb.szp): the same lab set under the storm — the drama is in the .scd camera and its keyed lights. The .clr material-colour flash tracks are not yet decoded, so the bolt's materials hold their rest colour."
+  }
+ ]
+}

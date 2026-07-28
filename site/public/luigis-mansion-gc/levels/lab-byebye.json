@@ -1,0 +1,92 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-228.09767150878906, 40.582847595214844, -5687.57421875],
+  "target": [-241.90237426757812, 45.99169158935547, -5674.1513671875],
+  "fov": 50,
+  "near": 5,
+  "far": 200000,
+  "fly": {
+   "speed": 600
+  }
+ },
+ "scene": {
+  "layers": null
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "lab",
+   "pos": [0, 0, 0],
+   "name": "Professor E. Gadd's lab",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 1,
+   "object": "lab-gadd",
+   "pos": [0, 0, 0],
+   "name": "Professor E. Gadd",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 2,
+   "object": "lab-luigi",
+   "pos": [0, 0, 0],
+   "name": "Luigi — the lab",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 3,
+   "object": "lab-poltergust",
+   "pos": [0, 0, 0],
+   "name": "The Poltergust",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 4,
+   "object": "lab-cone",
+   "pos": [0, 0, 0],
+   "name": "Flashlight cone (lab)",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 5,
+   "object": "lab-handlight",
+   "pos": [0, 0, 0],
+   "name": "Luigi's flashlight (lab)",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  },
+  {
+   "id": 6,
+   "object": "lab-fire",
+   "pos": [0, 0, 0],
+   "name": "The lab brazier",
+   "props": {
+    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+   }
+  }
+ ],
+ "scripts": [
+  {
+   "id": "byebye",
+   "name": "Bye-bye (drbyebye)",
+   "file": "lab-byebye/byebye.json",
+   "description": "The Professor E. Gadd lab farewell demo (dodb.szp, the archive's own name is drbyebye): Gadd, Luigi with the flashlight and the Poltergust in the lab set, played by the same demo machinery as the opening. Blend-shape weight tracks (.slk) and texture flipbooks (.txp) are not yet decoded, so faces hold their rest shape."
+  }
+ ]
+}

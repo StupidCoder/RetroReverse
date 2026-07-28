@@ -1,0 +1,25 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "name": "The thunderbolt",
+ "fps": 30,
+ "shots": [
+  {
+   "id": "dotb",
+   "name": "The thunderbolt",
+   "frames": 60,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 0,
+     "clip": "tb_bg"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/dotb.json"
+   }
+  }
+ ]
+}

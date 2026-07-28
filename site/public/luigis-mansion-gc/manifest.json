@@ -3400,6 +3400,74 @@
    "name": "The opening",
    "description": "The opening cutscene's stage: the dark forest and the mansion approach with every intro actor. Play the script to watch the seven shots the game streams before the title — the cameras are the game's own hermite channels, baked per frame at 30 fps.",
    "file": "levels/intro.json"
+  },
+  {
+   "id": "lab",
+   "category": "object",
+   "name": "Professor E. Gadd's lab",
+   "group": "Lab",
+   "file": "objects/lab.json"
+  },
+  {
+   "id": "lab-gadd",
+   "category": "object",
+   "name": "Professor E. Gadd",
+   "group": "Lab",
+   "file": "objects/lab-gadd.json"
+  },
+  {
+   "id": "lab-luigi",
+   "category": "object",
+   "name": "Luigi — the lab",
+   "group": "Lab",
+   "file": "objects/lab-luigi.json"
+  },
+  {
+   "id": "lab-poltergust",
+   "category": "object",
+   "name": "The Poltergust",
+   "group": "Lab",
+   "file": "objects/lab-poltergust.json"
+  },
+  {
+   "id": "lab-cone",
+   "category": "object",
+   "name": "Flashlight cone (lab)",
+   "group": "Lab",
+   "file": "objects/lab-cone.json"
+  },
+  {
+   "id": "lab-handlight",
+   "category": "object",
+   "name": "Luigi's flashlight (lab)",
+   "group": "Lab",
+   "file": "objects/lab-handlight.json"
+  },
+  {
+   "id": "lab-fire",
+   "category": "object",
+   "name": "The lab brazier",
+   "group": "Lab",
+   "file": "objects/lab-fire.json"
+  },
+  {
+   "id": "lab-byebye",
+   "category": "level",
+   "name": "The lab — bye-bye",
+   "file": "levels/lab-byebye.json"
+  },
+  {
+   "id": "lab-storm",
+   "category": "object",
+   "name": "The lab under the storm",
+   "group": "Lab",
+   "file": "objects/lab-storm.json"
+  },
+  {
+   "id": "thunderbolt",
+   "category": "level",
+   "name": "The thunderbolt",
+   "file": "levels/thunderbolt.json"
   }
  ]
 }

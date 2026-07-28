@@ -285,6 +285,19 @@ The `.scd` camera roll channel is **degrees** (like fov; the door-knob shot stra
 from −12.7° to −0.7°) — the Studio player once read it as radians and spun the shot
 through two full revolutions.
 
+**The rest of the demo library.** `/Ajioka/ADemo/` holds 78 archives, all on the same
+`.scd`/`.sco` + `.mdl`/`.key` machinery: the opening's seven shots; **56 door-unlock
+vignettes** (`co/no/ho/oo-demo01..14` — Luigi's gloved hand `hr_mdl` at fourteen door
+sets, the `ho/oo` variants adding the key `k_mdl`); **`dodb`** ("drbyebye") — Professor
+E. Gadd's farewell at his lab shack, whose `db_bg` set turns out to be the whole mansion
+approach plus the lab, with Gadd, Luigi, the Poltergust (`db_sojiki`) and the flashlight
+pair; **`dotb`** — the thunderbolt beat over the same set; and the Game Boy Horror scenes
+(`gameboy`, `gbdemo01..07`). The lab farewell and the thunderbolt ship as Studio cutscene
+levels (`lab-byebye`, `thunderbolt`): every actor in them is world-keyed (Gadd's blocking
+rides non-root joints, as the key demos taught earlier), so identity placement reproduces
+the scenes — the 460-frame farewell runs from Gadd at his shack up the path to a
+frightened Luigi shutting the front door.
+
 ## Part VI — exporters and the Studio
 
 `extract/cmd/lmtool` drives everything:
