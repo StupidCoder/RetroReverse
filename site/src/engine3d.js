@@ -282,8 +282,16 @@ function loadImage(url) {
   });
 }
 
-export function loadGLB(url) {
-  return gltfLoader.loadAsync(url);
+// loadGLB fetches and parses a GLB. The optional AbortSignal cancels the
+// network transfer mid-flight — three's own loaders cannot be aborted, so the
+// fetch is ours and only the parse is handed to GLTFLoader. Level views pass
+// their mount's signal so navigating away stops the stream (the mansion kept
+// downloading all 75 room shells under the next scene otherwise).
+export async function loadGLB(url, signal) {
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+  const buf = await res.arrayBuffer();
+  return gltfLoader.parseAsync(buf, THREE.LoaderUtils.extractUrlBase(url));
 }
 
 // applyTexFilter imposes the platform's texture sampling (manifest
@@ -317,8 +325,12 @@ const LOOPMAP = { loop: THREE.LoopRepeat, pingpong: THREE.LoopPingPong, once: TH
 // ObjectLibrary caches loaded object documents + payloads per game and
 // instantiates them for placements.
 export class ObjectLibrary {
-  constructor(game) {
+  // signal (optional AbortSignal) cancels in-flight model downloads; the
+  // library lives and dies with one mounted view, so an aborted proto never
+  // poisons a later mount's cache.
+  constructor(game, signal) {
     this.game = game;
+    this.signal = signal;
     this.cache = new Map(); // object id -> Promise<proto>
   }
 
@@ -332,7 +344,7 @@ export class ObjectLibrary {
     const proto = { asset, doc, docPath };
     const texFilter = this.game.display.texFilter;
     if (doc.type === 'model3d') {
-      proto.gltf = await loadGLB(this.game.url(docPath, doc.model));
+      proto.gltf = await loadGLB(this.game.url(docPath, doc.model), this.signal);
       for (const sc of proto.gltf.scenes?.length ? proto.gltf.scenes : [proto.gltf.scene]) {
         applyTexFilter(sc, texFilter);
       }
@@ -355,6 +367,13 @@ export class ObjectLibrary {
         if (m.userData?.blend === 'additive') {
           m.transparent = true;
           m.blending = THREE.AdditiveBlending;
+          m.depthWrite = false;
+          m.needsUpdate = true;
+        }
+        if (m.userData?.blend === 'alpha') {
+          // The source hardware's translucent pass: alpha blend with depth
+          // writes off (Luigi's Mansion draws its flashlight cone this way).
+          m.transparent = true;
           m.depthWrite = false;
           m.needsUpdate = true;
         }

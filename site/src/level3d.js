@@ -12,6 +12,13 @@ export async function mount(ctx, doc) {
   const docPath = asset.file;
   const cam = doc.camera || {};
 
+  // ctx.signal aborts everything this mount streams (layers, room shells,
+  // placement models). The app shell fires it the moment a navigation
+  // supersedes this view — even mid-mount: navigating away from a
+  // half-loaded mansion must stop the downloads, not let them fight the
+  // next scene's.
+  const signal = ctx.signal ?? new AbortController().signal;
+
   const stage = new Stage(el, cam);
   if (doc.scene?.background) stage.scene.background = new THREE.Color(doc.scene.background);
   if (doc.scene?.fog) {
@@ -58,7 +65,7 @@ export async function mount(ctx, doc) {
   if (doc.scene?.layers?.length) {
     dp.section('Layers');
     await Promise.all(doc.scene.layers.map(async (ly) => {
-      const gltf = await loadGLB(game.url(docPath, ly.file));
+      const gltf = await loadGLB(game.url(docPath, ly.file), signal);
       if (game.display.texFilter) applyTexFilter(gltf.scene, game.display.texFilter);
       const group = new THREE.Group();
       group.add(gltf.scene);
@@ -104,9 +111,10 @@ export async function mount(ctx, doc) {
     const worker = async () => {
       for (;;) {
         const r = queue.shift();
-        if (!r) return;
+        if (!r || signal.aborted) return;
         try {
-          const gltf = await loadGLB(game.url(docPath, r.file));
+          const gltf = await loadGLB(game.url(docPath, r.file), signal);
+          if (signal.aborted) return;
           if (game.display.texFilter) applyTexFilter(gltf.scene, game.display.texFilter);
           const group = new THREE.Group();
           group.add(gltf.scene);
@@ -120,6 +128,7 @@ export async function mount(ctx, doc) {
           }
           for (const pl of roomPlacements.get(r.id) || []) pl.visible = group.visible;
         } catch (e) {
+          if (signal.aborted) return;
           console.warn('room failed', r, e);
         }
         roomsLoaded++;
@@ -153,7 +162,7 @@ export async function mount(ctx, doc) {
   }
 
   // ---- placements ---------------------------------------------------------------------
-  const lib = new ObjectLibrary(game);
+  const lib = new ObjectLibrary(game, signal);
   const placementById = new Map(); // id -> { pl, inst, node }
   const pickables = [];
   const routeById = new Map((doc.routes || []).map((r) => [r.id, r]));
@@ -204,7 +213,7 @@ export async function mount(ctx, doc) {
       if (inst.update) stage.updaters.add((dt, cp, t) => { if (node.visible) inst.update(dt, cp, t); });
       wireBehavior(stage, node, pl, routeById);
     } catch (e) {
-      console.warn('placement failed', pl.object, e);
+      if (!signal.aborted) console.warn('placement failed', pl.object, e);
     }
   }));
 

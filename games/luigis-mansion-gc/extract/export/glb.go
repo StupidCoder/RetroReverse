@@ -70,7 +70,11 @@ func StaticGLB(m *lm.MDL, path, name string) error {
 						pr.WrapS, pr.WrapT = gxWrap(s.WrapS), gxWrap(s.WrapT)
 					}
 				}
-				pr.BaseColor = [4]float32{1, 1, 1, 1}
+				pr.BaseColor = [4]float32{
+					float32(mat.Tint[0]) / 255, float32(mat.Tint[1]) / 255,
+					float32(mat.Tint[2]) / 255, float32(mat.Tint[3]) / 255,
+				}
+				pr.Blend = mat.Mode == 2 // the game's translucent pass
 				pr.DoubleSided = true
 				pr.Unlit = true
 				prims[pair.Material] = pr

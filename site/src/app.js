@@ -97,7 +97,15 @@ function showLanding() {
 
 // ---- asset views -------------------------------------------------------------
 
+let mountAbort = null; // the in-flight/current view's streaming abort
+
 function teardown() {
+  // Stop the outgoing view's asset streaming — including a mount that is
+  // still awaiting its placements (the mansion keeps its room shells and
+  // furniture flowing long after the level appears; a superseded mount has
+  // no view object yet, so only this signal can reach it).
+  mountAbort?.abort();
+  mountAbort = null;
   if (current?.view?.unmount) current.view.unmount();
   current = null;
   stage.innerHTML = '';
@@ -118,6 +126,7 @@ let mountSeq = 0;
 async function showAsset(game, asset, params) {
   const seq = ++mountSeq;
   teardown();
+  const abort = (mountAbort = new AbortController());
   landing.hidden = true;
   stage.hidden = false;
   document.title = `${asset.name} — ${game.man.title}`;
@@ -128,6 +137,7 @@ async function showAsset(game, asset, params) {
     const mod = await VIEWS[asset.category]();
     const view = await mod.mount({
       stage, game, asset, params,
+      signal: abort.signal,
       navigate: (assetId, p) => navigate(game.id, assetId, p),
       setVariants: (variants, activeId, apply) => buildVariantSelect(game, asset, variants, activeId, params, apply),
       displayPanel: displayPanelAPI(),
@@ -142,7 +152,7 @@ async function showAsset(game, asset, params) {
     current = { game, asset, view, params };
     wireViewButtons(game, view);
   } catch (e) {
-    if (seq !== mountSeq) return;
+    if (seq !== mountSeq || abort.signal.aborted) return; // superseded, not failed
     console.error(e);
     toast(`Failed to load ${asset.name}: ${e.message}`);
   } finally {

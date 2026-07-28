@@ -186,6 +186,22 @@ The opening models use CMPR (8×8 tiles of four DXT1 blocks), RGB565 and IA8; de
 `extract/lm/gxtex.go`. A material (0x120 bytes) carries up to eight 32-byte texture stages,
 each naming a sampler; samplers bind a texture with GX wrap modes.
 
+**Material render state.** The record opens with `{u8 rgba[4] tint @0, u8 mode @6, u8
+stageCount @7}`. The tint is loaded into the GX material colour register and the TEV
+multiplies it into the texture's colour *and* alpha — draw-traced on the forest walk
+(`RR_GC_DRAWTRACE=1` from `cut1.state`): the cone's lit vertices print exactly the file's
+bytes (`FFE5A47F` — a warm beam at alpha 127). The mode byte selects the pass: `0` opaque,
+`1` alpha-tested cutout (the forest foliage), `2` translucent — alpha blend
+(`bp41=00F4AD`, srcalpha/invsrcalpha) with Z compare on but **Z write off** (`zm=07` vs the
+opaque pass's `17`). Mode 2 marks both flashlight-cone materials, the torch flames, the
+mansion set's window glass and one all-invisible Luigi material (tint alpha 0 — its draws
+write zero pixels on hardware too). The export maps mode 2 to glTF `BLEND` plus
+`extras.blend:"alpha"` (the Studio turns off depth writes), everything else to `MASK`.
+Still open: the `.clr` sidecars are keyframed material-colour tracks (the oppm trace shows
+the lightning's register riding them, alpha 0 at rest and flashing to 255), and `.txp` is a
+texture-pattern flipbook (the torch fire) — neither is decoded yet, so those materials ship
+at their rest colour.
+
 ## Part V — the .key animation format
 
 Read out of the evaluator at `0x8005AF0C` and its two interpolators (`0x8005AB04` floats,
@@ -216,6 +232,20 @@ not a semantic: evaluating cold gives the same pose.
 The demo places each actor through one more matrix (for the walk shot: a mirror with a
 translation) between the key pose and the world — visible as the constant left-multiplier `A`
 when solving `ram = A · composed` over all nodes.
+
+**The demo world is y-up, and most actors don't need `A` at all.** Posing every shot's
+actors at frame 0 and comparing against the baked `.scd` camera tracks settles the frame:
+the sets, torch, lightning and crow are keyed straight in y-up world space exactly where
+the cameras look (the mansion rises to y +10 227 toward −z; the opeg camera stands at
+y 760 staring down the gate path) — and so are the cones, the handlights and two of the
+four Luigi clips (`opsu_luigi.key`, `opod_luigi.key` put him on the steps at y ≈ 1100,
+right under the opsu camera). Only `opwf_luigi.key` and `entergate.key` carry a 180° X
+rotation on their root track, which `A`'s mirror undoes on hardware. The exporter used to
+stand *everything* on its head with an unconditional root flip — the "upside-down sets"
+bug — and now instead detects the flipped root in the key's first frame and applies a
+y-mirror there (`scale 1,−1,1`), which keeps the clip's correct world x/z (walk-Luigi
+lands on the very path the camera tracks). `A`'s translation part is still untraced and
+remains the declared placement gap.
 
 ## Part VI — exporters and the Studio
 

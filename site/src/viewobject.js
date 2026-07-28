@@ -225,7 +225,7 @@ async function mount3D(ctx, doc) {
   stage.controls.autoRotateSpeed = 1.0;
   el.addEventListener('pointerdown', () => { stage.controls.autoRotate = false; }, { once: true });
 
-  const lib = new ObjectLibrary(game);
+  const lib = new ObjectLibrary(game, ctx.signal);
   // Model variants (Retro-X `variants`): one glTF scene each in the same GLB.
   const variants = doc.variants || [];
   const variantById = (id) => variants.find((v) => v.id === id) || variants[0];

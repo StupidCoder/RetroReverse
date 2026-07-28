@@ -9,10 +9,16 @@ package main
 // placements-only. Luigi at the gate, on the steps and at the door is ONE
 // model (entergate.mdl) driven by per-shot .key clips, exactly as stored.
 //
-// Known gaps, declared: per-shot actor placement matrices live in the demo
-// player's code and are not yet traced (everything ships at the origin — the
-// sets are modelled in world space so this is exact for them and approximate
-// for characters); the .slk blend-shape weight tracks are not exported (the
+// The demo world is y-up and the .scd camera tracks live in it directly, so
+// actors export in that space untouched. Two character clips (opwf_luigi.key,
+// entergate.key) flip their root upside down; the demo player's per-actor
+// matrix — a mirror with a translation, solved from RAM — stands them up, and
+// SkinnedGLB reproduces the mirror on the root when it detects the flip.
+//
+// Known gaps, declared: the translation part of those per-shot actor matrices
+// is not yet traced (everything ships at the origin — the sets and most props
+// are keyed in world space so this is exact for them and approximate for
+// characters); the .slk blend-shape weight tracks are not exported (the
 // .sls rest face is applied); the .bas sound cues await their decoder, so
 // shots carry no sounds[].
 

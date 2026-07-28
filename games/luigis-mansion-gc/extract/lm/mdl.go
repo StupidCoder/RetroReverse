@@ -128,9 +128,17 @@ type MDLTexture struct {
 }
 
 // MDLMaterial keeps what the exporter needs of the 0x120-byte material record.
+//
+// Tint is the record's RGBA at +0: the game loads it into the GX material
+// colour register, so the TEV multiplies it into both texture colour and
+// texture alpha (draw-traced: a cone draw's lit vertex colour equals these
+// four bytes). Mode is the byte at +6 — the material's render pass:
+// 0 opaque, 1 alpha-tested cutout, 2 translucent (alpha blend, Z compare
+// on but Z write off; the flashlight cones, the torch flames, the mansion
+// set's window glass).
 type MDLMaterial struct {
 	Tint     [4]uint8
-	Flags    uint8
+	Mode     uint8
 	Samplers []int // sampler index per texture stage
 }
 
@@ -305,8 +313,8 @@ func ParseMDL(b []byte) (*MDL, error) {
 	for i := 0; i < materialCount; i++ {
 		o := matOff + uint32(i)*0x120
 		mat := MDLMaterial{
-			Tint:  [4]uint8{b[o+4], b[o+5], b[o+6], b[o+7]},
-			Flags: b[o+8],
+			Tint: [4]uint8{b[o], b[o+1], b[o+2], b[o+3]},
+			Mode: b[o+6],
 		}
 		stageCount := int(b[o+7])
 		if stageCount > 8 {

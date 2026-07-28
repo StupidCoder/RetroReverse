@@ -355,15 +355,32 @@ func SkinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace, no
 			"JOINTS_0":   w.addJoints(pr.joints),
 			"WEIGHTS_0":  w.addVec4(pr.weights),
 		}
+		// The material tint is the GX material colour: the TEV multiplies it
+		// into the texture's colour AND alpha (draw-traced on the forest walk —
+		// the cone's lit vertices are exactly these bytes). Mode 2 materials
+		// draw in the game's translucent pass: alpha blend, Z write off.
+		md := &m.Materials[mi]
+		tint := []float32{
+			float32(md.Tint[0]) / 255, float32(md.Tint[1]) / 255,
+			float32(md.Tint[2]) / 255, float32(md.Tint[3]) / 255,
+		}
 		mat := map[string]any{
 			"name":        fmt.Sprintf("mat%02d", mi),
 			"doubleSided": true,
 			"extensions":  map[string]any{"KHR_materials_unlit": struct{}{}},
 			"pbrMetallicRoughness": map[string]any{
-				"baseColorFactor": []float32{1, 1, 1, 1},
+				"baseColorFactor": tint,
 				"metallicFactor":  0, "roughnessFactor": 1,
 			},
-			"alphaMode": "MASK", "alphaCutoff": 0.5,
+		}
+		if md.Mode == 2 {
+			// extras.blend tells the Studio viewer to also disable depth
+			// writes, matching the game's zm=07 translucent pass.
+			mat["alphaMode"] = "BLEND"
+			mat["extras"] = map[string]any{"blend": "alpha"}
+		} else {
+			mat["alphaMode"] = "MASK"
+			mat["alphaCutoff"] = 0.5
 		}
 		if s := m.Materials[mi].Samplers; len(s) > 0 {
 			smp := m.Samplers[s[0]]
@@ -406,12 +423,24 @@ func SkinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace, no
 	meshNode := len(nodes)
 	nodes = append(nodes, map[string]any{"name": name, "mesh": 0, "skin": 0})
 	rootIdx := len(nodes)
-	// The model's own space is y-down (the demo places it through an actor
-	// matrix that flips it); a 180-degree X rotation on the root stands the
-	// standalone export upright.
+	// The demo world is y-up and the shot cameras live in it directly (the
+	// baked .scd tracks look at the sets exactly where their geometry sits).
+	// Most actors — the sets above all — are keyed straight in that space and
+	// must ship untouched. A few character clips (opwf_luigi.key,
+	// entergate.key) carry a 180° X rotation on their root track: on hardware
+	// the demo player composes one more per-actor matrix — for the walk shot
+	// a mirror with a translation, solved from RAM as the constant
+	// left-multiplier A in ram = A·composed — which stands them upright. The
+	// translation part is still untraced, but the mirror is not: when the key
+	// itself turns the model's up axis downward, a y-mirror on the root
+	// reproduces it (and, unlike the rotation it replaces, keeps the clip's
+	// correct x/z world path).
 	rootNode := map[string]any{"name": name + "_root", "children": []int{0, meshNode}}
 	if !noFlip {
-		rootNode["rotation"] = []float32{1, 0, 0, 0}
+		q := key.Eval(0, 0).Quat()
+		if upY := 1 - 2*(q[0]*q[0]+q[2]*q[2]); upY < 0 {
+			rootNode["scale"] = []float32{1, -1, 1}
+		}
 	}
 	nodes = append(nodes, rootNode)
 

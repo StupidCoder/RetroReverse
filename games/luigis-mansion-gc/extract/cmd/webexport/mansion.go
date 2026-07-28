@@ -96,7 +96,13 @@ func exportMansion(ctx *cli.Context, src *export.Source, doObjects, doLevels boo
 		}
 		export.SortClips(swing)
 		count := 0
+		// doorModels is a map; a fixed walk keeps the manifest deterministic.
+		doorIdxs := make([]int, 0, len(doorModels))
 		for idx := range doorModels {
+			doorIdxs = append(doorIdxs, idx)
+		}
+		sort.Ints(doorIdxs)
+		for _, idx := range doorIdxs {
 			name := "saku"
 			if idx > 0 {
 				name = fmt.Sprintf("door_%02d", idx)
