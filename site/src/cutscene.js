@@ -77,10 +77,13 @@ export class CutscenePlayer {
       const s = tr.track[i];
       const cam = this.stage.camera;
       cam.position.fromArray(s.pos);
-      // roll: rotate the up vector about the view axis
+      // roll: rotate the up vector about the view axis. Track roll is in
+      // DEGREES (like fov — RETROX.md §7): Luigi's Mansion's door-knob shot
+      // straightens from -12.7° to -0.7°, which read as radians was two full
+      // revolutions of spin.
       const dir = new THREE.Vector3().fromArray(s.target).sub(cam.position).normalize();
       cam.up.set(0, 1, 0);
-      if (s.roll) cam.up.applyAxisAngle(dir, s.roll);
+      if (s.roll) cam.up.applyAxisAngle(dir, s.roll * Math.PI / 180);
       cam.lookAt(s.target[0], s.target[1], s.target[2]);
       if (s.fov) cam.fov = s.fov;
       cam.near = shot.camera.near || tr.near || cam.near;

@@ -1,0 +1,40 @@
+{
+ "shot": "opwf",
+ "note": "Constant per-shot actor placement A, solved from the demo player's own stage-0 world-matrix arrays as A = world[i]\u00b7composed[i]\u207b\u00b9 over every node (stage 1 is the same premultiplied by the camera view). The demo player computes these in code; no disc file stores them. Verified constant across states ~200 frames apart; the world-space sets solve to identity as the control. Attached props (verified by attachprobe over states tens of frames apart): the prop's world node 0 equals the carrier joint's world matrix times the constant offset (omitted = identity), so its placement is derived from the keys at export time. Joint choice is the best-agreeing node; any node of the rigid hand subtree reproduces the same track.",
+ "actors": {
+  "opwf_bg.mdl+opwf_bg.key": {
+   "identity": true
+  },
+  "opwf_cone.mdl+opwf_cone.key": {
+   "attach": {
+    "carrier": "opwf_handlight.mdl+opwf_handlight.key",
+    "joint": 3
+   }
+  },
+  "opwf_handlight.mdl+opwf_handlight.key": {
+   "attach": {
+    "carrier": "opwf_luigi.mdl+opwf_luigi.key",
+    "joint": 35
+   }
+  },
+  "opwf_luigi.mdl+opwf_luigi.key": {
+   "frames": [
+    [
+     0,
+     -1,
+     7.912577530078124e-06,
+     7.912577530078124e-06,
+     0.009574218653142452,
+     -7.912577530078124e-06,
+     -1,
+     6.3300614749906e-11,
+     7.659375000912405e-08,
+     -7.912577530078124e-06,
+     -6.917394716927927e-13,
+     -1,
+     -2420
+    ]
+   ]
+  }
+ }
+}

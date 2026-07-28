@@ -1,0 +1,18 @@
+{
+ "shot": "oppm",
+ "note": "Constant per-shot actor placement A, solved from the demo player's own stage-0 world-matrix arrays as A = world[i]·composed[i]⁻¹ over every node (stage 1 is the same premultiplied by the camera view). The demo player computes these in code; no disc file stores them. Verified constant across states ~200 frames apart; the world-space sets solve to identity as the control.",
+ "actors": {
+  "op_bighand.mdl+oppm_hand.key": {
+   "identity": true
+  },
+  "op_mansion.mdl+op_mansion.key": {
+   "identity": true
+  },
+  "oppm_lightning.mdl+oppm_lightning.key": {
+   "identity": true
+  },
+  "torch.mdl+torch.key": {
+   "identity": true
+  }
+ }
+}

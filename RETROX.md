@@ -644,8 +644,8 @@ cutscene first and gain cues later without a format change.
   "near": 1, "far": 327680,                  // defaults for the consumer
   "track": [                                 // ✱ exactly one sample per frame:
     { "pos": [x,y,z], "target": [x,y,z], "roll": 0.0, "fov": 45.0 }, ...
-  ]
-}
+  ]                                          // roll and fov are both DEGREES;
+}                                            // roll turns about the view axis
 ```
 
 ## 8. The camera block

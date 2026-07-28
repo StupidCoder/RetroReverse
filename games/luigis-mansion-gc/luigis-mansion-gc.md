@@ -233,19 +233,35 @@ The demo places each actor through one more matrix (for the walk shot: a mirror 
 translation) between the key pose and the world — visible as the constant left-multiplier `A`
 when solving `ram = A · composed` over all nodes.
 
-**The demo world is y-up, and most actors don't need `A` at all.** Posing every shot's
-actors at frame 0 and comparing against the baked `.scd` camera tracks settles the frame:
-the sets, torch, lightning and crow are keyed straight in y-up world space exactly where
-the cameras look (the mansion rises to y +10 227 toward −z; the opeg camera stands at
-y 760 staring down the gate path) — and so are the cones, the handlights and two of the
-four Luigi clips (`opsu_luigi.key`, `opod_luigi.key` put him on the steps at y ≈ 1100,
-right under the opsu camera). Only `opwf_luigi.key` and `entergate.key` carry a 180° X
-rotation on their root track, which `A`'s mirror undoes on hardware. The exporter used to
-stand *everything* on its head with an unconditional root flip — the "upside-down sets"
-bug — and now instead detects the flipped root in the key's first frame and applies a
-y-mirror there (`scale 1,−1,1`), which keeps the clip's correct world x/z (walk-Luigi
-lands on the very path the camera tracks). `A`'s translation part is still untraced and
-remains the declared placement gap.
+**`A` solved — the placement gap is closed.** `extract/cmd/actorsolve` recovers each
+actor's `A` from a savestate: every demo actor is a heap object (frame-counter float,
+four ascending stage-array pointers, an `FFFFFFFF` terminator) whose stage-0 array holds
+the node WORLD matrices, so `A = world[i]·composed[i]⁻¹` over all nodes, against our own
+`.key` evaluation (residual ≤ the sine-table quantisation; the world arrays lag the
+counter by ~2 frames; a `-state2` a few fields later separates live objects from a
+previous shot's parked ones). Stage 1 is the same matrices premultiplied by the running
+camera's view — chasing it produced a phantom "time-varying blocking" until its solve was
+matched against the baked `.scd` camera (`A_s1(f) = View(f)·A_s0`). The answers, committed
+as `cmd/webexport/blocking/<shot>.json` and verified across states ~200 frames apart:
+
+- The demo world is y-up and almost every actor's `A` is the **identity** — the sets,
+  torch, lightning, crow, the map hand, and the opsu/opod Luigis are keyed straight in
+  world space where the cameras look.
+- `opwf_luigi.key` and `entergate.key` (whose root tracks carry a 180° X rotation) get a
+  constant **point reflection through the key's own frame-0 root position**:
+  `A = −I + 2·p₀` — exactly `(0,0,−2420)` for the walk and `(60.6, 31.9, −15525.6)` at
+  the gate, i.e. twice `(0,0,−1210)` and `(30.3, 15.9, −7762.8)`. "A mirror with a
+  translation", now with its numbers.
+- The flashlight and its cone are **attached**: `cmd/attachprobe` shows the handlight's
+  world node 0 equals a Luigi hand joint's world matrix times a constant offset (joint 35,
+  identity, in `opwf_luigi.mdl`; joint 53 with a fixed offset in `entergate.mdl`), and the
+  cone's equals the handlight's joint 3 exactly. The exporter expands these rides into
+  per-frame wrapper channels **derived from the keys** — the placement mode per actor is
+  the only traced fact; every matrix in the shipped GLBs comes from the disc's own data.
+
+The `.scd` camera roll channel is **degrees** (like fov; the door-knob shot straightens
+from −12.7° to −0.7°) — the Studio player once read it as radians and spun the shot
+through two full revolutions.
 
 ## Part VI — exporters and the Studio
 

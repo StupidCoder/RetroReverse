@@ -156,7 +156,9 @@ func (w *binWriter) addIndices(idx []uint32) int {
 // SkinnedGLB writes the model with its animation clip. With inPlace, the root
 // node's x/z translation is zeroed, so a clip whose root walks across the set
 // stays at the origin under the viewer's camera (the vertical bob is kept).
-func SkinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace, noFlip bool) error {
+// blocking, when given, is the demo player's captured per-frame placement
+// A(f): it animates the GLB's wrapper node inside the same clip.
+func SkinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace bool, blocking *Blocking) error {
 	if len(key.Tracks) != len(m.Nodes) {
 		return fmt.Errorf("key has %d tracks for %d nodes", len(key.Tracks), len(m.Nodes))
 	}
@@ -423,23 +425,23 @@ func SkinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace, no
 	meshNode := len(nodes)
 	nodes = append(nodes, map[string]any{"name": name, "mesh": 0, "skin": 0})
 	rootIdx := len(nodes)
-	// The demo world is y-up and the shot cameras live in it directly (the
-	// baked .scd tracks look at the sets exactly where their geometry sits).
-	// Most actors — the sets above all — are keyed straight in that space and
-	// must ship untouched. A few character clips (opwf_luigi.key,
-	// entergate.key) carry a 180° X rotation on their root track: on hardware
-	// the demo player composes one more per-actor matrix — for the walk shot
-	// a mirror with a translation, solved from RAM as the constant
-	// left-multiplier A in ram = A·composed — which stands them upright. The
-	// translation part is still untraced, but the mirror is not: when the key
-	// itself turns the model's up axis downward, a y-mirror on the root
-	// reproduces it (and, unlike the rotation it replaces, keeps the clip's
-	// correct x/z world path).
+	// The demo world is y-up and the shot cameras live in it directly, so an
+	// actor ships in its key's own space — plus, when a blocking table was
+	// captured for it, the demo player's per-frame placement A(f) animated
+	// on this wrapper node (world = A(f)·composed(f); actorsolve solved A
+	// from the game's own world-matrix arrays). The wrapper's rest TRS is
+	// A's first frame so a paused viewer still shows the placed actor.
 	rootNode := map[string]any{"name": name + "_root", "children": []int{0, meshNode}}
-	if !noFlip {
-		q := key.Eval(0, 0).Quat()
-		if upY := 1 - 2*(q[0]*q[0]+q[2]*q[2]); upY < 0 {
-			rootNode["scale"] = []float32{1, -1, 1}
+	block, err := bakeBlocking(blocking)
+	if err != nil {
+		return fmt.Errorf("%s: %w", name, err)
+	}
+	if len(block) > 0 {
+		b0 := block[0]
+		rootNode["translation"] = b0.t[:]
+		rootNode["rotation"] = b0.q[:]
+		if b0.sz < 0 {
+			rootNode["scale"] = []float32{1, 1, -1}
 		}
 	}
 	nodes = append(nodes, rootNode)
@@ -476,6 +478,28 @@ func SkinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace, no
 			samps = append(samps, map[string]any{"input": tAcc, "output": w.addVec3(scales), "interpolation": "LINEAR"})
 			chans = append(chans, map[string]any{"sampler": len(samps) - 1, "target": map[string]any{"node": i, "path": "scale"}})
 		}
+	}
+
+	// A multi-frame blocking track rides the same clip on the wrapper node,
+	// so scrubbing the shot moves the actor exactly as the demo player did.
+	// The intro's captured placements are all constant (single-row tables —
+	// the wrapper's static TRS above covers them); the channels exist for
+	// any future shot whose placement genuinely animates. The mirror
+	// (constant, asserted by bakeBlocking) stays static node scale.
+	if len(block) > 1 {
+		bt := make([]float32, len(block))
+		btr := make([][3]float32, len(block))
+		bq := make([][4]float32, len(block))
+		for i, s := range block {
+			bt[i] = s.frame / 30
+			btr[i] = s.t
+			bq[i] = s.q
+		}
+		bAcc := w.addScalars(bt)
+		samps = append(samps, map[string]any{"input": bAcc, "output": w.addVec3(btr), "interpolation": "LINEAR"})
+		chans = append(chans, map[string]any{"sampler": len(samps) - 1, "target": map[string]any{"node": rootIdx, "path": "translation"}})
+		samps = append(samps, map[string]any{"input": bAcc, "output": w.addVec4(bq), "interpolation": "LINEAR"})
+		chans = append(chans, map[string]any{"sampler": len(samps) - 1, "target": map[string]any{"node": rootIdx, "path": "rotation"}})
 	}
 
 	doc := map[string]any{

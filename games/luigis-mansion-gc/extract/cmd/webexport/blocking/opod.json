@@ -1,0 +1,50 @@
+{
+ "shot": "opod",
+ "note": "Constant per-shot actor placement A, solved from the demo player's own stage-0 world-matrix arrays as A = world[i]·composed[i]⁻¹ over every node (stage 1 is the same premultiplied by the camera view). The demo player computes these in code; no disc file stores them. Verified constant across states ~200 frames apart; the world-space sets solve to identity as the control.",
+ "actors": {
+  "entergate.mdl+opod_luigi.key": {
+   "identity": true
+  },
+  "op_mansion.mdl+opod_mansion.key": {
+   "identity": true
+  },
+  "opod_cone.mdl+opod_cone.key": {
+   "frames": [
+    [
+     0,
+     0.9994668364524841,
+     -0.014229116961359978,
+     -0.029262833297252655,
+     -332.30322265625,
+     0.014612122438848019,
+     0.9998049139976501,
+     0.012955104000866413,
+     156.9593505859375,
+     0.02907234989106655,
+     -0.01337698195129633,
+     0.9994860887527466,
+     11.275390625
+    ]
+   ]
+  },
+  "opod_handlight.mdl+opod_handlight.key": {
+   "frames": [
+    [
+     0,
+     0.9993796944618225,
+     -0.018078316003084183,
+     -0.030144061893224716,
+     -337.55303955078125,
+     0.018435919657349586,
+     0.9997624158859253,
+     0.011573141440749168,
+     140.419189453125,
+     0.029928095638751984,
+     -0.01212095282971859,
+     0.9994795322418213,
+     9.396484375
+    ]
+   ]
+  }
+ }
+}

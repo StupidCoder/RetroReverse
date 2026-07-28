@@ -16,6 +16,8 @@
 package main
 
 import (
+	"bufio"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"image/png"
@@ -106,6 +108,8 @@ func main() {
 	stackprof := flag.Int("stackprof", 0, "sample the call stack every N instructions (-1 for a sensible default) and report the hottest stacks; the instrument for the \"gekko + rest\" remainder, which a PC histogram cannot split")
 	stackprofN := flag.Int("stackprofn", 25, "how many stacks -stackprof reports")
 	stackprofDepth := flag.Int("stackprofdepth", 6, "how many caller frames -stackprof keeps")
+	memrec := flag.String("memrec", "", "record RAM ranges every VI field: ADDR:LEN[,ADDR:LEN...] (physical hex) — needs -frames and -memrecout")
+	memrecout := flag.String("memrecout", "", "output file for -memrec: per field a u32 BE field index, then each range's raw bytes")
 	flag.Parse()
 
 	if *image == "" {
@@ -121,6 +125,7 @@ func main() {
 		fifodump: *fifodump, texdump: *texdump, efbshot: *efbshot, aidwav: *aidwav, keys: *keys,
 		cpuprofile: *cpuprofile, frames: *frames, profile: *profile,
 		stackprof: *stackprof, stackprofN: *stackprofN, stackprofDepth: *stackprofDepth,
+		memrec: *memrec, memrecout: *memrecout,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -148,6 +153,7 @@ type cfg struct {
 	stackprofN                           int
 	stackprofDepth                       int
 	keys                                 string
+	memrec, memrecout                    string
 }
 
 // keyPress is one scheduled controller input: press `buttons` from VI field `atField`
@@ -439,7 +445,42 @@ func run(c cfg) error {
 
 	start := time.Now()
 	var res gc.Result
-	if c.frames > 0 {
+	if c.memrec != "" {
+		// Field-stepped run recording RAM ranges after every field — the
+		// instrument that captures per-frame guest state (e.g. the demo
+		// actors' world-matrix arrays) for offline solving.
+		if c.frames <= 0 || c.memrecout == "" {
+			return fmt.Errorf("-memrec needs -frames and -memrecout")
+		}
+		type mrRange struct{ addr, length int }
+		var ranges []mrRange
+		for _, part := range strings.Split(c.memrec, ",") {
+			var addr, length int
+			if _, err := fmt.Sscanf(part, "%x:%x", &addr, &length); err != nil {
+				return fmt.Errorf("memrec %q: want ADDR:LEN hex", part)
+			}
+			ranges = append(ranges, mrRange{addr, length})
+		}
+		out, err := os.Create(c.memrecout)
+		if err != nil {
+			return err
+		}
+		defer out.Close()
+		w := bufio.NewWriter(out)
+		defer w.Flush()
+		for f := 0; f < c.frames; f++ {
+			res = m.RunFields(1, steps)
+			var hdr [4]byte
+			binary.BigEndian.PutUint32(hdr[:], uint32(f))
+			w.Write(hdr[:])
+			for _, r := range ranges {
+				w.Write(m.RAM[r.addr : r.addr+r.length])
+			}
+			if res.Reason != "" && res.Reason != "fields" && !strings.Contains(res.Reason, "field") {
+				break
+			}
+		}
+	} else if c.frames > 0 {
 		res = m.RunFields(c.frames, steps)
 	} else {
 		res = m.Run(steps)

@@ -184,7 +184,7 @@ func LoadSkinned(files []lm.RARCFile, member, animName string) (*lm.MDL, *lm.Key
 
 // SkinnedExport writes a skinned, animated GLB of "/disc/file.szp:model.mdl"
 // with animation member.key from the same archive.
-func SkinnedExport(src *Source, spec, animName, out string, inPlace, noFlip bool) error {
+func SkinnedExport(src *Source, spec, animName, out string, inPlace bool) error {
 	path, member, ok := strings.Cut(spec, ":")
 	if !ok {
 		return fmt.Errorf("want /disc/file.szp:member.mdl, got %q", spec)
@@ -198,7 +198,7 @@ func SkinnedExport(src *Source, spec, animName, out string, inPlace, noFlip bool
 		return fmt.Errorf("%s: %w", path, err)
 	}
 	name := strings.TrimSuffix(member, ".mdl")
-	return SkinnedGLB(m, key, out, name, strings.TrimSuffix(animName, ".key"), inPlace, noFlip)
+	return SkinnedGLB(m, key, out, name, strings.TrimSuffix(animName, ".key"), inPlace, nil)
 }
 
 // MDLFromArchive pulls NAME out of the RARC inside the (possibly Yay0) disc

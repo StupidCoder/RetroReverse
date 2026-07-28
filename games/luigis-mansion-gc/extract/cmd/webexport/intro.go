@@ -10,26 +10,45 @@ package main
 // model (entergate.mdl) driven by per-shot .key clips, exactly as stored.
 //
 // The demo world is y-up and the .scd camera tracks live in it directly, so
-// actors export in that space untouched. Two character clips (opwf_luigi.key,
-// entergate.key) flip their root upside down; the demo player's per-actor
-// matrix — a mirror with a translation, solved from RAM — stands them up, and
-// SkinnedGLB reproduces the mirror on the root when it detects the flip.
+// actors export in their keys' own space — plus the demo player's per-frame
+// placement A(f) (blocking/<shot>.json, captured by extract/cmd/actorsolve
+// from the running game's world-matrix arrays), baked by SkinnedGLB as
+// animation channels on each actor's wrapper node. The world-space actors
+// (the sets, torch, lightning, crow) solve to identity and ship untouched.
 //
-// Known gaps, declared: the translation part of those per-shot actor matrices
-// is not yet traced (everything ships at the origin — the sets and most props
-// are keyed in world space so this is exact for them and approximate for
-// characters); the .slk blend-shape weight tracks are not exported (the
-// .sls rest face is applied); the .bas sound cues await their decoder, so
-// shots carry no sounds[].
+// Known gaps, declared: the .slk blend-shape weight tracks are not exported
+// (the .sls rest face is applied); the .bas sound cues await their decoder,
+// so shots carry no sounds[]; the .clr material-colour tracks and .txp
+// texture flipbooks are undecoded, so translucent tints hold their rest
+// values (the lightning rests invisible, the torch flame doesn't dance).
 
 import (
+	"embed"
 	"fmt"
+	"strings"
 
 	"retroreverse.com/games/luigis-mansion-gc/extract/export"
 	"retroreverse.com/games/luigis-mansion-gc/extract/lm"
 	"retroreverse.com/tools/lib/retrox/cli"
 	"retroreverse.com/tools/lib/retrox/schema"
 )
+
+//go:embed blocking
+var blockingFS embed.FS
+
+// shotBlocking loads a shot's captured actor-placement table, nil when the
+// shot has none.
+func shotBlocking(shotID string) *export.BlockingTable {
+	b, err := blockingFS.ReadFile("blocking/" + shotID + ".json")
+	if err != nil {
+		return nil
+	}
+	t, err := export.ParseBlocking(b)
+	if err != nil {
+		panic(fmt.Sprintf("blocking/%s.json: %v", shotID, err))
+	}
+	return t
+}
 
 // bind names one actor: the object asset it becomes, and the archive members
 // that build it. A binding with no key exports static.
@@ -148,6 +167,21 @@ func exportIntro(ctx *cli.Context, src *export.Source, doObjects, doLevels bool)
 		}
 
 		// --- actors (sets included) -----------------------------------------
+		blocking := shotBlocking(shot.id)
+		if blocking != nil {
+			// Attached props (the flashlight and its cone ride Luigi's hand)
+			// expand into per-frame wrapper rows derived from the keys.
+			err := blocking.ExpandAttachments(func(spec string) (*lm.MDL, *lm.Key, error) {
+				mdl, keyName, ok := strings.Cut(spec, "+")
+				if !ok {
+					return nil, nil, fmt.Errorf("blocking actor %q: want mdl+key", spec)
+				}
+				return export.LoadSkinned(files, mdl, keyName)
+			})
+			if err != nil {
+				return fmt.Errorf("%s blocking: %w", shot.id, err)
+			}
+		}
 		for _, a := range shot.actors {
 			clipID, seen := built[a.asset]
 			if !seen && doObjects {
@@ -162,7 +196,11 @@ func exportIntro(ctx *cli.Context, src *export.Source, doObjects, doLevels bool)
 						return fmt.Errorf("%s %s+%s: %w", shot.id, a.mdl, a.key, err)
 					}
 					clipID = trimExt(a.key)
-					if err := export.SkinnedGLB(m, key, glbPath, a.asset, clipID, false, false); err != nil {
+					var bl *export.Blocking
+					if blocking != nil {
+						bl = blocking.Actors[a.mdl+"+"+a.key]
+					}
+					if err := export.SkinnedGLB(m, key, glbPath, a.asset, clipID, false, bl); err != nil {
 						return fmt.Errorf("%s %s: %w", shot.id, a.mdl, err)
 					}
 					metas = []schema.Animation{{

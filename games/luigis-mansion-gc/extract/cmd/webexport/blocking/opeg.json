@@ -1,0 +1,57 @@
+{
+ "shot": "opeg",
+ "note": "Constant per-shot actor placement A, solved from the demo player's own stage-0 world-matrix arrays as A = world[i]\u00b7composed[i]\u207b\u00b9 over every node (stage 1 is the same premultiplied by the camera view). The demo player computes these in code; no disc file stores them. Verified constant across states ~200 frames apart; the world-space sets solve to identity as the control. Attached props (verified by attachprobe over states tens of frames apart): the prop's world node 0 equals the carrier joint's world matrix times the constant offset (omitted = identity), so its placement is derived from the keys at export time. Joint choice is the best-agreeing node; any node of the rigid hand subtree reproduces the same track.",
+ "actors": {
+  "entergate.mdl+entergate.key": {
+   "frames": [
+    [
+     0,
+     -1,
+     7.912577530078124e-06,
+     7.912577530078124e-06,
+     60.59066390991211,
+     -7.912577530078124e-06,
+     -1,
+     6.3300614749906e-11,
+     31.857799530029297,
+     -7.912577530078124e-06,
+     -6.917394716927927e-13,
+     -1,
+     -15525.5869140625
+    ]
+   ]
+  },
+  "op_mansion.mdl+opeg_mansion.key": {
+   "identity": true
+  },
+  "torch.mdl+torch.key": {
+   "identity": true
+  },
+  "opeg_handlight.mdl+opeg_handlight.key": {
+   "attach": {
+    "carrier": "entergate.mdl+entergate.key",
+    "joint": 53,
+    "offset": [
+     0.279,
+     0.686,
+     0.71,
+     -10.7,
+     -0.212,
+     0.74,
+     -0.632,
+     3.3,
+     -0.934,
+     0.025,
+     0.343,
+     -6.1
+    ]
+   }
+  },
+  "opeg_cone.mdl+opeg_cone.key": {
+   "attach": {
+    "carrier": "opeg_handlight.mdl+opeg_handlight.key",
+    "joint": 3
+   }
+  }
+ }
+}
