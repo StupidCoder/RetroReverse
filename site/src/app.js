@@ -67,7 +67,7 @@ function showLanding() {
   landing.hidden = false;
   $('gameTitle').textContent = '';
   for (const id of ['catSelect', 'assetSelect', 'variantSelect']) $(id).hidden = true;
-  for (const id of ['displayBtn', 'wireBtn', 'filterBtn', 'infoBtn']) $(id).hidden = true;
+  for (const id of ['displayBtn', 'wireBtn', 'sunBtn', 'filterBtn', 'infoBtn']) $(id).hidden = true;
 
   landing.innerHTML = '';
   const head = document.createElement('div');
@@ -220,6 +220,7 @@ function buildTopbar(game, asset, params) {
   }
 
   $('wireBtn').hidden = true;
+  $('sunBtn').hidden = true;
   $('displayBtn').hidden = true;
   requestAnimationFrame(updateTopbarFades);
 }
@@ -264,6 +265,13 @@ function wireViewButtons(game, view) {
     wb.hidden = false;
     let on = false;
     wb.onclick = () => { on = !on; view.setWireframe(on); wb.classList.toggle('on', on); };
+  }
+
+  const sb = $('sunBtn');
+  if (view.setSunlight) {
+    sb.hidden = false;
+    let on = false;
+    sb.onclick = () => { on = !on; view.setSunlight(on); sb.classList.toggle('on', on); };
   }
 
   const db = $('displayBtn');

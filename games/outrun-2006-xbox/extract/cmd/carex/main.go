@@ -265,6 +265,7 @@ type batch struct {
 type material struct {
 	texIdx  int // first bound 2-D texture, -1 if none
 	diffuse [3]float32
+	alpha   float32 // D3DMATERIAL8 diffuse alpha — the glass batches carry < 1
 }
 
 type part struct {
@@ -320,10 +321,11 @@ func (p *pmt) parsePart(pi int) (*part, error) {
 	for mi := 0; mi < nBatch; mi++ {
 		m := int(w[13]) + mi*0x58
 		id := int(u32(p.a, m))
-		mat := material{texIdx: -1, diffuse: [3]float32{1, 1, 1}}
+		mat := material{texIdx: -1, diffuse: [3]float32{1, 1, 1}, alpha: 1}
 		if id >= 0 && id < nMat48 {
 			c := int(w[14]) + id*0x48
 			mat.diffuse = [3]float32{f32(p.a, c), f32(p.a, c+4), f32(p.a, c+8)}
+			mat.alpha = f32(p.a, c+12)
 		}
 		for s := 0; s < 4; s++ {
 			ti := u32(p.a, m+8+20*s+16)
@@ -426,19 +428,114 @@ func triangulate(prim uint32, raw []uint32) [][3]uint32 {
 	return tris
 }
 
-// decodeVerts expands one pair's vertex buffer into positions and UVs.
-func (p *pmt) decodeVerts(bp bufPair) (pos [][3]float32, uv [][2]float32) {
+// decodeVerts expands one pair's vertex buffer into positions, normals and
+// UVs. Every stride carries the NV2A's packed 11:11:10 normal at +12 (the
+// -carvtx census: attr2 normal packed-11:11:10 @12 in both declarations).
+func (p *pmt) decodeVerts(bp bufPair) (pos, nrm [][3]float32, uv [][2]float32) {
 	n := int(bp.vbBytes / bp.stride)
 	pos = make([][3]float32, n)
+	nrm = make([][3]float32, n)
 	uv = make([][2]float32, n)
 	for i := 0; i < n; i++ {
 		v := int(bp.vbOff) + i*int(bp.stride)
 		pos[i] = [3]float32{f32(p.b, v), f32(p.b, v+4), f32(p.b, v+8)}
+		nrm[i] = unpackNormal(u32(p.b, v+12))
 		if bp.stride >= 24 {
 			uv[i] = [2]float32{f32(p.b, v+16), f32(p.b, v+20)}
 		}
 	}
-	return pos, uv
+	return pos, nrm, uv
+}
+
+// unpackNormal decodes the NV2A CMP (11:11:10 signed) vertex normal: x in bits
+// 0-10, y in 11-21 (11-bit two's complement, /1023), z in 22-31 (10-bit, /511).
+func unpackNormal(v uint32) [3]float32 {
+	sext := func(u uint32, bits int) float32 {
+		s := int32(u<<(32-bits)) >> (32 - bits)
+		return float32(s) / float32(int32(1)<<(bits-1)-1)
+	}
+	x := sext(v&0x7FF, 11)
+	y := sext(v>>11&0x7FF, 11)
+	z := sext(v>>22&0x3FF, 10)
+	// Normalise away the quantisation (and clamp the -1024/-512 endpoints).
+	l := float32(math.Sqrt(float64(x*x + y*y + z*z)))
+	if l > 0 {
+		x, y, z = x/l, y/l, z/l
+	}
+	return [3]float32{x, y, z}
+}
+
+// inspect prints every part's header, batches and materials — the fields the
+// export consumes plus the ones it currently drops (stateKey, diffuse alpha,
+// the part-header kind) — with a computed bounding box per batch.
+func inspect(p *pmt, texs []texInfo) error {
+	for pi := 0; pi < p.nParts; pi++ {
+		rec := 0x18 + pi*0x3C
+		w := make([]uint32, 15)
+		for i := range w {
+			w[i] = u32(p.a, rec+4*i)
+		}
+		pt, err := p.parsePart(pi)
+		if err != nil {
+			return err
+		}
+		hdr := int(w[7])
+		fmt.Printf("part %2d: kind=%#x centre=(%.3f,%.3f,%.3f) r=%.3f pairs=%d batches=%d\n",
+			pi, u32(p.a, hdr), f32(p.a, hdr+4), f32(p.a, hdr+8), f32(p.a, hdr+12), f32(p.a, hdr+16),
+			len(pt.pairs), len(pt.batches))
+		for k, bp := range pt.pairs {
+			fmt.Printf("  pair %d: vbOff=%#x vbBytes=%#x stride=%d\n", k, bp.vbOff, bp.vbBytes, bp.stride)
+		}
+		for mi := range pt.mats {
+			m := int(w[13]) + mi*0x58
+			id := int(u32(p.a, m))
+			stateKey := u32(p.a, m+4)
+			var stages []string
+			for s := 0; s < 4; s++ {
+				ti := u32(p.a, m+8+20*s+16)
+				switch {
+				case ti == 0xFFFFFFFF:
+				case int(ti) < len(texs) && texs[ti].cube:
+					stages = append(stages, fmt.Sprintf("s%d=tex%d(cube)", s, ti))
+				default:
+					stages = append(stages, fmt.Sprintf("s%d=tex%d", s, ti))
+				}
+			}
+			line := fmt.Sprintf("  mat %2d: id=%d stateKey=%08x %s", mi, id, stateKey, strings.Join(stages, " "))
+			if id >= 0 && id < 1<<16 {
+				c := int(w[14]) + id*0x48
+				line += fmt.Sprintf(" diffuse=(%.3f,%.3f,%.3f,a=%.3f)",
+					f32(p.a, c), f32(p.a, c+4), f32(p.a, c+8), f32(p.a, c+12))
+			}
+			fmt.Println(line)
+		}
+		for bi, b := range pt.batches {
+			bp := pt.pairs[b.pair]
+			idxCount, _ := indexCount(b.prim, b.prims)
+			mn := [3]float32{math.MaxFloat32, math.MaxFloat32, math.MaxFloat32}
+			mx := [3]float32{-math.MaxFloat32, -math.MaxFloat32, -math.MaxFloat32}
+			for i := uint32(0); i < idxCount; i++ {
+				ix := uint32(u16(p.a, int(bp.ibOff)+int(b.first+i)*2)) + b.baseVtx
+				v := int(bp.vbOff) + int(ix)*int(bp.stride)
+				for c := 0; c < 3; c++ {
+					f := f32(p.b, v+4*c)
+					if f < mn[c] {
+						mn[c] = f
+					}
+					if f > mx[c] {
+						mx[c] = f
+					}
+				}
+			}
+			d := int(w[10]) + bi*32
+			flag := u32(p.a, d+12)
+			fmt.Printf("  batch %2d: pair=%d stride=%d prim=%d idx=%d mat=%d flag=%#x base=%d attrOff=%#x bbox=(%.2f,%.2f,%.2f)..(%.2f,%.2f,%.2f)\n",
+				bi, b.pair, bp.stride, b.prim, idxCount, b.matIdx, flag,
+				b.baseVtx, bp.vbOff+b.baseVtx*bp.stride,
+				mn[0], mn[1], mn[2], mx[0], mx[1], mx[2])
+		}
+	}
+	return nil
 }
 
 // export builds one GLB from every part of the file.
@@ -473,16 +570,228 @@ var poses = map[string]map[int]partPose{
 	"obj_plcar_dino": dinoPose,
 }
 
-func export(p *pmt, texs []texInfo, outPath string) (string, error) {
+// dinoOmit lists obj_plcar_dino's parts the game never draws — captured from
+// the same race frame as dinoPose (bootoracle -carvtx over the loaded model's
+// section B; all 93 draws of the frame map onto the other eleven parts'
+// batches, these six get zero). They are alternates and proxies, not the car:
+// 2/3 = front-panel variants of part 1, 4 = an alternate rear section, 7 =
+// light/decal overlay quads, 14/15 = untextured grey proxy hulls that cap the
+// cockpit. Exporting them put a grey shell over the interior.
+var dinoOmit = map[int]bool{2: true, 3: true, 4: true, 7: true, 14: true, 15: true}
+
+// omits maps the model name to its captured never-drawn part set.
+var omits = map[string]map[int]bool{
+	"obj_plcar_dino": dinoOmit,
+}
+
+// onlyParts, when non-nil, restricts export to the listed part indices — the
+// -parts diagnostic for comparing candidate part sets against game captures.
+var onlyParts map[int]bool
+
+// placement is one exported instance of a part: an optional X mirror (the
+// game draws each rc wheel part twice with a mirrored transform), a rotation
+// about X and a translation.
+type placement struct {
+	part    int
+	mirrorX bool
+	t       [3]float32
+	tiltX   float64
+}
+
+// rcPlan builds the export plan for an obj_rc_* rival from the game's own
+// draw evidence (bootoracle -carvtx over race states; the analysis lives in
+// the game markdown, Part XIX):
+//
+//   - the visible near-distance set is parts {0 ground shadow, 1 LOD0 body,
+//     2 front detail, 7, 8 wheels}. Part 9 draws ONLY under the shadow pass's
+//     light projection (x-scale 0.052 vs the camera's 1.19) — it is the
+//     shadow-caster proxy hull, never the visible car — and the remaining
+//     parts are front-state variants, effect/glow overlays and lower-LOD
+//     copies, none drawn at the near distance.
+//   - the wheel parts sit in local space (one per axle) and the game draws
+//     each twice with mirrored transforms. The placements are not in the
+//     file's tables, but the far-LOD bodies carry the same wheels BAKED at
+//     their true positions: clustering the vertices of body batches whose
+//     materials use only the wheel textures gives the four wheel centres.
+//     For dayts (the captured car) the derived centres match the game's own
+//     draw matrices to a millimetre: file (±0.721, 0.341, −1.246) rear /
+//     (±0.709, 0.341, 1.154) front vs captured (±0.72, 0.34, −1.246) /
+//     (±0.72, 0.34, 1.154). Part 7 is the rear axle, 8 the front (captured
+//     assignment, declared for the fleet).
+func rcPlan(p *pmt) ([]placement, error) {
+	plan, err := rcNearPlan(p)
+	if err == nil {
+		return plan, nil
+	}
+	// Two rivals (fx, 328gts) bake their far-LOD wheels into general body
+	// batches, so no wheel centres are derivable. Fall back to the whole
+	// mid-LOD car (part 17 — the group the far captured rival drew), which
+	// carries its wheels in place.
+	fmt.Fprintf(os.Stderr, "carex: %s: %v — falling back to the mid-LOD part\n", p.name, err)
+	return []placement{{part: 0}, {part: 17}}, nil
+}
+
+// rcNearPlan is the near-distance set with derived wheel placements; it
+// errors when the wheel-centre derivation has no clean source in the file.
+func rcNearPlan(p *pmt) ([]placement, error) {
+	// The tire/rim textures, taken from the LOD1 wheel parts (15/16), whose
+	// materials are the cleanest source (the LOD0 wheels also sample detail
+	// textures shared with the body on some cars).
+	wtex := map[int]bool{}
+	for _, pi := range []int{15, 16} {
+		if pi >= p.nParts {
+			continue
+		}
+		pt, err := p.parsePart(pi)
+		if err != nil {
+			return nil, err
+		}
+		for _, m := range pt.mats {
+			if m.texIdx >= 0 {
+				wtex[m.texIdx] = true
+			}
+		}
+	}
+	// Baked wheel batches: in car-sized parts (bounding sphere r > 1), every
+	// material texture drawn from the wheel set.
+	type acc struct {
+		mn, mx [3]float32
+		n      int
+	}
+	quads := map[[2]int]*acc{}
+	for pi := 0; pi < p.nParts; pi++ {
+		if pi == 7 || pi == 8 || pi == 15 || pi == 16 {
+			continue
+		}
+		rec := 0x18 + pi*0x3C
+		hdr := int(u32(p.a, rec+4*7))
+		if f32(p.a, hdr+16) < 1 {
+			continue
+		}
+		pt, err := p.parsePart(pi)
+		if err != nil {
+			return nil, err
+		}
+		for _, b := range pt.batches {
+			m := pt.mats[b.matIdx]
+			if m.texIdx < 0 || !wtex[m.texIdx] {
+				continue
+			}
+			bp := pt.pairs[b.pair]
+			idxCount, _ := indexCount(b.prim, b.prims)
+			// Wheels touch the ground: a baked wheel batch's lowest vertex is
+			// at y≈0. Reject look-alike batches higher up (badges, mirrors).
+			ymin := float32(math.MaxFloat32)
+			for i := uint32(0); i < idxCount; i++ {
+				ix := uint32(u16(p.a, int(bp.ibOff)+int(b.first+i)*2)) + b.baseVtx
+				if y := f32(p.b, int(bp.vbOff)+int(ix)*int(bp.stride)+4); y < ymin {
+					ymin = y
+				}
+			}
+			if ymin > 0.08 {
+				continue
+			}
+			for i := uint32(0); i < idxCount; i++ {
+				ix := uint32(u16(p.a, int(bp.ibOff)+int(b.first+i)*2)) + b.baseVtx
+				v := int(bp.vbOff) + int(ix)*int(bp.stride)
+				x, y, z := f32(p.b, v), f32(p.b, v+4), f32(p.b, v+8)
+				key := [2]int{sign(x), sign(z)}
+				a := quads[key]
+				if a == nil {
+					a = &acc{mn: [3]float32{x, y, z}, mx: [3]float32{x, y, z}}
+					quads[key] = a
+				}
+				for c, f := range [3]float32{x, y, z} {
+					if f < a.mn[c] {
+						a.mn[c] = f
+					}
+					if f > a.mx[c] {
+						a.mx[c] = f
+					}
+				}
+				a.n++
+			}
+		}
+	}
+	centre := func(sx, sz int) ([3]float32, error) {
+		a := quads[[2]int{sx, sz}]
+		if a == nil {
+			return [3]float32{}, fmt.Errorf("%s: no baked wheel cluster at quadrant %d,%d", p.name, sx, sz)
+		}
+		c := [3]float32{(a.mn[0] + a.mx[0]) / 2, (a.mn[1] + a.mx[1]) / 2, (a.mn[2] + a.mx[2]) / 2}
+		if c[1] < 0.1 || c[1] > 0.7 || c[0]*float32(sx) < 0.4 || c[0]*float32(sx) > 1.3 ||
+			c[2]*float32(sz) < 0.4 || c[2]*float32(sz) > 2.0 {
+			return [3]float32{}, fmt.Errorf("%s: implausible wheel centre %v at quadrant %d,%d", p.name, c, sx, sz)
+		}
+		return c, nil
+	}
+	// The wheel geometry is modeled as the LEFT wheel: the capture shows the
+	// unmirrored transform at x<0 and the mirrored one (x-diagonal −1) at x>0.
+	plan := []placement{{part: 0}, {part: 1}, {part: 2}}
+	for _, w := range []struct {
+		part  int
+		zsign int
+	}{{7, -1}, {8, 1}} {
+		for _, xs := range []int{-1, 1} {
+			c, err := centre(xs, w.zsign)
+			if err != nil {
+				return nil, err
+			}
+			plan = append(plan, placement{part: w.part, mirrorX: xs > 0, t: c})
+		}
+	}
+	return plan, nil
+}
+
+func sign(f float32) int {
+	if f < 0 {
+		return -1
+	}
+	return 1
+}
+
+// plan builds the placement list for a model: the rc rivals get the
+// capture-derived visible set with placed wheels, obj_plcar_dino its captured
+// grid pose (via poses/omits), and everything else all parts in place.
+func (p *pmt) plan() ([]placement, error) {
+	if strings.HasPrefix(p.name, "obj_rc_") && p.name != "obj_rc_all" && onlyParts == nil {
+		return rcPlan(p)
+	}
 	pose := poses[p.name]
-	var positions [][3]float32
+	omit := omits[p.name]
+	var out []placement
+	for pi := 0; pi < p.nParts; pi++ {
+		if omit[pi] {
+			continue
+		}
+		pl := placement{part: pi}
+		if pp, ok := pose[pi]; ok {
+			pl.t, pl.tiltX = pp.t, pp.tiltX
+		}
+		out = append(out, pl)
+	}
+	return out, nil
+}
+
+func export(p *pmt, texs []texInfo, outPath string) (string, error) {
+	plan, err := p.plan()
+	if err != nil {
+		return "", err
+	}
+	var positions, normals [][3]float32
 	var uvs [][2]float32
 	texTris := map[int][][3]uint32{}      // texture index -> triangles
-	colorTris := map[[3]int][][3]uint32{} // quantised colour -> triangles
+	colorTris := map[[4]int][][3]uint32{} // quantised RGBA -> triangles
 
 	totalTris := 0
-	for pi := 0; pi < p.nParts; pi++ {
-		pt, err := p.parsePart(pi)
+	for _, pl := range plan {
+		if onlyParts != nil && !onlyParts[pl.part] {
+			continue
+		}
+		if pl.part >= p.nParts {
+			continue
+		}
+		pt, err := p.parsePart(pl.part)
 		if err != nil {
 			return "", err
 		}
@@ -491,19 +800,25 @@ func export(p *pmt, texs []texInfo, outPath string) (string, error) {
 		vbase := make([]uint32, len(pt.pairs))
 		for k, bp := range pt.pairs {
 			vbase[k] = uint32(len(positions))
-			pos, uv := p.decodeVerts(bp)
-			if pp, ok := pose[pi]; ok {
-				s, c := math.Sin(pp.tiltX), math.Cos(pp.tiltX)
-				for i := range pos {
-					y, z := pos[i][1], pos[i][2]
-					pos[i][1] = float32(c)*y - float32(s)*z
-					pos[i][2] = float32(s)*y + float32(c)*z
-					pos[i][0] += pp.t[0]
-					pos[i][1] += pp.t[1]
-					pos[i][2] += pp.t[2]
+			pos, nrm, uv := p.decodeVerts(bp)
+			s, c := float32(math.Sin(pl.tiltX)), float32(math.Cos(pl.tiltX))
+			for i := range pos {
+				if pl.mirrorX {
+					pos[i][0] = -pos[i][0]
+					nrm[i][0] = -nrm[i][0]
 				}
+				y, z := pos[i][1], pos[i][2]
+				pos[i][1] = c*y - s*z
+				pos[i][2] = s*y + c*z
+				pos[i][0] += pl.t[0]
+				pos[i][1] += pl.t[1]
+				pos[i][2] += pl.t[2]
+				ny, nz := nrm[i][1], nrm[i][2]
+				nrm[i][1] = c*ny - s*nz
+				nrm[i][2] = s*ny + c*nz
 			}
 			positions = append(positions, pos...)
+			normals = append(normals, nrm...)
 			uvs = append(uvs, uv...)
 		}
 		for _, b := range pt.batches {
@@ -519,12 +834,17 @@ func export(p *pmt, texs []texInfo, outPath string) (string, error) {
 				raw[i] = ix + vbase[b.pair]
 			}
 			tris := triangulate(b.prim, raw)
+			if pl.mirrorX {
+				for i := range tris {
+					tris[i][1], tris[i][2] = tris[i][2], tris[i][1]
+				}
+			}
 			totalTris += len(tris)
 			m := pt.mats[b.matIdx]
 			if m.texIdx >= 0 && texs[m.texIdx].img != nil && !texs[m.texIdx].cube {
 				texTris[m.texIdx] = append(texTris[m.texIdx], tris...)
 			} else {
-				key := [3]int{int(m.diffuse[0] * 255), int(m.diffuse[1] * 255), int(m.diffuse[2] * 255)}
+				key := [4]int{int(m.diffuse[0] * 255), int(m.diffuse[1] * 255), int(m.diffuse[2] * 255), int(m.alpha * 255)}
 				colorTris[key] = append(colorTris[key], tris...)
 			}
 		}
@@ -541,9 +861,10 @@ func export(p *pmt, texs []texInfo, outPath string) (string, error) {
 		colorGroups = append(colorGroups, glb.TriGroup{
 			Tris:  tris,
 			Color: [3]float32{float32(key[0]) / 255, float32(key[1]) / 255, float32(key[2]) / 255},
+			Alpha: float32(key[3]) / 255,
 		})
 	}
-	if err := glb.WriteTextured(outPath, positions, uvs, texGroups, colorGroups); err != nil {
+	if err := glb.WriteTexturedLit(outPath, positions, uvs, normals, texGroups, colorGroups); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("%d parts, %d verts, %d tris, %d textured groups, %d colour groups",
@@ -556,6 +877,8 @@ func main() {
 	all := flag.Bool("all", false, "extract every /Cars/*_pmt.sz model")
 	outDir := flag.String("o", "out", "output directory")
 	dumpTex := flag.Bool("dumptex", false, "also write each decoded texture as PNG")
+	insp := flag.Bool("inspect", false, "print part/batch/material tables instead of exporting")
+	partsFlag := flag.String("parts", "", "comma-separated part indices: export only these parts (diagnostic)")
 	site := flag.String("site", "", "Studio export: write the curated roster + manifest.json under this directory")
 	flag.Parse()
 
@@ -566,6 +889,16 @@ func main() {
 		}
 		exportSite(*imagePath, *site)
 		return
+	}
+	if *partsFlag != "" {
+		onlyParts = map[int]bool{}
+		for _, tok := range strings.Split(*partsFlag, ",") {
+			var pi int
+			if _, err := fmt.Sscanf(strings.TrimSpace(tok), "%d", &pi); err != nil {
+				fatal("bad -parts %q", *partsFlag)
+			}
+			onlyParts[pi] = true
+		}
 	}
 	if *imagePath == "" || (*one == "" && !*all) {
 		fmt.Fprintln(os.Stderr, "usage: carex -image DISC.iso (-file /Cars/... | -all) [-o dir]")
@@ -617,6 +950,13 @@ func main() {
 		texs, pixBytes, err := p.parseTextures()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "carex: %s: %v (skipped)\n", f, err)
+			continue
+		}
+		if *insp {
+			fmt.Printf("== %s: %d parts, %d textures ==\n", f, p.nParts, p.nTex)
+			if err := inspect(p, texs); err != nil {
+				fmt.Fprintf(os.Stderr, "carex: %s: inspect: %v\n", f, err)
+			}
 			continue
 		}
 		if *dumpTex {

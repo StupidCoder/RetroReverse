@@ -2728,6 +2728,54 @@ repo's verify-the-shipped-file rule) — and the assembled Dino matches the game
 `race-beac.state`: same yellow, same chrome, same `MO 246 G` plate, tires black, rims
 textured, wheels under the arches.
 
+### The parts the game does not show, and the glass it shows through
+
+The first exports shipped **every** part of every file, and the viewer showed it: the
+Dino's cockpit sat behind an opaque grey shell, and each rival was buried under stacked
+LOD copies, road-glow slabs and a grey wedge. Three more derivations fixed the exports.
+
+**The glass has been translucent all along.** The 0x48 colour material is a D3DMATERIAL8,
+and its diffuse *alpha* — dropped by the first export — is exactly the window tint: the
+Dino's canopy material (stateKey `0x10005107`, environment cube only) carries
+`diffuse=(0.115, 0.115, 0.115, a=0.550)`, and every rival's glass reads `a=0.55–0.60`.
+`carex` now exports the alpha (alphaMode BLEND in the GLB), and the interiors show through
+dark glass the way the game's own countdown close-up shows them.
+
+**The Dino's drawn set.** Mapping one race frame's 93 draws (`-carvtx`, race-driving,
+section B at `0x23DB580`) onto the batch table accounts for every draw exactly — attr0 =
+base + vbOff + baseVertex·stride — and six parts get **zero**: 2/3 (front-panel variants of
+part 1), 4 (an alternate rear section), 7 (light/decal overlay quads) and 14/15 (untextured
+grey proxy hulls capping the cockpit). The export now omits them (a declared capture, like
+`dinoPose`).
+
+**The rivals' visible set, and part 9's alibi.** The same census over the two rc models the
+race loads (`rc_dayts` at `0x2D30480`, `rc_dino` at `0x2D93080` — the loader pads section B
+by 0x1000 between pixels and vertex buffers, so draw addresses sit base+0x1000 from the
+file offsets) shows the LOD machinery live at the start line: the near rival draws
+{0 ground shadow, 1 LOD0 body, 2 front detail, 7, 8 wheels}, a farther instance draws the
+low-LOD bodies {17, 22}, a third {23}. **Part 9 draws only under the light's projection**
+(composite x-scale 0.052 vs the camera's 1.19) — it is the shadow-caster proxy of Part XV's
+"grid opponents' silhouettes", never the visible car. The rc export is now the captured
+near set; variants, effect/glow overlays, the caster proxy and the LOD copies stay out.
+
+**Placed wheels from the file's own far LOD.** The rc wheel parts are local-space (one per
+axle, drawn twice with mirrored transforms — the capture pins the unmirrored geometry to
+the LEFT side, part 7 to the rear axle, 8 to the front). Their placements are not in the
+tables, but the far-LOD bodies bake the same wheels **in place**: clustering the vertices
+of body batches whose materials use only the tire/rim textures (and whose lowest vertex
+touches the ground) yields the four wheel centres per car. For dayts the derivation matches
+the game's own draw matrices to a millimetre — file `(±0.721, 0.341, −1.246)` rear /
+`(±0.709, 0.341, 1.154)` front vs captured `(±0.72, 0.34, −1.246)` / `(±0.72, 0.34,
+1.154)` — validating it for the thirteen rivals with no capture. Two files (`fx`, `328gts`)
+bake their far-LOD wheels into general body batches with no clean texture split; those fall
+back to the whole mid-LOD car (part 17, wheels in place), and `carex` says so when it does.
+
+The exports also gained the **vertex normals** that were always at +12 (the packed 11:11:10
+attribute the GPU census named): decoded, quadrant-signed and re-normalised, they ride
+along as a NORMAL accessor while the materials stay unlit — the Studio viewer's sun toggle
+(a directional light diagonally from above, offered for any model that carries normals)
+swaps in lit materials to show the body shape.
+
 ### Honest status and open items
 
 - **63/63 `/Cars` files extract** (including the 293-part `obj_rc_all`) with all
@@ -2745,9 +2793,10 @@ textured, wheels under the arches.
   at runtime is unread. The entry block (w5) holds its pointers *entry-relative* in
   `obj_plcar_360s`/`obj_rc_all` but A-relative elsewhere; the game never reads those fields
   (the draw path uses the record), so `carex` uses only its counts.
-- **Open — LOD sets**: the `rc` files carry each car several times over (the F40's body
-  appears as parts 1, 10, 22 and 23) — level-of-detail copies whose selector is unread. The
-  export ships them stacked; they overlap exactly, so the viewer shows one car.
+- **Open — the LOD/part-group selector**: which table groups a file's parts into LOD sets
+  is still unread (the part records carry no group id; the runtime draw-group table w3 is
+  built at load). The captures name the *sets* the game picks at three distances, which is
+  what the curated export needs; the selector itself remains the open item.
 
 ### The Studio
 
@@ -2762,6 +2811,9 @@ rival.
 
 - `games/outrun-2006-xbox/extract/cmd/carex` — the extractor.
   `carex -image DISC.iso -all -o out` writes one GLB per `/Cars` model (textures PNG-embedded,
-  `-dumptex` writes them separately); `-file /Cars/obj_plcar_dino_pmt.sz` extracts one.
+  `-dumptex` writes them separately); `-file /Cars/obj_plcar_dino_pmt.sz` extracts one;
+  `-inspect` prints the part/batch/material tables (with each batch's attr0 offset, for
+  mapping `-carvtx` draws back to batches); `-parts 0,1,7` restricts an export to chosen
+  parts for comparing candidate sets against captures.
 - `bootoracle -carvtx LO:HI` — the draw census: vertex declarations, combiner factors and
   vsh constants c160–163 for every draw whose attribute-0 array lies in `[LO,HI)`.

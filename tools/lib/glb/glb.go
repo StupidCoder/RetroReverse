@@ -102,26 +102,44 @@ func (b *builder) addIndices(idx []uint32) int {
 // doubleSided:false (the glTF default), which three.js honours by back-face
 // culling — used for one-way geometry such as a ceiling seen only from below. The
 // zero value is double-sided, matching WriteLines/WriteTriangles.
+//
+// Alpha 0 means opaque (the zero value keeps the legacy behaviour); a value in
+// (0,1) emits the material with that base-colour alpha and alphaMode BLEND —
+// how translucent untextured surfaces (window glass) survive into a GLB.
 type TriGroup struct {
 	Tris        [][3]uint32
 	Color       [3]float32
+	Alpha       float32
 	SingleSided bool
 }
 
-// unlitMaterial returns a KHR_materials_unlit material with the given RGB base
-// colour (alpha 1). doubleSided is emitted explicitly (true keeps the legacy
-// two-sided default; false lets three.js back-face cull, e.g. for ceilings).
-func unlitMaterial(color [3]float32, doubleSided bool) map[string]any {
-	return map[string]any{
+// alphaOr1 maps the zero value of TriGroup.Alpha to fully opaque.
+func (g TriGroup) alphaOr1() float32 {
+	if g.Alpha == 0 {
+		return 1
+	}
+	return g.Alpha
+}
+
+// unlitMaterial returns a KHR_materials_unlit material with the given RGBA base
+// colour; alpha < 1 renders with alphaMode BLEND. doubleSided is emitted
+// explicitly (true keeps the legacy two-sided default; false lets three.js
+// back-face cull, e.g. for ceilings).
+func unlitMaterial(color [3]float32, alpha float32, doubleSided bool) map[string]any {
+	m := map[string]any{
 		"name": "wire",
 		"pbrMetallicRoughness": map[string]any{
-			"baseColorFactor": []float64{float64(color[0]), float64(color[1]), float64(color[2]), 1},
+			"baseColorFactor": []float64{float64(color[0]), float64(color[1]), float64(color[2]), float64(alpha)},
 			"metallicFactor":  0,
 			"roughnessFactor": 1,
 		},
 		"extensions":  map[string]any{"KHR_materials_unlit": struct{}{}},
 		"doubleSided": doubleSided,
 	}
+	if alpha < 1 {
+		m["alphaMode"] = "BLEND"
+	}
+	return m
 }
 
 // pack finishes a document into a .glb byte stream: it marshals doc to the JSON
@@ -197,7 +215,7 @@ func primitive(posAcc, idxAcc, mode, material int) map[string]any {
 // glTF document — the shared body of WriteLines and WriteTriangles.
 func document(name string, b *builder, posAcc, idxAcc, mode int, color [3]float32) map[string]any {
 	prim := primitive(posAcc, idxAcc, mode, 0)
-	return assemble(name, b, []map[string]any{prim}, []map[string]any{unlitMaterial(color, true)})
+	return assemble(name, b, []map[string]any{prim}, []map[string]any{unlitMaterial(color, 1, true)})
 }
 
 // WriteLines writes an indexed LINES (mode 1) GLB: one mesh, one primitive, a
@@ -261,7 +279,7 @@ func WriteTrianglesMat(path string, positions [][3]float32, groups []TriGroup) e
 		idxAcc := b.addIndices(idx)
 		mat := len(materials)
 		prims = append(prims, primitive(posAcc, idxAcc, 4, mat))
-		materials = append(materials, unlitMaterial(g.Color, !g.SingleSided))
+		materials = append(materials, unlitMaterial(g.Color, g.alphaOr1(), !g.SingleSided))
 	}
 	doc := assemble(baseName(path), b, prims, materials)
 	data, err := pack(doc, b.bin.Bytes())
@@ -301,7 +319,7 @@ func WriteMixed(path string, positions [][3]float32, tris []TriGroup, lines []Li
 		idxAcc := b.addIndices(idx)
 		mat := len(materials)
 		prims = append(prims, primitive(posAcc, idxAcc, 4, mat))
-		materials = append(materials, unlitMaterial(g.Color, !g.SingleSided))
+		materials = append(materials, unlitMaterial(g.Color, g.alphaOr1(), !g.SingleSided))
 	}
 	for _, g := range lines {
 		if len(g.Lines) == 0 {
@@ -314,7 +332,7 @@ func WriteMixed(path string, positions [][3]float32, tris []TriGroup, lines []Li
 		idxAcc := b.addIndices(idx)
 		mat := len(materials)
 		prims = append(prims, primitive(posAcc, idxAcc, 1, mat))
-		materials = append(materials, unlitMaterial(g.Color, true))
+		materials = append(materials, unlitMaterial(g.Color, 1, true))
 	}
 	doc := assemble(baseName(path), b, prims, materials)
 	data, err := pack(doc, b.bin.Bytes())
@@ -362,7 +380,7 @@ func WriteMixedMorph(path string, positions [][3]float32, tris []TriGroup, lines
 		for _, t := range g.Tris {
 			idx = append(idx, t[0], t[1], t[2])
 		}
-		addPrim(idx, 4, unlitMaterial(g.Color, !g.SingleSided))
+		addPrim(idx, 4, unlitMaterial(g.Color, g.alphaOr1(), !g.SingleSided))
 	}
 	for _, g := range lines {
 		if len(g.Lines) == 0 {
@@ -372,7 +390,7 @@ func WriteMixedMorph(path string, positions [][3]float32, tris []TriGroup, lines
 		for _, e := range g.Lines {
 			idx = append(idx, e[0], e[1])
 		}
-		addPrim(idx, 1, unlitMaterial(g.Color, true))
+		addPrim(idx, 1, unlitMaterial(g.Color, 1, true))
 	}
 
 	tAcc := b.addScalars(m.Times)
@@ -435,6 +453,22 @@ type TexturedGroup struct {
 	Blend bool
 }
 
+// addVec3 writes a tightly packed VEC3 float32 accessor without bounds (glTF
+// requires min/max only on POSITION) — used for NORMAL.
+func (b *builder) addVec3(v [][3]float32) int {
+	buf := make([]byte, 12*len(v))
+	for i, p := range v {
+		for c := 0; c < 3; c++ {
+			binary.LittleEndian.PutUint32(buf[i*12+c*4:], math.Float32bits(p[c]))
+		}
+	}
+	vi := b.addView(buf)
+	b.accessors = append(b.accessors, accessor{
+		BufferView: vi, ComponentType: 5126, Count: len(v), Type: "VEC3",
+	})
+	return len(b.accessors) - 1
+}
+
 // addUVs writes a tightly packed VEC2 float32 TEXCOORD accessor.
 func (b *builder) addUVs(uvs [][2]float32) int {
 	buf := make([]byte, 8*len(uvs))
@@ -467,7 +501,16 @@ func (b *builder) addColors(colors [][4]uint8) int {
 // into a GLB. colors runs parallel to positions and uvs.
 func WriteTexturedColored(path string, positions [][3]float32, uvs [][2]float32,
 	colors [][4]uint8, texGroups []TexturedGroup, colorGroups []TriGroup) error {
-	return writeTextured(path, positions, uvs, colors, texGroups, colorGroups)
+	return writeTextured(path, positions, uvs, nil, colors, texGroups, colorGroups)
+}
+
+// WriteTexturedLit is WriteTextured with a per-vertex NORMAL accessor (parallel
+// to positions). The materials stay unlit — the platform-authentic flat look is
+// unchanged in any standard viewer — but the normals let a viewer opt into
+// lighting the model (the Studio's sun toggle swaps in lit materials).
+func WriteTexturedLit(path string, positions [][3]float32, uvs [][2]float32,
+	normals [][3]float32, texGroups []TexturedGroup, colorGroups []TriGroup) error {
+	return writeTextured(path, positions, uvs, normals, nil, texGroups, colorGroups)
 }
 
 // WriteTextured writes a textured TRIANGLES GLB: one mesh whose primitives
@@ -479,14 +522,18 @@ func WriteTexturedColored(path string, positions [][3]float32, uvs [][2]float32,
 // skipped.
 func WriteTextured(path string, positions [][3]float32, uvs [][2]float32,
 	texGroups []TexturedGroup, colorGroups []TriGroup) error {
-	return writeTextured(path, positions, uvs, nil, texGroups, colorGroups)
+	return writeTextured(path, positions, uvs, nil, nil, texGroups, colorGroups)
 }
 
 func writeTextured(path string, positions [][3]float32, uvs [][2]float32,
-	colors [][4]uint8, texGroups []TexturedGroup, colorGroups []TriGroup) error {
+	normals [][3]float32, colors [][4]uint8, texGroups []TexturedGroup, colorGroups []TriGroup) error {
 	b := &builder{}
 	posAcc := b.addPositions(positions)
 	uvAcc := b.addUVs(uvs)
+	nrmAcc := -1
+	if len(normals) > 0 {
+		nrmAcc = b.addVec3(normals)
+	}
 	colAcc := -1
 	if len(colors) > 0 {
 		colAcc = b.addColors(colors)
@@ -534,6 +581,9 @@ func writeTextured(path string, positions [][3]float32, uvs [][2]float32,
 		idxAcc := b.addIndices(idx)
 		prim := primitive(posAcc, idxAcc, 4, len(materials))
 		attrs := map[string]int{"POSITION": posAcc, "TEXCOORD_0": uvAcc}
+		if nrmAcc >= 0 {
+			attrs["NORMAL"] = nrmAcc
+		}
 		if colAcc >= 0 {
 			attrs["COLOR_0"] = colAcc
 		}
@@ -567,8 +617,12 @@ func writeTextured(path string, positions [][3]float32, uvs [][2]float32,
 			idx = append(idx, t[0], t[1], t[2])
 		}
 		idxAcc := b.addIndices(idx)
-		prims = append(prims, primitive(posAcc, idxAcc, 4, len(materials)))
-		materials = append(materials, unlitMaterial(g.Color, !g.SingleSided))
+		prim := primitive(posAcc, idxAcc, 4, len(materials))
+		if nrmAcc >= 0 {
+			prim["attributes"].(map[string]int)["NORMAL"] = nrmAcc
+		}
+		prims = append(prims, prim)
+		materials = append(materials, unlitMaterial(g.Color, g.alphaOr1(), !g.SingleSided))
 	}
 
 	doc := assemble(baseName(path), b, prims, materials)

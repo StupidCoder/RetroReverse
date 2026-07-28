@@ -156,7 +156,7 @@ func WriteRiggedAnimated(path string, positions [][3]float32, uvs [][2]float32,
 				idx = append(idx, t[0], t[1], t[2])
 			}
 			prims = append(prims, primitive(posAcc, b.addIndices(idx), 4, len(materials)))
-			materials = append(materials, unlitMaterial(g.Color, !g.SingleSided))
+			materials = append(materials, unlitMaterial(g.Color, g.alphaOr1(), !g.SingleSided))
 		}
 
 		name := part.Name

@@ -215,7 +215,8 @@ async function mount3D(ctx, doc) {
 
   const stage = new Stage(el, { fov: 45 });
   stage.scene.background = new THREE.Color(0x101520);
-  stage.scene.add(new THREE.AmbientLight(0xffffff, 2.2));
+  const ambient = new THREE.AmbientLight(0xffffff, 2.2);
+  stage.scene.add(ambient);
   const key = new THREE.DirectionalLight(0xffffff, 1.2);
   key.position.set(1, 2, 1.4);
   stage.scene.add(key);
@@ -330,6 +331,45 @@ async function mount3D(ctx, doc) {
   hud.textContent = 'drag to orbit · wheel to zoom';
   el.appendChild(hud);
 
+  // ---- sun toggle: models that carry normals can opt into real lighting ----
+  // The exported materials are unlit (the platform-authentic flat look), so
+  // the toggle swaps each mesh's material for a Lambert twin and adds a
+  // directional "sun" diagonally from above; off restores the originals.
+  let hasNormals = false;
+  inst.node.traverse((o) => {
+    if (o.isMesh && o.geometry.attributes.normal) hasNormals = true;
+  });
+  let sun = null;
+  let wfOn = false;
+  const setSunlight = (on) => {
+    if (on && !sun) {
+      sun = new THREE.DirectionalLight(0xffffff, 1.6);
+      sun.position.set(1, 2, 1.2);
+    }
+    inst.node.traverse((o) => {
+      if (!o.isMesh || !o.geometry.attributes.normal) return;
+      const swap = (m) => {
+        if (on) {
+          if (!m.userData.lit) {
+            m.userData.lit = new THREE.MeshLambertMaterial({
+              map: m.map || null, color: m.color.clone(),
+              transparent: m.transparent, opacity: m.opacity,
+              alphaTest: m.alphaTest, side: m.side, name: m.name,
+            });
+            m.userData.lit.userData.unlit = m;
+          }
+          return m.userData.lit;
+        }
+        return m.userData.unlit || m;
+      };
+      o.material = Array.isArray(o.material) ? o.material.map(swap) : swap(o.material);
+    });
+    applyWireframe(inst.node, wfOn);
+    ambient.intensity = on ? 0.55 : 2.2;
+    if (on) stage.scene.add(sun);
+    else if (sun) stage.scene.remove(sun);
+  };
+
   window.__rxo = { stage, inst, bones }; // debug handle
 
   return {
@@ -342,7 +382,8 @@ async function mount3D(ctx, doc) {
     pixelGrid: () => (stage.native
       ? { cell: el.clientHeight / stage.native.h, ox: 0, oy: 0, ref: el.clientWidth }
       : null),
-    setWireframe(on) { applyWireframe(inst.node, on); },
+    setWireframe(on) { wfOn = on; applyWireframe(inst.node, on); },
+    ...(hasNormals ? { setSunlight } : {}),
     stats: () => {
       let tris = 0, verts = 0, mats = new Set(), bones = 0;
       inst.node.traverse((o) => {

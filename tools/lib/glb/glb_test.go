@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -463,5 +464,88 @@ func TestWriteTexturedQuad(t *testing.T) {
 	}
 	if r, _, _, _ := back.At(1, 1).RGBA(); r != 0xFFFF {
 		t.Fatal("embedded PNG lost the red texel")
+	}
+}
+
+// TestWriteTexturedLit exercises the NORMAL accessor and the translucent
+// colour group: both primitives must carry the shared NORMAL attribute, the
+// normal accessor must round-trip the vectors, and a TriGroup with Alpha < 1
+// must serialise a BLEND material with that base-colour alpha (while the
+// opaque legacy zero value stays MASK-free and fully opaque).
+func TestWriteTexturedLit(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	pos := [][3]float32{{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0}}
+	uvs := [][2]float32{{0, 0}, {1, 0}, {1, 1}, {0, 1}}
+	nrm := [][3]float32{{0, 0, 1}, {0, 0, 1}, {0, 1, 0}, {1, 0, 0}}
+	path := filepath.Join(t.TempDir(), "lit.glb")
+	err := WriteTexturedLit(path, pos, uvs, nrm,
+		[]TexturedGroup{{Tris: [][3]uint32{{0, 1, 2}}, Image: img}},
+		[]TriGroup{
+			{Tris: [][3]uint32{{0, 2, 3}}, Color: [3]float32{0.1, 0.1, 0.1}, Alpha: 0.55},
+			{Tris: [][3]uint32{{1, 2, 3}}, Color: [3]float32{0.5, 0.5, 0.5}},
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jsonLen := binary.LittleEndian.Uint32(data[12:])
+	var doc map[string]any
+	if err := json.Unmarshal(data[20:20+jsonLen], &doc); err != nil {
+		t.Fatal(err)
+	}
+
+	prims := doc["meshes"].([]any)[0].(map[string]any)["primitives"].([]any)
+	if len(prims) != 3 {
+		t.Fatalf("want 3 primitives, got %d", len(prims))
+	}
+	var nrmAcc = -1
+	for i, p := range prims {
+		attrs := p.(map[string]any)["attributes"].(map[string]any)
+		n, ok := attrs["NORMAL"]
+		if !ok {
+			t.Fatalf("primitive %d lacks NORMAL", i)
+		}
+		if nrmAcc == -1 {
+			nrmAcc = int(n.(float64))
+		} else if int(n.(float64)) != nrmAcc {
+			t.Fatalf("primitive %d does not share the NORMAL accessor", i)
+		}
+	}
+
+	// The normal accessor must round-trip the vectors.
+	acc := doc["accessors"].([]any)[nrmAcc].(map[string]any)
+	if acc["type"] != "VEC3" || acc["componentType"].(float64) != 5126 {
+		t.Fatalf("bad NORMAL accessor: %v", acc)
+	}
+	v := doc["bufferViews"].([]any)[int(acc["bufferView"].(float64))].(map[string]any)
+	binStart := 20 + int(jsonLen) + 8
+	off := int(v["byteOffset"].(float64))
+	for i, want := range nrm {
+		for c := 0; c < 3; c++ {
+			got := math.Float32frombits(binary.LittleEndian.Uint32(data[binStart+off+i*12+c*4:]))
+			if got != want[c] {
+				t.Fatalf("normal %d[%d]: got %v want %v", i, c, got, want[c])
+			}
+		}
+	}
+
+	mats := doc["materials"].([]any)
+	glass := mats[1].(map[string]any)
+	if glass["alphaMode"] != "BLEND" {
+		t.Fatalf("want BLEND on the translucent group, got %v", glass["alphaMode"])
+	}
+	if a := glass["pbrMetallicRoughness"].(map[string]any)["baseColorFactor"].([]any)[3].(float64); math.Abs(a-0.55) > 1e-6 {
+		t.Fatalf("want alpha 0.55, got %v", a)
+	}
+	opaque := mats[2].(map[string]any)
+	if _, ok := opaque["alphaMode"]; ok {
+		t.Fatalf("opaque group must not set alphaMode, got %v", opaque["alphaMode"])
+	}
+	if a := opaque["pbrMetallicRoughness"].(map[string]any)["baseColorFactor"].([]any)[3].(float64); a != 1 {
+		t.Fatalf("opaque group alpha: got %v want 1", a)
 	}
 }
