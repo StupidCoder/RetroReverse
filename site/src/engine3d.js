@@ -170,16 +170,16 @@ export class FlyCam {
     stage.updaters.add(this._update);
   }
 
-  // _look rotates the camera in place: dx/dy in pixels, grab-the-world
-  // direction (drag right = the scene follows, the view turns left).
+  // _look rotates the camera in place: dx/dy in pixels, first-person
+  // convention (drag right = look right, drag down = look down).
   _look(dx, dy) {
     if (!dx && !dy) return;
     const cam = this.stage.camera, target = this.stage.controls.target;
     const off = target.clone().sub(cam.position);
-    if (dx) off.applyAxisAngle(UP, dx * LOOK_SENS);
+    if (dx) off.applyAxisAngle(UP, -dx * LOOK_SENS);
     if (dy) {
       const right = off.clone().cross(UP).normalize();
-      const rot = off.clone().applyAxisAngle(right, dy * LOOK_SENS);
+      const rot = off.clone().applyAxisAngle(right, -dy * LOOK_SENS);
       const a = rot.angleTo(UP);
       if (a > PITCH_MARGIN && a < Math.PI - PITCH_MARGIN) off.copy(rot);
     }
