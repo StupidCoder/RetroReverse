@@ -187,6 +187,19 @@ export async function mount(ctx, doc) {
         // swing open and shut once at load.
         const idle = (inst.doc.animations || []).find((a) => (a.loop || 'loop') === 'loop' || a.loop === 'pingpong');
         if (idle) inst.playAnim(idle.id);
+        else {
+          // One-shot-only models (the mansion's doors): the GLB's rest
+          // transforms are the bind file's parking positions, not a real
+          // pose — the panels sat inside the wall until first clicked.
+          // Hold frame 0 of the interaction clip instead (paused).
+          const first = pl.onClick?.clip || (inst.doc.animations || [])[0]?.id;
+          const h = first ? inst.playAnim(first) : null;
+          if (h) {
+            h.action.paused = true;
+            h.action.time = 0;
+            inst.mixer.update(0);
+          }
+        }
       }
       if (inst.update) stage.updaters.add((dt, cp, t) => { if (node.visible) inst.update(dt, cp, t); });
       wireBehavior(stage, node, pl, routeById);
