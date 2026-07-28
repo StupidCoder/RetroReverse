@@ -251,13 +251,13 @@ holding on all 165 streams (`extract/cmd/lsmovies -sums`).
 
 ### The named movies as Retro-X video assets
 
-`webexport`'s `videos` stage ships the disc's sixteen NAMED movies: the boot
+`webexport`'s `videos` stage ships the disc's eighteen NAMED movies: the boot
 films (`eac` — the EA Canada logo film and the first movie the game arms at
 boot per the MovieHLE open order; `pioneer`; the Road & Track torn-paper
 `title` montage), the three attract reels, the three trooper pull-over films
-(`cop1-3`), the victory montage (`win`) and the six car showcase films — each
-`related`-linked to its player-car model asset (the 512TR and 911 have no
-named film; `vette` is the ZR-1's). Each MP4 is our Cinepak frames and SDX2
+(`cop1-3`), the victory montage (`win`) and the eight car showcase films —
+one per player car, each `related`-linked to its model asset (`vette` is the
+ZR-1's). Each MP4 is our Cinepak frames and SDX2
 PCM, ffmpeg only re-encoding to H.264 + AAC with the moov atom up front
 (RETROX.md §9). Every manifest entry carries the platform truth in `stats`
 (codec, per-movie CD data rate, native size — 320×240 boot films, 320×192
@@ -268,14 +268,55 @@ transport (play/pause, frame scrubber, frame counter, mute).
 
 A one-frame census of all 165 movies (`extract/cmd/census`) shows the disc's
 movie set is: the EA/Pioneer logos, `title`, 3 attract reels, 3 cop pull-over
-films, `win`, 6 car showcase films named after their car (diablo/nsx/rx7/
-supra/vette/viper — the 911 and 512TR have no named film), and ~150 numbered
-`N.M.Stream` magazine interview segments (live-action host clips pre-composited
-into tilted magazine-page frames; the numbering has gaps, e.g. 68.1/68.3
-missing around 68.2/68.4). Whether every numbered page is reachable from the
-shipped magazine — and where the 911/512TR showcases hide — needs the
-front-end's magazine tables (movie paths are built via `Movies/%s.stream` in
-`frontovl`), still open.
+films, `win`, 8 car showcase films named after their car (one per player car —
+an earlier "911/512TR have no film" claim was a grep artifact: their names
+start with digits and a leading-digit filter dropped them), and ~150 numbered
+`N.M.Stream` reels — live-action host clips pre-composited into tilted
+magazine-page frames.
+
+### The movie tables: every reel's caller, decoded
+
+The numbered reels are NOT magazine pages — they are the **post-race host
+commentary**. The full dispatch was reversed from `frontovl` (loads at
+0x8C190; the RAM base was pinned by finding the `Movies/%s.stream` format
+string from the file at 0x3600 in a memtrace DRAM snapshot at 0x8F790):
+
+- **Boot/attract movie list** (built at 0x904A4, played by 0x8F660, which
+  sprintf's each stem through `Movies/%s.stream` and opens it): `eac`,
+  `pioneer`, one of `Attract1/2/3` (a mod-3 rotation through a pointer table
+  the code keeps at [0x905D0]), then `title`. The player returns early the
+  moment one open fails — which is why the MovieHLE oracle, whose opens all
+  fail by design, sees the boot "skip the FMV" after `eac`.
+- **The attract's host segment**: literally `sprintf("101.%d", rand(3)+4)` —
+  the attract only ever plays 101.4–101.6. A second dispatcher (0x8DE9C,
+  `rand(3)+1`) plays 101.1–101.3 — the host's magazine-intro reels.
+- **Race commentary dispatchers** (0x8E794–0x8ED50, 0x938AC–0x93A74,
+  0x94034–0x942A4): read the race-stats block and pick a topic family `N` by
+  condition (time gaps vs constants, speeds, flags), then the variation by
+  `rand(k)+base` into an inline `N.%d` format — 41 sprintf sites harvested
+  mechanically from the disassembly (the idiom `MOV r0,#k; BL rand;
+  ADD r2,r0,#base; sprintf`). Two irregulars: 68.x picks `2 + rand(2)*2`
+  (68.2/68.4 — the "gap" in the numbering is the code's own stride), and
+  46.x indexes a per-car table at 0xA859C (8 rows = car id, each row a count
+  plus segment list). `cop%d` is `rand(3)+1`; six literal stems (2.3, 6.3,
+  15.1, 20.2, 31.1, 70.1) are passed directly. The same dispatchers pick the
+  host's AUDIO one-liners by rand-indexing pointer tables into
+  `DriveData/aiff/` (0x92C0C) — voice, not video.
+- **Car showcase films**: a stem table at 0xA7B28 indexed by car id —
+  `supra, diablo, 911, vette, 512tr, viper, nsx, rx7`. All eight player cars
+  have one.
+
+**The verdict**: 132 distinct movie references, ZERO dangling (every stem the
+code can build exists on disc), and **33 of the 165 disc files are orphaned —
+recorded, mastered, pressed, and unreachable by any shipped code path**: the
+whole families 35.1-3, 36.1-3, 37.1-2, 38.1-2, 39.1-3, 40.1-3, 42.1-2 and
+51.1-3, plus in-family stragglers 3.1, 6.1, 6.2, 16.3, 20.1, 31.2, 31.3,
+44.3, 52.1, 69.4, 70.2, 70.3. (38.1 is also the disc's only silent movie.)
+Cut commentary — the movie-side twin of the unused prototype cars. Naming
+each reachable topic semantically (which race outcome triggers which N)
+means decoding each dispatcher's conditions against the race-stats block —
+open, and the prerequisite for exporting the commentary reels with honest
+titles.
 
 ### Gamepad in framedbg
 

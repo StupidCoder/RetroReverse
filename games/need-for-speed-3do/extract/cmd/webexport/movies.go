@@ -25,8 +25,11 @@ import (
 	"retroreverse.com/tools/platform/threedo"
 )
 
-// videoSet is the curated named-movie list. Showcase films cross-link the car
-// model they present via `related` (the 512TR and 911 have no named film).
+// videoSet is the curated named-movie list — all eighteen named .Streams on
+// the disc. Showcase films cross-link the car model they present via
+// `related`; the block is in the game's own car-table order (frontovl's stem
+// table at 0xA7B28: supra diablo 911 vette 512tr viper nsx rx7, indexed by
+// car id — reordered here to match the manifest's Player cars group).
 var videoSet = []struct {
 	stream, id, name, group, desc string
 	related                       []string
@@ -53,16 +56,20 @@ var videoSet = []struct {
 		"The winner's montage.", nil},
 	{"Movies/diablo.stream", "showcase-diablo", "Diablo", "Car showcase",
 		"The showcase film for the Lamborghini Diablo VT.", []string{"car-ldiablo"}},
+	{"Movies/512tr.stream", "showcase-512tr", "512 TR", "Car showcase",
+		"The showcase film for the Ferrari 512 TR.", []string{"car-f512tr"}},
+	{"Movies/911.stream", "showcase-911", "911", "Car showcase",
+		"The showcase film for the Porsche 911.", []string{"car-p911"}},
+	{"Movies/vette.stream", "showcase-zr1", "ZR-1", "Car showcase",
+		"The showcase film for the Chevrolet Corvette ZR-1.", []string{"car-czr1"}},
+	{"Movies/viper.stream", "showcase-viper", "Viper", "Car showcase",
+		"The showcase film for the Dodge Viper RT/10.", []string{"car-dviper"}},
 	{"Movies/nsx.stream", "showcase-nsx", "NSX", "Car showcase",
 		"The showcase film for the Acura NSX.", []string{"car-ansx"}},
 	{"Movies/rx7.stream", "showcase-rx7", "RX-7", "Car showcase",
 		"The showcase film for the Mazda RX-7.", []string{"car-mrx7"}},
 	{"Movies/supra.stream", "showcase-supra", "Supra", "Car showcase",
 		"The showcase film for the Toyota Supra.", []string{"car-tsupra"}},
-	{"Movies/vette.stream", "showcase-zr1", "ZR-1", "Car showcase",
-		"The showcase film for the Chevrolet Corvette ZR-1.", []string{"car-czr1"}},
-	{"Movies/viper.stream", "showcase-viper", "Viper", "Car showcase",
-		"The showcase film for the Dodge Viper RT/10.", []string{"car-dviper"}},
 }
 
 // exportVideos decodes and registers every movie in videoSet.

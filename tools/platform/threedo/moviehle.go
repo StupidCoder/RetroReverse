@@ -10,7 +10,10 @@ package threedo
 // the normal present hook so the frames flow to -shots and the framedbg adapter
 // exactly like game frames. The game requests the movie; the HLE plays it.
 
-import "image"
+import (
+	"fmt"
+	"image"
+)
 
 // armedMovie is a movie the game asked to play, demuxed and ready to decode.
 type armedMovie struct {
@@ -43,7 +46,9 @@ func (m *Machine) armMovie(name string) {
 		return
 	}
 	m.movieQueue = append(m.movieQueue, &armedMovie{name: trimmed, mv: mv})
-	m.note("MovieHLE armed " + trimmed)
+	// The caller's LR names WHO asked for this movie — the attract cycle, the
+	// magazine, the race-end paths all arm through different sites.
+	m.note(fmt.Sprintf("MovieHLE armed %s (pc=0x%X lr=0x%X)", trimmed, m.CPU.Reg(15), m.CPU.Reg(14)))
 }
 
 // MoviesPending reports how many queued movies have not finished playing.

@@ -28,6 +28,7 @@ func main() {
 	tracen := flag.Uint64("tracen", 0, "print only the first N executed instructions")
 	hot := flag.Bool("hot", false, "profile the most-executed instruction addresses")
 	breakAt := flag.Uint64("bp", 0, "breakpoint: log lr + r0-r3/r12 each time PC == this address")
+	bpStr := flag.Bool("bpstr", false, "at -bp, also dump the C string r0 points to (movie stems etc.)")
 	spinbreak := flag.Bool("spinbreak", false, "poke past flag spin-waits (exploration; advances PC, not OS state)")
 	fbOut := flag.String("shot", "", "after the run, capture the VRAM framebuffer (320x240 RGB555) to this PNG")
 	fbBase := flag.Uint64("fbbase", 0x200000, "framebuffer base address in VRAM")
@@ -167,8 +168,20 @@ func main() {
 		m.OnStep = func(mm *threedo.Machine, pc uint32) {
 			if pc == ba {
 				c := mm.CPU
-				brk = append(brk, fmt.Sprintf("hit 0x%08X r0=%08X r1=%08X r2=%08X r3=%08X r4=%08X r5=%08X r6=%08X r12=%08X lr=%08X",
-					pc, c.Reg(0), c.Reg(1), c.Reg(2), c.Reg(3), c.Reg(4), c.Reg(5), c.Reg(6), c.Reg(12), c.Reg(14)))
+				line := fmt.Sprintf("hit 0x%08X r0=%08X r1=%08X r2=%08X r3=%08X r4=%08X r5=%08X r6=%08X r12=%08X lr=%08X",
+					pc, c.Reg(0), c.Reg(1), c.Reg(2), c.Reg(3), c.Reg(4), c.Reg(5), c.Reg(6), c.Reg(12), c.Reg(14))
+				if *bpStr {
+					var s []byte
+					for a := c.Reg(0); len(s) < 32; a++ {
+						b := mm.Read(a)
+						if b < 0x20 || b > 0x7E {
+							break
+						}
+						s = append(s, b)
+					}
+					line += fmt.Sprintf(" r0str=%q", s)
+				}
+				brk = append(brk, line)
 			}
 		}
 	}

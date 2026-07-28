@@ -22,6 +22,7 @@ func main() {
 	shotn := flag.Int("shotn", 40, "frame number for -shot")
 	max := flag.Int("n", 40, "max chunks to dump")
 	doSums := flag.Bool("sums", false, "print SSMP capacity vs declared byteCount sums for every movie")
+	scan := flag.Bool("scanreels", false, "scan every disc file for N.M reel-name strings")
 	flag.Parse()
 	data, err := os.ReadFile(flag.Arg(0))
 	if err != nil {
@@ -30,6 +31,10 @@ func main() {
 	vol, err := threedo.Open(data)
 	if err != nil {
 		panic(err)
+	}
+	if *scan {
+		scanReels(vol)
+		return
 	}
 	if *chunks != "" {
 		raw, err := vol.ReadFile(*chunks)

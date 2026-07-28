@@ -1818,6 +1818,94 @@
    }
   },
   {
+   "id": "showcase-512tr",
+   "category": "video",
+   "name": "512 TR",
+   "group": "Car showcase",
+   "description": "The showcase film for the Ferrari 512 TR.",
+   "related": ["car-f512tr"],
+   "file": "videos/showcase-512tr.mp4",
+   "duration": 45.13333333333333,
+   "w": 320,
+   "h": 192,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "238 KB/s streamed off the CD",
+    "Length": "677 frames @ 15 fps",
+    "Native": "320 × 192 px",
+    "Source": "Movies/512tr.stream (10.5 MB)"
+   }
+  },
+  {
+   "id": "showcase-911",
+   "category": "video",
+   "name": "911",
+   "group": "Car showcase",
+   "description": "The showcase film for the Porsche 911.",
+   "related": ["car-p911"],
+   "file": "videos/showcase-911.mp4",
+   "duration": 45.86666666666667,
+   "w": 320,
+   "h": 192,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "239 KB/s streamed off the CD",
+    "Length": "688 frames @ 15 fps",
+    "Native": "320 × 192 px",
+    "Source": "Movies/911.stream (10.7 MB)"
+   }
+  },
+  {
+   "id": "showcase-zr1",
+   "category": "video",
+   "name": "ZR-1",
+   "group": "Car showcase",
+   "description": "The showcase film for the Chevrolet Corvette ZR-1.",
+   "related": ["car-czr1"],
+   "file": "videos/showcase-zr1.mp4",
+   "duration": 45.733333333333334,
+   "w": 320,
+   "h": 192,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "248 KB/s streamed off the CD",
+    "Length": "686 frames @ 15 fps",
+    "Native": "320 × 192 px",
+    "Source": "Movies/vette.stream (11.1 MB)"
+   }
+  },
+  {
+   "id": "showcase-viper",
+   "category": "video",
+   "name": "Viper",
+   "group": "Car showcase",
+   "description": "The showcase film for the Dodge Viper RT/10.",
+   "related": ["car-dviper"],
+   "file": "videos/showcase-viper.mp4",
+   "duration": 44.93333333333333,
+   "w": 320,
+   "h": 192,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "248 KB/s streamed off the CD",
+    "Length": "674 frames @ 15 fps",
+    "Native": "320 × 192 px",
+    "Source": "Movies/viper.stream (10.9 MB)"
+   }
+  },
+  {
    "id": "showcase-nsx",
    "category": "video",
    "name": "NSX",
@@ -1881,50 +1969,6 @@
     "Length": "648 frames @ 15 fps",
     "Native": "320 × 192 px",
     "Source": "Movies/supra.stream (10.4 MB)"
-   }
-  },
-  {
-   "id": "showcase-zr1",
-   "category": "video",
-   "name": "ZR-1",
-   "group": "Car showcase",
-   "description": "The showcase film for the Chevrolet Corvette ZR-1.",
-   "related": ["car-czr1"],
-   "file": "videos/showcase-zr1.mp4",
-   "duration": 45.733333333333334,
-   "w": 320,
-   "h": 192,
-   "fps": 15,
-   "stats": {
-    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
-    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
-    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
-    "Data rate": "248 KB/s streamed off the CD",
-    "Length": "686 frames @ 15 fps",
-    "Native": "320 × 192 px",
-    "Source": "Movies/vette.stream (11.1 MB)"
-   }
-  },
-  {
-   "id": "showcase-viper",
-   "category": "video",
-   "name": "Viper",
-   "group": "Car showcase",
-   "description": "The showcase film for the Dodge Viper RT/10.",
-   "related": ["car-dviper"],
-   "file": "videos/showcase-viper.mp4",
-   "duration": 44.93333333333333,
-   "w": 320,
-   "h": 192,
-   "fps": 15,
-   "stats": {
-    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
-    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
-    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
-    "Data rate": "248 KB/s streamed off the CD",
-    "Length": "674 frames @ 15 fps",
-    "Native": "320 × 192 px",
-    "Source": "Movies/viper.stream (10.9 MB)"
    }
   }
  ]
