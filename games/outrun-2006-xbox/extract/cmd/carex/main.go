@@ -279,6 +279,23 @@ type material struct {
 	// adds the reflection; the viewer applies the model's static cube).
 	additive bool
 	sheen    bool
+	// wrapS/wrapT are glTF sampler wrap enums, decoded from the binding
+	// stage's first word: bits 10-12 = U mode, 13-15 = V mode, in the NV2A
+	// address enum (1 wrap, 2 mirror, 3 clamp). The LOD bodies map one
+	// mirrored atlas half across the car and need MIRRORED_REPEAT.
+	wrapS, wrapT int
+}
+
+// glWrap maps an NV2A texture-address mode to the glTF sampler enum.
+func glWrap(mode uint32) int {
+	switch mode {
+	case 2:
+		return 33648 // MIRRORED_REPEAT
+	case 3, 4, 5:
+		return 33071 // CLAMP_TO_EDGE
+	default:
+		return 10497 // REPEAT
+	}
 }
 
 type part struct {
@@ -353,6 +370,8 @@ func (p *pmt) parsePart(pi int) (*part, error) {
 			}
 			if mat.texIdx < 0 {
 				mat.texIdx = int(ti)
+				w0 := u32(p.a, m+8+20*s)
+				mat.wrapS, mat.wrapT = glWrap(w0>>10&7), glWrap(w0>>13&7)
 			}
 		}
 		pt.mats = append(pt.mats, mat)
@@ -1368,6 +1387,7 @@ func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, s
 	type texKey struct {
 		tex             int
 		additive, sheen bool
+		wrapS, wrapT    int
 	}
 	type colKey struct {
 		rgba            [4]int
@@ -1453,7 +1473,7 @@ func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, s
 			totalTris += len(tris)
 			m := pt.mats[b.matIdx]
 			if m.texIdx >= 0 && texs[m.texIdx].img != nil && !texs[m.texIdx].cube {
-				k := texKey{m.texIdx, m.additive, m.sheen}
+				k := texKey{m.texIdx, m.additive, m.sheen, m.wrapS, m.wrapT}
 				na.texTris[k] = append(na.texTris[k], tris...)
 			} else {
 				k := colKey{[4]int{int(m.diffuse[0] * 255), int(m.diffuse[1] * 255), int(m.diffuse[2] * 255), int(m.alpha * 255)}, m.additive, m.sheen}
@@ -1466,7 +1486,7 @@ func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, s
 		var texGroups []glb.TexturedGroup
 		for k, tris := range na.texTris {
 			texGroups = append(texGroups, glb.TexturedGroup{
-				Tris: tris, Image: texs[k.tex].img, WrapS: 10497, WrapT: 10497,
+				Tris: tris, Image: texs[k.tex].img, WrapS: k.wrapS, WrapT: k.wrapT,
 				Additive: k.additive, Sheen: k.sheen,
 			})
 		}
@@ -1623,9 +1643,22 @@ func envFaces(p *pmt, texs []texInfo) []image.Image {
 			blockLen = 8
 		}
 		faceSize := ((t.w + 3) / 4) * ((t.h + 3) / 4) * blockLen
+		// The face stride is padded (the 8x8 cubes store 0x80-byte faces for
+		// 0x40 bytes of blocks): derive it from the bank's own layout — the
+		// distance to the next texture's pixels spans exactly six faces.
+		stride := faceSize
+		next := -1
+		for _, o := range texs {
+			if d := int(o.dataOff) - int(t.dataOff); d > 0 && (next < 0 || d < next) {
+				next = d
+			}
+		}
+		if next > 0 && next%6 == 0 && next/6 >= faceSize {
+			stride = next / 6
+		}
 		out := make([]image.Image, 6)
 		for f := 0; f < 6; f++ {
-			img := decodeTexture(p.b[int(t.dataOff)+f*faceSize:], t.w, t.h, t.fmtByte)
+			img := decodeTexture(p.b[int(t.dataOff)+f*stride:], t.w, t.h, t.fmtByte)
 			if img == nil {
 				return nil
 			}

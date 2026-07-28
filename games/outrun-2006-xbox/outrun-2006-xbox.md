@@ -2959,6 +2959,16 @@ its row, runs part 7 on both axles — and keeps the old cluster derivation as a
 cross-check that the mapping never drifts (axle z must agree within 10 cm; all fifteen
 pass silently).
 
+**Two texture details found by their artefacts** (a session later): the material stage's
+first word carries the sampler address modes — bits 10-12 and 13-15 are the U and V modes
+in the NV2A enum (1 wrap, 2 mirror, 3 clamp) — and the low-LOD bodies map one *mirrored*
+atlas half across the car (their right halves run u past 1.0), so exporting them as plain
+REPEAT smeared the licence plate across the panels; the exports now carry each material's
+own wrap modes. And the small 8×8 environment cubes store their faces at a *padded* stride
+(0x80 bytes for 0x40 of blocks), which a level-0-sized read turned into garbage negative
+faces; the face stride is now derived from the texture bank's own layout (the next
+texture's pixel offset spans exactly six faces).
+
 **What changed on screen:** the Testarossa's rear wheels tuck 8 cm inboard, flush with
 the body like its own LOD 2 shows them; fx and 328gts get real placed wheels and their
 full variant sets (`car / LOD 1–4 / caster / overlays` like everyone else); and every
