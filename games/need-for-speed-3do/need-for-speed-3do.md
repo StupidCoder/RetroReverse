@@ -249,18 +249,22 @@ padding as garbage samples, while ours honours each SSMP's own byteCount —
 confirmed by the invariant ffmpegBytes = Σ(chunkSize−24) vs ours = Σ(byteCount)
 holding on all 165 streams (`extract/cmd/lsmovies -sums`).
 
-### The intro movie as a Retro-X video asset
+### The named movies as Retro-X video assets
 
-`webexport`'s `videos` stage ships `Movies/eac.stream` — the Electronic Arts
-Canada logo film, the first movie the game arms at boot (MovieHLE open order:
-eac, then the 101.x magazine reels) — as `videos/intro.mp4`: our Cinepak frames
-and SDX2 PCM, ffmpeg only re-encoding to H.264 + AAC with the moov atom up
-front (RETROX.md §9). The manifest entry carries the platform truth in `stats`
-(codec, 192 KB/s CD data rate, native 320×240, VQ'd YCbCr shown as RGB555,
-125 frames @ 15 fps) and the Studio's video view renders it on a canvas — so
-the CRT screen filter captures and phase-locks to the video pixels — under a
-model-animation-style transport (play/pause, frame scrubber, frame counter,
-mute).
+`webexport`'s `videos` stage ships the disc's sixteen NAMED movies: the boot
+films (`eac` — the EA Canada logo film and the first movie the game arms at
+boot per the MovieHLE open order; `pioneer`; the Road & Track torn-paper
+`title` montage), the three attract reels, the three trooper pull-over films
+(`cop1-3`), the victory montage (`win`) and the six car showcase films — each
+`related`-linked to its player-car model asset (the 512TR and 911 have no
+named film; `vette` is the ZR-1's). Each MP4 is our Cinepak frames and SDX2
+PCM, ffmpeg only re-encoding to H.264 + AAC with the moov atom up front
+(RETROX.md §9). Every manifest entry carries the platform truth in `stats`
+(codec, per-movie CD data rate, native size — 320×240 boot films, 320×192
+the rest — VQ'd YCbCr shown as RGB555, length in frames @ 15 fps) and the
+Studio's video view renders them on a canvas — so the CRT screen filter
+captures and phase-locks to the video pixels — under a model-animation-style
+transport (play/pause, frame scrubber, frame counter, mute).
 
 A one-frame census of all 165 movies (`extract/cmd/census`) shows the disc's
 movie set is: the EA/Pioneer logos, `title`, 3 attract reels, 3 cop pull-over

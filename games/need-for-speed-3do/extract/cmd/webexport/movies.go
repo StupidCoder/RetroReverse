@@ -1,13 +1,16 @@
 package main
 
-// movies.go is the Retro-X `videos` stage: the boot intro FMV
-// (Movies/eac.stream — the first movie the game arms at startup, confirmed by
-// the bootoracle's MovieHLE open log) becomes videos/intro.mp4. The Cinepak
-// video is decoded by our own Go decoder (tools/platform/threedo/cvid.go,
-// byte-identical to the reference) and the SDX2 audio track by our own
-// DPCM decoder (snds.go, byte-identical to FFmpeg's sdx2_dpcm across every
-// movie on the disc); ffmpeg only re-encodes those already-decoded frames and
-// samples to H.264 + AAC for the browser (moov up front, RETROX.md §9).
+// movies.go is the Retro-X `videos` stage: the disc's sixteen NAMED movies —
+// the boot/logo films, the attract reels, the pull-over films, the victory
+// montage and the six car showcase films — become videos/<id>.mp4. (The other
+// ~150 numbered N.M.Stream files are the car magazine's interview reels; they
+// stay unexported until the front-end's magazine tables are reversed enough to
+// title and group them.) The Cinepak video is decoded by our own Go decoder
+// (tools/platform/threedo/cvid.go, byte-identical to the reference) and the
+// SDX2 audio track by our own DPCM decoder (snds.go, byte-identical to
+// FFmpeg's sdx2_dpcm across every movie on the disc); ffmpeg only re-encodes
+// those already-decoded frames and samples to H.264 + AAC for the browser
+// (moov up front, RETROX.md §9).
 
 import (
 	"encoding/binary"
@@ -22,56 +25,96 @@ import (
 	"retroreverse.com/tools/platform/threedo"
 )
 
-const introStream = "Movies/eac.stream"
+// videoSet is the curated named-movie list. Showcase films cross-link the car
+// model they present via `related` (the 512TR and 911 have no named film).
+var videoSet = []struct {
+	stream, id, name, group, desc string
+	related                       []string
+}{
+	{"Movies/eac.stream", "intro", "Intro", "Boot films",
+		"The Electronic Arts intro movie the game plays at boot — the first of the disc's 165 streamed Cinepak movies.", nil},
+	{"Movies/pioneer.stream", "pioneer", "Pioneer logo", "Boot films",
+		"Pioneer's starfield logo film, on the disc beside the EA logo (not requested in our traced boot).", nil},
+	{"Movies/title.stream", "title", "Title film", "Boot films",
+		"Road & Track Presents: The Need for Speed — the torn-paper tachometer title montage.", nil},
+	{"Movies/attract1.stream", "attract1", "Attract reel 1", "Attract reels",
+		"Live-action driving montage — first of the three attract reels.", nil},
+	{"Movies/attract2.stream", "attract2", "Attract reel 2", "Attract reels",
+		"Live-action driving montage — second of the three attract reels.", nil},
+	{"Movies/attract3.stream", "attract3", "Attract reel 3", "Attract reels",
+		"Live-action driving montage — third of the three attract reels.", nil},
+	{"Movies/cop1.stream", "pullover1", "Pullover 1", "Pursuit",
+		"The state trooper's roadside lecture — first of the three pull-over films.", nil},
+	{"Movies/cop2.stream", "pullover2", "Pullover 2", "Pursuit",
+		"The state trooper's roadside lecture — second of the three pull-over films.", nil},
+	{"Movies/cop3.stream", "pullover3", "Pullover 3", "Pursuit",
+		"The state trooper's roadside lecture — third of the three pull-over films.", nil},
+	{"Movies/win.stream", "win", "Victory film", "Victory",
+		"The winner's montage.", nil},
+	{"Movies/diablo.stream", "showcase-diablo", "Diablo", "Car showcase",
+		"The showcase film for the Lamborghini Diablo VT.", []string{"car-ldiablo"}},
+	{"Movies/nsx.stream", "showcase-nsx", "NSX", "Car showcase",
+		"The showcase film for the Acura NSX.", []string{"car-ansx"}},
+	{"Movies/rx7.stream", "showcase-rx7", "RX-7", "Car showcase",
+		"The showcase film for the Mazda RX-7.", []string{"car-mrx7"}},
+	{"Movies/supra.stream", "showcase-supra", "Supra", "Car showcase",
+		"The showcase film for the Toyota Supra.", []string{"car-tsupra"}},
+	{"Movies/vette.stream", "showcase-zr1", "ZR-1", "Car showcase",
+		"The showcase film for the Chevrolet Corvette ZR-1.", []string{"car-czr1"}},
+	{"Movies/viper.stream", "showcase-viper", "Viper", "Car showcase",
+		"The showcase film for the Dodge Viper RT/10.", []string{"car-dviper"}},
+}
 
-// exportIntroVideo decodes the intro stream and registers it as the game's
-// `intro` video asset.
-func exportIntroVideo(ctx *cli.Context, vol *threedo.Volume) error {
+// exportVideos decodes and registers every movie in videoSet.
+func exportVideos(ctx *cli.Context, vol *threedo.Volume) error {
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
-		return fmt.Errorf("ffmpeg not found on PATH (needed to encode the intro video): %w", err)
+		return fmt.Errorf("ffmpeg not found on PATH (needed to encode the videos): %w", err)
 	}
-	raw, err := vol.ReadFile(introStream)
-	if err != nil {
-		return err
-	}
-	mv, frames, err := decodeMovie(raw)
-	if err != nil {
-		return err
-	}
-	snd, err := threedo.DemuxSnds(raw)
-	if err != nil {
-		return err
-	}
+	for i, v := range videoSet {
+		raw, err := vol.ReadFile(v.stream)
+		if err != nil {
+			return fmt.Errorf("%s: %w", v.stream, err)
+		}
+		mv, frames, err := decodeMovie(raw)
+		if err != nil {
+			return fmt.Errorf("%s: %w", v.stream, err)
+		}
+		snd, err := threedo.DemuxSnds(raw)
+		if err != nil {
+			return fmt.Errorf("%s: %w", v.stream, err)
+		}
 
-	mp4, err := ctx.Builder.Path("videos", "intro.mp4")
-	if err != nil {
-		return err
-	}
-	if err := encodeMP4(mp4, frames, mv, snd); err != nil {
-		return err
-	}
+		mp4, err := ctx.Builder.Path("videos", v.id+".mp4")
+		if err != nil {
+			return err
+		}
+		if err := encodeMP4(mp4, frames, mv, snd); err != nil {
+			return fmt.Errorf("%s: %w", v.stream, err)
+		}
 
-	duration := float64(len(frames)) / float64(mv.FPS)
-	stats := map[string]any{
-		"Source":    fmt.Sprintf("%s (%.1f MB)", introStream, float64(len(raw))/(1024*1024)),
-		"Codec":     fmt.Sprintf("Cinepak (%q), software-decoded on the ARM60", mv.Codec),
-		"Data rate": fmt.Sprintf("%.0f KB/s streamed off the CD", float64(len(raw))/duration/1024),
-		"Native":    fmt.Sprintf("%d × %d px", mv.Width, mv.Height),
-		"Colors":    "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
-		"Length":    fmt.Sprintf("%d frames @ %d fps", len(frames), mv.FPS),
+		duration := float64(len(frames)) / float64(mv.FPS)
+		stats := map[string]any{
+			"Source":    fmt.Sprintf("%s (%.1f MB)", v.stream, float64(len(raw))/(1024*1024)),
+			"Codec":     fmt.Sprintf("Cinepak (%q), software-decoded on the ARM60", mv.Codec),
+			"Data rate": fmt.Sprintf("%.0f KB/s streamed off the CD", float64(len(raw))/duration/1024),
+			"Native":    fmt.Sprintf("%d × %d px", mv.Width, mv.Height),
+			"Colors":    "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+			"Length":    fmt.Sprintf("%d frames @ %d fps", len(frames), mv.FPS),
+		}
+		if snd != nil {
+			stats["Audio"] = fmt.Sprintf("SDX2 DPCM, %d Hz, %d channels (2:1)", snd.SampleRate, snd.Channels)
+		}
+		ctx.Builder.AddMedia(schema.Asset{
+			ID: v.id, Category: schema.CategoryVideo, Name: v.name, Group: v.group,
+			File:    "videos/" + v.id + ".mp4",
+			Related: v.related,
+			W:       mv.Width, H: mv.Height, FPS: float64(mv.FPS), Duration: duration,
+			Description: v.desc,
+			Stats:       stats,
+		})
+		ctx.Progress("videos", i+1, len(videoSet),
+			fmt.Sprintf("%s: %dx%d %d frames @%dfps", v.id, mv.Width, mv.Height, len(frames), mv.FPS))
 	}
-	if snd != nil {
-		stats["Audio"] = fmt.Sprintf("SDX2 DPCM, %d Hz, %d channels (2:1)", snd.SampleRate, snd.Channels)
-	}
-	ctx.Builder.AddMedia(schema.Asset{
-		ID: "intro", Category: schema.CategoryVideo, Name: "Intro",
-		File: "videos/intro.mp4",
-		W:    mv.Width, H: mv.Height, FPS: float64(mv.FPS), Duration: duration,
-		Description: "The Electronic Arts intro movie the game plays at boot — " +
-			"the first of the disc's 165 streamed Cinepak movies.",
-		Stats: stats,
-	})
-	ctx.Progress("videos", 1, 1, fmt.Sprintf("intro: %dx%d %d frames @%dfps", mv.Width, mv.Height, len(frames), mv.FPS))
 	return nil
 }
 

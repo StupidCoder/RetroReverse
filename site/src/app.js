@@ -333,6 +333,17 @@ async function showInfoModal(game, asset) {
 
   let assetHtml = `<h2>${esc(asset.name)}</h2><div class="dim">${esc(game.man.title)} · ${esc(CATEGORY_LABELS[asset.category] || asset.category)}</div>`;
   if (asset.description) assetHtml += `<p>${esc(asset.description)}</p>`;
+  // Retro-X `related` cross-links (e.g. a showcase film ↔ its car model)
+  if (asset.related?.length) {
+    const links = asset.related
+      .map((id) => {
+        const a = game.asset(id);
+        return a ? `<a href="#/${encodeURIComponent(game.id)}/${encodeURIComponent(id)}">${esc(a.name)}</a>` : '';
+      })
+      .filter(Boolean)
+      .join(' · ');
+    if (links) assetHtml += `<p class="dim">Related: ${links}</p>`;
+  }
   if (statsProvider) {
     const stats = await statsProvider();
     if (stats && Object.keys(stats).length) {
@@ -353,6 +364,13 @@ async function showInfoModal(game, asset) {
       load: () => fetch(game.url('', d.file)).then((r) => r.text(), () => ''),
     });
   }
+
+  // a related-asset link both navigates and dismisses the modal
+  content.addEventListener('click', (e) => {
+    if (e.target.tagName === 'A' && e.target.getAttribute('href')?.startsWith('#/')) {
+      $('modalBack').hidden = true;
+    }
+  });
 
   const cache = new Map();
   const btns = new Map();

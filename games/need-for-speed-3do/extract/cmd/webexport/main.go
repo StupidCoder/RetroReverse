@@ -293,7 +293,7 @@ func run(ctx *cli.Context) error {
 	}
 
 	if ctx.Stage("videos") {
-		if err := exportIntroVideo(ctx, vol); err != nil {
+		if err := exportVideos(ctx, vol); err != nil {
 			return fmt.Errorf("videos: %v", err)
 		}
 	}
