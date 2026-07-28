@@ -210,7 +210,7 @@ function loadImg(url) {
 // ---- 3D objects ----------------------------------------------------------------
 
 async function mount3D(ctx, doc) {
-  const { stage: el, game, asset } = ctx;
+  const { stage: el, game, asset, params } = ctx;
   const { THREE, Stage, ObjectLibrary, applyWireframe } = await import('./engine3d.js');
 
   const stage = new Stage(el, { fov: 45 });
@@ -225,7 +225,11 @@ async function mount3D(ctx, doc) {
   el.addEventListener('pointerdown', () => { stage.controls.autoRotate = false; }, { once: true });
 
   const lib = new ObjectLibrary(game);
-  const inst = await lib.instance(asset.id);
+  // Model variants (Retro-X `variants`): one glTF scene each in the same GLB.
+  const variants = doc.variants || [];
+  const variantById = (id) => variants.find((v) => v.id === id) || variants[0];
+  let activeVariant = variants.length ? variantById(params?.variant)?.id : null;
+  let inst = await lib.instance(asset.id, { scene: activeVariant ? variantById(activeVariant).scene : undefined });
   stage.scene.add(inst.node);
   if (inst.update) stage.updaters.add((dt, cp, t) => inst.update(dt, cp, t));
 
@@ -341,7 +345,9 @@ async function mount3D(ctx, doc) {
   });
   let sun = null;
   let wfOn = false;
+  let sunOn = false;
   const setSunlight = (on) => {
+    sunOn = on;
     if (on && !sun) {
       sun = new THREE.DirectionalLight(0xffffff, 1.6);
       sun.position.set(1, 2, 1.2);
@@ -369,6 +375,25 @@ async function mount3D(ctx, doc) {
     if (on) stage.scene.add(sun);
     else if (sun) stage.scene.remove(sun);
   };
+
+  // Variant switching swaps the instance in place: the camera and toggle
+  // states survive, so LOD levels can be compared from one viewpoint.
+  if (variants.length > 1) {
+    ctx.setVariants?.(
+      variants.map((v) => ({ id: v.id, name: v.name })),
+      activeVariant,
+      async (id) => {
+        const v = variantById(id);
+        if (!v || v.id === activeVariant) return;
+        const next = await lib.instance(asset.id, { scene: v.scene });
+        stage.scene.remove(inst.node);
+        inst = next;
+        stage.scene.add(inst.node);
+        activeVariant = v.id;
+        applyWireframe(inst.node, wfOn);
+        if (sunOn) setSunlight(true);
+      });
+  }
 
   window.__rxo = { stage, inst, bones }; // debug handle
 

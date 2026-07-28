@@ -108,6 +108,15 @@ func (m *Machine) onStep(c *x86.CPU) {
 		m.traceLeft--
 		fmt.Printf("%08X  %s\n", pc, m.disasmAt(pc))
 	}
+	if m.bpLeft > 0 && pc == m.bpAddr {
+		m.bpLeft--
+		r := c.Regs
+		fmt.Printf("bpstack %08X: EAX=%08X ECX=%08X EDX=%08X EBX=%08X ESP=%08X EBP=%08X ESI=%08X EDI=%08X\n",
+			pc, r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7])
+		for i := uint32(0); i < 24; i++ {
+			fmt.Printf("  [ESP+%02X] %08X\n", i*4, m.read32(r[4]+i*4))
+		}
+	}
 	if m.hotpc != nil && m.tick&0xFF == 0 {
 		m.hotpc[pc]++
 	}

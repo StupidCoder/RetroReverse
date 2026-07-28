@@ -528,108 +528,16 @@ func WriteTextured(path string, positions [][3]float32, uvs [][2]float32,
 func writeTextured(path string, positions [][3]float32, uvs [][2]float32,
 	normals [][3]float32, colors [][4]uint8, texGroups []TexturedGroup, colorGroups []TriGroup) error {
 	b := &builder{}
-	posAcc := b.addPositions(positions)
-	uvAcc := b.addUVs(uvs)
-	nrmAcc := -1
-	if len(normals) > 0 {
-		nrmAcc = b.addVec3(normals)
+	st := &sharedTex{samplerIndex: map[[2]int]int{}, imageIndex: map[image.Image]int{}}
+	prims, materials, err := appendTextured(b, st, 0, positions, uvs, normals, colors, texGroups, colorGroups)
+	if err != nil {
+		return err
 	}
-	colAcc := -1
-	if len(colors) > 0 {
-		colAcc = b.addColors(colors)
-	}
-
-	var prims, materials, images, textures []map[string]any
-	var samplers []map[string]any
-	samplerIndex := map[[2]int]int{}
-	imageIndex := map[image.Image]int{}
-	for _, g := range texGroups {
-		if len(g.Tris) == 0 {
-			continue
-		}
-		wrapS, wrapT := g.WrapS, g.WrapT
-		if wrapS == 0 {
-			wrapS = 33071 // CLAMP_TO_EDGE
-		}
-		if wrapT == 0 {
-			wrapT = 33071
-		}
-		smp, ok := samplerIndex[[2]int{wrapS, wrapT}]
-		if !ok {
-			smp = len(samplers)
-			samplerIndex[[2]int{wrapS, wrapT}] = smp
-			samplers = append(samplers, map[string]any{
-				"magFilter": 9728, "minFilter": 9728, "wrapS": wrapS, "wrapT": wrapT,
-			})
-		}
-		img, ok := imageIndex[g.Image]
-		if !ok {
-			var png bytes.Buffer
-			if err := encodePNG(&png, g.Image); err != nil {
-				return err
-			}
-			vi := b.addView(png.Bytes())
-			img = len(images)
-			imageIndex[g.Image] = img
-			images = append(images, map[string]any{"bufferView": vi, "mimeType": "image/png"})
-		}
-		textures = append(textures, map[string]any{"sampler": smp, "source": img})
-		idx := make([]uint32, 0, len(g.Tris)*3)
-		for _, t := range g.Tris {
-			idx = append(idx, t[0], t[1], t[2])
-		}
-		idxAcc := b.addIndices(idx)
-		prim := primitive(posAcc, idxAcc, 4, len(materials))
-		attrs := map[string]int{"POSITION": posAcc, "TEXCOORD_0": uvAcc}
-		if nrmAcc >= 0 {
-			attrs["NORMAL"] = nrmAcc
-		}
-		if colAcc >= 0 {
-			attrs["COLOR_0"] = colAcc
-		}
-		prim["attributes"] = attrs
-		prims = append(prims, prim)
-		mat := map[string]any{
-			"name": "tex",
-			"pbrMetallicRoughness": map[string]any{
-				"baseColorTexture": map[string]int{"index": len(textures) - 1},
-				"baseColorFactor":  []float64{1, 1, 1, 1},
-				"metallicFactor":   0,
-				"roughnessFactor":  1,
-			},
-			"extensions":  map[string]any{"KHR_materials_unlit": struct{}{}},
-			"alphaMode":   "MASK",
-			"alphaCutoff": 0.5,
-			"doubleSided": !g.SingleSided,
-		}
-		if g.Blend {
-			mat["alphaMode"] = "BLEND"
-			delete(mat, "alphaCutoff")
-		}
-		materials = append(materials, mat)
-	}
-	for _, g := range colorGroups {
-		if len(g.Tris) == 0 {
-			continue
-		}
-		idx := make([]uint32, 0, len(g.Tris)*3)
-		for _, t := range g.Tris {
-			idx = append(idx, t[0], t[1], t[2])
-		}
-		idxAcc := b.addIndices(idx)
-		prim := primitive(posAcc, idxAcc, 4, len(materials))
-		if nrmAcc >= 0 {
-			prim["attributes"].(map[string]int)["NORMAL"] = nrmAcc
-		}
-		prims = append(prims, prim)
-		materials = append(materials, unlitMaterial(g.Color, g.alphaOr1(), !g.SingleSided))
-	}
-
 	doc := assemble(baseName(path), b, prims, materials)
-	if len(images) > 0 {
-		doc["images"] = images
-		doc["textures"] = textures
-		doc["samplers"] = samplers
+	if len(st.images) > 0 {
+		doc["images"] = st.images
+		doc["textures"] = st.textures
+		doc["samplers"] = st.samplers
 	}
 	data, err := pack(doc, b.bin.Bytes())
 	if err != nil {

@@ -267,7 +267,9 @@ export class ObjectLibrary {
     const texFilter = this.game.display.texFilter;
     if (doc.type === 'model3d') {
       proto.gltf = await loadGLB(this.game.url(docPath, doc.model));
-      applyTexFilter(proto.gltf.scene, texFilter);
+      for (const sc of proto.gltf.scenes?.length ? proto.gltf.scenes : [proto.gltf.scene]) {
+        applyTexFilter(sc, texFilter);
+      }
       if (doc.flipbooks?.length) {
         proto.flipTex = {};
         for (const fb of doc.flipbooks) {
@@ -291,18 +293,21 @@ export class ObjectLibrary {
 
   // instance builds a fresh node. Returns:
   //   { node, doc, asset, mixer?, actions?, update?(dt, camPos, elapsed) }
-  async instance(id) {
+  // opts.scene picks a named glTF scene for model3d variants (default scene 0).
+  async instance(id, opts) {
     const proto = await this.proto(id);
     const { doc } = proto;
-    if (doc.type === 'model3d') return this._model(proto);
+    if (doc.type === 'model3d') return this._model(proto, opts?.scene);
     if (doc.type === 'billboard3d') return this._billboard(proto);
     if (doc.type === 'wireframe3d') return this._wireframe(proto);
     throw new Error(`object ${id}: unhandled type ${doc.type}`);
   }
 
-  _model(proto) {
+  _model(proto, sceneName) {
     const { doc, gltf } = proto;
-    const node = doc.skinnedClone ? SkeletonUtils.clone(gltf.scene) : gltf.scene.clone(true);
+    let src = gltf.scene;
+    if (sceneName && gltf.scenes) src = gltf.scenes.find((s) => s.name === sceneName) || src;
+    const node = doc.skinnedClone ? SkeletonUtils.clone(src) : src.clone(true);
     const inst = { node, doc, asset: proto.asset, clips: gltf.animations || [] };
     if (inst.clips.length) {
       inst.mixer = new THREE.AnimationMixer(node);

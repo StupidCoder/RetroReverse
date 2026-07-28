@@ -106,6 +106,11 @@ roadmap.)
   read off the NV2A's own declaration, the XPR0 texture bank decoded — and all 63 `/Cars`
   models extracted to verified GLBs, the player Dino assembled in the game's captured grid rest
   pose. *(this document)*
+* **Part XX** — **the part selector, read out of the running game**: the draw API takes
+  `(modelId<<16)|partIndex` handles, the per-car render code picks part indices per LOD from
+  runtime group descriptors, part 9 is confirmed the shadow-caster proxy from its own call
+  site, and every car's LOD chain, caster and overlays ship as Retro-X model variants — one
+  glTF scene each. *(this document)*
 
 ---
 
@@ -2817,3 +2822,78 @@ rival.
   parts for comparing candidate sets against captures.
 - `bootoracle -carvtx LO:HI` — the draw census: vertex declarations, combiner factors and
   vsh constants c160–163 for every draw whose attribute-0 array lies in `[LO,HI)`.
+
+## Part XX — the part selector, and the hidden variants it names
+
+Part XIX curated the exports from draw *captures* — which parts a race frame touched. This
+part reads the machinery that does the choosing, and then ships what it names: every LOD
+level, the shadow-caster proxy and the effect overlays, as switchable variants in the
+Studio.
+
+### From the drain to the selector
+
+The Part XIX draw loop (`0x12070`) turns out to be the bottom of a queue: a drain
+(`0x137C0`) pops records whose field `+0x18` is a part pointer, built by a submit function
+(`0x13310`) that walks 0x38-byte **piece nodes** hanging off each part record's w7 — each
+carrying a flags word, the bounding sphere carex already read as "the part header", a
+**matrix-slot index** at `+0x1C` (how an articulated part finds its wheel/door transform)
+and first-child/next-sibling links at `+0x20`/`+0x24`. Above that sits the public draw API
+(`0x13B60` and friends): its handle argument decodes as `(modelId<<16) | partIndex`, the
+model resolved through a registry (`0x8C430`), the part by `index*0x3C` into the record
+array.
+
+A new oracle instrument made the rest observational: `-bpstack ADDR[:N]` prints registers
+and a raw stack window each time the PC hits an address, without stopping. Parked on the
+draw API at the start-line scene it produced the selector's own worksheet — every handle
+and every return address:
+
+```
+model 2   (player dino)  parts 0,1,5,6,8,9,10,11,12,13,16   callers 0x1156xx  (the plcar renderer)
+model 0x82 (near rival)  parts 1,2,0 + 7,7,8,8 (±mirror)    callers 0xF926D/0xF9A73/0xF920D
+model 0x82 (far rival)   part 23                            caller  0xF926D
+model 0x83 (two rivals)  parts 17, 22 + 0                   caller  0xF926D
+model 0x82/0x83          part 9                             caller  0xF9174  — the caster pass
+```
+
+The player renderer draws its eleven parts from fixed slots (the Part XIX capture set,
+confirmed from the code side); the rc renderer reads per-car **runtime group descriptors**
+— heap structs assembled at load whose slots hold handles with constant part indices:
+LOD groups `{body, shadow, glow, front, front-alt}` = `{1,0,6,2,3|4}`, `{10,0,14,11,12|13}`,
+`{17,0,21,19,20}`, `{22}`, `{23}`, four wheel blocks `{handle, x,y,z}` (the placements the
+files don't carry), the caster (9) and the per-instance livery colour index (resolved
+through the palette table at `0x33F9B8` — the "up to seven colours" of Part XIX). Part 9's
+alibi is now airtight twice over: it draws only under the light's projection (composite
+x-scale 0.052 vs the camera's 1.19) *and* only from the caster call site. The front
+variants resolve per state — the plcar renderer picks `[info+0x7C]` normally and
+`[info+0x80]` when the lights-flag is set, so parts 2/3 are the front panel's lights
+states. What still isn't located is the *static* per-car-class descriptor the load-time
+builder reads; the runtime structs and call sites pin every role the exports need, so that
+table is now a curiosity rather than a blocker.
+
+### Variants: one GLB, many scenes
+
+glTF 2.0 allows any number of scenes in one file with a declared default, and that is
+exactly the shape this needs: `glb.WriteVariantScenes` writes one scene per variant —
+sharing one binary buffer and one deduplicated texture set — and Retro-X `model3d`
+documents gain a `variants` list naming scenes by glTF scene name (spec §6.2; the
+validator checks ids, scene names, and that the first variant is scene 0). A viewer that
+knows nothing of variants shows scene 0 and nothing else; the Studio shows a third
+dropdown and swaps scenes in place, keeping the camera, wireframe and sun-light state, so
+LOD levels can be flipped through from one viewpoint.
+
+Every rival now ships `car / LOD 1 / LOD 2 / LOD 3 / LOD 4 / Shadow caster / Light &
+effect overlays` (the fallback pair fx/328gts: the wheel-free subset), the player Dino
+`car / Alternate panels / Light overlays / Proxy shells`. The LOD-1 wheels (parts 15/16)
+place with the same file-derived centres as the LOD-0 ones. Verified headless per the
+shipped-file rule: every scene of the shipped GLBs loads and screenshots through three.js's
+own loader, `retroxlint` is clean over the whole tree, and the Studio page switches
+variants with zero console errors.
+
+### Tooling added
+
+- `bootoracle -bpstack ADDR[:N]` — the non-stopping breakpoint: registers + a stack window
+  per hit. The whole selector read came from parking it on four addresses.
+- `glb.WriteVariantScenes` / Retro-X `variants` — the multi-scene variant mechanism, ready
+  for the same treatment elsewhere (the Need for Speed traffic cars' livery variants are
+  the obvious next user).
+

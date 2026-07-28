@@ -1044,4 +1044,31 @@ func (c *checker) checkGLBBindings(p, glbPath string, o *Object) {
 			c.errf(p, "flipbook material %q is not in the GLB", fb.Material)
 		}
 	}
+	if len(o.Variants) > 0 {
+		if len(o.Variants) == 1 {
+			c.errf(p, "variants with a single entry is pointless — omit the list")
+		}
+		scenes := map[string]int{}
+		for i, s := range info.Scenes {
+			scenes[s] = i
+		}
+		ids := map[string]bool{}
+		for i, v := range o.Variants {
+			where := p + ": variant " + v.ID
+			if v.ID == "" || v.Name == "" || v.Scene == "" {
+				c.errf(where, "id, name and scene are all required")
+				continue
+			}
+			if ids[v.ID] {
+				c.errf(where, "duplicate variant id")
+			}
+			ids[v.ID] = true
+			si, ok := scenes[v.Scene]
+			if !ok {
+				c.errf(where, "scene %q is not in the GLB (has: %s)", v.Scene, strings.Join(info.Scenes, ", "))
+			} else if i == 0 && si != 0 {
+				c.errf(where, "the first variant must be the GLB's default scene (scene 0 is %q)", info.Scenes[0])
+			}
+		}
+	}
 }

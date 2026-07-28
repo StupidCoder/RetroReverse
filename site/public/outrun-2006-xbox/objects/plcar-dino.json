@@ -4,6 +4,31 @@
  "type": "model3d",
  "name": "Dino 246 GTS (player)",
  "model": "plcar-dino.glb",
+ "variants": [
+  {
+   "id": "car",
+   "name": "Car",
+   "scene": "car"
+  },
+  {
+   "id": "alt",
+   "name": "Alternate panels",
+   "scene": "alt",
+   "description": "the front-panel state variants and the alternate rear section the game swaps in (lights, close-up)"
+  },
+  {
+   "id": "overlays",
+   "name": "Light overlays",
+   "scene": "overlays",
+   "description": "the additively-blended brake/headlight glow quads"
+  },
+  {
+   "id": "proxy",
+   "name": "Proxy shells",
+   "scene": "proxy",
+   "description": "untextured hulls never drawn in any captured pass — the player-car analogue of the rivals' shadow-caster proxy"
+  }
+ ],
  "props": {
   "source": "/Cars/obj_plcar_dino_pmt.sz"
  }

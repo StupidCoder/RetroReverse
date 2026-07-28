@@ -480,6 +480,14 @@ This makes the sheet directly usable in other projects and legible to a human.
   "name": "Standard Kart",
   "model": "kart.glb",                       // ✱ sibling GLB (geometry, materials, skins,
                                              //   morph targets and clips all live inside)
+  "variants": [                              // independent alternates of the model: one glTF
+    { "id": "car",  "name": "Car",           //   SCENE each in the same GLB. Scene 0 is the
+      "scene": "car" },                      //   default, so a viewer that knows nothing of
+    { "id": "lod1", "name": "LOD 1",         //   variants shows only that one. The Studio
+      "scene": "lod1",                       //   offers a picker and swaps scenes in place;
+      "description": "mid-distance model" }  //   buffers and textures are shared in the file.
+  ],                                         //   First entry must name scene 0. Use for LOD
+                                             //   chains, shadow-caster proxies, liveries.
   "instanced": true,                         // geometry safe to share across placements
   "skinnedClone": false,                     // placements must deep-clone (skinned meshes)
   "billboard": "yaw",                        // rotate the whole model to face the camera
@@ -679,7 +687,9 @@ A conforming tree satisfies all of the following (the reference validator enforc
    `cellW`/`cellH`; every animation's `row` (and column run) fits the sheet;
    `durations.length == frames`; `durations` and `steps` are not both present.
 7. `model3d`: every `animations[].clip` names a clip present in the GLB; every
-   `uvAnims[].material` / `flipbooks[].material` names a GLB material.
+   `uvAnims[].material` / `flipbooks[].material` names a GLB material; every
+   `variants[].scene` names a GLB scene, variant ids are unique, the first variant is the
+   GLB's default scene (scene 0), and a one-entry `variants` list is rejected.
 8. `wireframe3d`: edge vertex/face indices in range; `faces.length == faceCenters.length`.
 9. Camera tracks: `track.length == frames`.
 10. A `matrix` has 16 numbers; a placement `collision.matrix` has 12.

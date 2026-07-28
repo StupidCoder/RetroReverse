@@ -619,9 +619,9 @@ type placement struct {
 //     (±0.72, 0.34, 1.154). Part 7 is the rear axle, 8 the front (captured
 //     assignment, declared for the fleet).
 func rcPlan(p *pmt) ([]placement, error) {
-	plan, err := rcNearPlan(p)
+	wheels, err := rcWheelCentres(p)
 	if err == nil {
-		return plan, nil
+		return rcNearPlan(wheels), nil
 	}
 	// Two rivals (fx, 328gts) bake their far-LOD wheels into general body
 	// batches, so no wheel centres are derivable. Fall back to the whole
@@ -631,9 +631,32 @@ func rcPlan(p *pmt) ([]placement, error) {
 	return []placement{{part: 0}, {part: 17}}, nil
 }
 
-// rcNearPlan is the near-distance set with derived wheel placements; it
-// errors when the wheel-centre derivation has no clean source in the file.
-func rcNearPlan(p *pmt) ([]placement, error) {
+// rcNearPlan is the near-distance visible set: the game's LOD-0 group as its
+// runtime group table lists it — {0 ground shadow, 1 body, 2 front detail}
+// plus the wheel parts placed at the derived centres.
+func rcNearPlan(wheels map[[2]int][3]float32) []placement {
+	return append([]placement{{part: 0}, {part: 1}, {part: 2}}, wheelPlacements(7, 8, wheels)...)
+}
+
+// wheelPlacements places one axle part per end (rearPart at z<0, frontPart at
+// z>0), each twice with the capture-pinned mirror convention (unmirrored
+// geometry is the LEFT wheel).
+func wheelPlacements(rearPart, frontPart int, wheels map[[2]int][3]float32) []placement {
+	var out []placement
+	for _, w := range []struct {
+		part  int
+		zsign int
+	}{{rearPart, -1}, {frontPart, 1}} {
+		for _, xs := range []int{-1, 1} {
+			out = append(out, placement{part: w.part, mirrorX: xs > 0, t: wheels[[2]int{xs, w.zsign}]})
+		}
+	}
+	return out
+}
+
+// rcWheelCentres derives the four wheel centres; it errors when the
+// derivation has no clean source in the file.
+func rcWheelCentres(p *pmt) (map[[2]int][3]float32, error) {
 	// The tire/rim textures, taken from the LOD1 wheel parts (15/16), whose
 	// materials are the cleanest source (the LOD0 wheels also sample detail
 	// textures shared with the body on some cars).
@@ -713,34 +736,22 @@ func rcNearPlan(p *pmt) ([]placement, error) {
 			}
 		}
 	}
-	centre := func(sx, sz int) ([3]float32, error) {
-		a := quads[[2]int{sx, sz}]
-		if a == nil {
-			return [3]float32{}, fmt.Errorf("%s: no baked wheel cluster at quadrant %d,%d", p.name, sx, sz)
-		}
-		c := [3]float32{(a.mn[0] + a.mx[0]) / 2, (a.mn[1] + a.mx[1]) / 2, (a.mn[2] + a.mx[2]) / 2}
-		if c[1] < 0.1 || c[1] > 0.7 || c[0]*float32(sx) < 0.4 || c[0]*float32(sx) > 1.3 ||
-			c[2]*float32(sz) < 0.4 || c[2]*float32(sz) > 2.0 {
-			return [3]float32{}, fmt.Errorf("%s: implausible wheel centre %v at quadrant %d,%d", p.name, c, sx, sz)
-		}
-		return c, nil
-	}
-	// The wheel geometry is modeled as the LEFT wheel: the capture shows the
-	// unmirrored transform at x<0 and the mirrored one (x-diagonal −1) at x>0.
-	plan := []placement{{part: 0}, {part: 1}, {part: 2}}
-	for _, w := range []struct {
-		part  int
-		zsign int
-	}{{7, -1}, {8, 1}} {
-		for _, xs := range []int{-1, 1} {
-			c, err := centre(xs, w.zsign)
-			if err != nil {
-				return nil, err
+	out := map[[2]int][3]float32{}
+	for _, sx := range []int{1, -1} {
+		for _, sz := range []int{1, -1} {
+			a := quads[[2]int{sx, sz}]
+			if a == nil {
+				return nil, fmt.Errorf("%s: no baked wheel cluster at quadrant %d,%d", p.name, sx, sz)
 			}
-			plan = append(plan, placement{part: w.part, mirrorX: xs > 0, t: c})
+			c := [3]float32{(a.mn[0] + a.mx[0]) / 2, (a.mn[1] + a.mx[1]) / 2, (a.mn[2] + a.mx[2]) / 2}
+			if c[1] < 0.1 || c[1] > 0.7 || c[0]*float32(sx) < 0.4 || c[0]*float32(sx) > 1.3 ||
+				c[2]*float32(sz) < 0.4 || c[2]*float32(sz) > 2.0 {
+				return nil, fmt.Errorf("%s: implausible wheel centre %v at quadrant %d,%d", p.name, c, sx, sz)
+			}
+			out[[2]int{sx, sz}] = c
 		}
 	}
-	return plan, nil
+	return out, nil
 }
 
 func sign(f float32) int {
@@ -773,11 +784,113 @@ func (p *pmt) plan() ([]placement, error) {
 	return out, nil
 }
 
+// modelVariant is one exportable alternate of a model: a named placement plan
+// that becomes one glTF scene of the GLB.
+type modelVariant struct {
+	id, name, desc string
+	plan           []placement
+}
+
+func parts(idx ...int) []placement {
+	out := make([]placement, len(idx))
+	for i, pi := range idx {
+		out[i] = placement{part: pi}
+	}
+	return out
+}
+
+// variants lists a model's alternates. The part roles come from the game's
+// own runtime group tables and draw captures (writeup Part XX): the rc
+// template's LOD groups {1,0,6,2,3|4} / {10,0,14,11,12|13} / {17,0,21,19,20}
+// / {22} / {23}, part 9 = the shadow-caster proxy (drawn only under the
+// light's projection), 5 = the effect quad stack, 6/14/21 = light and road
+// glow overlays. The first variant is the default scene.
+func (p *pmt) variants() ([]modelVariant, error) {
+	if strings.HasPrefix(p.name, "obj_rc_") && p.name != "obj_rc_all" {
+		caster := modelVariant{"caster", "Shadow caster", "the proxy hull the game draws into the shadow map — never directly visible", parts(9)}
+		overlays := modelVariant{"overlays", "Light & effect overlays", "the LOD-0 group's brake/headlight glow and effect quads, normally drawn additively", parts(5, 6)}
+		wheels, err := rcWheelCentres(p)
+		if err != nil {
+			// fx/328gts: no derivable wheel centres — mid-LOD default (wheels
+			// baked in place), and only the wheel-free variants.
+			return []modelVariant{
+				{"car", "Car (mid LOD)", "", parts(0, 17, 19)},
+				{"lod3", "LOD 3", "", parts(0, 22)},
+				{"lod4", "LOD 4", "", parts(0, 23)},
+				caster, overlays,
+			}, nil
+		}
+		return []modelVariant{
+			{"car", "Car", "", rcNearPlan(wheels)},
+			{"lod1", "LOD 1", "", append([]placement{{part: 0}, {part: 10}, {part: 11}}, wheelPlacements(15, 16, wheels)...)},
+			{"lod2", "LOD 2", "", parts(0, 17, 19)},
+			{"lod3", "LOD 3", "", parts(0, 22)},
+			{"lod4", "LOD 4", "", parts(0, 23)},
+			caster, overlays,
+		}, nil
+	}
+	if p.name == "obj_plcar_dino" {
+		def, err := p.plan()
+		if err != nil {
+			return nil, err
+		}
+		return []modelVariant{
+			{"car", "Car", "", def},
+			{"alt", "Alternate panels", "the front-panel state variants and the alternate rear section the game swaps in (lights, close-up)", parts(2, 3, 4)},
+			{"overlays", "Light overlays", "the additively-blended brake/headlight glow quads", parts(7)},
+			{"proxy", "Proxy shells", "untextured hulls never drawn in any captured pass — the player-car analogue of the rivals' shadow-caster proxy", parts(14, 15)},
+		}, nil
+	}
+	def, err := p.plan()
+	if err != nil {
+		return nil, err
+	}
+	return []modelVariant{{"car", "Car", "", def}}, nil
+}
+
+// export writes the model as a GLB: a single scene when it has one variant,
+// or one glTF scene per variant (scene 0 = the default "car") when several.
 func export(p *pmt, texs []texInfo, outPath string) (string, error) {
-	plan, err := p.plan()
+	if onlyParts != nil {
+		plan, err := p.plan()
+		if err != nil {
+			return "", err
+		}
+		v, summary, err := buildVariant(p, texs, plan)
+		if err != nil {
+			return "", err
+		}
+		return summary, glb.WriteTexturedLit(outPath, v.Positions, v.UVs, v.Normals, v.TexGroups, v.ColorGroups)
+	}
+	vars, err := p.variants()
 	if err != nil {
 		return "", err
 	}
+	out := make([]glb.ModelVariant, len(vars))
+	var summary string
+	for i, mv := range vars {
+		v, s, err := buildVariant(p, texs, mv.plan)
+		if err != nil {
+			return "", fmt.Errorf("variant %s: %w", mv.id, err)
+		}
+		v.Name = mv.id
+		out[i] = v
+		if i == 0 {
+			summary = s
+		}
+	}
+	if len(out) == 1 {
+		return summary, glb.WriteTexturedLit(outPath, out[0].Positions, out[0].UVs, out[0].Normals, out[0].TexGroups, out[0].ColorGroups)
+	}
+	if err := glb.WriteVariantScenes(outPath, out); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s + %d variants", summary, len(out)-1), nil
+}
+
+// buildVariant assembles one placement plan into merged vertex arrays and
+// texture/colour groups.
+func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, string, error) {
 	var positions, normals [][3]float32
 	var uvs [][2]float32
 	texTris := map[int][][3]uint32{}      // texture index -> triangles
@@ -793,7 +906,7 @@ func export(p *pmt, texs []texInfo, outPath string) (string, error) {
 		}
 		pt, err := p.parsePart(pl.part)
 		if err != nil {
-			return "", err
+			return glb.ModelVariant{}, "", err
 		}
 		// Per pair, decode the vertex buffer once and remember its base in the
 		// merged arrays.
@@ -829,7 +942,7 @@ func export(p *pmt, texs []texInfo, outPath string) (string, error) {
 			for i := range raw {
 				ix := uint32(u16(p.a, int(bp.ibOff)+int(b.first+uint32(i))*2)) + b.baseVtx
 				if ix >= nVerts {
-					return "", fmt.Errorf("index %d out of VB (%d verts)", ix, nVerts)
+					return glb.ModelVariant{}, "", fmt.Errorf("index %d out of VB (%d verts)", ix, nVerts)
 				}
 				raw[i] = ix + vbase[b.pair]
 			}
@@ -864,11 +977,10 @@ func export(p *pmt, texs []texInfo, outPath string) (string, error) {
 			Alpha: float32(key[3]) / 255,
 		})
 	}
-	if err := glb.WriteTexturedLit(outPath, positions, uvs, normals, texGroups, colorGroups); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%d parts, %d verts, %d tris, %d textured groups, %d colour groups",
-		p.nParts, len(positions), totalTris, len(texGroups), len(colorGroups)), nil
+	v := glb.ModelVariant{Positions: positions, Normals: normals, UVs: uvs, TexGroups: texGroups, ColorGroups: colorGroups}
+	summary := fmt.Sprintf("%d parts, %d verts, %d tris, %d textured groups, %d colour groups",
+		p.nParts, len(positions), totalTris, len(texGroups), len(colorGroups))
+	return v, summary, nil
 }
 
 func main() {
@@ -1044,10 +1156,18 @@ func exportSite(imagePath, siteDir string) {
 			fatal("%s: %v", discPath, err)
 		}
 		id := strings.TrimSuffix(outName, ".glb")
-		b.AddObject(schema.Asset{ID: id, Name: name, Group: section}, &schema.Object{
+		obj := &schema.Object{
 			Type: schema.ObjectModel3D, Name: name, Model: outName,
 			Props: map[string]any{"source": discPath},
-		})
+		}
+		if vars, err := p.variants(); err == nil && len(vars) > 1 {
+			for _, mv := range vars {
+				obj.Variants = append(obj.Variants, schema.ModelVariant{
+					ID: mv.id, Name: mv.name, Scene: mv.id, Description: mv.desc,
+				})
+			}
+		}
+		b.AddObject(schema.Asset{ID: id, Name: name, Group: section}, obj)
 		fmt.Printf("%-34s -> %s (%s)\n", discPath, out, summary)
 	}
 

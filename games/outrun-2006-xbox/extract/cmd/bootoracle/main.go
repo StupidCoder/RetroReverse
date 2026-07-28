@@ -222,6 +222,7 @@ func main() {
 	survey := flag.Bool("survey", false, "with -gpu: record the PGRAPH method surface and print it")
 	watch := flag.String("watch", "", "break-free write watch on ADDR[:LEN] (hex): log each write with its PC")
 	rwatch := flag.String("rwatch", "", "read watch on ADDR[:LEN] (hex): log each read with its PC")
+	bpstack := flag.String("bpstack", "", "ADDR[:N] (hex addr, dec count): print registers + a stack window each time PC reaches ADDR (default 8 hits), without stopping")
 	watchn := flag.Int("watchn", 40, "limit -watch/-rwatch to this many reported accesses")
 	poke := flag.String("poke", "", "write ADDR:VALUE (hex) after loading, before running — a probe, not a model")
 	keys := flag.String("keys", "", "pad-1 input script: NAME@FRAME[:HOLD][,...] — holds pad control NAME from that frame (the title's flip) for HOLD frames (default: forever). Names: see xbox.PadControlNames. e.g. -keys start@120,a@300:10,stickleft@400:8")
@@ -333,6 +334,21 @@ func main() {
 				seen++
 			}
 		})
+	}
+	if *bpstack != "" {
+		addrs, ns, _ := strings.Cut(*bpstack, ":")
+		addr, err := strconv.ParseUint(strings.TrimPrefix(addrs, "0x"), 16, 32)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "bootoracle: bad -bpstack %q\n", *bpstack)
+			os.Exit(2)
+		}
+		n := 8
+		if ns != "" {
+			if v, err := strconv.Atoi(ns); err == nil {
+				n = v
+			}
+		}
+		m.SetPCBreak(uint32(addr), n)
 	}
 	if *rwatch != "" {
 		lo, hi, err := parseWatch(*rwatch)

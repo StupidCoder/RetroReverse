@@ -4,6 +4,45 @@
  "type": "model3d",
  "name": "GTO",
  "model": "rc-gto.glb",
+ "variants": [
+  {
+   "id": "car",
+   "name": "Car",
+   "scene": "car"
+  },
+  {
+   "id": "lod1",
+   "name": "LOD 1",
+   "scene": "lod1"
+  },
+  {
+   "id": "lod2",
+   "name": "LOD 2",
+   "scene": "lod2"
+  },
+  {
+   "id": "lod3",
+   "name": "LOD 3",
+   "scene": "lod3"
+  },
+  {
+   "id": "lod4",
+   "name": "LOD 4",
+   "scene": "lod4"
+  },
+  {
+   "id": "caster",
+   "name": "Shadow caster",
+   "scene": "caster",
+   "description": "the proxy hull the game draws into the shadow map — never directly visible"
+  },
+  {
+   "id": "overlays",
+   "name": "Light \u0026 effect overlays",
+   "scene": "overlays",
+   "description": "the LOD-0 group's brake/headlight glow and effect quads, normally drawn additively"
+  }
+ ],
  "props": {
   "source": "/Cars/obj_rc_gto_pmt.sz"
  }

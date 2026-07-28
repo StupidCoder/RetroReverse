@@ -160,19 +160,19 @@ type ScriptRef struct {
 // --- tilemap body ---
 
 type Tilemap struct {
-	TileSize  int         `json:"tileSize"`
-	Width     int         `json:"width"`
-	Height    int         `json:"height"`
-	Atlas     TileAtlas   `json:"atlas"`
-	Cells     []int       `json:"cells"`
-	HFlipMask int         `json:"hflipMask,omitempty"`
-	Blocks    *Blocks     `json:"blocks,omitempty"`
-	Wrap      string      `json:"wrap,omitempty"` // "" | "none" | "x"
-	View      *Rect       `json:"view,omitempty"`
-	Spawn     *Spawn      `json:"spawn,omitempty"`
-	TileAnims []TileAnim  `json:"tileAnims,omitempty"`
-	CellAnims []CellAnim  `json:"cellAnims,omitempty"`
-	PaletteFx *PaletteFx  `json:"paletteFx,omitempty"`
+	TileSize  int        `json:"tileSize"`
+	Width     int        `json:"width"`
+	Height    int        `json:"height"`
+	Atlas     TileAtlas  `json:"atlas"`
+	Cells     []int      `json:"cells"`
+	HFlipMask int        `json:"hflipMask,omitempty"`
+	Blocks    *Blocks    `json:"blocks,omitempty"`
+	Wrap      string     `json:"wrap,omitempty"` // "" | "none" | "x"
+	View      *Rect      `json:"view,omitempty"`
+	Spawn     *Spawn     `json:"spawn,omitempty"`
+	TileAnims []TileAnim `json:"tileAnims,omitempty"`
+	CellAnims []CellAnim `json:"cellAnims,omitempty"`
+	PaletteFx *PaletteFx `json:"paletteFx,omitempty"`
 }
 
 type TileAtlas struct {
@@ -331,25 +331,25 @@ type Shapes struct {
 // --- placements ---
 
 type Placement struct {
-	ID        int           `json:"id"`
-	Object    string        `json:"object"`
-	Pos       []float64     `json:"pos,omitempty"`
-	Rot       []float64     `json:"rot,omitempty"`
-	Scale     Scale         `json:"scale,omitempty"`
-	Matrix    []float64     `json:"matrix,omitempty"`
-	Anim      string        `json:"anim,omitempty"`
-	HFlip     bool          `json:"hflip,omitempty"`
-	Tint      string        `json:"tint,omitempty"`
-	Hard      bool          `json:"hard,omitempty"`
-	Layer     string        `json:"layer,omitempty"`
-	Room      *int          `json:"room,omitempty"`
-	Variants  []string      `json:"variants,omitempty"`
-	Collision *ObjCollision `json:"collision,omitempty"`
-	Route     *RouteRef     `json:"route,omitempty"`
-	Behavior  *Behavior     `json:"behavior,omitempty"`
-	OnClick   *OnClick      `json:"onClick,omitempty"`
-	Name      string        `json:"name,omitempty"`
-	Info      *Info         `json:"info,omitempty"`
+	ID        int            `json:"id"`
+	Object    string         `json:"object"`
+	Pos       []float64      `json:"pos,omitempty"`
+	Rot       []float64      `json:"rot,omitempty"`
+	Scale     Scale          `json:"scale,omitempty"`
+	Matrix    []float64      `json:"matrix,omitempty"`
+	Anim      string         `json:"anim,omitempty"`
+	HFlip     bool           `json:"hflip,omitempty"`
+	Tint      string         `json:"tint,omitempty"`
+	Hard      bool           `json:"hard,omitempty"`
+	Layer     string         `json:"layer,omitempty"`
+	Room      *int           `json:"room,omitempty"`
+	Variants  []string       `json:"variants,omitempty"`
+	Collision *ObjCollision  `json:"collision,omitempty"`
+	Route     *RouteRef      `json:"route,omitempty"`
+	Behavior  *Behavior      `json:"behavior,omitempty"`
+	OnClick   *OnClick       `json:"onClick,omitempty"`
+	Name      string         `json:"name,omitempty"`
+	Info      *Info          `json:"info,omitempty"`
 	Props     map[string]any `json:"props,omitempty"`
 }
 
@@ -493,13 +493,14 @@ type Object struct {
 	Animations []Animation  `json:"animations,omitempty"`
 
 	// model3d
-	Model        string     `json:"model,omitempty"`
-	Instanced    bool       `json:"instanced,omitempty"`
-	SkinnedClone bool       `json:"skinnedClone,omitempty"`
-	Billboard    string     `json:"billboard,omitempty"` // "yaw"
-	UVAnims      []UVAnim   `json:"uvAnims,omitempty"`
-	Flipbooks    []Flipbook `json:"flipbooks,omitempty"`
-	AtlasPicture string     `json:"atlasPicture,omitempty"`
+	Model        string         `json:"model,omitempty"`
+	Variants     []ModelVariant `json:"variants,omitempty"` // independent alternates, one glTF scene each
+	Instanced    bool           `json:"instanced,omitempty"`
+	SkinnedClone bool           `json:"skinnedClone,omitempty"`
+	Billboard    string         `json:"billboard,omitempty"` // "yaw"
+	UVAnims      []UVAnim       `json:"uvAnims,omitempty"`
+	Flipbooks    []Flipbook     `json:"flipbooks,omitempty"`
+	AtlasPicture string         `json:"atlasPicture,omitempty"`
 
 	// billboard3d
 	Views      int       `json:"views,omitempty"`
@@ -516,6 +517,18 @@ type Object struct {
 	Props map[string]any `json:"props,omitempty"`
 }
 
+// ModelVariant names one independent alternate of a model3d — an extra glTF
+// scene in the same GLB (LOD levels, a shadow-caster proxy, livery recolours).
+// The first entry is the default and must name scene 0; the viewer offers the
+// rest without re-fetching the model. (Distinct from Variant, the level-level
+// variant list.)
+type ModelVariant struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Scene       string `json:"scene"` // glTF scene name in the model GLB
+	Description string `json:"description,omitempty"`
+}
+
 type SpriteAtlas struct {
 	File   string `json:"file"`
 	CellW  int    `json:"cellW"`
@@ -527,10 +540,10 @@ type SpriteAtlas struct {
 // (sprite2d: row/frames/durations|steps/path; model3d: clip/fps;
 // billboard3d: col/framesPerView/fps).
 type Animation struct {
-	ID          string      `json:"id"`
-	Name        string      `json:"name,omitempty"`
-	Loop        string      `json:"loop"` // "once" | "loop" | "pingpong" | "hold"
-	Description string      `json:"description,omitempty"`
+	ID          string `json:"id"`
+	Name        string `json:"name,omitempty"`
+	Loop        string `json:"loop"` // "once" | "loop" | "pingpong" | "hold"
+	Description string `json:"description,omitempty"`
 
 	// sprite2d
 	Row       int         `json:"row,omitempty"`

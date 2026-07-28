@@ -253,6 +253,8 @@ type Machine struct {
 
 	verbose   bool
 	traceLeft int // remaining instructions to print a PC/disasm trail for (-trace)
+	bpAddr    uint32
+	bpLeft    int // remaining -bpstack reports at bpAddr
 
 	// hotpc is the sampling PC profiler (RR_HOTPC=1): every 256th tick records the
 	// current PC. Diagnostic only — outside the savestate, nil unless enabled.
@@ -574,6 +576,11 @@ func (m *Machine) PGraph() *pgraph { return m.pgraph }
 
 // SetTrace prints the next n executed instructions (PC + disassembly), for bring-up.
 func (m *Machine) SetTrace(n int) { m.traceLeft = n }
+
+// SetPCBreak arms a non-stopping breakpoint: each time execution reaches addr
+// (up to n times) the registers and a raw stack window are printed — enough to
+// read a function's arguments and walk its return addresses without a debugger.
+func (m *Machine) SetPCBreak(addr uint32, n int) { m.bpAddr, m.bpLeft = addr, n }
 
 // MemReadByte / MemRead32 read guest memory through the address-window translation —
 // the debugger/CLI view into the running machine.

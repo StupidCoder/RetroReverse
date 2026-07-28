@@ -11,6 +11,7 @@ import (
 type GLBInfo struct {
 	Animations []string // animation names, in order
 	Materials  []string // material names, in order
+	Scenes     []string // scene names, in order (variants are scenes)
 }
 
 // ReadGLBInfo parses a GLB (glTF-Binary container) far enough to list its
@@ -46,6 +47,9 @@ func ReadGLBInfo(r io.Reader) (*GLBInfo, error) {
 		Animations []struct {
 			Name string `json:"name"`
 		} `json:"animations"`
+		Scenes []struct {
+			Name string `json:"name"`
+		} `json:"scenes"`
 		Materials []struct {
 			Name string `json:"name"`
 		} `json:"materials"`
@@ -59,6 +63,9 @@ func ReadGLBInfo(r io.Reader) (*GLBInfo, error) {
 	}
 	for _, m := range doc.Materials {
 		info.Materials = append(info.Materials, m.Name)
+	}
+	for _, sc := range doc.Scenes {
+		info.Scenes = append(info.Scenes, sc.Name)
 	}
 	return info, nil
 }
