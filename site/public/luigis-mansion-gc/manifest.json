@@ -13,7 +13,7 @@
   },
   "tickHz": 60,
   "filter": "crt",
-  "texFilter": "linear"
+  "texFilter": "bilinear"
  },
  "assets": [
   {

@@ -197,14 +197,27 @@ opaque pass's `17`). Mode 2 marks both flashlight-cone materials, the torch flam
 mansion set's window glass and one all-invisible Luigi material (tint alpha 0 — its draws
 write zero pixels on hardware too). The export maps mode 2 to glTF `BLEND` plus
 `extras.blend:"alpha"` (the Studio turns off depth writes), everything else to `MASK`.
-**Culling.** The game back-face-culls its draws — GEN_MODE bits 14..15 in the trace, never
-0 except a few effect draws — and mirror-stamped instances (the sets place trees through
-det < 0 node matrices) swap the cull sense per draw to match their flipped winding. The
-export mirrors both: opaque and alpha-tested materials ship single-sided with the strip
-order reversed (GX's front face is the opposite winding from glTF's CCW), mirror-stamped
-triangles keep it, and only the translucent pass stays double-sided. This is what lets the
-opod camera sit inside the doorway and film the door opening through the hill's culled
-back faces — double-sided export filled the whole frame with the hillside's underside.
+**Culling.** Each packet's u16 at +8 is its GX SDK cull mode, read by the renderer at
+`0x80059570` and passed to `GXSetCullMode` (the write-profiler climb from the GEN_MODE
+trace bits found the load; the SDK call swaps front/back into the register encoding).
+Almost everything culls: the sets ask for back, the characters for front (their bind
+matrices carry the opposite winding — the same det < 0 information the exporter already
+uses to flip mirror-stamped triangles), and the only cull-none packets are the sets' sky
+domes and backdrops, which must render from inside. The export honours the field:
+materials ship single-sided (strip order reversed — GX's front face is the opposite
+winding from glTF's CCW; mirror-stamped triangles keep their order) unless one of their
+packets is cull-none. This is what lets the opod camera sit inside the doorway and film
+the door opening through the hill's culled back faces — double-sided export filled the
+whole frame with the hillside's underside — and it also removes the flashlight cone's far
+shell, which hardware never draws.
+
+**Texture sampling.** The `.mdl` and `.bin` textures ship without mip chains, so the
+hardware always samples mip 0. The Studio's earlier `linear` (bilinear + generated
+mipmaps) profile banded the flashlight cone into rings: the beam texture is an 8×128
+gradient whose u tiles ~16× around the cone, and the isotropic mip level that extreme
+u-minification selects collapses the 128-row v-gradient into a handful of steps. The
+manifest now says `bilinear` — bilinear with no mipmaps — which reproduces the console's
+smooth gradient (and its honest texel shimmer).
 
 Still open: the `.clr` sidecars are keyframed material-colour tracks (the oppm trace shows
 the lightning's register riding them, alpha 0 at rest and flashing to 255), and `.txp` is a

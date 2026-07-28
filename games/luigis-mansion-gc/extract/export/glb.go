@@ -75,15 +75,16 @@ func StaticGLB(m *lm.MDL, path, name string) error {
 					float32(mat.Tint[2]) / 255, float32(mat.Tint[3]) / 255,
 				}
 				pr.Blend = mat.Mode == 2 // the game's translucent pass
-				// Hardware back-culls the opaque passes (GEN_MODE bits
-				// 14..15); only translucents draw both sides. Mirror stamps
-				// flip winding — matched below per triangle.
-				pr.DoubleSided = mat.Mode == 2
 				pr.Unlit = true
 				prims[pair.Material] = pr
 				order = append(order, pair.Material)
 			}
 			for _, pk := range shape.Packets {
+				// Sidedness comes from the packet's own cull field: the
+				// sky domes and backdrops are the cull-none packets.
+				if pk.Cull == 0 {
+					pr.DoubleSided = true
+				}
 				dl, err := m.ParseDL(pk.DL, nbt)
 				if err != nil {
 					return fmt.Errorf("%s node %d: %w", name, ni, err)

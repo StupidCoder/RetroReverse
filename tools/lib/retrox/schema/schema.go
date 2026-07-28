@@ -63,8 +63,11 @@ type Display struct {
 	TickHz int    `json:"tickHz"`
 	Filter string `json:"filter,omitempty"`
 	// TexFilter is how the platform's rasterizer sampled textures:
-	// "linear" (N64/GC-style bilinear) or "nearest" (PSX-style point
-	// sampling). Empty leaves the viewer's default behaviour.
+	// "linear" (N64-style bilinear with mipmaps), "bilinear" (bilinear with
+	// NO mipmaps — for games whose textures ship without mip chains, where
+	// hardware always reads mip 0; generated mips band fine gradients), or
+	// "nearest" (PSX-style point sampling). Empty leaves the viewer's
+	// default behaviour.
 	TexFilter string `json:"texFilter,omitempty"`
 }
 

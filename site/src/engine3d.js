@@ -296,7 +296,11 @@ export async function loadGLB(url, signal) {
 
 // applyTexFilter imposes the platform's texture sampling (manifest
 // display.texFilter) on a loaded subtree: "linear" = bilinear + mipmaps
-// (N64/GC), "nearest"/default = point-sampled magnification (PSX-style).
+// (N64), "bilinear" = bilinear with NO mipmaps — for textures the game
+// ships without mip chains (Luigi's Mansion's .mdl/.bin images: hardware
+// always samples mip 0 there, and generated mipmaps banded the flashlight
+// cone's 8x128 gradient into rings) — "nearest"/default = point-sampled
+// magnification (PSX-style).
 export function applyTexFilter(root, mode) {
   root.traverse((o) => {
     const m = o.material;
@@ -314,6 +318,10 @@ function filterTex(tex, mode) {
     tex.magFilter = THREE.LinearFilter;
     tex.minFilter = THREE.LinearMipmapLinearFilter;
     tex.generateMipmaps = true;
+  } else if (mode === 'bilinear') {
+    tex.magFilter = THREE.LinearFilter;
+    tex.minFilter = THREE.LinearFilter;
+    tex.generateMipmaps = false;
   } else {
     tex.magFilter = THREE.NearestFilter;
   }

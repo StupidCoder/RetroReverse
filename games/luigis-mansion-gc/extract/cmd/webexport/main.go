@@ -49,9 +49,12 @@ func run(ctx *cli.Context) error {
 		Native: schema.Size{W: 640, H: 480},
 		TickHz: 60,
 		// The GameCube played on the same CRT TVs as the C64/N64 exports,
-		// and Flipper's TEV samples textures bilinearly.
+		// and Flipper samples bilinearly — but this game's .mdl/.bin
+		// textures ship without mip chains, so the hardware always reads
+		// mip 0: "bilinear" (no generated mipmaps). Generated mips banded
+		// the flashlight cone's gradient into rings.
 		Filter:    "crt",
-		TexFilter: "linear",
+		TexFilter: "bilinear",
 	})
 
 	doObjects := ctx.Stage("objects")

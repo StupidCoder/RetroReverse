@@ -18,7 +18,7 @@ package lm
 //	+0x2a u16 shapeCount (= draw-pair count in both opening models)
 //	+0x30 nodes    16 B: {s16 id, s16 sibling, s16 child, u16 mode,
 //	                      u16 pairCount, u16 firstPair}  (sibling/child relative)
-//	+0x34 packets  32 B: {u32 dlOffset, u32 dlSize, u16 -, u16 mtxCount,
+//	+0x34 packets  32 B: {u32 dlOffset, u32 dlSize, u16 cullMode, u16 mtxCount,
 //	                      s16 mtxIdx[10]}  (mtxIdx i loads GX PN-matrix slot 3i)
 //	+0x38 matrices 48 B: 3x4 float32 row-major per node
 //	+0x3c weight values   f32     (envelope streams, indexed by running count)
@@ -106,6 +106,11 @@ type MDLPair struct{ Material, Shape int }
 type MDLPacket struct {
 	DL     []byte
 	MtxIdx []int16
+	// Cull is the u16 at packet+8: the GX SDK cull mode this packet draws
+	// with (0 none, 1 front, 2 back), read by the renderer at 0x80059570
+	// and passed to GXSetCullMode. The sets' sky domes and backdrops are
+	// the cull-none packets; mirror stamps flip between front and back.
+	Cull uint16
 }
 
 // MDLShape is a run of packets sharing one vertex descriptor.
@@ -283,7 +288,7 @@ func ParseMDL(b []byte) (*MDL, error) {
 			if dlOff+dlSize > uint32(len(b)) {
 				return nil, fmt.Errorf("lm: packet %d display list out of range", first+p)
 			}
-			pk := MDLPacket{DL: b[dlOff : dlOff+dlSize]}
+			pk := MDLPacket{DL: b[dlOff : dlOff+dlSize], Cull: uint16(u16(po + 8))}
 			mtxCount := u16(po + 10)
 			for k := 0; k < mtxCount; k++ {
 				pk.MtxIdx = append(pk.MtxIdx, int16(u16(po+12+uint32(k)*2)))

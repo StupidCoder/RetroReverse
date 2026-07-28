@@ -186,6 +186,7 @@ func SkinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace boo
 		mirrored []bool // per vertex: baked through a det<0 (mirror-stamp) matrix
 	}
 	prims := map[int]*prim{}
+	doubleSided := map[int]bool{} // material -> any packet draws cull-none
 	var order []int
 
 	// GX PN-matrix slots persist across packets: a packet's -1 entries keep
@@ -223,6 +224,9 @@ func SkinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace boo
 			}
 			for pi := range shape.Packets {
 				pk := &shape.Packets[pi]
+				if pk.Cull == 0 {
+					doubleSided[pair.Material] = true
+				}
 				for s, mi := range pk.MtxIdx {
 					if mi >= 0 && s < len(slots) {
 						slots[s] = int(mi)
@@ -388,13 +392,13 @@ func SkinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace boo
 		}
 		mat := map[string]any{
 			"name": fmt.Sprintf("mat%02d", mi),
-			// The game back-face-culls its draws (GEN_MODE bits 14..15 per
-			// the trace; mirrored stamps swap the sense, matched above by
-			// flipping their winding). Opaque/masked materials ship
-			// single-sided — the opod camera sits inside the doorway and
-			// must see through the hill's back faces, exactly as GX culls
-			// them on hardware. The translucent pass keeps both sides.
-			"doubleSided": md.Mode == 2,
+			// Sidedness is the packet's own cull field (packet+8, fed to
+			// GXSetCullMode by the renderer at 0x80059570): cull-none
+			// packets — the sky domes, the backdrops — draw both sides,
+			// everything else single-sided exactly as GX culls it. This is
+			// also what keeps the flashlight cone's far shell from
+			// stacking rings over the near one.
+			"doubleSided": doubleSided[mi],
 			"extensions":  map[string]any{"KHR_materials_unlit": struct{}{}},
 			"pbrMetallicRoughness": map[string]any{
 				"baseColorFactor": tint,
