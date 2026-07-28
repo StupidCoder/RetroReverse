@@ -257,6 +257,7 @@ function buildVariantSelect(game, asset, variants, activeId, params, apply) {
 }
 
 let statsProvider = null;
+let sunOn = false; // the sun toggle persists across asset/model switches
 function wireViewButtons(game, view) {
   statsProvider = view.stats || null;
 
@@ -270,8 +271,9 @@ function wireViewButtons(game, view) {
   const sb = $('sunBtn');
   if (view.setSunlight) {
     sb.hidden = false;
-    let on = false;
-    sb.onclick = () => { on = !on; view.setSunlight(on); sb.classList.toggle('on', on); };
+    if (sunOn) view.setSunlight(true);
+    sb.classList.toggle('on', sunOn);
+    sb.onclick = () => { sunOn = !sunOn; view.setSunlight(sunOn); sb.classList.toggle('on', sunOn); };
   }
 
   const db = $('displayBtn');

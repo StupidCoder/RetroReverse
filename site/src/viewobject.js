@@ -411,11 +411,13 @@ async function mount3D(ctx, doc) {
     ...(hasNormals ? { setSunlight } : {}),
     stats: () => {
       let tris = 0, verts = 0, mats = new Set(), bones = 0;
+      const seenPos = new Set(); // primitives of one variant share a POSITION accessor
       inst.node.traverse((o) => {
         if (o.isMesh) {
           const g = o.geometry;
-          verts += g.attributes.position?.count || 0;
-          tris += (g.index ? g.index.count : g.attributes.position?.count || 0) / 3;
+          const pos = g.attributes.position;
+          if (pos && !seenPos.has(pos)) { seenPos.add(pos); verts += pos.count; }
+          tris += (g.index ? g.index.count : pos?.count || 0) / 3;
           for (const m of Array.isArray(o.material) ? o.material : [o.material]) mats.add(m);
         }
         if (o.isBone) bones++;

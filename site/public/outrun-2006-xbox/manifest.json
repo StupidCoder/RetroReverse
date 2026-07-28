@@ -12,6 +12,7 @@
    "h": 480
   },
   "tickHz": 60,
+  "filter": "crt",
   "texFilter": "linear"
  },
  "assets": [

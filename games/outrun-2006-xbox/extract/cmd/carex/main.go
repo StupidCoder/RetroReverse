@@ -977,6 +977,24 @@ func (p *pmt) plan() ([]placement, error) {
 	return out, nil
 }
 
+// partMinY is the lowest vertex Y across a part's vertex buffers — near zero
+// when the part carries baked ground-touching wheels.
+func (p *pmt) partMinY(pi int) float32 {
+	pt, err := p.parsePart(pi)
+	if err != nil {
+		return 0
+	}
+	min := float32(math.MaxFloat32)
+	for _, bp := range pt.pairs {
+		for i := uint32(0); i < bp.vbBytes/bp.stride; i++ {
+			if y := f32(p.b, int(bp.vbOff+i*bp.stride)+4); y < min {
+				min = y
+			}
+		}
+	}
+	return min
+}
+
 // partKind reads a part's piece-node flags word (the "kind": 2 marks the flat
 // baked ground-shadow part).
 func partKind(p *pmt, pi int) uint32 {
@@ -1063,11 +1081,21 @@ func (p *pmt) variants() ([]modelVariant, error) {
 			return nil, fmt.Errorf("%s: no chassis-table entry", p.name)
 		}
 		checkChassis(p, wheels[0])
+		// The mid LODs usually bake their wheels in place; where a body floats
+		// (328gts' LOD 2/3, 550b/575sa's LOD 3 — lowest vertex well above the
+		// ground) the variant borrows the placed LOD-1 wheels. LOD 4 is
+		// wheel-less on every car and ships as the game has it.
+		withWheels := func(plan []placement, bodyPart int) []placement {
+			if p.partMinY(bodyPart) > 0.08 {
+				return append(plan, wheelPlacements(wheels[1])...)
+			}
+			return plan
+		}
 		return []modelVariant{
 			{"car", "Car", "", rcNearPlan(wheels[0])},
 			{"lod1", "LOD 1", "", append(parts(0, 10, 11), wheelPlacements(wheels[1])...)},
-			{"lod2", "LOD 2", "", parts(0, 17, 19)},
-			{"lod3", "LOD 3", "", parts(0, 22)},
+			{"lod2", "LOD 2", "", withWheels(parts(0, 17, 19), 17)},
+			{"lod3", "LOD 3", "", withWheels(parts(0, 22), 22)},
 			{"lod4", "LOD 4", "", parts(0, 23)},
 			{"caster", "Shadow caster", "the proxy hull the game draws into the shadow map — never directly visible", parts(9)},
 			{"overlays", "Light & effect overlays", "the LOD-0 group's brake/headlight glow and effect quads, normally drawn additively", parts(5, 6)},
@@ -1368,6 +1396,8 @@ func exportSite(imagePath, siteDir string) {
 	b.SetDisplay(schema.Display{
 		Native: schema.Size{W: 640, H: 480},
 		TickHz: 60,
+		// 480i on a CRT; under the filter the viewer renders at 480 lines.
+		Filter: "crt",
 		// The NV2A filters textures bilinearly.
 		TexFilter: "linear",
 	})

@@ -2976,6 +2976,14 @@ placement values, so their residual ambiguity is moot by construction. A pleasin
 detail: the 360 Spider's record has an empty gear-stick slot — its interior bakes the
 lever into the body.
 
+A polish pass followed the fleet: the mid-LOD variants borrow the placed LOD-1 wheels
+wherever the body itself never reaches the ground (a per-part lowest-vertex test — the
+328's LOD 2/3 and the 550b/575sa LOD 3; every car's LOD 4 is authentically wheel-less
+and ships as-is), the manifest declares the CRT screen filter at the Xbox's 480-line
+native mode, the viewer's sun toggle persists across model switches like the screen
+filter does, and the stats panel counts a variant's shared POSITION accessor once
+(the Dino read 345,648 vertices — its 9,096 counted once per material group).
+
 `carex` now assembles all fifteen player cars from their records — body + shadow (the
 kind-2 static slot) + default front + placed doors/gear/steering/wheels — with variants
 `Alternate panels` (the other front states), `Light overlays` (the glow slots) and
