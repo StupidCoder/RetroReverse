@@ -3,5 +3,9 @@
  "version": 1,
  "type": "model3d",
  "name": "Viper",
- "model": "car-dviper.glb"
+ "model": "car-dviper.glb",
+ "stats": {
+  "Native": "73 textured quads, 109 vertices",
+  "Source": "ORI3 \"VIPER000\", 45 SPoT textures"
+ }
 }

@@ -36,6 +36,9 @@ type ObjectPlacement struct {
 
 type objectsDoc struct {
 	Objects []ObjectPlacement `json:"objects"`
+	// per-model info-panel rows keyed by GLB path (native quad counts —
+	// the GLB triangle count is a subdivision artefact for ORI3 models)
+	Models map[string]map[string]any `json:"models,omitempty"`
 }
 
 func exportObjects(a *assets, out string) (string, error) {
@@ -51,24 +54,28 @@ func exportObjects(a *assets, out string) (string, error) {
 	sort.Ints(ids)
 
 	written := map[int]string{}
+	stats := map[string]map[string]any{}
 	for _, id := range ids {
 		def := &a.track.Objects.Defs[id]
 		file := fmt.Sprintf("models/obj-%s-%02d.glb", a.course, id)
+		var st map[string]any
 		var err error
 		switch def.Type {
 		case 1:
-			err = writeModelObject(a, def, filepath.Join(out, file))
+			st, err = writeModelObject(a, def, filepath.Join(out, file))
 		default: // 4 = upright billboard, 6 = two-anchor cel (approximated flat)
 			err = writeBillboard(a, def, filepath.Join(out, file))
+			st = map[string]any{"Native": "1 textured quad (billboard cel)"}
 		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "[objects] %s obj-%02d (type %d): %v — skipped\n", a.course, id, def.Type, err)
 			continue
 		}
 		written[id] = file
+		stats[file] = st
 	}
 
-	var doc objectsDoc
+	doc := objectsDoc{Models: stats}
 	for i, p := range a.track.Objects.Placements {
 		file, ok := written[int(p.Def)]
 		if !ok || int(p.Segment) >= len(a.track.Segments) {
@@ -134,31 +141,35 @@ func writeBillboard(a *assets, def *nfs.ObjectDef, path string) error {
 	return glb.WriteTextured(path, positions, uvs, groups, nil)
 }
 
-// writeModelObject emits a type-1 def's ORI3 mesh. The packet's model group
-// (root child 2) holds (model, shape) pairs exactly like the car families;
-// the def's texture byte picks the pair.
-func writeModelObject(a *assets, def *nfs.ObjectDef, path string) error {
+// writeModelObject emits a type-1 def's ORI3 mesh and returns its info-panel
+// rows. The packet's model group (root child 2) holds (model, shape) pairs
+// exactly like the car families; the def's texture byte picks the pair.
+func writeModelObject(a *assets, def *nfs.ObjectDef, path string) (map[string]any, error) {
 	models := a.root.Children[2]
 	if models == nil || len(models.Children) == 0 || models.Children[0] == nil {
-		return fmt.Errorf("packet has no model group")
+		return nil, fmt.Errorf("packet has no model group")
 	}
 	list := models.Children[0]
 	idx := int(def.Tex)
 	if idx >= len(list.Children) {
-		return fmt.Errorf("model index %d out of range (%d)", idx, len(list.Children))
+		return nil, fmt.Errorf("model index %d out of range (%d)", idx, len(list.Children))
 	}
 	pair := list.Children[idx]
 	if pair == nil || len(pair.Children) < 2 {
-		return fmt.Errorf("model pair %d missing", idx)
+		return nil, fmt.Errorf("model pair %d missing", idx)
 	}
 	m, s := pair.Children[0], pair.Children[1]
 	parsed, err := threedo.ParseModels(a.pkt[m.Offset:])
 	if err != nil || len(parsed) == 0 {
-		return fmt.Errorf("bad ORI3: %v", err)
+		return nil, fmt.Errorf("bad ORI3: %v", err)
 	}
 	lod := &nfs.CarLOD{Model: parsed[0]}
 	if err := nfs.ParseShapeInto(a.pkt[s.Offset:], lod); err != nil {
-		return err
+		return nil, err
 	}
-	return writeORI3(lod, 1.0/128, path)
+	st := map[string]any{
+		"Native": fmt.Sprintf("%d textured quads, %d vertices", len(lod.Model.Faces), len(lod.Model.Verts)),
+		"Source": fmt.Sprintf("ORI3 %q, %d SPoT textures", lod.Model.Name, len(lod.Textures)),
+	}
+	return st, writeORI3(lod, 1.0/128, path)
 }

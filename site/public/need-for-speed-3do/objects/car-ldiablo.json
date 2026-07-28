@@ -3,5 +3,9 @@
  "version": 1,
  "type": "model3d",
  "name": "Diablo",
- "model": "car-ldiablo.glb"
+ "model": "car-ldiablo.glb",
+ "stats": {
+  "Native": "61 textured quads, 102 vertices",
+  "Source": "ORI3 \"DIABLO00\", 39 SPoT textures"
+ }
 }

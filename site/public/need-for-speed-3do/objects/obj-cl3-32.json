@@ -3,5 +3,9 @@
  "version": 1,
  "type": "model3d",
  "name": "Coastal 3 prop 32",
- "model": "obj-cl3-32.glb"
+ "model": "obj-cl3-32.glb",
+ "stats": {
+  "Native": "6 textured quads, 16 vertices",
+  "Source": "ORI3 \"LGHT2000\", 6 SPoT textures"
+ }
 }

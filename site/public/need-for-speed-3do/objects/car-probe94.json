@@ -3,5 +3,9 @@
  "version": 1,
  "type": "model3d",
  "name": "Probe94 (SASCO model)",
- "model": "car-probe94.glb"
+ "model": "car-probe94.glb",
+ "stats": {
+  "Native": "18 textured quads, 43 vertices",
+  "Source": "ORI3 \"SASCO000\", 12 SPoT textures"
+ }
 }

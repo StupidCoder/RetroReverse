@@ -3,5 +3,9 @@
  "version": 1,
  "type": "model3d",
  "name": "City 1 prop 32",
- "model": "obj-cy1-32.glb"
+ "model": "obj-cy1-32.glb",
+ "stats": {
+  "Native": "8 textured quads, 27 vertices",
+  "Source": "ORI3 \"CYTN2000\", 8 SPoT textures"
+ }
 }

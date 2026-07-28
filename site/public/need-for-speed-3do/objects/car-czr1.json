@@ -3,5 +3,9 @@
  "version": 1,
  "type": "model3d",
  "name": "ZR-1",
- "model": "car-czr1.glb"
+ "model": "car-czr1.glb",
+ "stats": {
+  "Native": "58 textured quads, 89 vertices",
+  "Source": "ORI3 \"ZR100000\", 37 SPoT textures"
+ }
 }

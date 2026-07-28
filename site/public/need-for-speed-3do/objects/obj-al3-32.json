@@ -3,5 +3,9 @@
  "version": 1,
  "type": "model3d",
  "name": "Alpine 3 prop 32",
- "model": "obj-al3-32.glb"
+ "model": "obj-al3-32.glb",
+ "stats": {
+  "Native": "6 textured quads, 14 vertices",
+  "Source": "ORI3 \"AL3T2000\", 6 SPoT textures"
+ }
 }

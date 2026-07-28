@@ -3,5 +3,9 @@
  "version": 1,
  "type": "model3d",
  "name": "Scooter",
- "model": "car-scooter.glb"
+ "model": "car-scooter.glb",
+ "stats": {
+  "Native": "47 textured quads, 54 vertices",
+  "Source": "ORI3 \"SCOOT200\", 29 SPoT textures"
+ }
 }

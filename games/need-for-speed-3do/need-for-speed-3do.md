@@ -882,7 +882,10 @@ scheme's dominant body colour) and `manifest.json`. Each course's opening
 camera is derived from its spline (segment 16, 2.10 m right of centre,
 0.94 m up, 40 m look-ahead), calibrated against the City 1 driver's-eye
 camera captured from the running game (reproduced to 4 mm). `cmd/geomprobe`
-sanity-checks the decoders standalone.
+sanity-checks the decoders standalone. Every ORI3-backed object document
+(cars and 3D props) carries info-panel stats stating the source truth —
+native quad and vertex counts, the ORI3 model name and its SPoT texture
+count — since the GLB's triangle count is a subdivision artefact.
 
 ### Exporting an order-painted quad renderer into a depth-tested triangle world
 
@@ -899,26 +902,33 @@ and both needed a targeted translation (`webexport/car.go buildORI3`):
   under 2 model units (~1.6 cm); parallelograms stay two triangles. The
   Rodeo's cabin side (e = 134 units ≈ 1 m!) gets a 5×5 grid.
 
-- **Faces are painted in model order with no depth buffer**, and the faces
-  whose material word carries **bit 0x04 in the top byte** — the wheels and
-  the dark axle strips — come last in every model, painted over the body.
-  Their quads sit *inboard* of the body panels (the Diablo's rear rims at
-  |x|=127 against sills reaching |x|=129; fronts 112 vs ~118): under a
-  depth test the body's black arch backdrop wins and eats parts of the
-  wheels. The exporter pushes each *bright* side-facing overlay face
-  (X-dominant normal, one side of the centreline, texture mean luminance
-  > 0.15 — i.e. the silver rims) just outside the outermost body surface
-  sampled over its (y,z) footprint. The near-black backdrop discs and axle
-  strips stay put: they hide behind equally black panels, and the Viper
-  flags *only* backdrop discs (its tyres are painted into the body
-  textures), so pushing dark faces would cover its wheels with the discs.
+- **Faces are painted in model order with no depth buffer**, and the wheel
+  quads paint over the body panels they sit *inboard* of (the Diablo's rear
+  rims at |x|=127 against sills reaching |x|=129, fronts 112 vs ~118; the
+  ZR-1's fronts 115 vs a fender lip at 120; the 512 TR is even asymmetric —
+  its right rims lie a unit deeper than its left, which is why only its
+  right side broke): under a depth test the body's black arch backdrop wins
+  and eats parts of the wheels. No material bit marks the rims reliably (see
+  below), so the exporter identifies them by an invariant signature: a flat
+  constant-X quad on one side of the centreline, reaching the model's lowest
+  point (tyres touch the ground; panels don't), with a bright texture (mean
+  luminance > 0.15 — the silver rims). Each outermost such face that a body
+  surface *strictly overlaps* gets pushed just outside the outermost body
+  surface sampled over its (y,z) footprint; flush seam contact doesn't
+  trigger (that would slide whole slab-sided traffic bodies outward). The
+  near-black backdrop discs share the geometry but not the brightness and
+  stay put: they hide behind equally black arches, and the Viper's dark
+  tyre-well discs sit *in front of* wheels painted into its body textures —
+  pushing dark faces buries them.
 
-The material top byte reads as a face-class tag throughout the fleet:
-0x00 plain body quad, 0x01 degenerate quad (a triangle, fourth vertex
-repeated), 0x04 the late-drawn overlay set. The low byte's bit 0x40
-accompanies the overlay faces (0x50–0x53 vs the body's 0x10–0x13), with
-the low two bits varying per instance — plausibly the engine's precomputed
-visibility class, untraced.
+The material top byte reads as a face-class tag: 0x00 plain body quad,
+0x01 degenerate quad (a triangle, fourth vertex repeated), 0x04 a
+late-drawn overlay set (backdrop discs, axle strips — and on some cars the
+rims). But 0x04 is *not* a dependable wheel marker: the Diablo's rims carry
+it, the 512 TR's and ZR-1's rims are plain 0x00. The low byte's values
+0x50–0x53 (vs the body's usual 0x10–0x13) looked like a wheel class too,
+until the ZR-1 turned out to spread 0x50/0x52 over its whole body side —
+plausibly the engine's precomputed visibility classes, untraced.
 
 ---
 

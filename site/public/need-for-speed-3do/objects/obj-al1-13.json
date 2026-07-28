@@ -3,5 +3,8 @@
  "version": 1,
  "type": "model3d",
  "name": "Alpine 1 prop 13",
- "model": "obj-al1-13.glb"
+ "model": "obj-al1-13.glb",
+ "stats": {
+  "Native": "1 textured quad (billboard cel)"
+ }
 }

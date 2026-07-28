@@ -3,5 +3,9 @@
  "version": 1,
  "type": "model3d",
  "name": "911",
- "model": "car-p911.glb"
+ "model": "car-p911.glb",
+ "stats": {
+  "Native": "80 textured quads, 116 vertices",
+  "Source": "ORI3 \"PORSCH00\", 51 SPoT textures"
+ }
 }

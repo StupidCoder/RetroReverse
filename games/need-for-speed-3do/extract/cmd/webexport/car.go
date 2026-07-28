@@ -18,14 +18,13 @@ package main
 //     worst surface deviation is under ~2 model units, which converges on
 //     the cel engine's mapping.
 //
-//   - The game draws a car's faces in model order with no depth buffer, and
-//     the faces flagged 0x04 in the material word (wheels, and the dark
-//     axle strips behind them) come last, painting over the body. Their
-//     quads sit INBOARD of the body panels (the Diablo's rims at |x|=127/112
-//     against sills reaching |x|=129), so a depth test hands the win to the
-//     body's black arch backdrop instead. The outermost side-facing overlay
-//     faces are pushed just outside whatever body surface covers their
-//     footprint, which restores the painted-over look from every angle.
+//   - The game draws a car's faces order-painted with no depth buffer, and
+//     the wheel quads paint over the body panels they sit INBOARD of (the
+//     Diablo's rims at |x|=127/112 against sills reaching |x|=129), so a
+//     depth test hands the win to the body's black arch backdrop instead.
+//     The bright rim quads — identified by signature, see overlayPush — are
+//     pushed just outside whatever body surface covers their footprint,
+//     which restores the painted-over look from every angle.
 
 import (
 	"fmt"
@@ -117,7 +116,16 @@ func exportCars(vol *threedo.Volume, out string) ([]ModelIndex, error) {
 
 		file := fmt.Sprintf("models/car-%s.glb", slug)
 		path := filepath.Join(out, file)
-		mi := ModelIndex{Name: c.name, File: file, Kind: "mesh3d", Section: c.section}
+		best := schemeLODs[0]
+		mi := ModelIndex{
+			Name: c.name, File: file, Kind: "mesh3d", Section: c.section,
+			// the GLB's triangle count is a subdivision artefact; the info
+			// panel states what the ORI3 model actually is
+			Stats: map[string]any{
+				"Native": fmt.Sprintf("%d textured quads, %d vertices", len(best.Model.Faces), len(best.Model.Verts)),
+				"Source": fmt.Sprintf("ORI3 %q, %d SPoT textures", best.Model.Name, len(best.Textures)),
+			},
+		}
 		if schemes == 1 {
 			if err := writeORI3(schemeLODs[0], 1.0/128, path); err != nil {
 				return nil, fmt.Errorf("%s: %v", c.file, err)
@@ -250,15 +258,24 @@ func subdivN(p [4][3]float64) int {
 }
 
 // overlayPush returns a signed X displacement (model units) per face index
-// for the material-0x04 overlay faces that must clear the body: the game
-// draws these last with no depth buffer, so their quads may sit inboard of
-// the panels they cover. A face qualifies when it faces sideways (X-dominant
-// normal, all corners one side of the centreline), its texture is bright
-// enough to matter (the silver rims — a near-black backdrop hidden behind a
-// near-black arch loses nothing, and the Viper flags ONLY backdrop discs),
-// and no other overlay face lies outside it over the same footprint. The
-// push lands it just outside the outermost body surface sampled inside its
-// (y,z) footprint.
+// for the wheel quads that must clear the body: the game draws a car's
+// faces order-painted with no depth buffer, so the rims routinely sit
+// INBOARD of the fenders whose black arch backdrop they paint over (Diablo
+// rear 127 vs sill 129; ZR-1 front 115 vs fender 120; the 512 TR is even
+// asymmetric, right rims one unit deeper than left). No material bit marks
+// them reliably — the 0x04 top-byte set covers the Diablo's wheel kit but
+// the 512 TR/ZR-1 rims are plain 0x00 faces, and the ZR-1 spreads the
+// 0x50/0x52 low-byte class over its whole body side — so rims are found by
+// their invariant signature instead: a flat constant-X quad on one side of
+// the centreline, reaching the model's lowest point (tyres touch the
+// ground; panels don't), with a bright texture (the silver rims). The
+// near-black backdrop discs share the geometry but not the brightness, and
+// must NOT move: they hide behind equally black arches, and the Viper's
+// wheels are painted into its body textures with ONLY backdrop discs in
+// front — pushing those buries the wheels. Each outermost bright rim is
+// pushed just past the outermost body surface sampled over its (y,z)
+// footprint (wheel-kit faces — the whole signature set and the 0x04 axle
+// strips — don't count as body).
 func overlayPush(lod *nfs.CarLOD) map[int]float64 {
 	m := lod.Model
 	bright := func(ti int) bool {
@@ -287,58 +304,50 @@ func overlayPush(lod *nfs.CarLOD) map[int]float64 {
 		}
 		return
 	}
+	minv, _ := m.Bounds()
+	groundY := float64(minv.Y) + 6
+
 	type cand struct {
 		face   int
 		sign   float64
 		maxAbs float64
 		bb     [2][2]float64 // (y,z) min/max
 	}
-	var cands []cand
+	var rims []cand
+	wheelKit := map[int]bool{} // never sampled as body
 	for fi, f := range m.Faces {
-		if f.Material>>24&4 == 0 {
-			continue
-		}
-		if fi >= len(lod.FaceTex) || !bright(lod.FaceTex[fi]) {
-			continue
+		if f.Material>>24&4 != 0 {
+			wheelKit[fi] = true // the late-drawn overlay set (backdrops, axle strips)
 		}
 		p := corners(f)
-		// X-dominant normal (diagonal cross product), corners on one side
-		n := [3]float64{}
-		d1 := sub(p[2], p[0])
-		d2 := sub(p[3], p[1])
-		n[0] = d1[1]*d2[2] - d1[2]*d2[1]
-		n[1] = d1[2]*d2[0] - d1[0]*d2[2]
-		n[2] = d1[0]*d2[1] - d1[1]*d2[0]
-		if math.Abs(n[0]) < math.Abs(n[1]) || math.Abs(n[0]) < math.Abs(n[2]) {
-			continue
-		}
-		sign, maxAbs := 0.0, 0.0
+		minX, maxX := p[0][0], p[0][0]
+		minY := p[0][1]
 		bb := [2][2]float64{{math.Inf(1), math.Inf(-1)}, {math.Inf(1), math.Inf(-1)}}
-		ok := true
 		for k := 0; k < 4; k++ {
-			s := math.Copysign(1, p[k][0])
-			if p[k][0] == 0 || (sign != 0 && s != sign) {
-				ok = false
-				break
-			}
-			sign = s
-			maxAbs = math.Max(maxAbs, math.Abs(p[k][0]))
+			minX = math.Min(minX, p[k][0])
+			maxX = math.Max(maxX, p[k][0])
+			minY = math.Min(minY, p[k][1])
 			bb[0][0] = math.Min(bb[0][0], p[k][1])
 			bb[0][1] = math.Max(bb[0][1], p[k][1])
 			bb[1][0] = math.Min(bb[1][0], p[k][2])
 			bb[1][1] = math.Max(bb[1][1], p[k][2])
 		}
-		if ok {
-			cands = append(cands, cand{fi, sign, maxAbs, bb})
+		if maxX-minX > 2 || minX <= 0 && maxX >= 0 || minY > groundY {
+			continue
 		}
+		wheelKit[fi] = true
+		if fi >= len(lod.FaceTex) || !bright(lod.FaceTex[fi]) {
+			continue
+		}
+		rims = append(rims, cand{fi, math.Copysign(1, minX), math.Max(math.Abs(minX), math.Abs(maxX)), bb})
 	}
 	overlap := func(a, b [2][2]float64) bool {
 		return a[0][0] <= b[0][1] && b[0][0] <= a[0][1] && a[1][0] <= b[1][1] && b[1][0] <= a[1][1]
 	}
 	push := map[int]float64{}
-	for _, c := range cands {
+	for _, c := range rims {
 		outermost := true
-		for _, o := range cands {
+		for _, o := range rims {
 			if o.face != c.face && o.sign == c.sign && o.maxAbs > c.maxAbs+0.5 && overlap(o.bb, c.bb) {
 				outermost = false
 				break
@@ -350,7 +359,7 @@ func overlayPush(lod *nfs.CarLOD) map[int]float64 {
 		// outermost body surface inside the footprint, same side
 		bodyMax := 0.0
 		for fi, f := range m.Faces {
-			if f.Material>>24&4 != 0 || fi == c.face {
+			if wheelKit[fi] {
 				continue
 			}
 			p := corners(f)
@@ -368,15 +377,15 @@ func overlayPush(lod *nfs.CarLOD) map[int]float64 {
 				}
 			}
 		}
-		if bodyMax+0.5 >= c.maxAbs {
+		// push only under genuine occlusion — a body surface strictly
+		// OUTSIDE the rim. Merely flush contact (bodyMax == rim) is the
+		// normal seam between a panel and its neighbours; pushing those
+		// would slide whole traffic-car body sides out and open slits.
+		if bodyMax > c.maxAbs+0.5 {
 			push[c.face] = c.sign * (bodyMax + 2 - c.maxAbs)
 		}
 	}
 	return push
-}
-
-func sub(a, b [3]float64) [3]float64 {
-	return [3]float64{a[0] - b[0], a[1] - b[1], a[2] - b[2]}
 }
 
 // schemeNames labels each recolour scheme by the dominant colour of the

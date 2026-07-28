@@ -3,5 +3,9 @@
  "version": 1,
  "type": "model3d",
  "name": "Police Mustang",
- "model": "car-copmust.glb"
+ "model": "car-copmust.glb",
+ "stats": {
+  "Native": "45 textured quads, 69 vertices",
+  "Source": "ORI3 \"POLICE00\", 37 SPoT textures"
+ }
 }

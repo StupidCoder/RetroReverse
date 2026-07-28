@@ -3,5 +3,9 @@
  "version": 1,
  "type": "model3d",
  "name": "Supra",
- "model": "car-tsupra.glb"
+ "model": "car-tsupra.glb",
+ "stats": {
+  "Native": "65 textured quads, 102 vertices",
+  "Source": "ORI3 \"SUPRA000\", 41 SPoT textures"
+ }
 }

@@ -3,5 +3,8 @@
  "version": 1,
  "type": "model3d",
  "name": "City 1 prop 23",
- "model": "obj-cy1-23.glb"
+ "model": "obj-cy1-23.glb",
+ "stats": {
+  "Native": "1 textured quad (billboard cel)"
+ }
 }

@@ -3,5 +3,9 @@
  "version": 1,
  "type": "model3d",
  "name": "Prelude",
- "model": "car-prelude.glb"
+ "model": "car-prelude.glb",
+ "stats": {
+  "Native": "15 textured quads, 23 vertices",
+  "Source": "ORI3 \"PRELUD00\", 15 SPoT textures"
+ }
 }

@@ -29,5 +29,9 @@
    "scene": "plt3",
    "description": "Shared-palette recolour scheme 4 of 4 (the game retargets each cel's plt0 PLUT pointer per spawned instance)"
   }
- ]
+ ],
+ "stats": {
+  "Native": "22 textured quads, 44 vertices",
+  "Source": "ORI3 \"JETTA000\", 18 SPoT textures"
+ }
 }

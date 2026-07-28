@@ -3,5 +3,9 @@
  "version": 1,
  "type": "model3d",
  "name": "GMC Truck",
- "model": "car-gmctruck.glb"
+ "model": "car-gmctruck.glb",
+ "stats": {
+  "Native": "16 textured quads, 37 vertices",
+  "Source": "ORI3 \"GMCTRC00\", 15 SPoT textures"
+ }
 }

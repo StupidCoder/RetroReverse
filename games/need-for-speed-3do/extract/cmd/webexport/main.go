@@ -61,6 +61,8 @@ type ModelIndex struct {
 
 	// model-variant list (traffic recolour schemes): one glTF scene each
 	Variants []schema.ModelVariant `json:"variants,omitempty"`
+	// info-panel rows stating the source-model truth (native quad counts)
+	Stats map[string]any `json:"stats,omitempty"`
 }
 
 // CameraPose is a viewer opening view in GLB axes (x, y, -z).
@@ -230,6 +232,7 @@ func run(ctx *cli.Context) error {
 			name := fmt.Sprintf("%s prop %02d", c.name, o.Def)
 			b.AddObject(schema.Asset{ID: id, Name: name, Group: group(c.id) + " scenery"}, &schema.Object{
 				Type: schema.ObjectModel3D, Name: name, Model: file,
+				Stats: objsDoc.Models[o.Model],
 			})
 			refs[o.Model] = id
 		}
@@ -284,7 +287,7 @@ func run(ctx *cli.Context) error {
 		id := strings.TrimSuffix(file, ".glb")
 		b.AddObject(schema.Asset{ID: id, Name: m.Name, Group: m.Section}, &schema.Object{
 			Type: schema.ObjectModel3D, Name: m.Name, Model: file,
-			Variants: m.Variants,
+			Variants: m.Variants, Stats: m.Stats,
 		})
 		ctx.Progress("objects", i+1, len(cars), m.Name)
 	}

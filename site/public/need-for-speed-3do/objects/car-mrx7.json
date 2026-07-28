@@ -3,5 +3,9 @@
  "version": 1,
  "type": "model3d",
  "name": "RX-7",
- "model": "car-mrx7.glb"
+ "model": "car-mrx7.glb",
+ "stats": {
+  "Native": "62 textured quads, 97 vertices",
+  "Source": "ORI3 \"RX700000\", 40 SPoT textures"
+ }
 }

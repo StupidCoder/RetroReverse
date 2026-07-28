@@ -3,5 +3,8 @@
  "version": 1,
  "type": "model3d",
  "name": "Coastal 3 prop 12",
- "model": "obj-cl3-12.glb"
+ "model": "obj-cl3-12.glb",
+ "stats": {
+  "Native": "1 textured quad (billboard cel)"
+ }
 }
