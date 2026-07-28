@@ -134,7 +134,13 @@ func exportSlopes(ctx *cli.Context, vol *adf.Volume, paths map[string]string) er
 			return err
 		}
 		name := c.name + " slope"
-		b.AddObject(schema.Asset{ID: id, Name: name, Group: "Slopes"}, &schema.Object{
+		desc := "The course's real 3-D terrain: the height field the physics rolls the " +
+			"marble on — every ramp, wall and pit — while the on-screen tilemap is only a picture " +
+			"of it. The coloured markers pin the course's other data layers onto the surface: " +
+			"cyan pins are scenery anchors, orange pins are ooze spawn points, yellow pins are " +
+			"scripted regions (drawbridges, funnels, triggers), and the magenta and green lines " +
+			"are the black marble's and the slinkies' patrol routes, each starting at its spawn pin."
+		b.AddObject(schema.Asset{ID: id, Name: name, Group: "Slopes", Description: desc}, &schema.Object{
 			Type: schema.ObjectModel3D, Name: name, Model: id + ".glb",
 			Props: map[string]any{
 				"course": c.name,

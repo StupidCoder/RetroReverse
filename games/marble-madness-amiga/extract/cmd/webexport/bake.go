@@ -74,8 +74,16 @@ func (b *bandBake) remap(band int) map[uint8]uint8 {
 		return r
 	}
 	r := map[uint8]uint8{}
-	for slot, w := range b.fx.Bands[band].Cols {
-		if w != b.base16[slot] {
+	// sorted slot order: addColor appends to the extended palette, so the
+	// iteration order decides palette indices — a map range here makes the
+	// atlas PNG differ run to run
+	slots := make([]int, 0, len(b.fx.Bands[band].Cols))
+	for slot := range b.fx.Bands[band].Cols {
+		slots = append(slots, slot)
+	}
+	sort.Ints(slots)
+	for _, slot := range slots {
+		if w := b.fx.Bands[band].Cols[slot]; w != b.base16[slot] {
 			r[uint8(slot)] = b.addColor(w)
 		}
 	}

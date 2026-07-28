@@ -20,6 +20,10 @@ is voiced from a <em>single shared waveform</em>: a standard ProTracker period t
 gives the semitone, and the octave selects the length of the looped slice
 (<code>length &lt;&lt; (8&nbsp;&minus;&nbsp;octave)</code>) — the one-sample-many-octaves trick. A
 per-note volume envelope of ramp segments gives each note its pluck. Fourteen tunes ship
-across the six courses — two per course, with extra reels on Aerial and Ultimate — and
-the versions in this viewer are rendered by a from-scratch Go reimplementation of
-exactly this player, reading the notes straight off the disk image.</p>
+across the six banks: each course's in-race theme (record 30 in every bank — the
+race-start trigger table plays 30 whatever the course), an identical copy of the
+out-of-time tune in every bank (record 25, so the game-over sequence finds it whichever
+bank is loaded), and a between-courses score-tally tune that only the Aerial and
+Ultimate banks carry (records 31/32). The versions in this viewer are rendered by a
+from-scratch Go reimplementation of exactly this player, reading the notes straight off
+the disk image.</p>

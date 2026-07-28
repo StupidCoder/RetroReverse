@@ -1,10 +1,22 @@
-// music.go is the music stage (folded ex-cmd/musicrender): it renders every course's
-// theme to music/<key>.mp3 with a from-scratch Go reimplementation of Marble Madness's
-// music player (Marble_Madness.md Part VI). It parses each course *Snd bank, finds the
-// music entry (an op0 directory record), walks the per-channel note byte-streams of the
-// h1 arrangement, synthesises each note Amiga-style from the shared h4 waveform using the
-// ProTracker period table, mixes the voices and writes a WAV, then encodes to MP3
-// (ffmpeg / libmp3lame). No emulation: the algorithm is reimplemented from the disassembly.
+// music.go is the music stage (folded ex-cmd/musicrender): it renders every tune of
+// every course *Snd bank with a from-scratch Go reimplementation of Marble Madness's
+// music player (Marble_Madness.md Part VI). It parses each bank's directory, walks the
+// per-channel note byte-streams of each op0 (music) record's arrangement, synthesises
+// each note Amiga-style from the shared h4 waveform using the ProTracker period table,
+// mixes the voices and writes a WAV, then encodes to MP3 (ffmpeg / libmp3lame). No
+// emulation: the algorithm is reimplemented from the disassembly.
+//
+// Which record is which (traced in the disassembly):
+//   id30  the in-race course theme — the race-start trigger table ($20DC, indexed by
+//         g_course) holds 30 for all six courses, so every bank keys its theme to 30.
+//   id25  the out-of-time tune — played unconditionally by the game-over sequence
+//         ($BBE4, reached from the $B118 handler that then sets the game-over phase).
+//         Every bank carries an identical copy so the tune is on hand whichever bank
+//         is loaded; it is shipped once (the exporter verifies the copies match).
+//   id31/id32  the between-courses score-tally tune — the tally routine ($B9A8) plays
+//         the id from the $20F4 table; only AerSnd/UltSnd actually carry the record,
+//         so the other courses tally in silence.
+// Silly's id33 is a duplicate directory pointer to its id30 and is skipped.
 package main
 
 import (
@@ -118,11 +130,26 @@ type chanState struct {
 	live       bool
 }
 
-// exportMusic renders every course theme to music/<key>.mp3 and returns the manifest music
-// index (display name + file). NO oracle. Deterministic order.
+// bankTune is one op0 (music) directory record of a *Snd bank.
+type bankTune struct {
+	id   int
+	desc uint32
+}
+
+// exportMusic renders every tune of every course *Snd bank to music/*.mp3: the six
+// in-race themes (id30) in course order, then the shared out-of-time tune (id25,
+// shipped once — the six copies are render-compared) and the score-tally tunes
+// (id31/id32). NO oracle. Deterministic order.
 func exportMusic(ctx *cli.Context, vol *adf.Volume, paths map[string]string) error {
-	const secs = 60.0
-	for idx, c := range courses {
+	const maxSecs = 60.0
+
+	type bank struct {
+		s     *sndBank
+		tunes []bankTune
+	}
+	banks := make([]bank, len(courses))
+	total := 0
+	for i, c := range courses {
 		sp, ok := paths[strings.ToLower(c.snd)]
 		if !ok {
 			return fmt.Errorf("%s not found on disk", c.snd)
@@ -131,9 +158,17 @@ func exportMusic(ctx *cli.Context, vol *adf.Volume, paths map[string]string) err
 		if err != nil {
 			return err
 		}
-		pcm := renderSnd(data, secs)
+		s, tunes, err := loadBank(data)
+		if err != nil {
+			return fmt.Errorf("%s: %w", c.snd, err)
+		}
+		banks[i] = bank{s, tunes}
+		total += len(tunes)
+	}
 
-		out, err := ctx.Builder.Path("music", c.key+".mp3")
+	step := 0
+	emit := func(pcm []int16, file string, a schema.Asset) error {
+		out, err := ctx.Builder.Path("music", file)
 		if err != nil {
 			return err
 		}
@@ -141,23 +176,108 @@ func exportMusic(ctx *cli.Context, vol *adf.Volume, paths map[string]string) err
 		if err := audio.EncodeMP3(wave, out); err != nil {
 			return err
 		}
-		ctx.Builder.AddMedia(schema.Asset{
-			ID: c.key + "-theme", Category: schema.CategoryMusic,
-			Name:     c.name + " theme",
-			File:     "music/" + c.key + ".mp3",
-			Duration: wave.Duration(),
-		})
-		ctx.Progress("music", idx+1, len(courses), fmt.Sprintf("%-12s %.0fs", c.name, secs))
+		a.Category = schema.CategoryMusic
+		a.File = "music/" + file
+		a.Duration = wave.Duration()
+		ctx.Builder.AddMedia(a)
+		return nil
+	}
+
+	// The six in-race themes, in course order.
+	for i, c := range courses {
+		t, ok := findTune(banks[i].tunes, 30)
+		if !ok {
+			return fmt.Errorf("%s: no id30 (theme) record", c.snd)
+		}
+		pcm := renderTune(banks[i].s, t.desc, maxSecs)
+		if err := emit(pcm, c.key+".mp3", schema.Asset{
+			ID:   c.key + "-theme",
+			Name: c.name + " theme",
+			Description: "The course's in-race theme. Every sound bank keys its main tune to " +
+				"record 30, and the race-start trigger table holds 30 for all six courses.",
+		}); err != nil {
+			return err
+		}
+		step++
+		ctx.Progress("music", step, total, fmt.Sprintf("%-12s theme (id30)", c.name))
+	}
+
+	// The out-of-time tune: id25, an identical copy in every bank, shipped once.
+	// Each bank's copy is rendered and compared, so a differing copy would surface
+	// as its own asset instead of being silently dropped.
+	var first []int16
+	for i, c := range courses {
+		t, ok := findTune(banks[i].tunes, 25)
+		if !ok {
+			continue
+		}
+		pcm := renderTune(banks[i].s, t.desc, maxSecs)
+		step++
+		switch {
+		case first == nil:
+			first = pcm
+			if err := emit(pcm, "outoftime.mp3", schema.Asset{
+				ID:   "outoftime",
+				Name: "Out of time",
+				Description: "The tune the game-over sequence plays when the clock runs out. " +
+					"Every course's sound bank carries an identical copy as record 25, so the tune " +
+					"is on hand whichever bank is loaded; it is shipped here once.",
+			}); err != nil {
+				return err
+			}
+			ctx.Progress("music", step, total, "Out of time (id25, every bank)")
+		case pcmEqual(first, pcm):
+			ctx.Progress("music", step, total, fmt.Sprintf("%-12s id25 matches the shared copy", c.name))
+		default:
+			if err := emit(pcm, c.key+"-25.mp3", schema.Asset{
+				ID:          c.key + "-25",
+				Name:        c.name + " tune 25",
+				Description: "This bank's record 25, which differs from the other banks' shared out-of-time tune.",
+			}); err != nil {
+				return err
+			}
+			ctx.Progress("music", step, total, fmt.Sprintf("%-12s id25 DIFFERS from the shared copy", c.name))
+		}
+	}
+
+	// Whatever else a bank carries: the between-courses score-tally tunes.
+	for i, c := range courses {
+		for _, t := range banks[i].tunes {
+			if t.id == 25 || t.id == 30 {
+				continue
+			}
+			pcm := renderTune(banks[i].s, t.desc, maxSecs)
+			name := fmt.Sprintf("%s tune %d", c.name, t.id)
+			desc := fmt.Sprintf("An extra tune only this course's bank carries (record %d).", t.id)
+			if t.id == 31 || t.id == 32 {
+				name = fmt.Sprintf("Score tally (%s bank)", c.name)
+				desc = "Played over the between-courses score tally, the time-bonus count-up. " +
+					"The tally trigger asks the loaded bank for this tune number; only this course's " +
+					"bank carries the record, so the other courses tally in silence."
+			}
+			if err := emit(pcm, fmt.Sprintf("%s-%d.mp3", c.key, t.id), schema.Asset{
+				ID:          fmt.Sprintf("%s-%d", c.key, t.id),
+				Name:        name,
+				Description: desc,
+			}); err != nil {
+				return err
+			}
+			step++
+			ctx.Progress("music", step, total, fmt.Sprintf("%-12s id%d", c.name, t.id))
+		}
 	}
 	return nil
 }
 
-// renderSnd synthesises a course *Snd bank to mono 16-bit PCM at sndOutRate.
-func renderSnd(data []byte, secs float64) []int16 {
+// loadBank hunk-loads a *Snd file and lists its op0 (music) directory records.
+// Records aliasing an already-seen descriptor are dropped (Silly's id33 is a
+// duplicate pointer to its id30).
+func loadBank(data []byte) (*sndBank, []bankTune, error) {
 	prog, err := hunk.Load(data, sndBase)
-	chk(err)
+	if err != nil {
+		return nil, nil, err
+	}
 	s := &sndBank{img: prog.Image}
-
 	var dir uint32
 	for _, sg := range prog.Segments {
 		if sg.Kind == "DATA" && sg.Size > 0 {
@@ -166,18 +286,48 @@ func renderSnd(data []byte, secs float64) []int16 {
 		}
 	}
 	cnt := int(s.r16(dir))
-	pick := -1
+	seen := map[uint32]bool{}
+	var tunes []bankTune
 	for i := 0; i < cnt; i++ {
 		rec := dir + 2 + uint32(i)*8
-		if s.r16(rec) == 0 && s.r32(rec+4) != 0 { // op0 record with a descriptor
-			pick = i
-			break
+		if s.r16(rec) != 0 {
+			continue
+		}
+		desc := s.r32(rec + 4)
+		if desc == 0 || seen[desc] {
+			continue
+		}
+		seen[desc] = true
+		tunes = append(tunes, bankTune{id: i, desc: desc})
+	}
+	return s, tunes, nil
+}
+
+func findTune(ts []bankTune, id int) (bankTune, bool) {
+	for _, t := range ts {
+		if t.id == id {
+			return t, true
 		}
 	}
-	if pick < 0 {
-		return nil
+	return bankTune{}, false
+}
+
+func pcmEqual(a, b []int16) bool {
+	if len(a) != len(b) {
+		return false
 	}
-	desc := s.r32(dir + 2 + uint32(pick)*8 + 4)
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// renderTune synthesises one op0 record's song to mono 16-bit PCM at sndOutRate,
+// stopping at the song's own end (every channel's order table hits its null-pattern
+// terminator) or after maxSecs for the looping scores.
+func renderTune(s *sndBank, desc uint32, maxSecs float64) []int16 {
 	song := s.r32(desc)        // arrangement
 	sub := s.r32(desc + 4)     // instrument bank
 	sampBase := s.r32(sub + 4) // h4 waveform base
@@ -198,15 +348,22 @@ func renderSnd(data []byte, secs float64) []int16 {
 
 	const fps = 50.0
 	delta := int64(59419) // $1FA68 runtime value (tempo 99)
-	total := int(secs * float64(sndOutRate))
+	total := int(maxSecs * float64(sndOutRate))
 	samplesPerFrame := float64(sndOutRate) / fps
-	buf := make([]float64, total)
+	buf := make([]float64, 0, total)
 	nextFrame := 0.0
 	for i := 0; i < total; i++ {
 		if float64(i) >= nextFrame {
+			live := false
 			for _, c := range chans {
 				tickChannel(s, c, delta)
 				c.v.level = c.v.envStep()
+				if c.live {
+					live = true
+				}
+			}
+			if !live {
+				break
 			}
 			nextFrame += samplesPerFrame
 		}
@@ -216,7 +373,7 @@ func renderSnd(data []byte, secs float64) []int16 {
 				mix += c.v.sampleAt() * c.v.vol * c.v.level
 			}
 		}
-		buf[i] = mix
+		buf = append(buf, mix)
 	}
 	peak := 0.0
 	for _, x := range buf {
@@ -230,7 +387,7 @@ func renderSnd(data []byte, secs float64) []int16 {
 			buf[i] *= g
 		}
 	}
-	pcm := make([]int16, total)
+	pcm := make([]int16, len(buf))
 	for i, x := range buf {
 		if x > 1 {
 			x = 1

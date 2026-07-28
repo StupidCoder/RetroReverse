@@ -236,6 +236,7 @@
    "category": "object",
    "name": "Practice slope",
    "group": "Slopes",
+   "description": "The course's real 3-D terrain: the height field the physics rolls the marble on — every ramp, wall and pit — while the on-screen tilemap is only a picture of it. The coloured markers pin the course's other data layers onto the surface: cyan pins are scenery anchors, orange pins are ooze spawn points, yellow pins are scripted regions (drawbridges, funnels, triggers), and the magenta and green lines are the black marble's and the slinkies' patrol routes, each starting at its spawn pin.",
    "file": "objects/practy-slope.json"
   },
   {
@@ -243,6 +244,7 @@
    "category": "object",
    "name": "Beginner slope",
    "group": "Slopes",
+   "description": "The course's real 3-D terrain: the height field the physics rolls the marble on — every ramp, wall and pit — while the on-screen tilemap is only a picture of it. The coloured markers pin the course's other data layers onto the surface: cyan pins are scenery anchors, orange pins are ooze spawn points, yellow pins are scripted regions (drawbridges, funnels, triggers), and the magenta and green lines are the black marble's and the slinkies' patrol routes, each starting at its spawn pin.",
    "file": "objects/beginr-slope.json"
   },
   {
@@ -250,6 +252,7 @@
    "category": "object",
    "name": "Intermediate slope",
    "group": "Slopes",
+   "description": "The course's real 3-D terrain: the height field the physics rolls the marble on — every ramp, wall and pit — while the on-screen tilemap is only a picture of it. The coloured markers pin the course's other data layers onto the surface: cyan pins are scenery anchors, orange pins are ooze spawn points, yellow pins are scripted regions (drawbridges, funnels, triggers), and the magenta and green lines are the black marble's and the slinkies' patrol routes, each starting at its spawn pin.",
    "file": "objects/interm-slope.json"
   },
   {
@@ -257,6 +260,7 @@
    "category": "object",
    "name": "Aerial slope",
    "group": "Slopes",
+   "description": "The course's real 3-D terrain: the height field the physics rolls the marble on — every ramp, wall and pit — while the on-screen tilemap is only a picture of it. The coloured markers pin the course's other data layers onto the surface: cyan pins are scenery anchors, orange pins are ooze spawn points, yellow pins are scripted regions (drawbridges, funnels, triggers), and the magenta and green lines are the black marble's and the slinkies' patrol routes, each starting at its spawn pin.",
    "file": "objects/aerial-slope.json"
   },
   {
@@ -264,6 +268,7 @@
    "category": "object",
    "name": "Silly slope",
    "group": "Slopes",
+   "description": "The course's real 3-D terrain: the height field the physics rolls the marble on — every ramp, wall and pit — while the on-screen tilemap is only a picture of it. The coloured markers pin the course's other data layers onto the surface: cyan pins are scenery anchors, orange pins are ooze spawn points, yellow pins are scripted regions (drawbridges, funnels, triggers), and the magenta and green lines are the black marble's and the slinkies' patrol routes, each starting at its spawn pin.",
    "file": "objects/silly-slope.json"
   },
   {
@@ -271,6 +276,7 @@
    "category": "object",
    "name": "Ultimate slope",
    "group": "Slopes",
+   "description": "The course's real 3-D terrain: the height field the physics rolls the marble on — every ramp, wall and pit — while the on-screen tilemap is only a picture of it. The coloured markers pin the course's other data layers onto the surface: cyan pins are scenery anchors, orange pins are ooze spawn points, yellow pins are scripted regions (drawbridges, funnels, triggers), and the magenta and green lines are the black marble's and the slinkies' patrol routes, each starting at its spawn pin.",
    "file": "objects/ultima-slope.json"
   },
   {
@@ -319,6 +325,7 @@
    "id": "practy-theme",
    "category": "music",
    "name": "Practice theme",
+   "description": "The course's in-race theme. Every sound bank keys its main tune to record 30, and the race-start trigger table holds 30 for all six courses.",
    "file": "music/practy.mp3",
    "duration": 60
   },
@@ -326,6 +333,7 @@
    "id": "beginr-theme",
    "category": "music",
    "name": "Beginner theme",
+   "description": "The course's in-race theme. Every sound bank keys its main tune to record 30, and the race-start trigger table holds 30 for all six courses.",
    "file": "music/beginr.mp3",
    "duration": 60
   },
@@ -333,6 +341,7 @@
    "id": "interm-theme",
    "category": "music",
    "name": "Intermediate theme",
+   "description": "The course's in-race theme. Every sound bank keys its main tune to record 30, and the race-start trigger table holds 30 for all six courses.",
    "file": "music/interm.mp3",
    "duration": 60
   },
@@ -340,6 +349,7 @@
    "id": "aerial-theme",
    "category": "music",
    "name": "Aerial theme",
+   "description": "The course's in-race theme. Every sound bank keys its main tune to record 30, and the race-start trigger table holds 30 for all six courses.",
    "file": "music/aerial.mp3",
    "duration": 60
   },
@@ -347,6 +357,7 @@
    "id": "silly-theme",
    "category": "music",
    "name": "Silly theme",
+   "description": "The course's in-race theme. Every sound bank keys its main tune to record 30, and the race-start trigger table holds 30 for all six courses.",
    "file": "music/silly.mp3",
    "duration": 60
   },
@@ -354,7 +365,32 @@
    "id": "ultima-theme",
    "category": "music",
    "name": "Ultimate theme",
+   "description": "The course's in-race theme. Every sound bank keys its main tune to record 30, and the race-start trigger table holds 30 for all six courses.",
    "file": "music/ultima.mp3",
+   "duration": 60
+  },
+  {
+   "id": "outoftime",
+   "category": "music",
+   "name": "Out of time",
+   "description": "The tune the game-over sequence plays when the clock runs out. Every course's sound bank carries an identical copy as record 25, so the tune is on hand whichever bank is loaded; it is shipped here once.",
+   "file": "music/outoftime.mp3",
+   "duration": 60
+  },
+  {
+   "id": "aerial-31",
+   "category": "music",
+   "name": "Score tally (Aerial bank)",
+   "description": "Played over the between-courses score tally, the time-bonus count-up. The tally trigger asks the loaded bank for this tune number; only this course's bank carries the record, so the other courses tally in silence.",
+   "file": "music/aerial-31.mp3",
+   "duration": 60
+  },
+  {
+   "id": "ultima-32",
+   "category": "music",
+   "name": "Score tally (Ultimate bank)",
+   "description": "Played over the between-courses score tally, the time-bonus count-up. The tally trigger asks the loaded bank for this tune number; only this course's bank carries the record, so the other courses tally in silence.",
+   "file": "music/ultima-32.mp3",
    "duration": 60
   }
  ]

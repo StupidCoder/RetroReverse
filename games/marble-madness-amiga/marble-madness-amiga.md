@@ -2116,6 +2116,21 @@ emitting notes through the same voice path as §3. Every course's `*Snd` actuall
 **two** distinct op0 tunes (`id25` and the main `id30`), and Aerial and Ultimate carry
 a third (`id31`/`id32`); Silly's `id33` is a duplicate pointer to its `id30`.
 
+**Which tune is which** (traced through the `$21CD0` play wrapper's callers):
+
+- **`id30` is the in-race course theme.** The race-start code plays it via a
+  six-entry per-course trigger table at `$20DC` (indexed by `g_course $5D6`) whose
+  every entry is `$1E` = 30 — the *bank* changes per course, the number never does.
+- **`id25` is the out-of-time tune.** `$BBE4` — called from the `$B118` handler that
+  then advances the game-over phase (`$5D2`), after counting the players still in
+  states 1/3 — plays `$19` = 25 unconditionally. This is why every bank carries an
+  identical copy: the jingle must be on hand whichever course's bank is loaded (the
+  webexport render-compares all six copies and ships one).
+- **`id31`/`id32` are the between-courses score-tally tunes.** The tally routine
+  `$B9A8` (draws TIME/SCORE, counts up the time×100 bonus) plays the id from a second
+  table at `$20F4` — but only the Aerial and Ultimate banks actually carry the
+  requested record, so the other courses' tallies run in silence.
+
 **The song is a Soundtracker-style arrangement.** The structure is the classic
 *order-table + patterns* design:
 
