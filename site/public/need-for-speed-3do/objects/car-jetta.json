@@ -3,5 +3,31 @@
  "version": 1,
  "type": "model3d",
  "name": "Jetta",
- "model": "car-jetta.glb"
+ "model": "car-jetta.glb",
+ "variants": [
+  {
+   "id": "plt0",
+   "name": "Teal",
+   "scene": "plt0",
+   "description": "Shared-palette recolour scheme 1 of 4 (the game retargets each cel's plt0 PLUT pointer per spawned instance)"
+  },
+  {
+   "id": "plt1",
+   "name": "Red",
+   "scene": "plt1",
+   "description": "Shared-palette recolour scheme 2 of 4 (the game retargets each cel's plt0 PLUT pointer per spawned instance)"
+  },
+  {
+   "id": "plt2",
+   "name": "Grey",
+   "scene": "plt2",
+   "description": "Shared-palette recolour scheme 3 of 4 (the game retargets each cel's plt0 PLUT pointer per spawned instance)"
+  },
+  {
+   "id": "plt3",
+   "name": "Blue",
+   "scene": "plt3",
+   "description": "Shared-palette recolour scheme 4 of 4 (the game retargets each cel's plt0 PLUT pointer per spawned instance)"
+  }
+ ]
 }

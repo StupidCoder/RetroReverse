@@ -1438,53 +1438,11 @@
    "file": "objects/car-bmw.json"
   },
   {
-   "id": "car-bmw-plt1",
-   "category": "object",
-   "name": "BMW (scheme 2)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-bmw-plt1.json"
-  },
-  {
-   "id": "car-bmw-plt2",
-   "category": "object",
-   "name": "BMW (scheme 3)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-bmw-plt2.json"
-  },
-  {
-   "id": "car-bmw-plt3",
-   "category": "object",
-   "name": "BMW (scheme 4)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-bmw-plt3.json"
-  },
-  {
    "id": "car-crx",
    "category": "object",
    "name": "CRX",
    "group": "Traffic vehicles",
    "file": "objects/car-crx.json"
-  },
-  {
-   "id": "car-crx-plt1",
-   "category": "object",
-   "name": "CRX (scheme 2)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-crx-plt1.json"
-  },
-  {
-   "id": "car-crx-plt2",
-   "category": "object",
-   "name": "CRX (scheme 3)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-crx-plt2.json"
-  },
-  {
-   "id": "car-crx-plt3",
-   "category": "object",
-   "name": "CRX (scheme 4)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-crx-plt3.json"
   },
   {
    "id": "car-gmctruck",
@@ -1501,53 +1459,11 @@
    "file": "objects/car-jeep.json"
   },
   {
-   "id": "car-jeep-plt1",
-   "category": "object",
-   "name": "Jeep (scheme 2)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-jeep-plt1.json"
-  },
-  {
-   "id": "car-jeep-plt2",
-   "category": "object",
-   "name": "Jeep (scheme 3)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-jeep-plt2.json"
-  },
-  {
-   "id": "car-jeep-plt3",
-   "category": "object",
-   "name": "Jeep (scheme 4)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-jeep-plt3.json"
-  },
-  {
    "id": "car-jetta",
    "category": "object",
    "name": "Jetta",
    "group": "Traffic vehicles",
    "file": "objects/car-jetta.json"
-  },
-  {
-   "id": "car-jetta-plt1",
-   "category": "object",
-   "name": "Jetta (scheme 2)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-jetta-plt1.json"
-  },
-  {
-   "id": "car-jetta-plt2",
-   "category": "object",
-   "name": "Jetta (scheme 3)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-jetta-plt2.json"
-  },
-  {
-   "id": "car-jetta-plt3",
-   "category": "object",
-   "name": "Jetta (scheme 4)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-jetta-plt3.json"
   },
   {
    "id": "car-lemans",
@@ -1557,53 +1473,11 @@
    "file": "objects/car-lemans.json"
   },
   {
-   "id": "car-lemans-plt1",
-   "category": "object",
-   "name": "Lemans (scheme 2)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-lemans-plt1.json"
-  },
-  {
-   "id": "car-lemans-plt2",
-   "category": "object",
-   "name": "Lemans (scheme 3)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-lemans-plt2.json"
-  },
-  {
-   "id": "car-lemans-plt3",
-   "category": "object",
-   "name": "Lemans (scheme 4)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-lemans-plt3.json"
-  },
-  {
    "id": "car-pickup",
    "category": "object",
    "name": "Pickup",
    "group": "Traffic vehicles",
    "file": "objects/car-pickup.json"
-  },
-  {
-   "id": "car-pickup-plt1",
-   "category": "object",
-   "name": "Pickup (scheme 2)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-pickup-plt1.json"
-  },
-  {
-   "id": "car-pickup-plt2",
-   "category": "object",
-   "name": "Pickup (scheme 3)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-pickup-plt2.json"
-  },
-  {
-   "id": "car-pickup-plt3",
-   "category": "object",
-   "name": "Pickup (scheme 4)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-pickup-plt3.json"
   },
   {
    "id": "car-prelude",
@@ -1620,53 +1494,11 @@
    "file": "objects/car-probe.json"
   },
   {
-   "id": "car-probe-plt1",
-   "category": "object",
-   "name": "Probe (scheme 2)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-probe-plt1.json"
-  },
-  {
-   "id": "car-probe-plt2",
-   "category": "object",
-   "name": "Probe (scheme 3)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-probe-plt2.json"
-  },
-  {
-   "id": "car-probe-plt3",
-   "category": "object",
-   "name": "Probe (scheme 4)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-probe-plt3.json"
-  },
-  {
    "id": "car-rodeo",
    "category": "object",
    "name": "Rodeo",
    "group": "Traffic vehicles",
    "file": "objects/car-rodeo.json"
-  },
-  {
-   "id": "car-rodeo-plt1",
-   "category": "object",
-   "name": "Rodeo (scheme 2)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-rodeo-plt1.json"
-  },
-  {
-   "id": "car-rodeo-plt2",
-   "category": "object",
-   "name": "Rodeo (scheme 3)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-rodeo-plt2.json"
-  },
-  {
-   "id": "car-rodeo-plt3",
-   "category": "object",
-   "name": "Rodeo (scheme 4)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-rodeo-plt3.json"
   },
   {
    "id": "car-sunbird",
@@ -1676,53 +1508,11 @@
    "file": "objects/car-sunbird.json"
   },
   {
-   "id": "car-sunbird-plt1",
-   "category": "object",
-   "name": "Sunbird (scheme 2)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-sunbird-plt1.json"
-  },
-  {
-   "id": "car-sunbird-plt2",
-   "category": "object",
-   "name": "Sunbird (scheme 3)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-sunbird-plt2.json"
-  },
-  {
-   "id": "car-sunbird-plt3",
-   "category": "object",
-   "name": "Sunbird (scheme 4)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-sunbird-plt3.json"
-  },
-  {
    "id": "car-vandura",
    "category": "object",
    "name": "Vandura",
    "group": "Traffic vehicles",
    "file": "objects/car-vandura.json"
-  },
-  {
-   "id": "car-vandura-plt1",
-   "category": "object",
-   "name": "Vandura (scheme 2)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-vandura-plt1.json"
-  },
-  {
-   "id": "car-vandura-plt2",
-   "category": "object",
-   "name": "Vandura (scheme 3)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-vandura-plt2.json"
-  },
-  {
-   "id": "car-vandura-plt3",
-   "category": "object",
-   "name": "Vandura (scheme 4)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-vandura-plt3.json"
   },
   {
    "id": "car-wagon",
@@ -1732,53 +1522,11 @@
    "file": "objects/car-wagon.json"
   },
   {
-   "id": "car-wagon-plt1",
-   "category": "object",
-   "name": "Wagon (scheme 2)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-wagon-plt1.json"
-  },
-  {
-   "id": "car-wagon-plt2",
-   "category": "object",
-   "name": "Wagon (scheme 3)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-wagon-plt2.json"
-  },
-  {
-   "id": "car-wagon-plt3",
-   "category": "object",
-   "name": "Wagon (scheme 4)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-wagon-plt3.json"
-  },
-  {
    "id": "car-axxess",
    "category": "object",
    "name": "Axxess",
    "group": "Traffic vehicles",
    "file": "objects/car-axxess.json"
-  },
-  {
-   "id": "car-axxess-plt1",
-   "category": "object",
-   "name": "Axxess (scheme 2)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-axxess-plt1.json"
-  },
-  {
-   "id": "car-axxess-plt2",
-   "category": "object",
-   "name": "Axxess (scheme 3)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-axxess-plt2.json"
-  },
-  {
-   "id": "car-axxess-plt3",
-   "category": "object",
-   "name": "Axxess (scheme 4)",
-   "group": "Traffic vehicles",
-   "file": "objects/car-axxess-plt3.json"
   },
   {
    "id": "car-scooter",

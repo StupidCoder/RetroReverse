@@ -876,12 +876,49 @@ objects on any track) with per-course `models/obj-<id>-NN.glb` +
 `<id>.objects.json` placement manifests (Ridge Racer-style instancing:
 repeated props ship once), the **full 28-car fleet** as `models/car-*.glb`
 (highest-detail LOD each, manifest sections Player cars / Traffic vehicles /
-Unused vehicles; traffic cars additionally in all four `plt` recolour
-schemes, `car-*-pltN.glb` — 64 car GLBs total) and `manifest.json`. Each
-course's opening camera is derived from its spline (segment 16, 2.10 m right
-of centre, 0.94 m up, 40 m look-ahead), calibrated against the City 1
-driver's-eye camera captured from the running game (reproduced to 4 mm).
-`cmd/geomprobe` sanity-checks the decoders standalone.
+Unused vehicles; a traffic car's four `plt` recolour schemes are glTF
+*scenes* of its one GLB, surfaced as Retro-X model variants named by each
+scheme's dominant body colour) and `manifest.json`. Each course's opening
+camera is derived from its spline (segment 16, 2.10 m right of centre,
+0.94 m up, 40 m look-ahead), calibrated against the City 1 driver's-eye
+camera captured from the running game (reproduced to 4 mm). `cmd/geomprobe`
+sanity-checks the decoders standalone.
+
+### Exporting an order-painted quad renderer into a depth-tested triangle world
+
+Two properties of the game's car drawing don't survive a naive quad→GLB dump,
+and both needed a targeted translation (`webexport/car.go buildORI3`):
+
+- **Texture mapping is bilinear, not affine.** The cel engine's corner
+  matrix `X(c,r) = XPos + r·VDX + c·(HDX + r·HDDX)` is linear in c and r
+  *together*: on a non-parallelogram quad no triangle pair reproduces it,
+  and the straight lines the artists drew (the Rodeo's blue window pillars)
+  kink at the diagonal cut. The exporter measures each quad's parallelogram
+  defect `e = v0−v1+v2−v3` (the worst affine-vs-bilinear deviation is
+  |e|/4) and subdivides into an N×N bilinear grid until the residual is
+  under 2 model units (~1.6 cm); parallelograms stay two triangles. The
+  Rodeo's cabin side (e = 134 units ≈ 1 m!) gets a 5×5 grid.
+
+- **Faces are painted in model order with no depth buffer**, and the faces
+  whose material word carries **bit 0x04 in the top byte** — the wheels and
+  the dark axle strips — come last in every model, painted over the body.
+  Their quads sit *inboard* of the body panels (the Diablo's rear rims at
+  |x|=127 against sills reaching |x|=129; fronts 112 vs ~118): under a
+  depth test the body's black arch backdrop wins and eats parts of the
+  wheels. The exporter pushes each *bright* side-facing overlay face
+  (X-dominant normal, one side of the centreline, texture mean luminance
+  > 0.15 — i.e. the silver rims) just outside the outermost body surface
+  sampled over its (y,z) footprint. The near-black backdrop discs and axle
+  strips stay put: they hide behind equally black panels, and the Viper
+  flags *only* backdrop discs (its tyres are painted into the body
+  textures), so pushing dark faces would cover its wheels with the discs.
+
+The material top byte reads as a face-class tag throughout the fleet:
+0x00 plain body quad, 0x01 degenerate quad (a triangle, fourth vertex
+repeated), 0x04 the late-drawn overlay set. The low byte's bit 0x40
+accompanies the overlay faces (0x50–0x53 vs the body's 0x10–0x13), with
+the low two bits varying per instance — plausibly the engine's precomputed
+visibility class, untraced.
 
 ---
 

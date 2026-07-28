@@ -58,6 +58,9 @@ type ModelIndex struct {
 	Sky         string      `json:"sky,omitempty"`         // camera-centred horizon dome GLB
 	Fly         bool        `json:"fly,omitempty"`         // present with the free-flight camera
 	Camera      *CameraPose `json:"camera,omitempty"`      // opening view (course only)
+
+	// model-variant list (traffic recolour schemes): one glTF scene each
+	Variants []schema.ModelVariant `json:"variants,omitempty"`
 }
 
 // CameraPose is a viewer opening view in GLB axes (x, y, -z).
@@ -281,6 +284,7 @@ func run(ctx *cli.Context) error {
 		id := strings.TrimSuffix(file, ".glb")
 		b.AddObject(schema.Asset{ID: id, Name: m.Name, Group: m.Section}, &schema.Object{
 			Type: schema.ObjectModel3D, Name: m.Name, Model: file,
+			Variants: m.Variants,
 		})
 		ctx.Progress("objects", i+1, len(cars), m.Name)
 	}
