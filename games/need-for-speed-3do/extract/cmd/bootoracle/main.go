@@ -38,6 +38,7 @@ func main() {
 	dumpLen := flag.Uint64("dumplen", 0x40, "byte span for -dump")
 	vblMirror := flag.Uint64("vblmirror", 0x42734, "game global the VBL manager keeps at the elapsed-field count (0 = off)")
 	stall := flag.Int("stall", 1, "deadlock-guard tolerance multiplier (raise for programs with settled main loops)")
+	pokeSpec := flag.String("poke", "", "ADDR=VAL[,ADDR=VAL...] guest word writes applied right after state load")
 	pace := flag.Bool("pace", false, "pace the game to one field per frame (WaitVBL blocks on the field clock) instead of instant WaitVBL")
 	movies := flag.Bool("movies", false, "let the game open .stream movies (FMV subsystem not modelled yet: crashes in the movie player)")
 	moviePlay := flag.Bool("movieplay", false, "HLE the movie player: decode the FMV the game asks for and present it into the framebuffer (pairs with -shots / -movieshots)")
@@ -138,6 +139,24 @@ func main() {
 		}
 		fmt.Fprintf(os.Stderr, "restored state: PC 0x%08X, %d instructions, frame %d\n",
 			m.CPU.Reg(15), m.CPU.Instrs, m.Frames())
+	}
+
+	if *pokeSpec != "" {
+		for _, kv := range strings.Split(*pokeSpec, ",") {
+			a, v, ok := strings.Cut(kv, "=")
+			if !ok {
+				die(fmt.Errorf("bad -poke entry %q", kv))
+			}
+			addr, err1 := strconv.ParseUint(strings.TrimSpace(a), 0, 32)
+			val, err2 := strconv.ParseUint(strings.TrimSpace(v), 0, 32)
+			if err1 != nil || err2 != nil {
+				die(fmt.Errorf("bad -poke entry %q", kv))
+			}
+			for i := 0; i < 4; i++ {
+				m.Write(uint32(addr)+uint32(i), byte(val>>(24-8*i)))
+			}
+			fmt.Fprintf(os.Stderr, "poked [0x%X]=0x%X\n", addr, val)
+		}
 	}
 
 	if *trace || *tracen > 0 {

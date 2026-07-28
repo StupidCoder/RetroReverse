@@ -1225,19 +1225,72 @@ selection) — the LDiablo opponent runs 90/90/100 % of the 512TR line by
 skill; the generic traffic class `CAR1` pins handling at 255.0 (never
 slowed by curves) and cruises near 8 m/s.
 
-### Crashes: continuous, not canned (as far as scripted driving reaches)
+### Crashes: the kick, the spin, and the rollover (DECODED)
 
 Two instrumented impacts — 116 km/h and 139 km/h into the City berm —
-show wall contact handled *inside* the continuous model: no state flag
-flips anywhere in the car struct (behaviour mask stays 0x1E0, activity
-stays 7). The lateral position is constrained at the barrier, speed
-scrubs 32 → 9 m/s over ~1.5 s, the car yaws ~30° and the slip angle
-spikes to −15° (tire smoke). The scripted drives produced only oblique
-barrier hits; the cinematic roll-over sequence the game shows on hard
-frontal impacts was not reached, so its trigger threshold remains
-untraced (small state enums at 0x3E8A4/0x41A54 moved across the contact
-windows and are the natural suspects). Car-to-car contact is shortlisted
-by the AI walk's per-frame proximity transients on the player's mask
-(0x400 = near a witness-class car, 0x800 = within 10 segments — the same
-flags the cop bust gates on); the fine contact resolution is likewise
-left for a future pass.
+show ordinary wall contact handled *inside* the continuous model: no state
+flag flips anywhere in the car struct. The lateral position is constrained
+at the barrier, speed scrubs 32 → 9 m/s over ~1.5 s, the car yaws ~30° and
+the slip angle spikes to −15° (tire smoke). The crash SEQUENCES beyond that
+are now fully decoded, reproduced live from the framedbg `crash2` state
+(steer hard right into the City tunnel portal at speed → the car flips onto
+its roof and the *CRASHED! CARS LEFT: 3* banner follows).
+
+**The decider (0x11744, called from the collision resolver at 0x11F60)**
+takes the car, the impact angle (in the 1<<24-per-circle heading
+convention), and the impact magnitude (16.16 m/s):
+
+- **Glancing blow** (below the gates): no sequence at all — a kick on the
+  yaw-rate field [car+0x18], scaled by the folded incidence angle and
+  clamped to ±0x1E0000 (±30.0), plus the matching shove on +0x68. This is
+  the barrier scrape the earlier instrumented runs saw.
+- **Rollover** (the hard crash): impact component ≥ 0x100000 (16.0 m/s)
+  AND car speed [car+0x64] > 0x200000 (32.0 m/s = 71.6 mph). The impact
+  loses 6.0 m/s, is clamped to 14.0, and the incidence angle — folded into
+  a quarter circle — apportions it between yaw spin ([g+0x20]) and the
+  tumble components: shallow contact pirouettes, square contact goes over
+  the roof. The wrapper at 0x254B4 then transforms the impact velocity
+  through the car's own 3×3 orientation matrix (rows via 0x39174 dot
+  products) into BODY FRAME — the tumble's initial conditions.
+- **Spin** (the soft crash, entry 0x2D8C): armed from the lateral-slide
+  site at 0x28814 when |lateral velocity| [ctx+0x18] > 0x160000 (22.0 m/s
+  ≈ 49 mph), raised to 0x200000 (32.0) when contact-flag bits 0x404 are
+  set, suppressed by flag 0x20000.
+
+**One simulation, two entries.** Both 0x2D8C (spin) and 0x2DBC (rollover)
+install the SAME per-tick handler — 0x3110, via the pool word at 0x2AC4 —
+into the car's behaviour-function pointer at +0x4C4 (the crash replaces
+the driving model wholesale). The differences: the spin gets
+[[car+0xC0]+0x80] = 60 ticks (2 s at the 30 Hz physics), the rollover 400
+ticks (13.3 s: tumble, rest, tow to respawn) plus the crashed global
+([0x3E600]+0x10 = 0x3E610, the HUD banner's gate), a cleared control bit
+(0x200 in [car+0x188]) and crash sound id 0x5C through 0x1D3B8. The
+handler is a stripped rigid body, not a canned clip: no wheels or
+suspension — the orientation matrix integrates the seeded angular
+velocity, position falls ballistically on the same 0x888/0x10000 (1/30 s)
+integrator as driving, and ground contact reflects through a
+surface-normal dot product with restitution constants chosen by the track
+segment's surface bytes ([g+0x2C]/[g+0x30] keyed on the segment row).
+The old suspects 0x3E8A4/0x41A54 turn out to be the sequencer's frame
+counters, ticking only while a crash plays.
+
+**Four cars per season.** The *CARS LEFT* banner is backed by two
+variables: a season-level crash count at 0x5B554 (never written during a
+race — the front-end owns it) and the in-race spares counter at 0x420FC,
+seeded with 3 from the per-mode race-config block (field +0x6C, copied by
+the setup writer at 0x1E0A0) — four cars in all, cars-left ≈
+min(3, 4 − seasonCrashes). Consumption is guarded: the state machine
+decrements at two hand-off points (0x2A584 when (4 − count) < carsLeft
+with the chargeable contact bit 4 set, and 0x2A060 on a handler-chain
+transition) and REFUNDS one at 0x297DC when the contact wasn't
+chargeable — net one car per chargeable rollover. The banner samples its
+digit before this bookkeeping settles, so the first crash of a session
+always shows 3. The out-of-cars consequence is adjudicated between races
+by the front-end (the race engine never reads carsLeft to end a race) —
+that terminal judgement is the one crash-system piece still untraced.
+
+(Instruments that cracked it: framedbg's `crash2` state + bootoracle
+`-loadstate/-pad/-shots`, the new `-poke ADDR=VAL` for counter
+experiments, `cmd/statediff` word-diffing two savestates, and `-watch`
+writer-PC logs — the flag setter at 0x2DDC was found by watching
+0x3E610.)
