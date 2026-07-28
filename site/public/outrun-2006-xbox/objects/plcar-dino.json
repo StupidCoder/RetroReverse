@@ -14,7 +14,7 @@
    "id": "alt",
    "name": "Alternate panels",
    "scene": "alt",
-   "description": "the front-panel state variants and the alternate rear section the game swaps in (lights, close-up)"
+   "description": "the front-panel state variants the game swaps in (headlights, damage)"
   },
   {
    "id": "overlays",
@@ -23,10 +23,10 @@
    "description": "the additively-blended brake/headlight glow quads"
   },
   {
-   "id": "proxy",
-   "name": "Proxy shells",
-   "scene": "proxy",
-   "description": "untextured hulls never drawn in any captured pass — the player-car analogue of the rivals' shadow-caster proxy"
+   "id": "shells",
+   "name": "Shells \u0026 extras",
+   "scene": "shells",
+   "description": "the record's static shell slots and parts outside the chassis record — proxy hulls and state shells"
   }
  ],
  "props": {

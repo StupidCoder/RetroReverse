@@ -538,52 +538,6 @@ func inspect(p *pmt, texs []texInfo) error {
 	return nil
 }
 
-// export builds one GLB from every part of the file.
-// partPose is a static per-part placement. The model files hold every part in
-// its own local space (wheels and doors at the origin) and the game places
-// them each frame from its chassis/physics state — there is no rest pose in
-// the file. These translations were captured once from the game's own draw
-// matrices on the race grid (bootoracle -carvtx: M_rel = M_body⁻¹·M_part,
-// view and projection cancel), so an assembled export shows the pose the game
-// itself showed. Rotation is dropped (the capture had the wheels mid-spin);
-// the steering wheel keeps its 25° column tilt, applied about X.
-type partPose struct {
-	t     [3]float32
-	tiltX float64 // radians, applied about X before translating
-}
-
-// grid-rest pose for obj_plcar_dino, captured 2026-07-27 from race-driving.state.
-var dinoPose = map[int]partPose{
-	5:  {t: [3]float32{-0.657, 0, -0.664}},
-	6:  {t: [3]float32{0.657, 0, -0.664}},
-	8:  {t: [3]float32{-0.004, 0.273, -0.312}},
-	9:  {t: [3]float32{-0.331, 0.688, -0.258}, tiltX: -25 * math.Pi / 180},
-	10: {t: [3]float32{-0.713, 0.299, -1.105}},
-	11: {t: [3]float32{0.713, 0.299, -1.105}},
-	12: {t: [3]float32{-0.715, 0.312, 1.235}},
-	13: {t: [3]float32{0.715, 0.312, 1.235}},
-	16: {t: [3]float32{0, 0.05, 0}},
-}
-
-// poses maps the model name (file base without _pmt.sz) to its captured pose.
-var poses = map[string]map[int]partPose{
-	"obj_plcar_dino": dinoPose,
-}
-
-// dinoOmit lists obj_plcar_dino's parts the game never draws — captured from
-// the same race frame as dinoPose (bootoracle -carvtx over the loaded model's
-// section B; all 93 draws of the frame map onto the other eleven parts'
-// batches, these six get zero). They are alternates and proxies, not the car:
-// 2/3 = front-panel variants of part 1, 4 = an alternate rear section, 7 =
-// light/decal overlay quads, 14/15 = untextured grey proxy hulls that cap the
-// cockpit. Exporting them put a grey shell over the interior.
-var dinoOmit = map[int]bool{2: true, 3: true, 4: true, 7: true, 14: true, 15: true}
-
-// omits maps the model name to its captured never-drawn part set.
-var omits = map[string]map[int]bool{
-	"obj_plcar_dino": dinoOmit,
-}
-
 // onlyParts, when non-nil, restricts export to the listed part indices — the
 // -parts diagnostic for comparing candidate part sets against game captures.
 var onlyParts map[int]bool
@@ -612,11 +566,22 @@ type wheelSpec struct {
 // XBE. Records are found by signature, not offset: a LOD0 group opens with
 // handles {id:1, id:0, id:6, ...} and -1 at +0x18, a LOD1 group with
 // {id:0xA, id:0, id:0xE, ...}; the four wheel entries sit at +0x38.
-func chassisWheels(disc *xbox.Image) (map[string][2][]wheelSpec, error) {
+// loadChassis reads default.xbe once and fills both chassis tables.
+func loadChassis(disc *xbox.Image) error {
 	xbe, err := disc.ReadFile("/default.xbe")
 	if err != nil {
-		return nil, err
+		return err
 	}
+	if chassis, err = chassisWheels(xbe); err != nil {
+		return err
+	}
+	if plcars, err = plcarChassis(xbe); err != nil {
+		return err
+	}
+	return nil
+}
+
+func chassisWheels(xbe []byte) (map[string][2][]wheelSpec, error) {
 	// Model id -> rc file base name. Ids 0x80..0x89 are the original OutRun2
 	// ten, 0x1D5..0x1D9 the Coast-2-Coast five, each in reverse order of the
 	// XBE's name-string blocks; 0x1DA..0x1E8 repeat all 15 for the _t twins.
@@ -688,6 +653,129 @@ func chassisWheels(disc *xbox.Image) (map[string][2][]wheelSpec, error) {
 
 // chassis is the parsed table, loaded once per disc open.
 var chassis map[string][2][]wheelSpec
+
+// plcarSpec is one player car's 0x128-byte chassis record: the full rest pose
+// the Part XIX capture could only sample for the Dino. Layout (offsets from
+// the record head): +0 body, +4 five static slots (shadow + shells), +0x18
+// gear {handle, xyz}, +0x28/+0x38 doors L/R {handle, xyz}, +0x48 steering
+// {handle, xyz, tiltX, tiltB}, +0x60 two glow slots, +0x7C three front-state
+// slots, +0x88 four wheel corners {up to four part handles, xyz} (the big
+// cars stack tire/rim/disc parts per corner), +0x108 two attach points.
+type plcarSpec struct {
+	statics []int       // body first, then the shadow/shell slots
+	attach  []placement // gear, doors, steering (tilt applied about X)
+	glows   []int
+	fronts  []int
+	wheels  []placement
+}
+
+// plcars is the parsed player-car table, keyed by model name.
+var plcars map[string]plcarSpec
+
+// plcarChassis finds every player-car record in the XBE by signature (four
+// same-id wheel rows at +0x88.., doors/steering same-id or empty) and decodes
+// the ones whose model id is mapped to a file.
+//
+// The id→file mapping: ids 1..0xB are the OutRun2 ten (plus f355sp), ids
+// 0x14A..0x14D the Coast-2-Coast four, 0x14E..0x15C the _t twins. It was
+// established by matching each record's four wheel positions against the
+// already-pinned rc rows (11 of 15 match their rc counterpart exactly, the
+// rest to a few cm), and every record's highest referenced part index equals
+// its file's part count minus one — 15 of 15 (writeup, Part XXII).
+func plcarChassis(xbe []byte) (map[string]plcarSpec, error) {
+	ids := map[uint32]string{
+		0x1: "obj_plcar_f50", 0x2: "obj_plcar_dino", 0x3: "obj_plcar_gto",
+		0x4: "obj_plcar_fx", 0x5: "obj_plcar_dayts", 0x6: "obj_plcar_f355sp",
+		0x7: "obj_plcar_testa", 0x8: "obj_plcar_360sp", 0x9: "obj_plcar_f40",
+		0xA: "obj_plcar_512bb", 0xB: "obj_plcar_250gto",
+		0x14A: "obj_plcar_328gts", 0x14B: "obj_plcar_f430",
+		0x14C: "obj_plcar_550b", 0x14D: "obj_plcar_575sa",
+		0x14E: "obj_plcar_f50_t", 0x14F: "obj_plcar_dino_t", 0x150: "obj_plcar_gto_t",
+		0x151: "obj_plcar_fx_t", 0x152: "obj_plcar_dayts_t", 0x153: "obj_plcar_f355sp_t",
+		0x154: "obj_plcar_testa_t", 0x155: "obj_plcar_360m_t", 0x156: "obj_plcar_f40_t",
+		0x157: "obj_plcar_512bb_t", 0x158: "obj_plcar_250gto_t",
+		0x159: "obj_plcar_328gts_t", 0x15A: "obj_plcar_f430sp_t",
+		0x15B: "obj_plcar_550b_t", 0x15C: "obj_plcar_575sa_t",
+	}
+	part := func(off int, id uint32) (int, bool) {
+		v := u32(xbe, off)
+		if v == 0xFFFFFFFF || v>>16 != id || v&0xFFFF > 0x3F {
+			return -1, false
+		}
+		return int(v & 0xFFFF), true
+	}
+	out := map[string]plcarSpec{}
+	for off := 0; off+0x128 <= len(xbe); off += 4 {
+		v := u32(xbe, off)
+		id := v >> 16
+		name, known := ids[id]
+		if !known || v&0xFFFF != 0 {
+			continue
+		}
+		ok := true
+		for _, w := range []int{0x88, 0xA8, 0xC8, 0xE8} {
+			if _, valid := part(off+w, id); !valid {
+				ok = false
+				break
+			}
+		}
+		for _, a := range []int{0x28, 0x38, 0x48} {
+			if v := u32(xbe, off+a); v != 0xFFFFFFFF && (v>>16 != id || v&0xFFFF > 0x3F) {
+				ok = false
+				break
+			}
+		}
+		if !ok {
+			continue
+		}
+		var s plcarSpec
+		s.statics = append(s.statics, 0)
+		for i := 0; i < 5; i++ {
+			if pi, valid := part(off+4+4*i, id); valid {
+				s.statics = append(s.statics, pi)
+			}
+		}
+		for _, a := range []int{0x18, 0x28, 0x38} {
+			if pi, valid := part(off+a, id); valid {
+				s.attach = append(s.attach, placement{part: pi,
+					t: [3]float32{f32(xbe, off+a+4), f32(xbe, off+a+8), f32(xbe, off+a+12)}})
+			}
+		}
+		if pi, valid := part(off+0x48, id); valid {
+			s.attach = append(s.attach, placement{part: pi,
+				t:     [3]float32{f32(xbe, off+0x4C), f32(xbe, off+0x50), f32(xbe, off+0x54)},
+				tiltX: float64(f32(xbe, off+0x58))})
+		}
+		for _, g := range []int{0x60, 0x64} {
+			if pi, valid := part(off+g, id); valid {
+				s.glows = append(s.glows, pi)
+			}
+		}
+		for i := 0; i < 3; i++ {
+			if pi, valid := part(off+0x7C+4*i, id); valid {
+				s.fronts = append(s.fronts, pi)
+			}
+		}
+		for _, w := range []int{0x88, 0xA8, 0xC8, 0xE8} {
+			t := [3]float32{f32(xbe, off+w+16), f32(xbe, off+w+20), f32(xbe, off+w+24)}
+			for i := 0; i < 4; i++ {
+				if pi, valid := part(off+w+4*i, id); valid {
+					s.wheels = append(s.wheels, placement{part: pi, t: t})
+				}
+			}
+		}
+		if _, dup := out[name]; dup {
+			return nil, fmt.Errorf("plcar chassis: duplicate record for %s", name)
+		}
+		out[name] = s
+	}
+	for _, name := range ids {
+		if _, found := out[name]; !found {
+			return nil, fmt.Errorf("plcar chassis: no record for %s", name)
+		}
+	}
+	return out, nil
+}
 
 // placement is one exported instance of a part: an optional X mirror (the
 // game draws each rc wheel part twice with a mirrored transform), a rotation
@@ -873,26 +961,78 @@ func sign(f float32) int {
 }
 
 // plan builds the placement list for a model: the rc rivals get the
-// capture-derived visible set with placed wheels, obj_plcar_dino its captured
-// grid pose (via poses/omits), and everything else all parts in place.
+// group-table visible set, the player cars their chassis-record rest pose,
+// and everything else all parts in place.
 func (p *pmt) plan() ([]placement, error) {
 	if strings.HasPrefix(p.name, "obj_rc_") && p.name != "obj_rc_all" && onlyParts == nil {
 		return rcPlan(p)
 	}
-	pose := poses[p.name]
-	omit := omits[p.name]
+	if spec, ok := plcars[p.name]; ok && onlyParts == nil {
+		return plcarCarPlan(p, spec), nil
+	}
 	var out []placement
 	for pi := 0; pi < p.nParts; pi++ {
-		if omit[pi] {
-			continue
-		}
-		pl := placement{part: pi}
-		if pp, ok := pose[pi]; ok {
-			pl.t, pl.tiltX = pp.t, pp.tiltX
-		}
-		out = append(out, pl)
+		out = append(out, placement{part: pi})
 	}
 	return out, nil
+}
+
+// partKind reads a part's piece-node flags word (the "kind": 2 marks the flat
+// baked ground-shadow part).
+func partKind(p *pmt, pi int) uint32 {
+	hdr := int(u32(p.a, 0x18+pi*0x3C+28))
+	return u32(p.a, hdr)
+}
+
+// plcarRoles splits a player-car record into the visible rest pose and the
+// leftovers: the shadow (the kind-2 static slot), the other static shells,
+// and any file parts the record never references.
+func plcarRoles(p *pmt, spec plcarSpec) (shadow int, shells, extras []int) {
+	shadow = -1
+	for _, pi := range spec.statics[1:] {
+		if shadow < 0 && partKind(p, pi) == 2 {
+			shadow = pi
+			continue
+		}
+		shells = append(shells, pi)
+	}
+	ref := map[int]bool{}
+	for _, pi := range spec.statics {
+		ref[pi] = true
+	}
+	for _, pl := range spec.attach {
+		ref[pl.part] = true
+	}
+	for _, pl := range spec.wheels {
+		ref[pl.part] = true
+	}
+	for _, pi := range spec.glows {
+		ref[pi] = true
+	}
+	for _, pi := range spec.fronts {
+		ref[pi] = true
+	}
+	for pi := 0; pi < p.nParts; pi++ {
+		if !ref[pi] {
+			extras = append(extras, pi)
+		}
+	}
+	return shadow, shells, extras
+}
+
+// plcarCarPlan is the assembled rest pose: body + ground shadow + the default
+// front state + the placed doors/gear/steering and wheels.
+func plcarCarPlan(p *pmt, spec plcarSpec) []placement {
+	shadow, _, _ := plcarRoles(p, spec)
+	plan := []placement{{part: spec.statics[0]}}
+	if shadow >= 0 {
+		plan = append(plan, placement{part: shadow})
+	}
+	if len(spec.fronts) > 0 {
+		plan = append(plan, placement{part: spec.fronts[0]})
+	}
+	plan = append(plan, spec.attach...)
+	return append(plan, spec.wheels...)
 }
 
 // modelVariant is one exportable alternate of a model: a named placement plan
@@ -933,17 +1073,25 @@ func (p *pmt) variants() ([]modelVariant, error) {
 			{"overlays", "Light & effect overlays", "the LOD-0 group's brake/headlight glow and effect quads, normally drawn additively", parts(5, 6)},
 		}, nil
 	}
-	if p.name == "obj_plcar_dino" {
-		def, err := p.plan()
-		if err != nil {
-			return nil, err
+	if spec, ok := plcars[p.name]; ok {
+		shadow, shells, extras := plcarRoles(p, spec)
+		if shadow < 0 {
+			fmt.Fprintf(os.Stderr, "carex: %s: no kind-2 ground shadow among static slots %v\n", p.name, spec.statics)
 		}
-		return []modelVariant{
-			{"car", "Car", "", def},
-			{"alt", "Alternate panels", "the front-panel state variants and the alternate rear section the game swaps in (lights, close-up)", parts(2, 3, 4)},
-			{"overlays", "Light overlays", "the additively-blended brake/headlight glow quads", parts(7)},
-			{"proxy", "Proxy shells", "untextured hulls never drawn in any captured pass — the player-car analogue of the rivals' shadow-caster proxy", parts(14, 15)},
-		}, nil
+		vars := []modelVariant{{"car", "Car", "", plcarCarPlan(p, spec)}}
+		if len(spec.fronts) > 1 {
+			vars = append(vars, modelVariant{"alt", "Alternate panels",
+				"the front-panel state variants the game swaps in (headlights, damage)", parts(spec.fronts[1:]...)})
+		}
+		if len(spec.glows) > 0 {
+			vars = append(vars, modelVariant{"overlays", "Light overlays",
+				"the additively-blended brake/headlight glow quads", parts(spec.glows...)})
+		}
+		if rest := append(append([]int{}, shells...), extras...); len(rest) > 0 {
+			vars = append(vars, modelVariant{"shells", "Shells & extras",
+				"the record's static shell slots and parts outside the chassis record — proxy hulls and state shells", parts(rest...)})
+		}
+		return vars, nil
 	}
 	def, err := p.plan()
 	if err != nil {
@@ -1125,7 +1273,7 @@ func main() {
 		fatal("open image: %v", err)
 	}
 	defer disc.Close()
-	if chassis, err = chassisWheels(disc); err != nil {
+	if err := loadChassis(disc); err != nil {
 		fatal("chassis table: %v", err)
 	}
 
@@ -1208,7 +1356,7 @@ func exportSite(imagePath, siteDir string) {
 		fatal("open image: %v", err)
 	}
 	defer disc.Close()
-	if chassis, err = chassisWheels(disc); err != nil {
+	if err := loadChassis(disc); err != nil {
 		fatal("chassis table: %v", err)
 	}
 	// Retro-X: the curated roster becomes model3d object assets under a
@@ -1281,7 +1429,16 @@ func exportSite(imagePath, siteDir string) {
 		fmt.Printf("%-34s -> %s (%s)\n", discPath, out, summary)
 	}
 
-	doOne("/Cars/obj_plcar_dino_pmt.sz", "plcar-dino.glb", "Dino 246 GTS (player)", "Player car")
+	// The player fleet, assembled from the chassis records; the Dino keeps its
+	// established id and label.
+	doOne("/Cars/obj_plcar_dino_pmt.sz", "plcar-dino.glb", "Dino 246 GTS (player)", "Player cars")
+	for _, code := range []string{
+		"250gto", "328gts", "360sp", "512bb", "550b", "575sa",
+		"dayts", "f355sp", "f40", "f430", "f50", "fx", "gto", "testa",
+	} {
+		doOne("/Cars/obj_plcar_"+code+"_pmt.sz", "plcar-"+code+".glb",
+			strings.ToUpper(code)+" (player)", "Player cars")
+	}
 	for _, code := range rivals {
 		doOne("/Cars/obj_rc_"+code+"_pmt.sz", "rc-"+code+".glb",
 			strings.ToUpper(code), "Rivals (AI)")

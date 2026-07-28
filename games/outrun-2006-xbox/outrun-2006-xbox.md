@@ -117,6 +117,11 @@ roadmap.)
   the id→file mapping pinned live and by wheelbase; the exports drop the geometric wheel
   estimate for the game's own numbers, and fx/328gts regain their full variant sets.
   *(this document)*
+* **Part XXII** — **the player fleet assembles**: the plcar chassis records decoded (body,
+  static shells, gear/doors/steering with its column tilt, three front states, two glow
+  slots, four wheel corners stacking up to four parts each) — all fifteen player Ferraris
+  ship assembled in the Studio, and the hand-captured `dinoPose` retires, reproduced
+  exactly by the table. *(this document)*
 
 ---
 
@@ -2949,5 +2954,35 @@ Studio switches the fx variants with zero console errors.
 
 **Open (inherited, now unblocked):** the player cars' full assembly — the same table
 holds their door/steering/gear/wheel placements, so the fourteen unassembled `plcar`
-models could now be posed the way the Dino was captured.
+models could now be posed the way the Dino was captured. Part XXII does exactly that.
+
+## Part XXII — the player fleet assembles
+
+The chassis table's player-car records decode as a 0x128-byte layout that accounts for
+**every part of every car**: the body, five static slots (the ground shadow plus the
+state shells), then placed attachments — gear stick, both doors, the steering wheel with
+its position *and* column tilt (the Dino's record says −0.436 rad = −25°, exactly the
+angle Part XIX captured from the running game) — two glow slots, three front-state
+slots, four wheel corners (the high-detail cars stack up to four parts per corner:
+tire, rim, disc, caliper), and two attach points.
+
+The id→file mapping followed the same discipline as Part XXI: each record's four wheel
+positions were matched against the already-pinned rc rows (eleven match their rc
+counterpart exactly), and the assignment self-verifies structurally — **every record's
+highest referenced part index equals its file's part count minus one, fifteen of
+fifteen**, with total part coverage (the only unreferenced parts anywhere are fx's 26
+and 575sa's 20, which export as "extras"). The 550 Barchetta and 575M share identical
+placement values, so their residual ambiguity is moot by construction. A pleasing
+detail: the 360 Spider's record has an empty gear-stick slot — its interior bakes the
+lever into the body.
+
+`carex` now assembles all fifteen player cars from their records — body + shadow (the
+kind-2 static slot) + default front + placed doors/gear/steering/wheels — with variants
+`Alternate panels` (the other front states), `Light overlays` (the glow slots) and
+`Shells & extras` (the non-shadow statics and unreferenced parts). The hand-captured
+`dinoPose` of Part XIX is retired: the table reproduces it — a rendered comparison of
+the captured pose against the record pose is pixel-noise apart. The Studio's Player
+cars group grows from one entry to fifteen. Verified as ever: every scene of every
+shipped GLB loads and screenshots through three.js's own loader, `retroxlint` clean,
+the Studio page switches a player car's variants with zero console errors.
 

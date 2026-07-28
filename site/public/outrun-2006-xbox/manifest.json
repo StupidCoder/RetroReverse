@@ -19,8 +19,106 @@
    "id": "plcar-dino",
    "category": "object",
    "name": "Dino 246 GTS (player)",
-   "group": "Player car",
+   "group": "Player cars",
    "file": "objects/plcar-dino.json"
+  },
+  {
+   "id": "plcar-250gto",
+   "category": "object",
+   "name": "250GTO (player)",
+   "group": "Player cars",
+   "file": "objects/plcar-250gto.json"
+  },
+  {
+   "id": "plcar-328gts",
+   "category": "object",
+   "name": "328GTS (player)",
+   "group": "Player cars",
+   "file": "objects/plcar-328gts.json"
+  },
+  {
+   "id": "plcar-360sp",
+   "category": "object",
+   "name": "360SP (player)",
+   "group": "Player cars",
+   "file": "objects/plcar-360sp.json"
+  },
+  {
+   "id": "plcar-512bb",
+   "category": "object",
+   "name": "512BB (player)",
+   "group": "Player cars",
+   "file": "objects/plcar-512bb.json"
+  },
+  {
+   "id": "plcar-550b",
+   "category": "object",
+   "name": "550B (player)",
+   "group": "Player cars",
+   "file": "objects/plcar-550b.json"
+  },
+  {
+   "id": "plcar-575sa",
+   "category": "object",
+   "name": "575SA (player)",
+   "group": "Player cars",
+   "file": "objects/plcar-575sa.json"
+  },
+  {
+   "id": "plcar-dayts",
+   "category": "object",
+   "name": "DAYTS (player)",
+   "group": "Player cars",
+   "file": "objects/plcar-dayts.json"
+  },
+  {
+   "id": "plcar-f355sp",
+   "category": "object",
+   "name": "F355SP (player)",
+   "group": "Player cars",
+   "file": "objects/plcar-f355sp.json"
+  },
+  {
+   "id": "plcar-f40",
+   "category": "object",
+   "name": "F40 (player)",
+   "group": "Player cars",
+   "file": "objects/plcar-f40.json"
+  },
+  {
+   "id": "plcar-f430",
+   "category": "object",
+   "name": "F430 (player)",
+   "group": "Player cars",
+   "file": "objects/plcar-f430.json"
+  },
+  {
+   "id": "plcar-f50",
+   "category": "object",
+   "name": "F50 (player)",
+   "group": "Player cars",
+   "file": "objects/plcar-f50.json"
+  },
+  {
+   "id": "plcar-fx",
+   "category": "object",
+   "name": "FX (player)",
+   "group": "Player cars",
+   "file": "objects/plcar-fx.json"
+  },
+  {
+   "id": "plcar-gto",
+   "category": "object",
+   "name": "GTO (player)",
+   "group": "Player cars",
+   "file": "objects/plcar-gto.json"
+  },
+  {
+   "id": "plcar-testa",
+   "category": "object",
+   "name": "TESTA (player)",
+   "group": "Player cars",
+   "file": "objects/plcar-testa.json"
   },
   {
    "id": "rc-250gto",
