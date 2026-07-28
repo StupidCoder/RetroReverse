@@ -588,6 +588,107 @@ var omits = map[string]map[int]bool{
 // -parts diagnostic for comparing candidate part sets against game captures.
 var onlyParts map[int]bool
 
+// ---- the chassis table --------------------------------------------------------
+//
+// The rc cars' wheel placements are static data in default.xbe: per car and per
+// LOD group, four {partHandle, x, y, z} wheel entries (plus the group's part
+// handles, mirror points and the caster slot). The handle encodes
+// (modelId<<16)|partIndex; the table was found by value-searching the wheel
+// positions out of the game's runtime group descriptors and confirmed against
+// the live race (dayts = id 0x82 matches its captured draw matrices to a
+// millimetre, dino = 0x83 matches the captured grid pose exactly) — and
+// against reality: every row's wheelbase is the real car's to a centimetre
+// (Dino 2.34 m, Daytona 2.40, F40 2.45, Enzo 2.65, Testarossa 2.55, ...).
+
+// wheelSpec is one placed wheel: the part index and its translation. The part
+// geometry is modeled as the LEFT wheel; entries with x > 0 are mirrored
+// (capture-pinned convention).
+type wheelSpec struct {
+	part int
+	t    [3]float32
+}
+
+// chassisWheels maps model name -> [LOD0 wheels, LOD1 wheels], parsed from the
+// XBE. Records are found by signature, not offset: a LOD0 group opens with
+// handles {id:1, id:0, id:6, ...} and -1 at +0x18, a LOD1 group with
+// {id:0xA, id:0, id:0xE, ...}; the four wheel entries sit at +0x38.
+func chassisWheels(disc *xbox.Image) (map[string][2][]wheelSpec, error) {
+	xbe, err := disc.ReadFile("/default.xbe")
+	if err != nil {
+		return nil, err
+	}
+	// Model id -> rc file base name. Ids 0x80..0x89 are the original OutRun2
+	// ten, 0x1D5..0x1D9 the Coast-2-Coast five, each in reverse order of the
+	// XBE's name-string blocks; 0x1DA..0x1E8 repeat all 15 for the _t twins.
+	// Pinned live: 0x82 = dayts, 0x83 = dino; corroborated by per-car
+	// wheelbases (see the writeup, Part XXI).
+	ids := map[uint32]string{
+		0x80: "obj_rc_250gto", 0x81: "obj_rc_360sp", 0x82: "obj_rc_dayts",
+		0x83: "obj_rc_dino", 0x84: "obj_rc_fx", 0x85: "obj_rc_512bb",
+		0x86: "obj_rc_f40", 0x87: "obj_rc_f50", 0x88: "obj_rc_gto",
+		0x89: "obj_rc_testa",
+		0x1D5: "obj_rc_f355sp", 0x1D6: "obj_rc_328gts", 0x1D7: "obj_rc_f430",
+		0x1D8: "obj_rc_550b", 0x1D9: "obj_rc_575sa",
+	}
+	// The _t twins repeat all fifteen at 0x1DA..0x1E8 in the same order
+	// (their rows carry byte-identical wheel data to the base cars').
+	for i, base := range []uint32{0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89,
+		0x1D5, 0x1D6, 0x1D7, 0x1D8, 0x1D9} {
+		ids[0x1DA+uint32(i)] = ids[base] + "_t"
+	}
+	out := map[string][2][]wheelSpec{}
+	for off := 0; off+0x78 <= len(xbe); off += 4 {
+		v0 := u32(xbe, off)
+		id := v0 >> 16
+		name, known := ids[id]
+		if !known || id == 0 {
+			continue
+		}
+		slot := -1
+		switch v0 & 0xFFFF {
+		case 0x1:
+			slot = 0 // LOD0 group {1, 0, 6, ...}
+		case 0xA:
+			slot = 1 // LOD1 group {0xA, 0, 0xE, ...}
+		default:
+			continue
+		}
+		if u32(xbe, off+4) != id<<16 || u32(xbe, off+0x18) != 0xFFFFFFFF {
+			continue
+		}
+		if g := u32(xbe, off+8); g != id<<16|0x6 && g != id<<16|0xE {
+			continue
+		}
+		var wheels []wheelSpec
+		for k := 0; k < 4; k++ {
+			w := off + 0x38 + k*16
+			h := u32(xbe, w)
+			if h>>16 != id {
+				return nil, fmt.Errorf("chassis %s: wheel %d handle %#x not model %#x", name, k, h, id)
+			}
+			wheels = append(wheels, wheelSpec{
+				part: int(h & 0xFFFF),
+				t:    [3]float32{f32(xbe, w+4), f32(xbe, w+8), f32(xbe, w+12)},
+			})
+		}
+		cur := out[name]
+		if cur[slot] != nil {
+			return nil, fmt.Errorf("chassis %s: duplicate group %d", name, slot)
+		}
+		cur[slot] = wheels
+		out[name] = cur
+	}
+	for id, name := range ids {
+		if out[name][0] == nil || out[name][1] == nil {
+			return nil, fmt.Errorf("chassis: incomplete groups for %s (id %#x)", name, id)
+		}
+	}
+	return out, nil
+}
+
+// chassis is the parsed table, loaded once per disc open.
+var chassis map[string][2][]wheelSpec
+
 // placement is one exported instance of a part: an optional X mirror (the
 // game draws each rc wheel part twice with a mirrored transform), a rotation
 // about X and a translation.
@@ -619,39 +720,49 @@ type placement struct {
 //     (±0.72, 0.34, 1.154). Part 7 is the rear axle, 8 the front (captured
 //     assignment, declared for the fleet).
 func rcPlan(p *pmt) ([]placement, error) {
-	wheels, err := rcWheelCentres(p)
-	if err == nil {
-		return rcNearPlan(wheels), nil
+	wheels, ok := chassis[p.name]
+	if !ok {
+		return nil, fmt.Errorf("%s: no chassis-table entry", p.name)
 	}
-	// Two rivals (fx, 328gts) bake their far-LOD wheels into general body
-	// batches, so no wheel centres are derivable. Fall back to the whole
-	// mid-LOD car (part 17 — the group the far captured rival drew), which
-	// carries its wheels in place.
-	fmt.Fprintf(os.Stderr, "carex: %s: %v — falling back to the mid-LOD part\n", p.name, err)
-	return []placement{{part: 0}, {part: 17}}, nil
+	return rcNearPlan(wheels[0]), nil
 }
 
 // rcNearPlan is the near-distance visible set: the game's LOD-0 group as its
-// runtime group table lists it — {0 ground shadow, 1 body, 2 front detail}
-// plus the wheel parts placed at the derived centres.
-func rcNearPlan(wheels map[[2]int][3]float32) []placement {
-	return append([]placement{{part: 0}, {part: 1}, {part: 2}}, wheelPlacements(7, 8, wheels)...)
+// group table lists it — {0 ground shadow, 1 body, 2 front detail} plus the
+// four wheels exactly as the chassis table places them.
+func rcNearPlan(wheels []wheelSpec) []placement {
+	return append([]placement{{part: 0}, {part: 1}, {part: 2}}, wheelPlacements(wheels)...)
 }
 
-// wheelPlacements places one axle part per end (rearPart at z<0, frontPart at
-// z>0), each twice with the capture-pinned mirror convention (unmirrored
-// geometry is the LEFT wheel).
-func wheelPlacements(rearPart, frontPart int, wheels map[[2]int][3]float32) []placement {
-	var out []placement
-	for _, w := range []struct {
-		part  int
-		zsign int
-	}{{rearPart, -1}, {frontPart, 1}} {
-		for _, xs := range []int{-1, 1} {
-			out = append(out, placement{part: w.part, mirrorX: xs > 0, t: wheels[[2]int{xs, w.zsign}]})
-		}
+// wheelPlacements turns the chassis table's wheel entries into placements. The
+// wheel geometry is modeled as the LEFT wheel; the game draws the x > 0
+// entries with a mirrored transform (capture-pinned convention).
+func wheelPlacements(wheels []wheelSpec) []placement {
+	out := make([]placement, len(wheels))
+	for i, w := range wheels {
+		out[i] = placement{part: w.part, mirrorX: w.t[0] > 0, t: w.t}
 	}
 	return out
+}
+
+// checkChassis cross-validates the chassis table's id->file mapping against
+// the model's own baked far-LOD wheel clusters where they derive cleanly: the
+// z centres (axle positions) agreed to ~2 cm on every derivable car when the
+// mapping was established, so a gross disagreement means a row landed on the
+// wrong file.
+func checkChassis(p *pmt, wheels []wheelSpec) {
+	clusters, err := rcWheelCentres(p)
+	if err != nil {
+		return // fx/328gts: no derivable clusters — nothing to check against
+	}
+	for _, w := range wheels {
+		sx, sz := sign(w.t[0]), sign(w.t[2])
+		c := clusters[[2]int{sx, sz}]
+		if dz := c[2] - w.t[2]; dz > 0.1 || dz < -0.1 {
+			fmt.Fprintf(os.Stderr, "carex: %s: chassis wheel z %.3f vs baked cluster %.3f — id mapping suspect\n",
+				p.name, w.t[2], c[2])
+		}
+	}
 }
 
 // rcWheelCentres derives the four wheel centres; it errors when the
@@ -807,26 +918,19 @@ func parts(idx ...int) []placement {
 // glow overlays. The first variant is the default scene.
 func (p *pmt) variants() ([]modelVariant, error) {
 	if strings.HasPrefix(p.name, "obj_rc_") && p.name != "obj_rc_all" {
-		caster := modelVariant{"caster", "Shadow caster", "the proxy hull the game draws into the shadow map — never directly visible", parts(9)}
-		overlays := modelVariant{"overlays", "Light & effect overlays", "the LOD-0 group's brake/headlight glow and effect quads, normally drawn additively", parts(5, 6)}
-		wheels, err := rcWheelCentres(p)
-		if err != nil {
-			// fx/328gts: no derivable wheel centres — mid-LOD default (wheels
-			// baked in place), and only the wheel-free variants.
-			return []modelVariant{
-				{"car", "Car (mid LOD)", "", parts(0, 17, 19)},
-				{"lod3", "LOD 3", "", parts(0, 22)},
-				{"lod4", "LOD 4", "", parts(0, 23)},
-				caster, overlays,
-			}, nil
+		wheels, ok := chassis[p.name]
+		if !ok {
+			return nil, fmt.Errorf("%s: no chassis-table entry", p.name)
 		}
+		checkChassis(p, wheels[0])
 		return []modelVariant{
-			{"car", "Car", "", rcNearPlan(wheels)},
-			{"lod1", "LOD 1", "", append([]placement{{part: 0}, {part: 10}, {part: 11}}, wheelPlacements(15, 16, wheels)...)},
+			{"car", "Car", "", rcNearPlan(wheels[0])},
+			{"lod1", "LOD 1", "", append(parts(0, 10, 11), wheelPlacements(wheels[1])...)},
 			{"lod2", "LOD 2", "", parts(0, 17, 19)},
 			{"lod3", "LOD 3", "", parts(0, 22)},
 			{"lod4", "LOD 4", "", parts(0, 23)},
-			caster, overlays,
+			{"caster", "Shadow caster", "the proxy hull the game draws into the shadow map — never directly visible", parts(9)},
+			{"overlays", "Light & effect overlays", "the LOD-0 group's brake/headlight glow and effect quads, normally drawn additively", parts(5, 6)},
 		}, nil
 	}
 	if p.name == "obj_plcar_dino" {
@@ -1021,6 +1125,9 @@ func main() {
 		fatal("open image: %v", err)
 	}
 	defer disc.Close()
+	if chassis, err = chassisWheels(disc); err != nil {
+		fatal("chassis table: %v", err)
+	}
 
 	var files []string
 	if *one != "" {
@@ -1101,6 +1208,9 @@ func exportSite(imagePath, siteDir string) {
 		fatal("open image: %v", err)
 	}
 	defer disc.Close()
+	if chassis, err = chassisWheels(disc); err != nil {
+		fatal("chassis table: %v", err)
+	}
 	// Retro-X: the curated roster becomes model3d object assets under a
 	// builder-written tree (validated on Write).
 	b := build.New(siteDir, "outrun-2006-xbox")

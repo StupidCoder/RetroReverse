@@ -111,6 +111,12 @@ roadmap.)
   runtime group descriptors, part 9 is confirmed the shadow-caster proxy from its own call
   site, and every car's LOD chain, caster and overlays ship as Retro-X model variants — one
   glTF scene each. *(this document)*
+* **Part XXI** — **the chassis table**: the static per-car descriptor found in `default.xbe`
+  by value-searching the runtime wheel blocks — per car and per LOD group, the exact wheel
+  parts and placements (every row's wheelbase matches the real Ferrari's to a centimetre),
+  the id→file mapping pinned live and by wheelbase; the exports drop the geometric wheel
+  estimate for the game's own numbers, and fx/328gts regain their full variant sets.
+  *(this document)*
 
 ---
 
@@ -2866,9 +2872,8 @@ alibi is now airtight twice over: it draws only under the light's projection (co
 x-scale 0.052 vs the camera's 1.19) *and* only from the caster call site. The front
 variants resolve per state — the plcar renderer picks `[info+0x7C]` normally and
 `[info+0x80]` when the lights-flag is set, so parts 2/3 are the front panel's lights
-states. What still isn't located is the *static* per-car-class descriptor the load-time
-builder reads; the runtime structs and call sites pin every role the exports need, so that
-table is now a curiosity rather than a blocker.
+states. What Part XX left unlocated — the *static* per-car descriptor the load-time builder
+reads — Part XXI finds in the XBE, wheels and all.
 
 ### Variants: one GLB, many scenes
 
@@ -2896,4 +2901,53 @@ variants with zero console errors.
 - `glb.WriteVariantScenes` / Retro-X `variants` — the multi-scene variant mechanism, ready
   for the same treatment elsewhere (the Need for Speed traffic cars' livery variants are
   the obvious next user).
+
+## Part XXI — the chassis table: the game's own wheel placements, found by their values
+
+Part XX placed the rc wheels from a derivation — clustering the far-LOD bodies' baked
+wheels. It was validated against the one captured car and it was still wrong where it
+couldn't be checked: the Testarossa's baked rear wheels bulge ~8 cm wider than the game
+ever draws them, and two cars (fx, 328gts) had no derivable clusters at all and shipped
+without their LOD variants. The honest source had to exist somewhere, because the runtime
+group descriptors held exact numbers.
+
+**Finding it took one value search.** The runtime descriptors' wheel triplets (e.g.
+`(-0.677, 0.342, -1.267)`) appear in exactly three places in RAM: the two descriptor
+copies — and a static block that turns out to live in `default.xbe`'s data section. A scan
+of every file on the disc for the same twelve bytes confirms the XBE is the only source.
+There, per car and per LOD group, sits the full chassis record: the group's part handles
+`{body, shadow, glow, front, alt, alt}`, two mirror attach points, **four wheel entries
+`{partHandle, x, y, z}`** — left entries with x<0, right with x>0, matching the
+capture-pinned mirror convention — two spare attach slots and the caster handle. The
+same table carries the *player* cars' records too: doors, gear stick, steering wheel
+(with its column tilt pair) and wheels — the "chassis rest pose" open item of Part XIX
+is this table.
+
+**The id→file mapping, three ways.** The rows are keyed by static model ids: 0x80–0x89,
+0x1D5–0x1D9, and a twin block 0x1DA–0x1E8 repeating all fifteen byte-identically (the
+`_t` variants). Two ids are pinned live — 0x82's row matches dayts' captured draw
+matrices to a millimetre, 0x83's matches the Dino grid pose exactly — and the rest follow
+the reverse order of the XBE's own name-string blocks: the original OutRun2 ten
+(250gto, 360sp, dayts, dino, fx, 512bb, f40, f50, gto, testa), then the Coast-2-Coast
+five (f355sp, 328gts, f430, 550b, 575sa). The assignment cross-checks against reality:
+every row's wheelbase is the real car's to a centimetre — Dino 2.34 m, Daytona 2.40,
+F40 2.45, 288 GTO 2.45, F355 2.45, F50 2.58, 360 2.60, Enzo 2.65, Testarossa 2.55. (The
+table also knows the Testarossa's odd truth: its *front* track is the wide one, 1.66 m
+vs 1.50 rear — and the 328's left and right wheels sit at slightly different x, a quirk
+shipped as-is.) `carex` re-parses the table from the ISO by record signature, uses its
+exact `{part, x, y, z}` entries for both the LOD-0 and LOD-1 wheels — the Dino rival, per
+its row, runs part 7 on both axles — and keeps the old cluster derivation as a per-car
+cross-check that the mapping never drifts (axle z must agree within 10 cm; all fifteen
+pass silently).
+
+**What changed on screen:** the Testarossa's rear wheels tuck 8 cm inboard, flush with
+the body like its own LOD 2 shows them; fx and 328gts get real placed wheels and their
+full variant sets (`car / LOD 1–4 / caster / overlays` like everyone else); and every
+other car moves to the game's own numbers, retiring the estimate. Verified headless as
+before: all scenes of the shipped GLBs load and screenshot, `retroxlint` clean, the
+Studio switches the fx variants with zero console errors.
+
+**Open (inherited, now unblocked):** the player cars' full assembly — the same table
+holds their door/steering/gear/wheel placements, so the fourteen unassembled `plcar`
+models could now be posed the way the Dino was captured.
 
