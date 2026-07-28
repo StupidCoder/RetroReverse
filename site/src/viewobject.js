@@ -211,7 +211,7 @@ function loadImg(url) {
 
 async function mount3D(ctx, doc) {
   const { stage: el, game, asset, params } = ctx;
-  const { THREE, Stage, ObjectLibrary, applyWireframe } = await import('./engine3d.js');
+  const { THREE, Stage, ObjectLibrary } = await import('./engine3d.js');
 
   const stage = new Stage(el, { fov: 45 });
   let clearIsolationRef = null; // assigned by the part-isolation block below
@@ -382,19 +382,42 @@ async function mount3D(ctx, doc) {
     if (n === inst.node || isolated === n) clearIsolation();
     else isolate(n);
   };
-  el.addEventListener('dblclick', (e) => pickAt(e.clientX, e.clientY));
-  let lastTap = 0, lastTapAt = null;
-  el.addEventListener('pointerup', (e) => {
+  el.addEventListener('dblclick', (e) => {
+    // After a touch double-tap the browser synthesizes a dblclick too; without
+    // this guard pickAt ran twice and the second call undid the isolation.
+    if (performance.now() < suppressDbl) return;
+    pickAt(e.clientX, e.clientY);
+  });
+  // Touch double-tap, hand-rolled. A tap must be short, still and
+  // one-fingered (a drag end or a pinch finger is not a tap); two taps
+  // within 600 ms and 64 px pick.
+  const taps = new Map();
+  let lastTap = -1e9, lastTapAt = [0, 0], suppressDbl = 0;
+  el.addEventListener('pointerdown', (e) => {
     if (e.pointerType !== 'touch') return;
+    if (taps.size) for (const t of taps.values()) t.moved = true; // second finger: a pinch, not taps
+    taps.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now(), moved: taps.size > 0 });
+  });
+  el.addEventListener('pointermove', (e) => {
+    const t = taps.get(e.pointerId);
+    if (t && Math.hypot(e.clientX - t.x, e.clientY - t.y) > 12) t.moved = true;
+  });
+  el.addEventListener('pointerup', (e) => {
+    const t = taps.get(e.pointerId);
+    if (!t) return;
+    taps.delete(e.pointerId);
     const now = performance.now();
-    if (now - lastTap < 350 && lastTapAt && Math.hypot(e.clientX - lastTapAt[0], e.clientY - lastTapAt[1]) < 24) {
+    if (t.moved || now - t.t > 350) { lastTap = -1e9; return; }
+    if (now - lastTap < 600 && Math.hypot(e.clientX - lastTapAt[0], e.clientY - lastTapAt[1]) < 64) {
       pickAt(e.clientX, e.clientY);
-      lastTap = 0;
+      suppressDbl = now + 700;
+      lastTap = -1e9;
     } else {
       lastTap = now;
       lastTapAt = [e.clientX, e.clientY];
     }
   });
+  el.addEventListener('pointercancel', (e) => taps.delete(e.pointerId));
   const onKey = (e) => { if (e.key === 'Escape') clearIsolation(); };
   window.addEventListener('keydown', onKey);
   clearIsolationRef = clearIsolation;
@@ -410,6 +433,18 @@ async function mount3D(ctx, doc) {
   let sun = null;
   let wfOn = false;
   let sunOn = false;
+  // Wireframe toggle that respects part isolation: the shared ghost material
+  // stays wireframe no matter what, so the toggle only affects the isolated
+  // part. Ghosted meshes' saved (real) materials are updated too, so clearing
+  // the isolation restores them in the current toggle state.
+  const applyWf = (on) => {
+    inst.node.traverse((o) => {
+      if (!o.isMesh) return;
+      for (const m of [o.material, o.userData.savedMat].flat().filter(Boolean)) {
+        if (m !== ghost && 'wireframe' in m) m.wireframe = on;
+      }
+    });
+  };
   const setSunlight = (on) => {
     sunOn = on;
     clearIsolationRef?.();
@@ -440,7 +475,7 @@ async function mount3D(ctx, doc) {
       };
       o.material = Array.isArray(o.material) ? o.material.map(swap) : swap(o.material);
     });
-    applyWireframe(inst.node, wfOn);
+    applyWf(wfOn);
     ambient.intensity = on ? 0.55 : 2.2;
     if (on) stage.scene.add(sun);
     else if (sun) stage.scene.remove(sun);
@@ -461,7 +496,7 @@ async function mount3D(ctx, doc) {
         inst = next;
         stage.scene.add(inst.node);
         activeVariant = v.id;
-        applyWireframe(inst.node, wfOn);
+        applyWf(wfOn);
         if (sunOn) setSunlight(true);
       });
   }
@@ -479,7 +514,7 @@ async function mount3D(ctx, doc) {
     pixelGrid: () => (stage.native
       ? { cell: el.clientHeight / stage.native.h, ox: 0, oy: 0, ref: el.clientWidth }
       : null),
-    setWireframe(on) { wfOn = on; applyWireframe(inst.node, on); },
+    setWireframe(on) { wfOn = on; applyWf(on); },
     ...(hasNormals ? { setSunlight } : {}),
     stats: () => {
       let tris = 0, verts = 0, mats = new Set(), bones = 0;

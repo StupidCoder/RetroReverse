@@ -257,7 +257,7 @@ function buildVariantSelect(game, asset, variants, activeId, params, apply) {
 }
 
 let statsProvider = null;
-let sunOn = false; // the sun toggle persists across asset/model switches
+let sunOn = true; // the sun toggle defaults on and persists across asset/model switches
 function wireViewButtons(game, view) {
   statsProvider = view.stats || null;
 
