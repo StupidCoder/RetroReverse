@@ -279,13 +279,20 @@ func run(ctx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("car: %v", err)
 	}
+	// player cars link back to their showcase films (only when the videos
+	// stage runs too — a partial run must not emit dangling references)
+	showcases := showcaseByCar()
 	for i, m := range cars {
 		file := filepath.Base(m.File)
 		if err := copyTo(filepath.Join(scratch, m.File), "objects", file); err != nil {
 			return err
 		}
 		id := strings.TrimSuffix(file, ".glb")
-		b.AddObject(schema.Asset{ID: id, Name: m.Name, Group: m.Section}, &schema.Object{
+		a := schema.Asset{ID: id, Name: m.Name, Group: m.Section}
+		if v, ok := showcases[id]; ok && ctx.Enabled("videos") {
+			a.Related = []string{v}
+		}
+		b.AddObject(a, &schema.Object{
 			Type: schema.ObjectModel3D, Name: m.Name, Model: file,
 			Variants: m.Variants, Stats: m.Stats,
 		})

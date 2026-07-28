@@ -1,0 +1,42 @@
+<p>The disc carries <strong>165 streamed movies</strong> — more files than the rest of
+the disc put together. Each <code>Movies/*.Stream</code> is a flat chunk stream for the
+SDK's DataStreamer: <code>FILM</code> video subchunks interleaved with <code>SNDS</code>
+audio. The video is <strong>Cinepak</strong> — the 3DO has no video-decode hardware, so
+the ARM60 unpacks every frame in software — and the audio is SDX2, a one-byte-per-sample
+DPCM the DSP undoes at 22&nbsp;kHz stereo. The three boot films run at 320&times;240;
+everything else is 320&times;192.</p>
+
+<p>Every movie on the disc plays at <strong>15 frames per second</strong> — even though
+150 of the 165 declare 30 in their film header. The header field lies; the truth is in
+the frame timestamps, which tick on the same 240&nbsp;Hz audio clock that paces the whole
+engine, sixteen ticks a frame. It has to be 15: a stream fed at 30&nbsp;fps would need
+nearly 600&nbsp;KB/s, and the console's double-speed drive delivers 300. The real rates
+sit at 190–295&nbsp;KB/s — the movies are cut to ride just under the drive's ceiling.</p>
+
+<h2>What's on the reel rack</h2>
+<p>Eighteen movies have names: the Electronic Arts and Pioneer logo films, the
+Road&nbsp;&amp;&nbsp;Track title montage, three attract reels, three trooper pull-over
+films, the victory montage, and one showcase film for each of the eight player cars. At
+boot the front-end queues <code>eac</code>, <code>pioneer</code>, one attract reel (a
+rotation through all three), then <code>title</code> — and the player abandons the whole
+list the moment one file fails to open, the same graceful fallback that lets a scratched
+disc skip straight to the menus.</p>
+
+<p>The other ~147 are numbered <code>N.M</code> reels: the host's <strong>post-race
+commentary</strong>, live-action clips composited into tilted magazine pages. <code>N</code>
+is a topic — an outcome the front-end wants remarked upon — and <code>M</code> one of a
+few takes of it. After a race the code walks your statistics (winning margins, times,
+what you hit), picks the topic the numbers call for, and rolls a die for the take:
+<code>sprintf("N.%d", rand(k)+base)</code>, forty-odd such sites. A couple are fancier —
+one family strides even numbers only, one indexes a per-car table — and the same
+dispatchers pick the host's spoken one-liners from parallel tables of audio clips. The
+attract mode's magazine segment is the same machinery hardwired to issue 101.</p>
+
+<h2>The cut movies</h2>
+<p>Walking every dispatcher gives the complete set of reels the shipped code can ever
+request: 132 of them, every one present on the disc. Which leaves <strong>33 movies that
+nothing requests</strong> — eight whole topic families (35–40, 42 and 51) plus a dozen
+odd takes, recorded, encoded and pressed onto every copy, unreachable without patching
+the binary. One of them (38.1) is also the only silent movie on the disc. Commentary for
+race outcomes that were cut, or trimmed to fit the drive's streaming budget — the
+movie-side twin of the unused prototype cars parked in the same filesystem.</p>

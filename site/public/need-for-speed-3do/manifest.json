@@ -22,6 +22,11 @@
    "file": "docs/disc.html"
   },
   {
+   "id": "movies",
+   "title": "The movies",
+   "file": "docs/movies.html"
+  },
+  {
    "id": "cars",
    "title": "The cars",
    "file": "docs/cars.html"
@@ -1394,6 +1399,7 @@
    "category": "object",
    "name": "Diablo",
    "group": "Player cars",
+   "related": ["showcase-diablo"],
    "file": "objects/car-ldiablo.json"
   },
   {
@@ -1401,6 +1407,7 @@
    "category": "object",
    "name": "512 TR",
    "group": "Player cars",
+   "related": ["showcase-512tr"],
    "file": "objects/car-f512tr.json"
   },
   {
@@ -1408,6 +1415,7 @@
    "category": "object",
    "name": "911",
    "group": "Player cars",
+   "related": ["showcase-911"],
    "file": "objects/car-p911.json"
   },
   {
@@ -1415,6 +1423,7 @@
    "category": "object",
    "name": "ZR-1",
    "group": "Player cars",
+   "related": ["showcase-zr1"],
    "file": "objects/car-czr1.json"
   },
   {
@@ -1422,6 +1431,7 @@
    "category": "object",
    "name": "Viper",
    "group": "Player cars",
+   "related": ["showcase-viper"],
    "file": "objects/car-dviper.json"
   },
   {
@@ -1429,6 +1439,7 @@
    "category": "object",
    "name": "NSX",
    "group": "Player cars",
+   "related": ["showcase-nsx"],
    "file": "objects/car-ansx.json"
   },
   {
@@ -1436,6 +1447,7 @@
    "category": "object",
    "name": "RX-7",
    "group": "Player cars",
+   "related": ["showcase-rx7"],
    "file": "objects/car-mrx7.json"
   },
   {
@@ -1443,6 +1455,7 @@
    "category": "object",
    "name": "Supra",
    "group": "Player cars",
+   "related": ["showcase-supra"],
    "file": "objects/car-tsupra.json"
   },
   {
@@ -1588,9 +1601,9 @@
   {
    "id": "intro",
    "category": "video",
-   "name": "Intro",
+   "name": "Electronic Arts logo",
    "group": "Boot films",
-   "description": "The Electronic Arts intro movie the game plays at boot — the first of the disc's 165 streamed Cinepak movies.",
+   "description": "The Electronic Arts logo film — the first of the disc's 165 streamed Cinepak movies the game arms at boot.",
    "file": "videos/intro.mp4",
    "duration": 8.333333333333334,
    "w": 320,
@@ -1718,16 +1731,16 @@
    "group": "Pursuit",
    "description": "The state trooper's roadside lecture — first of the three pull-over films.",
    "file": "videos/pullover1.mp4",
-   "duration": 8.466666666666667,
+   "duration": 16.933333333333334,
    "w": 320,
    "h": 192,
-   "fps": 30,
+   "fps": 15,
    "stats": {
     "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
     "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
     "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
-    "Data rate": "597 KB/s streamed off the CD",
-    "Length": "254 frames @ 30 fps",
+    "Data rate": "299 KB/s streamed off the CD",
+    "Length": "254 frames @ 15 fps (the header claims 30)",
     "Native": "320 × 192 px",
     "Source": "Movies/cop1.stream (4.9 MB)"
    }
@@ -1739,16 +1752,16 @@
    "group": "Pursuit",
    "description": "The state trooper's roadside lecture — second of the three pull-over films.",
    "file": "videos/pullover2.mp4",
-   "duration": 11.266666666666667,
+   "duration": 22.533333333333335,
    "w": 320,
    "h": 192,
-   "fps": 30,
+   "fps": 15,
    "stats": {
     "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
     "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
     "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
-    "Data rate": "588 KB/s streamed off the CD",
-    "Length": "338 frames @ 30 fps",
+    "Data rate": "294 KB/s streamed off the CD",
+    "Length": "338 frames @ 15 fps (the header claims 30)",
     "Native": "320 × 192 px",
     "Source": "Movies/cop2.stream (6.5 MB)"
    }
@@ -1760,16 +1773,16 @@
    "group": "Pursuit",
    "description": "The state trooper's roadside lecture — third of the three pull-over films.",
    "file": "videos/pullover3.mp4",
-   "duration": 9.033333333333333,
+   "duration": 18.066666666666666,
    "w": 320,
    "h": 192,
-   "fps": 30,
+   "fps": 15,
    "stats": {
     "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
     "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
     "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
-    "Data rate": "588 KB/s streamed off the CD",
-    "Length": "271 frames @ 30 fps",
+    "Data rate": "294 KB/s streamed off the CD",
+    "Length": "271 frames @ 15 fps (the header claims 30)",
     "Native": "320 × 192 px",
     "Source": "Movies/cop3.stream (5.2 MB)"
    }

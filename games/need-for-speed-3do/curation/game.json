@@ -10,6 +10,11 @@
    "file": "disc.html"
   },
   {
+   "id": "movies",
+   "title": "The movies",
+   "file": "movies.html"
+  },
+  {
    "id": "cars",
    "title": "The cars",
    "file": "cars.html"

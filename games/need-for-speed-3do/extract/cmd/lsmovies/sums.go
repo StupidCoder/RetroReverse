@@ -7,6 +7,8 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+
+	"retroreverse.com/tools/platform/threedo"
 )
 
 func sums(data []byte) (cap, decl int) {
@@ -35,6 +37,10 @@ func printSums(vol interface {
 			continue
 		}
 		c, d := sums(raw)
-		fmt.Printf("%s cap=%d decl=%d\n", p, c, d)
+		fps, hdr := 0, 0
+		if mv, err := threedo.DemuxStream(raw); err == nil {
+			fps, hdr = mv.FPS, mv.HeaderRate
+		}
+		fmt.Printf("%s cap=%d decl=%d fps=%d hdr=%d\n", p, c, d, fps, hdr)
 	}
 }

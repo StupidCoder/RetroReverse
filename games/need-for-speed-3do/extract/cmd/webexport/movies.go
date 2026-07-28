@@ -34,8 +34,8 @@ var videoSet = []struct {
 	stream, id, name, group, desc string
 	related                       []string
 }{
-	{"Movies/eac.stream", "intro", "Intro", "Boot films",
-		"The Electronic Arts intro movie the game plays at boot — the first of the disc's 165 streamed Cinepak movies.", nil},
+	{"Movies/eac.stream", "intro", "Electronic Arts logo", "Boot films",
+		"The Electronic Arts logo film — the first of the disc's 165 streamed Cinepak movies the game arms at boot.", nil},
 	{"Movies/pioneer.stream", "pioneer", "Pioneer logo", "Boot films",
 		"Pioneer's starfield logo film, on the disc beside the EA logo (not requested in our traced boot).", nil},
 	{"Movies/title.stream", "title", "Title film", "Boot films",
@@ -72,6 +72,18 @@ var videoSet = []struct {
 		"The showcase film for the Toyota Supra.", []string{"car-tsupra"}},
 }
 
+// showcaseByCar inverts videoSet's related links: player-car object asset id →
+// its showcase film's video asset id, so the cars can link back to their films.
+func showcaseByCar() map[string]string {
+	m := map[string]string{}
+	for _, v := range videoSet {
+		for _, r := range v.related {
+			m[r] = v.id
+		}
+	}
+	return m
+}
+
 // exportVideos decodes and registers every movie in videoSet.
 func exportVideos(ctx *cli.Context, vol *threedo.Volume) error {
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
@@ -100,13 +112,20 @@ func exportVideos(ctx *cli.Context, vol *threedo.Volume) error {
 		}
 
 		duration := float64(len(frames)) / float64(mv.FPS)
+		length := fmt.Sprintf("%d frames @ %d fps", len(frames), mv.FPS)
+		if mv.HeaderRate != mv.FPS {
+			// 150 of the disc's streams declare 30 in the film header; the
+			// frame clock (240 Hz ticks) and the audio track both say 15,
+			// and 30 would out-run the double-speed drive.
+			length += fmt.Sprintf(" (the header claims %d)", mv.HeaderRate)
+		}
 		stats := map[string]any{
 			"Source":    fmt.Sprintf("%s (%.1f MB)", v.stream, float64(len(raw))/(1024*1024)),
 			"Codec":     fmt.Sprintf("Cinepak (%q), software-decoded on the ARM60", mv.Codec),
 			"Data rate": fmt.Sprintf("%.0f KB/s streamed off the CD", float64(len(raw))/duration/1024),
 			"Native":    fmt.Sprintf("%d × %d px", mv.Width, mv.Height),
 			"Colors":    "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
-			"Length":    fmt.Sprintf("%d frames @ %d fps", len(frames), mv.FPS),
+			"Length":    length,
 		}
 		if snd != nil {
 			stats["Audio"] = fmt.Sprintf("SDX2 DPCM, %d Hz, %d channels (2:1)", snd.SampleRate, snd.Channels)

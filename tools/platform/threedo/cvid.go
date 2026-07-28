@@ -30,9 +30,14 @@ import (
 type CvidMovie struct {
 	Width, Height int
 	Codec         string   // FHDR compression fourcc; "cvid" for Cinepak
-	FPS           int      // FHDR frame rate (3DO FMV is 15 fps)
+	FPS           int      // real frame rate, derived from the FRME timestamps (see below)
+	HeaderRate    int      // the FHDR rate field, verbatim — NOT always the frame rate:
+	                       //   the cop movies declare 30 here yet play at 15 (their audio
+	                       //   track and frame clock both say so, and 30 fps would need
+	                       //   ~590 KB/s, beyond the 2x drive's 300)
 	Frames        [][]byte // each entry is one FRME's cvid bitstream (from the flags byte)
 	Durations     []uint32 // per-frame duration in the film's time units
+	Times         []uint32 // per-frame FILM timestamps, 240 Hz ticks (the 3DO audio clock)
 }
 
 // DemuxStream walks a .Stream file and pulls out the video (FILM) track: the
@@ -54,11 +59,12 @@ func DemuxStream(data []byte) (*CvidMovie, error) {
 					m.Codec = string(data[off+24 : off+28])
 					m.Height = int(binary.BigEndian.Uint32(data[off+28 : off+32]))
 					m.Width = int(binary.BigEndian.Uint32(data[off+32 : off+36]))
-					m.FPS = int(binary.BigEndian.Uint32(data[off+36 : off+40]))
+					m.HeaderRate = int(binary.BigEndian.Uint32(data[off+36 : off+40]))
 					haveHdr = true
 				}
 			case "FRME":
 				if off+28 <= off+size && off+28 <= len(data) {
+					t := binary.BigEndian.Uint32(data[off+8 : off+12])
 					dur := binary.BigEndian.Uint32(data[off+20 : off+24])
 					fsz := int(binary.BigEndian.Uint32(data[off+24 : off+28]))
 					end := off + 28 + fsz
@@ -67,6 +73,7 @@ func DemuxStream(data []byte) (*CvidMovie, error) {
 					}
 					m.Frames = append(m.Frames, data[off+28:end])
 					m.Durations = append(m.Durations, dur)
+					m.Times = append(m.Times, t)
 				}
 			}
 		}
@@ -74,6 +81,17 @@ func DemuxStream(data []byte) (*CvidMovie, error) {
 	}
 	if !haveHdr && len(m.Frames) == 0 {
 		return nil, fmt.Errorf("no FILM video track found in stream")
+	}
+	// The real frame rate comes from the FRME timestamps (240 Hz ticks): the
+	// FHDR rate field lies on some movies (the cop films declare 30 but their
+	// frame clock and audio track both run at 15). Mean tick delta over the
+	// whole film, rounded to the nearest integer rate.
+	if n := len(m.Times); n >= 2 && m.Times[n-1] > m.Times[0] {
+		span := float64(m.Times[n-1] - m.Times[0])
+		m.FPS = int(240/(span/float64(n-1)) + 0.5)
+	}
+	if m.FPS <= 0 {
+		m.FPS = m.HeaderRate
 	}
 	if m.FPS <= 0 {
 		m.FPS = 15 // 3DO FMV default

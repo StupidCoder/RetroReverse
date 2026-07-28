@@ -26,14 +26,6 @@ A <code>.TdDyn</code> file spells out <code>#Mass</code>,
 curve; the difficulty system is two more numbers per skill level in the same files. The
 cars were tuned in a text editor.</p>
 
-<h2>The movies</h2>
-<p>Each <code>Movies/*.Stream</code> is a flat chunk stream for the SDK's DataStreamer:
-<code>FILM</code> video subchunks interleaved with <code>SNDS</code> audio. The video is
-<strong>Cinepak</strong> at 15&nbsp;fps, 320&times;240 — the 3DO has no video-decode
-hardware, so the ARM60 decodes every frame in software while a DSP instrument plays the
-SDX2 audio. The intro, the attract reel and the showcase clips — 165 streams in all —
-ride this one player.</p>
-
 <h2>Time comes from the audio folio</h2>
 <p>One quirk ties the whole engine together: the race loop does not pace itself on the
 video beam. Each frame it asks the <strong>audio folio's 240&nbsp;Hz clock</strong> to

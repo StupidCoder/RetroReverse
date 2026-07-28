@@ -165,7 +165,14 @@ Every `Movies/*.Stream` is a flat chunk stream (`FILM` video subchunks —
 `FHDR` header + `FRME` frames — interleaved with `SNDS`/`CTRL`/`FILL`). The
 video is **Cinepak** (`cvid`, the SDK DataStreamer's software codec; the 3DO has
 no video-decode hardware, so the ARM60 decodes it), the audio SDX2. The film
-header carries dimensions (320×240, some 320×192) and a 15 fps rate.
+header carries dimensions (320×240, some 320×192) and a rate field — which LIES
+on 150 of the 165 streams (they declare 30). The real rate is derived from the
+FRME timestamps, 240 Hz audio-clock ticks advancing ~16 per frame: every movie
+on the disc plays at 15 fps, confirmed by the audio-track length (cop2: 338
+frames, 22.53 s of SDX2 = 15.0 fps exactly) and by physics — 30 fps would need
+~590 KB/s, past the double-speed drive's 300 (the real movies stream at
+190–295 KB/s). `CvidMovie.FPS` is the derived rate; the raw header field is
+kept as `HeaderRate`.
 
 `tools/platform/threedo/cvid.go` demuxes the container and decodes the Cinepak —
 per-strip V1/V4 codebooks, the interleaved skip/selection bitstream, strip→strip
