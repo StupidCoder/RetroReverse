@@ -322,10 +322,47 @@ whole families 35.1-3, 36.1-3, 37.1-2, 38.1-2, 39.1-3, 40.1-3, 42.1-2 and
 Cut commentary — the movie-side twin of the unused prototype cars. All 33
 ship in the Studio as the video player's "Unused" group (matching the model
 viewer's "Unused vehicles" shelf), generated from the `cutReels` table in
-movies.go. Naming each reachable topic semantically (which race outcome
-triggers which N) means decoding each dispatcher's conditions against the
-race-stats block — open, and the prerequisite for exporting the remaining
-~115 reachable commentary reels with honest titles.
+movies.go.
+
+### The dispatcher conditions, decoded
+
+The three dispatchers' decision trees are now walked (the `topics` table in
+webexport/movies.go carries the result; every reel on the disc is in the
+Studio). Ground facts first: the results/records clock is **60 Hz** (the
+time formatter at 0x974D4 divides by 3600 per minute; every margin constant
+is round in it — 120=2 s, 180=3 s, 300=5 s, 900=15 s, 1800=30 s), speeds are
+**16.16 m/s** (the mph formatter at 0x975EC multiplies by 2.2399; the
+average-speed formatter at 0x97580 by 134.4 = 60×2.24, i.e. metres-per-field),
+and the records live in the `DriveHS`/`FrontEnd/InitHS` block — rows of four
+28-byte slots {name[12], car, time, time, speed}, the "Daredevil" defaults —
+indexed [course][stage], reached from the dispatcher via [g+4]/[g+5] with the
+literal pool at 0x8E86C→0xA872C for the results array (176-byte rows per
+stage + course totals at +0x210).
+
+**Race dispatcher (0x8E704)**, two modes on byte[g+7]==8 (no opponent):
+record beaten by >2 s → 1.x; beaten → 2.x (2.3 = the second record class,
+picked directly); top-speed record → 3.x; ≥89.3 m/s (199.8 mph) → 6.3;
+average < ~60 mph → 5.x. With an opponent: won by >5 s → 7.x; by <3 s → 8.x;
+lost by >15 s → 11.x; 12.x on a loss with the top-speed comparison in your
+favour. Then the incident tail on results-block counters (+0x24>5 → 13.x,
++0x2C>2 → 14.x, +0x3C>300 → 15.1, +0x48/pace quadrants → 16/17/18 — skipped
+on alpine, byte[g+4]==2 —, +0x50 → 20.x, +0x64 vs 5500 under the expert
+flag → 21/22, +0x38>3 → 23.x, +0x70 → 24.x, +0x74 → 26.x, +0x80 fast/slow →
+27/28, +0x7C>2 → 30.x, +0x84 fast/slow → 32/33, +0x90>2 → 34.x), with a
+rand(4)==0 chance to swap a record reel for an incident reel, 31.1 as a late
+fallback and 20.2 as the terminal default. The counters' engine-side writers
+are not yet traced — their info-panel descriptions name the offsets honestly.
+
+**Season dispatcher (0x9383C)**: course-total record beaten by >5 s → 64.x,
+beaten → 65.x; target time (+0x224, the same field the $750,000-step prize
+calculator uses) beaten by >5 s → 56.x, beaten → 57.x, missed → 59.x, missed
+by >30 s → 60.x; slower than the record → 67.x, by >30 s → 68.x (the
+2+rand(2)*2 stride — only even takes exist); top-speed record beaten clearly
+→ 69.x, edged → 70.1. **Season end (0x93DB8/0x94214)**: champion → 46.x from
+the per-car table at 0xA859C; sign-off 43.x/44.x on the record flag (+0x210).
+**Pursuit (0x94020)**: arrest → cop1-3 then 52.x. All 114 reachable reels
+ship named by topic with their trigger in the description; the open thread
+is naming the counter fields by tracing their writers in the race engine.
 
 ### Gamepad in framedbg
 

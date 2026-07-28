@@ -79,6 +79,154 @@ var videoSet = []videoEntry{
 		"The showcase film for the Toyota Supra.", []string{"car-tsupra"}},
 }
 
+// topics are the reachable commentary families, decoded from frontovl's three
+// dispatchers (see the writeup's movie-tables section): the race dispatcher at
+// 0x8E704 compares the results block against the DriveHS records and the
+// opponent, the season dispatcher at 0x9383C against course-total records and
+// target times, and the season-end/pursuit paths at 0x93DB8/0x94214/0x94020
+// handle the champion's per-car reel, the closing remarks and the arrest.
+// Times are 60 Hz ticks (300 = 5 s), speeds 16.16 m/s (0x594CCC ≈ 200 mph).
+// Counter fields whose engine-side writers are not yet traced are named by
+// their offset in the results block, honestly.
+type topic struct {
+	fam   string
+	takes []int
+	name  string
+	group string
+	desc  string
+}
+
+const (
+	grpRace    = "Race commentary"
+	grpSeason  = "Season commentary"
+	grpPursuit = "Pursuit commentary"
+	grpMag     = "Magazine"
+)
+
+var topics = []topic{
+	{"1", []int{1, 2, 3}, "Record smashed", grpRace,
+		"Plays when you beat the course record by more than two seconds."},
+	{"2", []int{1, 2, 3}, "New record", grpRace,
+		"Plays when you beat the course record; the dispatcher picks take 3 directly for the second record class."},
+	{"3", []int{2, 3}, "Speed record", grpRace,
+		"Plays when you set a new top-speed record for the course. Take 1 was cut."},
+	{"5", []int{1, 2, 3}, "Sunday drive", grpRace,
+		"Plays when your average speed stayed under roughly sixty mph."},
+	{"6", []int{3}, "Two hundred", grpRace,
+		"Plays when your top speed reached ~200 mph (the code compares against 89.3 m/s = 199.8 mph). Takes 1-2 were cut."},
+	{"7", []int{1, 2, 3}, "Won going away", grpRace,
+		"Plays when you won the head-to-head by more than five seconds."},
+	{"8", []int{1, 2}, "Photo finish", grpRace,
+		"Plays when you won the head-to-head by less than three seconds."},
+	{"11", []int{1, 2, 3}, "Left for dead", grpRace,
+		"Plays when you lost by more than fifteen seconds."},
+	{"12", []int{1, 2, 3}, "Outdriven", grpRace,
+		"Plays on a loss with the top-speed comparison against the opponent in your favour."},
+	{"13", []int{1, 2, 3}, "Demolition run", grpRace,
+		"Plays when a crash counter (results block +0x24) passes five — the host brings a bat."},
+	{"14", []int{1, 2, 3}, "Bent metal", grpRace,
+		"Plays when the +0x2C crash counter passes two."},
+	{"15", []int{1}, "Scenic route", grpRace,
+		"Plays when the +0x3C time counter passes five seconds. Takes 2-3 were cut."},
+	{"16", []int{1, 2}, "Threading traffic", grpRace,
+		"Plays when both the +0x48 counter and the pace gate read high — city and coastal races only."},
+	{"17", []int{1, 2}, "Stuck in traffic", grpRace,
+		"Plays when the +0x48 counter is high but the pace gate low — city and coastal races only. Take 3 was cut."},
+	{"18", []int{1, 2}, "Open road", grpRace,
+		"Plays when both gates read low — city and coastal races only."},
+	{"20", []int{2, 3}, "Stock answer", grpRace,
+		"The fallback family: 20.2 doubles as the reel that plays when no other condition fires. Take 1 was cut."},
+	{"21", []int{1, 2}, "High stakes", grpRace,
+		"Expert-flag races with the +0x64 stat above 5,500."},
+	{"22", []int{1, 2}, "Small change", grpRace,
+		"Expert-flag races with the +0x64 stat at or below 5,500."},
+	{"23", []int{1, 2}, "Spin cycle", grpRace,
+		"Plays when the +0x38 counter passes three."},
+	{"24", []int{1, 2, 3}, "Roof first", grpRace,
+		"Plays when the +0x70 counter passes five seconds on a slow run."},
+	{"26", []int{1, 2}, "Excuses, excuses", grpRace,
+		"Plays when the +0x74 counter passes 75 on a slow run."},
+	{"27", []int{1, 2}, "Daredevil", grpRace,
+		"Plays when the +0x80 counter passes 75 on a fast run."},
+	{"28", []int{1, 2, 3}, "Pushing your luck", grpRace,
+		"Plays when the +0x80 counter passes 75 on a slow run."},
+	{"30", []int{1, 2, 3}, "Third strike", grpRace,
+		"Plays when the +0x7C counter passes two."},
+	{"31", []int{1}, "One for the road", grpRace,
+		"A late fallback pick in the dispatcher's tail. Takes 2-3 were cut."},
+	{"32", []int{1, 2}, "Trading paint", grpRace,
+		"Plays when the +0x84 event fired on a fast run."},
+	{"33", []int{1, 2, 3}, "Body damage", grpRace,
+		"Plays when the +0x84 event fired on a slow run."},
+	{"34", []int{1, 2, 3}, "Total wreck", grpRace,
+		"Plays when the +0x90 counter passes two — the host delivers it from the ground."},
+
+	{"56", []int{1, 2, 3}, "Target crushed", grpSeason,
+		"Plays when you beat the tour's target time by more than five seconds against an opponent."},
+	{"57", []int{1, 2, 3}, "Target beaten", grpSeason,
+		"Plays when you beat the tour's target time against an opponent."},
+	{"59", []int{1, 2}, "Target missed", grpSeason,
+		"Plays when you missed the tour's target time."},
+	{"60", []int{1, 2}, "Target missed badly", grpSeason,
+		"Plays when you missed the tour's target time by more than thirty seconds."},
+	{"64", []int{1, 2, 3, 4}, "Course record crushed", grpSeason,
+		"Plays when you beat the course-total record by more than five seconds."},
+	{"65", []int{1, 2, 3}, "Course record", grpSeason,
+		"Plays when you beat the course-total record."},
+	{"67", []int{1, 2, 3}, "Off the pace", grpSeason,
+		"Plays when you finished the tour slower than the course record."},
+	{"68", []int{2, 4}, "Way off the pace", grpSeason,
+		"Plays when you finished more than thirty seconds behind the course record — the code's 2+rand(2)*2 stride only ever picks the even takes."},
+	{"69", []int{1, 2, 3}, "Tour speed record", grpSeason,
+		"Plays when you clearly beat the stored top-speed record. Take 4 was cut."},
+	{"70", []int{1}, "Speed record, just", grpSeason,
+		"Plays when you edged the stored top-speed record. Takes 2-3 were cut."},
+	{"43", []int{2, 3}, "Closing remarks, record set", grpSeason,
+		"The season sign-off when the record flag (+0x210) is set. Take 1 was cut."},
+	{"44", []int{1, 2}, "Closing remarks", grpSeason,
+		"The season sign-off without a new record. Take 3 was cut."},
+	{"46", []int{1, 2, 3, 4, 5, 6}, "Victory lap", grpSeason,
+		"The champion's reel — which takes can play depends on your car, via the per-car table at 0xA859C."},
+
+	{"52", []int{2, 3, 4, 5, 6, 7}, "Booked", grpPursuit,
+		"Plays after the trooper's pull-over film when the pursuit ends in an arrest. Take 1 was cut."},
+
+	{"101", []int{1, 2, 3}, "Magazine intro", grpMag,
+		"The host's issue-introduction reels."},
+	{"101", []int{4, 5, 6}, "Attract host", grpMag,
+		"The attract mode's host segment — built as sprintf(\"101.%d\", rand(3)+4), so only takes 4-6 ever play there."},
+}
+
+// topicEntries generates the reachable commentary reels' videoSet entries.
+func topicEntries() []videoEntry {
+	var out []videoEntry
+	for _, t := range topics {
+		for _, take := range t.takes {
+			stem := fmt.Sprintf("%s.%d", t.fam, take)
+			name := t.name
+			if len(t.takes) > 1 {
+				name = fmt.Sprintf("%s %d", t.name, take)
+			}
+			out = append(out, videoEntry{
+				stream: "Movies/" + stem + ".stream",
+				id:     "reel-" + strings.ReplaceAll(stem, ".", "-"),
+				name:   name, group: t.group, desc: t.desc,
+			})
+		}
+	}
+	return out
+}
+
+// topicNameByFam names a cut take's family when the family itself is reachable.
+func topicNameByFam(fam string) string {
+	for _, t := range topics {
+		if t.fam == fam {
+			return t.name
+		}
+	}
+	return ""
+}
+
 // cutReels are the 33 orphaned commentary reels — on the disc, but no shipped
 // code path can build their stem (the movie-tables RE walked every dispatcher:
 // 132 reachable references, these 33 files outside them). Families 35-40, 42
@@ -103,6 +251,8 @@ func cutReelEntries() []videoEntry {
 		desc := "Post-race commentary take " + stem + ", cut: "
 		if cutFamilies[fam] {
 			desc += "its whole topic family is unreferenced by the shipped dispatchers."
+		} else if tn := topicNameByFam(fam); tn != "" {
+			desc += "a take of the \"" + tn + "\" topic that its random range never picks."
 		} else {
 			desc += "the take sits outside its topic's random range."
 		}
@@ -136,7 +286,8 @@ func exportVideos(ctx *cli.Context, vol *threedo.Volume) error {
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return fmt.Errorf("ffmpeg not found on PATH (needed to encode the videos): %w", err)
 	}
-	set := append(append([]videoEntry{}, videoSet...), cutReelEntries()...)
+	set := append(append([]videoEntry{}, videoSet...), topicEntries()...)
+	set = append(set, cutReelEntries()...)
 	for i, v := range set {
 		raw, err := vol.ReadFile(v.stream)
 		if err != nil {

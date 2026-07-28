@@ -25,12 +25,24 @@ disc skip straight to the menus.</p>
 <p>The other ~147 are numbered <code>N.M</code> reels: the host's <strong>post-race
 commentary</strong>, live-action clips composited into tilted magazine pages. <code>N</code>
 is a topic — an outcome the front-end wants remarked upon — and <code>M</code> one of a
-few takes of it. After a race the code walks your statistics (winning margins, times,
-what you hit), picks the topic the numbers call for, and rolls a die for the take:
-<code>sprintf("N.%d", rand(k)+base)</code>, forty-odd such sites. A couple are fancier —
-one family strides even numbers only, one indexes a per-car table — and the same
-dispatchers pick the host's spoken one-liners from parallel tables of audio clips. The
-attract mode's magazine segment is the same machinery hardwired to issue 101.</p>
+few takes of it. After a race the code walks your statistics, picks the topic the
+numbers call for, and rolls a die for the take: <code>sprintf("N.%d", rand(k)+base)</code>,
+forty-odd such sites. The same dispatchers pick the host's spoken one-liners from
+parallel tables of audio clips, and the attract mode's magazine segment is the same
+machinery hardwired to issue 101.</p>
+
+<p>The dispatch itself decodes cleanly. The race dispatcher compares your run against
+the <code>DriveHS</code> records block (the "Daredevil" defaults shipped in
+<code>FrontEnd/InitHS</code>) and against the opponent, with thresholds in round
+numbers of its 60&nbsp;Hz clock: beat the course record by over two seconds and the
+host raves; win by five and he bows; lose by fifteen and he winces. Reach
+89.3&nbsp;m/s — 199.8&nbsp;mph — and the 200-mph reel plays; average under sixty and
+you get the Sunday-drive routine. A second dispatcher wraps the season against
+course-total records and target times (five- and thirty-second margins), the champion
+gets a reel picked from a per-car table, and an arrest cues the trooper film and then
+the booking commentary. Every reel in the player carries its decoded trigger in the
+info panel; a handful of crash-and-traffic counters keep their raw block offsets until
+their engine-side writers are traced.</p>
 
 <h2>The cut movies</h2>
 <p>Walking every dispatcher gives the complete set of reels the shipped code can ever
