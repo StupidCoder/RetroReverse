@@ -44,6 +44,210 @@
  ],
  "assets": [
   {
+   "id": "car-ldiablo",
+   "category": "object",
+   "name": "Diablo",
+   "group": "Player cars",
+   "related": ["showcase-diablo"],
+   "file": "objects/car-ldiablo.json"
+  },
+  {
+   "id": "car-f512tr",
+   "category": "object",
+   "name": "512 TR",
+   "group": "Player cars",
+   "related": ["showcase-512tr"],
+   "file": "objects/car-f512tr.json"
+  },
+  {
+   "id": "car-p911",
+   "category": "object",
+   "name": "911",
+   "group": "Player cars",
+   "related": ["showcase-911"],
+   "file": "objects/car-p911.json"
+  },
+  {
+   "id": "car-czr1",
+   "category": "object",
+   "name": "ZR-1",
+   "group": "Player cars",
+   "related": ["showcase-zr1"],
+   "file": "objects/car-czr1.json"
+  },
+  {
+   "id": "car-dviper",
+   "category": "object",
+   "name": "Viper",
+   "group": "Player cars",
+   "related": ["showcase-viper"],
+   "file": "objects/car-dviper.json"
+  },
+  {
+   "id": "car-ansx",
+   "category": "object",
+   "name": "NSX",
+   "group": "Player cars",
+   "related": ["showcase-nsx"],
+   "file": "objects/car-ansx.json"
+  },
+  {
+   "id": "car-mrx7",
+   "category": "object",
+   "name": "RX-7",
+   "group": "Player cars",
+   "related": ["showcase-rx7"],
+   "file": "objects/car-mrx7.json"
+  },
+  {
+   "id": "car-tsupra",
+   "category": "object",
+   "name": "Supra",
+   "group": "Player cars",
+   "related": ["showcase-supra"],
+   "file": "objects/car-tsupra.json"
+  },
+  {
+   "id": "car-copmust",
+   "category": "object",
+   "name": "Police Mustang",
+   "group": "Traffic vehicles",
+   "file": "objects/car-copmust.json"
+  },
+  {
+   "id": "car-bmw",
+   "category": "object",
+   "name": "BMW",
+   "group": "Traffic vehicles",
+   "file": "objects/car-bmw.json"
+  },
+  {
+   "id": "car-crx",
+   "category": "object",
+   "name": "CRX",
+   "group": "Traffic vehicles",
+   "file": "objects/car-crx.json"
+  },
+  {
+   "id": "car-gmctruck",
+   "category": "object",
+   "name": "GMC Truck",
+   "group": "Traffic vehicles",
+   "file": "objects/car-gmctruck.json"
+  },
+  {
+   "id": "car-jeep",
+   "category": "object",
+   "name": "Jeep",
+   "group": "Traffic vehicles",
+   "file": "objects/car-jeep.json"
+  },
+  {
+   "id": "car-jetta",
+   "category": "object",
+   "name": "Jetta",
+   "group": "Traffic vehicles",
+   "file": "objects/car-jetta.json"
+  },
+  {
+   "id": "car-lemans",
+   "category": "object",
+   "name": "Lemans",
+   "group": "Traffic vehicles",
+   "file": "objects/car-lemans.json"
+  },
+  {
+   "id": "car-pickup",
+   "category": "object",
+   "name": "Pickup",
+   "group": "Traffic vehicles",
+   "file": "objects/car-pickup.json"
+  },
+  {
+   "id": "car-prelude",
+   "category": "object",
+   "name": "Prelude",
+   "group": "Traffic vehicles",
+   "file": "objects/car-prelude.json"
+  },
+  {
+   "id": "car-probe",
+   "category": "object",
+   "name": "Probe",
+   "group": "Traffic vehicles",
+   "file": "objects/car-probe.json"
+  },
+  {
+   "id": "car-rodeo",
+   "category": "object",
+   "name": "Rodeo",
+   "group": "Traffic vehicles",
+   "file": "objects/car-rodeo.json"
+  },
+  {
+   "id": "car-sunbird",
+   "category": "object",
+   "name": "Sunbird",
+   "group": "Traffic vehicles",
+   "file": "objects/car-sunbird.json"
+  },
+  {
+   "id": "car-vandura",
+   "category": "object",
+   "name": "Vandura",
+   "group": "Traffic vehicles",
+   "file": "objects/car-vandura.json"
+  },
+  {
+   "id": "car-wagon",
+   "category": "object",
+   "name": "Wagon",
+   "group": "Traffic vehicles",
+   "file": "objects/car-wagon.json"
+  },
+  {
+   "id": "car-axxess",
+   "category": "object",
+   "name": "Axxess",
+   "group": "Traffic vehicles",
+   "file": "objects/car-axxess.json"
+  },
+  {
+   "id": "car-scooter",
+   "category": "object",
+   "name": "Scooter",
+   "group": "Unused vehicles",
+   "file": "objects/car-scooter.json"
+  },
+  {
+   "id": "car-porsche",
+   "category": "object",
+   "name": "911 (classic body)",
+   "group": "Unused vehicles",
+   "file": "objects/car-porsche.json"
+  },
+  {
+   "id": "car-copmust-new",
+   "category": "object",
+   "name": "Police Mustang (dev)",
+   "group": "Unused vehicles",
+   "file": "objects/car-copmust-new.json"
+  },
+  {
+   "id": "car-probe94",
+   "category": "object",
+   "name": "Probe94 (SASCO model)",
+   "group": "Unused vehicles",
+   "file": "objects/car-probe94.json"
+  },
+  {
+   "id": "car-sasco",
+   "category": "object",
+   "name": "SASCO",
+   "group": "Unused vehicles",
+   "file": "objects/car-sasco.json"
+  },
+  {
    "id": "obj-cy1-10",
    "category": "object",
    "name": "City 1 prop 10",
@@ -1395,210 +1599,6 @@
    "file": "levels/al3.json"
   },
   {
-   "id": "car-ldiablo",
-   "category": "object",
-   "name": "Diablo",
-   "group": "Player cars",
-   "related": ["showcase-diablo"],
-   "file": "objects/car-ldiablo.json"
-  },
-  {
-   "id": "car-f512tr",
-   "category": "object",
-   "name": "512 TR",
-   "group": "Player cars",
-   "related": ["showcase-512tr"],
-   "file": "objects/car-f512tr.json"
-  },
-  {
-   "id": "car-p911",
-   "category": "object",
-   "name": "911",
-   "group": "Player cars",
-   "related": ["showcase-911"],
-   "file": "objects/car-p911.json"
-  },
-  {
-   "id": "car-czr1",
-   "category": "object",
-   "name": "ZR-1",
-   "group": "Player cars",
-   "related": ["showcase-zr1"],
-   "file": "objects/car-czr1.json"
-  },
-  {
-   "id": "car-dviper",
-   "category": "object",
-   "name": "Viper",
-   "group": "Player cars",
-   "related": ["showcase-viper"],
-   "file": "objects/car-dviper.json"
-  },
-  {
-   "id": "car-ansx",
-   "category": "object",
-   "name": "NSX",
-   "group": "Player cars",
-   "related": ["showcase-nsx"],
-   "file": "objects/car-ansx.json"
-  },
-  {
-   "id": "car-mrx7",
-   "category": "object",
-   "name": "RX-7",
-   "group": "Player cars",
-   "related": ["showcase-rx7"],
-   "file": "objects/car-mrx7.json"
-  },
-  {
-   "id": "car-tsupra",
-   "category": "object",
-   "name": "Supra",
-   "group": "Player cars",
-   "related": ["showcase-supra"],
-   "file": "objects/car-tsupra.json"
-  },
-  {
-   "id": "car-copmust",
-   "category": "object",
-   "name": "Police Mustang",
-   "group": "Traffic vehicles",
-   "file": "objects/car-copmust.json"
-  },
-  {
-   "id": "car-bmw",
-   "category": "object",
-   "name": "BMW",
-   "group": "Traffic vehicles",
-   "file": "objects/car-bmw.json"
-  },
-  {
-   "id": "car-crx",
-   "category": "object",
-   "name": "CRX",
-   "group": "Traffic vehicles",
-   "file": "objects/car-crx.json"
-  },
-  {
-   "id": "car-gmctruck",
-   "category": "object",
-   "name": "GMC Truck",
-   "group": "Traffic vehicles",
-   "file": "objects/car-gmctruck.json"
-  },
-  {
-   "id": "car-jeep",
-   "category": "object",
-   "name": "Jeep",
-   "group": "Traffic vehicles",
-   "file": "objects/car-jeep.json"
-  },
-  {
-   "id": "car-jetta",
-   "category": "object",
-   "name": "Jetta",
-   "group": "Traffic vehicles",
-   "file": "objects/car-jetta.json"
-  },
-  {
-   "id": "car-lemans",
-   "category": "object",
-   "name": "Lemans",
-   "group": "Traffic vehicles",
-   "file": "objects/car-lemans.json"
-  },
-  {
-   "id": "car-pickup",
-   "category": "object",
-   "name": "Pickup",
-   "group": "Traffic vehicles",
-   "file": "objects/car-pickup.json"
-  },
-  {
-   "id": "car-prelude",
-   "category": "object",
-   "name": "Prelude",
-   "group": "Traffic vehicles",
-   "file": "objects/car-prelude.json"
-  },
-  {
-   "id": "car-probe",
-   "category": "object",
-   "name": "Probe",
-   "group": "Traffic vehicles",
-   "file": "objects/car-probe.json"
-  },
-  {
-   "id": "car-rodeo",
-   "category": "object",
-   "name": "Rodeo",
-   "group": "Traffic vehicles",
-   "file": "objects/car-rodeo.json"
-  },
-  {
-   "id": "car-sunbird",
-   "category": "object",
-   "name": "Sunbird",
-   "group": "Traffic vehicles",
-   "file": "objects/car-sunbird.json"
-  },
-  {
-   "id": "car-vandura",
-   "category": "object",
-   "name": "Vandura",
-   "group": "Traffic vehicles",
-   "file": "objects/car-vandura.json"
-  },
-  {
-   "id": "car-wagon",
-   "category": "object",
-   "name": "Wagon",
-   "group": "Traffic vehicles",
-   "file": "objects/car-wagon.json"
-  },
-  {
-   "id": "car-axxess",
-   "category": "object",
-   "name": "Axxess",
-   "group": "Traffic vehicles",
-   "file": "objects/car-axxess.json"
-  },
-  {
-   "id": "car-scooter",
-   "category": "object",
-   "name": "Scooter",
-   "group": "Unused vehicles",
-   "file": "objects/car-scooter.json"
-  },
-  {
-   "id": "car-porsche",
-   "category": "object",
-   "name": "911 (classic body)",
-   "group": "Unused vehicles",
-   "file": "objects/car-porsche.json"
-  },
-  {
-   "id": "car-copmust-new",
-   "category": "object",
-   "name": "Police Mustang (dev)",
-   "group": "Unused vehicles",
-   "file": "objects/car-copmust-new.json"
-  },
-  {
-   "id": "car-probe94",
-   "category": "object",
-   "name": "Probe94 (SASCO model)",
-   "group": "Unused vehicles",
-   "file": "objects/car-probe94.json"
-  },
-  {
-   "id": "car-sasco",
-   "category": "object",
-   "name": "SASCO",
-   "group": "Unused vehicles",
-   "file": "objects/car-sasco.json"
-  },
-  {
    "id": "intro",
    "category": "video",
    "name": "Electronic Arts logo",
@@ -1982,6 +1982,698 @@
     "Length": "648 frames @ 15 fps",
     "Native": "320 × 192 px",
     "Source": "Movies/supra.stream (10.4 MB)"
+   }
+  },
+  {
+   "id": "reel-3-1",
+   "category": "video",
+   "name": "3.1",
+   "group": "Unused",
+   "description": "Post-race commentary take 3.1, cut: the take sits outside its topic's random range.",
+   "file": "videos/reel-3-1.mp4",
+   "duration": 9.666666666666666,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "179 KB/s streamed off the CD",
+    "Length": "145 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/3.1.stream (1.7 MB)"
+   }
+  },
+  {
+   "id": "reel-6-1",
+   "category": "video",
+   "name": "6.1",
+   "group": "Unused",
+   "description": "Post-race commentary take 6.1, cut: the take sits outside its topic's random range.",
+   "file": "videos/reel-6-1.mp4",
+   "duration": 2.8666666666666667,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "179 KB/s streamed off the CD",
+    "Length": "43 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/6.1.stream (0.5 MB)"
+   }
+  },
+  {
+   "id": "reel-6-2",
+   "category": "video",
+   "name": "6.2",
+   "group": "Unused",
+   "description": "Post-race commentary take 6.2, cut: the take sits outside its topic's random range.",
+   "file": "videos/reel-6-2.mp4",
+   "duration": 7.666666666666667,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "171 KB/s streamed off the CD",
+    "Length": "115 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/6.2.stream (1.3 MB)"
+   }
+  },
+  {
+   "id": "reel-16-3",
+   "category": "video",
+   "name": "16.3",
+   "group": "Unused",
+   "description": "Post-race commentary take 16.3, cut: the take sits outside its topic's random range.",
+   "file": "videos/reel-16-3.mp4",
+   "duration": 4.666666666666667,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "178 KB/s streamed off the CD",
+    "Length": "70 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/16.3.stream (0.8 MB)"
+   }
+  },
+  {
+   "id": "reel-20-1",
+   "category": "video",
+   "name": "20.1",
+   "group": "Unused",
+   "description": "Post-race commentary take 20.1, cut: the take sits outside its topic's random range.",
+   "file": "videos/reel-20-1.mp4",
+   "duration": 6.733333333333333,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "176 KB/s streamed off the CD",
+    "Length": "101 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/20.1.stream (1.2 MB)"
+   }
+  },
+  {
+   "id": "reel-31-2",
+   "category": "video",
+   "name": "31.2",
+   "group": "Unused",
+   "description": "Post-race commentary take 31.2, cut: the take sits outside its topic's random range.",
+   "file": "videos/reel-31-2.mp4",
+   "duration": 11.4,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "177 KB/s streamed off the CD",
+    "Length": "171 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/31.2.stream (2.0 MB)"
+   }
+  },
+  {
+   "id": "reel-31-3",
+   "category": "video",
+   "name": "31.3",
+   "group": "Unused",
+   "description": "Post-race commentary take 31.3, cut: the take sits outside its topic's random range.",
+   "file": "videos/reel-31-3.mp4",
+   "duration": 5.733333333333333,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "179 KB/s streamed off the CD",
+    "Length": "86 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/31.3.stream (1.0 MB)"
+   }
+  },
+  {
+   "id": "reel-35-1",
+   "category": "video",
+   "name": "35.1",
+   "group": "Unused",
+   "description": "Post-race commentary take 35.1, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-35-1.mp4",
+   "duration": 6.866666666666666,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "177 KB/s streamed off the CD",
+    "Length": "103 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/35.1.stream (1.2 MB)"
+   }
+  },
+  {
+   "id": "reel-35-2",
+   "category": "video",
+   "name": "35.2",
+   "group": "Unused",
+   "description": "Post-race commentary take 35.2, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-35-2.mp4",
+   "duration": 8,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "176 KB/s streamed off the CD",
+    "Length": "120 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/35.2.stream (1.4 MB)"
+   }
+  },
+  {
+   "id": "reel-35-3",
+   "category": "video",
+   "name": "35.3",
+   "group": "Unused",
+   "description": "Post-race commentary take 35.3, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-35-3.mp4",
+   "duration": 5.333333333333333,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "180 KB/s streamed off the CD",
+    "Length": "80 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/35.3.stream (0.9 MB)"
+   }
+  },
+  {
+   "id": "reel-36-1",
+   "category": "video",
+   "name": "36.1",
+   "group": "Unused",
+   "description": "Post-race commentary take 36.1, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-36-1.mp4",
+   "duration": 8,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "176 KB/s streamed off the CD",
+    "Length": "120 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/36.1.stream (1.4 MB)"
+   }
+  },
+  {
+   "id": "reel-36-2",
+   "category": "video",
+   "name": "36.2",
+   "group": "Unused",
+   "description": "Post-race commentary take 36.2, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-36-2.mp4",
+   "duration": 7.066666666666666,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "181 KB/s streamed off the CD",
+    "Length": "106 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/36.2.stream (1.2 MB)"
+   }
+  },
+  {
+   "id": "reel-36-3",
+   "category": "video",
+   "name": "36.3",
+   "group": "Unused",
+   "description": "Post-race commentary take 36.3, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-36-3.mp4",
+   "duration": 6,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "181 KB/s streamed off the CD",
+    "Length": "90 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/36.3.stream (1.1 MB)"
+   }
+  },
+  {
+   "id": "reel-37-1",
+   "category": "video",
+   "name": "37.1",
+   "group": "Unused",
+   "description": "Post-race commentary take 37.1, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-37-1.mp4",
+   "duration": 6.466666666666667,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "183 KB/s streamed off the CD",
+    "Length": "97 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/37.1.stream (1.2 MB)"
+   }
+  },
+  {
+   "id": "reel-37-2",
+   "category": "video",
+   "name": "37.2",
+   "group": "Unused",
+   "description": "Post-race commentary take 37.2, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-37-2.mp4",
+   "duration": 4.333333333333333,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "177 KB/s streamed off the CD",
+    "Length": "65 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/37.2.stream (0.8 MB)"
+   }
+  },
+  {
+   "id": "reel-38-1",
+   "category": "video",
+   "name": "38.1",
+   "group": "Unused",
+   "description": "Post-race commentary take 38.1, cut: its whole topic family is unreferenced by the shipped dispatchers. The disc's only silent movie.",
+   "file": "videos/reel-38-1.mp4",
+   "duration": 7.333333333333333,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "127 KB/s streamed off the CD",
+    "Length": "110 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/38.1.stream (0.9 MB)"
+   }
+  },
+  {
+   "id": "reel-38-2",
+   "category": "video",
+   "name": "38.2",
+   "group": "Unused",
+   "description": "Post-race commentary take 38.2, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-38-2.mp4",
+   "duration": 10,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "176 KB/s streamed off the CD",
+    "Length": "150 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/38.2.stream (1.7 MB)"
+   }
+  },
+  {
+   "id": "reel-39-1",
+   "category": "video",
+   "name": "39.1",
+   "group": "Unused",
+   "description": "Post-race commentary take 39.1, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-39-1.mp4",
+   "duration": 6.533333333333333,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "176 KB/s streamed off the CD",
+    "Length": "98 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/39.1.stream (1.1 MB)"
+   }
+  },
+  {
+   "id": "reel-39-2",
+   "category": "video",
+   "name": "39.2",
+   "group": "Unused",
+   "description": "Post-race commentary take 39.2, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-39-2.mp4",
+   "duration": 4.466666666666667,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "179 KB/s streamed off the CD",
+    "Length": "67 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/39.2.stream (0.8 MB)"
+   }
+  },
+  {
+   "id": "reel-39-3",
+   "category": "video",
+   "name": "39.3",
+   "group": "Unused",
+   "description": "Post-race commentary take 39.3, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-39-3.mp4",
+   "duration": 11.6,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "177 KB/s streamed off the CD",
+    "Length": "174 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/39.3.stream (2.0 MB)"
+   }
+  },
+  {
+   "id": "reel-40-1",
+   "category": "video",
+   "name": "40.1",
+   "group": "Unused",
+   "description": "Post-race commentary take 40.1, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-40-1.mp4",
+   "duration": 7,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "183 KB/s streamed off the CD",
+    "Length": "105 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/40.1.stream (1.2 MB)"
+   }
+  },
+  {
+   "id": "reel-40-2",
+   "category": "video",
+   "name": "40.2",
+   "group": "Unused",
+   "description": "Post-race commentary take 40.2, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-40-2.mp4",
+   "duration": 7.8,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "181 KB/s streamed off the CD",
+    "Length": "117 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/40.2.stream (1.4 MB)"
+   }
+  },
+  {
+   "id": "reel-40-3",
+   "category": "video",
+   "name": "40.3",
+   "group": "Unused",
+   "description": "Post-race commentary take 40.3, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-40-3.mp4",
+   "duration": 6,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "181 KB/s streamed off the CD",
+    "Length": "90 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/40.3.stream (1.1 MB)"
+   }
+  },
+  {
+   "id": "reel-42-1",
+   "category": "video",
+   "name": "42.1",
+   "group": "Unused",
+   "description": "Post-race commentary take 42.1, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-42-1.mp4",
+   "duration": 5.266666666666667,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "176 KB/s streamed off the CD",
+    "Length": "79 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/42.1.stream (0.9 MB)"
+   }
+  },
+  {
+   "id": "reel-42-2",
+   "category": "video",
+   "name": "42.2",
+   "group": "Unused",
+   "description": "Post-race commentary take 42.2, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-42-2.mp4",
+   "duration": 6.266666666666667,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "179 KB/s streamed off the CD",
+    "Length": "94 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/42.2.stream (1.1 MB)"
+   }
+  },
+  {
+   "id": "reel-44-3",
+   "category": "video",
+   "name": "44.3",
+   "group": "Unused",
+   "description": "Post-race commentary take 44.3, cut: the take sits outside its topic's random range.",
+   "file": "videos/reel-44-3.mp4",
+   "duration": 4.066666666666666,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "181 KB/s streamed off the CD",
+    "Length": "61 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/44.3.stream (0.7 MB)"
+   }
+  },
+  {
+   "id": "reel-51-1",
+   "category": "video",
+   "name": "51.1",
+   "group": "Unused",
+   "description": "Post-race commentary take 51.1, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-51-1.mp4",
+   "duration": 11.6,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "284 KB/s streamed off the CD",
+    "Length": "174 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/51.1.stream (3.2 MB)"
+   }
+  },
+  {
+   "id": "reel-51-2",
+   "category": "video",
+   "name": "51.2",
+   "group": "Unused",
+   "description": "Post-race commentary take 51.2, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-51-2.mp4",
+   "duration": 4.066666666666666,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "291 KB/s streamed off the CD",
+    "Length": "61 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/51.2.stream (1.2 MB)"
+   }
+  },
+  {
+   "id": "reel-51-3",
+   "category": "video",
+   "name": "51.3",
+   "group": "Unused",
+   "description": "Post-race commentary take 51.3, cut: its whole topic family is unreferenced by the shipped dispatchers.",
+   "file": "videos/reel-51-3.mp4",
+   "duration": 10.933333333333334,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "287 KB/s streamed off the CD",
+    "Length": "164 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/51.3.stream (3.1 MB)"
+   }
+  },
+  {
+   "id": "reel-52-1",
+   "category": "video",
+   "name": "52.1",
+   "group": "Unused",
+   "description": "Post-race commentary take 52.1, cut: the take sits outside its topic's random range.",
+   "file": "videos/reel-52-1.mp4",
+   "duration": 8.933333333333334,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "176 KB/s streamed off the CD",
+    "Length": "134 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/52.1.stream (1.5 MB)"
+   }
+  },
+  {
+   "id": "reel-69-4",
+   "category": "video",
+   "name": "69.4",
+   "group": "Unused",
+   "description": "Post-race commentary take 69.4, cut: the take sits outside its topic's random range.",
+   "file": "videos/reel-69-4.mp4",
+   "duration": 9.133333333333333,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "175 KB/s streamed off the CD",
+    "Length": "137 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/69.4.stream (1.6 MB)"
+   }
+  },
+  {
+   "id": "reel-70-2",
+   "category": "video",
+   "name": "70.2",
+   "group": "Unused",
+   "description": "Post-race commentary take 70.2, cut: the take sits outside its topic's random range.",
+   "file": "videos/reel-70-2.mp4",
+   "duration": 4.733333333333333,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "176 KB/s streamed off the CD",
+    "Length": "71 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/70.2.stream (0.8 MB)"
+   }
+  },
+  {
+   "id": "reel-70-3",
+   "category": "video",
+   "name": "70.3",
+   "group": "Unused",
+   "description": "Post-race commentary take 70.3, cut: the take sits outside its topic's random range.",
+   "file": "videos/reel-70-3.mp4",
+   "duration": 9.466666666666667,
+   "w": 320,
+   "h": 240,
+   "fps": 15,
+   "stats": {
+    "Audio": "SDX2 DPCM, 22050 Hz, 2 channels (2:1)",
+    "Codec": "Cinepak (\"cvid\"), software-decoded on the ARM60",
+    "Colors": "vector-quantised YCbCr 4:2:0, shown as 15-bit RGB555",
+    "Data rate": "176 KB/s streamed off the CD",
+    "Length": "142 frames @ 15 fps (the header claims 30)",
+    "Native": "320 × 240 px",
+    "Source": "Movies/70.3.stream (1.6 MB)"
    }
   }
  ]

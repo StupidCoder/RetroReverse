@@ -1,16 +1,17 @@
 package main
 
-// movies.go is the Retro-X `videos` stage: the disc's sixteen NAMED movies —
+// movies.go is the Retro-X `videos` stage: the disc's eighteen NAMED movies —
 // the boot/logo films, the attract reels, the pull-over films, the victory
-// montage and the six car showcase films — become videos/<id>.mp4. (The other
-// ~150 numbered N.M.Stream files are the car magazine's interview reels; they
-// stay unexported until the front-end's magazine tables are reversed enough to
-// title and group them.) The Cinepak video is decoded by our own Go decoder
-// (tools/platform/threedo/cvid.go, byte-identical to the reference) and the
-// SDX2 audio track by our own DPCM decoder (snds.go, byte-identical to
-// FFmpeg's sdx2_dpcm across every movie on the disc); ffmpeg only re-encodes
-// those already-decoded frames and samples to H.264 + AAC for the browser
-// (moov up front, RETROX.md §9).
+// montage and the eight car showcase films — plus the "Unused" group: the 33
+// cut commentary reels the movie-tables RE proved unreachable. Each becomes
+// videos/<id>.mp4. (The ~115 reachable numbered reels stay unexported until
+// the dispatchers' conditions are decoded enough to title them by outcome.)
+// The Cinepak video is decoded by our own Go decoder (tools/platform/threedo/
+// cvid.go, byte-identical to the reference) and the SDX2 audio track by our
+// own DPCM decoder (snds.go, byte-identical to FFmpeg's sdx2_dpcm across
+// every movie on the disc); ffmpeg only re-encodes those already-decoded
+// frames and samples to H.264 + AAC for the browser (moov up front,
+// RETROX.md §9).
 
 import (
 	"encoding/binary"
@@ -19,21 +20,27 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"retroreverse.com/tools/lib/retrox/cli"
 	"retroreverse.com/tools/lib/retrox/schema"
 	"retroreverse.com/tools/platform/threedo"
 )
 
-// videoSet is the curated named-movie list — all eighteen named .Streams on
-// the disc. Showcase films cross-link the car model they present via
-// `related`; the block is in the game's own car-table order (frontovl's stem
-// table at 0xA7B28: supra diablo 911 vette 512tr viper nsx rx7, indexed by
-// car id — reordered here to match the manifest's Player cars group).
-var videoSet = []struct {
+// videoEntry is one curated video asset: a .Stream on the disc plus its
+// Studio identity.
+type videoEntry struct {
 	stream, id, name, group, desc string
 	related                       []string
-}{
+}
+
+// videoSet is the curated named-movie list — all eighteen named .Streams on
+// the disc (the generated "Unused" group of cut reels follows, cutReelEntries).
+// Showcase films cross-link the car model they present via `related`; the
+// block is in the game's own car-table order (frontovl's stem table at
+// 0xA7B28: supra diablo 911 vette 512tr viper nsx rx7, indexed by car id —
+// reordered here to match the manifest's Player cars group).
+var videoSet = []videoEntry{
 	{"Movies/eac.stream", "intro", "Electronic Arts logo", "Boot films",
 		"The Electronic Arts logo film — the first of the disc's 165 streamed Cinepak movies the game arms at boot.", nil},
 	{"Movies/pioneer.stream", "pioneer", "Pioneer logo", "Boot films",
@@ -72,6 +79,45 @@ var videoSet = []struct {
 		"The showcase film for the Toyota Supra.", []string{"car-tsupra"}},
 }
 
+// cutReels are the 33 orphaned commentary reels — on the disc, but no shipped
+// code path can build their stem (the movie-tables RE walked every dispatcher:
+// 132 reachable references, these 33 files outside them). Families 35-40, 42
+// and 51 are whole topics the dispatchers never mention; the rest are takes
+// the reachable topics' random ranges skip.
+var cutFamilies = map[string]bool{"35": true, "36": true, "37": true, "38": true,
+	"39": true, "40": true, "42": true, "51": true}
+
+var cutReels = []string{
+	"3.1", "6.1", "6.2", "16.3", "20.1", "31.2", "31.3",
+	"35.1", "35.2", "35.3", "36.1", "36.2", "36.3", "37.1", "37.2",
+	"38.1", "38.2", "39.1", "39.2", "39.3", "40.1", "40.2", "40.3",
+	"42.1", "42.2", "44.3", "51.1", "51.2", "51.3", "52.1",
+	"69.4", "70.2", "70.3",
+}
+
+// cutReelEntries generates the "Unused" group's videoSet entries.
+func cutReelEntries() []videoEntry {
+	var out []videoEntry
+	for _, stem := range cutReels {
+		fam := strings.SplitN(stem, ".", 2)[0]
+		desc := "Post-race commentary take " + stem + ", cut: "
+		if cutFamilies[fam] {
+			desc += "its whole topic family is unreferenced by the shipped dispatchers."
+		} else {
+			desc += "the take sits outside its topic's random range."
+		}
+		if stem == "38.1" {
+			desc += " The disc's only silent movie."
+		}
+		out = append(out, videoEntry{
+			stream: "Movies/" + stem + ".stream",
+			id:     "reel-" + strings.ReplaceAll(stem, ".", "-"),
+			name:   stem, group: "Unused", desc: desc,
+		})
+	}
+	return out
+}
+
 // showcaseByCar inverts videoSet's related links: player-car object asset id →
 // its showcase film's video asset id, so the cars can link back to their films.
 func showcaseByCar() map[string]string {
@@ -84,12 +130,14 @@ func showcaseByCar() map[string]string {
 	return m
 }
 
-// exportVideos decodes and registers every movie in videoSet.
+// exportVideos decodes and registers every movie in videoSet plus the cut
+// reels of the Unused group.
 func exportVideos(ctx *cli.Context, vol *threedo.Volume) error {
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return fmt.Errorf("ffmpeg not found on PATH (needed to encode the videos): %w", err)
 	}
-	for i, v := range videoSet {
+	set := append(append([]videoEntry{}, videoSet...), cutReelEntries()...)
+	for i, v := range set {
 		raw, err := vol.ReadFile(v.stream)
 		if err != nil {
 			return fmt.Errorf("%s: %w", v.stream, err)
@@ -138,7 +186,7 @@ func exportVideos(ctx *cli.Context, vol *threedo.Volume) error {
 			Description: v.desc,
 			Stats:       stats,
 		})
-		ctx.Progress("videos", i+1, len(videoSet),
+		ctx.Progress("videos", i+1, len(set),
 			fmt.Sprintf("%s: %dx%d %d frames @%dfps", v.id, mv.Width, mv.Height, len(frames), mv.FPS))
 	}
 	return nil

@@ -188,6 +188,32 @@ func run(ctx *cli.Context) error {
 		return err
 	}
 
+	// the cars — registered FIRST so the model viewer lists the player,
+	// traffic and unused vehicles ahead of the courses' scenery props
+	cars, err := exportCars(vol, scratch)
+	if err != nil {
+		return fmt.Errorf("car: %v", err)
+	}
+	// player cars link back to their showcase films (only when the videos
+	// stage runs too — a partial run must not emit dangling references)
+	showcases := showcaseByCar()
+	for i, m := range cars {
+		file := filepath.Base(m.File)
+		if err := copyTo(filepath.Join(scratch, m.File), "objects", file); err != nil {
+			return err
+		}
+		id := strings.TrimSuffix(file, ".glb")
+		a := schema.Asset{ID: id, Name: m.Name, Group: m.Section}
+		if v, ok := showcases[id]; ok && ctx.Enabled("videos") {
+			a.Related = []string{v}
+		}
+		b.AddObject(a, &schema.Object{
+			Type: schema.ObjectModel3D, Name: m.Name, Model: file,
+			Variants: m.Variants, Stats: m.Stats,
+		})
+		ctx.Progress("objects", i+1, len(cars), m.Name)
+	}
+
 	for ci, c := range courses {
 		a := loadCourse(vol, c.id)
 		courseFile, err := exportCourse(a, scratch)
@@ -271,32 +297,6 @@ func run(ctx *cli.Context) error {
 		}
 		b.AddLevel(schema.Asset{ID: c.id, Name: c.name, Group: group(c.id) + " tracks"}, doc)
 		ctx.Progress("levels", ci+1, len(courses), fmt.Sprintf("%s: %d placements", c.id, len(doc.Placements)))
-	}
-
-	// the cars — written by the format-1 exporter into scratch/models, then
-	// registered as model3d objects grouped by the fleet sections
-	cars, err := exportCars(vol, scratch)
-	if err != nil {
-		return fmt.Errorf("car: %v", err)
-	}
-	// player cars link back to their showcase films (only when the videos
-	// stage runs too — a partial run must not emit dangling references)
-	showcases := showcaseByCar()
-	for i, m := range cars {
-		file := filepath.Base(m.File)
-		if err := copyTo(filepath.Join(scratch, m.File), "objects", file); err != nil {
-			return err
-		}
-		id := strings.TrimSuffix(file, ".glb")
-		a := schema.Asset{ID: id, Name: m.Name, Group: m.Section}
-		if v, ok := showcases[id]; ok && ctx.Enabled("videos") {
-			a.Related = []string{v}
-		}
-		b.AddObject(a, &schema.Object{
-			Type: schema.ObjectModel3D, Name: m.Name, Model: file,
-			Variants: m.Variants, Stats: m.Stats,
-		})
-		ctx.Progress("objects", i+1, len(cars), m.Name)
 	}
 
 	if ctx.Stage("videos") {

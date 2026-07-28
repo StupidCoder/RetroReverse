@@ -319,11 +319,13 @@ recorded, mastered, pressed, and unreachable by any shipped code path**: the
 whole families 35.1-3, 36.1-3, 37.1-2, 38.1-2, 39.1-3, 40.1-3, 42.1-2 and
 51.1-3, plus in-family stragglers 3.1, 6.1, 6.2, 16.3, 20.1, 31.2, 31.3,
 44.3, 52.1, 69.4, 70.2, 70.3. (38.1 is also the disc's only silent movie.)
-Cut commentary — the movie-side twin of the unused prototype cars. Naming
-each reachable topic semantically (which race outcome triggers which N)
-means decoding each dispatcher's conditions against the race-stats block —
-open, and the prerequisite for exporting the commentary reels with honest
-titles.
+Cut commentary — the movie-side twin of the unused prototype cars. All 33
+ship in the Studio as the video player's "Unused" group (matching the model
+viewer's "Unused vehicles" shelf), generated from the `cutReels` table in
+movies.go. Naming each reachable topic semantically (which race outcome
+triggers which N) means decoding each dispatcher's conditions against the
+race-stats block — open, and the prerequisite for exporting the remaining
+~115 reachable commentary reels with honest titles.
 
 ### Gamepad in framedbg
 
