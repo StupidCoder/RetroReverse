@@ -3,15 +3,12 @@
  "version": 1,
  "type": "scene3d",
  "camera": {
-  "mode": "fly",
+  "mode": "pan2d",
   "pos": [-4537.8154296875, 637.3850708007812, 2944.1412109375],
   "target": [-4537.8154296875, 637.3850708007812, 0],
   "fov": 36,
   "near": 1,
-  "far": 20000,
-  "fly": {
-   "speed": 250
-  }
+  "far": 20000
  },
  "scene": {
   "background": "#ffffff",

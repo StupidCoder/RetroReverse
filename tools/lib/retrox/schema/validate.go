@@ -705,7 +705,7 @@ func (c *checker) checkCollision(p string, l *Level) {
 func (c *checker) checkCamera(p string, cam *Camera, routes map[string]bool) {
 	switch cam.Mode {
 	case "map2d":
-	case "orbit", "fly", "ortho":
+	case "orbit", "fly", "ortho", "pan2d":
 		if len(cam.Pos) != 3 || len(cam.Target) != 3 {
 			c.errf(p, "camera mode %q needs pos and target [x,y,z]", cam.Mode)
 		}

@@ -51,6 +51,13 @@ func exportLoadingScreen(ctx *cli.Context) error {
 		Name: "Loading screen",
 		File: "pictures/loading.png",
 		W:    img.Bounds().Dx(), H: img.Bounds().Dy(),
+		// The PNG is a baked upscale; the info panel should state what the
+		// VIC-II actually displays: 160 double-wide multicolor pixels per line.
+		Stats: map[string]any{
+			"Native": "160 × 200 px (double-wide pixels)",
+			"Colors": "16 (VIC-II multicolor)",
+			"PNG":    fmt.Sprintf("%d × %d px (%d× upscale)", img.Bounds().Dx(), img.Bounds().Dy(), loadScale),
+		},
 	})
 	ctx.Progress("pictures", 1, 1, fmt.Sprintf("loading.png (multicolor bitmap, %dx%d px)",
 		img.Bounds().Dx(), img.Bounds().Dy()))

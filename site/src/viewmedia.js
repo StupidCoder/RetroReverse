@@ -272,7 +272,13 @@ function mountPicture(ctx) {
       cell: z * srcScale, ox: x, oy: y,
       ref: box.clientWidth,
     }),
-    stats: () => ({ File: asset.file, Size: `${asset.w || '?'} × ${asset.h || '?'} px` }),
+    // asset.stats carries the export's platform truth (native resolution,
+    // colour depth) — the PNG's own w × h is only the baked upscale.
+    stats: () => ({
+      File: asset.file,
+      ...(asset.stats ? {} : { Size: `${asset.w || '?'} × ${asset.h || '?'} px` }),
+      ...(asset.stats || {}),
+    }),
   };
 }
 

@@ -30,12 +30,26 @@ export async function mount(ctx, doc) {
     if (cam.orbit.minDist) stage.controls.minDistance = cam.orbit.minDist;
     if (cam.orbit.maxDist) stage.controls.maxDistance = cam.orbit.maxDist;
   }
+  if (cam.mode === 'pan2d') {
+    // Levels that are 3D geometry but 2D in spirit (Loco Roco): the camera
+    // faces the plane and never rotates — drag pans, wheel/pinch zooms.
+    const c = stage.controls;
+    c.enableRotate = false;
+    c.screenSpacePanning = true;
+    c.zoomToCursor = true;
+    c.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+    c.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
+    if (cam.near) c.minDistance = cam.near * 4;
+  }
 
   const roots = []; // everything mountable, for wireframe toggle + disposal
   const dp = ctx.displayPanel;
   const hud = document.createElement('div');
   hud.className = 'hud';
-  hud.textContent = flyHint;
+  const hint = cam.mode === 'fly' ? flyHint
+    : cam.mode === 'pan2d' ? 'drag to pan · wheel/pinch to zoom'
+      : 'drag to orbit · wheel to zoom';
+  hud.textContent = hint;
   el.appendChild(hud);
 
   // ---- layers -----------------------------------------------------------------
@@ -86,7 +100,7 @@ export async function mount(ctx, doc) {
     // Progressive streaming with a small worker pool; the level is browsable
     // while shells arrive.
     const queue = [...rm.list];
-    const hudTick = () => hud.textContent = `${roomsLoaded}/${rm.list.length} rooms · ${flyHint}`;
+    const hudTick = () => hud.textContent = `${roomsLoaded}/${rm.list.length} rooms · ${hint}`;
     const worker = async () => {
       for (;;) {
         const r = queue.shift();

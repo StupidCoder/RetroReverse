@@ -114,6 +114,11 @@ type Asset struct {
 	H int `json:"h,omitempty"`
 	// video
 	FPS float64 `json:"fps,omitempty"`
+
+	// free-form key→value rows for the viewer's info panel; for pictures
+	// this is where the platform truth lives (native resolution, colour
+	// depth) when the exported PNG is a baked upscale
+	Stats map[string]any `json:"stats,omitempty"`
 }
 
 // ---------------------------------------------------------------------------
@@ -680,7 +685,7 @@ type CamSample struct {
 // The camera block
 
 type Camera struct {
-	Mode   string    `json:"mode"` // "map2d" | "orbit" | "fly" | "ortho"
+	Mode   string    `json:"mode"` // "map2d" | "orbit" | "fly" | "ortho" | "pan2d"
 	Pos    []float64 `json:"pos,omitempty"`
 	Target []float64 `json:"target,omitempty"`
 	FOV    float64   `json:"fov,omitempty"`

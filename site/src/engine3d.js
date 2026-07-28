@@ -111,6 +111,8 @@ const COARSE = matchMedia('(pointer: coarse)').matches;
 const UP = new THREE.Vector3(0, 1, 0);
 const ROT = 1.0;
 const PITCH_MARGIN = 0.12;
+const LOOK_SENS = 0.0035; // radians per dragged pixel
+const DOLLY_STEP = 0.25;  // fraction of fly speed per wheel notch
 
 export class FlyCam {
   // speed: world units per second (Retro-X camera.fly.speed)
@@ -119,6 +121,39 @@ export class FlyCam {
     this.speed = speed || 100;
     this.keys = new Set();
     this.shift = false;
+    // Dragging looks around in place (grab-the-world, same rotation as the
+    // arrow keys) and the wheel dollies along the view direction at a
+    // constant speed. OrbitControls' own orbit/zoom/pan would fight both,
+    // so they are disabled while the fly cam owns the stage.
+    const controls = stage.controls;
+    controls.enableRotate = controls.enableZoom = controls.enablePan = false;
+    const cv = stage.canvas;
+    this._ptrs = new Map(); // pointerId -> last position; look only single-pointer
+    this._onPtrDown = (e) => {
+      this._ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      cv.setPointerCapture(e.pointerId);
+    };
+    this._onPtrMove = (e) => {
+      const p = this._ptrs.get(e.pointerId);
+      if (!p) return;
+      const dx = e.clientX - p.x, dy = e.clientY - p.y;
+      p.x = e.clientX; p.y = e.clientY;
+      if (this._ptrs.size === 1) this._look(dx, dy);
+    };
+    this._onPtrUp = (e) => this._ptrs.delete(e.pointerId);
+    this._onWheel = (e) => {
+      e.preventDefault();
+      const cam = stage.camera, target = controls.target;
+      const fwd = target.clone().sub(cam.position).normalize();
+      const step = -(e.deltaY / 100) * this.speed * DOLLY_STEP * (this.shift ? 2.5 : 1);
+      cam.position.addScaledVector(fwd, step);
+      target.addScaledVector(fwd, step);
+    };
+    cv.addEventListener('pointerdown', this._onPtrDown);
+    cv.addEventListener('pointermove', this._onPtrMove);
+    cv.addEventListener('pointerup', this._onPtrUp);
+    cv.addEventListener('pointercancel', this._onPtrUp);
+    cv.addEventListener('wheel', this._onWheel, { passive: false });
     this._onKeyDown = (e) => {
       this.shift = e.shiftKey;
       if (e.altKey || e.ctrlKey || e.metaKey) return;
@@ -133,6 +168,22 @@ export class FlyCam {
     if (COARSE) this._buildSticks(stage.el);
     this._update = (dt) => this.update(dt);
     stage.updaters.add(this._update);
+  }
+
+  // _look rotates the camera in place: dx/dy in pixels, grab-the-world
+  // direction (drag right = the scene follows, the view turns left).
+  _look(dx, dy) {
+    if (!dx && !dy) return;
+    const cam = this.stage.camera, target = this.stage.controls.target;
+    const off = target.clone().sub(cam.position);
+    if (dx) off.applyAxisAngle(UP, dx * LOOK_SENS);
+    if (dy) {
+      const right = off.clone().cross(UP).normalize();
+      const rot = off.clone().applyAxisAngle(right, dy * LOOK_SENS);
+      const a = rot.angleTo(UP);
+      if (a > PITCH_MARGIN && a < Math.PI - PITCH_MARGIN) off.copy(rot);
+    }
+    target.copy(cam.position).add(off);
   }
 
   update(dt) {
@@ -202,6 +253,12 @@ export class FlyCam {
     window.removeEventListener('keydown', this._onKeyDown);
     window.removeEventListener('keyup', this._onKeyUp);
     window.removeEventListener('blur', this._onBlur);
+    const cv = this.stage.canvas;
+    cv.removeEventListener('pointerdown', this._onPtrDown);
+    cv.removeEventListener('pointermove', this._onPtrMove);
+    cv.removeEventListener('pointerup', this._onPtrUp);
+    cv.removeEventListener('pointercancel', this._onPtrUp);
+    cv.removeEventListener('wheel', this._onWheel);
     this.stage.updaters.delete(this._update);
     if (this.sticks) { this.sticks.l.base.remove(); this.sticks.r.base.remove(); }
   }
@@ -210,7 +267,7 @@ export class FlyCam {
 const KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
 const ZERO = { x: 0, y: 0 };
 
-export const flyHint = COARSE ? 'sticks: left move · right look' : 'WASD move · arrows look · drag orbit';
+export const flyHint = COARSE ? 'sticks: left move · right look' : 'WASD move · drag or arrows look · wheel dolly';
 
 // ---- GLB + object instantiation ---------------------------------------------------
 

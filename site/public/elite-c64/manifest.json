@@ -246,7 +246,12 @@
    "description": "The tape loading picture: a standard VIC multicolor bitmap that is never resident in one piece — the 8000-byte bitmap, the video matrix and the colour RAM travel in three separate tape segments and only meet on screen. Reassembled here from the extracted segments with the loader's white background ($D021 set at $CE60).",
    "file": "pictures/loading.png",
    "w": 640,
-   "h": 400
+   "h": 400,
+   "stats": {
+    "Colors": "16 (VIC-II multicolor)",
+    "Native": "160 × 200 px (double-wide pixels)",
+    "PNG": "640 × 400 px (2× upscale)"
+   }
   },
   {
    "id": "docking",

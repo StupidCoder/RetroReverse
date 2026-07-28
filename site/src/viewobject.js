@@ -517,6 +517,18 @@ async function mount3D(ctx, doc) {
     setWireframe(on) { wfOn = on; applyWf(on); },
     ...(hasNormals ? { setSunlight } : {}),
     stats: () => {
+      // Wireframe models report their blueprint's own terms — vertices,
+      // edges, faces — not mesh-renderer notions like triangles or bones.
+      if (doc.type === 'wireframe3d' && doc.wireframe) {
+        const wf = doc.wireframe;
+        return {
+          Type: doc.type,
+          Vertices: (wf.positions.length / 3).toLocaleString(),
+          Edges: wf.edges.length.toLocaleString(),
+          Faces: wf.faces.length.toLocaleString(),
+          ...(doc.stats || {}),
+        };
+      }
       let tris = 0, verts = 0, mats = new Set(), bones = 0;
       const seenPos = new Set(); // primitives of one variant share a POSITION accessor
       inst.node.traverse((o) => {

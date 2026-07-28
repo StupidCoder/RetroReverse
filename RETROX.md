@@ -188,6 +188,19 @@ Category-specific fields:
 `duration` is seconds. `w`/`h` are source pixel dimensions (used for letterboxing and
 info display).
 
+Media entries may carry a free-form `stats` object (key → value rows for the viewer's
+info panel). Use it where the exported file's own properties are not the platform truth —
+a picture exported as a baked integer upscale states its native resolution and colour
+depth there:
+
+```jsonc
+{ "id":"loading", "category":"picture", "file":"pictures/loading.png", "w":640, "h":400,
+  "stats": { "Native": "160 × 200 px", "Colors": "16 (VIC-II multicolor)" } }
+```
+
+When `stats` is present the picture viewer shows those rows instead of deriving a size
+row from `w`/`h`.
+
 ## 5. Level documents
 
 A level is either a 2-D tilemap or a 3-D scene, plus everything instantiated inside it.
@@ -642,7 +655,10 @@ viewers scale-agnostic); optional for 2-D levels (default: fit the level).
 
 ```jsonc
 "camera": {
-  "mode": "map2d" | "orbit" | "fly" | "ortho",   // ✱
+  "mode": "map2d" | "orbit" | "fly" | "ortho"
+        | "pan2d",                               // ✱ ("pan2d": 3-D geometry that is 2-D in
+                                                 //   spirit — the camera faces the plane and
+                                                 //   never rotates; drag pans, wheel zooms)
   "pos": [x,y,z], "target": [x,y,z],             // ✱ for 3-D modes: the opening shot
   "fov": 45, "near": 0.1, "far": 50000,          // omit for sensible defaults derived from
                                                  //   the pos↔target distance

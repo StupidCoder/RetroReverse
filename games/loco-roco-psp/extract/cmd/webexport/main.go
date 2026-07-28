@@ -221,8 +221,10 @@ func exportStage(ctx *cli.Context, im *psp.Image, st garc.GimgEntry, stem string
 		if dist < 430 {
 			dist = 430
 		}
+		// The stages are 3-D polygons but the game is 2-D: the camera faces
+		// the plane and never rotates, so the viewer gets pan/zoom controls.
 		doc.Camera = &schema.Camera{
-			Mode: "fly", FOV: 36, Near: 1, Far: 20000, Fly: &schema.Fly{Speed: 250},
+			Mode: "pan2d", FOV: 36, Near: 1, Far: 20000,
 			Pos:    []float64{cx, cy, dist},
 			Target: []float64{cx, cy, 0},
 		}
