@@ -20,6 +20,21 @@
    "id": "cars",
    "title": "The cars",
    "file": "docs/cars.html"
+  },
+  {
+   "id": "disc",
+   "title": "On the disc",
+   "file": "docs/disc.html"
+  },
+  {
+   "id": "rendering",
+   "title": "Drawing the race",
+   "file": "docs/rendering.html"
+  },
+  {
+   "id": "clock",
+   "title": "Time from the timestamp counter",
+   "file": "docs/clock.html"
   }
  ],
  "assets": [

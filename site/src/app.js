@@ -327,23 +327,54 @@ function displayPanelAPI() {
 
 async function showInfoModal(game, asset) {
   const body = $('modalBody');
-  let html = `<h2>${esc(asset.name)}</h2><div class="dim">${esc(game.man.title)} · ${esc(CATEGORY_LABELS[asset.category] || asset.category)}</div>`;
-  if (asset.description) html += `<p>${esc(asset.description)}</p>`;
+  body.innerHTML = '<div class="modal-tabs" id="modalTabs" hidden></div><div class="modal-tab-body" id="modalTabBody"></div>';
+  const tabsEl = $('modalTabs');
+  const content = $('modalTabBody');
+
+  let assetHtml = `<h2>${esc(asset.name)}</h2><div class="dim">${esc(game.man.title)} · ${esc(CATEGORY_LABELS[asset.category] || asset.category)}</div>`;
+  if (asset.description) assetHtml += `<p>${esc(asset.description)}</p>`;
   if (statsProvider) {
     const stats = await statsProvider();
     if (stats && Object.keys(stats).length) {
-      html += '<h3>Stats</h3><table>';
-      for (const [k, v] of Object.entries(stats)) html += `<tr><td>${esc(k)}</td><td>${esc(String(v))}</td></tr>`;
-      html += '</table>';
+      assetHtml += '<h3>Stats</h3><table>';
+      for (const [k, v] of Object.entries(stats)) assetHtml += `<tr><td>${esc(k)}</td><td>${esc(String(v))}</td></tr>`;
+      assetHtml += '</table>';
     }
   }
+
+  // Sections: the asset itself first, then the game's doc pages.
+  const sections = [{ id: 'asset', title: 'This asset', load: async () => assetHtml }];
   for (const d of game.man.docs || []) {
-    html += `<h3>${esc(d.title)}</h3><div class="doc" data-src="${game.url('', d.file)}"></div>`;
+    sections.push({
+      id: d.id, title: d.title,
+      load: () => fetch(game.url('', d.file)).then((r) => r.text(), () => ''),
+    });
   }
-  body.innerHTML = html;
-  for (const el of body.querySelectorAll('.doc')) {
-    fetch(el.dataset.src).then((r) => r.text()).then((t) => { el.innerHTML = t; }, () => {});
+
+  const cache = new Map();
+  const btns = new Map();
+  const select = async (id) => {
+    const sec = sections.find((x) => x.id === id) || sections[0];
+    if (!cache.has(sec.id)) cache.set(sec.id, sec.load());
+    content.innerHTML = await cache.get(sec.id);
+    content.scrollTop = 0;
+    for (const [bid, b] of btns) b.classList.toggle('on', bid === sec.id);
+  };
+  if (sections.length > 1) {
+    tabsEl.hidden = false;
+    for (const sec of sections) {
+      const b = document.createElement('button');
+      b.className = 'mtab';
+      b.textContent = sec.title;
+      b.onclick = () => select(sec.id);
+      tabsEl.appendChild(b);
+      btns.set(sec.id, b);
+    }
+    // same sideways-scroll affordance as the main top bar
+    tabsEl.addEventListener('scroll', () => updateFades(tabsEl));
+    requestAnimationFrame(() => updateFades(tabsEl));
   }
+  await select('asset');
   $('modalBack').hidden = false;
 }
 
@@ -352,10 +383,15 @@ async function showInfoModal(game, asset) {
 // The top bar scrolls sideways on narrow screens; fade classes signal
 // truncated content on either edge.
 function updateTopbarFades() {
-  const tb = $('topbar');
-  const max = tb.scrollWidth - tb.clientWidth;
-  tb.classList.toggle('fade-r', max > 1 && tb.scrollLeft < max - 1);
-  tb.classList.toggle('fade-l', max > 1 && tb.scrollLeft > 1);
+  updateFades($('topbar'));
+}
+
+// updateFades sets the sideways-scroll fade cues on any horizontally
+// scrolling bar (the top bar, the info modal's section tabs).
+function updateFades(el) {
+  const max = el.scrollWidth - el.clientWidth;
+  el.classList.toggle('fade-r', max > 1 && el.scrollLeft < max - 1);
+  el.classList.toggle('fade-l', max > 1 && el.scrollLeft > 1);
 }
 
 function spinner(on) {

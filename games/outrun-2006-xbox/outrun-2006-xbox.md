@@ -3060,8 +3060,11 @@ Three viewer fidelities landed together, all from data already decoded:
   cube at a declared fixed amount. The sun toggle's lit materials inherit both sheen and
   blending.
 - **The findings became reading matter.** The curation system's doc pages (built for this
-  but never used by any game) get their first entry: `The cars`, a sectioned technical
-  text in the Studio's info panel covering the `.sz` stream, the `_pmt` tables, the state
-  keys, the chassis table, the LOD sets, the never-seen shadow caster and the livery
-  quads.
+  but never used by any game) get their first entries: `The cars`, `On the disc`,
+  `Drawing the race` and `Time from the timestamp counter` — sectioned technical texts in
+  the Studio's info panel covering the `.sz` stream, the `_pmt` tables, the state keys,
+  the chassis table, the LOD sets, the never-seen shadow caster, the livery quads, the
+  disc layout, the per-frame reflection/shadow passes, and the game's RDTSC timekeeping.
+  The info panel itself grew a section-tab bar ("This asset" + one tab per doc page),
+  sideways-scrollable with the top bar's fade cues.
 

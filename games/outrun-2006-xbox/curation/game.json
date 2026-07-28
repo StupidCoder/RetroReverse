@@ -8,6 +8,21 @@
       "id": "cars",
       "title": "The cars",
       "file": "cars.html"
+    },
+    {
+      "id": "disc",
+      "title": "On the disc",
+      "file": "disc.html"
+    },
+    {
+      "id": "rendering",
+      "title": "Drawing the race",
+      "file": "rendering.html"
+    },
+    {
+      "id": "clock",
+      "title": "Time from the timestamp counter",
+      "file": "clock.html"
     }
   ]
 }

@@ -1,0 +1,31 @@
+<p>The race renders at 640&times;480 with bilinear texturing throughout. Vertex programs
+multiply positions as row vectors against a composite world-view-projection matrix; the
+32-bit depth-stencil surface packs 24 bits of depth above 8 bits of stencil. Two
+render-to-texture passes run before the visible frame every single frame: the paint's
+mirror world and the cars' shadows.</p>
+
+<h2>The live reflection cube</h2>
+<p>The car's paint does not sample a pre-made reflection. Each frame the game renders the
+surrounding world into small 128&times;128 render targets — stored swizzled, in Morton
+order, like textures — and those targets serve as faces of the <strong>environment
+cube</strong> the body materials sample. The body shader goes further than a plain lookup:
+it reads a 64&times;64 tangent-space normal map, computes the reflection vector per pixel
+with dot-product combiner stages, and only then samples the cube. At rest (menus, the
+Studio) the same material slot holds the static showroom cube shipped in each car's
+texture bank.</p>
+
+<h2>Shadows from stand-ins</h2>
+<p>Car shadows come from a 512&times;512 depth map rendered from the light's point of
+view — but the real car models never appear in it. Each car carries a closed grey hull,
+a few hundred triangles up to the beltline, drawn <em>only</em> into the shadow map as
+the car's silhouette. Receivers compare depths in the map's own raw 24-bit units, with
+the comparison running <em>before</em> the bilinear filter — percentage-closer filtering,
+soft-edged shadows from a hard-edged map. A small bias band keeps the hull from
+shadowing itself.</p>
+
+<h2>Overlays and flares</h2>
+<p>Brake and headlight flares are additively blended quads pushed toward the camera by a
+depth-bias step encoded in their material state, so they hover just off the lamp without
+bleeding through geometry. Window glass blends premultiplied
+(<code>ONE&nbsp;/&nbsp;1&minus;SRC_ALPHA</code>) with the tint in the material's diffuse
+alpha. The starting gantry's lights are drawn as point primitives.</p>

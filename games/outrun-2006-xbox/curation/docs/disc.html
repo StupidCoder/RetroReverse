@@ -1,0 +1,32 @@
+<p>The disc is a standard Xbox XISO carrying roughly 3,400 files around a 3.7&nbsp;MB
+executable. Almost everything else follows one convention: a <code>.sz</code> file is a
+bare zlib stream — two magic bytes, then compressed data, no container of any kind.</p>
+
+<h2>One decompressor for everything</h2>
+<p>A single reader routine serves every <code>.sz</code> on the disc. It pulls 64&nbsp;KB
+chunks into two ping-pong buffers and inflates in flight through a statically linked zlib,
+so no asset ever exists fully decompressed in main memory. The reader even supports
+seeking <em>forward</em> inside a stream it cannot rewind: it inflates into a 64-byte
+scratch buffer and throws the bytes away until it reaches the target offset.</p>
+
+<h2>What lives where</h2>
+<h3>/Cars</h3>
+<p>The sixty-three vehicle models — see <em>The cars</em>.</p>
+<h3>/Sprani</h3>
+<p>Sprite-animation banks for everything two-dimensional: menu screens, loading cards,
+rank screens, and one speedometer face per car (<code>ani_SPRANI_METER_246GTS</code> and
+friends — the HUD loads the meter matching the car being driven).</p>
+<h3>/Stage and /BK</h3>
+<p>Per-course world data: geometry, environments, animations and objects for each of the
+fifteen courses, keyed by four-letter course codes (<code>BEAC</code> is the opening
+beach).</p>
+<h3>/Scripts/bin</h3>
+<p>Compiled per-course binaries named for their role: a <code>Req_&hellip;</code> table
+per course (with <code>_r</code> twins for the reversed layouts), goal tables, and
+<code>TracksideCameras.bin</code>.</p>
+<h3>/mv, and the audio streams</h3>
+<p>Movies ship as XMV; the title attract movie is decoded by the game's own codec on the
+CPU, using MMX integer SIMD. Music and speech ship as WMA and ADX streams; the WMA
+decoder likewise runs on the CPU with SSE.</p>
+<h3>/Driver, /Chr, /OCP, /Ghosts</h3>
+<p>Driver and character models, and the ghost-lap store.</p>

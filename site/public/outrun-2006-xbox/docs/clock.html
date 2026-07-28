@@ -1,0 +1,18 @@
+<p>The game keeps time by asking the CPU itself: its QueryPerformanceCounter is a raw
+<code>RDTSC</code> — the Pentium&nbsp;III timestamp counter — divided by a frequency
+hardcoded to <code>733,466,453</code>&nbsp;Hz, the retail Xbox's exact clock. There is no
+calibration and no fallback; the game simply trusts the silicon it shipped on.</p>
+
+<h2>The catch-up loop</h2>
+<p>Simulation advances in fixed 1/60-second steps. The menus clamp how many steps a slow
+frame may trigger, but <strong>race mode does not</strong>: however far real time has run
+ahead, the simulation loops until it has caught up, paying off the whole debt in full
+before the next frame draws. On real hardware that debt never grows beyond a step or two;
+the code, however, is written to chase any gap, no matter how large.</p>
+
+<h2>The audio watchdog</h2>
+<p>Once per frame, the sound driver checks that the audio effects DSP is alive by reading
+a ready marker (<code>0x00CCCCCC</code>) the effects program leaves in its scratch memory.
+If the marker is missing, the driver assumes the DSP died and re-runs the entire effects
+bring-up — including a deliberate 10-millisecond stall of the processor — every frame
+until the marker reappears.</p>

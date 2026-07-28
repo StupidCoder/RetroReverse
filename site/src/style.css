@@ -35,11 +35,11 @@ body {
 }
 #topbar::-webkit-scrollbar { display: none; }
 #topbar > * { flex-shrink: 0; }
-#topbar.fade-r { mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 32px), transparent);
+#topbar.fade-r, .modal-tabs.fade-r { mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 32px), transparent);
   -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 32px), transparent); }
-#topbar.fade-l { mask-image: linear-gradient(90deg, transparent, #000 32px, #000 100%);
+#topbar.fade-l, .modal-tabs.fade-l { mask-image: linear-gradient(90deg, transparent, #000 32px, #000 100%);
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 32px, #000 100%); }
-#topbar.fade-l.fade-r {
+#topbar.fade-l.fade-r, .modal-tabs.fade-l.fade-r {
   mask-image: linear-gradient(90deg, transparent, #000 32px, #000 calc(100% - 32px), transparent);
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 32px, #000 calc(100% - 32px), transparent);
 }
@@ -119,8 +119,26 @@ body {
 .modal {
   position: relative; background: var(--panel); border: 1px solid var(--line);
   border-radius: 12px; padding: 20px 22px; max-width: 720px; width: 100%;
-  max-height: 82vh; overflow-y: auto;
+  max-height: 82vh; display: flex; flex-direction: column; overflow: hidden;
 }
+#modalBody { display: flex; flex-direction: column; min-height: 0; }
+/* the info modal's section tabs: sideways-scrollable with the top bar's fades */
+.modal-tabs {
+  display: flex; gap: 4px; flex: 0 0 auto;
+  overflow-x: auto; scrollbar-width: none;
+  border-bottom: 1px solid var(--line);
+  margin: 0 0 12px; padding: 0 0 8px;
+}
+.modal-tabs::-webkit-scrollbar { display: none; }
+.modal-tabs > * { flex-shrink: 0; }
+.mtab {
+  border: 0; border-radius: 8px; padding: 6px 12px;
+  background: transparent; color: var(--dim);
+  cursor: pointer; font-size: 13px; white-space: nowrap;
+}
+.mtab:hover { color: var(--text); }
+.mtab.on { background: var(--panel2); color: var(--text); }
+.modal-tab-body { overflow-y: auto; min-height: 0; }
 .modal h2 { margin: 0 0 4px; font-size: 18px; }
 .modal h3 { margin: 14px 0 4px; font-size: 14px; color: var(--accent); }
 .modal p { color: var(--text); }
