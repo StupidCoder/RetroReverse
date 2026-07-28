@@ -122,6 +122,11 @@ roadmap.)
   slots, four wheel corners stacking up to four parts each) — all fifteen player Ferraris
   ship assembled in the Studio, and the hand-captured `dinoPose` retires, reproduced
   exactly by the table. *(this document)*
+* **Part XXIII** — **the livery quads that never render, and taking the cars apart**: the
+  texture census proves the effect part's quad stack is an inert texture carrier — the game
+  binds its livery atlases in place of the body texture per instance and never draws the
+  quads — and the exports gain one named node per logical part, with double-click isolation
+  in the Studio viewer. *(this document)*
 
 ---
 
@@ -2993,4 +2998,39 @@ the captured pose against the record pose is pixel-noise apart. The Studio's Pla
 cars group grows from one entry to fifteen. Verified as ever: every scene of every
 shipped GLB loads and screenshots through three.js's own loader, `retroxlint` clean,
 the Studio page switches a player car's variants with zero console errors.
+
+## Part XXIII — the livery quads that never render, and taking the cars apart
+
+### The quad stack's alibi
+
+Every rc model carries a curious part: a neat ladder of unit quads, one per livery, each
+textured with a whole-car atlas in a different colour. Do they ever draw? The `-carvtx`
+census grew texture reporting (the bound `SET_TEXTURE_OFFSET` per draw), and the start-line
+scene answers both halves at once:
+
+- the quad part receives **zero draws** — in the visible pass, the caster pass, anywhere;
+- on the rivals' *body* batches, wherever the material names the body-atlas slot (tex0),
+  the GPU actually binds **one of the livery atlases the quads carry** (tex10 at the start
+  line) — and in the env-map slot, the file's static cube is likewise replaced by the live
+  reflection RTT cube.
+
+So the livery system is a per-instance *texture substitution*, and the quads are pure
+carriers: this format has no texture-only container — a texture exists only if a material
+references it, and a material only exists on a batch, and a batch needs vertices — so five
+livery atlases cost five little quads, parked in a stack the game never submits. They ship
+in the "Light & effect overlays" variant as found, labelled for what they are.
+
+### One node per part
+
+The exports used to merge each variant into a single mesh; now every logical part is its
+own named glTF node — body, ground shadow, front detail, door left/right, gear stick,
+steering wheel, wheel FL/FR/RL/RR (a player car's corner keeps its stacked tire/rim/disc
+parts together), shells and overlays each labelled — with geometry grouped per node and
+textures still shared once per file. The viewer picks them: double-click (or double-tap) a
+part to isolate it — the rest of the car drops to a ghost wireframe and the HUD names the
+selection; double-click again, click empty space, or press Escape to restore. The pick is
+an honest raycast, so an occluded steering wheel is picked the way you'd expect: orbit
+into the cockpit first. Verified headless: a double-click on the F40 isolates its body
+(48 meshes ghosted, 31 solid), Escape restores all, zero console errors, `retroxlint`
+clean.
 

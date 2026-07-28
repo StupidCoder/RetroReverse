@@ -414,6 +414,7 @@ func main() {
 			os.Exit(2)
 		}
 		var attrOff, attrFmt, factors [16]uint32
+		var texOff [4]uint32
 		var vshConst [192][4]uint32
 		constLoad := uint32(0)
 		seen := map[string]bool{}
@@ -429,6 +430,8 @@ func main() {
 				attrFmt[(method-0x1760)/4] = arg
 			case method >= 0x0A60 && method < 0x0AA0:
 				factors[(method-0x0A60)/4] = arg
+			case method == 0x1B00 || method == 0x1B40 || method == 0x1B80 || method == 0x1BC0:
+				texOff[(method-0x1B00)/0x40] = arg
 			case method == 0x1EA4:
 				constLoad = arg
 			case method >= 0x0B80 && method < 0x0C00:
@@ -452,8 +455,9 @@ func main() {
 						math.Float32frombits(v[0]), math.Float32frombits(v[1]),
 						math.Float32frombits(v[2]), math.Float32frombits(v[3]))
 				}
-				fmt.Printf("carvtx: DRAW attr0=%08X fmt0=%08X | %s | %s | %s | %s\n",
-					attrOff[0], attrFmt[0], row(160), row(161), row(162), row(163))
+				fmt.Printf("carvtx: DRAW attr0=%08X fmt0=%08X tex=%08X,%08X,%08X,%08X | %s | %s | %s | %s\n",
+					attrOff[0], attrFmt[0], texOff[0], texOff[1], texOff[2], texOff[3],
+					row(160), row(161), row(162), row(163))
 			}
 		}
 	}

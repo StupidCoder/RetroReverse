@@ -214,6 +214,7 @@ async function mount3D(ctx, doc) {
   const { THREE, Stage, ObjectLibrary, applyWireframe } = await import('./engine3d.js');
 
   const stage = new Stage(el, { fov: 45 });
+  let clearIsolationRef = null; // assigned by the part-isolation block below
   stage.scene.background = new THREE.Color(0x101520);
   const ambient = new THREE.AmbientLight(0xffffff, 2.2);
   stage.scene.add(ambient);
@@ -332,8 +333,71 @@ async function mount3D(ctx, doc) {
 
   const hud = document.createElement('div');
   hud.className = 'hud';
-  hud.textContent = 'drag to orbit · wheel to zoom';
+  const multiPart = inst.node.children.length > 1 || (inst.node.children[0]?.children.length ?? 0) > 1;
+  const baseHud = 'drag to orbit · wheel to zoom' + (multiPart ? ' · double-click a part to isolate' : '');
+  hud.textContent = baseHud;
   el.appendChild(hud);
+
+  // ---- part isolation: double-click / double-tap a named node ------------
+  // The exported variants carry one node per logical part (door, steering
+  // wheel, wheel FL, ...). Picking one keeps it solid and ghosts the rest as
+  // wireframe; picking it again, empty space, or Escape restores.
+  const ray = new THREE.Raycaster();
+  const ghost = new THREE.MeshBasicMaterial({ wireframe: true, color: 0x44608a, transparent: true, opacity: 0.5 });
+  let isolated = null;
+  const clearIsolation = () => {
+    if (!isolated) return;
+    inst.node.traverse((o) => {
+      if (o.isMesh && o.userData.savedMat !== undefined) {
+        o.material = o.userData.savedMat;
+        delete o.userData.savedMat;
+      }
+    });
+    isolated = null;
+    hud.textContent = baseHud;
+  };
+  const isolate = (root) => {
+    clearIsolation();
+    for (const c of inst.node.children) {
+      if (c === root) continue;
+      c.traverse((o) => {
+        if (o.isMesh) {
+          o.userData.savedMat = o.material;
+          o.material = ghost;
+        }
+      });
+    }
+    isolated = root;
+    hud.textContent = `${(root.name || 'part').replace(/_/g, ' ')} — double-click again to restore`;
+  };
+  const pickAt = (cx, cy) => {
+    const r = stage.canvas.getBoundingClientRect();
+    ray.setFromCamera(new THREE.Vector2(
+      ((cx - r.left) / r.width) * 2 - 1,
+      -((cy - r.top) / r.height) * 2 + 1), stage.camera);
+    const hit = ray.intersectObject(inst.node, true).find((h) => h.object.isMesh);
+    if (!hit) { clearIsolation(); return; }
+    let n = hit.object;
+    while (n.parent && n.parent !== inst.node) n = n.parent;
+    if (n === inst.node || isolated === n) clearIsolation();
+    else isolate(n);
+  };
+  el.addEventListener('dblclick', (e) => pickAt(e.clientX, e.clientY));
+  let lastTap = 0, lastTapAt = null;
+  el.addEventListener('pointerup', (e) => {
+    if (e.pointerType !== 'touch') return;
+    const now = performance.now();
+    if (now - lastTap < 350 && lastTapAt && Math.hypot(e.clientX - lastTapAt[0], e.clientY - lastTapAt[1]) < 24) {
+      pickAt(e.clientX, e.clientY);
+      lastTap = 0;
+    } else {
+      lastTap = now;
+      lastTapAt = [e.clientX, e.clientY];
+    }
+  });
+  const onKey = (e) => { if (e.key === 'Escape') clearIsolation(); };
+  window.addEventListener('keydown', onKey);
+  clearIsolationRef = clearIsolation;
 
   // ---- sun toggle: models that carry normals can opt into real lighting ----
   // The exported materials are unlit (the platform-authentic flat look), so
@@ -348,6 +412,7 @@ async function mount3D(ctx, doc) {
   let sunOn = false;
   const setSunlight = (on) => {
     sunOn = on;
+    clearIsolationRef?.();
     if (on && !sun) {
       sun = new THREE.DirectionalLight(0xffffff, 1.6);
       sun.position.set(1, 2, 1.2);
@@ -385,6 +450,7 @@ async function mount3D(ctx, doc) {
       async (id) => {
         const v = variantById(id);
         if (!v || v.id === activeVariant) return;
+        clearIsolationRef?.();
         const next = await lib.instance(asset.id, { scene: v.scene });
         stage.scene.remove(inst.node);
         inst = next;
@@ -399,6 +465,7 @@ async function mount3D(ctx, doc) {
 
   return {
     unmount() {
+      window.removeEventListener('keydown', onKey);
       stage.dispose();
       list.remove(); hud.remove(); tp?.remove();
     },

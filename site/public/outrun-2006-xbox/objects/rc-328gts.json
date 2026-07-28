@@ -40,7 +40,7 @@
    "id": "overlays",
    "name": "Light \u0026 effect overlays",
    "scene": "overlays",
-   "description": "the LOD-0 group's brake/headlight glow and effect quads, normally drawn additively"
+   "description": "the livery texture-carrier quads (never rendered — the game binds their atlases in place of the body texture) and the additive glow quads"
   }
  ],
  "props": {

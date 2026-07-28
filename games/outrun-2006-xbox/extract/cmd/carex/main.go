@@ -735,16 +735,18 @@ func plcarChassis(xbe []byte) (map[string]plcarSpec, error) {
 				s.statics = append(s.statics, pi)
 			}
 		}
-		for _, a := range []int{0x18, 0x28, 0x38} {
+		for i, a := range []int{0x18, 0x28, 0x38} {
 			if pi, valid := part(off+a, id); valid {
 				s.attach = append(s.attach, placement{part: pi,
-					t: [3]float32{f32(xbe, off+a+4), f32(xbe, off+a+8), f32(xbe, off+a+12)}})
+					t:     [3]float32{f32(xbe, off+a+4), f32(xbe, off+a+8), f32(xbe, off+a+12)},
+					label: []string{"gear stick", "door left", "door right"}[i]})
 			}
 		}
 		if pi, valid := part(off+0x48, id); valid {
 			s.attach = append(s.attach, placement{part: pi,
 				t:     [3]float32{f32(xbe, off+0x4C), f32(xbe, off+0x50), f32(xbe, off+0x54)},
-				tiltX: float64(f32(xbe, off+0x58))})
+				tiltX: float64(f32(xbe, off+0x58)),
+				label: "steering wheel"})
 		}
 		for _, g := range []int{0x60, 0x64} {
 			if pi, valid := part(off+g, id); valid {
@@ -760,7 +762,7 @@ func plcarChassis(xbe []byte) (map[string]plcarSpec, error) {
 			t := [3]float32{f32(xbe, off+w+16), f32(xbe, off+w+20), f32(xbe, off+w+24)}
 			for i := 0; i < 4; i++ {
 				if pi, valid := part(off+w+4*i, id); valid {
-					s.wheels = append(s.wheels, placement{part: pi, t: t})
+					s.wheels = append(s.wheels, placement{part: pi, t: t, label: cornerLabel(t)})
 				}
 			}
 		}
@@ -779,12 +781,46 @@ func plcarChassis(xbe []byte) (map[string]plcarSpec, error) {
 
 // placement is one exported instance of a part: an optional X mirror (the
 // game draws each rc wheel part twice with a mirrored transform), a rotation
-// about X and a translation.
+// about X and a translation. label names the logical part; placements sharing
+// a label merge into one named, pickable node of the exported variant (empty
+// labels merge into a single anonymous node).
 type placement struct {
 	part    int
 	mirrorX bool
 	t       [3]float32
 	tiltX   float64
+	label   string
+}
+
+// cornerLabel names a wheel placement by its corner (+z is the car's front,
+// -x its left).
+func cornerLabel(t [3]float32) string {
+	fr, lr := "R", "R"
+	if t[2] > 0 {
+		fr = "F"
+	}
+	if t[0] < 0 {
+		lr = "L"
+	}
+	return "wheel " + fr + lr
+}
+
+// labeled builds one-part placements with a shared label.
+func labeled(label string, idx ...int) []placement {
+	out := make([]placement, len(idx))
+	for i, pi := range idx {
+		out[i] = placement{part: pi, label: label}
+	}
+	return out
+}
+
+// labeledEach gives every part its own "<prefix> (part N)" node.
+func labeledEach(prefix string, idx []int) []placement {
+	out := make([]placement, len(idx))
+	for i, pi := range idx {
+		out[i] = placement{part: pi, label: fmt.Sprintf("%s (part %d)", prefix, pi)}
+	}
+	return out
 }
 
 // rcPlan builds the export plan for an obj_rc_* rival from the game's own
@@ -819,7 +855,12 @@ func rcPlan(p *pmt) ([]placement, error) {
 // group table lists it — {0 ground shadow, 1 body, 2 front detail} plus the
 // four wheels exactly as the chassis table places them.
 func rcNearPlan(wheels []wheelSpec) []placement {
-	return append([]placement{{part: 0}, {part: 1}, {part: 2}}, wheelPlacements(wheels)...)
+	plan := []placement{
+		{part: 0, label: "ground shadow"},
+		{part: 1, label: "body"},
+		{part: 2, label: "front detail"},
+	}
+	return append(plan, wheelPlacements(wheels)...)
 }
 
 // wheelPlacements turns the chassis table's wheel entries into placements. The
@@ -828,7 +869,7 @@ func rcNearPlan(wheels []wheelSpec) []placement {
 func wheelPlacements(wheels []wheelSpec) []placement {
 	out := make([]placement, len(wheels))
 	for i, w := range wheels {
-		out[i] = placement{part: w.part, mirrorX: w.t[0] > 0, t: w.t}
+		out[i] = placement{part: w.part, mirrorX: w.t[0] > 0, t: w.t, label: cornerLabel(w.t)}
 	}
 	return out
 }
@@ -1042,12 +1083,12 @@ func plcarRoles(p *pmt, spec plcarSpec) (shadow int, shells, extras []int) {
 // front state + the placed doors/gear/steering and wheels.
 func plcarCarPlan(p *pmt, spec plcarSpec) []placement {
 	shadow, _, _ := plcarRoles(p, spec)
-	plan := []placement{{part: spec.statics[0]}}
+	plan := []placement{{part: spec.statics[0], label: "body"}}
 	if shadow >= 0 {
-		plan = append(plan, placement{part: shadow})
+		plan = append(plan, placement{part: shadow, label: "ground shadow"})
 	}
 	if len(spec.fronts) > 0 {
-		plan = append(plan, placement{part: spec.fronts[0]})
+		plan = append(plan, placement{part: spec.fronts[0], label: "front panel"})
 	}
 	plan = append(plan, spec.attach...)
 	return append(plan, spec.wheels...)
@@ -1091,14 +1132,21 @@ func (p *pmt) variants() ([]modelVariant, error) {
 			}
 			return plan
 		}
+		lodPlan := func(body, front int) []placement {
+			plan := append(labeled("ground shadow", 0), labeled("body", body)...)
+			if front >= 0 {
+				plan = append(plan, labeled("front detail", front)...)
+			}
+			return plan
+		}
 		return []modelVariant{
 			{"car", "Car", "", rcNearPlan(wheels[0])},
-			{"lod1", "LOD 1", "", append(parts(0, 10, 11), wheelPlacements(wheels[1])...)},
-			{"lod2", "LOD 2", "", withWheels(parts(0, 17, 19), 17)},
-			{"lod3", "LOD 3", "", withWheels(parts(0, 22), 22)},
-			{"lod4", "LOD 4", "", parts(0, 23)},
-			{"caster", "Shadow caster", "the proxy hull the game draws into the shadow map — never directly visible", parts(9)},
-			{"overlays", "Light & effect overlays", "the LOD-0 group's brake/headlight glow and effect quads, normally drawn additively", parts(5, 6)},
+			{"lod1", "LOD 1", "", append(lodPlan(10, 11), wheelPlacements(wheels[1])...)},
+			{"lod2", "LOD 2", "", withWheels(lodPlan(17, 19), 17)},
+			{"lod3", "LOD 3", "", withWheels(lodPlan(22, -1), 22)},
+			{"lod4", "LOD 4", "", lodPlan(23, -1)},
+			{"caster", "Shadow caster", "the proxy hull the game draws into the shadow map — never directly visible", labeled("caster hull", 9)},
+			{"overlays", "Light & effect overlays", "the livery texture-carrier quads (never rendered — the game binds their atlases in place of the body texture) and the additive glow quads", append(labeled("livery texture carrier", 5), labeled("light & road glow", 6)...)},
 		}, nil
 	}
 	if spec, ok := plcars[p.name]; ok {
@@ -1109,15 +1157,15 @@ func (p *pmt) variants() ([]modelVariant, error) {
 		vars := []modelVariant{{"car", "Car", "", plcarCarPlan(p, spec)}}
 		if len(spec.fronts) > 1 {
 			vars = append(vars, modelVariant{"alt", "Alternate panels",
-				"the front-panel state variants the game swaps in (headlights, damage)", parts(spec.fronts[1:]...)})
+				"the front-panel state variants the game swaps in (headlights, damage)", labeledEach("front state", spec.fronts[1:])})
 		}
 		if len(spec.glows) > 0 {
 			vars = append(vars, modelVariant{"overlays", "Light overlays",
-				"the additively-blended brake/headlight glow quads", parts(spec.glows...)})
+				"the additively-blended brake/headlight glow quads", labeledEach("light overlay", spec.glows)})
 		}
 		if rest := append(append([]int{}, shells...), extras...); len(rest) > 0 {
 			vars = append(vars, modelVariant{"shells", "Shells & extras",
-				"the record's static shell slots and parts outside the chassis record — proxy hulls and state shells", parts(rest...)})
+				"the record's static shell slots and parts outside the chassis record — proxy hulls and state shells", labeledEach("shell", rest)})
 		}
 		return vars, nil
 	}
@@ -1131,6 +1179,13 @@ func (p *pmt) variants() ([]modelVariant, error) {
 // export writes the model as a GLB: a single scene when it has one variant,
 // or one glTF scene per variant (scene 0 = the default "car") when several.
 func export(p *pmt, texs []texInfo, outPath string) (string, error) {
+	writeOne := func(v glb.ModelVariant, summary string) (string, error) {
+		if len(v.Nodes) > 0 {
+			v.Name = "car"
+			return summary, glb.WriteVariantScenes(outPath, []glb.ModelVariant{v})
+		}
+		return summary, glb.WriteTexturedLit(outPath, v.Positions, v.UVs, v.Normals, v.TexGroups, v.ColorGroups)
+	}
 	if onlyParts != nil {
 		plan, err := p.plan()
 		if err != nil {
@@ -1140,7 +1195,7 @@ func export(p *pmt, texs []texInfo, outPath string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return summary, glb.WriteTexturedLit(outPath, v.Positions, v.UVs, v.Normals, v.TexGroups, v.ColorGroups)
+		return writeOne(v, summary)
 	}
 	vars, err := p.variants()
 	if err != nil {
@@ -1160,7 +1215,7 @@ func export(p *pmt, texs []texInfo, outPath string) (string, error) {
 		}
 	}
 	if len(out) == 1 {
-		return summary, glb.WriteTexturedLit(outPath, out[0].Positions, out[0].UVs, out[0].Normals, out[0].TexGroups, out[0].ColorGroups)
+		return writeOne(out[0], summary)
 	}
 	if err := glb.WriteVariantScenes(outPath, out); err != nil {
 		return "", err
@@ -1168,15 +1223,32 @@ func export(p *pmt, texs []texInfo, outPath string) (string, error) {
 	return fmt.Sprintf("%s + %d variants", summary, len(out)-1), nil
 }
 
-// buildVariant assembles one placement plan into merged vertex arrays and
-// texture/colour groups.
+// buildVariant assembles one placement plan into a variant. Placements
+// sharing a label become one named node (pickable in the viewer); an empty
+// label merges everything into a single anonymous node (the legacy shape for
+// uncurated models).
 func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, string, error) {
-	var positions, normals [][3]float32
-	var uvs [][2]float32
-	texTris := map[int][][3]uint32{}      // texture index -> triangles
-	colorTris := map[[4]int][][3]uint32{} // quantised RGBA -> triangles
+	type nodeAcc struct {
+		name      string
+		positions [][3]float32
+		normals   [][3]float32
+		uvs       [][2]float32
+		texTris   map[int][][3]uint32
+		colorTris map[[4]int][][3]uint32
+	}
+	var order []*nodeAcc
+	byLabel := map[string]*nodeAcc{}
+	node := func(label string) *nodeAcc {
+		if n, ok := byLabel[label]; ok {
+			return n
+		}
+		n := &nodeAcc{name: label, texTris: map[int][][3]uint32{}, colorTris: map[[4]int][][3]uint32{}}
+		byLabel[label] = n
+		order = append(order, n)
+		return n
+	}
 
-	totalTris := 0
+	totalTris, totalVerts := 0, 0
 	for _, pl := range plan {
 		if onlyParts != nil && !onlyParts[pl.part] {
 			continue
@@ -1184,35 +1256,36 @@ func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, s
 		if pl.part >= p.nParts {
 			continue
 		}
+		na := node(pl.label)
 		pt, err := p.parsePart(pl.part)
 		if err != nil {
 			return glb.ModelVariant{}, "", err
 		}
 		// Per pair, decode the vertex buffer once and remember its base in the
-		// merged arrays.
+		// node's merged arrays.
 		vbase := make([]uint32, len(pt.pairs))
 		for k, bp := range pt.pairs {
-			vbase[k] = uint32(len(positions))
+			vbase[k] = uint32(len(na.positions))
 			pos, nrm, uv := p.decodeVerts(bp)
-			s, c := float32(math.Sin(pl.tiltX)), float32(math.Cos(pl.tiltX))
+			sn, c := float32(math.Sin(pl.tiltX)), float32(math.Cos(pl.tiltX))
 			for i := range pos {
 				if pl.mirrorX {
 					pos[i][0] = -pos[i][0]
 					nrm[i][0] = -nrm[i][0]
 				}
 				y, z := pos[i][1], pos[i][2]
-				pos[i][1] = c*y - s*z
-				pos[i][2] = s*y + c*z
+				pos[i][1] = c*y - sn*z
+				pos[i][2] = sn*y + c*z
 				pos[i][0] += pl.t[0]
 				pos[i][1] += pl.t[1]
 				pos[i][2] += pl.t[2]
 				ny, nz := nrm[i][1], nrm[i][2]
-				nrm[i][1] = c*ny - s*nz
-				nrm[i][2] = s*ny + c*nz
+				nrm[i][1] = c*ny - sn*nz
+				nrm[i][2] = sn*ny + c*nz
 			}
-			positions = append(positions, pos...)
-			normals = append(normals, nrm...)
-			uvs = append(uvs, uv...)
+			na.positions = append(na.positions, pos...)
+			na.normals = append(na.normals, nrm...)
+			na.uvs = append(na.uvs, uv...)
 		}
 		for _, b := range pt.batches {
 			bp := pt.pairs[b.pair]
@@ -1235,31 +1308,46 @@ func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, s
 			totalTris += len(tris)
 			m := pt.mats[b.matIdx]
 			if m.texIdx >= 0 && texs[m.texIdx].img != nil && !texs[m.texIdx].cube {
-				texTris[m.texIdx] = append(texTris[m.texIdx], tris...)
+				na.texTris[m.texIdx] = append(na.texTris[m.texIdx], tris...)
 			} else {
 				key := [4]int{int(m.diffuse[0] * 255), int(m.diffuse[1] * 255), int(m.diffuse[2] * 255), int(m.alpha * 255)}
-				colorTris[key] = append(colorTris[key], tris...)
+				na.colorTris[key] = append(na.colorTris[key], tris...)
 			}
 		}
 	}
 
-	var texGroups []glb.TexturedGroup
-	for ti, tris := range texTris {
-		texGroups = append(texGroups, glb.TexturedGroup{
-			Tris: tris, Image: texs[ti].img, WrapS: 10497, WrapT: 10497,
-		})
+	finish := func(na *nodeAcc) glb.VariantNode {
+		var texGroups []glb.TexturedGroup
+		for ti, tris := range na.texTris {
+			texGroups = append(texGroups, glb.TexturedGroup{
+				Tris: tris, Image: texs[ti].img, WrapS: 10497, WrapT: 10497,
+			})
+		}
+		var colorGroups []glb.TriGroup
+		for key, tris := range na.colorTris {
+			colorGroups = append(colorGroups, glb.TriGroup{
+				Tris:  tris,
+				Color: [3]float32{float32(key[0]) / 255, float32(key[1]) / 255, float32(key[2]) / 255},
+				Alpha: float32(key[3]) / 255,
+			})
+		}
+		totalVerts += len(na.positions)
+		return glb.VariantNode{Name: na.name, Positions: na.positions, Normals: na.normals,
+			UVs: na.uvs, TexGroups: texGroups, ColorGroups: colorGroups}
 	}
-	var colorGroups []glb.TriGroup
-	for key, tris := range colorTris {
-		colorGroups = append(colorGroups, glb.TriGroup{
-			Tris:  tris,
-			Color: [3]float32{float32(key[0]) / 255, float32(key[1]) / 255, float32(key[2]) / 255},
-			Alpha: float32(key[3]) / 255,
-		})
+
+	var v glb.ModelVariant
+	if len(order) == 1 && order[0].name == "" {
+		n := finish(order[0])
+		v = glb.ModelVariant{Positions: n.Positions, Normals: n.Normals, UVs: n.UVs,
+			TexGroups: n.TexGroups, ColorGroups: n.ColorGroups}
+	} else {
+		for _, na := range order {
+			v.Nodes = append(v.Nodes, finish(na))
+		}
 	}
-	v := glb.ModelVariant{Positions: positions, Normals: normals, UVs: uvs, TexGroups: texGroups, ColorGroups: colorGroups}
-	summary := fmt.Sprintf("%d parts, %d verts, %d tris, %d textured groups, %d colour groups",
-		p.nParts, len(positions), totalTris, len(texGroups), len(colorGroups))
+	summary := fmt.Sprintf("%d parts, %d verts, %d tris, %d nodes",
+		p.nParts, totalVerts, totalTris, len(order))
 	return v, summary, nil
 }
 

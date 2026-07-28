@@ -19,10 +19,26 @@ import (
 // ModelVariant is one variant: an independent model with its own vertex
 // arrays and groups (the same shapes WriteTexturedLit takes). Images that
 // compare equal by pointer across variants are embedded once.
+//
+// A variant is either one anonymous mesh (the flat fields) or a list of named
+// Nodes — one glTF node per logical part, so a viewer can pick and isolate
+// them. The two forms are mutually exclusive.
 type ModelVariant struct {
 	Name        string
 	Positions   [][3]float32
 	Normals     [][3]float32 // optional (nil = no NORMAL accessor)
+	UVs         [][2]float32
+	TexGroups   []TexturedGroup
+	ColorGroups []TriGroup
+
+	Nodes []VariantNode
+}
+
+// VariantNode is one named part of a variant.
+type VariantNode struct {
+	Name        string
+	Positions   [][3]float32
+	Normals     [][3]float32
 	UVs         [][2]float32
 	TexGroups   []TexturedGroup
 	ColorGroups []TriGroup
@@ -151,20 +167,46 @@ func WriteVariantScenes(path string, variants []ModelVariant) error {
 	st := &sharedTex{samplerIndex: map[[2]int]int{}, imageIndex: map[image.Image]int{}}
 	var meshes, nodes, scenes []map[string]any
 	var materials []map[string]any
-	for _, v := range variants {
-		prims, mats, err := appendTextured(b, st, len(materials),
-			v.Positions, v.UVs, v.Normals, nil, v.TexGroups, v.ColorGroups)
+	addNode := func(name string, positions [][3]float32, uvs [][2]float32, normals [][3]float32,
+		texGroups []TexturedGroup, colorGroups []TriGroup) (int, error) {
+		prims, mats, err := appendTextured(b, st, len(materials), positions, uvs, normals, nil, texGroups, colorGroups)
 		if err != nil {
-			return err
+			return -1, err
 		}
 		materials = append(materials, mats...)
 		if len(prims) == 0 {
-			return fmt.Errorf("glb: variant %q is empty", v.Name)
+			return -1, nil
 		}
 		mi, ni := len(meshes), len(nodes)
-		meshes = append(meshes, map[string]any{"primitives": prims, "name": v.Name})
-		nodes = append(nodes, map[string]any{"mesh": mi, "name": v.Name})
-		scenes = append(scenes, map[string]any{"nodes": []int{ni}, "name": v.Name})
+		meshes = append(meshes, map[string]any{"primitives": prims, "name": name})
+		nodes = append(nodes, map[string]any{"mesh": mi, "name": name})
+		return ni, nil
+	}
+	for _, v := range variants {
+		var sceneNodes []int
+		if len(v.Nodes) > 0 {
+			for _, n := range v.Nodes {
+				ni, err := addNode(n.Name, n.Positions, n.UVs, n.Normals, n.TexGroups, n.ColorGroups)
+				if err != nil {
+					return err
+				}
+				if ni >= 0 {
+					sceneNodes = append(sceneNodes, ni)
+				}
+			}
+		} else {
+			ni, err := addNode(v.Name, v.Positions, v.UVs, v.Normals, v.TexGroups, v.ColorGroups)
+			if err != nil {
+				return err
+			}
+			if ni >= 0 {
+				sceneNodes = append(sceneNodes, ni)
+			}
+		}
+		if len(sceneNodes) == 0 {
+			return fmt.Errorf("glb: variant %q is empty", v.Name)
+		}
+		scenes = append(scenes, map[string]any{"nodes": sceneNodes, "name": v.Name})
 	}
 	doc := map[string]any{
 		"asset":          map[string]string{"version": "2.0", "generator": "retroreverse tools/lib/glb"},
