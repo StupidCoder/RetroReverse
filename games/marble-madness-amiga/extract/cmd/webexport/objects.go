@@ -94,6 +94,13 @@ func exportObjects(ctx *cli.Context, vol *adf.Volume, paths map[string]string) (
 			} else if len(frames) == 1 {
 				anim.Loop = "hold"
 			}
+			// the per-engine-frame movement path (the wave's op16 sweep, the
+			// pop-up pistons' activation spots, the hood records' nudges)
+			if path, ok := e["path"].([][2]int); ok && len(path) > 0 {
+				for _, p := range path {
+					anim.Path = append(anim.Path, []int{p[0], p[1]})
+				}
+			}
 			name := fmt.Sprintf("Piece %s", piece)
 			b.AddObject(schema.Asset{ID: id, Name: name, Group: c.name}, &schema.Object{
 				Type: schema.ObjectSprite2D,

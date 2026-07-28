@@ -104,7 +104,7 @@
   },
   {
    "id": 9,
-   "object": "aerial-a91",
+   "object": "aerial-c60",
    "pos": [0, 486],
    "name": "region 91 overlay (cell 60)",
    "props": {
@@ -113,7 +113,16 @@
   },
   {
    "id": 10,
-   "object": "aerial-a92",
+   "object": "aerial-a95",
+   "pos": [0, 486],
+   "name": "region 95 overlay (cell -1)",
+   "props": {
+    "region": 95
+   }
+  },
+  {
+   "id": 11,
+   "object": "aerial-c61",
    "pos": [64, 538],
    "name": "region 92 overlay (cell 61)",
    "props": {
@@ -121,12 +130,30 @@
    }
   },
   {
-   "id": 11,
-   "object": "aerial-a93",
+   "id": 12,
+   "object": "aerial-a96",
+   "pos": [64, 538],
+   "name": "region 96 overlay (cell -1)",
+   "props": {
+    "region": 96
+   }
+  },
+  {
+   "id": 13,
+   "object": "aerial-c62",
    "pos": [96, 610],
    "name": "region 93 overlay (cell 62)",
    "props": {
     "region": 93
+   }
+  },
+  {
+   "id": 14,
+   "object": "aerial-a97",
+   "pos": [96, 610],
+   "name": "region 97 overlay (cell -1)",
+   "props": {
+    "region": 97
    }
   }
  ]

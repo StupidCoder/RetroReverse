@@ -183,25 +183,46 @@
    "file": "objects/aerial-a8.json"
   },
   {
-   "id": "aerial-a91",
+   "id": "aerial-a95",
    "category": "object",
-   "name": "Piece a91",
+   "name": "Piece a95",
    "group": "Aerial",
-   "file": "objects/aerial-a91.json"
+   "file": "objects/aerial-a95.json"
   },
   {
-   "id": "aerial-a92",
+   "id": "aerial-a96",
    "category": "object",
-   "name": "Piece a92",
+   "name": "Piece a96",
    "group": "Aerial",
-   "file": "objects/aerial-a92.json"
+   "file": "objects/aerial-a96.json"
   },
   {
-   "id": "aerial-a93",
+   "id": "aerial-a97",
    "category": "object",
-   "name": "Piece a93",
+   "name": "Piece a97",
    "group": "Aerial",
-   "file": "objects/aerial-a93.json"
+   "file": "objects/aerial-a97.json"
+  },
+  {
+   "id": "aerial-c60",
+   "category": "object",
+   "name": "Piece c60",
+   "group": "Aerial",
+   "file": "objects/aerial-c60.json"
+  },
+  {
+   "id": "aerial-c61",
+   "category": "object",
+   "name": "Piece c61",
+   "group": "Aerial",
+   "file": "objects/aerial-c61.json"
+  },
+  {
+   "id": "aerial-c62",
+   "category": "object",
+   "name": "Piece c62",
+   "group": "Aerial",
+   "file": "objects/aerial-c62.json"
   },
   {
    "id": "silly-a3",

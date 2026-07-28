@@ -71,7 +71,10 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 	ovls, swaps := trackOverlays(track, len(cells), co.H)
 	done := map[string]bool{}
 	for _, o := range ovls {
-		if o.Cell < 0 || o.Cell >= len(cells) || cells[o.Cell].W == 0 {
+		// Cell -1 marks a piece with no resting art (the pop-up layers): valid
+		// only as an animated strip whose blank frames show nothing.
+		if o.Cell >= len(cells) || (o.Cell >= 0 && cells[o.Cell].W == 0) ||
+			(o.Cell < 0 && len(o.Steps) == 0) {
 			continue
 		}
 		render := func(c ilb.Cell) *image.RGBA {
@@ -87,12 +90,12 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 		distinct := map[int]int{}
 		var order []int
 		for _, st := range o.Steps {
-			if st.Cell < 0 || st.Cell >= len(cells) || cells[st.Cell].W == 0 {
+			if st.Cell >= len(cells) || (st.Cell >= 0 && cells[st.Cell].W == 0) {
 				continue
 			}
 			if _, ok := distinct[st.Cell]; !ok {
 				distinct[st.Cell] = len(order)
-				order = append(order, st.Cell)
+				order = append(order, st.Cell) // -1 = a blank (nothing drawn) frame
 			}
 			steps = append(steps, st)
 		}
@@ -101,8 +104,12 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 			sprite = fmt.Sprintf("%s/a%d", key, o.Region)
 			if renderSprites && !done[sprite] {
 				done[sprite] = true
-				w, h := 0, 0
+				w, h := 0, 1
 				for _, c := range order {
+					if c < 0 {
+						w++ // a blank frame occupies one transparent column
+						continue
+					}
 					w += cells[c].W
 					if cells[c].H > h {
 						h = cells[c].H
@@ -112,6 +119,11 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 				frames := make([][4]int, len(order))
 				x := 0
 				for i, c := range order {
+					if c < 0 {
+						frames[i] = [4]int{x, 0, 1, 1}
+						x++
+						continue
+					}
 					img := render(cells[c])
 					draw.Draw(strip, image.Rect(x, 0, x+cells[c].W, cells[c].H), img, image.Point{}, draw.Src)
 					frames[i] = [4]int{x, 0, cells[c].W, cells[c].H}
@@ -427,14 +439,26 @@ func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 
 	// The 3-slot obstacle-actor array at block+$23C (populated only by Aerial —
 	// the pop-up pistons/vacuums): each $14-byte record = [+0 ptr to its base
-	// 16-byte sprite record][+$A x][+$C y] in world px (the actor draw is the
-	// blitter path: draw_object_wrap(rec, +$A, +$C - scroll), so +$C maps to
-	// world Y directly); anim variants (8-byte [recordPtr][0] lists, one step
-	// per frame, holds encoded as repeated pointers) at block +$278..+$284.
-	// The engine picks a variant by RNG per activation ($1D48A) and idles the
-	// base record for an RNG (0..3)<<4 frame pause; the export replays that as
-	// a deterministic cycle through all four patterns (actor i starts at
-	// variant i, so the three actors desync).
+	// 16-byte sprite record][+$A x][+$C y] in world px; anim variants (8-byte
+	// [recordPtr][0] lists, one step per frame, holds encoded as repeated
+	// pointers) at block +$278..+$284.
+	//
+	// The engine's draw (actor_tick $1D3EC, traced): TWO blitter layers.
+	// The base walkway record always draws at (+$A, +$C-scroll); a running
+	// pop-up animation ALSO draws its current record at the activation's spot
+	// x+(v10-v0E)*8, y+(v10+v0E)*4 ($1D6C0), where (v0E,v10) into actor +$E/+$10
+	// are RNG-rolled per activation together with the variant ($1D48A..$1D530:
+	// variant 0 rolls v0E=0,v10=rnd(4); 1 rolls rnd(3),rnd(2); 2 and 3 roll
+	// 0,rnd(2)). draw_object_wrap then applies the record nudge (+dx, -dy).
+	// The export replays that as two overlays per actor: the static walkway,
+	// and a pop-up layer that deterministically unrolls every (variant, spot)
+	// pair — blank between pop-ups (the engine idles rnd(0..3)<<4 frames).
+	popSpots := [4][][2]int{ // {v0E, v10} domains per variant
+		{{0, 0}, {0, 1}, {0, 2}, {0, 3}},
+		{{0, 0}, {0, 1}, {1, 0}, {1, 1}, {2, 0}, {2, 1}},
+		{{0, 0}, {0, 1}},
+		{{0, 0}, {0, 1}},
+	}
 	for i := 0; i < 3; i++ {
 		rec := dyn + 0x23C + uint32(i)*0x14
 		if int(rec)+0x14 > len(im) {
@@ -447,25 +471,34 @@ func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 			continue
 		}
 		baseCell := ou16(im, basePtr+10)
-		baseDX, baseDY := s8(im[basePtr]), -s8(im[basePtr+1])
-		o := overlay{Region: 91 + i, Cell: baseCell, X: x, Y: y}
+		out = append(out, overlay{Region: 91 + i, Cell: baseCell,
+			X: x + s8(im[basePtr]), Y: y - s8(im[basePtr+1])})
+
+		pop := overlay{Region: 95 + i, Cell: -1, X: x, Y: y}
 		for v := 0; v < 4; v++ {
-			variant := ou32(im, dyn+0x278+uint32((i+v)%4)*4)
+			vi := (i + v) % 4 // actor i starts one variant further on: the three desync
+			variant := ou32(im, dyn+0x278+uint32(vi)*4)
 			if variant == 0 {
 				continue
 			}
-			n := len(o.Steps)
-			for _, r := range spriteList(im, variant, nCells) {
-				if r != 0 {
-					o.Steps = append(o.Steps, step{Cell: int(ou32(im, r+8)), Hold: 1,
-						OX: s8(im[r]) - baseDX, OY: -s8(im[r+1]) - baseDY})
+			recs := spriteList(im, variant, nCells)
+			for _, sp := range popSpots[vi] {
+				sx, sy := (sp[1]-sp[0])*8, (sp[1]+sp[0])*4
+				n := len(pop.Steps)
+				for _, r := range recs {
+					if r != 0 {
+						pop.Steps = append(pop.Steps, step{Cell: int(ou32(im, r+8)), Hold: 1,
+							OX: sx + s8(im[r]), OY: sy - s8(im[r+1])})
+					}
+				}
+				if len(pop.Steps) > n {
+					pop.Steps = append(pop.Steps, step{Cell: -1, Hold: 32}) // idle: walkway only
 				}
 			}
-			if len(o.Steps) > n {
-				o.Steps = append(o.Steps, step{Cell: baseCell, Hold: 32}) // idle pause between pop-ups
-			}
 		}
-		out = append(out, o)
+		if len(pop.Steps) > 0 {
+			out = append(out, pop)
+		}
 	}
 	return out, swaps
 }

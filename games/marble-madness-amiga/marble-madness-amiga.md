@@ -1707,6 +1707,30 @@ colours; the goal flags land pixel-perfect on the GOAL banners of all six
 courses and the drawbridge merges seamlessly into the Beginner plateau,
 verifying the record format and both anchor paths.
 
+**The draw laws, pinned from the leaves** (traced after the overlay pieces
+first shipped with by-eye placements; every path below is now replayed from
+these formulas). The display-list render dispatches per type: type 5 = the
+`$CCA` region structs (table `$2168`) → leaf **`$64B6`**, which draws the
+`+$42` record at the region's **projected** `+$4E/+$50` (the anim-tick refresh
+`$103E8` runs `$6918` over the region ref `+$C/+$10/+$14` for every non-tile
+region — the op0 keyframe stores its x,y operands `<<19` and z `<<16`, so the
+word read at `+$C` is exactly `x·8+4`) with an engine `x−1`; types 7/8/9 are
+**not** regions but the `$1AE6` spawnable-object pool (`$2274`) → `$650A`,
+reading its own `+$20/+$22`. `$122AC` then applies the record nudge as
+`x+dx`, `$108−(y+dy)` — so `+dy` raises on every path. **Tile-anchored
+regions** (op0 `dur` → `+$1E` = 1) instead draw through `$105FE`:
+`x = w26·8 + drift(+$4E) + dx`, `y = w28·8 − drift(+$50) − dy`, scroll-corrected
+by `$9BA − slopeHdr+$10`; op14 SET-VEL stores its operands raw for these (and
+`<<8` into the fixed-point ref for `dur≠1` regions — the earlier "`<<8` when
+dur==1" note was inverted), and op16 MOVE accumulates them into the drift —
+Intermediate's WAVE is precisely this: anchor (9,98), velocity (8,−4), a
+19-step op4 loop. The **Aerial obstacle actors** (`$1D3EC`) are two blit
+layers: the walkway base record always at `+$A/+$C`, and the pop-up animation
+at `x+(v10−v0E)·8, y+(v10+v0E)·4`, where the activation RNG rolls the variant
+and its spot (`v0E,v10` = 0,rnd4 / rnd3,rnd2 / 0,rnd2 / 0,rnd2 per variant) —
+the pistons pop up at a random spot along their row, and the vacuum variant's
+records carry `dy=−8`, seating them 8 px lower still.
+
 ## 3. Terrain interaction
 
 The `[X][Y][type]` placement table (Part IV §5) is a coarse **feature map**: a proximity

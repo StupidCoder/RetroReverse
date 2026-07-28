@@ -216,7 +216,7 @@
 #   *** the ANIM TICK: region_update's $FBE0 block counts +$22 up to the hold +$23 every
 #   frame (hold 0 = every frame); each expiry runs $103E8 (refresh: for +$1E==1 tile-anim
 #   regions -> $D868 = draw $105FE + memcpy the pair's [idx][count][words] $798 height patch;
-#   project +$C/+$10/+$14 -> +$20/+$22) and cursor_step $F778 (+$3E += 4, or 8 when +$1E!=0 =
+#   project +$C/+$10/+$14 -> +$4E as one long X<<16|Y for every +$1E!=1 region; +$1E==2 does BOTH the tile redraw and the projection) and cursor_step $F778 (+$3E += 4, or 8 when +$1E!=0 =
 #   [record,data] PAIR lists; at $FFFFFFFF wrap to +$46 (state 2) / +$4A and count down +$1C;
 #   0 -> resume the script $FD68). THE GOAL FLAGS (every course) = op2 count=0 hold=5 over a
 #   flat 4-record list = the 4 wave frames at 5 engine frames each, forever. ***
@@ -232,7 +232,7 @@
 #   op10 $10244 CALL  LONG : PC = target, save return -> +$32 (gosub).   op11 $1025C RETURN.
 #   op12 $10266 LINK-46 LONG: +$46/+$3E = ptr (load a sprite-anim/sub-script, continue inline).
 #   op13 $10286 LINK-4A LONG: +$4A/+$3E = ptr.
-#   op14 $102A6 SET-VEL 2w  : region vX(a5+0)/vY(+4) (feeds op16; <<8 when dur==1).
+#   op14 $102A6 SET-VEL 2w  : region vX(a5+0)/vY(+4) (feeds op16). The operands store RAW for +$1E==1 tile regions (op16 adds them to the pixel drift +$4E/+$50) and <<8 for everything else (op16 adds them to the fixed-point refs +$C/+$10, which re-project). An earlier note said "<<8 when dur==1" — inverted.
 #   op15 $102E6 ACTIVATE-STOP 0w: JSR region_update $F96A(region,1,0); STOP.
 #   op16 $1002E MOVE 0w     : when +$1E==1, drift +$4E/+$50 by vX/vY = a moving slope/wall.
 #   op17 $10300 FALL-STOP 1w(+$1B): marble-capture state +$1A=4 + code +$1B, save PC; STOP.
@@ -478,7 +478,8 @@
 010F4C  displaylist_cmp  the iso separating-axis comparator (Filmation-style): compare two records' (min+size) corner sums, then per-axis overlap, then per-axis mins; returns 1 = should swap. Decides the painter order.
 00DD1C  displaylist_sortpass  one bubble pass over $5F7 with stride arg (compare entry i vs i+stride, swap on $10F4C); the renderer runs strides 1,2,3 each frame (moving boxes re-sort incrementally).
 011704  displaylist_render  THE FRAME RENDERER: pass 1 rebuild every entry's box ($1085C); 3 sort passes ($DD1C 1/2/3, skipped while $61B set); then walk $5F7 IN ORDER (draw budget $638 < $3C) dispatching each entry's type -> draw leaf: type 1->$5DFC, 2->$60F6, 4->$621C, 5->$64B6, $E->$645E, 7/8/9->$650A, $F->$6350, $2A->$62C6, $2C->$6562 — each resolves its object's current sprite record + screen pos and calls draw_sprite_record $122AC. (The leaves live behind the jump table = outside the default codetrace; regenerate with -entry 0x5DFC,0x60F6,0x62C6,0x621C,0x645E,0x64B6,0x650A,0x6350,0x6562 to disassemble them.)
-00650A  draw_region_piece  display-list draw leaf for types 7/8/9: a0 = the REGION struct; reads its projected screen pos (+$20/+$22, y range-checked -$10..$100), takes the CURRENT sprite record ptr = *(region+$1C) (the +$1C list cursor the region script's op2 sets and region_update advances = sprite animation), calls draw_sprite_record $122AC.
+0064B6  draw_region_piece  display-list draw leaf for type 5 = the $CCA REGION structs (table $2168): x = word(region+$4E) MINUS ONE, y = word(+$50) — the projection $103E8 wrote there ($6918 over the ref +$C/+$10/+$14; the op0 keyframe stores x,y<<19 and z<<16, so the word at +$C is x*8+4) — y clipped -$40..$100; record = *(region+$42) (the anim cursor +$3E copied at refresh), calls draw_sprite_record $122AC. (An earlier note attributed the region draw to $650A/types 7/8/9 and pos +$20/+$22 — wrong on all three counts.)
+00650A  draw_pool_piece  display-list draw leaf for types 7/8/9 = the $1AE6 40-byte spawnable-object pool (table $2274): reads the object's own projected +$20/+$22 (y range-checked -$10..$100), record = *(+$1C), calls draw_sprite_record $122AC.
 006562  draw_spawn_gate  display-list draw leaf for type $2C: reads $CCA+idx*10 (+0/+2 = x,y <<4, +8 = state), picks the gate cell from table $67B0[state] into record $6850's cell slot, draws at (x>>4, y>>4).
 # THE 16-BYTE SPRITE RECORD (what region+$1C points at, and what $122AC consumes):
 # [+0 dx][+1 dy][+2..3 state bytes][+4..+7 iso-box extent bytes][+8 long .ilb cell
