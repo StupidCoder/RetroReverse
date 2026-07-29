@@ -54,7 +54,7 @@ under way; Part V is still a stub.
   - [5. Course layout (`*Track`)](#5-course-layout-track)
 - [Part V — Game mechanics](#part-v--game-mechanics)
   - [1. The game loop](#1-the-game-loop)
-  - [2. The object/actor system](#2-the-objectactor-system) (hardware sprites, the display list, the occlusion masks)
+  - [2. The object/actor system](#2-the-objectactor-system) (hardware sprites, the display list, the occlusion masks, the marble's shimmer)
   - [3. Terrain interaction](#3-terrain-interaction)
   - [4. Physics and controls](#4-physics-and-controls)
 - [Part VI — Music and sound](#part-vi--music-and-sound)
@@ -1369,12 +1369,58 @@ references are **(bank, index) pairs**: `$825E` reads the record's `+$8` long
 as a bank word (a 6-slot table at `$8328`) plus a cell word. Bank 0 is the
 course `.ilb`; bank 3 loads `ooze.vlb` (Intermediate/Ultimate), bank 4
 `birdink.vlb` (Silly), bank 5 the per-course **`<course>obsc.vlb`**. Second,
-those `obsc` banks — 45–49 cells of 16×64 wall-face slivers each — are not
-obstacles at all: they are **wall-cover strips** (`obsc` = *obscure*) that
-`$1E49A` attaches to the marble's own draw record (the `+$38/+$2C/+$26`
-sub-slots, up to five 16-px columns) using the per-placement-type records at
-header **`+$C`** — the system that hides the marble behind *static* wall edges,
-completing the occlusion story from Part V §2.
+those `obsc` banks — 37–53 cells, every one a uniform 16×64 two-plane type-1
+sliver — are not obstacles at all: they are **wall-cover strips**
+(`obsc` = *obscure*) that `$1E49A` attaches to the marble's own draw record,
+the system that hides the marble behind *static* wall edges and completes the
+occlusion story from Part V §2.
+
+It is worth being precise about how this differs from the mask punch, because
+the two are easy to confuse and only one of them is a mask. The `obsc` slivers
+are **cover sprites drawn over the marble**, not stencils cut out of it: they
+are type-1 cells, so by the `$8174` gate above they carry no mask at all, and
+`$10FDC` hands each queued slot straight to `draw_sprite_record $122AC` through
+a synthesised 16-byte record (`dx=dy=0`, state 1, the marble's own ramp).
+
+And they have **no authored position** — the whole array is rebuilt every frame
+around wherever the marble is:
+
+* `$1E49A` first clears the slot array and picks its width from the marble's
+  draw mode: `+$38` (5 slots) below mode 2, `+$2C` (5) at mode 2, `+$26` (3)
+  above. It bails early when the marble's state (`+$1A`) is 4, 6 or `$A`.
+* The marble's own world position gives the centre column and diagonal
+  (`$1E6B2`: `d0 = (x>>19) + (y>>19) − $15`, `d1 = ((x+y)>>19) − $15`), and the
+  run starts **two columns left** of it (`$1E714`: `SUBQ.w #2,d0`), so the
+  strips cover the ~40 px of screen around the ball.
+* Per column it needs the nearest wall edge *in front of* the marble. That
+  comes from a static table in the course descriptor: **`desc+$2E` is a
+  `[variant][column]` array of 4-byte pointers** (36 columns per variant, so
+  the scroll global `$68C` — pre-multiplied to `variant·144` at `$1E17C`—
+  selects the block), and each pointer addresses a **bit stream over diagonal
+  index**, one bit per diagonal, bit `d&7` of byte `d>>3`. `$1EA1C` masks off
+  the bits behind the marble (`$1ED58` = `FF FE FC F8 F0 E0 C0 80`), scans
+  forward for the first set byte, then walks up to the lowest set bit — that
+  diagonal is the wall edge. Practice's table decodes cleanly: 36 streams,
+  symmetric about the course centre, matching its symmetric layout.
+* `$DD80` then samples the wall's height at that (diagonal, column) and again
+  one diagonal further, and the **difference** selects both the sliver cell
+  (`$1ED60` = cells 0…, or `$1ED82` = cells 17… for the opposite facing) and
+  its vertical offset (`$1EDA4`, −49…−56) — which is why the banks are ramps of
+  progressively notched shapes rather than one strip.
+
+The per-column **override records at Track header `+$C`** (`$1ED44`) sit
+alongside this, supplying explicit `[diagonal range][kind][row][cell]` entries
+for columns the height sampler cannot describe.
+
+Because the strips are solved per frame from the marble's position, they cannot
+be placed statically on a course map, and the site does not try to. The static
+half of the data — the `desc+$2E` wall-edge bit streams — *is* a fixed map of
+where the engine knows a wall can hide the ball, but turning an edge into a
+screen row needs `$DD80`'s height sampler and its `$9AE`/`$798`/`$9BE` runtime
+tables. That reimplementation is **not done**: an attempt to shortcut it by
+reusing the `$CCA` height field failed the calibration, because the slope
+field's tile grid and the 36 screen columns are different coordinate systems.
+Left open rather than fudged.
 
 #### The Ultimate finale — a whole screen on a flip-book
 
@@ -1647,7 +1693,18 @@ After a marble/creature sprite is queued, `$5BE0` runs the per-course occlusion
 checks: it compares the object's iso position against the terrain-registered
 scenery regions (the drawbridge region pointer `$FD38`, Aerial's hole/fall list
 `$FD3C` (course index 3 is Aerial, 4 Silly), the `$FD54`/`$FD58` feature lists — the same self-registration the
-region scripts perform through their terrain codes). If the object is
+region scripts perform through their terrain codes).
+
+The registration is a small search table (`$FF1A`, walked by the `op0` tail's
+`CMP.l $8(pc,d1.w)` loop and entered through `JMP $6(pc,d1.w)`): terrain code
+**3 → `$FD38`**, **10 → `$FD54`**, **11 and 13 → `$FD3C`**, **12 → `$FD58`**
+(and 25 → the Ultimate screen swap, 6 → the wave). And `$5BE0` reads those
+lists for **exactly two courses**: it branches on `$5D6` at `$5BE8` — index 3
+(Aerial) walks `$FD3C`, then `$FD54`, `$1DBF8` and `$FD58`; index 1 (Beginner)
+tests `$FD38` alone; **every other course returns at `$5C00` without a single
+test**. Practice, Intermediate, Silly and Ultimate punch no masks at all.
+
+If the object is
 *behind/under* a piece, `$11678` resolves the piece's current on-screen
 position (its tile anchor `+$26/+$28` ×8, plus drift, minus scroll) and its
 **current animation record** (the `+$3E` list cursor), and `$112DA` does the
@@ -1664,7 +1721,40 @@ sprite_plane1 &= ~(mask << dx)      ($11500/$11510, per overlapping row)
 
 Where the mask covers the sprite, the sprite becomes transparent and the
 playfield — including the scenery painted there by the tile animation — shows
-through: the marble is pixel-precisely *behind* the level. Sprite-vs-sprite
+through: the marble is pixel-precisely *behind* the level.
+
+**Which cells own a mask** (the last open question from the first pass at this
+system). The stencil is never separate art and never has a position of its own:
+it is generated at load from the cell's own bitplanes, so it can only ever
+cover exactly the pixels that cell draws. `ilb_load $80B4` gates the build on
+two tests, `$8174`–`$8182`:
+
+```
+MOVE.b $1(a0),d0 ; BTST #0,d0 ; BEQ skip     ; flag byte bit 0 ("process") must be SET
+MOVE.b (a0),d0   ; TST.b d0   ; BNE skip     ; type byte must be 0 (composited scenery)
+   … allocate $6(a0) bytes (ONE plane) from the buffer slack -> descriptor +$C
+   … JSR composite_planes $8026                ; OR the planes into it
+```
+
+So **type-1 free sprites never carry a mask** — not the marble, not the
+creatures, not the goal flags, and not the `obsc.vlb` wall slivers — and a
+type-0 scenery cell carries one only when its flag byte's bit 0 is set.
+`mask_punch $112DA` opens with `TST.l $C(a0); BEQ` and returns immediately when
+the slot is null, so a maskless cell punches nothing. Per bank: `beginr.ilb`
+builds 12 masks of 21 cells (9–20), `aerial.ilb` 37 of 63, and **`practy.ilb`
+none at all** — consistent with `$5BE0` never testing on Practice.
+
+This has a consequence worth flagging as **open**: the Beginner drawbridge's
+own four 64×63 lift stages are cells 4–7, whose flag byte is `00`, so they
+build no mask; the masked pieces near the bridge are the two small side pieces
+(cells 9 and 16, regions 1 and 2). But `$FD38` keeps only the **first** terr-3
+region to register (`TST.l $FD38; BNE skip; MOVE.l a5,$FD38` at `$FF78`), and
+all three bridge regions are terr 3. Whether the bridge punches at all
+therefore depends on which of regions 0/1/2 reaches its `op0` first — not yet
+traced, and worth settling before trusting the "rolls under the drawbridge"
+example above.
+
+Sprite-vs-sprite
 layering falls out of the hardware (lower channels appear in front), which is
 what the engine's **depth-sorted display list** feeds: every drawable owns a
 14-byte record (`$41E` table, order `$5F7`) with an iso 3-D bounding box,
@@ -1707,6 +1797,15 @@ colours; the goal flags land pixel-perfect on the GOAL banners of all six
 courses and the drawbridge merges seamlessly into the Beginner plateau,
 verifying the record format and both anchor paths.
 
+Beginner and Aerial additionally ship an **Occluders** layer, off by default:
+every piece whose terrain code puts it on one of `$5BE0`'s lists *and* whose
+cells build a mask is drawn a second time as its white silhouette, at the
+identical anchor and with the identical frames — because that is exactly what
+the stencil is. On Aerial that is the six vacuum hoods (terr 11/13, cells 4–13)
+and on Beginner the drawbridge's two side pieces; the maskless frames of an
+animated piece come through blank, matching the lift stages that punch nothing.
+The other four courses declare no layers, since they run no checks.
+
 **The draw laws, pinned from the leaves** (traced after the overlay pieces
 first shipped with by-eye placements; every path below is now replayed from
 these formulas). The display-list render dispatches per type: type 5 = the
@@ -1734,6 +1833,68 @@ at `x+(v10−v0E)·8, y+(v10+v0E)·4`, where the activation RNG rolls the varian
 and its spot (`v0E,v10` = 0,rnd4 / rnd3,rnd2 / 0,rnd2 / 0,rnd2 per variant) —
 the pistons pop up at a random spot along their row, and the vacuum variant's
 records carry `dy=−8`, seating them 8 px lower still.
+
+### The shimmer inside the marble — a rotating constellation
+
+The ball is not just a rolling texture. Look closely in play and there is a
+sparkle *inside* it: a handful of gold pixels that turn in three dimensions as
+the marble moves. This is genuine 3-D, computed per frame and plotted straight
+into the sprite's DMA words, and it costs the engine two vectors of state.
+
+**The points.** `$157D0` seeds eight points from two 8-byte tables:
+`X[i] = sbyte($15FB5+i) << 11`, `Y[i] = sbyte($15FBD+i) << 11`, `Z[i] = 0`.
+The tables read `X = [2,2,0,−2,−4,−2,0,4]`, `Y = [2,−2,−4,−2,0,2,4,0]`, which
+is not eight independent points but **±P₀, ±P₁, ±(P₀+P₁), ±(P₀−P₁)** built from
+`P₀ = (4096, 4096, 0)` and `P₁ = (4096, −4096, 0)` — two orthogonal vectors of
+equal length lying in the ground plane. An eight-point ring at 45° steps on the
+ball's equator. The arrays live on the marble object at `+$7E`/`+$8E`/`+$9E`,
+and **only indices 0 and 1 are state**; 2–7 are rederived every frame.
+
+**The turn.** `$15862` runs per frame from the marble's state machine. It takes
+the velocity (`obj+0 >> 4`, `obj+4 >> 4`), normalises it with a square-root
+table (`$15730` interpolating the window at `$1FF0`; `table[2.0] = 23170 = √2`
+in 2.14), and derives the angle as **`θ = |v| / 7`** (`$15A72`) — the arc length
+over the ball's ≈7-pixel radius, i.e. **rolling without slipping**, so the
+sparkle turns exactly as fast as the marble rolls. Sine and cosine come from a
+101-entry quarter-cosine table at `$1F1C` with `$1922 = (π/2)·4096`, and
+`$15AD0` assembles a **Rodrigues rotation about the axis perpendicular to the
+velocity in the ground plane** (`a = (−v̂y, v̂x, 0)`). Points 0 and 1 are
+multiplied through it and written back, so the orientation is *accumulated* —
+there is no absolute attitude stored anywhere.
+
+Integrating a rotation in fixed point drifts, and the engine knows it: a
+counter at `obj+$DC` cycles 0–7 and, on the frame matching a point's index,
+tests `x²+y²+z²` against `$2000000 ± $80000` and rescales the point back onto
+the sphere (`$15CC8`). Each base vector is re-normalised every eighth frame,
+which is why the constellation neither collapses nor explodes over a long roll.
+
+**The projection.** After the six derived points are rebuilt (`$15DB8`) and
+squashed to match the ball's stretch frames (`Z ×¾` or `×1½` when the marble is
+drawing one of the two special records at `$14ED8+$1C`/`+$20`), `$15EFA` uses
+the same axonometry as the world: **`sx = 7 + (Y−X)>>11`,
+`sy = 8 + (Z−(X+Y)/2)>>11`** — sprite-local, centred on pixel (7,8). The four
+output pairs go into `obj+$AE` with `y` stored flipped as `16−sy`.
+
+**The plot.** `$6864`, called from the marble's draw leaf at `$606C` — right
+after `$122AC` has memcpy'd the rotation cell into the sprite arena and
+*before* the mask punch — walks the eight points and, for each in bounds, ORs
+`$C000 >> x` into the first data word of sprite rows `y` and `y+1` and clears
+it from the second (`$68FE`/`$6910`). That bit pattern is **sprite colour 1**,
+a 2×2 pixel block, and colour 1 of both marble ramps (`$6750` red, `$6756`
+blue) is the same `$0AA0` gold. There is **no back-hemisphere test**: every
+point is drawn whatever its depth, which is exactly what makes it read as light
+scattering *inside* a glass ball rather than dots painted on its surface.
+
+Two details worth recording. The Silly course forces the effect to keep
+spinning even at rest (`$158FA` substitutes velocity (16,16) when `$5D6==4`,
+and inverts the angle as `$600 − |v|/7`). And `$5DFC` serves **both** player
+marbles — the ramp is chosen from `obj+$19` — while `$60F6`, the black enemy
+marble's leaf, calls no shimmer at all, which matches its flat look. (Two
+neighbouring routines, `$13384` and `$136DC`, fill the same `obj+$AE` array but
+are different effects entirely: they also fill `obj+$38` with cell records
+`$10044+i` and are drawn as eight independent sparkle *cells* through `$10FDC`
+— the death/appear burst and the goal-absorb trail, neither of which runs while
+rolling.)
 
 ## 3. Terrain interaction
 

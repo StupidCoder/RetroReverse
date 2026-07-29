@@ -18,13 +18,25 @@
    "y": 0,
    "w": 288,
    "h": 200
-  }
+  },
+  "layers": [
+   {
+    "id": "scenery",
+    "name": "Scenery"
+   },
+   {
+    "id": "occluders",
+    "name": "Occluders",
+    "visible": false
+   }
+  ]
  },
  "placements": [
   {
    "id": 0,
    "object": "beginr-a0",
    "pos": [64, 495],
+   "layer": "scenery",
    "name": "region 0 overlay (cell 4)",
    "props": {
     "region": 0
@@ -34,24 +46,49 @@
    "id": 1,
    "object": "beginr-a1",
    "pos": [83, 561],
+   "layer": "scenery",
    "name": "region 1 overlay (cell 16)",
    "props": {
     "region": 1
    }
   },
   {
+   "id": 1001,
+   "object": "beginr-ma1",
+   "pos": [83, 561],
+   "layer": "occluders",
+   "name": "occluder for region 1 overlay (cell 16)",
+   "props": {
+    "region": 1,
+    "terrain": 3
+   }
+  },
+  {
    "id": 2,
    "object": "beginr-a2",
    "pos": [72, 560],
+   "layer": "scenery",
    "name": "region 2 overlay (cell 9)",
    "props": {
     "region": 2
    }
   },
   {
+   "id": 1002,
+   "object": "beginr-ma2",
+   "pos": [72, 560],
+   "layer": "occluders",
+   "name": "occluder for region 2 overlay (cell 9)",
+   "props": {
+    "region": 2,
+    "terrain": 3
+   }
+  },
+  {
    "id": 3,
    "object": "beginr-a9",
    "pos": [128, 1036],
+   "layer": "scenery",
    "name": "region 9 overlay (cell 0)",
    "props": {
     "region": 9
@@ -61,6 +98,7 @@
    "id": 4,
    "object": "beginr-a10",
    "pos": [96, 1052],
+   "layer": "scenery",
    "name": "region 10 overlay (cell 0)",
    "props": {
     "region": 10

@@ -18,13 +18,25 @@
    "y": 0,
    "w": 288,
    "h": 200
-  }
+  },
+  "layers": [
+   {
+    "id": "scenery",
+    "name": "Scenery"
+   },
+   {
+    "id": "occluders",
+    "name": "Occluders",
+    "visible": false
+   }
+  ]
  },
  "placements": [
   {
    "id": 0,
    "object": "aerial-a8",
    "pos": [160, 520],
+   "layer": "scenery",
    "name": "region 8 overlay (cell 22)",
    "props": {
     "region": 8
@@ -34,6 +46,7 @@
    "id": 1,
    "object": "aerial-a10",
    "pos": [64, 916],
+   "layer": "scenery",
    "name": "region 10 overlay (cell 0)",
    "props": {
     "region": 10
@@ -43,6 +56,7 @@
    "id": 2,
    "object": "aerial-a11",
    "pos": [32, 932],
+   "layer": "scenery",
    "name": "region 11 overlay (cell 0)",
    "props": {
     "region": 11
@@ -52,60 +66,133 @@
    "id": 3,
    "object": "aerial-a2",
    "pos": [96, 280],
+   "layer": "scenery",
    "name": "region 2 overlay (cell 4)",
    "props": {
     "region": 2
    }
   },
   {
+   "id": 1003,
+   "object": "aerial-ma2",
+   "pos": [96, 280],
+   "layer": "occluders",
+   "name": "occluder for region 2 overlay (cell 4)",
+   "props": {
+    "region": 2,
+    "terrain": 11
+   }
+  },
+  {
    "id": 4,
    "object": "aerial-a3",
    "pos": [32, 312],
+   "layer": "scenery",
    "name": "region 3 overlay (cell 4)",
    "props": {
     "region": 3
    }
   },
   {
+   "id": 1004,
+   "object": "aerial-ma3",
+   "pos": [32, 312],
+   "layer": "occluders",
+   "name": "occluder for region 3 overlay (cell 4)",
+   "props": {
+    "region": 3,
+    "terrain": 11
+   }
+  },
+  {
    "id": 5,
    "object": "aerial-a4",
    "pos": [80, 368],
+   "layer": "scenery",
    "name": "region 4 overlay (cell 9)",
    "props": {
     "region": 4
    }
   },
   {
+   "id": 1005,
+   "object": "aerial-ma4",
+   "pos": [80, 368],
+   "layer": "occluders",
+   "name": "occluder for region 4 overlay (cell 9)",
+   "props": {
+    "region": 4,
+    "terrain": 13
+   }
+  },
+  {
    "id": 6,
    "object": "aerial-a5",
    "pos": [192, 280],
+   "layer": "scenery",
    "name": "region 5 overlay (cell 4)",
    "props": {
     "region": 5
    }
   },
   {
+   "id": 1006,
+   "object": "aerial-ma5",
+   "pos": [192, 280],
+   "layer": "occluders",
+   "name": "occluder for region 5 overlay (cell 4)",
+   "props": {
+    "region": 5,
+    "terrain": 11
+   }
+  },
+  {
    "id": 7,
    "object": "aerial-a6",
    "pos": [128, 312],
+   "layer": "scenery",
    "name": "region 6 overlay (cell 4)",
    "props": {
     "region": 6
    }
   },
   {
+   "id": 1007,
+   "object": "aerial-ma6",
+   "pos": [128, 312],
+   "layer": "occluders",
+   "name": "occluder for region 6 overlay (cell 4)",
+   "props": {
+    "region": 6,
+    "terrain": 11
+   }
+  },
+  {
    "id": 8,
    "object": "aerial-a7",
    "pos": [176, 368],
+   "layer": "scenery",
    "name": "region 7 overlay (cell 9)",
    "props": {
     "region": 7
    }
   },
   {
+   "id": 1008,
+   "object": "aerial-ma7",
+   "pos": [176, 368],
+   "layer": "occluders",
+   "name": "occluder for region 7 overlay (cell 9)",
+   "props": {
+    "region": 7,
+    "terrain": 13
+   }
+  },
+  {
    "id": 9,
    "object": "aerial-c60",
    "pos": [0, 486],
+   "layer": "scenery",
    "name": "region 91 overlay (cell 60)",
    "props": {
     "region": 91
@@ -115,6 +202,7 @@
    "id": 10,
    "object": "aerial-a95",
    "pos": [0, 486],
+   "layer": "scenery",
    "name": "region 95 overlay (cell -1)",
    "props": {
     "region": 95
@@ -124,6 +212,7 @@
    "id": 11,
    "object": "aerial-c61",
    "pos": [64, 538],
+   "layer": "scenery",
    "name": "region 92 overlay (cell 61)",
    "props": {
     "region": 92
@@ -133,6 +222,7 @@
    "id": 12,
    "object": "aerial-a96",
    "pos": [64, 538],
+   "layer": "scenery",
    "name": "region 96 overlay (cell -1)",
    "props": {
     "region": 96
@@ -142,6 +232,7 @@
    "id": 13,
    "object": "aerial-c62",
    "pos": [96, 610],
+   "layer": "scenery",
    "name": "region 93 overlay (cell 62)",
    "props": {
     "region": 93
@@ -151,6 +242,7 @@
    "id": 14,
    "object": "aerial-a97",
    "pos": [96, 610],
+   "layer": "scenery",
    "name": "region 97 overlay (cell -1)",
    "props": {
     "region": 97

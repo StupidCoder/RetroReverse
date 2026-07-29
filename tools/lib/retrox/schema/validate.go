@@ -320,6 +320,19 @@ func (c *checker) checkLevel(p string, l *Level, assets map[string]*Asset, objec
 
 	layers := map[string]bool{}
 	rooms := map[int]bool{}
+	if l.Tilemap != nil {
+		for i := range l.Tilemap.Layers {
+			ly := &l.Tilemap.Layers[i]
+			if ly.ID == "" {
+				c.errf(p, "tilemap layer #%d has no id", i)
+				continue
+			}
+			if layers[ly.ID] {
+				c.errf(p+": layer "+ly.ID, "duplicate layer id")
+			}
+			layers[ly.ID] = true
+		}
+	}
 	if l.Scene != nil {
 		if len(l.Scene.Layers) == 0 && l.Scene.Rooms == nil && len(l.Placements) == 0 {
 			c.errf(p, "a scene needs at least one layer, a room graph, or placements")

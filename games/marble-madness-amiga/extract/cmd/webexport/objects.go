@@ -39,7 +39,7 @@ func exportObjects(ctx *cli.Context, vol *adf.Volume, paths map[string]string) (
 			return nil, err
 		}
 		index := map[string]any{}
-		if _, _, err := exportOverlays(vol, paths, c.key, cr.prog.Image, cr.co, cr.bake.paletteAt, scratch, index, true); err != nil {
+		if _, _, err := exportOverlays(vol, paths, idx, c.key, cr.prog.Image, cr.co, cr.bake.paletteAt, scratch, index, true); err != nil {
 			return nil, err
 		}
 
@@ -102,6 +102,9 @@ func exportObjects(ctx *cli.Context, vol *adf.Volume, paths map[string]string) (
 				}
 			}
 			name := fmt.Sprintf("Piece %s", piece)
+			if strings.HasPrefix(piece, "m") {
+				name = fmt.Sprintf("Occluder %s", piece[1:])
+			}
 			b.AddObject(schema.Asset{ID: id, Name: name, Group: c.name}, &schema.Object{
 				Type: schema.ObjectSprite2D,
 				Name: name,

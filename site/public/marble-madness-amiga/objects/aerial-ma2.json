@@ -1,0 +1,44 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Occluder a2",
+ "atlas": {
+  "file": "aerial-ma2.png",
+  "cellW": 48,
+  "cellH": 44
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 6,
+   "steps": [
+    [0, 4],
+    [1, 4],
+    [2, 4],
+    [2, 4],
+    [3, 4],
+    [3, 4],
+    [3, 4],
+    [3, 4],
+    [3, 4],
+    [4, 4],
+    [3, 4],
+    [3, 4],
+    [3, 4],
+    [3, 4],
+    [2, 4],
+    [2, 4],
+    [1, 4],
+    [0, 4],
+    [5, 4],
+    [5, 120]
+   ]
+  }
+ ],
+ "props": {
+  "course": "Aerial",
+  "piece": "ma2"
+ }
+}

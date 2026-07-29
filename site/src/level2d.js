@@ -147,6 +147,20 @@ export async function mount(ctx, doc) {
     world.addChild(clip);
     objLayer.mask = clip;
   }
+  // Named placement layers: each declared layer gets its own container inside
+  // objLayer (so the playfield clip still applies) and a display-panel toggle.
+  // Placements naming no layer land in the first one.
+  const layerNodes = new Map();
+  for (const ly of tm.layers || []) {
+    const node = new Container();
+    node.visible = ly.visible !== false;
+    objLayer.addChild(node);
+    layerNodes.set(ly.id, node);
+    ctx.displayPanel?.toggle(ly.name || ly.id, node.visible, (on) => { node.visible = on; });
+  }
+  const layerFor = (id) =>
+    layerNodes.get(id) || (layerNodes.size ? layerNodes.values().next().value : objLayer);
+
   const objects = new Map(); // id -> SpriteObject (loaded on demand)
   const getObj = async (id) => {
     if (!objects.has(id)) objects.set(id, SpriteObject.load(game, id));
@@ -159,7 +173,7 @@ export async function mount(ctx, doc) {
       const obj = await getObj(pl.object);
       const inst = obj.makeInstance({ anim: pl.anim || extra.anim, tint: pl.tint || extra.tint, hflip: pl.hflip });
       inst.node.position.set(pl.pos[0], pl.pos[1]);
-      objLayer.addChild(inst.node);
+      layerFor(pl.layer).addChild(inst.node);
       anims.push(inst);
       pickables.push({ inst, pl, obj });
       return inst;

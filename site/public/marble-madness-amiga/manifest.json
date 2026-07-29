@@ -99,6 +99,20 @@
    "file": "objects/beginr-a9.json"
   },
   {
+   "id": "beginr-ma1",
+   "category": "object",
+   "name": "Occluder a1",
+   "group": "Beginner",
+   "file": "objects/beginr-ma1.json"
+  },
+  {
+   "id": "beginr-ma2",
+   "category": "object",
+   "name": "Occluder a2",
+   "group": "Beginner",
+   "file": "objects/beginr-ma2.json"
+  },
+  {
    "id": "interm-a1",
    "category": "object",
    "name": "Piece a1",
@@ -223,6 +237,48 @@
    "name": "Piece c62",
    "group": "Aerial",
    "file": "objects/aerial-c62.json"
+  },
+  {
+   "id": "aerial-ma2",
+   "category": "object",
+   "name": "Occluder a2",
+   "group": "Aerial",
+   "file": "objects/aerial-ma2.json"
+  },
+  {
+   "id": "aerial-ma3",
+   "category": "object",
+   "name": "Occluder a3",
+   "group": "Aerial",
+   "file": "objects/aerial-ma3.json"
+  },
+  {
+   "id": "aerial-ma4",
+   "category": "object",
+   "name": "Occluder a4",
+   "group": "Aerial",
+   "file": "objects/aerial-ma4.json"
+  },
+  {
+   "id": "aerial-ma5",
+   "category": "object",
+   "name": "Occluder a5",
+   "group": "Aerial",
+   "file": "objects/aerial-ma5.json"
+  },
+  {
+   "id": "aerial-ma6",
+   "category": "object",
+   "name": "Occluder a6",
+   "group": "Aerial",
+   "file": "objects/aerial-ma6.json"
+  },
+  {
+   "id": "aerial-ma7",
+   "category": "object",
+   "name": "Occluder a7",
+   "group": "Aerial",
+   "file": "objects/aerial-ma7.json"
   },
   {
    "id": "silly-a3",

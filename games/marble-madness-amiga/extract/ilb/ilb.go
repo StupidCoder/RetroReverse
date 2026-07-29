@@ -15,7 +15,16 @@ import (
 // Cell is one decoded sprite-cell descriptor.
 type Cell struct {
 	W, H, Planes, CZ, Src, Typ int
+	Flag                       int // descriptor +1: bit 0 = "process" at load
 }
+
+// HasMask reports whether ilb_load $80B4 builds this cell's silhouette into
+// the descriptor's +$C slot — the stencil mask_punch $112DA needs and returns
+// without when it is null. The loader's gate at $8174..$8182 is exactly two
+// tests: the flag byte's bit 0 must be set AND the type byte must be 0, so
+// only composited scenery cells ever carry a mask; every type-1 free sprite
+// (goal flags, the marble, the creatures, the obsc.vlb wall slivers) has none.
+func (c Cell) HasMask() bool { return c.Typ == 0 && c.Flag&1 != 0 }
 
 // unpack decodes PackBits: signed control byte n; 0..127 -> copy n+1 literals;
 // -1..-127 -> repeat next byte (1-n) times; -128 -> no-op.
@@ -60,7 +69,8 @@ func Decode(file []byte) (buf []byte, cells []Cell) {
 		if o+20 > len(buf) {
 			break
 		}
-		typ, ww, h, cz, src := int(buf[o]), wd(o+2), wd(o+4), wd(o+6), ln(o+8)
+		typ, flag := int(buf[o]), int(buf[o+1])
+		ww, h, cz, src := wd(o+2), wd(o+4), wd(o+6), ln(o+8)
 		if cz <= 0 || src <= 0 || src >= len(buf) {
 			cells = append(cells, Cell{})
 			continue
@@ -80,7 +90,7 @@ func Decode(file []byte) (buf []byte, cells []Cell) {
 		if typ == 1 && h > 1 {
 			h-- // type-1 cells carry a trailing sentinel/guard row
 		}
-		cells = append(cells, Cell{W: ww * 16, H: h, Planes: planes, CZ: cz, Src: src, Typ: typ})
+		cells = append(cells, Cell{W: ww * 16, H: h, Planes: planes, CZ: cz, Src: src, Typ: typ, Flag: flag})
 	}
 	return buf, cells
 }
@@ -129,6 +139,40 @@ func Render(buf []byte, c Cell, pal color.Palette, type1Off int) *image.RGBA {
 			}
 			if v < len(pal) {
 				img.Set(x, y, pal[v])
+			}
+		}
+	}
+	return img
+}
+
+// Mask renders a cell's SILHOUETTE — the 1-plane OR of all the cell's
+// bitplanes that composite_planes $8026 builds into the descriptor's +$C slot
+// at load time, and that mask_punch $112DA ANDs out of the marble's queued
+// sprite words (Marble_Madness.md Part V §2). Set pixels come out opaque in
+// col, clear pixels transparent, so the result is the black-and-white
+// level-geometry stencil the engine clips the moving cast against.
+//
+// The mask is a byproduct of the cell, never separate art: it has no position
+// of its own and always covers exactly the pixels the piece itself draws.
+func Mask(buf []byte, c Cell, col color.Color) *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, c.W, c.H))
+	bpr := c.W / 8
+	for y := 0; y < c.H; y++ {
+		for x := 0; x < c.W; x++ {
+			set := false
+			for p := 0; p < c.Planes; p++ {
+				var o int
+				if c.Typ == 1 {
+					o = c.Src + y*c.Planes*bpr + p*bpr + x/8
+				} else {
+					o = c.Src + p*c.CZ + y*bpr + x/8
+				}
+				if o >= 0 && o < len(buf) && buf[o]>>uint(7-x%8)&1 != 0 {
+					set = true
+				}
+			}
+			if set {
+				img.Set(x, y, col)
 			}
 		}
 	}

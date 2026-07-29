@@ -1,0 +1,23 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "sprite2d",
+ "name": "Occluder a1",
+ "atlas": {
+  "file": "beginr-ma1.png",
+  "cellW": 16,
+  "cellH": 18
+ },
+ "animations": [
+  {
+   "id": "main",
+   "loop": "loop",
+   "frames": 4,
+   "steps": [[0, 12], [1, 12], [2, 12], [3, 12], [2, 12], [1, 12]]
+  }
+ ],
+ "props": {
+  "course": "Beginner",
+  "piece": "ma1"
+ }
+}

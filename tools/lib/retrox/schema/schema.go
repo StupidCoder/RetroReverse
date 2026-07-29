@@ -181,7 +181,20 @@ type Tilemap struct {
 	TileAnims []TileAnim `json:"tileAnims,omitempty"`
 	CellAnims []CellAnim `json:"cellAnims,omitempty"`
 	PaletteFx *PaletteFx `json:"paletteFx,omitempty"`
+	Layers    []MapLayer `json:"layers,omitempty"`
 }
+
+// MapLayer is a named group of a tilemap level's placements, so a viewer can
+// show and hide them independently (Placement.Layer names one). The first
+// declared layer is the default for placements that name none.
+type MapLayer struct {
+	ID      string `json:"id"`
+	Name    string `json:"name,omitempty"`
+	Visible *bool  `json:"visible,omitempty"`
+}
+
+// IsVisible resolves the initial-visibility default (true).
+func (l *MapLayer) IsVisible() bool { return l.Visible == nil || *l.Visible }
 
 type TileAtlas struct {
 	File   string `json:"file"`

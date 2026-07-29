@@ -55,7 +55,7 @@ const worldTick = 2
 // render selects whether the sprite PNGs and index entries are actually produced: the
 // levels stage passes false (it needs only the object placements + screen-swap cellAnims,
 // and the sprite keys are deterministic), the sprites stage passes true.
-func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track []byte,
+func exportOverlays(vol *adf.Volume, paths map[string]string, course int, key string, track []byte,
 	co *mlb.Course, palAt func(row int) color.Palette,
 	spritesDir string, spriteIndex map[string]any, renderSprites bool) ([]map[string]any, []map[string]any, error) {
 	objects := []map[string]any{}
@@ -176,13 +176,72 @@ func exportOverlays(vol *adf.Volume, paths map[string]string, key string, track 
 				}
 			}
 		}
-		objects = append(objects, map[string]any{
+		obj := map[string]any{
 			"type":   o.Region,
 			"name":   fmt.Sprintf("region %d overlay (cell %d)", o.Region, o.Cell),
 			"x":      o.X,
 			"y":      o.Y,
 			"sprite": sprite,
-		})
+			"terr":   o.Terr,
+		}
+		// A piece whose terrain code puts it on one of the occluder lists also
+		// ships its silhouette: the same strip, same frames, same anchor, drawn
+		// as the stencil mask_punch $112DA clips the marble against.
+		//
+		// Not every frame has one. ilb_load only builds a mask for a type-0
+		// cell whose flag bit 0 is set ($8174..$8182), and $112DA returns at
+		// once when the slot is null — so a lift stage drawn from a maskless
+		// cell punches nothing and contributes a blank frame here. A piece
+		// whose frames are ALL maskless never occludes and ships no stencil.
+		seq := order
+		if len(seq) == 0 {
+			seq = []int{o.Cell}
+		}
+		anyMask := false
+		for _, c := range seq {
+			if c >= 0 && cells[c].HasMask() {
+				anyMask = true
+			}
+		}
+		if occludes(course, o.Terr) && anyMask {
+			mask := "m" + sprite[len(key)+1:]
+			obj["mask"] = key + "/" + mask
+			if renderSprites && !done[key+"/"+mask] {
+				done[key+"/"+mask] = true
+				src := spriteIndex[sprite].(map[string]any)
+				frames := src["frames"].([][4]int)
+				w, h := 0, 1
+				for _, f := range frames {
+					if f[0]+f[2] > w {
+						w = f[0] + f[2]
+					}
+					if f[3] > h {
+						h = f[3]
+					}
+				}
+				strip := image.NewRGBA(image.Rect(0, 0, w, h))
+				for i, c := range seq {
+					if c < 0 || i >= len(frames) || !cells[c].HasMask() {
+						continue
+					}
+					m := ilb.Mask(buf, cells[c], color.White)
+					draw.Draw(strip, image.Rect(frames[i][0], 0, frames[i][0]+cells[c].W, cells[c].H),
+						m, image.Point{}, draw.Src)
+				}
+				pngName := fmt.Sprintf("%s-%s.png", key, mask)
+				if err := gfx.WritePNG(filepath.Join(spritesDir, pngName), strip); err != nil {
+					return nil, nil, err
+				}
+				entry := map[string]any{"src": "sprites/" + pngName, "frames": frames}
+				for _, k := range []string{"steps", "path"} {
+					if v, ok := src[k]; ok {
+						entry[k] = v
+					}
+				}
+				spriteIndex[key+"/"+mask] = entry
+			}
+		}
+		objects = append(objects, obj)
 	}
 
 	// screen-swap tile animations (Ultimate's final screen): the engine cycles
@@ -221,8 +280,29 @@ type overlay struct {
 	Steps   []step // the piece's play program, composed from its script's op2/op3/op16 events
 	X, Y    int    // world px (top-left of the draw)
 	KX, KY  int    // keyframe grid pos (for reference/debug)
+	Terr    int    // the op0 keyframe's terrain code (drives occludes)
 	HasRamp bool
 	Ramp    [3]uint16 // record +$C -> the sprite pair's 3 $0RGB colours (type-1 cells)
+}
+
+// occludes reports whether a piece registered with this terrain code punches
+// its silhouette out of the marble's sprite on this course.
+//
+// A region self-registers by terrain code at op0 ($FEF2's search table $FF1A:
+// code 3 -> $FD38, 10 -> $FD54, 11 and 13 -> $FD3C, 12 -> $FD58), and
+// occlude_checks $5BE0 — run from the marble's draw leaf $5DFC right after its
+// sprite is queued — reads those lists for exactly two courses: index 1
+// (Beginner) tests $FD38 alone, index 3 (Aerial) walks $FD3C, then $FD54,
+// $1DBF8 and $FD58. Every other course returns at $5BF0/$5C00 without a single
+// test, so nothing there punches.
+func occludes(course, terr int) bool {
+	switch course {
+	case 1:
+		return terr == 3 // the drawbridge
+	case 3:
+		return terr == 10 || terr == 11 || terr == 12 || terr == 13
+	}
+	return false
 }
 
 // swapAnim is a screen-swap tile animation (Ultimate's final screen): the engine
@@ -372,7 +452,7 @@ func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 	var swaps []swapAnim
 	covered := map[int]bool{}
 	for _, r := range regs {
-		ovl, swap := scanScript(im, r.idx, r.script, end(r.script), base, nCells, mapRows, nil)
+		ovl, swap := scanScript(im, r.idx, r.script, end(r.script), base, nCells, mapRows, nil, 0)
 		if ovl != nil {
 			out = append(out, *ovl)
 			covered[r.idx] = true
@@ -410,7 +490,7 @@ func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 		if sc == 0 || int(sc)+8 > len(im) {
 			continue
 		}
-		if ovl, _ := scanScript(im, r.idx, sc, sc+0x80, base, nCells, mapRows, &anchor); ovl != nil && len(ovl.Steps) > 0 {
+		if ovl, _ := scanScript(im, r.idx, sc, sc+0x80, base, nCells, mapRows, &anchor, terr); ovl != nil && len(ovl.Steps) > 0 {
 			idle := ovl.Steps[len(ovl.Steps)-1]
 			idle.Hold, idle.DX, idle.DY = 60, 0, 0
 			ovl.Steps = append(ovl.Steps, idle)
@@ -426,7 +506,7 @@ func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 	// the slot, so accept it only when it opens with an op0 dur==1 keyframe.
 	if p8 := ou32(im, dyn+8); p8 != 0 && int(p8)+20 < len(im) &&
 		ou16(im, p8) == 0 && os16(im, p8+8) == 1 {
-		if ovl, _ := scanScript(im, 90, p8, p8+0x180, base, nCells, mapRows, nil); ovl != nil && len(ovl.Steps) >= 3 {
+		if ovl, _ := scanScript(im, 90, p8, p8+0x180, base, nCells, mapRows, nil, 0); ovl != nil && len(ovl.Steps) >= 3 {
 			// op15 frees the region: after the collapse the wave is GONE until
 			// the next marble triggers it. The viewer loops, so idle on a blank
 			// frame — the water is plain tilemap again — before replaying.
@@ -510,15 +590,16 @@ func trackOverlays(im []byte, nCells, mapRows int) ([]overlay, []swapAnim) {
 // A terr-$19 registration (op0 dur==1 whose link is a [row, ptr] pair list)
 // comes back as a swapAnim instead. anchor overrides the tile anchor for
 // scripts run ON a region from elsewhere (the vacuum hood triggers).
-func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int, anchor *[2]int) (*overlay, *swapAnim) {
+func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int, anchor *[2]int, anchorTerr int) (*overlay, *swapAnim) {
 	var out *overlay
 	var swap *swapAnim
-	var kx, ky, kz, kdur, kw26, kw28 int
+	var kx, ky, kz, kdur, kw26, kw28, kterr int
 	var link uint32
 	linkFresh := false
 	lastHold := 1
 	if anchor != nil {
 		kdur, kw26, kw28 = 1, anchor[0], anchor[1]
+		kterr = anchorTerr
 	}
 
 	// place the region's (single) overlay from the current anchor context
@@ -529,7 +610,7 @@ func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int, 
 		rec := recs[0]
 		cell := int(ou32(im, rec+8))
 		dx, dy := s8(im[rec]), s8(im[rec+1])
-		o := &overlay{Region: idx, Cell: cell, KX: kx, KY: ky}
+		o := &overlay{Region: idx, Cell: cell, KX: kx, KY: ky, Terr: kterr}
 		// record +$C -> the sprite's 3-colour ramp (loaded into COLOR17+4n by
 		// the engine's copper fragments) for the hardware-sprite (type-1) cells
 		if rp := ou32(im, rec+12); rp != 0 && int(rp)+6 <= len(im) {
@@ -635,6 +716,7 @@ func scanScript(im []byte, idx int, pc, stop uint32, base, nCells, mapRows int, 
 			case 0: // KEYFRAME x,y,z,dur,terr (+ w26,w28,link long when dur==1)
 				kx, ky, kz = os16(im, pc), os16(im, pc+2), os16(im, pc+4)
 				kdur = os16(im, pc+6)
+				kterr = os16(im, pc+8)
 				pc += 10
 				if kdur == 1 {
 					kw26, kw28 = os16(im, pc), os16(im, pc+2)

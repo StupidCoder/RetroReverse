@@ -20,6 +20,12 @@ import (
 // 4th world frame = 8 vblanks.
 const shimmerPeriod = 8
 
+// the two placement layers a course carries when it punches occlusion masks.
+const (
+	layerScenery   = "scenery"
+	layerOccluders = "occluders"
+)
+
 // exportLevels writes the level documents + per-course atlases. refs may be
 // nil (objects stage disabled): then the levels ship without placements.
 func exportLevels(ctx *cli.Context, vol *adf.Volume, paths map[string]string, refs map[string]objRef) error {
@@ -34,7 +40,7 @@ func exportLevels(ctx *cli.Context, vol *adf.Volume, paths map[string]string, re
 
 		// The scenery overlays give us the level's object placements + the screen-swap
 		// tile animations. render=false: the sprite PNGs come from the objects stage.
-		objects, cellAnims, err := exportOverlays(vol, paths, c.key, cr.prog.Image, co, bake.paletteAt, "", nil, false)
+		objects, cellAnims, err := exportOverlays(vol, paths, idx, c.key, cr.prog.Image, co, bake.paletteAt, "", nil, false)
 		if err != nil {
 			return err
 		}
@@ -118,11 +124,8 @@ func exportLevels(ctx *cli.Context, vol *adf.Volume, paths map[string]string, re
 			if !ok {
 				continue // objects stage disabled, or a piece without art
 			}
-			pl := schema.Placement{
-				ID:     i,
-				Object: ref.asset,
-				Pos:    []float64{float64(o["x"].(int)), float64(o["y"].(int))},
-			}
+			pos := []float64{float64(o["x"].(int)), float64(o["y"].(int))}
+			pl := schema.Placement{ID: i, Object: ref.asset, Pos: pos, Layer: layerScenery}
 			if n, ok := o["name"].(string); ok {
 				pl.Name = n
 			}
@@ -130,6 +133,41 @@ func exportLevels(ctx *cli.Context, vol *adf.Volume, paths map[string]string, re
 				pl.Props = map[string]any{"region": t}
 			}
 			doc.Placements = append(doc.Placements, pl)
+
+			// The occlusion stencil rides the piece it belongs to: identical
+			// anchor, identical frames. It has no position of its own — the
+			// mask is the OR of the cell's own bitplanes (composite_planes
+			// $8026 -> descriptor +$C), so it can only ever cover exactly the
+			// pixels the piece draws.
+			mk, _ := o["mask"].(string)
+			mref, ok := refs[mk]
+			if !ok {
+				continue
+			}
+			mpl := schema.Placement{
+				ID: 1000 + i, Object: mref.asset, Pos: pos, Layer: layerOccluders,
+				Name: fmt.Sprintf("occluder for %s", pl.Name),
+			}
+			if t, ok := o["type"].(int); ok {
+				mpl.Props = map[string]any{"region": t, "terrain": o["terr"]}
+			}
+			doc.Placements = append(doc.Placements, mpl)
+		}
+		// Declare the layers only when the course actually punches masks:
+		// occlude_checks $5BE0 runs its tests for Beginner and Aerial alone.
+		for _, pl := range doc.Placements {
+			if pl.Layer == layerOccluders {
+				doc.Tilemap.Layers = []schema.MapLayer{
+					{ID: layerScenery, Name: "Scenery"},
+					{ID: layerOccluders, Name: "Occluders", Visible: new(bool)},
+				}
+				break
+			}
+		}
+		if len(doc.Tilemap.Layers) == 0 {
+			for i := range doc.Placements {
+				doc.Placements[i].Layer = "" // no layers declared: don't name one
+			}
 		}
 
 		b.AddLevel(schema.Asset{ID: c.key, Name: c.name, Group: "Courses"}, doc)

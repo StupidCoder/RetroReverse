@@ -266,6 +266,11 @@ the first is the default).
     { "tx": 36, "ty": 44, "tw": 2, "th": 4, //   a tw×th tile rectangle at cell (tx,ty)
       "phases": [ { "tiles": [tw*th ids], "frames": 240 }, ... ] }
   ],
+  "layers": [                               // optional named placement groups, each with its
+    { "id": "scenery", "name": "Scenery" }, //   own viewer toggle (§5.5 "layer" names one).
+    { "id": "occluders", "name": "Occluders",  //   Placements naming no layer land in the
+      "visible": false }                    //   first. `visible` (default true) sets the
+  ],                                        //   initial state. Same idea as a scene's layers.
   "paletteFx": {                            // palette effects:
     "palette": ["#...", ...],               //   the level's base palette
     "cycle":   { "slots": [10,11,12],                  // palette indices that cycle
@@ -367,7 +372,8 @@ reference, never inline.
   "hflip": true,                            // 2-D horizontal flip
   "tint": "#b8c76f",                        // 2-D multiply tint
   "hard": true,                             // 2-D "solid to the player" flag (info display)
-  "layer": "objects",                       // scene layer this placement toggles with
+  "layer": "objects",                       // layer this placement toggles with — a scene
+                                            //   layer (§5.3) or a tilemap layer (§5.2)
   "room": 5,                                // room id (scene3d rooms)
   "variants": ["star1","star3"],            // level-variant membership; absent = all
   "collision": { "file": "ghz1/col/obj12.glb",   // per-object collision mesh +
