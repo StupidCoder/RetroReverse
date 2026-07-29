@@ -46,6 +46,11 @@ const (
 	PadD     = 1 << 11
 )
 
+// bswap flips a word into the bus's big-endian byte order.
+func bswap(v uint32) uint32 {
+	return v<<24 | v>>24 | v<<8&0xFF0000 | v>>8&0xFF00
+}
+
 // mapleState is the register file; it savestates.
 type mapleState struct {
 	MDSTAR, MDTSEL, MDEN uint32
@@ -98,6 +103,9 @@ func (m *Machine) mapleDMA() {
 		cmd := frame & 0xFF
 		dst := frame >> 8 & 0xFF
 		m.mapleRespond(cmd, dst, payload, recv)
+		if cmd != 1 && cmd != 4 {
+			m.logf("maple frame cmd %d dst %02X fn %08X arg %08X", cmd, dst, m.ram32(payload), m.ram32(payload+4))
+		}
 
 		if ctrl&(1<<31) != 0 {
 			break
@@ -118,11 +126,11 @@ func (m *Machine) mapleRespond(cmd, dst, payload, recv uint32) {
 	switch cmd {
 	case 1: // DEVINFO request -> 5: device status
 		info := make([]uint32, 28)
-		info[0] = 0x01000000 // FT: CONTROLLER (big-endian function mask, the bus convention)
-		info[1] = 0x000F06FE // FD: the standard pad's capability word
+		info[0] = bswap(0x01000000) // FT: CONTROLLER — function masks are big-endian byte sequences on the bus
+		info[1] = bswap(0x000F06FE) // FD: the standard pad's capability word
 		name := "RetroReverse Dreamcast Pad    "
 		for i := 0; i < 28 && i < len(name); i++ {
-			info[3+uint32(i)/4] |= uint32(name[i]) << (8 * (uint32(i) % 4))
+			info[4+uint32(i)/4] |= uint32(name[i]) << (8 * (uint32(i) % 4))
 		}
 		m.Write32(recv, 5|src<<8|host<<16|uint32(len(info))<<24)
 		for i, w := range info {
@@ -130,7 +138,7 @@ func (m *Machine) mapleRespond(cmd, dst, payload, recv uint32) {
 		}
 	case 4: // GETCOND -> 8: data transfer
 		m.Write32(recv, 8|src<<8|host<<16|3<<24)
-		m.Write32(recv+4, 0x01000000) // the function replying
+		m.Write32(recv+4, bswap(0x01000000)) // the function replying, bus byte order
 		m.Write32(recv+8, uint32(m.Pad.Buttons)|uint32(m.Pad.RT)<<16|uint32(m.Pad.LT)<<24)
 		m.Write32(recv+12, uint32(m.Pad.JoyX)|uint32(m.Pad.JoyY)<<8|0x80<<16|0x80<<24)
 	default:

@@ -211,9 +211,11 @@ func (b *biosHLE) gdrom() {
 	case 3: // INIT
 		b.count("gdrom.init")
 		c.R[0] = 0
-	case 4: // CHECK_DRIVE(r4=buffer): drive status + disc type
+	case 4: // CHECK_DRIVE(r4=buffer): drive status + disc type. A drive that
+		// has served reads sits in PAUSE (1), not STANDBY — the disc-check
+		// state machine distinguishes them.
 		b.count("gdrom.checkdrive")
-		b.m.Write32(c.R[4]&0x1FFFFFFF, 0x02)   // standby
+		b.m.Write32(c.R[4]&0x1FFFFFFF, 0x01)     // pause
 		b.m.Write32((c.R[4]+4)&0x1FFFFFFF, 0x80) // GD-ROM
 		c.R[0] = 0
 	default:

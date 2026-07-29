@@ -71,6 +71,14 @@ type Machine struct {
 	// rendered model in holly.go.
 	C2DStat, C2DLen uint32
 
+	// Deferred completions (holly.go): a render and a ch2 DMA take time on
+	// hardware, and an interrupt delivered inside the very store that starts
+	// the operation arrives before the guest has armed its own bookkeeping —
+	// the completion is real and still lost. Countdowns in instructions.
+	RenderCountdown uint32
+	C2DCountdown    uint32
+	C2DPendingBits  uint32
+
 	// The PVR register file, stored raw at word granularity; video.go
 	// interprets the scanout set, everything else round-trips.
 	PVRRegs [0x2000 / 4]uint32
@@ -87,7 +95,9 @@ type Machine struct {
 
 	Instrs       uint64 // instructions retired, the run budget's unit
 	Fields       uint64 // VBlank heartbeats delivered
-	instrInField uint64
+	CurLine      uint32 // the scanline the SPG is sweeping (run.go)
+	FieldNum     uint32 // interlace field parity, SPG_STATUS bit 10
+	instrInField uint64 // instructions accumulated toward the next line
 
 	bios *biosHLE // installed by Boot; nil on a bare machine
 
@@ -384,9 +394,10 @@ func (m *Machine) pvrRead(addr uint32) uint32 {
 func (m *Machine) pvrWrite(addr, v uint32) {
 	m.PVRRegs[(addr-pvrBase)/4] = v
 	if addr == pvrBase+0x14 {
-		// STARTRENDER: with no rasteriser yet the render "finishes" at once —
-		// the three render-done interrupts fire and VRAM keeps whatever it
-		// holds. The pacing is real, the picture is the declared gap.
-		m.raiseNRM(istRenderDone)
+		// STARTRENDER: no rasteriser yet, so nothing is drawn — but the
+		// completion is deferred a few scanlines' worth of instructions,
+		// because an interrupt raised inside this very store would land
+		// before the game's render-kick returns and arms its wait flag.
+		m.RenderCountdown = fieldInstructions / 8
 	}
 }

@@ -66,7 +66,8 @@ type MachineState struct {
 	AICARegs   map[uint32]uint32
 	Timers     aicaTimers
 
-	C2DStat, C2DLen uint32
+	C2DStat, C2DLen                                uint32
+	RenderCountdown, C2DCountdown, C2DPendingBits uint32
 
 	// BIOS is nil for a machine that never booted; the request map is
 	// deep-copied both directions.
@@ -77,6 +78,8 @@ type MachineState struct {
 
 	Instrs       uint64
 	Fields       uint64
+	CurLine      uint32
+	FieldNum     uint32
 	InstrInField uint64
 }
 
@@ -112,10 +115,11 @@ func (m *Machine) SaveState() MachineState {
 		Maple:   m.Maple,
 		Pad:     m.Pad,
 		C2DStat: m.C2DStat, C2DLen: m.C2DLen,
+		RenderCountdown: m.RenderCountdown, C2DCountdown: m.C2DCountdown, C2DPendingBits: m.C2DPendingBits,
 		ARM: saveARM(m.ARM), ARMRunning: m.ARMRunning, ArmAcc: m.armAcc, Timers: m.Timers,
 		AICARegs: make(map[uint32]uint32, len(m.AICARegs)),
 		PVRRegs:  m.PVRRegs, TAWrites: m.TAWrites,
-		Instrs: m.Instrs, Fields: m.Fields, InstrInField: m.instrInField,
+		Instrs: m.Instrs, Fields: m.Fields, CurLine: m.CurLine, FieldNum: m.FieldNum, InstrInField: m.instrInField,
 	}
 	for k, v := range m.AICARegs {
 		s.AICARegs[k] = v
@@ -153,6 +157,7 @@ func (m *Machine) LoadState(s MachineState) error {
 	m.Maple = s.Maple
 	m.Pad = s.Pad
 	m.C2DStat, m.C2DLen = s.C2DStat, s.C2DLen
+	m.RenderCountdown, m.C2DCountdown, m.C2DPendingBits = s.RenderCountdown, s.C2DCountdown, s.C2DPendingBits
 	restoreARM(m.ARM, s.ARM)
 	m.ARMRunning, m.armAcc, m.Timers = s.ARMRunning, s.ArmAcc, s.Timers
 	m.AICARegs = make(map[uint32]uint32, len(s.AICARegs))
@@ -167,6 +172,7 @@ func (m *Machine) LoadState(s MachineState) error {
 	}
 	m.PVRRegs, m.TAWrites = s.PVRRegs, s.TAWrites
 	m.Instrs, m.Fields, m.instrInField = s.Instrs, s.Fields, s.InstrInField
+	m.CurLine, m.FieldNum = s.CurLine, s.FieldNum
 	return nil
 }
 

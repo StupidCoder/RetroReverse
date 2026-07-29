@@ -29,6 +29,8 @@ func (m *Machine) RegString() string {
 	r := func(off uint32) uint32 { return m.PVRRegs[off/4] }
 	fmt.Fprintf(&b, "pvr fb_r ctrl %08X sof %08X/%08X size %08X  fb_w ctrl %08X sof %08X  spg %08X vo %08X\n",
 		r(0x44), r(0x50), r(0x54), r(0x5C), r(0x48), r(0x60), r(0xD0), r(0xE8))
+	fmt.Fprintf(&b, "spg vbl %08X hbl %08X load %08X width %08X  line %d\n",
+		r(0xCC), r(0xC8), r(0xF8), r(0xE4), m.CurLine)
 	if m.ARMRunning {
 		fmt.Fprintf(&b, "arm pc %08X  r0 %08X r1 %08X r2 %08X  instrs %d", m.ARM.R[15], m.ARM.R[0], m.ARM.R[1], m.ARM.R[2], m.ARM.Instrs)
 		if m.ARM.Halted {

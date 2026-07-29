@@ -58,6 +58,7 @@ func (m *Machine) Run(maxSteps uint64, cfg RunConfig) Result {
 			m.stepARM()
 		}
 		m.tickAICA()
+		m.tickCompletions()
 
 		m.tickField()
 
@@ -111,18 +112,42 @@ func minU64(a, b uint64) uint64 {
 	return b
 }
 
-// tickField advances the display heartbeat: every fieldInstructions retired
-// instructions, VBlank-in fires.
+// tickField advances the scan position. The field is a real line sweep, not
+// a bare heartbeat: the counter walks 0..total-1 at fieldInstructions per
+// field, VBlank-in and -out fire at the lines the game programmed into
+// SPG_VBLANK_INT, and SPG_STATUS reads the live line — a game that verifies
+// "am I truly in blanking" before flipping must be able to see yes.
 func (m *Machine) tickField() {
 	m.instrInField++
-	if m.instrInField < fieldInstructions {
+	total := m.spgTotalLines()
+	if m.instrInField < uint64(fieldInstructions/total) {
 		return
 	}
 	m.instrInField = 0
-	m.Fields++
-	m.raiseNRM(istVBlankIn)
-	if m.OnDisplay != nil {
-		m.OnDisplay(m.Fields)
+	m.CurLine++
+	if m.CurLine >= total {
+		m.CurLine = 0
+		m.FieldNum ^= 1
 	}
+	vbl := m.PVRRegs[0xCC/4]
+	switch m.CurLine {
+	case vbl & 0x3FF: // vblank-in: the field boundary
+		m.Fields++
+		m.raiseNRM(istVBlankIn)
+		if m.OnDisplay != nil {
+			m.OnDisplay(m.Fields)
+		}
+	case vbl >> 16 & 0x3FF:
+		m.raiseNRM(istVBlankOut)
+	}
+}
+
+// spgTotalLines is the field's line count from SPG_LOAD, with the NTSC total
+// standing in until the game programs one.
+func (m *Machine) spgTotalLines() uint32 {
+	if t := m.PVRRegs[0xF8/4] >> 16 & 0x3FF; t != 0 {
+		return t + 1
+	}
+	return 525
 }
 

@@ -19,6 +19,7 @@ type Holly struct {
 const (
 	istRenderDone = 7 << 0 // video, ISP, TSP — raised together
 	istVBlankIn   = 1 << 3
+	istVBlankOut  = 1 << 4
 	istCh2DMA     = 1 << 19
 )
 
@@ -119,8 +120,11 @@ func (m *Machine) hollyWrite(addr, v uint32) {
 		if v&1 != 0 {
 			m.scanTAStream(m.CPU.OnchipReg(0xFFA00020), m.C2DLen)
 			m.TAWrites += uint64(m.C2DLen / 4)
+			// Completion (the DMA-end interrupt and any END_OF_LIST bits the
+			// scan collected) is deferred: a transfer that finishes inside
+			// its own start-write finishes before the guest can wait for it.
+			m.C2DCountdown = 2000 + m.C2DLen/16
 			m.C2DLen = 0
-			m.Holly.ISTNRM |= istCh2DMA
 		}
 	default:
 		m.logf("SB write %08X = %08X (PC %08X)", addr, v, m.CPU.CurPC())
@@ -139,13 +143,27 @@ func (m *Machine) scanTAStream(src, byteLen uint32) {
 		switch pcw >> 29 {
 		case 0: // END_OF_LIST
 			if list < 5 {
-				m.Holly.ISTNRM |= taListDoneBit[list]
+				m.C2DPendingBits |= taListDoneBit[list]
 			}
 		case 4, 5, 6: // polygon / sprite headers name their list
 			list = pcw >> 24 & 7
 		}
 	}
-	m.updateIRL()
+}
+
+// tickCompletions retires the deferred render and DMA countdowns.
+func (m *Machine) tickCompletions() {
+	if m.RenderCountdown > 0 {
+		if m.RenderCountdown--; m.RenderCountdown == 0 {
+			m.raiseNRM(istRenderDone)
+		}
+	}
+	if m.C2DCountdown > 0 {
+		if m.C2DCountdown--; m.C2DCountdown == 0 {
+			m.raiseNRM(istCh2DMA | m.C2DPendingBits)
+			m.C2DPendingBits = 0
+		}
+	}
 }
 
 // raiseNRM sets ISTNRM bits and re-evaluates the interrupt line.
@@ -176,16 +194,23 @@ func (m *Machine) updateIRL() {
 	}
 }
 
-// spgStatus derives the scanline counter and vsync flag from the field
-// phase: 525 lines sweep per field-pair on the NTSC timing the games
-// configure, folded here to a 262-line field advancing with the instruction
-// count. Precise enough for polling loops that wait for a line range or the
-// vsync edge.
+// spgStatus is the live scan state: the line counter run.go sweeps, the
+// field number, and vsync asserted inside the blanking interval the game's
+// own SPG_VBLANK_INT delimits.
 func (m *Machine) spgStatus() uint32 {
-	line := uint32(m.instrInField * 262 / fieldInstructions)
-	var vsync uint32
-	if line >= 256 { // the blanking tail of the field
-		vsync = 1 << 13
+	vbl := m.PVRRegs[0xCC/4]
+	vbIn, vbOut := vbl&0x3FF, vbl>>16&0x3FF
+	line := m.CurLine
+	var v uint32
+	inBlank := false
+	if vbIn > vbOut { // the usual shape: blanking wraps the field boundary
+		inBlank = line >= vbIn || line < vbOut
+	} else if vbIn != vbOut {
+		inBlank = line >= vbIn && line < vbOut
 	}
-	return vsync | line&0x3FF
+	if inBlank {
+		v |= 1 << 13
+	}
+	v |= m.FieldNum << 10
+	return v | line&0x3FF
 }

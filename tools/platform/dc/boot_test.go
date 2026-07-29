@@ -100,8 +100,8 @@ func TestMapleDMA(t *testing.T) {
 	if respA&0xFF != 5 {
 		t.Fatalf("port A DEVINFO response cmd=%d, want 5", respA&0xFF)
 	}
-	if fn := binary.LittleEndian.Uint32(m.RAM[recvA+4:]); fn != 0x01000000 {
-		t.Fatalf("port A function mask %08X, want 01000000 (controller)", fn)
+	if fn := binary.LittleEndian.Uint32(m.RAM[recvA+4:]); fn != bswap(0x01000000) {
+		t.Fatalf("port A function mask %08X, want the bus byte order of 01000000 (controller)", fn)
 	}
 	if respB := binary.LittleEndian.Uint32(m.RAM[recvB:]); respB != 0xFFFFFFFF {
 		t.Fatalf("port B answered %08X, want FFFFFFFF (empty socket)", respB)
