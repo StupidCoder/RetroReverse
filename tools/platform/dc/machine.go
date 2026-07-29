@@ -79,6 +79,11 @@ type Machine struct {
 	C2DCountdown    uint32
 	C2DPendingBits  uint32
 
+	// TAList is the list type the TA currently has open (-1 none), TAVtx
+	// the current vertex parameter size; see holly.go's scanTAStream.
+	TAList int32
+	TAVtx  uint32
+
 	// The PVR register file, stored raw at word granularity; video.go
 	// interprets the scanout set, everything else round-trips.
 	PVRRegs [0x2000 / 4]uint32
@@ -125,6 +130,8 @@ func NewMachine(disc *Disc) *Machine {
 		Flash:   make([]byte, FlashSize),
 		Disc:    disc,
 		Pad:     PadState{Buttons: 0xFFFF, JoyX: 0x80, JoyY: 0x80},
+		TAList:  -1,
+		TAVtx:   32,
 		gaps:    map[string]int{},
 	}
 	// Erased flash reads FF — the true state of a console that has never
@@ -393,6 +400,17 @@ func (m *Machine) pvrRead(addr uint32) uint32 {
 
 func (m *Machine) pvrWrite(addr, v uint32) {
 	m.PVRRegs[(addr-pvrBase)/4] = v
+	// TA_LIST_INIT and soft reset put the TA's current list at OPAQUE, not
+	// "none": Crazy Taxi's frame stream opens with a bare END_OF_LIST right
+	// after LIST_INIT and its interrupt bookkeeping requires that EOL to
+	// close the opaque list — the game was built against hardware, so the
+	// hardware resets to list 0.
+	if addr == pvrBase+0x144 && v&0x80000000 != 0 {
+		m.TAList, m.TAVtx = 0, 32
+	}
+	if addr == pvrBase+0x08 && v&1 != 0 {
+		m.TAList, m.TAVtx = 0, 32
+	}
 	if addr == pvrBase+0x14 {
 		// STARTRENDER: no rasteriser yet, so nothing is drawn — but the
 		// completion is deferred a few scanlines' worth of instructions,

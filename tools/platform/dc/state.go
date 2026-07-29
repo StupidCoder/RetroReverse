@@ -68,6 +68,8 @@ type MachineState struct {
 
 	C2DStat, C2DLen                                uint32
 	RenderCountdown, C2DCountdown, C2DPendingBits uint32
+	TAList                                        int32
+	TAVtx                                         uint32
 
 	// BIOS is nil for a machine that never booted; the request map is
 	// deep-copied both directions.
@@ -116,6 +118,7 @@ func (m *Machine) SaveState() MachineState {
 		Pad:     m.Pad,
 		C2DStat: m.C2DStat, C2DLen: m.C2DLen,
 		RenderCountdown: m.RenderCountdown, C2DCountdown: m.C2DCountdown, C2DPendingBits: m.C2DPendingBits,
+		TAList: m.TAList, TAVtx: m.TAVtx,
 		ARM: saveARM(m.ARM), ARMRunning: m.ARMRunning, ArmAcc: m.armAcc, Timers: m.Timers,
 		AICARegs: make(map[uint32]uint32, len(m.AICARegs)),
 		PVRRegs:  m.PVRRegs, TAWrites: m.TAWrites,
@@ -158,6 +161,7 @@ func (m *Machine) LoadState(s MachineState) error {
 	m.Pad = s.Pad
 	m.C2DStat, m.C2DLen = s.C2DStat, s.C2DLen
 	m.RenderCountdown, m.C2DCountdown, m.C2DPendingBits = s.RenderCountdown, s.C2DCountdown, s.C2DPendingBits
+	m.TAList, m.TAVtx = s.TAList, s.TAVtx
 	restoreARM(m.ARM, s.ARM)
 	m.ARMRunning, m.armAcc, m.Timers = s.ARMRunning, s.ArmAcc, s.Timers
 	m.AICARegs = make(map[uint32]uint32, len(s.AICARegs))

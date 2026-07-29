@@ -118,7 +118,15 @@ func (m *Machine) hollyWrite(addr, v uint32) {
 		// SAR2, which the CPU raw-stores), so the list-complete interrupts a
 		// frame loop waits on fire for exactly the lists the game closed.
 		if v&1 != 0 {
-			m.scanTAStream(m.CPU.OnchipReg(0xFFA00020), m.C2DLen)
+			// Only the polygon path (10xxxxxx) carries TA parameters; a
+			// texture-path job (11xxxxxx) is pixels, and parsing pixels as
+			// parameters manufactured list-completions the game never made.
+			if m.C2DStat&0x01000000 == 0 {
+				src := m.CPU.OnchipReg(0xFFA00020)
+				m.logf("ta job dst %08X len %06X head %08X %08X | %08X",
+					m.C2DStat, m.C2DLen, m.ram32(src), m.ram32(src+4), m.ram32(src+32))
+				m.scanTAStream(src, m.C2DLen)
+			}
 			m.TAWrites += uint64(m.C2DLen / 4)
 			// Completion (the DMA-end interrupt and any END_OF_LIST bits the
 			// scan collected) is deferred: a transfer that finishes inside
@@ -135,20 +143,59 @@ func (m *Machine) hollyWrite(addr, v uint32) {
 
 // scanTAStream walks a submitted TA parameter stream (32-byte parameters,
 // control word first) tracking the current list type from each global
-// parameter and raising the matching list-complete bit at each END_OF_LIST.
+// parameter and collecting the matching list-complete bit at each
+// END_OF_LIST. The current list persists in Machine.TAList across DMA jobs —
+// a list continued in a later chunk must not have its completion attributed
+// to opaque — and resets the way the hardware's does: on TA_LIST_INIT and on
+// soft reset (machine.go).
 func (m *Machine) scanTAStream(src, byteLen uint32) {
-	list := uint32(0)
-	for off := uint32(0); off+32 <= byteLen; off += 32 {
+	for off := uint32(0); off+32 <= byteLen; {
 		pcw := m.ram32(src + off)
+		off += 32
 		switch pcw >> 29 {
-		case 0: // END_OF_LIST
-			if list < 5 {
-				m.C2DPendingBits |= taListDoneBit[list]
+		case 0: // END_OF_LIST closes the open list
+			m.logf("ta eol closes %d", m.TAList)
+			if m.TAList >= 0 && m.TAList < 5 {
+				m.C2DPendingBits |= taListDoneBit[m.TAList]
 			}
-		case 4, 5, 6: // polygon / sprite headers name their list
-			list = pcw >> 24 & 7
+			m.TAList = -1
+		case 4: // polygon header: names the list and fixes the vertex size
+			m.taOpenList(int32(pcw >> 24 & 7))
+			textured := pcw&8 != 0
+			colType := pcw >> 4 & 3
+			volume := pcw&0x40 != 0
+			m.TAVtx = 32
+			// 64-byte vertices: two-volume parameters, floating-point base
+			// color with a texture, and the modifier-volume lists' triangle
+			// records.
+			if volume || (textured && colType == 1) || m.TAList == 1 || m.TAList == 3 {
+				m.TAVtx = 64
+			}
+			if volume && textured { // the two-volume header carries a second TSP set
+				off += 32
+			}
+		case 5: // sprite header: sprite vertices are always 64 bytes
+			m.taOpenList(int32(pcw >> 24 & 7))
+			m.TAVtx = 64
+		case 7: // vertex parameter: the header decided its size
+			off += m.TAVtx - 32
 		}
 	}
+}
+
+// taOpenList makes list n the TA's current list. Lists are strictly ordered
+// on the hardware: a header naming a new list while a different one is open
+// closes the open list and fires its completion — Crazy Taxi's frame stream
+// depends on it (LIST_INIT leaves opaque open, the opaque-modifier header
+// implicitly closes it, and the game's interrupt bookkeeping counts four
+// completions against three explicit END_OF_LISTs).
+func (m *Machine) taOpenList(n int32) {
+	if m.TAList >= 0 && m.TAList != n {
+		if m.TAList < 5 {
+			m.C2DPendingBits |= taListDoneBit[m.TAList]
+		}
+	}
+	m.TAList = n
 }
 
 // tickCompletions retires the deferred render and DMA countdowns.
