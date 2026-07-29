@@ -67,9 +67,16 @@ type Machine struct {
 	// not exist yet.
 	TAWrites uint64
 
+	// Maple is the controller bus register file; Pad the injectable port-A
+	// controller state (maple.go).
+	Maple mapleState
+	Pad   PadState
+
 	Instrs       uint64 // instructions retired, the run budget's unit
 	Fields       uint64 // VBlank heartbeats delivered
 	instrInField uint64
+
+	bios *biosHLE // installed by Boot; nil on a bare machine
 
 	// Instrumentation, all opt-in and nil-checked on the hot path.
 	OnStep    func(pc uint32)
@@ -88,7 +95,13 @@ func NewMachine(disc *Disc) *Machine {
 		AICARAM: make([]byte, AICARAMSize),
 		Flash:   make([]byte, FlashSize),
 		Disc:    disc,
+		Pad:     PadState{Buttons: 0xFFFF, JoyX: 0x80, JoyY: 0x80},
 		gaps:    map[string]int{},
+	}
+	// Erased flash reads FF — the true state of a console that has never
+	// saved settings, not an invention.
+	for i := range m.Flash {
+		m.Flash[i] = 0xFF
 	}
 	m.CPU = sh4.NewCPU(m)
 	return m
@@ -113,6 +126,9 @@ func (m *Machine) Census() []string {
 		out = append(out, fmt.Sprintf("%s x%d", k, n))
 	}
 	out = append(out, m.CPU.Gaps()...)
+	if m.bios != nil {
+		out = append(out, m.bios.census()...)
+	}
 	return out
 }
 
@@ -202,6 +218,8 @@ func (m *Machine) Write32(addr uint32, v uint32) {
 // ioRead serves the register space.
 func (m *Machine) ioRead(addr uint32, size int) uint32 {
 	switch {
+	case addr >= 0x005F6C00 && addr < 0x005F6D00:
+		return m.mapleRead(addr)
 	case addr >= sbBase && addr < gdBase:
 		return m.hollyRead(addr)
 	case addr >= gdBase && addr < gdBase+0x100:
@@ -225,6 +243,9 @@ func (m *Machine) ioRead(addr uint32, size int) uint32 {
 
 func (m *Machine) ioWrite(addr uint32, size int, v uint32) {
 	switch {
+	case addr >= 0x005F6C00 && addr < 0x005F6D00:
+		m.mapleWrite(addr, v)
+		return
 	case addr >= sbBase && addr < gdBase:
 		m.hollyWrite(addr, v)
 		return

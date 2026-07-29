@@ -31,6 +31,12 @@ type MachineState struct {
 
 	CPU   sh4.State
 	Holly Holly
+	Maple mapleState
+	Pad   PadState
+
+	// BIOS is nil for a machine that never booted; the request map is
+	// deep-copied both directions.
+	BIOS *biosState
 
 	PVRRegs  [0x2000 / 4]uint32
 	TAWrites uint64
@@ -38,6 +44,19 @@ type MachineState struct {
 	Instrs       uint64
 	Fields       uint64
 	InstrInField uint64
+}
+
+// cloneBIOS deep-copies the HLE state: the map and every request behind it.
+func cloneBIOS(s *biosState) *biosState {
+	if s == nil {
+		return nil
+	}
+	out := &biosState{NextID: s.NextID, Requests: make(map[uint32]*gdRequest, len(s.Requests))}
+	for id, req := range s.Requests {
+		r := *req
+		out.Requests[id] = &r
+	}
+	return out
 }
 
 func cloneBytes(b []byte) []byte {
@@ -56,8 +75,13 @@ func (m *Machine) SaveState() MachineState {
 		Flash:   cloneBytes(m.Flash),
 		CPU:     m.CPU.Snapshot(),
 		Holly:   m.Holly,
+		Maple:   m.Maple,
+		Pad:     m.Pad,
 		PVRRegs: m.PVRRegs, TAWrites: m.TAWrites,
 		Instrs: m.Instrs, Fields: m.Fields, InstrInField: m.instrInField,
+	}
+	if m.bios != nil {
+		s.BIOS = cloneBIOS(&m.bios.state)
 	}
 	if m.Disc != nil {
 		s.DiscMD5, _ = m.Disc.MD5()
@@ -86,6 +110,14 @@ func (m *Machine) LoadState(s MachineState) error {
 	copy(m.Flash, s.Flash)
 	m.CPU.Restore(s.CPU)
 	m.Holly = s.Holly
+	m.Maple = s.Maple
+	m.Pad = s.Pad
+	if s.BIOS != nil {
+		m.bios = newBIOS(m)
+		m.bios.state = *cloneBIOS(s.BIOS)
+	} else {
+		m.bios = nil
+	}
 	m.PVRRegs, m.TAWrites = s.PVRRegs, s.TAWrites
 	m.Instrs, m.Fields, m.instrInField = s.Instrs, s.Fields, s.InstrInField
 	return nil

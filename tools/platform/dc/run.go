@@ -120,6 +120,3 @@ func (m *Machine) tickField() {
 	}
 }
 
-// trapPC is the BIOS HLE's hook point (boot.go/bios.go); without a boot it
-// traps nothing.
-func (m *Machine) trapPC(pc uint32) bool { return false }
