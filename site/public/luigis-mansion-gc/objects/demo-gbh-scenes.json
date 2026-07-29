@@ -1,0 +1,62 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Game Boy Horror scenes",
+ "animations": [
+  {
+   "id": "scene01",
+   "loop": "once",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
+   "clip": "scene01",
+   "fps": 30
+  },
+  {
+   "id": "scene02",
+   "loop": "once",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
+   "clip": "scene02",
+   "fps": 30
+  },
+  {
+   "id": "scene03",
+   "loop": "once",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
+   "clip": "scene03",
+   "fps": 30
+  },
+  {
+   "id": "scene04",
+   "loop": "once",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
+   "clip": "scene04",
+   "fps": 30
+  },
+  {
+   "id": "scene05",
+   "loop": "once",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
+   "clip": "scene05",
+   "fps": 30
+  },
+  {
+   "id": "scene06",
+   "loop": "once",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
+   "clip": "scene06",
+   "fps": 30
+  },
+  {
+   "id": "scene07",
+   "loop": "once",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
+   "clip": "scene07",
+   "fps": 30
+  }
+ ],
+ "model": "demo-gbh-scenes.glb",
+ "skinnedClone": true,
+ "props": {
+  "source": "/Ajioka/ADemo/gbdemo01.szp:gbdemo.mdl"
+ }
+}

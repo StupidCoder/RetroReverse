@@ -23,7 +23,7 @@
    "pos": [0, 0, 0],
    "name": "The lab under the storm",
    "props": {
-    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
    }
   }
  ],

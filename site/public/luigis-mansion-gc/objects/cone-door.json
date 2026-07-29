@@ -7,7 +7,7 @@
   {
    "id": "opod_cone",
    "loop": "once",
-   "description": "The shot's .key clip: hermite channels on the 30 fps demo timeline, root motion kept.",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
    "clip": "opod_cone",
    "fps": 30
   }
@@ -15,6 +15,6 @@
  "model": "cone-door.glb",
  "skinnedClone": true,
  "props": {
-  "source": "/Ajioka/ADemo/opod.szp:opod_cone.mdl+opod_cone.key"
+  "source": "/Ajioka/ADemo/opod.szp:opod_cone.mdl"
  }
 }

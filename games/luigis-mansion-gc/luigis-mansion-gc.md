@@ -298,6 +298,17 @@ rides non-root joints, as the key demos taught earlier), so identity placement r
 the scenes — the 460-frame farewell runs from Gadd at his shack up the path to a
 frightened Luigi shutting the front door.
 
+The door vignettes and the Game Boy Horror ship as two more levels — 64 shots over just
+twelve GLBs, because the archives dedup hard by content (verified by hashing every member
+of all 56 door archives): one glove-hand model, one key model, eight unique door sets
+behind the fourteen `dNN` names (01=02=12, 03=11, 04=06, 09=13, 10=14), and swing/hand/key
+clips shared by content across doors within a variant (only the d03/d11 "normal open" pair
+differs). `SkinnedGLBMulti` bakes any number of `.key` clips into one GLB as named glTF
+animations, and each shot's script entry picks its clip — `door-demos` plays all four
+variants (`cnop` "can't open", `noop`, `hkop`/`osop` with the key) against each door, and
+`gbh-demos` plays the handheld's vignette plus the seven screen scenes (E. Gadd calling on
+the Game Boy Horror's display) off one model with seven clips.
+
 ## Part VI — exporters and the Studio
 
 `extract/cmd/lmtool` drives everything:

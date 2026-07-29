@@ -7,7 +7,7 @@
   {
    "id": "torch",
    "loop": "once",
-   "description": "The shot's .key clip: hermite channels on the 30 fps demo timeline, root motion kept.",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
    "clip": "torch",
    "fps": 30
   }
@@ -15,6 +15,6 @@
  "model": "gate-torch.glb",
  "skinnedClone": true,
  "props": {
-  "source": "/Ajioka/ADemo/oppm.szp:torch.mdl+torch.key"
+  "source": "/Ajioka/ADemo/oppm.szp:torch.mdl"
  }
 }

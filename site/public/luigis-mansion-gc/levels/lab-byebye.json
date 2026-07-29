@@ -23,7 +23,7 @@
    "pos": [0, 0, 0],
    "name": "Professor E. Gadd's lab",
    "props": {
-    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
    }
   },
   {
@@ -32,7 +32,7 @@
    "pos": [0, 0, 0],
    "name": "Professor E. Gadd",
    "props": {
-    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
    }
   },
   {
@@ -41,7 +41,7 @@
    "pos": [0, 0, 0],
    "name": "Luigi — the lab",
    "props": {
-    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
    }
   },
   {
@@ -50,7 +50,7 @@
    "pos": [0, 0, 0],
    "name": "The Poltergust",
    "props": {
-    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
    }
   },
   {
@@ -59,7 +59,7 @@
    "pos": [0, 0, 0],
    "name": "Flashlight cone (lab)",
    "props": {
-    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
    }
   },
   {
@@ -68,7 +68,7 @@
    "pos": [0, 0, 0],
    "name": "Luigi's flashlight (lab)",
    "props": {
-    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
    }
   },
   {
@@ -77,7 +77,7 @@
    "pos": [0, 0, 0],
    "name": "The lab brazier",
    "props": {
-    "placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced"
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
    }
   }
  ],

@@ -23,6 +23,7 @@ package main
 // values (the lightning rests invisible, the torch flame doesn't dance).
 
 import (
+	"crypto/sha256"
 	"embed"
 	"fmt"
 	"strings"
@@ -50,10 +51,15 @@ func shotBlocking(shotID string) *export.BlockingTable {
 	return t
 }
 
-// bind names one actor: the object asset it becomes, and the archive members
-// that build it. A binding with no key exports static.
+// bind names one actor in one shot: the object asset it becomes, the archive
+// members that build it, and the clip id this shot plays on that asset. An
+// empty clip defaults to the key's base name; a binding with no key exports
+// static. Several shots may bind the same asset with different keys — the
+// asset's GLB then carries every clip as its own glTF animation (the door
+// demos hang four shared swings off one door model).
 type bind struct {
 	asset, name, mdl, key string
+	clip                  string
 }
 
 // shotSpec is one shot: its archive and its actors, sets included, as
@@ -78,42 +84,42 @@ type cutsceneSpec struct {
 // introShots is the demo player's own shot order.
 var introShots = []shotSpec{
 	{"opwf", "The forest walk", []bind{
-		{"forest", "The dark forest", "opwf_bg.mdl", "opwf_bg.key"},
-		{"luigi-walk", "Luigi — the forest walk", "opwf_luigi.mdl", "opwf_luigi.key"},
-		{"cone-walk", "Flashlight cone (forest)", "opwf_cone.mdl", "opwf_cone.key"},
-		{"handlight-walk", "Luigi's flashlight (forest)", "opwf_handlight.mdl", "opwf_handlight.key"},
+		{"forest", "The dark forest", "opwf_bg.mdl", "opwf_bg.key", ""},
+		{"luigi-walk", "Luigi — the forest walk", "opwf_luigi.mdl", "opwf_luigi.key", ""},
+		{"cone-walk", "Flashlight cone (forest)", "opwf_cone.mdl", "opwf_cone.key", ""},
+		{"handlight-walk", "Luigi's flashlight (forest)", "opwf_handlight.mdl", "opwf_handlight.key", ""},
 	}},
 	{"oppm", "The map points the way", []bind{
-		{"mansion-set", "The mansion approach", "op_mansion.mdl", "op_mansion.key"},
-		{"bighand", "The pointing hand", "op_bighand.mdl", "oppm_hand.key"},
-		{"lightning", "Lightning bolt", "oppm_lightning.mdl", "oppm_lightning.key"},
-		{"gate-torch", "Gate torch", "torch.mdl", "torch.key"},
+		{"mansion-set", "The mansion approach", "op_mansion.mdl", "op_mansion.key", ""},
+		{"bighand", "The pointing hand", "op_bighand.mdl", "oppm_hand.key", ""},
+		{"lightning", "Lightning bolt", "oppm_lightning.mdl", "oppm_lightning.key", ""},
+		{"gate-torch", "Gate torch", "torch.mdl", "torch.key", ""},
 	}},
 	{"opeg", "At the gate", []bind{
-		{"mansion-set-gate", "The mansion — the gate opens", "op_mansion.mdl", "opeg_mansion.key"},
-		{"luigi-gate", "Luigi — at the gate", "entergate.mdl", "entergate.key"},
-		{"cone-gate", "Flashlight cone (gate)", "opeg_cone.mdl", "opeg_cone.key"},
-		{"handlight-gate", "Luigi's flashlight (gate)", "opeg_handlight.mdl", "opeg_handlight.key"},
-		{"gate-torch", "Gate torch", "torch.mdl", "torch.key"},
+		{"mansion-set-gate", "The mansion — the gate opens", "op_mansion.mdl", "opeg_mansion.key", ""},
+		{"luigi-gate", "Luigi — at the gate", "entergate.mdl", "entergate.key", ""},
+		{"cone-gate", "Flashlight cone (gate)", "opeg_cone.mdl", "opeg_cone.key", ""},
+		{"handlight-gate", "Luigi's flashlight (gate)", "opeg_handlight.mdl", "opeg_handlight.key", ""},
+		{"gate-torch", "Gate torch", "torch.mdl", "torch.key", ""},
 	}},
 	{"opcn", "The crow watches", []bind{
-		{"mansion-set", "The mansion approach", "op_mansion.mdl", "op_mansion.key"},
-		{"crow", "The crow", "karasu1.mdl", "karasu1.key"},
+		{"mansion-set", "The mansion approach", "op_mansion.mdl", "op_mansion.key", ""},
+		{"crow", "The crow", "karasu1.mdl", "karasu1.key", ""},
 	}},
 	{"opsu", "Up the steps", []bind{
-		{"mansion-set", "The mansion approach", "op_mansion.mdl", "op_mansion.key"},
-		{"luigi-stepup", "Luigi — up the steps", "entergate.mdl", "opsu_luigi.key"},
-		{"cone-stepup", "Flashlight cone (steps)", "opsu_cone.mdl", "opsu_cone.key"},
-		{"handlight-stepup", "Luigi's flashlight (steps)", "opsu_handlight.mdl", "opsu_handlight.key"},
+		{"mansion-set", "The mansion approach", "op_mansion.mdl", "op_mansion.key", ""},
+		{"luigi-stepup", "Luigi — up the steps", "entergate.mdl", "opsu_luigi.key", ""},
+		{"cone-stepup", "Flashlight cone (steps)", "opsu_cone.mdl", "opsu_cone.key", ""},
+		{"handlight-stepup", "Luigi's flashlight (steps)", "opsu_handlight.mdl", "opsu_handlight.key", ""},
 	}},
 	{"opdn", "The door knob", []bind{
-		{"mansion-set", "The mansion approach", "op_mansion.mdl", "op_mansion.key"},
+		{"mansion-set", "The mansion approach", "op_mansion.mdl", "op_mansion.key", ""},
 	}},
 	{"opod", "Opening the door", []bind{
-		{"mansion-set-door", "The mansion — the door opens", "op_mansion.mdl", "opod_mansion.key"},
-		{"luigi-opendoor", "Luigi — opening the door", "entergate.mdl", "opod_luigi.key"},
-		{"cone-door", "Flashlight cone (door)", "opod_cone.mdl", "opod_cone.key"},
-		{"handlight-door", "Luigi's flashlight (door)", "opod_handlight.mdl", "opod_handlight.key"},
+		{"mansion-set-door", "The mansion — the door opens", "op_mansion.mdl", "opod_mansion.key", ""},
+		{"luigi-opendoor", "Luigi — opening the door", "entergate.mdl", "opod_luigi.key", ""},
+		{"cone-door", "Flashlight cone (door)", "opod_cone.mdl", "opod_cone.key", ""},
+		{"handlight-door", "Luigi's flashlight (door)", "opod_handlight.mdl", "opod_handlight.key", ""},
 	}},
 }
 
@@ -136,13 +142,13 @@ var cutscenes = []cutsceneSpec{
 			"not yet decoded, so faces hold their rest shape.",
 		group: "Lab", flySpeed: 600,
 		shots: []shotSpec{{"dodb", "Bye-bye", []bind{
-			{"lab", "Professor E. Gadd's lab", "db_bg.mdl", "db_bg.key"},
-			{"lab-gadd", "Professor E. Gadd", "db_lohakase.mdl", "db_lohakase.key"},
-			{"lab-luigi", "Luigi — the lab", "db_luigi.mdl", "db_luigi.key"},
-			{"lab-poltergust", "The Poltergust", "db_sojiki.mdl", "db_sojiki.key"},
-			{"lab-cone", "Flashlight cone (lab)", "db_cone.mdl", "db_cone.key"},
-			{"lab-handlight", "Luigi's flashlight (lab)", "db_handlight.mdl", "db_handlight.key"},
-			{"lab-fire", "The lab brazier", "int02fir.mdl", "int02fir.key"},
+			{"lab", "Professor E. Gadd's lab", "db_bg.mdl", "db_bg.key", ""},
+			{"lab-gadd", "Professor E. Gadd", "db_lohakase.mdl", "db_lohakase.key", ""},
+			{"lab-luigi", "Luigi — the lab", "db_luigi.mdl", "db_luigi.key", ""},
+			{"lab-poltergust", "The Poltergust", "db_sojiki.mdl", "db_sojiki.key", ""},
+			{"lab-cone", "Flashlight cone (lab)", "db_cone.mdl", "db_cone.key", ""},
+			{"lab-handlight", "Luigi's flashlight (lab)", "db_handlight.mdl", "db_handlight.key", ""},
+			{"lab-fire", "The lab brazier", "int02fir.mdl", "int02fir.key", ""},
 		}}},
 	},
 	{
@@ -153,7 +159,7 @@ var cutscenes = []cutsceneSpec{
 			"decoded, so the bolt's materials hold their rest colour.",
 		group: "Lab", flySpeed: 600,
 		shots: []shotSpec{{"dotb", "The thunderbolt", []bind{
-			{"lab-storm", "The lab under the storm", "tb_bg.mdl", "tb_bg.key"},
+			{"lab-storm", "The lab under the storm", "tb_bg.mdl", "tb_bg.key", ""},
 		}}},
 	},
 }
@@ -164,8 +170,99 @@ func demoArc(shotID string) string {
 	return "/Ajioka/ADemo/" + shotID + ".szp"
 }
 
+// doorDemoSpec builds "The door demos": all 56 unlock vignettes as one
+// script. The archives dedup hard by content (verified by hashing every
+// member across the 56): ONE glove-hand model, ONE key model, and eight
+// unique door sets behind the fourteen dNN names (01=02=12, 03=11, 04=06,
+// 09=13, 10=14); the swing/hand/key clips are shared by content across
+// doors within a variant — only the "normal open" pair differs for the
+// d03/d11 doors (noop-b). Variants, in the archives' own words: cnop
+// ("can't open" — locked), noop (it opens), hkop (unlocked with the key),
+// osop (the second keyed unlock).
+func doorDemoSpec() cutsceneSpec {
+	doorOf := map[string]string{
+		"01": "01", "02": "01", "12": "01",
+		"03": "03", "11": "03",
+		"04": "04", "06": "04",
+		"05": "05", "07": "07", "08": "08",
+		"09": "09", "13": "09",
+		"10": "10", "14": "10",
+	}
+	noopB := map[string]bool{"03": true, "11": true}
+	variants := []struct {
+		prefix, suffix, label string
+		keyed                 bool
+	}{
+		{"co", "cnop", "locked", false},
+		{"no", "noop", "it opens", false},
+		{"ho", "hkop", "unlocked with the key", true},
+		{"oo", "osop", "unlocked with the key (B)", true},
+	}
+	var shots []shotSpec
+	for n := 1; n <= 14; n++ {
+		nn := fmt.Sprintf("%02d", n)
+		for _, v := range variants {
+			doorClip := v.suffix
+			if v.suffix == "noop" && noopB[nn] {
+				doorClip = "noop-b"
+			}
+			actors := []bind{
+				{"demo-door-" + doorOf[nn], "Door set " + doorOf[nn], "d" + nn + "_mdl.mdl", "d" + nn + "_" + v.suffix + ".key", doorClip},
+				{"demo-hand", "Luigi's glove", "hr_mdl.mdl", "hr_" + v.suffix + ".key", doorClip},
+			}
+			if v.keyed {
+				actors = append(actors, bind{"demo-key", "The key", "k_mdl.mdl", "k_" + v.suffix + ".key", v.suffix})
+			}
+			shots = append(shots, shotSpec{
+				id:     v.prefix + "demo" + nn,
+				name:   fmt.Sprintf("Door %s — %s", nn, v.label),
+				actors: actors,
+			})
+		}
+	}
+	return cutsceneSpec{
+		levelID: "door-demos", levelName: "The door demos",
+		scriptID: "doors", scriptName: "The door demos",
+		scriptDesc: "All 56 door-unlock vignettes (co/no/ho/oo-demo01..14): Luigi's gloved hand at each of " +
+			"the mansion's fourteen door sets — rattling the locked door, opening it, or turning one of the " +
+			"two key animations. Eight unique door models and shared swing/hand/key clips hide behind the " +
+			"fourteen names; each shot's camera is its archive's own .scd/.sco pair.",
+		group: "Door demos", flySpeed: 300,
+		shots: shots,
+	}
+}
+
+// gbhDemoSpec builds "The Game Boy Horror": the handheld's own demo plus the
+// seven scene clips that share one model.
+func gbhDemoSpec() cutsceneSpec {
+	shots := []shotSpec{
+		{"gameboy", "The Game Boy Horror", []bind{
+			{"demo-gbh", "The Game Boy Horror", "gb_demo.mdl", "gb_demo.key", ""},
+		}},
+	}
+	for n := 1; n <= 7; n++ {
+		shots = append(shots, shotSpec{
+			id:   fmt.Sprintf("gbdemo%02d", n),
+			name: fmt.Sprintf("Scene %d", n),
+			actors: []bind{
+				{"demo-gbh-scenes", "Game Boy Horror scenes", "gbdemo.mdl", fmt.Sprintf("scene%02d.key", n), fmt.Sprintf("scene%02d", n)},
+			},
+		})
+	}
+	return cutsceneSpec{
+		levelID: "gbh-demos", levelName: "The Game Boy Horror",
+		scriptID: "gbh", scriptName: "The Game Boy Horror",
+		scriptDesc: "The Game Boy Horror demos: the handheld's own vignette (gameboy.szp) and the seven " +
+			"scene clips of gbdemo01..07, which share one model with seven .key animations. The screen's " +
+			"texture-pattern flipbook (.txp) is not yet decoded, so the display holds its rest frame.",
+		group: "Game Boy Horror", flySpeed: 300,
+		shots: shots,
+	}
+}
+
 func exportIntro(ctx *cli.Context, src *export.Source, doObjects, doLevels bool) error {
-	for _, cs := range cutscenes {
+	all := append(append([]cutsceneSpec{}, cutscenes...), doorDemoSpec(), gbhDemoSpec())
+	for _, cs := range all {
 		if err := exportCutscene(ctx, src, cs, doObjects, doLevels); err != nil {
 			return err
 		}
@@ -182,7 +279,23 @@ func exportCutscene(ctx *cli.Context, src *export.Source, cs cutsceneSpec, doObj
 	}
 	script := &schema.Script{Name: cs.scriptName, FPS: 30}
 
-	built := map[string]string{}    // asset id → clip id (dedup across shots)
+	type regClip struct {
+		id      string
+		files   []lm.RARCFile
+		keyName string
+		hash    [32]byte
+	}
+	type regAsset struct {
+		name     string
+		mdl      string
+		files    []lm.RARCFile // first registration's archive: model + .sls source
+		clips    []regClip
+		clipIdx  map[string]int
+		blocking *export.Blocking
+		src      string
+	}
+	assets := map[string]*regAsset{}
+	var assetOrder []string
 	placementOf := map[string]int{} // asset id → placement id
 	nextPlacement := 0
 	haveCamera := false
@@ -254,52 +367,37 @@ func exportCutscene(ctx *cli.Context, src *export.Source, cs cutsceneSpec, doObj
 			}
 		}
 		for _, a := range shot.actors {
-			clipID, seen := built[a.asset]
-			if !seen && doObjects {
-				glbPath, err := b.Path("objects", a.asset+".glb")
-				if err != nil {
-					return err
+			ra, seen := assets[a.asset]
+			if !seen {
+				ra = &regAsset{name: a.name, mdl: a.mdl, files: files, clipIdx: map[string]int{},
+					src: arcPath + ":" + a.mdl}
+				if blocking != nil {
+					ra.blocking = blocking.Actors[a.mdl+"+"+a.key]
 				}
-				var metas []schema.Animation
-				if a.key != "" && export.Member(files, a.key) != nil {
-					m, key, err := export.LoadSkinned(files, a.mdl, a.key)
-					if err != nil {
-						return fmt.Errorf("%s %s+%s: %w", shot.id, a.mdl, a.key, err)
-					}
+				assets[a.asset] = ra
+				assetOrder = append(assetOrder, a.asset)
+			}
+			clipID := ""
+			if a.key != "" && export.Member(files, a.key) != nil {
+				clipID = a.clip
+				if clipID == "" {
 					clipID = trimExt(a.key)
-					var bl *export.Blocking
-					if blocking != nil {
-						bl = blocking.Actors[a.mdl+"+"+a.key]
-					}
-					if err := export.SkinnedGLB(m, key, glbPath, a.asset, clipID, false, bl); err != nil {
-						return fmt.Errorf("%s %s: %w", shot.id, a.mdl, err)
-					}
-					metas = []schema.Animation{{
-						ID: clipID, Clip: clipID, FPS: 30, Loop: "once",
-						Description: "The shot's .key clip: hermite channels on the 30 fps demo timeline, root motion kept.",
-					}}
-				} else {
-					mem := export.Member(files, a.mdl)
-					if mem == nil {
-						return fmt.Errorf("%s: no member %s", shot.id, a.mdl)
-					}
-					m, err := lm.ParseMDL(mem.Data)
-					if err != nil {
-						return fmt.Errorf("%s %s: %w", shot.id, a.mdl, err)
-					}
-					if err := export.StaticGLB(m, glbPath, a.asset); err != nil {
-						return fmt.Errorf("%s %s: %w", shot.id, a.mdl, err)
-					}
 				}
-				b.AddObject(schema.Asset{ID: a.asset, Name: a.name, Group: cs.group}, &schema.Object{
-					Type: schema.ObjectModel3D, Name: a.name, Model: a.asset + ".glb",
-					SkinnedClone: clipID != "",
-					Animations:   metas,
-					Props:        map[string]any{"source": arcPath + ":" + a.mdl + "+" + a.key},
-				})
-				built[a.asset] = clipID
-			} else if seen {
-				clipID = built[a.asset]
+				sum := sha256.Sum256(export.Member(files, a.key).Data)
+				if ci, ok := ra.clipIdx[clipID]; ok {
+					// The same clip registered from another shot's archive is
+					// normally the same bytes (the door swings are shared by
+					// content across all fourteen archives). A mismatch keeps
+					// the first registration — the gate torch ships slightly
+					// different keys in oppm and opeg, and the asset-id dedup
+					// deliberately shares one object across those shots.
+					if ra.clips[ci].hash != sum {
+						ctx.Logf("%s: asset %s clip %s differs from earlier registration; keeping the first", shot.id, a.asset, clipID)
+					}
+				} else {
+					ra.clipIdx[clipID] = len(ra.clips)
+					ra.clips = append(ra.clips, regClip{id: clipID, files: files, keyName: a.key, hash: sum})
+				}
 			}
 			if doObjects && doLevels {
 				pid, ok := placementOf[a.asset]
@@ -313,7 +411,7 @@ func exportCutscene(ctx *cli.Context, src *export.Source, cs cutsceneSpec, doObj
 						Pos:    []float64{0, 0, 0},
 						Name:   a.name,
 						Props: map[string]any{
-							"placement": "the sets are modelled in world space; character placement matrices live in the demo player and are not yet traced",
+							"placement": "actors play in the demo world's own space; blocking/<shot>.json carries any solved placement",
 						},
 					})
 				}
@@ -329,6 +427,60 @@ func exportCutscene(ctx *cli.Context, src *export.Source, cs cutsceneSpec, doObj
 		}
 		ctx.Progress("levels", si+1, len(cs.shots),
 			fmt.Sprintf("%s %s: %d frames, %d actors", cs.levelID, shot.id, sh.Frames, len(sh.Actors)))
+	}
+
+	// --- build the assets: every registered clip becomes one glTF animation
+	if doObjects {
+		for _, id := range assetOrder {
+			ra := assets[id]
+			glbPath, err := b.Path("objects", id+".glb")
+			if err != nil {
+				return err
+			}
+			var metas []schema.Animation
+			if len(ra.clips) > 0 {
+				m, key0, err := export.LoadSkinned(ra.files, ra.mdl, ra.clips[0].keyName)
+				if err != nil {
+					return fmt.Errorf("%s %s: %w", cs.levelID, ra.mdl, err)
+				}
+				clips := []export.SkinClip{{ID: ra.clips[0].id, Key: key0}}
+				for _, rc := range ra.clips[1:] {
+					mem := export.Member(rc.files, rc.keyName)
+					key, err := lm.ParseKey(mem.Data)
+					if err != nil {
+						return fmt.Errorf("%s %s: %w", cs.levelID, rc.keyName, err)
+					}
+					clips = append(clips, export.SkinClip{ID: rc.id, Key: key})
+				}
+				if err := export.SkinnedGLBMulti(m, clips, glbPath, id, false, ra.blocking); err != nil {
+					return fmt.Errorf("%s %s: %w", cs.levelID, ra.mdl, err)
+				}
+				for _, c := range clips {
+					metas = append(metas, schema.Animation{
+						ID: c.ID, Clip: c.ID, FPS: 30, Loop: "once",
+						Description: "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
+					})
+				}
+			} else {
+				mem := export.Member(ra.files, ra.mdl)
+				if mem == nil {
+					return fmt.Errorf("%s: no member %s", cs.levelID, ra.mdl)
+				}
+				m, err := lm.ParseMDL(mem.Data)
+				if err != nil {
+					return fmt.Errorf("%s %s: %w", cs.levelID, ra.mdl, err)
+				}
+				if err := export.StaticGLB(m, glbPath, id); err != nil {
+					return fmt.Errorf("%s %s: %w", cs.levelID, ra.mdl, err)
+				}
+			}
+			b.AddObject(schema.Asset{ID: id, Name: ra.name, Group: cs.group}, &schema.Object{
+				Type: schema.ObjectModel3D, Name: ra.name, Model: id + ".glb",
+				SkinnedClone: len(ra.clips) > 0,
+				Animations:   metas,
+				Props:        map[string]any{"source": ra.src},
+			})
+		}
 	}
 
 	if !doLevels || len(script.Shots) == 0 {

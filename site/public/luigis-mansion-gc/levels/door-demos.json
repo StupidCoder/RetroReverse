@@ -1,0 +1,119 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [78.9891128540039, 195.70960998535156, -212.2451629638672],
+  "target": [-40.45270538330078, 154.7482147216797, -63.44175338745117],
+  "fov": 50,
+  "near": 5,
+  "far": 200000,
+  "fly": {
+   "speed": 600
+  }
+ },
+ "scene": {
+  "layers": null
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "demo-door-01",
+   "pos": [0, 0, 0],
+   "name": "Door set 01",
+   "props": {
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
+   }
+  },
+  {
+   "id": 1,
+   "object": "demo-hand",
+   "pos": [0, 0, 0],
+   "name": "Luigi's glove",
+   "props": {
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
+   }
+  },
+  {
+   "id": 2,
+   "object": "demo-key",
+   "pos": [0, 0, 0],
+   "name": "The key",
+   "props": {
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
+   }
+  },
+  {
+   "id": 3,
+   "object": "demo-door-03",
+   "pos": [0, 0, 0],
+   "name": "Door set 03",
+   "props": {
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
+   }
+  },
+  {
+   "id": 4,
+   "object": "demo-door-04",
+   "pos": [0, 0, 0],
+   "name": "Door set 04",
+   "props": {
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
+   }
+  },
+  {
+   "id": 5,
+   "object": "demo-door-05",
+   "pos": [0, 0, 0],
+   "name": "Door set 05",
+   "props": {
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
+   }
+  },
+  {
+   "id": 6,
+   "object": "demo-door-07",
+   "pos": [0, 0, 0],
+   "name": "Door set 07",
+   "props": {
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
+   }
+  },
+  {
+   "id": 7,
+   "object": "demo-door-08",
+   "pos": [0, 0, 0],
+   "name": "Door set 08",
+   "props": {
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
+   }
+  },
+  {
+   "id": 8,
+   "object": "demo-door-09",
+   "pos": [0, 0, 0],
+   "name": "Door set 09",
+   "props": {
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
+   }
+  },
+  {
+   "id": 9,
+   "object": "demo-door-10",
+   "pos": [0, 0, 0],
+   "name": "Door set 10",
+   "props": {
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
+   }
+  }
+ ],
+ "scripts": [
+  {
+   "id": "doors",
+   "name": "The door demos",
+   "file": "door-demos/doors.json",
+   "description": "All 56 door-unlock vignettes (co/no/ho/oo-demo01..14): Luigi's gloved hand at each of the mansion's fourteen door sets — rattling the locked door, opening it, or turning one of the two key animations. Eight unique door models and shared swing/hand/key clips hide behind the fourteen names; each shot's camera is its archive's own .scd/.sco pair."
+  }
+ ]
+}

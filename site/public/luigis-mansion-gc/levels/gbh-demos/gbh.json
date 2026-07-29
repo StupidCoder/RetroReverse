@@ -1,0 +1,144 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "name": "The Game Boy Horror",
+ "fps": 30,
+ "shots": [
+  {
+   "id": "gameboy",
+   "name": "The Game Boy Horror",
+   "frames": 23,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 0,
+     "clip": "gb_demo"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/gameboy.json"
+   }
+  },
+  {
+   "id": "gbdemo01",
+   "name": "Scene 1",
+   "frames": 40,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 1,
+     "clip": "scene01"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/gbdemo01.json"
+   }
+  },
+  {
+   "id": "gbdemo02",
+   "name": "Scene 2",
+   "frames": 79,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 1,
+     "clip": "scene02"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/gbdemo02.json"
+   }
+  },
+  {
+   "id": "gbdemo03",
+   "name": "Scene 3",
+   "frames": 40,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 1,
+     "clip": "scene03"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/gbdemo03.json"
+   }
+  },
+  {
+   "id": "gbdemo04",
+   "name": "Scene 4",
+   "frames": 30,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 1,
+     "clip": "scene04"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/gbdemo04.json"
+   }
+  },
+  {
+   "id": "gbdemo05",
+   "name": "Scene 5",
+   "frames": 40,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 1,
+     "clip": "scene05"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/gbdemo05.json"
+   }
+  },
+  {
+   "id": "gbdemo06",
+   "name": "Scene 6",
+   "frames": 40,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 1,
+     "clip": "scene06"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/gbdemo06.json"
+   }
+  },
+  {
+   "id": "gbdemo07",
+   "name": "Scene 7",
+   "frames": 50,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 1,
+     "clip": "scene07"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/gbdemo07.json"
+   }
+  }
+ ]
+}

@@ -1,0 +1,47 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [-0.0007660000119358301, 44.88179016113281, -54.528343200683594],
+  "target": [-0.04066099971532822, -0.26208099722862244, -0.4621489942073822],
+  "fov": 50,
+  "near": 5,
+  "far": 200000,
+  "fly": {
+   "speed": 600
+  }
+ },
+ "scene": {
+  "layers": null
+ },
+ "placements": [
+  {
+   "id": 0,
+   "object": "demo-gbh",
+   "pos": [0, 0, 0],
+   "name": "The Game Boy Horror",
+   "props": {
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
+   }
+  },
+  {
+   "id": 1,
+   "object": "demo-gbh-scenes",
+   "pos": [0, 0, 0],
+   "name": "Game Boy Horror scenes",
+   "props": {
+    "placement": "actors play in the demo world's own space; blocking/\u003cshot\u003e.json carries any solved placement"
+   }
+  }
+ ],
+ "scripts": [
+  {
+   "id": "gbh",
+   "name": "The Game Boy Horror",
+   "file": "gbh-demos/gbh.json",
+   "description": "The Game Boy Horror demos: the handheld's own vignette (gameboy.szp) and the seven scene clips of gbdemo01..07, which share one model with seven .key animations. The screen's texture-pattern flipbook (.txp) is not yet decoded, so the display holds its rest frame."
+  }
+ ]
+}

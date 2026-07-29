@@ -7,7 +7,7 @@
   {
    "id": "opod_mansion",
    "loop": "once",
-   "description": "The shot's .key clip: hermite channels on the 30 fps demo timeline, root motion kept.",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
    "clip": "opod_mansion",
    "fps": 30
   }
@@ -15,6 +15,6 @@
  "model": "mansion-set-door.glb",
  "skinnedClone": true,
  "props": {
-  "source": "/Ajioka/ADemo/opod.szp:op_mansion.mdl+opod_mansion.key"
+  "source": "/Ajioka/ADemo/opod.szp:op_mansion.mdl"
  }
 }

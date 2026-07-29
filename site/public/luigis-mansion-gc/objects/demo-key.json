@@ -1,0 +1,27 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "The key",
+ "animations": [
+  {
+   "id": "hkop",
+   "loop": "once",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
+   "clip": "hkop",
+   "fps": 30
+  },
+  {
+   "id": "osop",
+   "loop": "once",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
+   "clip": "osop",
+   "fps": 30
+  }
+ ],
+ "model": "demo-key.glb",
+ "skinnedClone": true,
+ "props": {
+  "source": "/Ajioka/ADemo/hodemo01.szp:k_mdl.mdl"
+ }
+}

@@ -7,7 +7,7 @@
   {
    "id": "opod_handlight",
    "loop": "once",
-   "description": "The shot's .key clip: hermite channels on the 30 fps demo timeline, root motion kept.",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
    "clip": "opod_handlight",
    "fps": 30
   }
@@ -15,6 +15,6 @@
  "model": "handlight-door.glb",
  "skinnedClone": true,
  "props": {
-  "source": "/Ajioka/ADemo/opod.szp:opod_handlight.mdl+opod_handlight.key"
+  "source": "/Ajioka/ADemo/opod.szp:opod_handlight.mdl"
  }
 }

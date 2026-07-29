@@ -1,0 +1,1296 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "name": "The door demos",
+ "fps": 30,
+ "shots": [
+  {
+   "id": "codemo01",
+   "name": "Door 01 — locked",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 0,
+     "clip": "cnop"
+    },
+    {
+     "placement": 1,
+     "clip": "cnop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/codemo01.json"
+   }
+  },
+  {
+   "id": "nodemo01",
+   "name": "Door 01 — it opens",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 0,
+     "clip": "noop"
+    },
+    {
+     "placement": 1,
+     "clip": "noop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/nodemo01.json"
+   }
+  },
+  {
+   "id": "hodemo01",
+   "name": "Door 01 — unlocked with the key",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 0,
+     "clip": "hkop"
+    },
+    {
+     "placement": 1,
+     "clip": "hkop"
+    },
+    {
+     "placement": 2,
+     "clip": "hkop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/hodemo01.json"
+   }
+  },
+  {
+   "id": "oodemo01",
+   "name": "Door 01 — unlocked with the key (B)",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 0,
+     "clip": "osop"
+    },
+    {
+     "placement": 1,
+     "clip": "osop"
+    },
+    {
+     "placement": 2,
+     "clip": "osop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/oodemo01.json"
+   }
+  },
+  {
+   "id": "codemo02",
+   "name": "Door 02 — locked",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 0,
+     "clip": "cnop"
+    },
+    {
+     "placement": 1,
+     "clip": "cnop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/codemo02.json"
+   }
+  },
+  {
+   "id": "nodemo02",
+   "name": "Door 02 — it opens",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 0,
+     "clip": "noop"
+    },
+    {
+     "placement": 1,
+     "clip": "noop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/nodemo02.json"
+   }
+  },
+  {
+   "id": "hodemo02",
+   "name": "Door 02 — unlocked with the key",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 0,
+     "clip": "hkop"
+    },
+    {
+     "placement": 1,
+     "clip": "hkop"
+    },
+    {
+     "placement": 2,
+     "clip": "hkop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/hodemo02.json"
+   }
+  },
+  {
+   "id": "oodemo02",
+   "name": "Door 02 — unlocked with the key (B)",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 0,
+     "clip": "osop"
+    },
+    {
+     "placement": 1,
+     "clip": "osop"
+    },
+    {
+     "placement": 2,
+     "clip": "osop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/oodemo02.json"
+   }
+  },
+  {
+   "id": "codemo03",
+   "name": "Door 03 — locked",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 3,
+     "clip": "cnop"
+    },
+    {
+     "placement": 1,
+     "clip": "cnop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/codemo03.json"
+   }
+  },
+  {
+   "id": "nodemo03",
+   "name": "Door 03 — it opens",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 3,
+     "clip": "noop-b"
+    },
+    {
+     "placement": 1,
+     "clip": "noop-b"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/nodemo03.json"
+   }
+  },
+  {
+   "id": "hodemo03",
+   "name": "Door 03 — unlocked with the key",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 3,
+     "clip": "hkop"
+    },
+    {
+     "placement": 1,
+     "clip": "hkop"
+    },
+    {
+     "placement": 2,
+     "clip": "hkop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/hodemo03.json"
+   }
+  },
+  {
+   "id": "oodemo03",
+   "name": "Door 03 — unlocked with the key (B)",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 3,
+     "clip": "osop"
+    },
+    {
+     "placement": 1,
+     "clip": "osop"
+    },
+    {
+     "placement": 2,
+     "clip": "osop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/oodemo03.json"
+   }
+  },
+  {
+   "id": "codemo04",
+   "name": "Door 04 — locked",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 4,
+     "clip": "cnop"
+    },
+    {
+     "placement": 1,
+     "clip": "cnop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/codemo04.json"
+   }
+  },
+  {
+   "id": "nodemo04",
+   "name": "Door 04 — it opens",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 4,
+     "clip": "noop"
+    },
+    {
+     "placement": 1,
+     "clip": "noop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/nodemo04.json"
+   }
+  },
+  {
+   "id": "hodemo04",
+   "name": "Door 04 — unlocked with the key",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 4,
+     "clip": "hkop"
+    },
+    {
+     "placement": 1,
+     "clip": "hkop"
+    },
+    {
+     "placement": 2,
+     "clip": "hkop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/hodemo04.json"
+   }
+  },
+  {
+   "id": "oodemo04",
+   "name": "Door 04 — unlocked with the key (B)",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 4,
+     "clip": "osop"
+    },
+    {
+     "placement": 1,
+     "clip": "osop"
+    },
+    {
+     "placement": 2,
+     "clip": "osop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/oodemo04.json"
+   }
+  },
+  {
+   "id": "codemo05",
+   "name": "Door 05 — locked",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 5,
+     "clip": "cnop"
+    },
+    {
+     "placement": 1,
+     "clip": "cnop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/codemo05.json"
+   }
+  },
+  {
+   "id": "nodemo05",
+   "name": "Door 05 — it opens",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 5,
+     "clip": "noop"
+    },
+    {
+     "placement": 1,
+     "clip": "noop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/nodemo05.json"
+   }
+  },
+  {
+   "id": "hodemo05",
+   "name": "Door 05 — unlocked with the key",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 5,
+     "clip": "hkop"
+    },
+    {
+     "placement": 1,
+     "clip": "hkop"
+    },
+    {
+     "placement": 2,
+     "clip": "hkop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/hodemo05.json"
+   }
+  },
+  {
+   "id": "oodemo05",
+   "name": "Door 05 — unlocked with the key (B)",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 5,
+     "clip": "osop"
+    },
+    {
+     "placement": 1,
+     "clip": "osop"
+    },
+    {
+     "placement": 2,
+     "clip": "osop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/oodemo05.json"
+   }
+  },
+  {
+   "id": "codemo06",
+   "name": "Door 06 — locked",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 4,
+     "clip": "cnop"
+    },
+    {
+     "placement": 1,
+     "clip": "cnop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/codemo06.json"
+   }
+  },
+  {
+   "id": "nodemo06",
+   "name": "Door 06 — it opens",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 4,
+     "clip": "noop"
+    },
+    {
+     "placement": 1,
+     "clip": "noop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/nodemo06.json"
+   }
+  },
+  {
+   "id": "hodemo06",
+   "name": "Door 06 — unlocked with the key",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 4,
+     "clip": "hkop"
+    },
+    {
+     "placement": 1,
+     "clip": "hkop"
+    },
+    {
+     "placement": 2,
+     "clip": "hkop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/hodemo06.json"
+   }
+  },
+  {
+   "id": "oodemo06",
+   "name": "Door 06 — unlocked with the key (B)",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 4,
+     "clip": "osop"
+    },
+    {
+     "placement": 1,
+     "clip": "osop"
+    },
+    {
+     "placement": 2,
+     "clip": "osop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/oodemo06.json"
+   }
+  },
+  {
+   "id": "codemo07",
+   "name": "Door 07 — locked",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 6,
+     "clip": "cnop"
+    },
+    {
+     "placement": 1,
+     "clip": "cnop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/codemo07.json"
+   }
+  },
+  {
+   "id": "nodemo07",
+   "name": "Door 07 — it opens",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 6,
+     "clip": "noop"
+    },
+    {
+     "placement": 1,
+     "clip": "noop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/nodemo07.json"
+   }
+  },
+  {
+   "id": "hodemo07",
+   "name": "Door 07 — unlocked with the key",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 6,
+     "clip": "hkop"
+    },
+    {
+     "placement": 1,
+     "clip": "hkop"
+    },
+    {
+     "placement": 2,
+     "clip": "hkop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/hodemo07.json"
+   }
+  },
+  {
+   "id": "oodemo07",
+   "name": "Door 07 — unlocked with the key (B)",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 6,
+     "clip": "osop"
+    },
+    {
+     "placement": 1,
+     "clip": "osop"
+    },
+    {
+     "placement": 2,
+     "clip": "osop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/oodemo07.json"
+   }
+  },
+  {
+   "id": "codemo08",
+   "name": "Door 08 — locked",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 7,
+     "clip": "cnop"
+    },
+    {
+     "placement": 1,
+     "clip": "cnop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/codemo08.json"
+   }
+  },
+  {
+   "id": "nodemo08",
+   "name": "Door 08 — it opens",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 7,
+     "clip": "noop"
+    },
+    {
+     "placement": 1,
+     "clip": "noop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/nodemo08.json"
+   }
+  },
+  {
+   "id": "hodemo08",
+   "name": "Door 08 — unlocked with the key",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 7,
+     "clip": "hkop"
+    },
+    {
+     "placement": 1,
+     "clip": "hkop"
+    },
+    {
+     "placement": 2,
+     "clip": "hkop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/hodemo08.json"
+   }
+  },
+  {
+   "id": "oodemo08",
+   "name": "Door 08 — unlocked with the key (B)",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 7,
+     "clip": "osop"
+    },
+    {
+     "placement": 1,
+     "clip": "osop"
+    },
+    {
+     "placement": 2,
+     "clip": "osop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/oodemo08.json"
+   }
+  },
+  {
+   "id": "codemo09",
+   "name": "Door 09 — locked",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 8,
+     "clip": "cnop"
+    },
+    {
+     "placement": 1,
+     "clip": "cnop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/codemo09.json"
+   }
+  },
+  {
+   "id": "nodemo09",
+   "name": "Door 09 — it opens",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 8,
+     "clip": "noop"
+    },
+    {
+     "placement": 1,
+     "clip": "noop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/nodemo09.json"
+   }
+  },
+  {
+   "id": "hodemo09",
+   "name": "Door 09 — unlocked with the key",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 8,
+     "clip": "hkop"
+    },
+    {
+     "placement": 1,
+     "clip": "hkop"
+    },
+    {
+     "placement": 2,
+     "clip": "hkop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/hodemo09.json"
+   }
+  },
+  {
+   "id": "oodemo09",
+   "name": "Door 09 — unlocked with the key (B)",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 8,
+     "clip": "osop"
+    },
+    {
+     "placement": 1,
+     "clip": "osop"
+    },
+    {
+     "placement": 2,
+     "clip": "osop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/oodemo09.json"
+   }
+  },
+  {
+   "id": "codemo10",
+   "name": "Door 10 — locked",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 9,
+     "clip": "cnop"
+    },
+    {
+     "placement": 1,
+     "clip": "cnop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/codemo10.json"
+   }
+  },
+  {
+   "id": "nodemo10",
+   "name": "Door 10 — it opens",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 9,
+     "clip": "noop"
+    },
+    {
+     "placement": 1,
+     "clip": "noop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/nodemo10.json"
+   }
+  },
+  {
+   "id": "hodemo10",
+   "name": "Door 10 — unlocked with the key",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 9,
+     "clip": "hkop"
+    },
+    {
+     "placement": 1,
+     "clip": "hkop"
+    },
+    {
+     "placement": 2,
+     "clip": "hkop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/hodemo10.json"
+   }
+  },
+  {
+   "id": "oodemo10",
+   "name": "Door 10 — unlocked with the key (B)",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 9,
+     "clip": "osop"
+    },
+    {
+     "placement": 1,
+     "clip": "osop"
+    },
+    {
+     "placement": 2,
+     "clip": "osop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/oodemo10.json"
+   }
+  },
+  {
+   "id": "codemo11",
+   "name": "Door 11 — locked",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 3,
+     "clip": "cnop"
+    },
+    {
+     "placement": 1,
+     "clip": "cnop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/codemo11.json"
+   }
+  },
+  {
+   "id": "nodemo11",
+   "name": "Door 11 — it opens",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 3,
+     "clip": "noop-b"
+    },
+    {
+     "placement": 1,
+     "clip": "noop-b"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/nodemo11.json"
+   }
+  },
+  {
+   "id": "hodemo11",
+   "name": "Door 11 — unlocked with the key",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 3,
+     "clip": "hkop"
+    },
+    {
+     "placement": 1,
+     "clip": "hkop"
+    },
+    {
+     "placement": 2,
+     "clip": "hkop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/hodemo11.json"
+   }
+  },
+  {
+   "id": "oodemo11",
+   "name": "Door 11 — unlocked with the key (B)",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 3,
+     "clip": "osop"
+    },
+    {
+     "placement": 1,
+     "clip": "osop"
+    },
+    {
+     "placement": 2,
+     "clip": "osop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/oodemo11.json"
+   }
+  },
+  {
+   "id": "codemo12",
+   "name": "Door 12 — locked",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 0,
+     "clip": "cnop"
+    },
+    {
+     "placement": 1,
+     "clip": "cnop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/codemo12.json"
+   }
+  },
+  {
+   "id": "nodemo12",
+   "name": "Door 12 — it opens",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 0,
+     "clip": "noop"
+    },
+    {
+     "placement": 1,
+     "clip": "noop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/nodemo12.json"
+   }
+  },
+  {
+   "id": "hodemo12",
+   "name": "Door 12 — unlocked with the key",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 0,
+     "clip": "hkop"
+    },
+    {
+     "placement": 1,
+     "clip": "hkop"
+    },
+    {
+     "placement": 2,
+     "clip": "hkop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/hodemo12.json"
+   }
+  },
+  {
+   "id": "oodemo12",
+   "name": "Door 12 — unlocked with the key (B)",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 0,
+     "clip": "osop"
+    },
+    {
+     "placement": 1,
+     "clip": "osop"
+    },
+    {
+     "placement": 2,
+     "clip": "osop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/oodemo12.json"
+   }
+  },
+  {
+   "id": "codemo13",
+   "name": "Door 13 — locked",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 8,
+     "clip": "cnop"
+    },
+    {
+     "placement": 1,
+     "clip": "cnop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/codemo13.json"
+   }
+  },
+  {
+   "id": "nodemo13",
+   "name": "Door 13 — it opens",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 8,
+     "clip": "noop"
+    },
+    {
+     "placement": 1,
+     "clip": "noop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/nodemo13.json"
+   }
+  },
+  {
+   "id": "hodemo13",
+   "name": "Door 13 — unlocked with the key",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 8,
+     "clip": "hkop"
+    },
+    {
+     "placement": 1,
+     "clip": "hkop"
+    },
+    {
+     "placement": 2,
+     "clip": "hkop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/hodemo13.json"
+   }
+  },
+  {
+   "id": "oodemo13",
+   "name": "Door 13 — unlocked with the key (B)",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 8,
+     "clip": "osop"
+    },
+    {
+     "placement": 1,
+     "clip": "osop"
+    },
+    {
+     "placement": 2,
+     "clip": "osop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/oodemo13.json"
+   }
+  },
+  {
+   "id": "codemo14",
+   "name": "Door 14 — locked",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 9,
+     "clip": "cnop"
+    },
+    {
+     "placement": 1,
+     "clip": "cnop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/codemo14.json"
+   }
+  },
+  {
+   "id": "nodemo14",
+   "name": "Door 14 — it opens",
+   "frames": 70,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 9,
+     "clip": "noop"
+    },
+    {
+     "placement": 1,
+     "clip": "noop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/nodemo14.json"
+   }
+  },
+  {
+   "id": "hodemo14",
+   "name": "Door 14 — unlocked with the key",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 9,
+     "clip": "hkop"
+    },
+    {
+     "placement": 1,
+     "clip": "hkop"
+    },
+    {
+     "placement": 2,
+     "clip": "hkop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/hodemo14.json"
+   }
+  },
+  {
+   "id": "oodemo14",
+   "name": "Door 14 — unlocked with the key (B)",
+   "frames": 420,
+   "layers": null,
+   "actors": [
+    {
+     "placement": 9,
+     "clip": "osop"
+    },
+    {
+     "placement": 1,
+     "clip": "osop"
+    },
+    {
+     "placement": 2,
+     "clip": "osop"
+    }
+   ],
+   "camera": {
+    "near": 1,
+    "far": 327680,
+    "trackFile": "cameras/oodemo14.json"
+   }
+  }
+ ]
+}

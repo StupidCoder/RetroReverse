@@ -1,0 +1,20 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "The Game Boy Horror",
+ "animations": [
+  {
+   "id": "gb_demo",
+   "loop": "once",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
+   "clip": "gb_demo",
+   "fps": 30
+  }
+ ],
+ "model": "demo-gbh.glb",
+ "skinnedClone": true,
+ "props": {
+  "source": "/Ajioka/ADemo/gameboy.szp:gb_demo.mdl"
+ }
+}

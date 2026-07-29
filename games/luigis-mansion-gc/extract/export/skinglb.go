@@ -158,15 +158,36 @@ func (w *binWriter) addIndices(idx []uint32) int {
 	return w.addAccessor(vi, 5125, "SCALAR", len(idx), nil)
 }
 
-// SkinnedGLB writes the model with its animation clip. With inPlace, the root
+// SkinClip is one .key clip to bake into a skinned GLB as a named glTF
+// animation. The door demos hang four shared swing clips off one door model;
+// the Game Boy Horror scenes hang seven.
+type SkinClip struct {
+	ID  string
+	Key *lm.Key
+}
+
+// SkinnedGLB writes the model with one animation clip. With inPlace, the root
 // node's x/z translation is zeroed, so a clip whose root walks across the set
 // stays at the origin under the viewer's camera (the vertical bob is kept).
 // blocking, when given, is the demo player's captured per-frame placement
 // A(f): it animates the GLB's wrapper node inside the same clip.
 func SkinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace bool, blocking *Blocking) error {
-	if len(key.Tracks) != len(m.Nodes) {
-		return fmt.Errorf("key has %d tracks for %d nodes", len(key.Tracks), len(m.Nodes))
+	return SkinnedGLBMulti(m, []SkinClip{{ID: clipName, Key: key}}, path, name, inPlace, blocking)
+}
+
+// SkinnedGLBMulti writes the model with any number of clips, each a named
+// glTF animation over the shared joint hierarchy. The rest pose (and the
+// bind-space frustum bounds) comes from the first clip's first frame.
+func SkinnedGLBMulti(m *lm.MDL, clips []SkinClip, path, name string, inPlace bool, blocking *Blocking) error {
+	if len(clips) == 0 {
+		return fmt.Errorf("%s: no clips", name)
 	}
+	for _, c := range clips {
+		if len(c.Key.Tracks) != len(m.Nodes) {
+			return fmt.Errorf("%s clip %s: key has %d tracks for %d nodes", name, c.ID, len(c.Key.Tracks), len(m.Nodes))
+		}
+	}
+	key := clips[0].Key
 	w := &binWriter{}
 
 	// Bind matrices: file matrices are world->joint (inverse bind).
@@ -476,60 +497,66 @@ func SkinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace boo
 	}
 	nodes = append(nodes, rootNode)
 
-	// Animation: sample every frame at 30 fps.
-	frames := int(key.Duration()) + 1
-	times := make([]float32, frames)
-	for f := 0; f < frames; f++ {
-		times[f] = float32(f) / 30
-	}
-	tAcc := w.addScalars(times)
-	var chans, samps []map[string]any
-	for i := range m.Nodes {
-		trans := make([][3]float32, frames)
-		rots := make([][4]float32, frames)
-		scales := make([][3]float32, frames)
+	// Animations: sample every clip's frames at 30 fps, one glTF animation
+	// per clip over the shared joints.
+	var animations []map[string]any
+	for ci, clip := range clips {
+		ckey := clip.Key
+		frames := int(ckey.Duration()) + 1
+		times := make([]float32, frames)
 		for f := 0; f < frames; f++ {
-			p := key.Eval(i, float32(f))
-			trans[f] = p.Translate
-			if inPlace && i == 0 {
-				// Rebase to the origin: a demo clip starts wherever the shot's
-				// script placed the actor in the set.
-				trans[f][0] = 0
-				trans[f][2] = 0
+			times[f] = float32(f) / 30
+		}
+		tAcc := w.addScalars(times)
+		var chans, samps []map[string]any
+		for i := range m.Nodes {
+			trans := make([][3]float32, frames)
+			rots := make([][4]float32, frames)
+			scales := make([][3]float32, frames)
+			for f := 0; f < frames; f++ {
+				p := ckey.Eval(i, float32(f))
+				trans[f] = p.Translate
+				if inPlace && i == 0 {
+					// Rebase to the origin: a demo clip starts wherever the
+					// shot's script placed the actor in the set.
+					trans[f][0] = 0
+					trans[f][2] = 0
+				}
+				rots[f] = p.Quat()
+				scales[f] = p.Scale
 			}
-			rots[f] = p.Quat()
-			scales[f] = p.Scale
+			samps = append(samps, map[string]any{"input": tAcc, "output": w.addVec3(trans), "interpolation": "LINEAR"})
+			chans = append(chans, map[string]any{"sampler": len(samps) - 1, "target": map[string]any{"node": i, "path": "translation"}})
+			samps = append(samps, map[string]any{"input": tAcc, "output": w.addVec4(rots), "interpolation": "LINEAR"})
+			chans = append(chans, map[string]any{"sampler": len(samps) - 1, "target": map[string]any{"node": i, "path": "rotation"}})
+			if hasScale {
+				samps = append(samps, map[string]any{"input": tAcc, "output": w.addVec3(scales), "interpolation": "LINEAR"})
+				chans = append(chans, map[string]any{"sampler": len(samps) - 1, "target": map[string]any{"node": i, "path": "scale"}})
+			}
 		}
-		samps = append(samps, map[string]any{"input": tAcc, "output": w.addVec3(trans), "interpolation": "LINEAR"})
-		chans = append(chans, map[string]any{"sampler": len(samps) - 1, "target": map[string]any{"node": i, "path": "translation"}})
-		samps = append(samps, map[string]any{"input": tAcc, "output": w.addVec4(rots), "interpolation": "LINEAR"})
-		chans = append(chans, map[string]any{"sampler": len(samps) - 1, "target": map[string]any{"node": i, "path": "rotation"}})
-		if hasScale {
-			samps = append(samps, map[string]any{"input": tAcc, "output": w.addVec3(scales), "interpolation": "LINEAR"})
-			chans = append(chans, map[string]any{"sampler": len(samps) - 1, "target": map[string]any{"node": i, "path": "scale"}})
-		}
-	}
 
-	// A multi-frame blocking track rides the same clip on the wrapper node,
-	// so scrubbing the shot moves the actor exactly as the demo player did.
-	// The intro's captured placements are all constant (single-row tables —
-	// the wrapper's static TRS above covers them); the channels exist for
-	// any future shot whose placement genuinely animates. The mirror
-	// (constant, asserted by bakeBlocking) stays static node scale.
-	if len(block) > 1 {
-		bt := make([]float32, len(block))
-		btr := make([][3]float32, len(block))
-		bq := make([][4]float32, len(block))
-		for i, s := range block {
-			bt[i] = s.frame / 30
-			btr[i] = s.t
-			bq[i] = s.q
+		// A multi-frame blocking track rides the same clip on the wrapper
+		// node, so scrubbing the shot moves the actor exactly as the demo
+		// player did (the attached flashlight props; single-clip assets
+		// only — multi-clip assets are placement-identity by construction).
+		if ci == 0 && len(block) > 1 {
+			bt := make([]float32, len(block))
+			btr := make([][3]float32, len(block))
+			bq := make([][4]float32, len(block))
+			for i, s := range block {
+				bt[i] = s.frame / 30
+				btr[i] = s.t
+				bq[i] = s.q
+			}
+			bAcc := w.addScalars(bt)
+			samps = append(samps, map[string]any{"input": bAcc, "output": w.addVec3(btr), "interpolation": "LINEAR"})
+			chans = append(chans, map[string]any{"sampler": len(samps) - 1, "target": map[string]any{"node": rootIdx, "path": "translation"}})
+			samps = append(samps, map[string]any{"input": bAcc, "output": w.addVec4(bq), "interpolation": "LINEAR"})
+			chans = append(chans, map[string]any{"sampler": len(samps) - 1, "target": map[string]any{"node": rootIdx, "path": "rotation"}})
 		}
-		bAcc := w.addScalars(bt)
-		samps = append(samps, map[string]any{"input": bAcc, "output": w.addVec3(btr), "interpolation": "LINEAR"})
-		chans = append(chans, map[string]any{"sampler": len(samps) - 1, "target": map[string]any{"node": rootIdx, "path": "translation"}})
-		samps = append(samps, map[string]any{"input": bAcc, "output": w.addVec4(bq), "interpolation": "LINEAR"})
-		chans = append(chans, map[string]any{"sampler": len(samps) - 1, "target": map[string]any{"node": rootIdx, "path": "rotation"}})
+		animations = append(animations, map[string]any{
+			"name": clip.ID, "channels": chans, "samplers": samps,
+		})
 	}
 
 	doc := map[string]any{
@@ -545,9 +572,7 @@ func SkinnedGLB(m *lm.MDL, key *lm.Key, path, name, clipName string, inPlace boo
 		"materials":   materials,
 		"accessors":   w.accessors,
 		"bufferViews": w.views,
-		"animations": []map[string]any{{
-			"name": clipName, "channels": chans, "samplers": samps,
-		}},
+		"animations": animations,
 	}
 	if len(images) > 0 {
 		doc["images"] = images

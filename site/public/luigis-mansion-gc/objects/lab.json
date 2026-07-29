@@ -7,7 +7,7 @@
   {
    "id": "db_bg",
    "loop": "once",
-   "description": "The shot's .key clip: hermite channels on the 30 fps demo timeline, root motion kept.",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
    "clip": "db_bg",
    "fps": 30
   }
@@ -15,6 +15,6 @@
  "model": "lab.glb",
  "skinnedClone": true,
  "props": {
-  "source": "/Ajioka/ADemo/dodb.szp:db_bg.mdl+db_bg.key"
+  "source": "/Ajioka/ADemo/dodb.szp:db_bg.mdl"
  }
 }

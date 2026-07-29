@@ -3468,6 +3468,102 @@
    "category": "level",
    "name": "The thunderbolt",
    "file": "levels/thunderbolt.json"
+  },
+  {
+   "id": "demo-door-01",
+   "category": "object",
+   "name": "Door set 01",
+   "group": "Door demos",
+   "file": "objects/demo-door-01.json"
+  },
+  {
+   "id": "demo-hand",
+   "category": "object",
+   "name": "Luigi's glove",
+   "group": "Door demos",
+   "file": "objects/demo-hand.json"
+  },
+  {
+   "id": "demo-key",
+   "category": "object",
+   "name": "The key",
+   "group": "Door demos",
+   "file": "objects/demo-key.json"
+  },
+  {
+   "id": "demo-door-03",
+   "category": "object",
+   "name": "Door set 03",
+   "group": "Door demos",
+   "file": "objects/demo-door-03.json"
+  },
+  {
+   "id": "demo-door-04",
+   "category": "object",
+   "name": "Door set 04",
+   "group": "Door demos",
+   "file": "objects/demo-door-04.json"
+  },
+  {
+   "id": "demo-door-05",
+   "category": "object",
+   "name": "Door set 05",
+   "group": "Door demos",
+   "file": "objects/demo-door-05.json"
+  },
+  {
+   "id": "demo-door-07",
+   "category": "object",
+   "name": "Door set 07",
+   "group": "Door demos",
+   "file": "objects/demo-door-07.json"
+  },
+  {
+   "id": "demo-door-08",
+   "category": "object",
+   "name": "Door set 08",
+   "group": "Door demos",
+   "file": "objects/demo-door-08.json"
+  },
+  {
+   "id": "demo-door-09",
+   "category": "object",
+   "name": "Door set 09",
+   "group": "Door demos",
+   "file": "objects/demo-door-09.json"
+  },
+  {
+   "id": "demo-door-10",
+   "category": "object",
+   "name": "Door set 10",
+   "group": "Door demos",
+   "file": "objects/demo-door-10.json"
+  },
+  {
+   "id": "door-demos",
+   "category": "level",
+   "name": "The door demos",
+   "file": "levels/door-demos.json"
+  },
+  {
+   "id": "demo-gbh",
+   "category": "object",
+   "name": "The Game Boy Horror",
+   "group": "Game Boy Horror",
+   "file": "objects/demo-gbh.json"
+  },
+  {
+   "id": "demo-gbh-scenes",
+   "category": "object",
+   "name": "Game Boy Horror scenes",
+   "group": "Game Boy Horror",
+   "file": "objects/demo-gbh-scenes.json"
+  },
+  {
+   "id": "gbh-demos",
+   "category": "level",
+   "name": "The Game Boy Horror",
+   "file": "levels/gbh-demos.json"
   }
  ]
 }

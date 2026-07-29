@@ -1,0 +1,48 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Luigi's glove",
+ "animations": [
+  {
+   "id": "cnop",
+   "loop": "once",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
+   "clip": "cnop",
+   "fps": 30
+  },
+  {
+   "id": "noop",
+   "loop": "once",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
+   "clip": "noop",
+   "fps": 30
+  },
+  {
+   "id": "hkop",
+   "loop": "once",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
+   "clip": "hkop",
+   "fps": 30
+  },
+  {
+   "id": "osop",
+   "loop": "once",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
+   "clip": "osop",
+   "fps": 30
+  },
+  {
+   "id": "noop-b",
+   "loop": "once",
+   "description": "A demo .key clip: hermite channels on the 30 fps timeline, root motion kept.",
+   "clip": "noop-b",
+   "fps": 30
+  }
+ ],
+ "model": "demo-hand.glb",
+ "skinnedClone": true,
+ "props": {
+  "source": "/Ajioka/ADemo/codemo01.szp:hr_mdl.mdl"
+ }
+}
