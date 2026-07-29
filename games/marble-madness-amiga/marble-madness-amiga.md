@@ -56,7 +56,8 @@ under way; Part V is still a stub.
   - [1. The game loop](#1-the-game-loop)
   - [2. The object/actor system](#2-the-objectactor-system) (hardware sprites, the display list, the occlusion masks, the marble's shimmer)
   - [3. Terrain interaction](#3-terrain-interaction)
-  - [4. Physics and controls](#4-physics-and-controls)
+  - [4. Physics and controls](#4-physics-and-controls) (incl. the railings)
+  - [5. Scoring](#5-scoring) (the award table, and the Practice canyon bonus)
 - [Part VI — Music and sound](#part-vi--music-and-sound)
   - [1. Where the music lives — the `*Snd` files](#1-where-the-music-lives--the-snd-files)
   - [2. The playback path — `audio.device`](#2-the-playback-path--audiodevice)
@@ -1750,9 +1751,14 @@ build no mask; the masked pieces near the bridge are the two small side pieces
 (cells 9 and 16, regions 1 and 2). But `$FD38` keeps only the **first** terr-3
 region to register (`TST.l $FD38; BNE skip; MOVE.l a5,$FD38` at `$FF78`), and
 all three bridge regions are terr 3. Whether the bridge punches at all
-therefore depends on which of regions 0/1/2 reaches its `op0` first — not yet
-traced, and worth settling before trusting the "rolls under the drawbridge"
-example above.
+therefore depends on which of regions 0/1/2 reaches its `op0` first.
+`region_build_list $F7EA` walks the 6-byte `[x][y][scriptPtr]` records in list
+order (`ADDQ.l #6,a5` at `$F8F2`), admitting only those inside a scroll window
+(the `$F812`–`$F836` range filter against its two arguments), which makes
+region 0 — the bridge deck, whose cells carry no mask — the likely registrant.
+But that is an inference about build order, not a trace of when each script
+executes its `op0`, so it is **left open**, and the "rolls under the
+drawbridge" example above should not be trusted until it is settled.
 
 Sprite-vs-sprite
 layering falls out of the hardware (lower channels appear in front), which is
@@ -2016,7 +2022,8 @@ velocity (the bounce). The table groups as:
 |---|---|
 | 6–9, 14, 15, 17, 25, 40–44 | flat — no force |
 | **11, 13** / 12 | slope toward ref / funnel (set velocity) |
-| 5, 16, 26–31, 50–55 | proximity trigger (flag + sound) |
+| 5, 16, 50–55 | proximity trigger (flag + sound) |
+| **26–31** | **railings** — box + end zones + sound `$22` (see below) |
 | 21, 22, 33, 35, 36, 38, 39 | wall / edge (→ `$180AC`) |
 | 10, 18, 19, 20, 32, 34, 37 | hard edge / fall / goal |
 
@@ -2055,10 +2062,205 @@ the hazards, and the marble-munchers are the other death paths. A *survivable* h
 and state 0 drops the marble into the **dizzy** spin (state 8 above), which plays out and
 returns to rolling.
 
+### The railings — a rail is a dynamic region, not slope data
+
+Several courses have railings along a platform's outer lip: the marble bounces
+off them instead of rolling into the drop. The obvious place to look is the
+static slope records — a rail feels like a "this edge is fenced from here to
+here" marker on a region. **It is not there.** Every spare bit in the 8-byte
+record is zero across all six courses:
+
+| | Practice | Beginner | Intermediate | Aerial | Silly | Ultimate |
+|---|---|---|---|---|---|---|
+| records | 66 | 79 | 71 | 78 | 110 | 53 |
+| byte 6, bits 5–7 set | 0 | 0 | 0 | 0 | 0 | 0 |
+| byte 7, bits 4–7 set | 0 | 0 | 0 | 0 | 0 | 0 |
+
+So byte 6 is exactly the 5-bit edge-profile selector and byte 7 exactly
+`dir(3) | flip(1)`; there is no room for a railing flag and no unexplained
+field. The `+$08` command stream is not it either — that decodes to a per-band
+"does region *i* touch this band" mask word plus `[cellIndex][value]` corner
+patches (Practice has 12, all the auto-start ramp's animated-height slots;
+Beginner has none).
+
+And the height field *cannot* express a rail even in principle. `surface_sides
+$EF90` raises a side flag only when the two cells' corners differ along that
+edge (`$EFD4` branches straight out when `A.c3==A.c2 && D.c0==D.c1`), and
+`edge_collision $EB64` only clamps when the neighbour's side value is `>= 4`
+(`$EBBE`/`$EC18`/`$EC72`/`$ECCC`) — i.e. when there is real ground on the far
+side, heights being ≈`$4000` and void a literal 0. A platform's outer lip has
+void beyond it, so the clamp is *declined* and the marble rolls off. The mesh
+can say "wall" (a step with ground beyond) and "edge" (ground beside void); it
+has no way to say "a lip at the rim of a drop".
+
+**A rail is therefore a dynamic region**, terrain codes **26–31**, dispatched
+from the `$16A00` table to six handlers. Each is a hard-coded axis-aligned box
+in `(d5, d4)` = (region ref − marble), in eighth-tile units — and the "start and
+end markers" intuition turns out to be exactly right, just baked into the
+handler rather than the data. Along the rail's length the *perpendicular* axis
+is blocked unconditionally; the *parallel* axis is blocked only inside an
+8-unit zone at each end, and only when the velocity points further out. Those
+two end zones are the rail's posts. Code 26 (`$16D0E`) in full:
+
+```
+CMPI.w #$FFF8,d4 ; BLE out      \  the box: -8 < d4 < $20  (40 units = 5 tiles long)
+CMPI.w #$20,d4   ; BGE out       |
+CMPI.w #$FFF4,d5 ; BLE out       |  -12 < d5 < 0           (thickness)
+TST.w d5         ; BPL out      /
+CMPI.w #$FFF8,d4 ; BLE +        \  END ZONE A: -8 < d4 < 0
+TST.w d4         ; BPL +         |  and obj+4 heading further out (BMI)
+TST.l -$22(a6)   ; BMI setY     /
+CMPI.w #$18,d4   ; BLE +        \  END ZONE B: $18 < d4 < $20
+CMPI.w #$20,d4   ; BGE +         |  and obj+4 heading further out (BGT)
+TST.l -$22(a6)   ; BLE +        /
+setY: MOVE.b #$1,$6A2           ;  block along the rail (the posts)
+      MOVE.b #$1,$6A1           ;  block across the rail (always)
+      … JSR $21ADC(sound $22, pan)
+```
+
+| code | handler | long axis | thickness | always | end zones |
+|---|---|---|---|---|---|
+| 26 | `$16D0E` | `-8 < d4 < $20` (5 tiles) | `-12 < d5 < 0` | `$6A1` | `d4` ends → `$6A2` |
+| 27 | `$16CA4` | `-8 < d5 < $20` | `-12 < d4 < 0` | `$6A2` | `d5` ends → `$6A1` |
+| 28 | `$16DE4` | `-8 < d5 < $20` | `-8 < d4 < 4` | `$6A2` | as 27 |
+| 29 | `$16D78` | `-8 < d4 < $20` | `-8 < d5 < 4` | `$6A1` | as 26 |
+| 30 | `$16EBC` | `-12 < d5 < $5E` (≈13 tiles) | `-14 < d4 < 0` | `$6A2` | `d5` ends → `$6A1` |
+| 31 | `$16E50` | `-12 < d4 < $54` (12 tiles) | `-14 < d5 < 0` | `$6A1` | `d4` ends → `$6A2` |
+
+The flags become a real bounce in the loop tail (`$1807C`): `$6A1` restores
+`obj+$C` from `$6B8` and negates `obj+0`, `$6A2` restores `obj+$10` from `$6BC`
+and negates `obj+4` — **position restore plus velocity reversal**, where the
+static `$EB64` edge only ever clamps a component (and its own `$6A1/$6A2` are
+cleared at `$0150E6` before `$16900` runs, so they never reach this tail).
+
+The data for one rail is minimal: a dynamic-region record whose whole script is
+`op0 KEYFRAME refX, refY, z=0, dur=1, terr=26…31` followed by `op3` — the
+anchor corner plus a code that picks orientation, length and which side of the
+anchor line the bar occupies. **Longer rails are tiled from several records.**
+
+Codes 26–31 appear on **Practice only**, 10 records, and they line up with the
+drawn art: records 1/3 and 2/4 form L-brackets on two edges each of the two
+square holes (static records 28/29, `4×4` at `(25,13)` and `(13,25)` with
+`baseHeight = 0` = void); records 5+7 and 6+8 tile into two 11-tile bars
+meeting at an apex around the cone cluster; records 9 and 10 are 12- and
+13-tile bars along the outer cells of the big platform (static record 42,
+`(37,37) 17×16`, with void immediately beyond — probed at `x=54` and `y=54`).
+Eight red bars are visible in the art and ten records exist, the two long
+mid-course bars each being two tiled records: it matches with no fitted offset.
+
+*Uncertainties:* this is static analysis plus a replay of `$E158`/`$D8FC`,
+cross-checked against the rendered art rather than a live trace. The two
+mid-course bars sit on continuous mesh, so they steer rather than guard — that
+is reported as data, not explained away. And the other five courses contain no
+26–31 codes at all; whether any of them draws a rail was not exhaustively
+checked.
+
+---
+
+## 5. Scoring
+
+The scoring machine is small, and almost all of it is data.
+
+**`add_points $A5F0`** is the whole adder: `ADD.l d0,$CE(a0)` at `$00A5FC`, then
+it sets the player's bit in the HUD-dirty mask `$5DC`. So the score lives at
+**`obj+$CE`**, per marble object — `$00333E` clears it (with the death counter
+`obj+$E4`) once per **game**, not per course, and the HUD refresh `$A6E8` reads
+it back against the cached value in the field table at `$A844` (16-byte records
+`[value long][x][y]`, one per player) and redraws through `$A6CA → $A682 →
+$A034`. `obj+$74` is the time remaining in seconds.
+
+**`award $A622`** is the event wrapper, and the reason the values are data: it
+takes an event index, reads a word from a table at **`marbdat+$24`**, adds it,
+and hooks the matching floating "score popup" sprite list from `marbdat+$46`
+into `obj+$E6`. (`$14ED8` is `LoadSeg("marbdat")`, the filename string at
+`$14EDC`.) The table is 17 words:
+
+```
+250  500  750  1000 1500 2000 2500 3000 3500 4000 4500 5000 5500 6000  0  0  0
+```
+
+and the parallel sprite table names `marbdat.vlb` cells `$4D..$5D`, which the
+bank render shows literally as **`250 500 750 1000 1500 2000 2500 3000 3500
+4000 4500 5000 5500 6000`, `+3 SEC`, `-5 SEC`, `+10 SEC`** — the art confirms
+the numeric table independently, and explains why the last three events are
+worth 0 points (they are *time* awards).
+
+**Every way the game gives you points:**
+
+| where | amount | event |
+|---|---|---|
+| `$012D96` | 1000·(course+1) → **1000…6000** | course completed |
+| `$015554` | **3000…6000** | the Practice canyon-jump bonus (below) |
+| `$014004` | 4000 | landing on surface code 18 |
+| `$014036` | 2000 | surface codes 19, 20, 32, 34, 37 |
+| `$019A7A` | 1000 | enemy destroyed (`$19A14` from `$14FE6`, `$155AE`, `$172D8`, `$183C6`) |
+| `$01C496` | 500 | squashing one of Silly's babies (also `+3 SEC`) |
+| `$014E32` | 10 | rolling — `$14D28` accumulates speed into `obj+$D6`, paying 10 each time it passes `$A0` |
+| `$00BBA2` | `min(time,99) × 100` | end-of-course tally `$B9A8` |
+| `$00C424` | 250 at a time | end-of-**game** bonus, total from `$C280`: `20000 + min(time,99)×1000 − min(deaths,20)×1000` |
+| `$013BE2` | 0 (`-5 SEC`) | death |
+| `$01445A` | 0 (`+10 SEC`) | the time pickup |
+
+### The Practice canyon bonus — real, but not "which number you hit"
+
+There **is** a bonus for jumping out of the canyon onto the marked platforms,
+and it is worth 3000–6000 points. It is not, however, a set of numbered pads.
+
+The award sits inside the marble's per-frame update, on the **touchdown** path.
+The marble goes airborne at `$015278` (`MOVE.b #$2,$36(a0)`), and `$0152B0`
+detects the landing. Then:
+
+```
+$01534C  TST.w $5D6.l ; BNE out        ; course 0 = PRACTICE ONLY
+$015356  MOVE.b $1B(a0),d0             ; coarse zone must be 1, 2 or 3
+$0153D0  zone 1:  v = $6C6 − $1E8      ; Y·8 − 488  → the line at tile Y = 61
+$01544A  zone 2:  v = $6C6 − $238      ; Y·8 − 568  → tile Y = 71
+$0154C6  zone 3:  v = $6C4 − $210      ; X·8 − 528  → tile X = 66
+$015518  if v >= 0: v >>= 2            ; 4 units = HALF A TILE per band
+$01552C  idx = v + 7 ; clamp to 13
+$015544  if idx <= 6: nothing
+$015554  JSR $A622(marble, idx)
+```
+
+`$6C4`/`$6C6` are the high words of `obj+$C`/`obj+$10` and world position is
+`tile << 19`, so they are exactly tile × 8. The payout is therefore a
+**continuous ramp measured from a threshold line**, in half-tile steps:
+
+| landed past the line | 0–½ | ½–1 | 1–1½ | 1½–2 | 2–2½ | 2½–3 | ≥ 3 tiles |
+|---|---|---|---|---|---|---|---|
+| index | 7 | 8 | 9 | 10 | 11 | 12 | 13 |
+| **points** | **3000** | **3500** | **4000** | **4500** | **5000** | **5500** | **6000** |
+
+Land short of the line and `idx ≤ 6` — nothing at all. Being **airborne** is
+required (`obj+$36 == 2`), so rolling across the line scores zero: "jumping out
+and hitting it" is exactly right. There is no special sound, only the normal
+landing sounds `$C`/`$D`; the feedback is the floating number sprite.
+
+The three threshold constants are confirmed independently by the **respawn
+anchor table**, whose type field is matched against the same zone code by
+`nearest_anchor $1288C`: the type-1 anchors' minimum Y is 61, the type-2
+anchors' minimum Y is 71, and the type-3 anchors' minimum X is 66 — each
+threshold lands exactly on the near edge of its platform's anchor line.
+
+So the claim is **partly right**. The markings are real, landing on them pays,
+and the amount does depend on where you land — but it is
+`3000 + 500 × ⌊distance past the line / ½ tile⌋`, saturating at 6000 after
+three tiles, and each visible sign marks the *start* of one ramp rather than
+being one of several numbered targets. (Practice's art has three such plaques,
+each on its own threshold line with the arrow pointing the way the value grows.
+Their literal glyphs are ~4×5 px on isometric tiles and I could not resolve
+them with confidence, so the sign *text* stays unread.)
+
+A correction this turns up: terrain codes 26–31 are **not** proximity triggers
+routed to `$16C0C` (only code 5 is). They are the railing handlers above — and
+they sit at the top of Practice, nowhere near the canyon.
+
 ### Still open
 
-The full 19-opcode region-script vocabulary (0/2/16 characterised), the exact 86-byte
-region-struct layout, and the scoring machine.
+The exact 86-byte region-struct layout; whether the second player gets the same
+completion bonus (`$5E4` is claimed by the first finisher only); which feature
+carries surface codes 18/19/20 on each course; and the literal text on
+Practice's three bonus plaques.
 
 ---
 

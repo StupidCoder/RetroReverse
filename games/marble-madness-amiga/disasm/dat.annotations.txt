@@ -255,6 +255,7 @@
 #       dir 0/4 = the checkerboard diagonals, descending baseHeight) -> build_region mesh.
 #       NO script, NO animation. THESE are the checkerboard slopes the player rolls down.
 #   (2) Track header+$14 anim-script list = only 13 DYNAMIC regions, codes 5/17/26-31
+#       (26-31 = the RAILINGS, 5 = the goal-flag bump obstacles — see the RAILINGS block)
 #       (triggers / holes / start-finish / ball-catcher), NONE slope codes 11/13.
 #   So region_script $FD68 drives only the dynamic regions; static slopes are NOT scripted.
 #   OPEN (re-trace needed): how the 66-record corner-height MESH is sampled into the per-
@@ -297,8 +298,12 @@
 # THE $016A00 JUMP TABLE, all 55 targets decoded (terrain code -> behaviour):
 #   FLAT/no-force ($18024): codes 6-9,14,15,17,25,40-44.
 #   SLOPE (vXY += unit(ref-pos)*4): 11 ($17AA8), 13 ($17C88).  FUNNEL (set vel): 12 ($178A6).
-#   PROXIMITY TRIGGER (within dist $38 of ref -> set $6A1/$6A2 + sound $21ADC): 5,26-31
-#     ($16C0C..); directional sound-only variants: 16,50-55.
+#   PROXIMITY TRIGGER (within dist $38 of ref -> set $6A1/$6A2 + sound $21ADC): 5 ONLY ($16C0C);
+#     directional sound-only variants: 16,50-55.
+#   RAILINGS (box + end zones + sound $22): 26 $16D0E, 27 $16CA4, 28 $16DE4, 29 $16D78,
+#     30 $16EBC, 31 $16E50 — see the RAILINGS block below. CORRECTED 2026-07-29: these six
+#     were previously lumped in with code 5 as "proximity triggers"; they are not, they have
+#     six distinct axis-aligned box handlers.
 #   WALL/EDGE -> shared $180AC: 21,22,33,35,36,38,39.
 #   HARD EDGE/FALL/GOAL (set/clr vel + $E872/$EA10/$15FC8/$FD68): 10,18,19,20,32,34,37.
 #   geometric/border variants (fall to flat): 23,24,45-49,56-59.
@@ -325,7 +330,7 @@
 0173DA  funnel_out_top   the code-21 handler = the TOP funnel EXIT: a bounds-boxed wall ($180AC)
 #   that contains the marble where funnel_in_top drops it (region plotted at cell (67,78)).
 017424  funnel_out_low   the code-22 handler = the LOWER funnel EXIT wall ($180AC) at (84,94).
-016C0C  proximity_trigger  the code-5/26-31 handler. Inputs d5=$C(a4)-$6C4, d4=$10(a4)-$6C6,
+016C0C  proximity_trigger  the code-5 handler (ONLY code 5 — codes 26-31 are the railings, see below). Inputs d5=$C(a4)-$6C4, d4=$10(a4)-$6C6,
 #   where $C(a4)=ref word=refX*8 and $6C4=marble seed (8 per cell) -> d5/d4 are in EIGHTH-cell
 #   units. octd = max(|d5|,|d4|)*16 + min*6; if octd < $38 -> set $6A1=$6A2=1 (WALL BOUNCE) +
 #   sound $21ADC(7). NB the $38 threshold over 1/8-cell units = only ~0.44 cell radius (TINY).
@@ -515,6 +520,35 @@
 000FF1A  terr_register_tbl  the op0 KEYFRAME terrain self-registration table, searched by the $FEF2 tail (MOVEQ #$38,d1 / SUBI #8 / CMP.l $8(pc,d1.w),d0 / BNE loop) and entered via JMP $6(pc,d1.w); 8-byte entries [long terrain code][BRA.W]. Decoded: code 3 -> $FD38 (drawbridge, first registrant only), 10 -> $FD54, 11 and 13 -> $FD3C, 12 -> $FD58 (funnels), 25 -> JSR $1DF6C (the Ultimate screen swap), 6 -> the wave. These four list globals are exactly what occlude_checks $5BE0 reads.
 0112DA  mask_punch       THE MASKING ALGORITHM: $825E(record+$8) -> cell descriptor; REQUIRES desc+$C != 0 = the cell's 1-plane OR-of-planes silhouette MASK (built at load by composite_planes $8026 — the black/white level-geometry images). Clips the row overlap between the piece (pieceY, desc+4 rows) and the queued sprite (marbleY, request+6 rows) and the word-column/sub-pixel x offset; then per overlapping row: d0 = NOT(maskword << dx) and ANDs d0 into BOTH data words of the sprite row ($11500/$11510) — clearing the sprite's pixels wherever the scenery silhouette covers them, so the playfield (with the scenery tile-painted into it) shows through. Pixel-precise "marble behind the level" on square tiles, per frame, in software, on hardware-sprite DMA data.
 
+# --- THE RAILINGS = dynamic regions, terrain codes 26-31 (Part V §4) ---
+# NEGATIVE RESULT (proven over all 6 courses): the 8-byte static slope record has NO spare
+# bits — byte 6 bits 5-7 and byte 7 bits 4-7 are ZERO in every record of every course
+# (66/79/71/78/110/53). So byte6 = exactly the 5-bit edge-profile selector, byte7 = exactly
+# dir(3)|flip(1). Railings are NOT in the slope data, and the +$08 command stream isn't it
+# either (that decodes to per-band "does region i touch this band" mask words + [cellIdx][value]
+# corner patches; practy has 12 = the auto-start ramp's animated slots, beginr none).
+# WHY the height field CAN'T express a rail: surface_sides $EF90 raises a side flag only when
+# the two cells' corners DIFFER along that edge ($EFD4 branches out when A.c3==A.c2 && D.c0==D.c1),
+# and edge_collision $EB64 clamps only when the neighbour side value is >= 4 ($EBBE/$EC18/$EC72/
+# $ECCC) = real ground beyond (heights ~$4000, void = literal 0). A platform lip has void beyond,
+# so the clamp is DECLINED and the marble rolls off. The mesh can say "wall" and "edge", never
+# "a lip at the rim of a drop".
+016D0E  rail_26          RAILING handler, code 26. Box in (d5,d4) = (region ref - marble), EIGHTH-TILE units: long axis -8 < d4 < $20 (40 units = 5 tiles), thickness -12 < d5 < 0. Always sets $6A1 (block ACROSS the rail). The "start/end markers": two 8-unit END ZONES block ALONG the rail via $6A2 — (-8 < d4 < 0 and obj+4 heading further out, BMI) or ($18 < d4 < $20 and obj+4 outward, BGT). Then sound $22 via $21ADC with pan -$9(a6) ($16930: $6C6>=$6C4). The flags become a REAL BOUNCE in the $16900 loop tail $1807C: $6A1 -> obj+$C = $6B8 + NEG obj+0, $6A2 -> obj+$10 = $6BC + NEG obj+4 = position restore + velocity reversal (the static $EB64 edge only CLAMPS, and its $6A1/$6A2 are cleared at $150E6 before $16900 runs).
+016CA4  rail_27          RAILING, code 27: long axis -8 < d5 < $20, thickness -12 < d4 < 0; always $6A2, end zones on d5 -> $6A1. (26/27 = the same 5-tile rail in the two iso orientations.)
+016DE4  rail_28          RAILING, code 28: long -8 < d5 < $20, thickness -8 < d4 < 4; always $6A2, end zones as 27 (the offset variant).
+016D78  rail_29          RAILING, code 29: long -8 < d4 < $20, thickness -8 < d5 < 4; always $6A1, end zones as 26 (the offset variant).
+016EBC  rail_30          RAILING, code 30 = the LONG bar: -12 < d5 < $5E (106 units ~ 13 tiles), thickness -14 < d4 < 0; always $6A2, end zones -12<d5<-4 and $56<d5<$5E -> $6A1.
+016E50  rail_31          RAILING, code 31 = the LONG bar, other orientation: -12 < d4 < $54 (96 units = 12 tiles), thickness -14 < d5 < 0; always $6A1, end zones -12<d4<-4 and $4C<d4<$54 -> $6A2.
+# ONE RAIL = one dynamic-region record whose ENTIRE script is `op0 KEYFRAME refX,refY,z=0,dur=1,
+# terr=26..31` + `op3 STATE0-STOP`. refX/refY = the anchor corner; the code picks orientation,
+# length and which side of the anchor line the bar occupies. LONGER RAILS ARE TILED from several
+# records. Codes 26-31 appear on PRACTICE ONLY (10 records): 1/3 + 2/4 = L-brackets on the two
+# square holes (static records 28/29, 4x4 at (25,13)/(13,25), baseHeight 0 = void); 5+7 and 6+8
+# tile into two 11-tile bars meeting at an apex round the cone cluster; 9 and 10 = 12/13-tile bars
+# on the outer cells of the big platform (static record 42, (37,37) 17x16, void beyond at x=54/y=54).
+# 8 red bars in the art vs 10 records = the two mid-course bars are 2 records each. CORRECTION:
+# codes 26-31 are NOT proximity triggers routed to $16C0C (only code 5 is).
+
 # --- THE MARBLE'S INTERIOR SHIMMER: 8 gold points rotating in 3-D (Part V §2) ---
 0157D0  shimmer_init     seed the 8 shimmer points on the marble object: X[i]=sbyte($15FB5+i)<<11 into obj+$7E, Y[i]=sbyte($15FBD+i)<<11 into obj+$8E, Z=0 into obj+$9E. Tables: X=[2,2,0,-2,-4,-2,0,4], Y=[2,-2,-4,-2,0,2,4,0] = +-P0, +-P1, +-(P0+P1), +-(P0-P1) from the orthogonal ground-plane pair P0=(4096,4096,0), P1=(4096,-4096,0) — an 8-point ring at 45 degrees on the ball's equator. Only indices 0/1 are state; 2-7 are rebuilt each frame. Byte $15FB4 nonzero = kill switch ($1586A blanks the output list).
 015862  shimmer_update   per-frame, from the marble state machine ($14472/$14670/$155FC + 2 sites near $13FC4/$14354). Velocity in ($1589E: obj+0>>4, obj+4>>4; zeroed when obj+$62==$A; forced to (16,16) on SILLY $5D6==4 so it spins at rest). Direction via the shift-divide $23E80 + the 2.14 SQUARE-ROOT table $15730 (window $1FF0; table[2.0]=23170=sqrt2). ANGLE = |v|/7 ($15A72) — arc length over the ball's ~7px radius = ROLLING WITHOUT SLIPPING (silly instead uses max(0,$600-|v|/7)). cos/sin from the 101-entry quarter-cosine table $1F1C via $15784, with $1922=(pi/2)*4096; 4096 units per radian. $15AD0 builds a RODRIGUES rotation about a=(-vy,vx,0) — the perpendicular of the velocity in the ground plane — products via the signed 32x32 multiply $23F28. Points 0 and 1 are multiplied through and WRITTEN BACK ($15BDC-$15DB4): orientation is accumulated, never stored absolutely.
@@ -531,6 +565,25 @@
 # as 8 independent sparkle CELLS (bank 1, cells $44..$4B) through $10FDC — neither runs while
 # rolling. CORRECTION: $5DFC serves BOTH player marbles (ramp from obj+$19 at $5E22-$5E36);
 # $60F6 is the BLACK ENEMY marble's leaf (ramp $6768) and calls no shimmer — it has none.
+
+# --- SCORING (Part V §5) ---
+00A5F0  add_points       THE score adder, and the whole of it: ADD.l d0,$CE(a0) at $A5FC, then set the player's bit in the HUD-dirty mask $5DC. SO THE SCORE IS obj+$CE, PER MARBLE OBJECT ($236 P1 / $32A P2) — previously unidentified. Cleared with the death counter obj+$E4 by $333E once per GAME, not per course. obj+$74 = time remaining in seconds.
+00A622  award            the EVENT wrapper (why the values are data, not code): arg = event index; reads a word from the table at *($14ED8)+$24 = marbdat+$24, calls add_points, then hooks the matching floating score-popup sprite list from marbdat+$46 into obj+$E6. $14ED8 = LoadSeg("marbdat") ($139CA, name string $14EDC). TABLE (17 words, verified against the file): 250 500 750 1000 1500 2000 2500 3000 3500 4000 4500 5000 5500 6000 0 0 0. The parallel sprite table names marbdat.vlb cells $4D..$5D, which the bank render shows LITERALLY as "250 500 750 1000 1500 2000 2500 3000 3500 4000 4500 5000 5500 6000 / +3 SEC / -5 SEC / +10 SEC" — independent graphical confirmation, and why the last 3 events pay 0 points (they are TIME awards).
+00A6E8  hud_score_draw   HUD refresh (from world_update $AFA8 and the tally tail $BBCE): read obj+$CE ($A712), compare against the cached value in the field table $A844 (16-byte records [value long][x][y], stride $10, one per player), on change $A6CA -> $A682 -> $A034 number renderer. Labels $29FC "BONUS FOR", $2A10 "TIME LEFT:".
+# EVERY SCORING EVENT (the complete catalogue — direct add_points callers + award callers):
+#   $12D96 award idx $5D6*2+3 = 1000*(course+1) = 1000..6000  COURSE COMPLETED
+#   $15554 award idx 7..13    = 3000..6000                    THE PRACTICE CANYON-JUMP BONUS
+#   $14004 award idx 9  = 4000   surface code obj+$62 == 18
+#   $14036 award idx 5  = 2000   surface codes 19,20,32,34,37
+#   $19A7A award idx 3  = 1000   enemy destroyed ($19A14 from $14FE6/$155AE/$172D8/$183C6)
+#   $1C496 add_points 500        Silly baby squashed (+ obj+$74 += 3 at $1C474, award idx 14 "+3 SEC")
+#   $14E32 add_points 10         ROLLING: $14D28 accumulates speed into obj+$D6, pays 10 per $A0
+#   $BBA2  add_points min(time,99)*100    end-of-course tally $B9A8 (caller $B0BA, obj+$18==3 only)
+#   $C424  add_points 250 at a time       end-of-GAME bonus; total from $C280 =
+#                                         20000 + min(time,99)*1000 - min(deaths,20)*1000
+#   $13BE2 award idx 15 = 0 ("-5 SEC")    death/fall (obj+$E4 ++)
+#   $1445A award idx 16 = 0 ("+10 SEC")   the time pickup
+015340  canyon_bonus     THE PRACTICE CANYON-JUMP BONUS, inside the marble's per-frame update on the TOUCHDOWN path (airborne set $15278 MOVE.b #$2,$36(a0); landing detected $152B0). Gated PRACTICE-ONLY at $1534C (TST.w $5D6; BNE out) and to coarse zones obj+$1B in {1,2,3}. Per zone a distance past a THRESHOLD LINE: zone1 $153D0 v = $6C6-$1E8 (Y*8-488 -> tile Y=61), zone2 $1544A v = $6C6-$238 (tile Y=71), zone3 $154C6 v = $6C4-$210 (X*8-528 -> tile X=66); $6C4/$6C6 are the high words of obj+$C/+$10 and world pos = tile<<19, so they are exactly tile*8. Then $15518: if v>=0 v>>=2 (4 units = HALF A TILE per band), idx = v+7, clamp 13, if idx<=6 nothing, else award(marble,idx) at $15554 => 3000/3500/4000/4500/5000/5500/6000. AIRBORNE IS REQUIRED (obj+$36==2) — rolling over the line pays nothing. No special sound (only the landing $C/$D); the feedback is the floating number sprite. The three thresholds are confirmed independently by the RESPAWN ANCHOR table (matched to the same zone code by nearest_anchor $1288C): type-1 anchors min Y = 61, type-2 min Y = 71, type-3 min X = 66. NOT "which number you hit" — a continuous ramp 3000 + 500*floor(dist/half-tile), saturating at 6000 after 3 tiles; each visible plaque marks the START of one ramp.
 
 # --- the "Painter" task: all tilemap drawing is message-driven ---
 009450  painter_create   create the "Painter" exec task (name $951C, entry $91C0, port $990C); wires the request globals $94F2/$94F6/$94FA.
