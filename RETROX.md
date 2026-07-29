@@ -664,10 +664,19 @@ viewers scale-agnostic); optional for 2-D levels (default: fit the level).
   "mode": "map2d" | "orbit" | "fly" | "ortho"
         | "pan2d",                               // ✱ ("pan2d": 3-D geometry that is 2-D in
                                                  //   spirit — the camera faces the plane and
-                                                 //   never rotates; drag pans, wheel zooms)
+                                                 //   never rotates; drag or arrows pan,
+                                                 //   wheel zooms)
   "pos": [x,y,z], "target": [x,y,z],             // ✱ for 3-D modes: the opening shot
   "fov": 45, "near": 0.1, "far": 50000,          // omit for sensible defaults derived from
                                                  //   the pos↔target distance
+  "projection": "ortho" | "perspective",         // ✱ the frustum kind. Default: perspective,
+                                                 //   except "pan2d", which is orthographic —
+                                                 //   a flat game is photographed straight on,
+                                                 //   so nothing may skew at the frame edges
+                                                 //   or parallax as the stage scrolls. The
+                                                 //   ortho frustum's HEIGHT is the one fov +
+                                                 //   the pos↔target distance already framed,
+                                                 //   so the opening shot is unchanged
   "map2d": { "minFitFactor": 1.0,                // never zoom out past fitting × this
              "maxNativeFactor": 4 },             // never zoom in past native pixel × this
   "orbit": { "minDist": 2, "maxDist": 400,

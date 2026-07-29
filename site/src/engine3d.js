@@ -21,7 +21,25 @@ export class Stage {
     el.appendChild(renderer.domElement);
 
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(cam.fov || 50, 1, cam.near || 0.1, cam.far || 100000);
+    const fov = cam.fov || 50;
+    // Orthographic when the document asks for it, and by default for the flat
+    // stages (camera.mode 'pan2d'): those are 3-D polygons the game photographs
+    // straight on, and a perspective frustum both skews the level's far edges
+    // and slides the parallax background against the terrain as you scroll —
+    // neither of which a 2-D game does. The frustum height is the one the
+    // document's fov + camera distance already framed, so the opening view is
+    // unchanged; only the projection is.
+    const wantsOrtho = cam.projection
+      ? cam.projection === 'ortho'
+      : cam.mode === 'pan2d' && !!cam.pos && !!cam.target;
+    if (wantsOrtho) {
+      const dist = new THREE.Vector3().fromArray(cam.pos || [0, 0, 10])
+        .distanceTo(new THREE.Vector3().fromArray(cam.target || [0, 0, 0])) || 10;
+      this.orthoHeight = 2 * dist * Math.tan((fov * Math.PI) / 360);
+      this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, cam.near ?? 0.1, cam.far ?? 100000);
+    } else {
+      this.camera = new THREE.PerspectiveCamera(fov, 1, cam.near || 0.1, cam.far || 100000);
+    }
     if (cam.pos) this.camera.position.fromArray(cam.pos);
     this.controls = new OrbitControls(this.camera, renderer.domElement);
     this.controls.enableDamping = true;
@@ -72,7 +90,23 @@ export class Stage {
       this.renderer.setSize(w, h, false);
       this.canvas.style.imageRendering = '';
     }
-    this.camera.aspect = w / h;
+    this.setViewport(w / h);
+  }
+
+  // setViewport re-derives the projection for an aspect ratio. The ortho
+  // camera keeps its frustum HEIGHT (OrbitControls dollies it by camera.zoom)
+  // and takes its width from the viewport, exactly as the perspective one
+  // keeps its fov.
+  setViewport(aspect) {
+    if (this.camera.isOrthographicCamera) {
+      const hh = this.orthoHeight / 2;
+      this.camera.left = -hh * aspect;
+      this.camera.right = hh * aspect;
+      this.camera.top = hh;
+      this.camera.bottom = -hh;
+    } else {
+      this.camera.aspect = aspect;
+    }
     this.camera.updateProjectionMatrix();
   }
 
@@ -88,12 +122,14 @@ export class Stage {
     const box = new THREE.Box3().setFromObject(obj);
     if (box.isEmpty()) return;
     const s = box.getBoundingSphere(new THREE.Sphere());
-    const dist = (s.radius * 1.7) / Math.sin((this.camera.fov * Math.PI) / 360);
+    const ortho = this.camera.isOrthographicCamera;
+    const dist = ortho ? s.radius * 4 : (s.radius * 1.7) / Math.sin((this.camera.fov * Math.PI) / 360);
     this.camera.position.copy(s.center).add(new THREE.Vector3(0.55, 0.42, 1).normalize().multiplyScalar(dist));
     this.controls.target.copy(s.center);
-    this.camera.near = Math.max(0.001, s.radius / 100);
+    this.camera.near = ortho ? -s.radius * 10 : Math.max(0.001, s.radius / 100);
     this.camera.far = Math.max(this.camera.far, dist + s.radius * 100);
-    this.camera.updateProjectionMatrix();
+    if (ortho) this.orthoHeight = s.radius * 2.4;
+    this.setViewport((this.el.clientWidth || 1) / (this.el.clientHeight || 1));
     this.controls.update();
   }
 

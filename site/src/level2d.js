@@ -6,6 +6,7 @@
 import { Application, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import { SpriteObject, loadImage } from './sprite2d.js';
 import { mulberry32 } from './data.js';
+import { PanInput } from './pancam.js';
 
 const hexRgb = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
 
@@ -122,19 +123,15 @@ export async function mount(ctx, doc) {
   });
   cam.wirePointer();
 
-  // arrows pan, +/- zooms
-  const onKey = (e) => {
-    const step = 60;
-    if (e.key === 'ArrowLeft') cam.panBy(step, 0);
-    else if (e.key === 'ArrowRight') cam.panBy(-step, 0);
-    else if (e.key === 'ArrowUp') cam.panBy(0, step);
-    else if (e.key === 'ArrowDown') cam.panBy(0, -step);
-    else if (e.key === '+' || e.key === '=') cam.zoomAtCenter(1.15);
-    else if (e.key === '-' || e.key === '_') cam.zoomAtCenter(1 / 1.15);
-    else return;
-    e.preventDefault();
-  };
-  window.addEventListener('keydown', onKey);
+  // Arrows pan, +/- zooms — through the inertial integrator, so holding a key
+  // accelerates into a smooth scroll and releasing it glides to a stop. The
+  // drag handlers feed their throw into the same velocity (see wirePointer).
+  const input = new PanInput({
+    onPan: (dx, dy) => cam.panBy(dx, dy),
+    onZoom: (f) => cam.zoomAtCenter(f),
+  });
+  cam.input = input;
+  app.ticker.add(() => input.step(app.ticker.deltaMS / 1000));
 
   // ---- placements, pools, spawn --------------------------------------------------
   world.addChild(objLayer);
@@ -208,7 +205,7 @@ export async function mount(ctx, doc) {
   // ---- picking ----------------------------------------------------------------------
   const hud = document.createElement('div');
   hud.className = 'hud';
-  hud.textContent = `${tm.width}×${tm.height} cells · drag to pan · wheel/pinch to zoom`;
+  hud.textContent = `${tm.width}×${tm.height} cells · drag or arrows to pan · wheel/pinch to zoom`;
   stage.appendChild(hud);
   let card = null;
   const closeCard = () => { card?.remove(); card = null; };
@@ -288,7 +285,7 @@ export async function mount(ctx, doc) {
 
   return {
     unmount() {
-      window.removeEventListener('keydown', onKey);
+      input.dispose();
       app.destroy(true, { children: true });
       closeCard();
       hud.remove();
@@ -591,11 +588,18 @@ class MapCamera {
     this.apply();
   }
 
+  // panBy scrolls the content and reports the delta it could actually apply:
+  // an axis clamped at the edge of the map returns less than it was asked for,
+  // which is how the inertial glide knows to stop. A wrapping axis is endless,
+  // so it always applied the whole step.
   panBy(dx, dy) {
-    if (!this.world.position) return; // destroyed mid-event
-    this.world.position.x += dx;
-    this.world.position.y += dy;
+    if (!this.world.position) return { x: 0, y: 0 }; // destroyed mid-event
+    const p = this.world.position;
+    const x0 = p.x, y0 = p.y;
+    p.x += dx;
+    p.y += dy;
     this.clampPan();
+    return { x: this.wrapX() ? dx : p.x - x0, y: p.y - y0 };
   }
 
   screenPt(cx, cy) {
@@ -639,6 +643,7 @@ class MapCamera {
     let pinchDist = 0, pinchMid = null;
     c.addEventListener('pointerdown', (e) => {
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      this.input?.stop(); // grabbing the map arrests any glide in progress
       c.classList.add('dragging');
       if (pts.size === 2) {
         const [a, b] = [...pts.values()];
@@ -664,12 +669,16 @@ class MapCamera {
         pinchDist = dist; pinchMid = mid;
       } else {
         this.panBy(dx, dy);
+        this.input?.dragMove(dx, dy);
       }
     });
     const end = (e) => {
       pts.delete(e.pointerId);
       if (pts.size < 2) { pinchMid = null; pinchDist = 0; }
-      if (pts.size === 0) c.classList.remove('dragging');
+      if (pts.size === 0) {
+        c.classList.remove('dragging');
+        this.input?.dragEnd(); // a thrown map coasts on
+      }
     };
     c.addEventListener('pointerup', end);
     c.addEventListener('pointercancel', end);

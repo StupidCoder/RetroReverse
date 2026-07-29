@@ -6,6 +6,7 @@
 
 import { THREE, Stage, FlyCam, ObjectLibrary, loadGLB, applyWireframe, applyTexFilter, applyTransform, flyHint } from './engine3d.js';
 import { CutscenePlayer } from './cutscene.js';
+import { PanInput } from './pancam.js';
 
 export async function mount(ctx, doc) {
   const { stage: el, game, asset, params } = ctx;
@@ -37,16 +38,60 @@ export async function mount(ctx, doc) {
     if (cam.orbit.minDist) stage.controls.minDistance = cam.orbit.minDist;
     if (cam.orbit.maxDist) stage.controls.maxDistance = cam.orbit.maxDist;
   }
+  let panInput = null;
   if (cam.mode === 'pan2d') {
     // Levels that are 3D geometry but 2D in spirit (Loco Roco): the camera
-    // faces the plane and never rotates — drag pans, wheel/pinch zooms.
+    // faces the plane and never rotates — drag pans, wheel/pinch zooms, and
+    // (Stage) it looks through an orthographic frustum, so scrolling slides
+    // the stage past the window instead of swinging it.
     const c = stage.controls;
     c.enableRotate = false;
     c.screenSpacePanning = true;
     c.zoomToCursor = true;
     c.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
     c.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
-    if (cam.near) c.minDistance = cam.near * 4;
+    // An ortho camera dollies by camera.zoom, not by distance, so its limits
+    // are the zoom ones; the distance limits would silently do nothing.
+    if (stage.camera.isOrthographicCamera) { c.minZoom = 0.15; c.maxZoom = 60; }
+    else if (cam.near) c.minDistance = cam.near * 4;
+
+    // The same inertial scroll the tilemap views have: the arrows accelerate
+    // into a glide and coast to a stop, at a speed measured in SCREEN pixels
+    // so it feels identical at every zoom level.
+    const right = new THREE.Vector3(), up = new THREE.Vector3();
+    const worldPerPx = () => {
+      const h = stage.el.clientHeight || 1;
+      if (stage.camera.isOrthographicCamera) {
+        return (stage.camera.top - stage.camera.bottom) / stage.camera.zoom / h;
+      }
+      const d = stage.camera.position.distanceTo(c.target);
+      return (2 * d * Math.tan((stage.camera.fov * Math.PI) / 360)) / h;
+    };
+    panInput = new PanInput({
+      onPan: (dx, dy) => {
+        // dx/dy scroll the CONTENT (level2d's sign convention, +y down), so
+        // the camera moves the opposite way on x and along +up for +dy.
+        const s = worldPerPx();
+        right.setFromMatrixColumn(stage.camera.matrix, 0).multiplyScalar(-dx * s);
+        up.setFromMatrixColumn(stage.camera.matrix, 1).multiplyScalar(dy * s);
+        const off = right.add(up);
+        stage.camera.position.add(off);
+        c.target.add(off);
+      },
+      onZoom: (f) => {
+        if (stage.camera.isOrthographicCamera) {
+          stage.camera.zoom = Math.max(c.minZoom, Math.min(c.maxZoom, stage.camera.zoom * f));
+          stage.camera.updateProjectionMatrix();
+        } else {
+          const off = stage.camera.position.clone().sub(c.target);
+          const d = Math.max(c.minDistance, Math.min(c.maxDistance, off.length() / f));
+          stage.camera.position.copy(c.target).add(off.setLength(d));
+        }
+      },
+    });
+    stage.updaters.add((dt) => panInput.step(dt));
+    // Grabbing the stage arrests a glide in progress.
+    stage.canvas.addEventListener('pointerdown', () => panInput.stop());
   }
 
   const roots = []; // everything mountable, for wireframe toggle + disposal
@@ -54,7 +99,7 @@ export async function mount(ctx, doc) {
   const hud = document.createElement('div');
   hud.className = 'hud';
   const hint = cam.mode === 'fly' ? flyHint
-    : cam.mode === 'pan2d' ? 'drag to pan · wheel/pinch to zoom'
+    : cam.mode === 'pan2d' ? 'drag or arrows to pan · wheel/pinch to zoom'
       : 'drag to orbit · wheel to zoom';
   hud.textContent = hint;
   el.appendChild(hud);
@@ -382,6 +427,7 @@ export async function mount(ctx, doc) {
     unmount() {
       player?.dispose();
       fly?.dispose();
+      panInput?.dispose();
       stage.dispose();
       closeCard();
       hud.remove();
@@ -406,7 +452,7 @@ export async function mount(ctx, doc) {
         Rooms: doc.scene?.rooms ? `${doc.scene.rooms.list.length} (${roomsLoaded} loaded)` : '—',
         Placements: (doc.placements || []).length,
         Variants: variants.map((v) => v.id).join(', ') || '—',
-        Camera: `${cam.mode}${cam.fly ? ` · ${cam.fly.speed} u/s` : ''}`,
+        Camera: `${cam.mode} · ${stage.camera.isOrthographicCamera ? 'orthographic' : 'perspective'}${cam.fly ? ` · ${cam.fly.speed} u/s` : ''}`,
       };
     },
   };
