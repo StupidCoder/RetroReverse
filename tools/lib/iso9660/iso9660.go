@@ -195,21 +195,29 @@ func OpenBytes(image []byte) (*Volume, error) {
 // ready for listing and extraction. Use it when the geometry is already known (a
 // decompressing block source, say, that only ever yields cooked blocks).
 func OpenVolume(src BlockSource) (*Volume, error) {
-	pvd, err := src.ReadBlock(pvdLBA)
+	return OpenVolumeAt(src, pvdLBA)
+}
+
+// OpenVolumeAt opens a volume whose Primary Volume Descriptor sits at the
+// given LBA rather than the standard 16. A multi-session disc (a GD-ROM's
+// high-density area starts at LBA 45000) records absolute extent LBAs, so its
+// source must serve absolute LBAs too and its PVD sits at session+16.
+func OpenVolumeAt(src BlockSource, pvd int) (*Volume, error) {
+	b, err := src.ReadBlock(pvd)
 	if err != nil {
 		return nil, fmt.Errorf("iso9660: reading PVD: %w", err)
 	}
-	if pvd[0] != 0x01 || string(pvd[1:6]) != "CD001" {
-		return nil, errors.New("iso9660: no Primary Volume Descriptor at LBA 16")
+	if b[0] != 0x01 || string(b[1:6]) != "CD001" {
+		return nil, fmt.Errorf("iso9660: no Primary Volume Descriptor at LBA %d", pvd)
 	}
 	v := &Volume{
 		src:    src,
-		System: strings.TrimRight(string(pvd[8:40]), " \x00"),
-		Name:   strings.TrimRight(string(pvd[40:72]), " \x00"),
-		Blocks: int(le32(pvd[80:])),
+		System: strings.TrimRight(string(b[8:40]), " \x00"),
+		Name:   strings.TrimRight(string(b[40:72]), " \x00"),
+		Blocks: int(le32(b[80:])),
 	}
 	// The root directory record is 34 bytes at offset 156.
-	root := pvd[156 : 156+34]
+	root := b[156 : 156+34]
 	v.rootLBA = int(le32(root[2:]))
 	v.rootSize = int(le32(root[10:]))
 	return v, nil
