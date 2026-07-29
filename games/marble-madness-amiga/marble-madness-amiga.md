@@ -2242,14 +2242,30 @@ anchor table**, whose type field is matched against the same zone code by
 anchors' minimum Y is 71, and the type-3 anchors' minimum X is 66 — each
 threshold lands exactly on the near edge of its platform's anchor line.
 
-So the claim is **partly right**. The markings are real, landing on them pays,
-and the amount does depend on where you land — but it is
-`3000 + 500 × ⌊distance past the line / ½ tile⌋`, saturating at 6000 after
-three tiles, and each visible sign marks the *start* of one ramp rather than
-being one of several numbered targets. (Practice's art has three such plaques,
-each on its own threshold line with the arrow pointing the way the value grows.
-Their literal glyphs are ~4×5 px on isometric tiles and I could not resolve
-them with confidence, so the sign *text* stays unread.)
+**The signs read `3 4 5 6`**, nearest the edge to furthest (read off the screen
+in play; the glyphs are ~4×5 px on isometric tiles and I could not resolve them
+from the art with confidence). That closes the loop, because those four digits
+are exactly the whole-thousand bands, and the arithmetic *forces* them onto
+consecutive tiles:
+
+| painted | 3 | — | 4 | — | 5 | — | 6 |
+|---|---|---|---|---|---|---|---|
+| tiles past the line | 0 | ½ | 1 | 1½ | 2 | 2½ | 3+ |
+| index | 7 | 8 | 9 | 10 | 11 | 12 | 13 |
+| points | 3000 | 3500 | 4000 | 4500 | 5000 | 5500 | 6000 |
+
+So the two descriptions are the same fact seen from opposite ends. "You score
+by which numbered tile you land on" is the **result**: each painted digit sits
+one tile further out and is worth another 1000. `3000 + 500 × ⌊distance / ½
+tile⌋` is the **implementation**, and the only thing it adds is the unpainted
+half-steps — land between two numbers and you bank the intervening 500. The
+plaque is an honest label of its own tile, not an approximation of it.
+
+(The three plaques each sit on their own threshold line with the arrow pointing
+the way the value grows. Trying to measure the digit spacing from the rendered
+art was inconclusive: under the isometric skew the glyphs merge into the plaque
+border, so the one-tile spacing above is inferred from the band arithmetic plus
+the in-game reading, not measured pixel-wise.)
 
 A correction this turns up: terrain codes 26–31 are **not** proximity triggers
 routed to `$16C0C` (only code 5 is). They are the railing handlers above — and
@@ -2258,9 +2274,8 @@ they sit at the top of Practice, nowhere near the canyon.
 ### Still open
 
 The exact 86-byte region-struct layout; whether the second player gets the same
-completion bonus (`$5E4` is claimed by the first finisher only); which feature
-carries surface codes 18/19/20 on each course; and the literal text on
-Practice's three bonus plaques.
+completion bonus (`$5E4` is claimed by the first finisher only); and which
+feature carries surface codes 18/19/20 on each course.
 
 ---
 
