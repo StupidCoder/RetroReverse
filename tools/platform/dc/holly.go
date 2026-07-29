@@ -17,9 +17,15 @@ type Holly struct {
 }
 
 const (
-	istVBlankIn = 1 << 3
-	istCh2DMA   = 1 << 19
+	istRenderDone = 7 << 0 // video, ISP, TSP — raised together
+	istVBlankIn   = 1 << 3
+	istCh2DMA     = 1 << 19
 )
+
+// taListDoneBit maps a TA list type (a global parameter's bits 24-26) to its
+// list-complete interrupt: opaque, opaque-modifier, translucent,
+// translucent-modifier, punch-through.
+var taListDoneBit = [5]uint32{1 << 7, 1 << 8, 1 << 9, 1 << 10, 1 << 21}
 
 // hollyRead serves the system block.
 func (m *Machine) hollyRead(addr uint32) uint32 {
@@ -105,11 +111,13 @@ func (m *Machine) hollyWrite(addr, v uint32) {
 	case 0x005F6804:
 		m.C2DLen = v
 	case 0x005F6808:
-		// Ch2 (PVR) DMA start. The TA is a later milestone, so the transfer
-		// "completes" at once: the words are counted as submitted geometry
-		// and the end-of-DMA interrupt fires — the pacing a waiting game
-		// needs, without pretending anything was rendered.
+		// Ch2 (PVR) DMA start. The TA is a later milestone, so nothing is
+		// rendered — but the parameter stream is real and its END_OF_LIST
+		// markers are scanned (the source address sits in the SH-4 DMAC's
+		// SAR2, which the CPU raw-stores), so the list-complete interrupts a
+		// frame loop waits on fire for exactly the lists the game closed.
 		if v&1 != 0 {
+			m.scanTAStream(m.CPU.OnchipReg(0xFFA00020), m.C2DLen)
 			m.TAWrites += uint64(m.C2DLen / 4)
 			m.C2DLen = 0
 			m.Holly.ISTNRM |= istCh2DMA
@@ -117,6 +125,25 @@ func (m *Machine) hollyWrite(addr, v uint32) {
 	default:
 		m.logf("SB write %08X = %08X (PC %08X)", addr, v, m.CPU.CurPC())
 		return
+	}
+	m.updateIRL()
+}
+
+// scanTAStream walks a submitted TA parameter stream (32-byte parameters,
+// control word first) tracking the current list type from each global
+// parameter and raising the matching list-complete bit at each END_OF_LIST.
+func (m *Machine) scanTAStream(src, byteLen uint32) {
+	list := uint32(0)
+	for off := uint32(0); off+32 <= byteLen; off += 32 {
+		pcw := m.ram32(src + off)
+		switch pcw >> 29 {
+		case 0: // END_OF_LIST
+			if list < 5 {
+				m.Holly.ISTNRM |= taListDoneBit[list]
+			}
+		case 4, 5, 6: // polygon / sprite headers name their list
+			list = pcw >> 24 & 7
+		}
 	}
 	m.updateIRL()
 }

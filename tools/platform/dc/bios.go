@@ -123,6 +123,22 @@ func (b *biosHLE) sysinfo() {
 func (b *biosHLE) flashrom() {
 	c := b.m.CPU
 	switch c.R[7] {
+	case 0: // INFO(r4=partition, r5=dest): the partition's {offset, size}
+		b.count("flashrom.info")
+		parts := [5][2]uint32{
+			{0x1A000, 0x2000}, // factory
+			{0x18000, 0x2000}, // reserved
+			{0x1C000, 0x4000}, // block 1: user settings
+			{0x10000, 0x8000}, // game settings
+			{0x00000, 0x10000},
+		}
+		if p := c.R[4]; p < 5 {
+			b.m.Write32(c.R[5]&0x1FFFFFFF, parts[p][0])
+			b.m.Write32((c.R[5]+4)&0x1FFFFFFF, parts[p][1])
+			c.R[0] = 0
+		} else {
+			c.R[0] = ^uint32(0)
+		}
 	case 1: // READ(r4=offset, r5=buffer, r6=count) -> bytes read
 		b.count("flashrom.read")
 		off, buf, n := c.R[4], c.R[5], c.R[6]

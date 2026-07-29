@@ -126,6 +126,11 @@ func (c *CPU) onchipWrite(addr uint32, size int, v uint32) {
 	}
 }
 
+// OnchipReg reads a raw-stored on-chip register — the machine's window into
+// configuration the CPU package stores but does not interpret (the DMAC's
+// source address, say).
+func (c *CPU) OnchipReg(addr uint32) uint32 { return c.onchipRaw[addr] }
+
 // Gaps lists the on-chip registers read without ever having been modeled or
 // written, most-read first: the worklist for onchip.go.
 func (c *CPU) Gaps() []string {

@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 
+	"retroreverse.com/tools/cpu/arm"
 	"retroreverse.com/tools/cpu/sh4"
 )
 
@@ -55,6 +56,14 @@ type Machine struct {
 
 	CPU  *sh4.CPU
 	Disc *Disc
+
+	// The AICA's ARM7 (aica.go): held in reset until the game releases it,
+	// paced at one step per armDivisor SH-4 instructions.
+	ARM        *arm.CPU
+	ARMRunning bool
+	AICARegs   map[uint32]uint32
+	Timers     aicaTimers
+	armAcc     int
 
 	Holly Holly
 
@@ -114,6 +123,8 @@ func NewMachine(disc *Disc) *Machine {
 		m.Flash[i] = 0xFF
 	}
 	m.CPU = sh4.NewCPU(m)
+	m.ARM = arm.NewCPU(armBus{m})
+	m.AICARegs = map[uint32]uint32{}
 	return m
 }
 
@@ -295,8 +306,9 @@ func (m *Machine) ioRead(addr uint32, size int) uint32 {
 	case addr >= pvrBase && addr < pvrBase+0x2000:
 		return m.pvrRead(addr)
 	case addr >= aicaBase && addr < aicaBase+0x10000:
-		m.logf("AICA register read %08X (ARM7 not modelled)", addr)
-		return 0
+		return m.aicaRead(addr-aicaBase, size, true)
+	case addr >= 0x00710000 && addr < 0x00710010:
+		return m.rtcRead(addr)
 	case addr < 0x00200000:
 		m.logf("boot ROM read %08X (no BIOS image; syscalls are HLE'd)", addr)
 		return 0
@@ -336,7 +348,10 @@ func (m *Machine) ioWrite(addr uint32, size int, v uint32) {
 		m.pvrWrite(addr, v)
 		return
 	case addr >= aicaBase && addr < aicaBase+0x10000:
-		m.logf("AICA register write %08X (ARM7 not modelled)", addr)
+		m.aicaWrite(addr-aicaBase, size, v, true)
+		return
+	case addr >= 0x00710000 && addr < 0x00710010:
+		m.logf("RTC write %08X = %08X", addr, v)
 		return
 	case addr >= taBase && addr < taEnd:
 		m.TAWrites++
@@ -368,4 +383,10 @@ func (m *Machine) pvrRead(addr uint32) uint32 {
 
 func (m *Machine) pvrWrite(addr, v uint32) {
 	m.PVRRegs[(addr-pvrBase)/4] = v
+	if addr == pvrBase+0x14 {
+		// STARTRENDER: with no rasteriser yet the render "finishes" at once —
+		// the three render-done interrupts fire and VRAM keeps whatever it
+		// holds. The pacing is real, the picture is the declared gap.
+		m.raiseNRM(istRenderDone)
+	}
 }

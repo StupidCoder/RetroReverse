@@ -53,6 +53,12 @@ func (m *Machine) Run(maxSteps uint64, cfg RunConfig) Result {
 			return Result{m.Instrs, m.CPU.CurPC(), "halt: " + m.CPU.HaltReason}
 		}
 
+		if m.armAcc++; m.armAcc >= armDivisor {
+			m.armAcc = 0
+			m.stepARM()
+		}
+		m.tickAICA()
+
 		m.tickField()
 
 		if !cfg.NoSpin {

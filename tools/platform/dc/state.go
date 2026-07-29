@@ -14,8 +14,32 @@ import (
 	"fmt"
 	"os"
 
+	"retroreverse.com/tools/cpu/arm"
 	"retroreverse.com/tools/cpu/sh4"
 )
+
+// ARMState is the sound CPU's snapshot: active registers, packed CPSR, and
+// the banked files a mode switch would swap in.
+type ARMState struct {
+	R          [16]uint32
+	CPSR       uint32
+	Banks      arm.Banks
+	Halted     bool
+	HaltReason string
+	Instrs     uint64
+}
+
+func saveARM(c *arm.CPU) ARMState {
+	return ARMState{R: c.R, CPSR: c.CPSR(), Banks: c.SaveBanks(),
+		Halted: c.Halted, HaltReason: c.HaltReason, Instrs: c.Instrs}
+}
+
+func restoreARM(c *arm.CPU, s ARMState) {
+	c.R = s.R
+	c.SetCPSR(s.CPSR)
+	c.RestoreBanks(s.Banks)
+	c.Halted, c.HaltReason, c.Instrs = s.Halted, s.HaltReason, s.Instrs
+}
 
 const snapshotVersion = 1
 
@@ -33,6 +57,14 @@ type MachineState struct {
 	Holly Holly
 	Maple mapleState
 	Pad   PadState
+
+	// The sound side: the ARM7's whole programmer's model (banked registers
+	// included — the DS lesson), its run state, and the register block.
+	ARM        ARMState
+	ARMRunning bool
+	ArmAcc     int
+	AICARegs   map[uint32]uint32
+	Timers     aicaTimers
 
 	C2DStat, C2DLen uint32
 
@@ -80,8 +112,13 @@ func (m *Machine) SaveState() MachineState {
 		Maple:   m.Maple,
 		Pad:     m.Pad,
 		C2DStat: m.C2DStat, C2DLen: m.C2DLen,
-		PVRRegs: m.PVRRegs, TAWrites: m.TAWrites,
+		ARM: saveARM(m.ARM), ARMRunning: m.ARMRunning, ArmAcc: m.armAcc, Timers: m.Timers,
+		AICARegs: make(map[uint32]uint32, len(m.AICARegs)),
+		PVRRegs:  m.PVRRegs, TAWrites: m.TAWrites,
 		Instrs: m.Instrs, Fields: m.Fields, InstrInField: m.instrInField,
+	}
+	for k, v := range m.AICARegs {
+		s.AICARegs[k] = v
 	}
 	if m.bios != nil {
 		s.BIOS = cloneBIOS(&m.bios.state)
@@ -116,6 +153,12 @@ func (m *Machine) LoadState(s MachineState) error {
 	m.Maple = s.Maple
 	m.Pad = s.Pad
 	m.C2DStat, m.C2DLen = s.C2DStat, s.C2DLen
+	restoreARM(m.ARM, s.ARM)
+	m.ARMRunning, m.armAcc, m.Timers = s.ARMRunning, s.ArmAcc, s.Timers
+	m.AICARegs = make(map[uint32]uint32, len(s.AICARegs))
+	for k, v := range s.AICARegs {
+		m.AICARegs[k] = v
+	}
 	if s.BIOS != nil {
 		m.bios = newBIOS(m)
 		m.bios.state = *cloneBIOS(s.BIOS)
