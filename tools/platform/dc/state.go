@@ -34,6 +34,8 @@ type MachineState struct {
 	Maple mapleState
 	Pad   PadState
 
+	C2DStat, C2DLen uint32
+
 	// BIOS is nil for a machine that never booted; the request map is
 	// deep-copied both directions.
 	BIOS *biosState
@@ -77,6 +79,7 @@ func (m *Machine) SaveState() MachineState {
 		Holly:   m.Holly,
 		Maple:   m.Maple,
 		Pad:     m.Pad,
+		C2DStat: m.C2DStat, C2DLen: m.C2DLen,
 		PVRRegs: m.PVRRegs, TAWrites: m.TAWrites,
 		Instrs: m.Instrs, Fields: m.Fields, InstrInField: m.instrInField,
 	}
@@ -112,6 +115,7 @@ func (m *Machine) LoadState(s MachineState) error {
 	m.Holly = s.Holly
 	m.Maple = s.Maple
 	m.Pad = s.Pad
+	m.C2DStat, m.C2DLen = s.C2DStat, s.C2DLen
 	if s.BIOS != nil {
 		m.bios = newBIOS(m)
 		m.bios.state = *cloneBIOS(s.BIOS)

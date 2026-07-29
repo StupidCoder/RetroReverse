@@ -111,6 +111,10 @@ type CPU struct {
 	irlLevel uint32
 	irlCode  uint32
 
+	// SerialTX collects every byte the guest writes to the SCIF transmit
+	// FIFO — its own debug log (see onchip.go).
+	SerialTX []byte
+
 	Halted     bool
 	HaltReason string
 	Steps      uint64
@@ -178,9 +182,13 @@ func (c *CPU) SetPC(pc uint32) {
 func (c *CPU) Reg(i uint32) uint32       { return c.R[i&15] }
 func (c *CPU) SetReg(i uint32, v uint32) { c.R[i&15] = v }
 
-// InDelaySlot reports whether the instruction at CurPC is a delay slot — the
-// machine's HLE layer needs it to refuse to trap there.
+// InDelaySlot reports whether the instruction at CurPC is a delay slot.
 func (c *CPU) InDelaySlot() bool { return c.delaySlot }
+
+// NextIsDelaySlot reports whether the instruction ABOUT to execute (at PC) is
+// a delayed transfer's slot — what a trap layer must test before hijacking
+// the PC between Steps.
+func (c *CPU) NextIsDelaySlot() bool { return c.pendingDelay }
 
 // bankSelect is 1 when the second R0-R7 bank is live: privileged with SR.RB
 // set. In user mode RB is ignored.
@@ -244,6 +252,19 @@ func (c *CPU) fetchInstr(addr uint32) uint16 {
 	return c.bus.Read16(addr & 0x1FFFFFFF)
 }
 
+// cacheArray covers 0xF0000000-0xFBFFFFFF: the instruction/operand cache and
+// TLB address/data arrays. With no cache modeled, an address-array write (a
+// line invalidate) is a true no-op and a read sees an invalid line's zero
+// tag; both are recorded once in the gap census so a guest that *depends* on
+// array contents names itself.
+func (c *CPU) cacheArray(addr uint32, write bool) bool {
+	if addr < 0xF0000000 || addr >= 0xFC000000 {
+		return false
+	}
+	c.onchipGaps[addr&0xFF000000]++
+	return true
+}
+
 func (c *CPU) read8(addr uint32) uint8 {
 	switch {
 	case addr < 0xE0000000:
@@ -252,6 +273,8 @@ func (c *CPU) read8(addr uint32) uint8 {
 		return uint8(c.sqRead32(addr) >> (8 * (addr & 3)))
 	case addr >= 0xFC000000:
 		return uint8(c.onchipRead(addr, 1))
+	case c.cacheArray(addr, false):
+		return 0
 	}
 	c.Halt("read8 from unmapped P4 at %08X (PC %08X)", addr, c.curPC)
 	return 0
@@ -265,6 +288,8 @@ func (c *CPU) read16(addr uint32) uint16 {
 		return uint16(c.sqRead32(addr) >> (8 * (addr & 2)))
 	case addr >= 0xFC000000:
 		return uint16(c.onchipRead(addr, 2))
+	case c.cacheArray(addr, false):
+		return 0
 	}
 	c.Halt("read16 from unmapped P4 at %08X (PC %08X)", addr, c.curPC)
 	return 0
@@ -278,6 +303,8 @@ func (c *CPU) read32(addr uint32) uint32 {
 		return c.sqRead32(addr)
 	case addr >= 0xFC000000:
 		return c.onchipRead(addr, 4)
+	case c.cacheArray(addr, false):
+		return 0
 	}
 	c.Halt("read32 from unmapped P4 at %08X (PC %08X)", addr, c.curPC)
 	return 0
@@ -291,6 +318,7 @@ func (c *CPU) write8(addr uint32, v uint8) {
 		c.sqWrite(addr, 1, uint32(v))
 	case addr >= 0xFC000000:
 		c.onchipWrite(addr, 1, uint32(v))
+	case c.cacheArray(addr, true):
 	default:
 		c.Halt("write8 to unmapped P4 at %08X (PC %08X)", addr, c.curPC)
 	}
@@ -304,6 +332,7 @@ func (c *CPU) write16(addr uint32, v uint16) {
 		c.sqWrite(addr, 2, uint32(v))
 	case addr >= 0xFC000000:
 		c.onchipWrite(addr, 2, uint32(v))
+	case c.cacheArray(addr, true):
 	default:
 		c.Halt("write16 to unmapped P4 at %08X (PC %08X)", addr, c.curPC)
 	}
@@ -317,6 +346,7 @@ func (c *CPU) write32(addr uint32, v uint32) {
 		c.sqWrite(addr, 4, v)
 	case addr >= 0xFC000000:
 		c.onchipWrite(addr, 4, v)
+	case c.cacheArray(addr, true):
 	default:
 		c.Halt("write32 to unmapped P4 at %08X (PC %08X)", addr, c.curPC)
 	}

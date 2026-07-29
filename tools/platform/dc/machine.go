@@ -58,6 +58,10 @@ type Machine struct {
 
 	Holly Holly
 
+	// Ch2 (PVR) DMA registers; the transfer itself is the counted-not-
+	// rendered model in holly.go.
+	C2DStat, C2DLen uint32
+
 	// The PVR register file, stored raw at word granularity; video.go
 	// interprets the scanout set, everything else round-trips.
 	PVRRegs [0x2000 / 4]uint32
@@ -81,7 +85,13 @@ type Machine struct {
 	// Instrumentation, all opt-in and nil-checked on the hot path.
 	OnStep    func(pc uint32)
 	OnDisplay func(field uint64)
-	Verbose   io.Writer // gap-log lines land here when set
+	OnGDRead  func(fad, count uint32) // every HLE'd disc read
+	Verbose   io.Writer               // gap-log lines land here when set
+
+	// Watches: with OnWatch set, accesses inside the ranges report. Physical
+	// addresses, like everything on this bus.
+	WatchW, WatchR []WatchRange
+	OnWatch        func(write bool, addr, v uint32, size int, pc uint32)
 
 	gaps map[string]int
 }
@@ -159,7 +169,39 @@ func (m *Machine) Fetch16(addr uint32) uint16 {
 	return m.Read16(addr)
 }
 
+// WatchRange is a [Start, Start+Len) physical window.
+type WatchRange struct {
+	Start, Len uint32
+}
+
+func inRanges(rs []WatchRange, addr uint32, size int) bool {
+	for _, r := range rs {
+		if addr+uint32(size) > r.Start && addr < r.Start+r.Len {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Machine) watch(write bool, addr, v uint32, size int) {
+	rs := m.WatchR
+	if write {
+		rs = m.WatchW
+	}
+	if inRanges(rs, addr, size) {
+		m.OnWatch(write, addr, v, size, m.CPU.CurPC())
+	}
+}
+
 func (m *Machine) Read8(addr uint32) uint8 {
+	v := m.read8i(addr)
+	if m.OnWatch != nil {
+		m.watch(false, addr, uint32(v), 1)
+	}
+	return v
+}
+
+func (m *Machine) read8i(addr uint32) uint8 {
 	if b, off := m.backing(addr); b != nil {
 		return b[off]
 	}
@@ -170,6 +212,14 @@ func (m *Machine) Read8(addr uint32) uint8 {
 }
 
 func (m *Machine) Read16(addr uint32) uint16 {
+	v := m.read16i(addr)
+	if m.OnWatch != nil {
+		m.watch(false, addr, uint32(v), 2)
+	}
+	return v
+}
+
+func (m *Machine) read16i(addr uint32) uint16 {
 	if b, off := m.backing(addr); b != nil {
 		return uint16(b[off]) | uint16(b[off+1])<<8
 	}
@@ -181,6 +231,14 @@ func (m *Machine) Read16(addr uint32) uint16 {
 }
 
 func (m *Machine) Read32(addr uint32) uint32 {
+	v := m.read32i(addr)
+	if m.OnWatch != nil {
+		m.watch(false, addr, v, 4)
+	}
+	return v
+}
+
+func (m *Machine) read32i(addr uint32) uint32 {
 	if b, off := m.backing(addr); b != nil {
 		return uint32(b[off]) | uint32(b[off+1])<<8 | uint32(b[off+2])<<16 | uint32(b[off+3])<<24
 	}
@@ -192,6 +250,9 @@ func (m *Machine) Read32(addr uint32) uint32 {
 }
 
 func (m *Machine) Write8(addr uint32, v uint8) {
+	if m.OnWatch != nil {
+		m.watch(true, addr, uint32(v), 1)
+	}
 	if b, off := m.backing(addr); b != nil {
 		b[off] = v
 		return
@@ -200,6 +261,9 @@ func (m *Machine) Write8(addr uint32, v uint8) {
 }
 
 func (m *Machine) Write16(addr uint32, v uint16) {
+	if m.OnWatch != nil {
+		m.watch(true, addr, uint32(v), 2)
+	}
 	if b, off := m.backing(addr); b != nil {
 		b[off], b[off+1] = uint8(v), uint8(v>>8)
 		return
@@ -208,6 +272,9 @@ func (m *Machine) Write16(addr uint32, v uint16) {
 }
 
 func (m *Machine) Write32(addr uint32, v uint32) {
+	if m.OnWatch != nil {
+		m.watch(true, addr, v, 4)
+	}
 	if b, off := m.backing(addr); b != nil {
 		b[off], b[off+1], b[off+2], b[off+3] = uint8(v), uint8(v>>8), uint8(v>>16), uint8(v>>24)
 		return
@@ -233,6 +300,19 @@ func (m *Machine) ioRead(addr uint32, size int) uint32 {
 	case addr < 0x00200000:
 		m.logf("boot ROM read %08X (no BIOS image; syscalls are HLE'd)", addr)
 		return 0
+	case addr >= 0x01000000 && addr < 0x04000000:
+		// The G2 expansion sockets (modem, broadband adapter): nothing is
+		// plugged in, and an empty bus reads all-ones — the same "empty
+		// socket" answer the Maple bus gives. Zeros here made Crazy Taxi's
+		// peripheral probe half-succeed and hang in the driver.
+		m.logf("G2 expansion read %08X (empty socket, reads FF)", addr)
+		switch size {
+		case 1:
+			return 0xFF
+		case 2:
+			return 0xFFFF
+		}
+		return 0xFFFFFFFF
 	case addr >= taBase && addr < taEnd:
 		m.logf("TA FIFO read %08X", addr)
 		return 0

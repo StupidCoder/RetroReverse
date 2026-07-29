@@ -16,7 +16,10 @@ type Holly struct {
 	IML6NRM, IML6EXT, IML6ERR uint32
 }
 
-const istVBlankIn = 1 << 3
+const (
+	istVBlankIn = 1 << 3
+	istCh2DMA   = 1 << 19
+)
 
 // hollyRead serves the system block.
 func (m *Machine) hollyRead(addr uint32) uint32 {
@@ -59,6 +62,12 @@ func (m *Machine) hollyRead(addr uint32) uint32 {
 		return 0
 	case 0x005F689C: // SB_SBREV
 		return 0x0B
+	case 0x005F6800: // SB_C2DSTAT
+		return m.C2DStat
+	case 0x005F6804: // SB_C2DLEN
+		return m.C2DLen
+	case 0x005F6808: // SB_C2DST: the completed-instantly model reads idle
+		return 0
 	}
 	m.logf("SB read %08X (PC %08X)", addr, m.CPU.CurPC())
 	return 0
@@ -91,6 +100,20 @@ func (m *Machine) hollyWrite(addr, v uint32) {
 		h.IML6EXT = v
 	case 0x005F6938:
 		h.IML6ERR = v
+	case 0x005F6800:
+		m.C2DStat = v
+	case 0x005F6804:
+		m.C2DLen = v
+	case 0x005F6808:
+		// Ch2 (PVR) DMA start. The TA is a later milestone, so the transfer
+		// "completes" at once: the words are counted as submitted geometry
+		// and the end-of-DMA interrupt fires — the pacing a waiting game
+		// needs, without pretending anything was rendered.
+		if v&1 != 0 {
+			m.TAWrites += uint64(m.C2DLen / 4)
+			m.C2DLen = 0
+			m.Holly.ISTNRM |= istCh2DMA
+		}
 	default:
 		m.logf("SB write %08X = %08X (PC %08X)", addr, v, m.CPU.CurPC())
 		return
@@ -105,15 +128,22 @@ func (m *Machine) raiseNRM(bits uint32) {
 }
 
 // updateIRL asserts the highest Holly level with a pending, unmasked bit.
+//
+// The IML register names carry the SH-4 *level*: IML6 masks raise level 6,
+// whose IRL pin value is 9 and whose INTEVT is therefore 0x320
+// (0x200+0x20·(15−L)) — the code a game's dispatcher tests for its VBlank.
+// Getting this upside-down (level 13 for IML6) made Crazy Taxi's handler
+// dispatch an INTEVT it does not own, return without acknowledging, and
+// re-enter forever.
 func (m *Machine) updateIRL() {
 	h := &m.Holly
 	switch {
 	case h.ISTNRM&h.IML6NRM != 0 || h.ISTEXT&h.IML6EXT != 0 || h.ISTERR&h.IML6ERR != 0:
-		m.CPU.SetIRL(13, 0x3A0)
+		m.CPU.SetIRL(6, 0x320)
 	case h.ISTNRM&h.IML4NRM != 0 || h.ISTEXT&h.IML4EXT != 0 || h.ISTERR&h.IML4ERR != 0:
-		m.CPU.SetIRL(11, 0x360)
+		m.CPU.SetIRL(4, 0x360)
 	case h.ISTNRM&h.IML2NRM != 0 || h.ISTEXT&h.IML2EXT != 0 || h.ISTERR&h.IML2ERR != 0:
-		m.CPU.SetIRL(9, 0x320)
+		m.CPU.SetIRL(2, 0x3A0)
 	default:
 		m.CPU.SetIRL(0, 0)
 	}

@@ -134,7 +134,10 @@ func (m *Machine) mapleRespond(cmd, dst, payload, recv uint32) {
 		m.Write32(recv+8, uint32(m.Pad.Buttons)|uint32(m.Pad.RT)<<16|uint32(m.Pad.LT)<<24)
 		m.Write32(recv+12, uint32(m.Pad.JoyX)|uint32(m.Pad.JoyY)<<8|0x80<<16|0x80<<24)
 	default:
-		m.logf("maple command %d unimplemented", cmd)
-		m.Write32(recv, 0xFFFFFFFF)
+		// The controller exists but does not speak this function: the bus's
+		// "function code unsupported" reply (0xFE), never the empty-socket
+		// word — a device must not vanish between commands.
+		m.logf("maple command %d answered as unsupported", cmd)
+		m.Write32(recv, 0xFE|src<<8|host<<16)
 	}
 }

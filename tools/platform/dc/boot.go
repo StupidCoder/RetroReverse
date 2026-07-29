@@ -54,9 +54,26 @@ func (m *Machine) Boot() error {
 	m.putRAM32(0x000000BC, trapGdrom)
 	m.putRAM32(0x000000E0, trapMenu)
 
+	// 8C000010: the BIOS's uncached return-from-exception stub — rte; nop as
+	// real instructions. The evidence is Crazy Taxi's own interrupt epilogue:
+	// it restores the whole context, SSR and SPC included, hand-builds the
+	// constant AC000010 (the P2 mirror, so the rte runs uncached) and jumps
+	// there with nothing left to do but return. Planted as code, not a trap,
+	// because it IS code on hardware.
+	m.RAM[0x10], m.RAM[0x11] = 0x2B, 0x00 // rte
+	m.RAM[0x12], m.RAM[0x13] = 0x09, 0x00 // nop
+
 	// The console's unique ID lives at 8C000068 (the sysinfo ID syscall
 	// returns this address); ours is arbitrary but planted, not poison.
 	copy(m.RAM[0x68:0x70], []byte{0x52, 0x45, 0x54, 0x52, 0x4F, 0x52, 0x56, 0x00})
+
+	// 8C00FFF0/F4: Crazy Taxi keeps a lazily-initialised work-structure
+	// pointer pair here (its own literal pool names both words), and its
+	// "already initialised?" test is tst — a fresh boot must read zero. The
+	// poison found this contract; these two words are the evidence-driven
+	// exception to it.
+	m.putRAM32(0xFFF0, 0)
+	m.putRAM32(0xFFF4, 0)
 
 	copy(m.RAM[load:], bin)
 

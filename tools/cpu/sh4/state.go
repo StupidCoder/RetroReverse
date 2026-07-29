@@ -33,6 +33,7 @@ type State struct {
 	SQ                              [2][8]uint32
 
 	IRLLevel, IRLCode uint32
+	SerialTX          []byte
 
 	Halted     bool
 	HaltReason string
@@ -59,6 +60,7 @@ func (c *CPU) Snapshot() State {
 		ICR: c.ICR, IPRA: c.IPRA, IPRB: c.IPRB, IPRC: c.IPRC,
 		TMU: c.TMU, SQ: c.SQ,
 		IRLLevel: c.irlLevel, IRLCode: c.irlCode,
+		SerialTX: append([]byte(nil), c.SerialTX...),
 		Halted: c.Halted, HaltReason: c.HaltReason, Steps: c.Steps,
 		CurPC: c.curPC, DelaySlot: c.delaySlot, PendingDelay: c.pendingDelay,
 		OnchipRaw:  make(map[uint32]uint32, len(c.onchipRaw)),
@@ -85,6 +87,7 @@ func (c *CPU) Restore(s State) {
 	c.ICR, c.IPRA, c.IPRB, c.IPRC = s.ICR, s.IPRA, s.IPRB, s.IPRC
 	c.TMU, c.SQ = s.TMU, s.SQ
 	c.irlLevel, c.irlCode = s.IRLLevel, s.IRLCode
+	c.SerialTX = append([]byte(nil), s.SerialTX...)
 	c.Halted, c.HaltReason, c.Steps = s.Halted, s.HaltReason, s.Steps
 	c.curPC, c.delaySlot, c.pendingDelay = s.CurPC, s.DelaySlot, s.PendingDelay
 	c.onchipRaw = make(map[uint32]uint32, len(s.OnchipRaw))

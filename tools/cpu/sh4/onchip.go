@@ -18,11 +18,23 @@ import (
 	"sort"
 )
 
+// SCIF: the on-chip serial port games print debug text through. The
+// transmitter is modeled as always drained — true of a UART nobody is
+// listening to — and every byte written to the FIFO lands in SerialTX, so
+// the guest's own log is readable instead of lost. The receive side stays
+// honestly empty.
+const (
+	scifSCFTDR = 0xFFE8000C // transmit FIFO
+	scifSCFSR  = 0xFFE80010 // status: TEND|TDFE always, nothing received
+)
+
 func (c *CPU) onchipRead(addr uint32, size int) uint32 {
 	if v, ok := c.tmuRead(addr); ok {
 		return v
 	}
 	switch addr {
+	case scifSCFSR:
+		return 0x0060 // TEND | TDFE
 	case 0xFF000000:
 		return c.PTEH
 	case 0xFF000004:
@@ -68,6 +80,11 @@ func (c *CPU) onchipWrite(addr uint32, size int, v uint32) {
 		return
 	}
 	switch addr {
+	case scifSCFTDR:
+		c.SerialTX = append(c.SerialTX, uint8(v))
+		return
+	case scifSCFSR:
+		return // flag-clearing writes; our flags are derived, not stored
 	case 0xFF000000:
 		c.PTEH = v
 	case 0xFF000004:

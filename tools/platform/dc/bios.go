@@ -62,8 +62,8 @@ func (m *Machine) trapPC(pc uint32) bool {
 		return false
 	}
 	c := m.CPU
-	if c.InDelaySlot() {
-		return false // a trap fetched as a delay slot would corrupt the pipeline
+	if c.NextIsDelaySlot() {
+		return false // a trap executing as a delay slot would corrupt the pipeline
 	}
 	b := m.bios
 	switch pc {
@@ -214,6 +214,9 @@ func (b *biosHLE) execGD(req *gdRequest) {
 		// params: {FAD, sector count, buffer, x}; the game passes frame
 		// addresses (LBA+150), the convention the whole disc chain uses.
 		fad, count, buf := req.Params[0], req.Params[1], req.Params[2]
+		if b.m.OnGDRead != nil {
+			b.m.OnGDRead(fad, count)
+		}
 		for i := uint32(0); i < count; i++ {
 			sec, err := b.m.Disc.ReadSector(int(fad-150) + int(i))
 			if err != nil {
