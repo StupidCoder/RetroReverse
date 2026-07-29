@@ -25,8 +25,8 @@ games/<slug>/                    # one directory per game
   figures/                       # images embedded in <slug>.md — tracked
   work/                          # regenerable dev/debug scratch — .gitignored
 tools/
-  cpu/       mos6502 m68k z80 sm83 arm arm60 mips x86
-  platform/  psx nds dos gameboy gamegear threedo amiga c64 n3ds
+  cpu/       mos6502 m68k z80 sm83 arm arm60 mips x86 sh4
+  platform/  psx nds dos gameboy gamegear threedo amiga c64 n3ds dc
              (each platform owns its format/codec libs, e.g. amiga/iff, nds/nitro, c64/sid)
   lib/       reserved for genuinely cross-platform helpers (none yet)
   cmd/       dis<cpu> / codetrace<cpu> command binaries
@@ -35,7 +35,7 @@ site/
 ```
 
 **Slugs** are `lowercase-with-hyphens`, ending in the platform tag:
-`elite-c64`, `fort-apocalypse-c64`, `marble-madness-amiga`, `mario-kart-ds`,
+`crazy-taxi-dc`, `elite-c64`, `fort-apocalypse-c64`, `marble-madness-amiga`, `mario-kart-ds`,
 `need-for-speed-3do`, `ridge-racer-psx`, `sonic-gg`, `stunt-car-racer-amiga`,
 `super-mario-3d-land-3ds`, `super-mario-64-ds`, `super-mario-land-gb`, `turrican-amiga`,
 `ultima-underworld-pc`.

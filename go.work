@@ -3,6 +3,7 @@ go 1.23
 use (
 	./tools
 	./games/burnout-legends-psp/extract
+	./games/crazy-taxi-dc/extract
 	./games/elite-c64/extract
 	./games/fort-apocalypse-c64/extract
 	./games/marble-madness-amiga/extract

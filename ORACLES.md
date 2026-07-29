@@ -483,6 +483,39 @@ probe that boots the ROM and settles it.
 
 ---
 
+## Dreamcast — `games/crazy-taxi-dc/extract/cmd/bootoracle`
+
+SH-4 (SH7091) + Holly on `tools/platform/dc`, booting the disc's own
+`1ST_READ.BIN` with the five BIOS syscall vectors HLE'd behind poisoned low
+RAM (each unknown call logged once, per-name census). Crazy Taxi boots
+through its runtime init, serves VBlank interrupts, streams its sound driver
+off the disc and parks waiting for the AICA ARM7 — the declared frontier.
+Declared stubs: PVR tile accelerator (TA words counted, ch2 DMA completes
+without rendering), AICA ARM7 (sound RAM real, ARM held in reset), GD ATA
+register protocol, MMU. The scanout framebuffer renders when configured; an
+unconfigured framebuffer is an error, not a black PNG.
+
+| flag | what it does |
+|---|---|
+| `-steps` / `-frames` | instruction budget, or VBlank-field budget |
+| `-trace` / `-tracen` / `-tracefrom` | instruction trace, capped, deferred until a PC |
+| `-bp` / `-logpc` | halting breakpoint; non-halting register log |
+| `-watch` / `-rwatch` | write/read watch on physical ranges |
+| `-poke ADDR:VAL` | force a value after boot/loadstate |
+| `-keys BTN@FIELD[:HOLD]` | pad script into the Maple GETCOND answer |
+| `-shot` / `-vramshot` | scanout framebuffer PNG; raw-VRAM viewer |
+| `-dis` / `-dump` | post-run disassembly / hex dump (`-steps 0` for static) |
+| `-files` / `-gd` | disc census; every GD read named by the file it lands in |
+| `-savestate` / `-loadstate` | savestates (continued vs restored runs byte-identical) |
+| `-v` | the unmodelled-hardware census — the worklist |
+
+The serial capture prints automatically: the SCIF transmit FIFO always
+drains and every byte the game writes is kept, so the guest narrates itself.
+**Companion:** `gdinfo` (`tools/platform/dc/cmd/gdinfo`) — tracks, IP.BIN,
+ISO census, extraction, `-at LBA` → filename.
+
+---
+
 ## Cross-platform: what exists once and should exist everywhere
 
 Every CPU has a matching pair of static tools — `dis<cpu>` and `codetrace<cpu>` (6502, 68k, z80, sm83,
