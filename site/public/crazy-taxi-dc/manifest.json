@@ -36,6 +36,90 @@
    "name": "Crazy Box",
    "group": "Courses",
    "file": "levels/crazy-box.json"
+  },
+  {
+   "id": "cab-axel",
+   "category": "object",
+   "name": "Axel's cab",
+   "group": "Player cabs",
+   "file": "objects/cab-axel.json"
+  },
+  {
+   "id": "cab-bdjoe",
+   "category": "object",
+   "name": "B.D.Joe's cab",
+   "group": "Player cabs",
+   "file": "objects/cab-bdjoe.json"
+  },
+  {
+   "id": "cab-gena",
+   "category": "object",
+   "name": "Gena's cab",
+   "group": "Player cabs",
+   "file": "objects/cab-gena.json"
+  },
+  {
+   "id": "cab-gus",
+   "category": "object",
+   "name": "Gus's cab",
+   "group": "Player cabs",
+   "file": "objects/cab-gus.json"
+  },
+  {
+   "id": "driver-axel",
+   "category": "object",
+   "name": "Axel",
+   "group": "Drivers",
+   "file": "objects/driver-axel.json"
+  },
+  {
+   "id": "driver-bdjoe",
+   "category": "object",
+   "name": "B.D.Joe",
+   "group": "Drivers",
+   "file": "objects/driver-bdjoe.json"
+  },
+  {
+   "id": "driver-gena",
+   "category": "object",
+   "name": "Gena",
+   "group": "Drivers",
+   "file": "objects/driver-gena.json"
+  },
+  {
+   "id": "driver-gus",
+   "category": "object",
+   "name": "Gus",
+   "group": "Drivers",
+   "file": "objects/driver-gus.json"
+  },
+  {
+   "id": "traffic-120",
+   "category": "object",
+   "name": "Traffic car (model 120)",
+   "group": "Traffic",
+   "file": "objects/traffic-120.json"
+  },
+  {
+   "id": "traffic-184",
+   "category": "object",
+   "name": "Traffic car (model 184)",
+   "group": "Traffic",
+   "file": "objects/traffic-184.json"
+  },
+  {
+   "id": "traffic-194",
+   "category": "object",
+   "name": "Traffic car (model 194)",
+   "group": "Traffic",
+   "file": "objects/traffic-194.json"
+  },
+  {
+   "id": "traffic-238",
+   "category": "object",
+   "name": "Traffic car (model 238)",
+   "group": "Traffic",
+   "file": "objects/traffic-238.json"
   }
  ]
 }

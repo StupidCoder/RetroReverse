@@ -67,23 +67,36 @@ func runCLI(ctx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("open disc: %w", err)
 	}
+	firstRead, err := disc.Vol.ReadFile("1ST_READ.BIN;1")
+	if err != nil {
+		return fmt.Errorf("1ST_READ.BIN: %w", err)
+	}
+	objects, err := loadObjectSet(disc, firstRead)
+	if err != nil {
+		return fmt.Errorf("POLDC0 objects: %w", err)
+	}
 	if ctx.Stage("levels") {
-		firstRead, err := disc.Vol.ReadFile("1ST_READ.BIN;1")
+		skyFile, err := exportSky(ctx, objects)
 		if err != nil {
-			return fmt.Errorf("1ST_READ.BIN: %w", err)
+			return fmt.Errorf("sky: %w", err)
 		}
 		for i, c := range courses {
-			if err := exportCourse(ctx, disc, firstRead, c.n, c.id, c.name); err != nil {
+			if err := exportCourse(ctx, disc, firstRead, c.n, c.id, c.name, skyFile); err != nil {
 				return fmt.Errorf("%s: %w", c.id, err)
 			}
 			ctx.Progress("levels", i+1, len(courses), c.name)
+		}
+	}
+	if ctx.Stage("objects") {
+		if err := exportObjects(ctx, objects); err != nil {
+			return fmt.Errorf("objects: %w", err)
 		}
 	}
 	return nil
 }
 
 // exportCourse assembles course n from its BINC container and texture set.
-func exportCourse(ctx *cli.Context, disc *dc.Disc, firstRead []byte, n int, id, name string) error {
+func exportCourse(ctx *cli.Context, disc *dc.Disc, firstRead []byte, n int, id, name, skyFile string) error {
 	raw, err := disc.Vol.ReadFile(fmt.Sprintf("BINC%d.AFS;1", n))
 	if err != nil {
 		return err
@@ -256,7 +269,10 @@ func exportCourse(ctx *cli.Context, disc *dc.Disc, firstRead []byte, n int, id, 
 			Target: target,
 			Fly:    &schema.Fly{Speed: span / 40},
 		},
-		Scene: &schema.Scene{Layers: []schema.Layer{{ID: "city", File: file}}},
+		Scene: &schema.Scene{Layers: []schema.Layer{
+			{ID: "city", File: file},
+			skyLayer(skyFile),
+		}},
 	}
 	ctx.Builder.AddLevel(schema.Asset{ID: id, Name: name, Group: "Courses"}, doc)
 	return nil

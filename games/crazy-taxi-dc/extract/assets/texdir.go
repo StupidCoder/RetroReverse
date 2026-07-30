@@ -23,15 +23,19 @@ import (
 // were pinned by correlating descriptors with the loader-built records'
 // final TCWs (mip bit 31, VQ bit 30) over a full course: 4 → mip+VQ,
 // 3 → VQ, 2 → mip, 1 → plain twiddled; 0xD marks the non-square textures,
-// whose TCWs carry neither bit and whose sizes are exactly w*h*2 — raster
-// pages, like the LANDDC billboards. Kinds 5 and 7 appear only in the
-// non-course (palette-fed car/UI) directories and are not decoded here.
+// whose TCWs carry neither bit and whose sizes are exactly w*h*2. Kind 0xD
+// is NOT raster: every kind-0xD record in the drive2 runtime record table
+// has scan-order bit 26 CLEAR in its final TCW — non-square twiddled, laid
+// out as a row of min(w,h)-sided twiddled squares (the sky texture, entry
+// 218 of TEXDC1, decodes to its cloud photograph exactly this way and to
+// shredded stripes as raster). Kinds 5 and 7 appear only in the non-course
+// (palette-fed car/UI) directories and are not decoded here.
 const (
 	TexVQMip    = 4
 	TexVQ       = 3
 	TexMip      = 2
 	TexTwiddled = 1
-	TexRaster   = 0xD
+	TexRect     = 0xD
 )
 
 // TexEntry is one texture: its file placement and how to decode it.
@@ -54,7 +58,7 @@ func (e *TexEntry) Size() uint32 {
 		n = 2048 + w*h/4
 	case TexMip:
 		n = ((w*w-1)/3+1)*2 + w*h*2
-	default: // TexTwiddled, TexRaster
+	default: // TexTwiddled, TexRect
 		n = w * h * 2
 	}
 	return (n + 31) &^ 31
@@ -174,10 +178,19 @@ func (d *TexDir) Decode(i int, texdc []byte) (*image.RGBA, error) {
 				put(x, y, px16(entry*8+uint32((x&1)*2+(y&1))*2))
 			}
 		}
-	case TexRaster:
+	case TexRect:
+		// Non-square twiddled: a grid of min(w,h)-sided twiddled squares,
+		// squares in row-major order — the same walk the oracle's sampler
+		// does for a TCW with scan-order clear and u-size != v-size.
+		side := e.W
+		if e.H < side {
+			side = e.H
+		}
 		for y := 0; y < e.H; y++ {
 			for x := 0; x < e.W; x++ {
-				put(x, y, px16(uint32(y*e.W+x)*2))
+				block := uint32((y/side)*(e.W/side) + x/side)
+				idx := block*uint32(side*side) + twiddle(uint32(x%side), uint32(y%side))
+				put(x, y, px16(idx*2))
 			}
 		}
 	default:

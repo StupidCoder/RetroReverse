@@ -18,6 +18,16 @@
    {
     "id": "city",
     "file": "crazy-box.glb"
+   },
+   {
+    "id": "sky",
+    "name": "Sky",
+    "file": "sky.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "depthTest": false,
+    "role": "sky"
    }
   ]
  }

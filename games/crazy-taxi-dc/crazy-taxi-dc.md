@@ -651,3 +651,86 @@ lighthouse — and the Crazy Box arenas under their painted sky dome, each
 a textured GLB with a fly camera. Course 0 is not a course: POLDC0 and
 TEXDC0 load at boot and hold the shared object models, which is the next
 frontier along with OBJDC's placement chains.
+
+## Part XIII — The sky, the cabs, the drivers, the traffic
+
+The drive renders under a photographic blue sky, but nothing in the
+course files looked like one. The suspects fell in order: `SPLDC1.BIN`
+(five loads at course time, never examined) censused as 99.6% floats —
+world-coordinate triples marching down the road at even spacing, a
+**spline file**, not geometry; `POLDC1`'s 45 models held thirty copies of
+one translucent sea animation and ten untextured hills, no dome. So the
+sky was traced instead of guessed: per-pixel provenance over a drive2
+frame (the framedbg capture) put **every sky pixel under one polygon
+header**, whose TCW named a 256×128 RGB565 texture at VRAM `5FCDC0` —
+**twiddled**, per the scan-order bit. The loader's own record table
+mapped that address to a 64 KB blob byte-identical to `TEXDC1` entry
+218; decoding it as a row of two 128-sided twiddled squares produced the
+cloud panorama exactly (and the old "raster" decode produced the striped
+shreds that had hidden it in the texture dump). Kind `0xD` was never
+raster: **every non-square record in the live table has scan-order
+clear** — non-square twiddled, laid out as min(w,h)-sided squares in row
+order. `texdir.go` now decodes it that way, with the synthetic test
+pinning both squares.
+
+The geometry followed from the texture: searching every course model for
+blocks referencing entry 218 found only four horizon patches — but
+searching **POLDC0** for its own 256×128 slot (aux 150) found **model
+272: a 154-vertex dome centred at the origin, cull radius 4193** — and
+the drive2 RAM copy of its block header carries the *exact TCW the sky
+pixels traced to*. Its constant companion is **model 258, a translucent
+horizon ring** (aux 108, the coastline strip photo). The cloud panorama
+ships byte-identical in TEXDC0/150, TEXDC1/218 and TEXDC3/139, and the
+ring's VQ codebook matches TEXDC0/108's — **all courses share the boot
+directory's one sky**. The captured draw transform places both models at
+the camera position, world-yawed, at uniform scale 2 — so the Studio
+ships them as each course's camera-attached `sky` layer (painted first,
+never depth-tested), the exact discipline the game uses.
+
+The cabs and drivers came from the dispatch pointer, not from shapes.
+The renderer enters every drawn model through `jsr 0C080E20` with r4 =
+the model; logging r4 across the driver-select carousel — where the
+screen itself captions AXEL, B.D.Joe, GENA, GUS — isolates each
+character's ~20 body parts, and logging four separate drives (one per
+selected driver, the licence plates on screen matching the select art)
+isolates each cab: **Axel m9, B.D.Joe m25, Gena m51, Gus m37**, each
+with its roof-sign pair, an interior model, and four wheels — Gena's and
+Gus's their own, **Axel's and B.D.Joe's cabs sharing one wheel set**
+(m7/8/10/11).
+
+Placement numbers were captured, not invented: the game loads each
+model's transform into **XMTRX** before the dispatch, so a breakpoint
+harness (`mtxcap`, scratch) snapshots the back FP bank per dispatch. The
+matrices are singular by construction (the loader negates the fourth
+row against the first — `frchg` + `fneg` at `0C0795C0`), but rows 0–2
+solve relative placement: `R = B₃⁻¹C₃, t = B₃⁻¹(c−b)`. That yielded
+every wheel anchor in cab space (per-cab track *and* wheelbase:
+±15.5/±15.25/±14.6/±14.5 — identity rotation at standstill), proved the
+sign and interior sit at cab identity, located the seated driver on the
+**+x side with the pedals at +z** (left-hand drive, so the wheel labels
+are honest), and measured the sky pair's camera translation and scale-2
+draw. For the drivers the same captures at the four carousel positions
+bake the standing poses — with **one shared reference** (Axel's torso
+capture), valid because all four positions render through the same
+select camera, so the view factor cancels and all four figures land
+upright in one frame (a per-driver torso reference laid Gus on his
+side; the fix is the shared-camera observation, not a fudge).
+
+The traffic fleet is four photo-quad impostor families: a coarse body
+(190–212 vertices whose flanks are photographs of a whole car) plus one
+16-vertex **wheel model placed once per axle** — captured anchors (0,
+3.1–3.4, ±13.5…±15.9) — whose quads carry the wheel photo and spin
+about x at speed. Each family also ships a 56-vertex variant head
+sharing the body's textures (the glass panels in a raised pose; the
+live frame shows traffic glass closed, so the raised copies are a state
+the runtime resolves — noted open, not chased). The Studio gets the
+four assembled vehicles.
+
+`webexport` (`objects.go` + the generated `poses.go`) now ships, beside
+the three courses with their new sky layer: four assembled cabs (body,
+roof sign, interior, four placed wheels — every part a named glTF node,
+the carex pattern), four posed drivers under the game's own names, and
+the four traffic cars. Verified the only honest way: every rendered
+check reopens the **shipped GLB** (`ctmodel -glbin`), and the cab, the
+upright drivers, the closed sky dome over its coastline ring all read
+back from the files the site serves.

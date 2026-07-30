@@ -43,7 +43,7 @@ func TestTexDirSizes(t *testing.T) {
 		{TexEntry{W: 16, H: 16, Kind: TexMip}, 0x2C0},     // (85+1)*2 + 512, aligned
 		{TexEntry{W: 8, H: 8, Kind: TexMip}, 0xC0},        // (21+1)*2 + 128, aligned
 		{TexEntry{W: 32, H: 32, Kind: TexTwiddled}, 0x800},
-		{TexEntry{W: 128, H: 32, Kind: TexRaster}, 0x2000},
+		{TexEntry{W: 128, H: 32, Kind: TexRect}, 0x2000},
 	}
 	for _, c := range cases {
 		if got := c.e.Size(); got != c.want {
@@ -63,12 +63,12 @@ func TestVQIndexTop(t *testing.T) {
 }
 
 func TestTexDirDecode(t *testing.T) {
-	// Course 2 (arbitrary): one twiddled, one mip, one VQ, one raster entry.
+	// Course 2 (arbitrary): one twiddled, one mip, one VQ, one non-square entry.
 	entries := []TexEntry{
 		{W: 2, H: 2, Fmt: 1, Kind: TexTwiddled, Off: 0},
 		{W: 2, H: 2, Fmt: 1, Kind: TexMip, Off: 0x20},
 		{W: 2, H: 2, Fmt: 1, Kind: TexVQ, Off: 0x40},
-		{W: 4, H: 2, Fmt: 1, Kind: TexRaster, Off: 0x8C0},
+		{W: 4, H: 2, Fmt: 1, Kind: TexRect, Off: 0x8C0},
 	}
 	first := buildFirstRead(2, entries)
 	d, err := OpenTexDir(first, 2)
@@ -98,7 +98,9 @@ func TestTexDirDecode(t *testing.T) {
 	le.PutUint16(texdc[0x40+7*8+4:], blue)  // t2 = (1,0)
 	le.PutUint16(texdc[0x40+7*8+6:], white) // t3 = (1,1)
 	texdc[0x40+2048] = 7
-	// entry 3, raster 4x2: row-major
+	// entry 3, non-square 4x2: two 2x2 twiddled squares side by side.
+	// Square 0 texels in twiddle order (0,0)(0,1)(1,0)(1,1), then square 1
+	// covering x 2-3 in the same order.
 	for i, v := range []uint16{red, green, blue, white, white, blue, green, red} {
 		le.PutUint16(texdc[0x8C0+2*i:], v)
 	}
@@ -126,11 +128,19 @@ func TestTexDirDecode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode(3): %v", err)
 	}
-	if g := img.RGBAAt(3, 0); g.R != 248 || g.G != 252 || g.B != 248 {
-		t.Errorf("raster texel (3,0) = %v, want white", g)
+	// Square 0 is the same quad as the plain twiddled entry; square 1 puts
+	// its own twiddle order at x 2-3 — (2,0) white, (3,0) green, (3,1) red.
+	if g := img.RGBAAt(0, 1); g.G != 252 || g.R != 0 {
+		t.Errorf("rect texel (0,1) = %v, want green", g)
+	}
+	if g := img.RGBAAt(2, 0); g.R != 248 || g.G != 252 || g.B != 248 {
+		t.Errorf("rect texel (2,0) = %v, want white", g)
+	}
+	if g := img.RGBAAt(3, 0); g.G != 252 || g.R != 0 {
+		t.Errorf("rect texel (3,0) = %v, want green", g)
 	}
 	if g := img.RGBAAt(3, 1); g.R != 248 || g.G != 0 || g.B != 0 {
-		t.Errorf("raster texel (3,1) = %v, want red", g)
+		t.Errorf("rect texel (3,1) = %v, want red", g)
 	}
 }
 
