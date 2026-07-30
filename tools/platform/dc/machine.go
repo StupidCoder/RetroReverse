@@ -81,8 +81,14 @@ type Machine struct {
 
 	// TAList is the list type the TA currently has open (-1 none), TAVtx
 	// the current vertex parameter size; see holly.go's scanTAStream.
-	TAList int32
-	TAVtx  uint32
+	// TAFrame records the current TA session's polygon-path stream for the
+	// rasteriser (pvr.go); TA_LIST_INIT stashes it into TAClosed — the TA is
+	// double-buffered, and the session STARTRENDER draws is the one that
+	// closed, not the one now recording.
+	TAList   int32
+	TAVtx    uint32
+	TAFrame  []byte
+	TAClosed []byte
 
 	// The PVR register file, stored raw at word granularity; video.go
 	// interprets the scanout set, everything else round-trips.
@@ -407,6 +413,8 @@ func (m *Machine) pvrWrite(addr, v uint32) {
 	// hardware resets to list 0.
 	if addr == pvrBase+0x144 && v&0x80000000 != 0 {
 		m.TAList, m.TAVtx = 0, 32
+		m.TAClosed = append(m.TAClosed[:0], m.TAFrame...)
+		m.TAFrame = m.TAFrame[:0]
 	}
 	if addr == pvrBase+0x08 && v&1 != 0 {
 		m.TAList, m.TAVtx = 0, 32

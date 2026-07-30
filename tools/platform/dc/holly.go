@@ -121,11 +121,21 @@ func (m *Machine) hollyWrite(addr, v uint32) {
 			// Only the polygon path (10xxxxxx) carries TA parameters; a
 			// texture-path job (11xxxxxx) is pixels, and parsing pixels as
 			// parameters manufactured list-completions the game never made.
+			src := m.CPU.OnchipReg(0xFFA00020)
 			if m.C2DStat&0x01000000 == 0 {
-				src := m.CPU.OnchipReg(0xFFA00020)
-				m.logf("ta job dst %08X len %06X head %08X %08X | %08X",
-					m.C2DStat, m.C2DLen, m.ram32(src), m.ram32(src+4), m.ram32(src+32))
 				m.scanTAStream(src, m.C2DLen)
+				m.taRecord(src, m.C2DLen)
+			} else {
+				// The texture path: the pixels land in VRAM for the
+				// rasteriser to sample.
+				dst := m.C2DStat & 0x00FFFFFF
+				for i := uint32(0); i+4 <= m.C2DLen && dst+i+4 <= VRAMSize; i += 4 {
+					v := m.ram32(src + i)
+					m.VRAM[dst+i] = uint8(v)
+					m.VRAM[dst+i+1] = uint8(v >> 8)
+					m.VRAM[dst+i+2] = uint8(v >> 16)
+					m.VRAM[dst+i+3] = uint8(v >> 24)
+				}
 			}
 			m.TAWrites += uint64(m.C2DLen / 4)
 			// Completion (the DMA-end interrupt and any END_OF_LIST bits the
@@ -154,7 +164,6 @@ func (m *Machine) scanTAStream(src, byteLen uint32) {
 		off += 32
 		switch pcw >> 29 {
 		case 0: // END_OF_LIST closes the open list
-			m.logf("ta eol closes %d", m.TAList)
 			if m.TAList >= 0 && m.TAList < 5 {
 				m.C2DPendingBits |= taListDoneBit[m.TAList]
 			}
@@ -202,6 +211,7 @@ func (m *Machine) taOpenList(n int32) {
 func (m *Machine) tickCompletions() {
 	if m.RenderCountdown > 0 {
 		if m.RenderCountdown--; m.RenderCountdown == 0 {
+			m.renderFrame()
 			m.raiseNRM(istRenderDone)
 		}
 	}
