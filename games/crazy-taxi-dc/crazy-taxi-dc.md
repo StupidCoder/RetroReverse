@@ -311,3 +311,27 @@ pad's own 112-byte block, function word raw on the wire, named "Dreamcast
 Controller". The reward for full protocol honesty was the attract sequence
 in full colour: the yellow cab riding a green car-transporter past the
 park, a purple pickup alongside, PRESS START BUTTON across the road.
+
+## Part VI — The drive
+
+With the pad speaking the hardware's own protocol, the rest of the road to
+gameplay is the game's own menus, driven by `-keys` taps: Start at the
+warning screen, Start at the attract's PRESS START BUTTON, then A through
+MODE SELECTION (arcade highlighted first), the ARCADE rules menu, and the
+driver select — where Axel stands as a fully shaded, textured 3D model
+beside the line-art taxi, the other three drivers' portraits waiting above.
+One more A and the machine is *in the game*: the yellow cab dropped onto
+the boulevard under a blue sky, palm trees and traffic streaming past, the
+game-time counter running, TOTAL EARNED's odometer wheels at zero, the D
+gear lit in the corner.
+
+The regression gate pins three states along that path — the warning screen,
+the attract, and the drive itself — five hashes each (RAM, the scanout
+picture, VRAM, the SH-4's trajectory, the AICA side), thirty fields from
+each savestate, with a determinism test underneath. What remains for the
+rasteriser is honesty at the margins: the ISP background plane (the
+in-game sky is drawn geometry, so nothing visible depends on it yet), the
+translucent auto-sort, and whatever the census names next. What remains
+for the writeup is the game itself: the asset containers (`BINC*.AFS`),
+the world and car geometry (`POLDC*`/`TEXDC*`), collision (`COLDC*`) and
+motion (`MOTDC`) — the formats the next parts will crack.
