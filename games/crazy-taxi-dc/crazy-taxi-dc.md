@@ -281,3 +281,33 @@ value, so `u·z, v·z, z` are exactly the screen-linear quantities. The
 warning-screen render stayed byte-identical through every change, pinned by
 hash; and the attract mode now renders the city — storefronts, billboards,
 lane markings, and the black convertible the camera follows down the hill.
+
+### The pad's identity papers, and a state chain reborn
+
+Two aftershocks followed the city. First: the attract's taxi rendered solid
+black, and the hunt for its paint ran through five hypotheses before a fresh
+boot under the current build showed the texture uploading perfectly — every
+savestate in use descended from a boot made by an older build whose
+texture path never wrote that region of VRAM. A savestate freezes not just
+the guest but the machine model that produced its memory; content written
+once at load fossilises, and only content regenerated per frame heals when
+the model is fixed. The whole state chain was re-cut from a clean boot, and
+the warning screen came back wearing the flame-swoosh CRAZY TAXI logo it
+had silently been missing all along.
+
+Second: on the re-cut chain the pad went dead — and the reason is the best
+kind of lesson. The old boots' Maple response headers were malformed, so
+the game's device enumeration had always *failed*, into a tolerant fallback
+that accepted condition data from an unidentified device. The fresh boot's
+correct headers made enumeration *succeed* — and success meant scrutiny:
+the driver byte-reverses the DEVINFO function-type word and tests the
+CONTROLLER bit every single field before it will read a button
+(`0C14C80E`, `tst #33`), reads the device-status block in the hardware's
+own layout (area code and connector direction ahead of the 30-byte product
+name), and classifies the device by its name bytes — a leading 'R' selects
+the racing-wheel input path, which our pad, then named "RetroReverse
+Dreamcast Pad", would have taken. The machine now answers with the retail
+pad's own 112-byte block, function word raw on the wire, named "Dreamcast
+Controller". The reward for full protocol honesty was the attract sequence
+in full colour: the yellow cab riding a green car-transporter past the
+park, a purple pickup alongside, PRESS START BUTTON across the road.
