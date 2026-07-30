@@ -12,12 +12,14 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"image"
 	"image/color"
+	"image/draw"
 	"image/png"
 	"math"
 	"os"
@@ -42,6 +44,9 @@ func main() {
 	preview := flag.String("png", "", "reopen the written GLB and render this preview PNG")
 	census := flag.Bool("census", false, "parse every model container on the disc and report")
 	tcws := flag.Bool("tcws", false, "print the distinct texture control words the models reference")
+	tex := flag.Bool("tex", false, "texture the export from the course's TEXDC file (course = the digit in -file)")
+	texCourse := flag.Int("texcourse", -1, "override the texture course index (default: the digit in -file)")
+	dumpTex := flag.String("dumptex", "", "decode every texture of the -file's course into this directory as PNGs")
 	flag.Parse()
 
 	disc, err := dc.OpenDisc(*image_)
@@ -91,16 +96,25 @@ func main() {
 			die("parse: %v (after %d models)", err, len(models))
 		}
 	}
-	nb, nv := 0, 0
+	nb, nv, maxAux, nTex, noAux := 0, 0, -1, 0, 0
 	for _, m := range models {
 		nb += len(m.Blocks)
 		for _, b := range m.Blocks {
+			if b.Textured() {
+				nTex++
+				if b.Aux == 0xFFFFFFFF {
+					noAux++
+				} else if int(b.Aux) > maxAux {
+					maxAux = int(b.Aux)
+				}
+			}
 			for _, s := range b.Strips {
 				nv += len(s.Verts)
 			}
 		}
 	}
-	fmt.Printf("%s: %d models, %d blocks, %d vertex records\n", *file, len(models), nb, nv)
+	fmt.Printf("%s: %d models, %d blocks (%d textured, aux ids 0..%d, %d without), %d vertex records\n",
+		*file, len(models), nb, nTex, maxAux, noAux, nv)
 	if *tcws {
 		type tex struct{ tcw, tsp uint32 }
 		seen := map[tex]int{}
@@ -123,10 +137,32 @@ func main() {
 		}
 		fmt.Printf("%d distinct textures\n", len(keys))
 	}
+	var td *assets.TexDir
+	var texdc []byte
+	if *tex || *dumpTex != "" {
+		course := *texCourse
+		if course < 0 {
+			course = courseOf(*file)
+		}
+		if course < 0 {
+			die("-tex: no course digit in %q (use -texcourse)", *file)
+		}
+		var err error
+		if td, err = assets.OpenTexDir(readDisc(disc, "1ST_READ.BIN"), course); err != nil {
+			die("%v", err)
+		}
+		texdc = readDisc(disc, fmt.Sprintf("TEXDC%d.BIN", course))
+		fmt.Printf("texture directory: course %d, %d entries, %d payload bytes\n", course, len(td.Entries), len(texdc))
+	}
+	if *dumpTex != "" {
+		if err := dumpTextures(td, texdc, *dumpTex); err != nil {
+			die("%v", err)
+		}
+	}
 	if *out == "" {
 		return
 	}
-	if err := export(models, *out); err != nil {
+	if err := export(models, *out, td, texdc); err != nil {
 		die("export: %v", err)
 	}
 	fmt.Printf("wrote %s\n", *out)
@@ -198,23 +234,86 @@ func runCensus(disc *dc.Disc) {
 	}
 }
 
-// export writes all models into one GLB: shared position/uv/normal arrays,
-// one colour group per TA list type (opaque / punch-through / translucent) —
-// texture mapping is a later pass, the geometry is what this proves.
-func export(models []*assets.Model, path string) error {
+// courseOf extracts the course digit from a POLDC<n>/TEXDC<n>/BINC<n> name.
+func courseOf(name string) int {
+	for i := 0; i < len(name); i++ {
+		if name[i] >= '0' && name[i] <= '9' {
+			return int(name[i] - '0')
+		}
+	}
+	return -1
+}
+
+// dumpTextures decodes the whole directory into dir as NNN.png.
+func dumpTextures(td *assets.TexDir, texdc []byte, dir string) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	ok, fail := 0, 0
+	for i := range td.Entries {
+		img, err := td.Decode(i, texdc)
+		if err != nil {
+			fmt.Printf("  texture %d: %v\n", i, err)
+			fail++
+			continue
+		}
+		f, err := os.Create(fmt.Sprintf("%s/%03d.png", dir, i))
+		if err != nil {
+			return err
+		}
+		if err := png.Encode(f, img); err != nil {
+			f.Close()
+			return err
+		}
+		f.Close()
+		ok++
+	}
+	fmt.Printf("decoded %d textures (%d failed) into %s\n", ok, fail, dir)
+	return nil
+}
+
+// export writes all models into one GLB: shared position/uv/normal arrays.
+// With a texture directory, blocks group by their aux texture id into one
+// textured primitive per texture; blocks without one (aux 0xFFFFFFFF, or no
+// directory) fall back to one colour group per TA list type.
+func export(models []*assets.Model, path string, td *assets.TexDir, texdc []byte) error {
 	var pos [][3]float32
 	var uvs [][2]float32
 	var normals [][3]float32
 	groups := map[int]*glb.TriGroup{}
+	texGroups := map[uint32]*glb.TexturedGroup{}
+	images := map[uint32]image.Image{}
 	for _, m := range models {
 		for _, b := range m.Blocks {
-			g := groups[b.ListType()]
-			if g == nil {
-				g = &glb.TriGroup{Color: listColor(b.ListType())}
-				if b.ListType() == 2 {
-					g.Alpha = 0.6
+			var tg *glb.TexturedGroup
+			if td != nil && b.Textured() && b.Aux != 0xFFFFFFFF && int(b.Aux) < len(td.Entries) {
+				tg = texGroups[b.Aux]
+				if tg == nil {
+					img, ok := images[b.Aux]
+					if !ok {
+						var err error
+						if img, err = td.Decode(int(b.Aux), texdc); err != nil {
+							fmt.Printf("  texture %d: %v\n", b.Aux, err)
+							img = nil
+						}
+						images[b.Aux] = img
+					}
+					if img != nil {
+						tg = &glb.TexturedGroup{Image: img, WrapS: 10497, WrapT: 10497, Blend: b.ListType() == 2}
+						texGroups[b.Aux] = tg
+					}
 				}
-				groups[b.ListType()] = g
+			}
+			var g *glb.TriGroup
+			if tg == nil {
+				g = groups[b.ListType()]
+				if g == nil {
+					g = &glb.TriGroup{Color: listColor(b.ListType())}
+					if b.ListType() == 2 {
+						g.Alpha = 0.6
+					}
+					groups[b.ListType()] = g
+				}
 			}
 			for _, s := range b.Strips {
 				base := len(pos)
@@ -224,9 +323,25 @@ func export(models []*assets.Model, path string) error {
 					normals = append(normals, v.Normal)
 				}
 				for _, t := range s.Tris() {
-					g.Tris = append(g.Tris, [3]uint32{uint32(base + t[0]), uint32(base + t[1]), uint32(base + t[2])})
+					tri := [3]uint32{uint32(base + t[0]), uint32(base + t[1]), uint32(base + t[2])}
+					if tg != nil {
+						tg.Tris = append(tg.Tris, tri)
+					} else {
+						g.Tris = append(g.Tris, tri)
+					}
 				}
 			}
+		}
+	}
+	var texList []glb.TexturedGroup
+	var auxIDs []int
+	for aux := range texGroups {
+		auxIDs = append(auxIDs, int(aux))
+	}
+	sort.Ints(auxIDs)
+	for _, aux := range auxIDs {
+		if g := texGroups[uint32(aux)]; len(g.Tris) > 0 {
+			texList = append(texList, *g)
 		}
 	}
 	var colorGroups []glb.TriGroup
@@ -235,8 +350,7 @@ func export(models []*assets.Model, path string) error {
 			colorGroups = append(colorGroups, *g)
 		}
 	}
-	_ = uvs
-	return glb.WriteTexturedLit(path, pos, uvs, normals, nil, colorGroups)
+	return glb.WriteTexturedLit(path, pos, uvs, normals, texList, colorGroups)
 }
 
 func listColor(list int) [3]float32 {
@@ -268,8 +382,22 @@ type glbDoc struct {
 		Primitives []struct {
 			Attributes map[string]int `json:"attributes"`
 			Indices    *int           `json:"indices"`
+			Material   *int           `json:"material"`
 		} `json:"primitives"`
 	} `json:"meshes"`
+	Materials []struct {
+		PBR struct {
+			BaseColorTexture *struct {
+				Index int `json:"index"`
+			} `json:"baseColorTexture"`
+		} `json:"pbrMetallicRoughness"`
+	} `json:"materials"`
+	Textures []struct {
+		Source int `json:"source"`
+	} `json:"textures"`
+	Images []struct {
+		BufferView int `json:"bufferView"`
+	} `json:"images"`
 }
 
 func renderGLB(glbPath, pngPath string) error {
@@ -294,8 +422,25 @@ func renderGLB(glbPath, pngPath string) error {
 		v := doc.BufferViews[doc.Accessors[i].BufferView]
 		return bin[v.ByteOffset : v.ByteOffset+v.ByteLength]
 	}
+	// decode the embedded texture images once, material → image
+	matImg := map[int]*image.RGBA{}
+	for mi, m := range doc.Materials {
+		if m.PBR.BaseColorTexture == nil {
+			continue
+		}
+		src := doc.Textures[m.PBR.BaseColorTexture.Index].Source
+		img, err := png.Decode(bytes.NewReader(acc2view(doc, bin, doc.Images[src].BufferView)))
+		if err != nil {
+			return fmt.Errorf("embedded image %d: %w", src, err)
+		}
+		rgba := image.NewRGBA(img.Bounds())
+		draw.Draw(rgba, rgba.Bounds(), img, img.Bounds().Min, draw.Src)
+		matImg[mi] = rgba
+	}
 	type tri struct {
 		p     [3][3]float32
+		uv    [3][2]float32
+		img   *image.RGBA
 		n     [3]float32
 		depth float32
 	}
@@ -314,6 +459,19 @@ func renderGLB(glbPath, pngPath string) error {
 					pos[i][c] = math.Float32frombits(binary.LittleEndian.Uint32(pb[i*12+c*4:]))
 				}
 			}
+			var uvs [][2]float32
+			var pimg *image.RGBA
+			if prim.Material != nil {
+				pimg = matImg[*prim.Material]
+			}
+			if ua, ok := prim.Attributes["TEXCOORD_0"]; ok && pimg != nil {
+				ub := acc(ua)
+				uvs = make([][2]float32, doc.Accessors[ua].Count)
+				for i := range uvs {
+					uvs[i][0] = math.Float32frombits(binary.LittleEndian.Uint32(ub[i*8:]))
+					uvs[i][1] = math.Float32frombits(binary.LittleEndian.Uint32(ub[i*8+4:]))
+				}
+			}
 			ib := acc(*prim.Indices)
 			ct := doc.Accessors[*prim.Indices].ComponentType
 			n := doc.Accessors[*prim.Indices].Count
@@ -330,6 +488,10 @@ func renderGLB(glbPath, pngPath string) error {
 			}
 			for i := 0; i+2 < n; i += 3 {
 				t := tri{p: [3][3]float32{pos[idx[i]], pos[idx[i+1]], pos[idx[i+2]]}}
+				if uvs != nil {
+					t.uv = [3][2]float32{uvs[idx[i]], uvs[idx[i+1]], uvs[idx[i+2]]}
+					t.img = pimg
+				}
 				tris = append(tris, t)
 			}
 		}
@@ -386,8 +548,13 @@ func renderGLB(glbPath, pngPath string) error {
 		if d < 0 {
 			d = -d
 		}
-		g := uint8(70 + d*170)
-		fillTri(img, q, color.RGBA{g, g, uint8(min(float32(g)+20, 255)), 255})
+		shade := 0.55 + d*0.45
+		if t.img != nil {
+			fillTriTex(img, q, t.uv, t.img, shade)
+		} else {
+			g := uint8(70 + d*170)
+			fillTri(img, q, color.RGBA{g, g, uint8(min(float32(g)+20, 255)), 255})
+		}
 	}
 	f, err := os.Create(pngPath)
 	if err != nil {
@@ -395,6 +562,56 @@ func renderGLB(glbPath, pngPath string) error {
 	}
 	defer f.Close()
 	return png.Encode(f, img)
+}
+
+// acc2view returns a raw bufferView's bytes (images use views directly,
+// without an accessor).
+func acc2view(doc glbDoc, bin []byte, vi int) []byte {
+	v := doc.BufferViews[vi]
+	return bin[v.ByteOffset : v.ByteOffset+v.ByteLength]
+}
+
+// fillTriTex rasterises one textured triangle: barycentric UVs, REPEAT wrap,
+// nearest texel, scaled by the light shade.
+func fillTriTex(img *image.RGBA, q [3][2]int, uv [3][2]float32, tex *image.RGBA, shade float32) {
+	minX := min(q[0][0], min(q[1][0], q[2][0]))
+	maxX := max(q[0][0], max(q[1][0], q[2][0]))
+	minY := min(q[0][1], min(q[1][1], q[2][1]))
+	maxY := max(q[0][1], max(q[1][1], q[2][1]))
+	b := img.Bounds()
+	minX, minY = max(minX, b.Min.X), max(minY, b.Min.Y)
+	maxX, maxY = min(maxX, b.Max.X-1), min(maxY, b.Max.Y-1)
+	area := (q[1][0]-q[0][0])*(q[2][1]-q[0][1]) - (q[1][1]-q[0][1])*(q[2][0]-q[0][0])
+	if area == 0 {
+		return
+	}
+	tw, th := tex.Bounds().Dx(), tex.Bounds().Dy()
+	for y := minY; y <= maxY; y++ {
+		for x := minX; x <= maxX; x++ {
+			w0 := (q[1][0]-x)*(q[2][1]-y) - (q[1][1]-y)*(q[2][0]-x)
+			w1 := (q[2][0]-x)*(q[0][1]-y) - (q[2][1]-y)*(q[0][0]-x)
+			w2 := area - w0 - w1
+			if !((w0 >= 0 && w1 >= 0 && w2 >= 0 && area > 0) || (w0 <= 0 && w1 <= 0 && w2 <= 0 && area < 0)) {
+				continue
+			}
+			fa := float32(area)
+			u := (float32(w0)*uv[0][0] + float32(w1)*uv[1][0] + float32(w2)*uv[2][0]) / fa
+			v := (float32(w0)*uv[0][1] + float32(w1)*uv[1][1] + float32(w2)*uv[2][1]) / fa
+			tx := int(u*float32(tw)) % tw
+			ty := int(v*float32(th)) % th
+			if tx < 0 {
+				tx += tw
+			}
+			if ty < 0 {
+				ty += th
+			}
+			c := tex.RGBAAt(tex.Bounds().Min.X+tx, tex.Bounds().Min.Y+ty)
+			if c.A < 128 {
+				continue
+			}
+			img.SetRGBA(x, y, color.RGBA{uint8(float32(c.R) * shade), uint8(float32(c.G) * shade), uint8(float32(c.B) * shade), 255})
+		}
+	}
 }
 
 func fillTri(img *image.RGBA, q [3][2]int, c color.RGBA) {

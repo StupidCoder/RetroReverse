@@ -526,3 +526,121 @@ model, collision and motion layouts are the game's own parser's business,
 and the next step is the proven one — watch the loader land `POLDC0` in
 RAM, catch the code that walks it, and read the format off the
 disassembly rather than off the bytes' shapes.
+
+## Part XI — The model format, read off the game's own renderer
+
+The promise at the end of Part X was kept literally. `-gd` (the disc-read
+log, now carrying each read's RAM destination) named where everything
+lands: `POLDC0` at `0C390000`, `COLDC1` at `0CB40000`, `MOTDC` at
+`0C880000`, `OBJDC1` at `0CE90000` — the exact address its own baked
+pointers promised — and the `BINC1` entries streaming through `0C6Axxxx`
+during the drive. A new instrument, `-watchprof`, aggregates watch hits
+into a per-PC histogram (its control: the input record at `0C1EBF6C`,
+whose readers are known); pointed at a loaded model it named the code
+that walks one. From there the format was read off the disassembly:
+the dispatcher at `0C079600` (a model whose first word is 1 goes to
+`0C080E20`, which steps past the 24-byte header), the block walker at
+`0C080E44` (per-block cull sphere, then per-list-type staging through the
+store queues; a culled block skips ahead by the size word at +76), and
+the vertex loops at `0C081200` (strips) and `0C081C00` (triangle lists,
+strip-flags bit 3).
+
+The format, as `assets/model.go` decodes it: a model is
+`[kind=1][sub][bounding sphere ×4f]` followed by a word stream. Word 0
+ends the model; a word with bit 31 set opens an 80-byte block header —
+real PowerVR TA templates `[PCW][ISP][TSP][TCW]`, a cull sphere, an aux
+word, a lighting mode byte, an intensity, base and offset RGBA, and the
+byte size of the strip stream that follows; a positive word is a strip:
+`[flags][count]` then count vertex records (3×count for triangle lists).
+A vertex record is either 32 inline bytes `[xyz][normal][uv]` — the
+inline flag lives in the LSB of x's mantissa, which is why the files are
+full of `3F800001` — or an 8-byte back-reference `[ctl][s32 offset]`
+whose target is offset bytes past the pair: a vertex already in the
+stream. After the end word most models carry their total vertex-record
+count, a free consistency check on the whole parse.
+
+Coverage is the argument that the reading is right: all four `POLDC`
+files (1,696 models, 100,000+ vertex records) and all 1,025 non-empty
+`BINC` entries parse with zero errors, and every trailer count matches
+what was read. The `BINC` chunks turn out to be **world-placed** — their
+vertices are in course coordinates — so `ctmodel -file BINC1.AFS -o
+city.glb` concatenates 495 entries and **the arcade city assembles
+itself**: downtown, the coast road, the grid, the stadium. `POLDC` also
+holds local-coordinate object models (cull spheres of ~80 units — the
+props and vehicles OBJDC places at runtime). The `-png` flag renders the
+preview from the written GLB's own accessors, never from the structs
+that wrote it.
+
+## Part XII — The texture pipeline, closed offline
+
+The model blocks carry TA texture words, but the file copies are
+**zero-addressed**: format bits only, no VRAM address. Watching a block's
+TCW in RAM shows two writes — the disc load, then a patch. The patcher at
+`0C072FE0` stamps every textured block at course load from a table of
+60-byte records (`rec = base + id·60`, base pointer at `[0C2AFE58]`):
+width, height, byte size, flags, the allocated VRAM address, TSP low
+bits, and the final TCW. The id it uses is **the block's aux word** — the
+80-byte header's word at +32 is a texture id, dense per course, and over
+all 2,512 `POLDC0` blocks it collides with nothing.
+
+So the offline question became: where do the records come from? The
+create-texture call chain was climbed with nothing but a literal-pool
+scanner (SH-4 code addresses its neighbours through `mov.l @(disp,pc)`
+pools, so "who calls X" is "which pool word holds X, and who loads that
+word"): the record filler `0C15A2A2` ← the wrapper `0C15994C` ← the
+create-by-id function `0C072B10` — which receives a **16-byte descriptor**
+`[w u16][h u16][fmt u8][kind u8][.. ][staging ptr u32][alias u32]` and
+the texture id, multiplies the id by 60, and fills the record ← the
+course loader `0C079780`, which indexes **a static descriptor array** by
+the aux id. The arrays live in `1ST_READ.BIN` itself. They were found
+without another boot: the drive2 RAM dump holds the loader's finished
+record table, so a scan for stride-16 arrays whose (w, h) pairs match a
+run of records located all of them, and byte-comparing against the disc
+copy of `1ST_READ.BIN` proved them static:
+
+| course | array (RAM) | file offset | entries | pairs with |
+|-------:|------------|------------:|--------:|-----------|
+| 0 | `0C140570` | `0x130570` | 438 | `TEXDC0.BIN` |
+| 1 | `0C144CB0` | `0x134CB0` | 336 | `TEXDC1.BIN` |
+| 2 | `0C1461C0` | `0x1361C0` | 324 | `TEXDC2.BIN` |
+| 3 | `0C147610` | `0x137610` | 225 | `TEXDC3.BIN` |
+
+The **staging pointer is the file offset, baked at build time**: the
+course loader streams `TEXDC<n>.BIN` to `0CB40000`, and every
+descriptor's pointer is `0CB40000` plus its texture's cumulative offset.
+The empirical truth table from the Part X-era cold boot (216 aux-id →
+file-offset anchors, joined through c2d spans) matches `TEXDC0`'s array
+on **all 216 points**, and each array's last offset plus its last size
+lands on its file's byte size. The pairing with the model containers is
+equally clean: the maximum aux id in `POLDC<n>`/`BINC<n>` is exactly the
+entry count of `TEXDC<n>`'s array, minus one, for every n.
+
+The kind byte was named by correlating descriptors against the final
+TCWs the loader built (mip bit 31, VQ bit 30, format bits): kind 4 =
+VQ + mips, 3 = VQ, 2 = twiddled + mips, 1 = twiddled, and `0xD` — only
+ever on the non-square textures — raster pages. Format byte 0/1/2 =
+ARGB1555/RGB565/ARGB4444, the PVR's own numbering. Sizes follow from the
+kinds (VQ: 2 KB codebook + one index byte per 2×2 block; mip chains
+store the sub-top levels first), each blob 32-byte aligned — the baked
+consecutive offsets prove every formula.
+
+One trap remained. Byte-comparing `TEXDC1` against the drive2 VRAM dump
+at the records' own addresses verified 241 of 336 textures immediately —
+and every mismatch was kind 2. `-watchprof` on a kind-2 staging address
+found only ordinary copy loops, no transform, which killed the
+"runtime-modified texture" theory; the real difference is two bytes of
+layout. A PVR mip chain pads the sub-top levels with three dummy texels
+before the top level; **the file pads with one**. At that +2 shift every
+top-level texel of every probed texture matches — so the check was
+rewritten kind-aware: 241 textures byte-identical, 95 kind-2 textures
+texel-identical at the top level, **336 of 336, nothing unexplained**.
+
+`assets/texdir.go` decodes the whole pipeline offline — descriptor
+arrays out of `1ST_READ.BIN`, twiddle/VQ/mip/raster out of the `TEXDC`
+payload — and `ctmodel` grew `-tex` (texture the export; the course is
+the digit in the file name), `-dumptex` (every texture as PNG), and a
+`-png` preview that decodes the **shipped GLB's own embedded images**
+and samples them per pixel. `ctmodel -file BINC1.AFS -tex -o city.glb`
+now assembles the arcade city with its shopfronts, brick, foliage,
+crosswalks, stadium crowd and sea — every texel of it decoded from the
+disc alone.

@@ -28,6 +28,7 @@ func main() {
 	file := flag.String("file", "", "disc file to open (AFS or raw)")
 	census := flag.Bool("census", false, "walk every .AFS on the disc and histogram entry headers")
 	x := flag.String("x", "", "extract AFS entry N[:out]")
+	xfile := flag.String("xfile", "", "extract a raw disc file: NAME:out")
 	pvr := flag.String("pvr", "", "decode a PVRT texture file from the disc")
 	raw16 := flag.String("raw16", "", "decode AFS entry as raw 16bpp: N:WxH:out.png")
 	pixFmt := flag.Int("fmt", 1, "raw16/pvr pixel format override: 0=1555 1=565 2=4444")
@@ -42,6 +43,16 @@ func main() {
 	switch {
 	case *census:
 		runCensus(disc)
+	case *xfile != "":
+		name, path, ok := strings.Cut(*xfile, ":")
+		if !ok {
+			die("-xfile wants NAME:out")
+		}
+		data := readDisc(disc, name)
+		if err := os.WriteFile(path, data, 0o644); err != nil {
+			die("%v", err)
+		}
+		fmt.Printf("extracted %s (%d bytes) -> %s\n", name, len(data), path)
 	case *pvr != "":
 		data := readDisc(disc, *pvr)
 		t, err := assets.OpenPVR(data)
