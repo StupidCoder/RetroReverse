@@ -45,6 +45,66 @@ type aicaTimers struct {
 // timer register offsets in the block: TIMA 2890, TIMB 2894, TIMC 2898.
 func timerReg(i int) uint32 { return 0x2890 + uint32(i)*4 }
 
+// AICASlot is the playback-position model of one of the 64 voices: where the
+// sample would be if we synthesized it, which is what the driver's monitor
+// reads (MSLC at 280C, LP/SGC/EG at 2810, CA at 2814) report back. The
+// driver polls a voice's position to pace streams and to know when a one-shot
+// ended; a position that never moves is a voice that never finishes.
+// Synthesis itself — actually mixing the 64 channels — is a later milestone.
+type AICASlot struct {
+	Active bool   // keyed on and not yet ended
+	Pos    uint32 // current sample index within the sample
+	Frac   uint32 // 10-bit fractional phase accumulator
+	LP     bool   // loop-end-passed flag; a 2810 read clears it
+}
+
+// slotW reads a slot's 16-bit register word; the 32 words of each of the 64
+// slots sit on 4-byte stride in the block's low 8KB.
+func (m *Machine) slotW(slot, off uint32) uint32 { return m.AICARegs[slot*0x80+off] }
+
+// stepSlots advances every active voice by one output sample at its own
+// pitch: OCT is a signed octave (bits 14-11 of reg 18), FNS a 10-bit
+// fractional step, one phase unit = 1/1024 sample.
+func (m *Machine) stepSlots() {
+	for i := range m.Slots {
+		s := &m.Slots[i]
+		if !s.Active {
+			continue
+		}
+		slot := uint32(i)
+		pitch := m.slotW(slot, 0x18)
+		oct := int32(pitch>>11) & 0xF
+		if oct >= 8 {
+			oct -= 16
+		}
+		incr := uint64(0x400 + pitch&0x3FF)
+		if oct >= 0 {
+			incr <<= uint(oct)
+		} else {
+			incr >>= uint(-oct)
+		}
+		acc := uint64(s.Frac) + incr
+		s.Frac = uint32(acc & 0x3FF)
+		s.Pos += uint32(acc >> 10)
+		lea := m.slotW(slot, 0x0C) & 0xFFFF
+		if s.Pos < lea {
+			continue
+		}
+		if m.slotW(slot, 0x00)>>9&1 != 0 { // LPCTL: wrap to the loop start
+			lsa := m.slotW(slot, 0x08) & 0xFFFF
+			if lea > lsa {
+				s.Pos = lsa + (s.Pos-lea)%(lea-lsa)
+			} else {
+				s.Pos = lsa
+			}
+			s.LP = true
+		} else { // one-shot: the voice ends where the sample does
+			s.Pos = lea
+			s.Active = false
+		}
+	}
+}
+
 // tickAICA advances the sample clock by one SH-4 instruction and the timers
 // with it.
 func (m *Machine) tickAICA() {
@@ -54,6 +114,7 @@ func (m *Machine) tickAICA() {
 		return
 	}
 	t.Frac = 0
+	m.stepSlots()
 	for i := 0; i < 3; i++ {
 		reg := m.AICARegs[timerReg(i)]
 		pre := (reg >> 8) & 7
@@ -162,6 +223,21 @@ func (m *Machine) aicaRead(off uint32, size int, sh4 bool) uint32 {
 		return m.Timers.SCIPD
 	case 0x28B8: // MCIPD: the SH-4's
 		return m.Timers.MCIPD
+	case 0x2810: // LP/SGC/EG of the slot picked by MSLC (280C bits 13-8)
+		s := &m.Slots[m.AICARegs[0x280C]>>8&0x3F]
+		v := uint32(0)
+		if s.LP {
+			v |= 1 << 15
+			s.LP = false
+		}
+		if s.Active {
+			v |= 2 << 13 // sustain, envelope wide open
+		} else {
+			v |= 3<<13 | 0x1FFF // release, attenuated to silence
+		}
+		return v
+	case 0x2814: // CA: the monitored slot's current sample position
+		return m.Slots[m.AICARegs[0x280C]>>8&0x3F].Pos & 0xFFFF
 	}
 	if v, ok := m.AICARegs[off&^3]; ok {
 		return v
@@ -198,6 +274,25 @@ func (m *Machine) aicaWrite(off uint32, size int, v uint32, sh4 bool) {
 	case 0x28B4: // MCIEB: re-evaluate the line when the mask moves
 		m.AICARegs[off] = v
 		m.aicaMainIRQ()
+		return
+	}
+	if a := off &^ 3; a < 0x2000 && a&0x7F == 0x00 && off&2 == 0 {
+		// Slot control word. KYONEX (bit 15) self-clears and executes the
+		// pending KYONB of ALL slots at once.
+		m.AICARegs[a] = v &^ 0x8000
+		if v&0x8000 != 0 {
+			for i := range m.Slots {
+				s := &m.Slots[i]
+				on := m.AICARegs[uint32(i)*0x80]>>14&1 != 0
+				switch {
+				case on && !s.Active:
+					*s = AICASlot{Active: true}
+				case !on && s.Active:
+					// Key-off: no release-envelope model; the voice is done.
+					s.Active = false
+				}
+			}
+		}
 		return
 	}
 	m.AICARegs[off&^3] = v

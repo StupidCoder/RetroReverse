@@ -63,6 +63,7 @@ type Machine struct {
 	ARMRunning bool
 	AICARegs   map[uint32]uint32
 	Timers     aicaTimers
+	Slots      [64]AICASlot
 	armAcc     int
 
 	Holly Holly

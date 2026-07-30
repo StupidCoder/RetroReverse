@@ -65,6 +65,7 @@ type MachineState struct {
 	ArmAcc     int
 	AICARegs   map[uint32]uint32
 	Timers     aicaTimers
+	Slots      [64]AICASlot
 
 	C2DStat, C2DLen                                uint32
 	RenderCountdown, C2DCountdown, C2DPendingBits uint32
@@ -123,7 +124,7 @@ func (m *Machine) SaveState() MachineState {
 		RenderCountdown: m.RenderCountdown, C2DCountdown: m.C2DCountdown, C2DPendingBits: m.C2DPendingBits,
 		TAList: m.TAList, TAVtx: m.TAVtx, TANeed: m.TANeed, TAFifoCountdown: m.TAFifoCountdown,
 		TAFrame: cloneBytes(m.TAFrame), TAClosed: cloneBytes(m.TAClosed), TAFifo: cloneBytes(m.TAFifo),
-		ARM: saveARM(m.ARM), ARMRunning: m.ARMRunning, ArmAcc: m.armAcc, Timers: m.Timers,
+		ARM: saveARM(m.ARM), ARMRunning: m.ARMRunning, ArmAcc: m.armAcc, Timers: m.Timers, Slots: m.Slots,
 		AICARegs: make(map[uint32]uint32, len(m.AICARegs)),
 		PVRRegs:  m.PVRRegs, TAWrites: m.TAWrites,
 		Instrs: m.Instrs, Fields: m.Fields, CurLine: m.CurLine, FieldNum: m.FieldNum, InstrInField: m.instrInField,
@@ -172,6 +173,7 @@ func (m *Machine) LoadState(s MachineState) error {
 	m.TAFifo = cloneBytes(s.TAFifo)
 	restoreARM(m.ARM, s.ARM)
 	m.ARMRunning, m.armAcc, m.Timers = s.ARMRunning, s.ArmAcc, s.Timers
+	m.Slots = s.Slots
 	m.AICARegs = make(map[uint32]uint32, len(s.AICARegs))
 	for k, v := range s.AICARegs {
 		m.AICARegs[k] = v

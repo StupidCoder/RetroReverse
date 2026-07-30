@@ -502,7 +502,7 @@ unconfigured framebuffer is an error, not a black PNG.
 | `-bp` / `-logpc` | halting breakpoint; non-halting register log |
 | `-watch` / `-rwatch` | write/read watch on physical ranges |
 | `-poke ADDR:VAL` | force a value after boot/loadstate |
-| `-keys BTN@FIELD[:HOLD]` | pad script into the Maple GETCOND answer |
+| `-keys BTN@FIELD[:HOLD]` | pad script into the Maple GETCOND answer; `l`/`r` = triggers, `jx<0-255>`/`jy<0-255>` = joystick axes |
 | `-shot` / `-vramshot` | scanout framebuffer PNG; raw-VRAM viewer |
 | `-dis` / `-dump` | post-run disassembly / hex dump (`-steps 0` for static) |
 | `-files` / `-gd` | disc census; every GD read named by the file it lands in |

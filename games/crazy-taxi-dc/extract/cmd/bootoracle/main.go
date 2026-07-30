@@ -58,6 +58,7 @@ func main() {
 	vramshot := flag.String("vramshot", "", "raw VRAM viewer OFFSET:WxH:out.png (hex offset)")
 	dis := flag.String("dis", "", "disassemble ADDR[:N] and exit (hex)")
 	dump := flag.String("dump", "", "hex-dump ADDR:LEN and exit (hex)")
+	ramraw := flag.String("ramraw", "", "write the 16MB of main RAM to this file after the run")
 	files := flag.Bool("files", false, "list the disc's files and exit")
 	gd := flag.Bool("gd", false, "log every GD-ROM read with the file it lands in")
 	savestate := flag.String("savestate", "", "write a savestate at the end of the run")
@@ -68,7 +69,7 @@ func main() {
 	flag.Parse()
 
 	if err := run(*image, *steps, *frames, *trace, *tracen, *tracefrom, bps, logpcs, watches, rwatches,
-		*poke, *keys, *shot, *vramshot, *dis, *dump, *files, *gd, *savestate, *loadstate,
+		*poke, *keys, *shot, *vramshot, *dis, *dump, *ramraw, *files, *gd, *savestate, *loadstate,
 		*nospin, *cpuprofile, *verbose); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -76,7 +77,7 @@ func main() {
 }
 
 func run(image, stepsS string, frames uint64, trace bool, tracen uint64, tracefrom string,
-	bps, logpcs, watches, rwatches multiFlag, poke, keys, shot, vramshot, dis, dump string,
+	bps, logpcs, watches, rwatches multiFlag, poke, keys, shot, vramshot, dis, dump, ramraw string,
 	files, gd bool, savestate, loadstate string, nospin bool, cpuprofile string, verbose bool) error {
 
 	maxSteps, err := strconv.ParseUint(strings.TrimPrefix(stepsS, "0x"), pick(strings.HasPrefix(stepsS, "0x"), 16, 10), 64)
@@ -229,6 +230,12 @@ func run(image, stepsS string, frames uint64, trace bool, tracen uint64, tracefr
 		}
 		return nil
 	}
+	if ramraw != "" {
+		if err := os.WriteFile(ramraw, m.RAM, 0o644); err != nil {
+			return err
+		}
+		fmt.Println("ramraw:", ramraw)
+	}
 	if dump != "" {
 		a, n, err := pair(dump)
 		if err != nil {
@@ -304,11 +311,14 @@ var padButtons = map[string]uint16{
 }
 
 // installKeys arms the pad script: BUTTON@FIELD[:HOLD], hold defaulting to 30
-// fields. "l"/"r" pull the analog triggers.
+// fields. "l"/"r" pull the analog triggers; "jx<0-255>"/"jy<0-255>" set the
+// joystick axes for the window (0x80 centered otherwise, 0 = left/up).
 func installKeys(m *dc.Machine, script string) error {
 	type ev struct {
 		btn        uint16
 		trig       byte // 'l', 'r' or 0
+		joy        byte // 'x', 'y' or 0
+		joyVal     uint8
 		from, till uint64
 	}
 	var evs []ev
@@ -332,9 +342,15 @@ func installKeys(m *dc.Machine, script string) error {
 			return fmt.Errorf("bad field in %q", part)
 		}
 		e := ev{from: field, till: field + hold}
-		switch name {
-		case "l", "r":
+		switch {
+		case name == "l" || name == "r":
 			e.trig = name[0]
+		case strings.HasPrefix(name, "jx") || strings.HasPrefix(name, "jy"):
+			v, err := strconv.ParseUint(name[2:], 10, 8)
+			if err != nil {
+				return fmt.Errorf("bad joystick value in %q (want jx<0-255>)", part)
+			}
+			e.joy, e.joyVal = name[1], uint8(v)
 		default:
 			b, ok := padButtons[name]
 			if !ok {
@@ -351,19 +367,25 @@ func installKeys(m *dc.Machine, script string) error {
 		}
 		buttons := uint16(0xFFFF)
 		var lt, rt uint8
+		jx, jy := uint8(0x80), uint8(0x80)
 		for _, e := range evs {
 			if field >= e.from && field < e.till {
-				switch e.trig {
-				case 'l':
+				switch {
+				case e.trig == 'l':
 					lt = 255
-				case 'r':
+				case e.trig == 'r':
 					rt = 255
+				case e.joy == 'x':
+					jx = e.joyVal
+				case e.joy == 'y':
+					jy = e.joyVal
 				default:
 					buttons &^= e.btn
 				}
 			}
 		}
 		m.Pad.Buttons, m.Pad.LT, m.Pad.RT = buttons, lt, rt
+		m.Pad.JoyX, m.Pad.JoyY = jx, jy
 	}
 	return nil
 }
