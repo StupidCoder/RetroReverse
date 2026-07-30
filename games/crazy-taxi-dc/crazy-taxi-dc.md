@@ -335,3 +335,53 @@ translucent auto-sort, and whatever the census names next. What remains
 for the writeup is the game itself: the asset containers (`BINC*.AFS`),
 the world and car geometry (`POLDC*`/`TEXDC*`), collision (`COLDC*`) and
 motion (`MOTDC`) — the formats the next parts will crack.
+
+## Part VII — The fare
+
+Driving needed one more instrument: the `-keys` script learned the
+joystick (`jx<0-255>`, 0x80 centered), because Crazy Taxi steers on the
+analog stick and the d-pad does nothing on the boulevard. With gas on the
+right trigger and a steerable cab, the oracle drove at the first waving
+customer — and sat beside the orange dashed ring for thirty seconds of
+game time while the customer waved and nobody boarded.
+
+The suspect list ran from sound to geometry. The AICA census showed the
+sound driver reading registers `2810` and `2814` — the envelope and
+current-address monitors for whichever of the 64 voice slots `280C`
+selects — tens of thousands of times a second, against registers nothing
+had ever written, answering a constant zero. That is precisely the shape
+of the Jak & Daxter lesson (a cutscene frozen because the SPU's playback
+position never advanced), so the machine grew an honest voice-position
+model: KYONEX/KYONB key-on across all slots, per-slot pitch stepping at
+the 44.1 kHz sample tick, loop wrap with the LP flag, monitor reads that
+report where the sample *would* be. The gate classified the change
+exactly as the multi-hash design intends — the drive pin's AICA hash
+moved, frame, RAM and CPU hashes did not.
+
+It also wasn't the boarding gate. The real answer was embarrassingly
+physical: the accept radius is much smaller than the drawn circle. Stop
+*at the customer's feet* and everything happens at once — they sprint to
+the door, the camera swings in, game time gains a bonus, the meter lights
+at $144.40, a destination panel names "Cable car stop TOP", and a green
+arrow rises over the cab. The passenger has opinions, too: drive off the
+wrong way and the text over the cab reads 「反対方向だぞ！」— *you're
+going the wrong way!* — and, after an accidental reverse-gear flight off
+a ledge scored "Crazy Jump!", 「行きすぎたぞ！」— *you've passed it!*
+
+The gearbox came out of the same empirical probing as everything else:
+**A shifts to R, B shifts to D** — the two positions of the arcade
+shifter, not a toggle — and X pops the destination preview. In-game the
+mainline eats single-field button edges far more often than the menus
+ever did; the discipline is to tap well after a savestate resume and read
+the gear widget for confirmation, never to blind-repeat a shift.
+
+The RAM dug up along the way now reads like a dashboard: game time in
+frames at `0C1EC4B4`, the fare countdown at `0C1EC4EC`, the destination
+name table at `0C08CC50` — and `0C13D89C`, which spent an hour
+masquerading as a distance before revealing itself as the guide arrow's
+relative bearing in hundredths of a degree, zero dead ahead. That scalar
+navigated the cab to within metres of the cable-car stop; what ran out
+was the fare timer, spent on U-turns judged one screenshot at a time. The
+delivery — stopping inside the zone, the fare banked into TOTAL EARNED —
+is the open milestone, and it wants a live cab-position instrument
+first, so the steering can be computed instead of guessed.
