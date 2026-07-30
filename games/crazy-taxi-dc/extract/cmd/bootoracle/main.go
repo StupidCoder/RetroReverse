@@ -319,12 +319,6 @@ func warnIfScrambled(m *dc.Machine) {
 	}
 }
 
-var padButtons = map[string]uint16{
-	"a": dc.PadA, "b": dc.PadB, "x": dc.PadX, "y": dc.PadY,
-	"start": dc.PadStart, "up": dc.PadUp, "down": dc.PadDown,
-	"left": dc.PadLeft, "right": dc.PadRight,
-}
-
 // installKeys arms the pad script: BUTTON@FIELD[:HOLD], hold defaulting to 30
 // fields. "l"/"r" pull the analog triggers; "jx<0-255>"/"jy<0-255>" set the
 // joystick axes for the window (0x80 centered otherwise, 0 = left/up).
@@ -367,7 +361,9 @@ func installKeys(m *dc.Machine, script string) error {
 			}
 			e.joy, e.joyVal = name[1], uint8(v)
 		default:
-			b, ok := padButtons[name]
+			// dc.PadButton is the one table both this script parser and the
+			// frame debugger's keyer resolve names through.
+			b, ok := dc.PadButton(name)
 			if !ok {
 				return fmt.Errorf("unknown button %q", name)
 			}

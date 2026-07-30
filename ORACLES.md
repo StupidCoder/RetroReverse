@@ -129,10 +129,11 @@ Every other instrument in this file answers a question you already knew to ask. 
 for the questions you *don't* — you watch the frame being built and see what it does. It is the one
 oracle front-end with a user interface, and it is deliberately platform-agnostic: `tools/debug`
 defines a small `Target` interface plus a set of *optional capabilities*, and the page builds itself
-from whatever the current target says it can do — no empty panels, nothing faked. Seven adapters back
-it today: `n64adapter`, `psxadapter`, `n3dsadapter`, `ndsadapter`, `pspadapter`, `threedoadapter` and
-`gcadapter` (the RDP, GP0, the PICA200, the DS's geometry engine, the GE, the 3DO's cel engine and
-Flipper), plus `dosadapter`, which is CPU-only and has no frames at all.
+from whatever the current target says it can do — no empty panels, nothing faked. Ten adapters back
+it today: `n64adapter`, `psxadapter`, `n3dsadapter`, `ndsadapter`, `pspadapter`, `threedoadapter`,
+`gcadapter`, `ps2adapter`, `xboxadapter` and `dcadapter` (the RDP, GP0, the PICA200, the DS's
+geometry engine, the GE, the 3DO's cel engine, Flipper, the GS, the NV2A and the PVR), plus
+`dosadapter`, which is CPU-only and has no frames at all.
 
 ```
 framedbg -image ROM [-state FILE] -serve :8088     # the interactive debugger, in a browser
@@ -535,7 +536,7 @@ and are **candidates to port**:
 | **Write-profiler (`-vgaprof`)** | DOS | "who wrote this value" up the call stack; catches self-modifying patchers. Would suit any framebuffer or command-ring investigation |
 | **`-spinbreak` / `-hot`** | 3DO | turns "hangs forever" into "here is the loop and why". The 3DS spent three sessions doing this by hand |
 | **Read-watch (`-rwatch`)** | PSX/PSP/N64 | the complement of `-watch`; the 3DS oracle still lacks it |
-| **The frame debugger (`framedbg -serve`)** | N64, PSX, 3DS, DS, PSP, 3DO, **GameCube**, and DOS (CPU-only) | watch a frame being built, command by command; click a pixel to get the command that drew it and its overdraw history. Needs four things of a platform — a per-command hook, a per-pixel hook, a frame hook, and a **deep** in-memory snapshot — and every LLE machine here can offer them. Every platform after the N64 needed all four added; every one of them also had to answer "which buffer is the frame?" differently, and getting that wrong is the one mistake that still looks right |
+| **The frame debugger (`framedbg -serve`)** | N64, PSX, 3DS, DS, PSP, 3DO, GameCube, PS2, Xbox, **Dreamcast**, and DOS (CPU-only) | watch a frame being built, command by command; click a pixel to get the command that drew it and its overdraw history. Needs four things of a platform — a per-command hook, a per-pixel hook, a frame hook, and a **deep** in-memory snapshot — and every LLE machine here can offer them. Every platform after the N64 needed all four added; every one of them also had to answer "which buffer is the frame?" differently, and getting that wrong is the one mistake that still looks right |
 | **The "gap log" (`-log`)** | DS | an I/O register the machine does not implement is *logged*, not quietly read back as the last value written. Every stub that reads "ready" is a lie the boot believes until the frame it doesn't, and the log is what turns a run's reach into a claim you can check. Cheap to add anywhere |
 | **`-rtshot` / the render target on its own** | 3DS, DS | a black screen is two different bugs wearing one face — the GPU drew nothing, or it drew and the compositor threw it away. No counter separates them; looking at the plane the rasteriser wrote does, instantly |
 | **`-poke`** | PSX/3DS | falsify a hypothesis in one run by forcing the value the game waits for |

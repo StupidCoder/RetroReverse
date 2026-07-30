@@ -87,6 +87,7 @@ var platformNames = map[string]string{
 	"gg":    "Game Gear",
 	"psx":   "PlayStation",
 	"ps2":   "PlayStation 2",
+	"dc":    "Dreamcast",
 	"psp":   "PlayStation Portable",
 	"3do":   "3DO",
 	"xbox":  "Xbox",

@@ -33,6 +33,7 @@ import (
 	"strings"
 
 	"retroreverse.com/tools/debug"
+	"retroreverse.com/tools/debug/dcadapter"
 	"retroreverse.com/tools/debug/dosadapter"
 	"retroreverse.com/tools/debug/gcadapter"
 	"retroreverse.com/tools/debug/n3dsadapter"
@@ -197,10 +198,12 @@ func open(path, platform, isr, dtcm, xbe string) (target, error) {
 			platform = "ds"
 		case ".cso":
 			platform = "psp"
+		case ".cue":
+			platform = "dc" // a cdrdao TOC; the PSX images here are the raw .bin itself
 		case ".bin", ".iso", ".img":
 			platform = "psx"
 		default:
-			return nil, fmt.Errorf("cannot tell which platform %q is: name it with -platform (n64, psx, psp, 3ds, 3do, ds, gc, xbox)", filepath.Base(path))
+			return nil, fmt.Errorf("cannot tell which platform %q is: name it with -platform (n64, psx, psp, 3ds, 3do, ds, gc, dc, xbox)", filepath.Base(path))
 		}
 	}
 	switch platform {
@@ -220,6 +223,8 @@ func open(path, platform, isr, dtcm, xbe string) (target, error) {
 		return pspadapter.New(path, pspadapter.Options{})
 	case "3do":
 		return threedoadapter.New(path, threedoadapter.Options{})
+	case "dc":
+		return dcadapter.New(path)
 	case "psx":
 		var opts psxadapter.Options
 		if isr != "" {
@@ -231,7 +236,7 @@ func open(path, platform, isr, dtcm, xbe string) (target, error) {
 		}
 		return psxadapter.New(path, opts)
 	}
-	return nil, fmt.Errorf("unknown -platform %q (want n64, psx, psp, 3ds, 3do, ds or gc)", platform)
+	return nil, fmt.Errorf("unknown -platform %q (want n64, psx, psp, 3ds, 3do, ds, gc or dc)", platform)
 }
 
 // advance steps the machine to a drawn frame. It first advances skip video fields

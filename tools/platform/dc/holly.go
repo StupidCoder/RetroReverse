@@ -251,6 +251,12 @@ func (m *Machine) tickCompletions() {
 		if m.RenderCountdown--; m.RenderCountdown == 0 {
 			m.renderFrame()
 			m.raiseNRM(istRenderDone)
+			if m.OnRender != nil {
+				// The frame boundary for a capture: the picture is complete
+				// and still in the write framebuffer — the guest has not yet
+				// seen the render-done interrupt, so it cannot have flipped.
+				m.OnRender()
+			}
 		}
 	}
 	if m.C2DCountdown > 0 {

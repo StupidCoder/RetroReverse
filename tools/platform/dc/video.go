@@ -86,6 +86,44 @@ func (m *Machine) RenderFB() (*image.RGBA, error) {
 	return img, nil
 }
 
+// RenderDrawTarget decodes the WRITE framebuffer — the buffer renderFrame
+// just drew into, addressed by FB_W_SOF1 before the guest flips FB_R_SOF1
+// onto it. This is the debugger's frame picture ("render the DRAW TARGET,
+// not the scanout"): captured inside OnRender it shows the frame that was
+// just built, one flip ahead of what RenderFB scans out. The decode mirrors
+// the rasteriser exactly — tightly packed 565 at the FB_R_SIZE dimensions,
+// each byte through the bank interleave — so it shows what plot() wrote,
+// not an interpretation of it.
+func (m *Machine) RenderDrawTarget() (*image.RGBA, error) {
+	if m.PVRRegs[0x48/4]&7 != 1 {
+		return nil, fmt.Errorf("draw target: FB_W_CTRL packmode %d unimplemented (only 565)", m.PVRRegs[0x48/4]&7)
+	}
+	size := m.PVRRegs[fbRSize]
+	w := (int(size&0x3FF) + 1) * 2
+	h := int(size>>10&0x3FF) + 1
+	base := m.PVRRegs[0x60/4] & 0x00FFFFFF
+	if w <= 0 || h <= 0 || size == 0 {
+		return nil, fmt.Errorf("draw target: degenerate FB_R_SIZE=%08X", size)
+	}
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			off := base + uint32(y*w+x)*2
+			if off+2 > VRAMSize {
+				continue // out of VRAM: the rasteriser never wrote it either
+			}
+			off = vram32to64(off)
+			v := uint16(m.VRAM[off]) | uint16(m.VRAM[off+1])<<8
+			i := img.PixOffset(x, y)
+			img.Pix[i+0] = uint8(v>>11&31) << 3
+			img.Pix[i+1] = uint8(v>>5&63) << 2
+			img.Pix[i+2] = uint8(v&31) << 3
+			img.Pix[i+3] = 0xFF
+		}
+	}
+	return img, nil
+}
+
 // RenderVRAM draws an arbitrary VRAM window as RGB565 — the raw viewer for
 // debugging what the framebuffer registers have not yet named.
 func (m *Machine) RenderVRAM(offset uint32, w, h int) (*image.RGBA, error) {

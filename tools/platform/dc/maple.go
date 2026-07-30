@@ -48,6 +48,23 @@ const (
 	PadD     = 1 << 11
 )
 
+// padButtonNames is THE button table: the oracle's -keys scripts and the
+// debugger's keyer both resolve names through it, so there is exactly one
+// place to disagree with about which bit A is (the PS2 lesson).
+var padButtonNames = map[string]uint16{
+	"a": PadA, "b": PadB, "x": PadX, "y": PadY,
+	"c": PadC, "z": PadZ, "d": PadD,
+	"start": PadStart, "up": PadUp, "down": PadDown,
+	"left": PadLeft, "right": PadRight,
+}
+
+// PadButton resolves a button name to its bit in PadState.Buttons (which is
+// active-low: a pressed button CLEARS its bit).
+func PadButton(name string) (uint16, bool) {
+	b, ok := padButtonNames[name]
+	return b, ok
+}
+
 // bswap flips a word into the bus's big-endian byte order.
 func bswap(v uint32) uint32 {
 	return v<<24 | v>>24 | v<<8&0xFF0000 | v>>8&0xFF00

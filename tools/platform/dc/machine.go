@@ -130,6 +130,29 @@ type Machine struct {
 	OnGDRead  func(fad, count uint32) // every HLE'd disc read
 	Verbose   io.Writer               // gap-log lines land here when set
 
+	// StopRequested asks the run loop to return before the next instruction.
+	// A hook sets it (a breaking watch, a frame captured); Run clears it on
+	// the way out, so a stale request cannot stop the next run.
+	StopRequested bool
+
+	// Frame-capture hooks (all nil in the oracle path), called from
+	// renderFrame — a plain Go call inside the run loop, so no sentinel panic
+	// is needed to stop mid-frame. OnPVRClear reports the background clear
+	// that opens a render (it writes every pixel of the frame, and it is
+	// usually the answer to "why is this pixel black"); OnPVRCmd fires once
+	// per TA parameter the walk visits, with the parameter's full bytes;
+	// OnPVRPixel reports each fragment, drawn or rejected, in framebuffer
+	// pixels — the same plane RenderDrawTarget decodes. OnRender fires after
+	// a render completes, picture still in the write framebuffer.
+	//
+	// RenderStopAfter, when non-zero, stops the render walk after that many
+	// commands (the clear is command one) — the scrubber's mid-frame halt.
+	OnPVRClear      func(w, h int)
+	OnPVRCmd        func(param []byte)
+	OnPVRPixel      func(x, y int, r, g, b, a uint8, drawn bool)
+	OnRender        func()
+	RenderStopAfter int
+
 	// Watches: with OnWatch set, accesses inside the ranges report. Physical
 	// addresses, like everything on this bus.
 	WatchW, WatchR []WatchRange

@@ -45,6 +45,7 @@ var imageExt = map[string]string{
 	".z64": "n64", ".n64": "n64", ".v64": "n64",
 	".bin": "psx", ".iso": "psx", ".img": "psx",
 	".cso": "psp",
+	".cue": "dc", // cdrdao TOC naming a raw .bin; PSX images here are the .bin itself
 	".nds": "ds",
 	".3ds": "3ds", ".cci": "3ds",
 	".gb": "gb", ".gg": "gg",

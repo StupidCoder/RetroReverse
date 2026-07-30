@@ -50,18 +50,52 @@ func (m *Machine) renderFrame() {
 	// The background: ISP_BACKGND_T names a tag in the parameter space; a
 	// real implementation reads the background plane's colour from it. Until
 	// then the frame clears to black, which is also what the intro wants.
+	// The clear is COMMAND ONE of the capture — it writes every pixel of the
+	// frame, and it is usually the answer to "why is this pixel black" — so
+	// the hook fires before its pixels do.
+	if m.OnPVRClear != nil {
+		m.OnPVRClear(w, h)
+	}
 	m.clearFB(base, w, h)
+	cmds := 1
 
 	st := renderState{m: m, base: base, w: w, h: h,
 		zbuf: make([]float32, w*h), faceCol: 0xFFFFFFFF}
 	stream := m.TAClosed
 	vtx := uint32(32)
 	for off := 0; off+32 <= len(stream); {
+		if m.RenderStopAfter > 0 && cmds >= m.RenderStopAfter {
+			break // the scrubber's halt: a plain Go loop needs no sentinel
+		}
 		pcw := binary.LittleEndian.Uint32(stream[off:])
 		typ := pcw >> 29
+		// The parameter's size, decided exactly as the walk below advances,
+		// so the hook carries the parameter's full bytes — a 64-byte header's
+		// face colours included.
+		sz := 32
+		switch typ {
+		case 4:
+			textured := pcw&8 != 0
+			if (pcw&0x40 != 0 && textured) || (pcw>>4&3 == 2 && pcw&4 != 0 && textured) {
+				sz = 64
+			}
+		case 7:
+			if st.sprite {
+				sz = 64
+			} else {
+				sz = int(vtx)
+			}
+		}
+		if m.OnPVRCmd != nil {
+			end := off + sz
+			if end > len(stream) {
+				end = len(stream)
+			}
+			m.OnPVRCmd(stream[off:end])
+		}
+		cmds++
 		switch typ {
 		case 0, 1, 2: // EOL / user clip / OL set
-			off += 32
 		case 4: // polygon header
 			st.loadHeader(pcw, stream[off:])
 			st.sprite = false
@@ -76,13 +110,10 @@ func (m *Machine) renderFrame() {
 			if volume || (textured && colType == 1) || pcw>>24&7 == 1 || pcw>>24&7 == 3 {
 				vtx = 64
 			}
-			hdr := 32
 			switch {
 			case volume && textured:
-				hdr = 64
 			case colType == 2 && offsCol && textured:
 				// intensity with offset: face colours in words 8-15
-				hdr = 64
 				if off+64 <= len(stream) {
 					st.faceCol = packFloatCol(stream[off+32:])
 					st.faceOffs = packFloatCol(stream[off+48:])
@@ -92,31 +123,29 @@ func (m *Machine) renderFrame() {
 				st.faceCol = packFloatCol(stream[off+16:])
 			}
 			// colour type 3 reuses the previous face colour as-is
-			off += hdr
 		case 5: // sprite header
 			st.loadHeader(pcw, stream[off:])
 			st.sprite = true
 			vtx = 64
-			off += 32
 		case 7: // vertex
 			if st.sprite {
 				if off+64 <= len(stream) {
 					st.drawSprite(stream[off:])
 				}
-				off += 64
 			} else {
 				st.pushStripVertex(stream[off:], pcw)
-				off += int(vtx)
 			}
-		default:
-			off += 32
 		}
+		off += sz
 	}
 	m.logf("render: stream %dB, %d tris, %d px -> %06X %dx%d", len(stream), st.tris, st.px, base, w, h)
 }
 
 // clearFB zeroes the write framebuffer; FB_W_SOF is a 32-bit-path address,
-// so each word goes through the bank interleave.
+// so each word goes through the bank interleave. With the pixel hook armed
+// it reports every pixel it writes — a clear that writes memory without
+// reporting fragments leaves provenance claiming nothing wrote the whole
+// background, which is false in the one place a user is sure to click.
 func (m *Machine) clearFB(base uint32, w, h int) {
 	n := uint32(w * h * 2)
 	if base+n > VRAMSize {
@@ -128,6 +157,11 @@ func (m *Machine) clearFB(base uint32, w, h int) {
 		m.VRAM[off+1] = 0
 		m.VRAM[off+2] = 0
 		m.VRAM[off+3] = 0
+		if m.OnPVRPixel != nil && w > 0 {
+			p := int(i / 2) // the word's two 565 pixels
+			m.OnPVRPixel(p%w, p/w, 0, 0, 0, 255, true)
+			m.OnPVRPixel((p+1)%w, (p+1)/w, 0, 0, 0, 255, true)
+		}
 	}
 }
 
@@ -468,6 +502,13 @@ func (st *renderState) tri(a, b, c pvrVert) {
 			}
 			z := w0*a.z + w1*b.z + w2*c.z
 			zi := y*st.w + x
+			// Depth-rejected fragments are deliberately NOT reported to the
+			// debugger's pixel hook: the only place that knows about them is
+			// this loop, and any textual edit here shifts the compiler's
+			// float codegen (FMA contraction) and moved the pinned drive
+			// picture by two one-quantum pixels. Alpha-rejects still report
+			// through plot; a depth-reject is invisible to overdraw. An
+			// honest absence, like the 3DO's.
 			if !depthPass(st.depthCmp, z, st.zbuf[zi]) {
 				continue
 			}
@@ -606,7 +647,22 @@ func (st *renderState) sample(u, v float32) (r, g, b, a uint32) {
 
 // plot writes one 565 pixel, blending when the list asks for it; it reports
 // whether the pixel landed so the caller knows to update the z-buffer.
+//
+// The debugger's fragment hook fires HERE rather than in tri()'s loop, and
+// the placement is load-bearing: any textual edit inside tri's pixel loop
+// shifts the compiler's float codegen (FMA contraction — the Gekko lesson)
+// and moved the drive gate's picture by two one-quantum pixels. plot is
+// all-integer, so hooking it cannot move a float. The colour reported is
+// the fragment's own source colour, pre-blend.
 func (st *renderState) plot(x, y int, r, g, b, a uint32) bool {
+	drawn := st.plotStore(x, y, r, g, b, a)
+	if st.m.OnPVRPixel != nil {
+		st.m.OnPVRPixel(x, y, uint8(r), uint8(g), uint8(b), uint8(a), drawn)
+	}
+	return drawn
+}
+
+func (st *renderState) plotStore(x, y int, r, g, b, a uint32) bool {
 	off := st.base + uint32(y*st.w+x)*2
 	if off+2 > VRAMSize {
 		return false

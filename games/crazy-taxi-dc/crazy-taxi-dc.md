@@ -434,3 +434,52 @@ classified the whole change the way the multi-hash design intends: the
 drive pin's AICA hash moved (the envelope generator answers the monitor
 differently, so the ARM driver's trajectory shifts), and frame, RAM,
 VRAM and CPU hashes held still on all three pins.
+
+## Part IX — The frame debugger
+
+The Dreamcast joined the frame-debugger suite (`framedbg -serve`,
+`tools/debug/dcadapter`): the library lists the game, a savestate lands it
+at the drive, and one captured frame is 9,213 commands you can scrub
+through, click, and interrogate — which command drew this pixel, which
+pixels this command drew.
+
+Every platform in the suite has had to answer "which buffer is the frame?"
+in its own way, and the Dreamcast's answer is: **the draw target is one
+flip ahead of the scanout**. The PVR rasterises a whole recorded TA session
+into the buffer `FB_W_SOF1` names when `STARTRENDER`'s deferred completion
+lands; the guest sees the render-done interrupt and only then flips
+`FB_R_SOF1` onto it. So the capture's picture is the write framebuffer,
+taken inside the completion — after the last pixel, before the guest can
+flip — and the paused stage view (the scanout) honestly shows the frame
+*before* the one just captured. A "command" is one TA parameter of the
+frame's stream — a header, a vertex, an `END_OF_LIST` — plus the background
+clear as command zero, which reports every pixel it writes: the clear is
+usually the answer to "why is this pixel black", and provenance that says
+"nothing wrote here" across the whole background would be a lie. The render
+walk is a plain Go loop inside one deferred completion, so the scrubber's
+mid-frame halt is a counter (`RenderStopAfter`), not a sentinel panic.
+
+The instrument-purity fight this time was with the compiler, not the
+machine. The first version reported fragments from inside the rasteriser's
+pixel loop, nil-checked and dormant — and the drive gate's picture moved by
+two pixels, each one 565 quantum off. The hooks weren't running; the *edit*
+was: any textual change inside `tri()`'s loop shifts Go's FMA contraction
+on arm64, and with it the barycentric interpolation's last bit (the same
+trap `bench_test.go`'s header pins to a machine, met from a new side). The
+fix is structural: the fragment hook lives in `plot()`, which is
+all-integer — hooking it cannot move a float — and depth-rejected
+fragments, whose only witness is the float loop itself, are deliberately
+not reported. All five hashes on all three pins are unmoved by the whole
+feature, which is the claim an instrument must be able to make.
+
+The pad is the Keyer's Dreamcast variant: a level the Maple bus samples
+once per field, queued whole (buttons, triggers and stick latch together)
+and released one state per **three** fields — the tap length the oracle's
+`-keys` scripts had already proven against the game's occasionally
+overrunning mainline. Arrows drive the analog stick in the wire's own
+convention (0x00 is up/left, the same convention the `jx`/`jy` scripts
+document), with the gate modelled so a keyboard corner reads like a stick
+corner and not a 1.41× diagonal no pad can produce. The whole path was
+verified the way a user takes it — a raw WebSocket probe against a live
+`-serve`: open, load, step, scrub to black, scrub to the drawn frame,
+pixel → command 1201, keys accepted.

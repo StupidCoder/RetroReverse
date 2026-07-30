@@ -36,6 +36,10 @@ func (m *Machine) Run(maxSteps uint64, cfg RunConfig) Result {
 	var spinSteps uint64
 
 	for start := m.Instrs; m.Instrs-start < maxSteps; {
+		if m.StopRequested {
+			m.StopRequested = false
+			return Result{m.Instrs, m.CPU.PC, "stop requested"}
+		}
 		pc := m.CPU.PC
 		if cfg.Breakpoints[pc] {
 			return Result{m.Instrs, pc, "breakpoint"}
