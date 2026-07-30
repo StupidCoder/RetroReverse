@@ -233,7 +233,7 @@ func (b *biosHLE) execGD(req *gdRequest) {
 		// addresses (LBA+150), the convention the whole disc chain uses.
 		fad, count, buf := req.Params[0], req.Params[1], req.Params[2]
 		if b.m.OnGDRead != nil {
-			b.m.OnGDRead(fad, count)
+			b.m.OnGDRead(fad, count, buf)
 		}
 		for i := uint32(0); i < count; i++ {
 			sec, err := b.m.Disc.ReadSector(int(fad-150) + int(i))

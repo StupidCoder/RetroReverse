@@ -63,6 +63,7 @@ func main() {
 	wav := flag.String("wav", "", "capture the AICA's stereo mix to this WAV over the whole run")
 	files := flag.Bool("files", false, "list the disc's files and exit")
 	gd := flag.Bool("gd", false, "log every GD-ROM read with the file it lands in")
+	watchprof := flag.Bool("watchprof", false, "aggregate watch hits into a per-PC histogram instead of printing each")
 	savestate := flag.String("savestate", "", "write a savestate at the end of the run")
 	loadstate := flag.String("loadstate", "", "resume from a savestate instead of booting")
 	nospin := flag.Bool("nospin", false, "disable tight-spin detection")
@@ -71,7 +72,7 @@ func main() {
 	flag.Parse()
 
 	if err := run(*image, *steps, *frames, *trace, *tracen, *tracefrom, bps, logpcs, watches, rwatches,
-		*poke, *keys, *shot, *vramshot, *dis, *dump, *ramraw, *wav, *aicaregs, *files, *gd, *savestate, *loadstate,
+		*poke, *keys, *shot, *vramshot, *dis, *dump, *ramraw, *wav, *aicaregs, *files, *gd, *watchprof, *savestate, *loadstate,
 		*nospin, *cpuprofile, *verbose); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -80,7 +81,7 @@ func main() {
 
 func run(image, stepsS string, frames uint64, trace bool, tracen uint64, tracefrom string,
 	bps, logpcs, watches, rwatches multiFlag, poke, keys, shot, vramshot, dis, dump, ramraw, wav string,
-	aicaregs, files, gd bool, savestate, loadstate string, nospin bool, cpuprofile string, verbose bool) error {
+	aicaregs, files, gd, watchprof bool, savestate, loadstate string, nospin bool, cpuprofile string, verbose bool) error {
 
 	maxSteps, err := strconv.ParseUint(strings.TrimPrefix(stepsS, "0x"), pick(strings.HasPrefix(stepsS, "0x"), 16, 10), 64)
 	if err != nil {
@@ -173,23 +174,55 @@ func run(image, stepsS string, frames uint64, trace bool, tracen uint64, tracefr
 			}
 			m.WatchR = append(m.WatchR, r)
 		}
-		m.OnWatch = func(write bool, addr, v uint32, size int, pc uint32) {
-			dir := "r"
-			if write {
-				dir = "w"
+		if watchprof {
+			type wkey struct {
+				pc    uint32
+				write bool
 			}
-			fmt.Printf("watch %s%d %08X = %08X (PC %08X)\n", dir, size*8, addr, v, pc)
+			prof := map[wkey]uint64{}
+			m.OnWatch = func(write bool, addr, v uint32, size int, pc uint32) {
+				prof[wkey{pc, write}]++
+			}
+			defer func() {
+				type row struct {
+					k wkey
+					n uint64
+				}
+				rows := make([]row, 0, len(prof))
+				for k, n := range prof {
+					rows = append(rows, row{k, n})
+				}
+				sort.Slice(rows, func(i, j int) bool { return rows[i].n > rows[j].n })
+				fmt.Printf("watchprof: %d distinct PCs\n", len(rows))
+				for _, r := range rows {
+					dir := "r"
+					if r.k.write {
+						dir = "w"
+					}
+					fmt.Printf("watchprof %s PC %08X x%d\n", dir, r.k.pc, r.n)
+				}
+			}()
+		} else {
+			m.OnWatch = func(write bool, addr, v uint32, size int, pc uint32) {
+				dir := "r"
+				if write {
+					dir = "w"
+				}
+				fmt.Printf("watch %s%d %08X = %08X (PC %08X)\n", dir, size*8, addr, v, pc)
+			}
 		}
 	}
 
 	if gd {
-		m.OnGDRead = func(fad, count uint32) {
+		m.OnGDRead = func(fad, count, buf uint32) {
 			lba := int(fad) - 150
 			name := "?"
+			off := 0
 			if e, ok := disc.Vol.FileAt(lba); ok {
 				name = e.Path
+				off = (lba - e.Block) * 2048
 			}
-			fmt.Printf("gd read FAD %d x%d -> %s\n", fad, count, name)
+			fmt.Printf("gd read FAD %d x%d -> %08X <- %s +0x%X\n", fad, count, buf, name, off)
 		}
 	}
 

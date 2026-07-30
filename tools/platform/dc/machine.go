@@ -127,7 +127,7 @@ type Machine struct {
 	// Instrumentation, all opt-in and nil-checked on the hot path.
 	OnStep    func(pc uint32)
 	OnDisplay func(field uint64)
-	OnGDRead  func(fad, count uint32) // every HLE'd disc read
+	OnGDRead  func(fad, count, buf uint32) // every HLE'd disc read, with its RAM destination
 	Verbose   io.Writer               // gap-log lines land here when set
 
 	// StopRequested asks the run loop to return before the next instruction.
