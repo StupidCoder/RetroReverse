@@ -100,8 +100,12 @@ func TestMapleDMA(t *testing.T) {
 	if respA&0xFF != 5 {
 		t.Fatalf("port A DEVINFO response cmd=%d, want 5", respA&0xFF)
 	}
-	if fn := binary.LittleEndian.Uint32(m.RAM[recvA+4:]); fn != bswap(0x01000000) {
-		t.Fatalf("port A function mask %08X, want the bus byte order of 01000000 (controller)", fn)
+	// The FT word goes out raw (wire bytes 00 00 00 01): the game's driver
+	// byte-reverses it and tests the CONTROLLER bit in the low byte — the
+	// pre-swapped send made Crazy Taxi's per-field gate reject the pad the
+	// moment enumeration succeeded.
+	if fn := binary.LittleEndian.Uint32(m.RAM[recvA+4:]); fn != 0x01000000 {
+		t.Fatalf("port A function mask %08X, want 01000000 (controller, wire order)", fn)
 	}
 	if respB := binary.LittleEndian.Uint32(m.RAM[recvB:]); respB != 0xFFFFFFFF {
 		t.Fatalf("port B answered %08X, want FFFFFFFF (empty socket)", respB)

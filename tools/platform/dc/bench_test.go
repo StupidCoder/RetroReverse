@@ -50,13 +50,13 @@ const (
 
 	// The no-VMU warning screen: the first picture this machine ever drew.
 	// Sprites, twiddled textures, the 2D submission path by ch2 DMA.
-	stateWarning = "../../../games/crazy-taxi-dc/work/states/run-3g.st"
+	stateWarning = "../../../games/crazy-taxi-dc/work/states/warn-fresh.st"
 
 	// The attract-mode city: the black convertible on the boulevard,
 	// storefronts and billboards. The 3D path — store-queue FIFO
 	// submission, intensity colours, VQ and mipmapped textures, the
 	// z-buffer, perspective-correct UVs, both VRAM windows.
-	stateCity = "../../../games/crazy-taxi-dc/work/states/attract-9g.st"
+	stateCity = "../../../games/crazy-taxi-dc/work/states/city-fresh.st"
 
 	// benchFields is what the pins were taken over; change it and every
 	// hash changes with it.
@@ -81,32 +81,43 @@ type gatePin struct {
 // The pins, taken 2026-07-30 (darwin/arm64) from frames that were looked
 // at first:
 //
-//	warning  the no-VMU warning screen, Japanese text over the CRAZY TAXI
-//	         checkerboard frame, readable and correctly laid out.
-//	city     the attract drive: grey boulevard with lane markings, the
-//	         black convertible mid-frame, storefronts left and right, the
-//	         CANNON theatre billboard.
+//	warning  the no-VMU warning screen: the CRAZY TAXI logo with its flame
+//	         swoosh and taxi-ball emblem in chrome lettering, the Japanese
+//	         save-file text readable around it.
+//	city     the attract's PRESS START BUTTON scene: the yellow cab riding
+//	         a green car-transporter past the park, a purple pickup on the
+//	         road, the prompt overlaid.
 //
 // If one of these moves, open the PNG the failure prints and JUDGE THE
 // PICTURE AGAIN before touching this block.
+//
+// RE-PINNED the same day, every hash, and the reason is the repository's own
+// lesson written down in [[savestate-lineage-carries-old-model]]: the first
+// pins were cut from savestates descended from an old build's boot whose
+// texture-path DMA never wrote the 1AAxxx-1CFxxx region — the logo screen
+// had no logo and the attract's cars were untextured black. The states were
+// re-cut from a clean boot (which also surfaced the DEVINFO contract: the
+// game only accepts a pad whose FT word and device-status layout are the
+// hardware's own — see maple.go), and both frames were judged again before
+// these hashes were written.
 var gatePins = []gatePin{
 	{
 		name:  "warning",
 		state: stateWarning,
-		ram:   "d6509e0815320594c64bd756fd34a5a097cd6d967e07bd6590a38bb9ff9ebfa8",
-		fb:    "10f4d37bc929077c1d41b064466013afdccb783a7fb766897ecf6f85d84b63f0",
-		vram:  "e941d3b32c53cc79a589af7074561b6fae77d41923a435d3234b82f6e2f2817a",
-		cpu:   "18db5ce49670e1433ad56c9fe4145a26b2630d7cd79f3988fcacdc10bea01e4a",
-		snd:   "5a2b01f7560d5c680f8227573ad25beef4134991dc64f23d7385b00313fce116",
+		ram:   "2e1e2ff681a1fd3077d87ebecc1a8fa2db26dc0c4bd16ca0e85f3e9d4134f412",
+		fb:    "9934acc8748b26a9574e12bb40de7b45600513d3f0b08a8071161d555026f398",
+		vram:  "87501550438d5c6916a66639963ecd311b51912bcf2ef35180e7f28850b32510",
+		cpu:   "6518dc3b4f380bc465091f3a8029847c8577bf41168658259222102e78116320",
+		snd:   "650949223fe7fc70d4691f3a3a3944dfcd273c75daee67be9e7a31d1d274fdf1",
 	},
 	{
 		name:  "city",
 		state: stateCity,
-		ram:   "9255992ef428891efea7c494b82354e6b79692fa7f1250f0069c05483742754d",
-		fb:    "eb064962c7a032dadd4a78b843a0fa1a253dbebfa41e082ed3f26e6027c10ae3",
-		vram:  "6f5787a5209d0b0b363d54a5eb58bb069f8aa41613a4d015002e6a358a237b96",
-		cpu:   "93f2e7fbf6a041cc3f5a86cb71a5a5d1f040e1d15c8f53df5bce0ee08fac8313",
-		snd:   "f6b1d75dc3190a6e5827d8e0ab6df7341b3dc68e01c6ad37c788871f6eafde73",
+		ram:   "a4fc508e28b9d353e2dcb931301f0fb88801dd18537c45d4c65b9d5c52dfc837",
+		fb:    "79ce036423dcd52dae7572bf38e758cf20c91e675c5a3c9906e9cf4266283050",
+		vram:  "eedc291f6b8e73f63cdddfc2cbcd6bcca533a0565784edfef1b78142087eaeff",
+		cpu:   "db8c5c6af567c4dc3f0e13933c323f93ad5b2b5ea80d1ec60c0a2c0b7a73c08e",
+		snd:   "8fe828e3a0539c1a5fb060802be2cbb4c11d78bcdf575749c64691e4ed3e8cd7",
 	},
 }
 

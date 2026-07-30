@@ -85,6 +85,7 @@ func (m *Machine) renderFrame() {
 				hdr = 64
 				if off+64 <= len(stream) {
 					st.faceCol = packFloatCol(stream[off+32:])
+					st.faceOffs = packFloatCol(stream[off+48:])
 				}
 			case colType == 2:
 				// intensity, no offset: face colour in words 4-7
@@ -146,7 +147,10 @@ type renderState struct {
 	gouraud  bool
 	uv16     bool
 	colType  uint32
+	offsEn   bool   // the header's offset-colour bit (textured only)
+	shade    uint32 // TSP shading instruction: decal/modulate/decal-A/modulate-A
 	faceCol  uint32 // intensity modes scale this; mode 3 reuses the last one
+	faceOffs uint32 // the 64-byte intensity header's offset face colour
 	depthCmp uint32
 	zWrite   bool
 	texAddr  uint32
@@ -158,12 +162,14 @@ type renderState struct {
 	texUW    int
 	texVH    int
 	baseCol  uint32
+	baseOffs uint32
 }
 
 type pvrVert struct {
 	x, y, z float32 // z is the PVR's 1/w: larger is closer
 	u, v    float32
 	color   uint32
+	offs    uint32 // offset colour, added after the shading instruction
 }
 
 func (st *renderState) skip(what string, v uint32) {
@@ -179,6 +185,8 @@ func (st *renderState) loadHeader(pcw uint32, p []byte) {
 	st.gouraud = pcw&2 != 0
 	list := pcw >> 24 & 7
 	st.blend = list == 2 // the translucent list blends source-over
+	st.offsEn = pcw&4 != 0 && st.texture
+	st.shade = tsp >> 6 & 3
 	st.depthCmp = isp >> 29 & 7
 	st.zWrite = isp>>26&1 == 0
 	st.texUW = 8 << (tsp >> 3 & 7)
@@ -203,9 +211,11 @@ func (st *renderState) loadHeader(pcw uint32, p []byte) {
 		}
 		st.texVH = st.texUW // mipmapped textures are square
 	}
-	// Sprites carry their base colour in the header's word 4.
-	if len(p) >= 20 {
+	// Sprites carry their base colour in the header's word 4 and their
+	// offset colour in word 5.
+	if len(p) >= 24 {
 		st.baseCol = binary.LittleEndian.Uint32(p[16:])
+		st.baseOffs = binary.LittleEndian.Uint32(p[20:])
 	}
 }
 
@@ -270,10 +280,14 @@ func (st *renderState) drawSprite(p []byte) {
 	cu, cv := unpackUV16(binary.LittleEndian.Uint32(p[60:]))
 	du, dv := au+cu-bu, av+cv-bv
 	dz := az + cz - bz
-	a := pvrVert{ax, ay, az, au, av, st.baseCol}
-	b := pvrVert{bx, by, bz, bu, bv, st.baseCol}
-	c := pvrVert{cx, cy, cz, cu, cv, st.baseCol}
-	d := pvrVert{dx, dy, dz, du, dv, st.baseCol}
+	offs := uint32(0)
+	if st.offsEn {
+		offs = st.baseOffs
+	}
+	a := pvrVert{ax, ay, az, au, av, st.baseCol, offs}
+	b := pvrVert{bx, by, bz, bu, bv, st.baseCol, offs}
+	c := pvrVert{cx, cy, cz, cu, cv, st.baseCol, offs}
+	d := pvrVert{dx, dy, dz, du, dv, st.baseCol, offs}
 	st.tri(a, b, c)
 	st.tri(a, c, d)
 }
@@ -297,13 +311,22 @@ func (st *renderState) pushStripVertex(p []byte, pcw uint32) {
 	case 1: // floating colour: A,R,G,B floats, after the UVs when textured
 		if st.texture {
 			v.color = packFloatCol(p[32:])
+			if st.offsEn {
+				v.offs = packFloatCol(p[48:])
+			}
 		} else {
 			v.color = packFloatCol(p[16:])
 		}
-	case 2, 3: // intensity: the face colour scaled by the vertex's intensity
+	case 2, 3: // intensity: the face colours scaled by the vertex's intensities
 		v.color = scaleCol(st.faceCol, f32(p[24:]))
-	default: // packed colour in word 6
+		if st.offsEn {
+			v.offs = scaleCol(st.faceOffs, f32(p[28:]))
+		}
+	default: // packed colour in word 6, packed offset colour in word 7
 		v.color = binary.LittleEndian.Uint32(p[24:])
+		if st.offsEn {
+			v.offs = binary.LittleEndian.Uint32(p[28:])
+		}
 		if !st.texture {
 			v.color = binary.LittleEndian.Uint32(p[16:])
 		}
@@ -335,6 +358,58 @@ func scaleCol(col uint32, i float32) uint32 {
 	g := uint32(float32(col>>8&0xFF) * i)
 	b := uint32(float32(col&0xFF) * i)
 	return col&0xFF000000 | r<<16 | g<<8 | b
+}
+
+// lerp3 interpolates one byte-wide channel of three packed colours.
+func lerp3(w0, w1, w2 float32, a, b, c uint32, shift uint) uint32 {
+	return uint32(w0*float32(a>>shift&0xFF) + w1*float32(b>>shift&0xFF) + w2*float32(c>>shift&0xFF))
+}
+
+// shadePixel applies the TSP shading instruction to a sampled texel: decal,
+// modulate, decal-alpha or modulate-alpha, plus the offset colour when the
+// header enables it. The base and offset colours come from the vertices,
+// gouraud-interpolated when the header asks, flat from the first otherwise.
+func (st *renderState) shadePixel(w0, w1, w2 float32, a, b, c pvrVert, tr, tg, tb, ta uint32) (cr, cg, cb, ca uint32) {
+	var br, bg, bb, ba uint32
+	var or, og, ob uint32
+	if st.gouraud {
+		br = lerp3(w0, w1, w2, a.color, b.color, c.color, 16)
+		bg = lerp3(w0, w1, w2, a.color, b.color, c.color, 8)
+		bb = lerp3(w0, w1, w2, a.color, b.color, c.color, 0)
+		ba = lerp3(w0, w1, w2, a.color, b.color, c.color, 24)
+		if st.offsEn {
+			or = lerp3(w0, w1, w2, a.offs, b.offs, c.offs, 16)
+			og = lerp3(w0, w1, w2, a.offs, b.offs, c.offs, 8)
+			ob = lerp3(w0, w1, w2, a.offs, b.offs, c.offs, 0)
+		}
+	} else {
+		br, bg, bb, ba = a.color>>16&0xFF, a.color>>8&0xFF, a.color&0xFF, a.color>>24&0xFF
+		if st.offsEn {
+			or, og, ob = a.offs>>16&0xFF, a.offs>>8&0xFF, a.offs&0xFF
+		}
+	}
+	switch st.shade {
+	case 0: // decal: the texture as-is
+		cr, cg, cb, ca = tr, tg, tb, ta
+	case 1: // modulate
+		cr, cg, cb, ca = tr*br/255, tg*bg/255, tb*bb/255, ta
+	case 2: // decal alpha: texture over base by the texture's own alpha
+		cr = (tr*ta + br*(255-ta)) / 255
+		cg = (tg*ta + bg*(255-ta)) / 255
+		cb = (tb*ta + bb*(255-ta)) / 255
+		ca = ba
+	default: // modulate alpha
+		cr, cg, cb, ca = tr*br/255, tg*bg/255, tb*bb/255, ta*ba/255
+	}
+	cr, cg, cb = clamp255(cr+or), clamp255(cg+og), clamp255(cb+ob)
+	return
+}
+
+func clamp255(v uint32) uint32 {
+	if v > 255 {
+		return 255
+	}
+	return v
 }
 
 // depthPass applies the header's ISP compare mode; z is 1/w, larger closer.
@@ -375,7 +450,7 @@ func (st *renderState) tri(a, b, c pvrVert) {
 		return
 	}
 	if debugPixelX >= minX && debugPixelX <= maxX && debugPixelY >= minY && debugPixelY <= maxY {
-		st.m.logf("debug-pixel tri tex=%v addr=%06X fmt=%d twid=%v vq=%v mipIx=%d %dx%d blend=%v", st.texture, st.texAddr, st.texFmt, st.texTwid, st.texVQ, st.texMipIx, st.texUW, st.texVH, st.blend)
+		st.m.logf("debug-pixel tri tex=%v addr=%06X fmt=%d shade=%d offsEn=%v colType=%d gouraud=%v %dx%d blend=%v a.color=%08X a.offs=%08X", st.texture, st.texAddr, st.texFmt, st.shade, st.offsEn, st.colType, st.gouraud, st.texUW, st.texVH, st.blend, a.color, a.offs)
 	}
 	st.tris++
 	inv := 1 / area
@@ -403,7 +478,8 @@ func (st *renderState) tri(a, b, c pvrVert) {
 				if z != 0 {
 					u, v = u/z, v/z
 				}
-				cr, cg, cb, ca = st.sample(u, v)
+				tr, tg, tb, ta := st.sample(u, v)
+				cr, cg, cb, ca = st.shadePixel(w0, w1, w2, a, b, c, tr, tg, tb, ta)
 			} else if st.gouraud {
 				cr = uint32(w0*float32(a.color>>16&0xFF) + w1*float32(b.color>>16&0xFF) + w2*float32(c.color>>16&0xFF))
 				cg = uint32(w0*float32(a.color>>8&0xFF) + w1*float32(b.color>>8&0xFF) + w2*float32(c.color>>8&0xFF))

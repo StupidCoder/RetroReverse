@@ -11,6 +11,8 @@ package dc
 // needs: buttons are active-low in the condition response, the hardware's
 // own convention.
 
+import "encoding/binary"
+
 // Maple SB registers.
 const (
 	sbMDSTAR = 0x005F6C04
@@ -125,16 +127,26 @@ func (m *Machine) mapleRespond(cmd, dst, payload, recv uint32) {
 	host := uint32(0x00)
 	switch cmd {
 	case 1: // DEVINFO request -> 5: device status
-		info := make([]uint32, 28)
-		info[0] = bswap(0x01000000) // FT: CONTROLLER — function masks are big-endian byte sequences on the bus
-		info[1] = bswap(0x000F06FE) // FD: the standard pad's capability word
-		name := "RetroReverse Dreamcast Pad    "
-		for i := 0; i < 28 && i < len(name); i++ {
-			info[4+uint32(i)/4] |= uint32(name[i]) << (8 * (uint32(i) % 4))
-		}
-		m.Write32(recv, 5|host<<8|src<<16|uint32(len(info))<<24) // responses answer TO the host FROM the device
-		for i, w := range info {
-			m.Write32(recv+4+uint32(i)*4, w)
+		// The device-status block, in the hardware's own layout: FT, three FD
+		// words, destination area code, connector direction, 30 bytes of
+		// product name, 60 of license, standby and maximum current. Crazy
+		// Taxi's driver byte-reverses the FT word it receives and tests the
+		// CONTROLLER bit in the low byte, then classifies the device by
+		// product-name bytes ('R' and 'F' prefixes select the wheel and rod
+		// paths) — so the block carries the retail pad's own constants, and
+		// the FT goes out raw (wire bytes 00 00 00 01), not pre-swapped.
+		var blk [112]byte
+		binary.LittleEndian.PutUint32(blk[0:], 0x01000000)        // FT: CONTROLLER
+		binary.LittleEndian.PutUint32(blk[4:], bswap(0x000F06FE)) // FD1: the standard pad's capability word
+		blk[16] = 0xFF                                            // destination area: all regions
+		blk[17] = 0                                               // connector direction
+		copy(blk[18:], "Dreamcast Controller          ")
+		copy(blk[48:], "Produced By or Under License From SEGA ENTERPRISES,LTD.    ")
+		binary.LittleEndian.PutUint16(blk[108:], 0x01AE) // standby current, 0.1mA units
+		binary.LittleEndian.PutUint16(blk[110:], 0x01F4) // maximum current
+		m.Write32(recv, 5|host<<8|src<<16|uint32(len(blk)/4)<<24) // responses answer TO the host FROM the device
+		for i := uint32(0); i < uint32(len(blk)); i += 4 {
+			m.Write32(recv+4+i, binary.LittleEndian.Uint32(blk[i:]))
 		}
 	case 9: // GET CONDITION -> 8: data transfer (command 4 is device shutdown,
 		// not GETCOND — the game polls 9 every field, and answering it

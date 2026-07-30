@@ -114,11 +114,8 @@ func (m *Machine) hollyWrite(addr, v uint32) {
 	case 0x005F6804:
 		m.C2DLen = v
 	case 0x005F6808:
-		// Ch2 (PVR) DMA start. The TA is a later milestone, so nothing is
-		// rendered — but the parameter stream is real and its END_OF_LIST
-		// markers are scanned (the source address sits in the SH-4 DMAC's
-		// SAR2, which the CPU raw-stores), so the list-complete interrupts a
-		// frame loop waits on fire for exactly the lists the game closed.
+		// Ch2 (PVR) DMA start: the source address sits in the SH-4 DMAC's
+		// SAR2, which the CPU raw-stores; the destination decides the path.
 		if v&1 != 0 {
 			// Only the polygon path (10xxxxxx) carries TA parameters; a
 			// texture-path job (11xxxxxx) is pixels, and parsing pixels as
