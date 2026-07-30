@@ -483,3 +483,46 @@ corner and not a 1.41× diagonal no pad can produce. The whole path was
 verified the way a user takes it — a raw WebSocket probe against a live
 `-serve`: open, load, step, scrub to black, scrub to the drawn frame,
 pixel → command 1201, keys accepted.
+
+## Part X — The containers
+
+The asset work opens the way every format effort here opens: an inventory,
+and the layers that describe themselves. The tool is `ctarc`
+(`extract/cmd/ctarc`), which reads everything straight off the disc.
+
+**AFS** is a bare table: `AFS\0`, a u32 entry count, then (offset, size)
+u32 pairs, data from 0x80000, and — on this disc — no name table (the word
+after the last pair is zero, so an entry's identity is its index). The
+census over every container says what the disc is made of. `BINC1-3.AFS`
+hold **1,014 entries of one model format**: nearly every entry opens
+`01 00 00 00  01 00 00 00`, a run of floats that reads as bounds, then
+control words with `0x8xxxxxxx` shapes — and `POLDC1.BIN` opens the same
+way, so the streamed objects and the course geometry are one family.
+`SONG01.AFS` and `VOICE01.AFS` name their own contents: every entry starts
+with the ADX signature (`0x8000`, copyright offset `0x20`, encoding 3,
+block size 0x12, 4-bit), and the channel byte splits them exactly as the
+filenames promise — stereo songs, 699 mono voice clips.
+
+**PVRT** (`0GDTEX.PVR`) is the self-describing texture file: magic, pixel
+format, data type, width, height. The decoder handles square-twiddled,
+VQ and raster rectangles, and its verification is by eye: the file decodes
+to the disc-label artwork the console's boot menu shows — the checkered
+claw around the hub hole and the CRAZY TAXI wordmark, ARGB4444 with a
+transparent border.
+
+**LANDDC** entries are raster texture pages, no header at all: 32 KB each,
+and the readable geometry is **256×64 at RGB565** — tile 37 of `LANDDC1`
+is the EAST SIDE POLICE billboard, sign text and badge crisp. (128×128
+shears it and a twiddled read shreds it; the page width is a fact about
+the file, found by trying the three readouts a 32 KB page allows.)
+
+`OBJDC1-3.BIN` are 32-byte placement records — a world position, a type
+id, and a pointer into `0x0CE9xxxx` — RAM addresses baked into the file,
+which is the tell that these tables link against model data loaded at a
+fixed address. `COLDC*` opens with unit normals, plane constants and
+vertex triples: the collision mesh. `MOTDC.BIN` opens with an offset
+table. None of these three is guessed further than that on purpose: the
+model, collision and motion layouts are the game's own parser's business,
+and the next step is the proven one — watch the loader land `POLDC0` in
+RAM, catch the code that walks it, and read the format off the
+disassembly rather than off the bytes' shapes.
