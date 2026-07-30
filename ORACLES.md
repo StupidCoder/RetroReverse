@@ -506,11 +506,13 @@ configured; an unconfigured framebuffer is an error, not a black PNG.
 | `-keys BTN@FIELD[:HOLD]` | pad script into the Maple GETCOND answer; `l`/`r` = triggers, `jx<0-255>`/`jy<0-255>` = joystick axes |
 | `-shot` / `-vramshot` | scanout framebuffer PNG; raw-VRAM viewer |
 | `-dis` / `-dump` | post-run disassembly / hex dump (`-steps 0` for static) |
-| `-files` / `-gd` | disc census; every GD read named by the file it lands in |
+| `-files` / `-gd` | disc census; every GD read named by the file it lands in, with its RAM destination and file offset |
 | `-savestate` / `-loadstate` | savestates (continued vs restored runs byte-identical) |
 | `-wav out.wav` | capture the AICA's stereo mix over the run (peak/RMS summary printed; capture never changes the machine) |
 | `-aicaregs` | AICA register census: which slot words the driver has ever written |
-| `-ramraw FILE` | dump the 16 MB main RAM (savestate-diff lattice workhorse) |
+| `-ramraw FILE` / `-vramraw FILE` | dump the 16 MB main RAM (savestate-diff lattice workhorse) / the 8 MB VRAM in the 64-bit-path layout the TCWs address |
+| `-watchprof` | aggregate watch hits into a per-PC histogram — how the model walker was named |
+| `-c2dlog` | log every ch2 texture-path DMA (RAM source → VRAM destination): the loader's texture placement, live |
 | `-v` | the unmodelled-hardware census — the worklist |
 
 The serial capture prints automatically: the SCIF transmit FIFO always
