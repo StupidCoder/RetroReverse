@@ -58,6 +58,11 @@ const (
 	// z-buffer, perspective-correct UVs, both VRAM windows.
 	stateCity = "../../../games/crazy-taxi-dc/work/states/city-fresh.st"
 
+	// The drive: in-game behind the yellow cab — sky, palms, traffic, the
+	// HUD's rolling counters. The deepest state the machine reaches and the
+	// widest coverage of the pipeline in one frame.
+	stateDrive = "../../../games/crazy-taxi-dc/work/states/drive.st"
+
 	// benchFields is what the pins were taken over; change it and every
 	// hash changes with it.
 	benchFields = 30
@@ -87,6 +92,11 @@ type gatePin struct {
 //	city     the attract's PRESS START BUTTON scene: the yellow cab riding
 //	         a green car-transporter past the park, a purple pickup on the
 //	         road, the prompt overlaid.
+//	drive    IN THE GAME, behind Axel's cab on the boulevard: blue sky and
+//	         clouds, palms, traffic, "38 game time", the TOTAL EARNED
+//	         counters, the D gear indicator — reached from cold boot by the
+//	         game's own inputs (start at the warning and title, A through
+//	         MODE SELECTION / ARCADE RULES / driver select).
 //
 // If one of these moves, open the PNG the failure prints and JUDGE THE
 // PICTURE AGAIN before touching this block.
@@ -118,6 +128,15 @@ var gatePins = []gatePin{
 		vram:  "eedc291f6b8e73f63cdddfc2cbcd6bcca533a0565784edfef1b78142087eaeff",
 		cpu:   "db8c5c6af567c4dc3f0e13933c323f93ad5b2b5ea80d1ec60c0a2c0b7a73c08e",
 		snd:   "8fe828e3a0539c1a5fb060802be2cbb4c11d78bcdf575749c64691e4ed3e8cd7",
+	},
+	{
+		name:  "drive",
+		state: stateDrive,
+		ram:   "663440b6c865c7c0740e9eaea33090f3f8995880da344f62ed6f300d4036fd1b",
+		fb:    "ee283e37fc90035a408fc28493480098d31fd2e3fea708ffea034543fc5a703f",
+		vram:  "1669d7aec113f652d2a484b76f422d880037cba7d2f05b023edf41314b573a2c",
+		cpu:   "45b4d31ee4288e71f58ac7b86e4a9ac24974500fa790cca25a85d280f0953467",
+		snd:   "db10ad9e810b7ee79783dabbba57959003c3d023bd1f738e8116e28bf4d145e1",
 	},
 }
 
