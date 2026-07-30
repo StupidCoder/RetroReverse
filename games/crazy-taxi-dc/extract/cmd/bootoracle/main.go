@@ -59,11 +59,13 @@ func main() {
 	dis := flag.String("dis", "", "disassemble ADDR[:N] and exit (hex)")
 	dump := flag.String("dump", "", "hex-dump ADDR:LEN and exit (hex)")
 	ramraw := flag.String("ramraw", "", "write the 16MB of main RAM to this file after the run")
+	vramraw := flag.String("vramraw", "", "write the 8MB of VRAM (64-bit-path layout) to this file after the run")
 	aicaregs := flag.Bool("aicaregs", false, "print the AICA register census (which slot words the driver has written) after the run")
 	wav := flag.String("wav", "", "capture the AICA's stereo mix to this WAV over the whole run")
 	files := flag.Bool("files", false, "list the disc's files and exit")
 	gd := flag.Bool("gd", false, "log every GD-ROM read with the file it lands in")
 	watchprof := flag.Bool("watchprof", false, "aggregate watch hits into a per-PC histogram instead of printing each")
+	c2dlog := flag.Bool("c2dlog", false, "log every ch2 texture-path DMA (RAM src -> VRAM dst, bytes)")
 	savestate := flag.String("savestate", "", "write a savestate at the end of the run")
 	loadstate := flag.String("loadstate", "", "resume from a savestate instead of booting")
 	nospin := flag.Bool("nospin", false, "disable tight-spin detection")
@@ -72,7 +74,7 @@ func main() {
 	flag.Parse()
 
 	if err := run(*image, *steps, *frames, *trace, *tracen, *tracefrom, bps, logpcs, watches, rwatches,
-		*poke, *keys, *shot, *vramshot, *dis, *dump, *ramraw, *wav, *aicaregs, *files, *gd, *watchprof, *savestate, *loadstate,
+		*poke, *keys, *shot, *vramshot, *dis, *dump, *ramraw, *vramraw, *wav, *aicaregs, *files, *gd, *watchprof, *c2dlog, *savestate, *loadstate,
 		*nospin, *cpuprofile, *verbose); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -80,8 +82,8 @@ func main() {
 }
 
 func run(image, stepsS string, frames uint64, trace bool, tracen uint64, tracefrom string,
-	bps, logpcs, watches, rwatches multiFlag, poke, keys, shot, vramshot, dis, dump, ramraw, wav string,
-	aicaregs, files, gd, watchprof bool, savestate, loadstate string, nospin bool, cpuprofile string, verbose bool) error {
+	bps, logpcs, watches, rwatches multiFlag, poke, keys, shot, vramshot, dis, dump, ramraw, vramraw, wav string,
+	aicaregs, files, gd, watchprof, c2dlog bool, savestate, loadstate string, nospin bool, cpuprofile string, verbose bool) error {
 
 	maxSteps, err := strconv.ParseUint(strings.TrimPrefix(stepsS, "0x"), pick(strings.HasPrefix(stepsS, "0x"), 16, 10), 64)
 	if err != nil {
@@ -213,6 +215,12 @@ func run(image, stepsS string, frames uint64, trace bool, tracen uint64, tracefr
 		}
 	}
 
+	if c2dlog {
+		m.OnC2DTexture = func(src, dst, length uint32) {
+			fmt.Printf("c2d tex %08X -> vram %06X len %#x\n", src, dst, length)
+		}
+	}
+
 	if gd {
 		m.OnGDRead = func(fad, count, buf uint32) {
 			lba := int(fad) - 150
@@ -267,6 +275,11 @@ func run(image, stepsS string, frames uint64, trace bool, tracen uint64, tracefr
 			fmt.Println(l)
 		}
 		return nil
+	}
+	if vramraw != "" {
+		if err := os.WriteFile(vramraw, m.VRAM, 0o644); err != nil {
+			return err
+		}
 	}
 	if ramraw != "" {
 		if err := os.WriteFile(ramraw, m.RAM, 0o644); err != nil {

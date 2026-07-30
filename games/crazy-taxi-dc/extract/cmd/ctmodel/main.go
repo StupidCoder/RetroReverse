@@ -56,21 +56,39 @@ func main() {
 		die("need -file (or -census)")
 	}
 	data := readDisc(disc, *file)
+	var models []*assets.Model
 	if strings.HasSuffix(strings.ToUpper(*file), ".AFS") {
 		a, err := assets.OpenAFS(data)
 		if err != nil {
 			die("%v", err)
 		}
-		if *entry < 0 {
-			die("AFS container: pick an -entry (0..%d)", len(a.Entries)-1)
+		if *entry >= 0 {
+			if data, err = a.Data(*entry); err != nil {
+				die("%v", err)
+			}
+			if models, err = assets.OpenModels(data); err != nil {
+				die("parse: %v", err)
+			}
+		} else {
+			// whole container: the BINC entries are world-placed chunks,
+			// so concatenating them assembles the course
+			for i := range a.Entries {
+				e, err := a.Data(i)
+				if err != nil || len(e) == 0 {
+					continue
+				}
+				ms, err := assets.OpenModels(e)
+				if err != nil {
+					die("entry %d: %v", i, err)
+				}
+				models = append(models, ms...)
+			}
 		}
-		if data, err = a.Data(*entry); err != nil {
-			die("%v", err)
+	} else {
+		var err error
+		if models, err = assets.OpenModels(data); err != nil {
+			die("parse: %v (after %d models)", err, len(models))
 		}
-	}
-	models, err := assets.OpenModels(data)
-	if err != nil {
-		die("parse: %v (after %d models)", err, len(models))
 	}
 	nb, nv := 0, 0
 	for _, m := range models {

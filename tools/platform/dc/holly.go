@@ -127,6 +127,9 @@ func (m *Machine) hollyWrite(addr, v uint32) {
 				// The texture path: the pixels land in VRAM for the
 				// rasteriser to sample.
 				dst := m.C2DStat & 0x00FFFFFF
+				if m.OnC2DTexture != nil {
+					m.OnC2DTexture(src, dst, m.C2DLen)
+				}
 				for i := uint32(0); i+4 <= m.C2DLen && dst+i+4 <= VRAMSize; i += 4 {
 					v := m.ram32(src + i)
 					m.VRAM[dst+i] = uint8(v)

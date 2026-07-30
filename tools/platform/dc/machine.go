@@ -128,6 +128,10 @@ type Machine struct {
 	OnStep    func(pc uint32)
 	OnDisplay func(field uint64)
 	OnGDRead  func(fad, count, buf uint32) // every HLE'd disc read, with its RAM destination
+	// OnC2DTexture sees every ch2 texture-path DMA: RAM source, VRAM
+	// destination (64-bit-path offset) and byte length — the texture
+	// placement the loader performs.
+	OnC2DTexture func(src, dst, length uint32)
 	Verbose   io.Writer               // gap-log lines land here when set
 
 	// StopRequested asks the run loop to return before the next instruction.
