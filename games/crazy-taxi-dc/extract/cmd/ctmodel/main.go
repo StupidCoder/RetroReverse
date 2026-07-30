@@ -41,6 +41,7 @@ func main() {
 	out := flag.String("o", "", "write a GLB")
 	preview := flag.String("png", "", "reopen the written GLB and render this preview PNG")
 	census := flag.Bool("census", false, "parse every model container on the disc and report")
+	tcws := flag.Bool("tcws", false, "print the distinct texture control words the models reference")
 	flag.Parse()
 
 	disc, err := dc.OpenDisc(*image_)
@@ -100,6 +101,28 @@ func main() {
 		}
 	}
 	fmt.Printf("%s: %d models, %d blocks, %d vertex records\n", *file, len(models), nb, nv)
+	if *tcws {
+		type tex struct{ tcw, tsp uint32 }
+		seen := map[tex]int{}
+		for _, m := range models {
+			for _, b := range m.Blocks {
+				if b.Textured() {
+					seen[tex{b.TCW, b.TSP}]++
+				}
+			}
+		}
+		keys := make([]tex, 0, len(seen))
+		for k := range seen {
+			keys = append(keys, k)
+		}
+		sort.Slice(keys, func(i, j int) bool { return keys[i].tcw&0x1FFFFF < keys[j].tcw&0x1FFFFF })
+		for _, k := range keys {
+			u := 8 << (k.tsp >> 3 & 7)
+			v := 8 << (k.tsp & 7)
+			fmt.Printf("tcw %08X vram %06X  tsp %08X %4dx%-4d x%d\n", k.tcw, k.tcw&0x1FFFFF<<3, k.tsp, u, v, seen[k])
+		}
+		fmt.Printf("%d distinct textures\n", len(keys))
+	}
 	if *out == "" {
 		return
 	}
