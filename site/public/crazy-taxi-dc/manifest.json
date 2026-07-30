@@ -1,0 +1,41 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "id": "crazy-taxi-dc",
+ "title": "Crazy Taxi",
+ "platform": "Sega Dreamcast",
+ "year": 2000,
+ "description": "Sega's open-city taxi arcade hit, on the console it defined — the repo's first Dreamcast target, whose oracle plays it from cold boot to a boarded fare. The three courses ship here assembled from the game's own streaming containers: the model format was read off the renderer's block walker, and every texture is decoded from the disc alone through the descriptor arrays baked into the game binary — offsets, formats and mip layouts all verified byte-exact against the running game's video memory.",
+ "display": {
+  "native": {
+   "w": 640,
+   "h": 480
+  },
+  "tickHz": 60,
+  "filter": "crt",
+  "texFilter": "linear"
+ },
+ "assets": [
+  {
+   "id": "arcade-city",
+   "category": "level",
+   "name": "Arcade city",
+   "group": "Courses",
+   "file": "levels/arcade-city.json"
+  },
+  {
+   "id": "original-city",
+   "category": "level",
+   "name": "Original city",
+   "group": "Courses",
+   "file": "levels/original-city.json"
+  },
+  {
+   "id": "crazy-box",
+   "category": "level",
+   "name": "Crazy Box",
+   "group": "Courses",
+   "file": "levels/crazy-box.json"
+  }
+ ]
+}

@@ -44,11 +44,22 @@ func main() {
 	preview := flag.String("png", "", "reopen the written GLB and render this preview PNG")
 	census := flag.Bool("census", false, "parse every model container on the disc and report")
 	tcws := flag.Bool("tcws", false, "print the distinct texture control words the models reference")
+	glbin := flag.String("glbin", "", "skip decoding: reopen this existing GLB and render -png from it")
 	tex := flag.Bool("tex", false, "texture the export from the course's TEXDC file (course = the digit in -file)")
 	texCourse := flag.Int("texcourse", -1, "override the texture course index (default: the digit in -file)")
 	dumpTex := flag.String("dumptex", "", "decode every texture of the -file's course into this directory as PNGs")
 	flag.Parse()
 
+	if *glbin != "" {
+		if *preview == "" {
+			die("-glbin wants -png")
+		}
+		if err := renderGLB(*glbin, *preview); err != nil {
+			die("preview: %v", err)
+		}
+		fmt.Printf("wrote %s (rendered from %s)\n", *preview, *glbin)
+		return
+	}
 	disc, err := dc.OpenDisc(*image_)
 	if err != nil {
 		die("%v", err)

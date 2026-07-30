@@ -644,3 +644,10 @@ and samples them per pixel. `ctmodel -file BINC1.AFS -tex -o city.glb`
 now assembles the arcade city with its shopfronts, brick, foliage,
 crosswalks, stadium crowd and sea — every texel of it decoded from the
 disc alone.
+
+The three courses shipped to the Studio (`extract/cmd/webexport`): the
+arcade city, the original city — tower, Ferris wheel, harbour and
+lighthouse — and the Crazy Box arenas under their painted sky dome, each
+a textured GLB with a fly camera. Course 0 is not a course: POLDC0 and
+TEXDC0 load at boot and hold the shared object models, which is the next
+frontier along with OBJDC's placement chains.
