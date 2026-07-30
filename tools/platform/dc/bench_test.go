@@ -136,7 +136,12 @@ var gatePins = []gatePin{
 		fb:    "ee283e37fc90035a408fc28493480098d31fd2e3fea708ffea034543fc5a703f",
 		vram:  "1669d7aec113f652d2a484b76f422d880037cba7d2f05b023edf41314b573a2c",
 		cpu:   "45b4d31ee4288e71f58ac7b86e4a9ac24974500fa790cca25a85d280f0953467",
-		snd:   "21848e99567b26cef2f27d6cd8131c989cb8cff0254c52edf69ca21d0bcebb30",
+		// snd re-pinned twice on sound-model growth with ram/fb/vram/cpu
+		// unmoved each time: first the voice-position model, then synthesis
+		// (aica_synth.go) — the envelope generator now answers the 2810
+		// monitor with real attack/decay levels, so the ARM driver's
+		// trajectory shifts while the SH-4 side and the pictures hold still.
+		snd:   "fd561d11640e52502adaaf032eba9aef76e58aab60d82022049d8bfefa3ba201",
 	},
 }
 

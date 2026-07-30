@@ -385,3 +385,52 @@ was the fare timer, spent on U-turns judged one screenshot at a time. The
 delivery — stopping inside the zone, the fare banked into TOTAL EARNED —
 is the open milestone, and it wants a live cab-position instrument
 first, so the steering can be computed instead of guessed.
+
+## Part VIII — The sound
+
+The voice-position model of Part VII knew where every sample *would* be;
+this part makes the machine actually play it. The step in between was a
+census, not a guess: the AICA register file only stores what a write has
+touched, so dumping the stored map from the deepest state says exactly
+which of each slot's 32 words the game's driver uses. The answer
+(`bootoracle -aicaregs`): words `+00` through `+44` on all 64 slots, and
+never anything above. Decoded against the slot layout, that is sample
+address and format, loop points, the amplitude envelope, pitch, the DSP
+send, the direct send with its pan, and the total level — while the LFO
+word is *always zero* and the filter registers sit pinned at their neutral
+values. The synthesis model (`aica_synth.go`) is exactly the census: no
+LFO, no filter, and no DSP mix (the driver does load a reverb program and
+point slots at it; the dry path carries the music, and the missing wet
+path is census-logged rather than silently absent).
+
+What was added, then: sample fetch in the three formats the header can
+name (16-bit PCM, 8-bit PCM, and Yamaha's 4-bit ADPCM — a sequential
+decoder, so the model walks it forward nibble by nibble and caches the
+predictor state the first time it crosses the loop start, which is what
+the hardware's loop does); a real amplitude envelope generator
+(attack/decay/decay-2/release, effective-rate timing in Yamaha's
+exponential-attack, linear-dB-decay shape) that replaces the old model's
+instant key-off kill; and a stereo mix at the 44.1 kHz tick through each
+voice's envelope, total level, direct-send level and pan, under the
+master volume. The envelope is honest to the *protocol* — the `2810`
+monitor now answers with the generator's real state and level, and a
+one-shot still ends where the sample does — while its milliseconds are an
+approximation nothing in the driver's handshake depends on.
+
+The mix always runs, listener or not: decoder and envelope state are part
+of the machine and savestate with it, and a run with `-wav` must be
+byte-identical to a run without. `-wav` only copies each mixed pair into
+an instrument buffer and writes a RIFF file at the end, with a
+peak/RMS summary so a silent run states its silence in numbers.
+
+The verification is the same shape as every first picture: from a cold
+boot with only the two Start taps scripted, the machine produces
+twenty-five seconds of honest silence through the boot and the warning
+screen, the splash sting, and then the attract soundtrack — beat, bass
+and vocal formants plainly structured in the spectrogram. Replaying the
+Part VII boarding recipe captures the pickup: the customer's shout, the
+passenger's lines, the effects over the music. The hash gate
+classified the whole change the way the multi-hash design intends: the
+drive pin's AICA hash moved (the envelope generator answers the monitor
+differently, so the ARM driver's trajectory shifts), and frame, RAM,
+VRAM and CPU hashes held still on all three pins.

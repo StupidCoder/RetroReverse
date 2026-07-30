@@ -41,6 +41,62 @@ func (m *Machine) RegString() string {
 	return b.String()
 }
 
+// AICARegCensus reports which AICA registers have ever been written — the
+// slot region as a per-word histogram across the 64 slots (how many slots
+// carry the word, and the min/max values seen), the common block as a flat
+// list. The map only holds offsets a write has touched, so this is the
+// stored-registers census that decides which words a synthesis model must
+// read: a word no driver writes is a word whose reset value we would be
+// inventing.
+func (m *Machine) AICARegCensus() string {
+	var b strings.Builder
+	type stat struct {
+		n        int
+		min, max uint32
+	}
+	words := map[uint32]*stat{}
+	var common []uint32
+	for off, v := range m.AICARegs {
+		if off >= 0x2000 {
+			common = append(common, off)
+			continue
+		}
+		w := off & 0x7F
+		s := words[w]
+		if s == nil {
+			s = &stat{min: v, max: v}
+			words[w] = s
+		}
+		s.n++
+		if v < s.min {
+			s.min = v
+		}
+		if v > s.max {
+			s.max = v
+		}
+	}
+	fmt.Fprintf(&b, "slot words written (of 64 slots):\n")
+	for w := uint32(0); w < 0x80; w += 4 {
+		if s := words[w]; s != nil {
+			fmt.Fprintf(&b, "  +%02X  %2d slots  min %08X max %08X\n", w, s.n, s.min, s.max)
+		}
+	}
+	sortU32(common)
+	fmt.Fprintf(&b, "common block:\n")
+	for _, off := range common {
+		fmt.Fprintf(&b, "  %04X = %08X\n", off, m.AICARegs[off])
+	}
+	return b.String()
+}
+
+func sortU32(s []uint32) {
+	for i := 1; i < len(s); i++ {
+		for j := i; j > 0 && s[j] < s[j-1]; j-- {
+			s[j], s[j-1] = s[j-1], s[j]
+		}
+	}
+}
+
 // ReadBytes copies n bytes from a CPU address (any mirror).
 func (m *Machine) ReadBytes(addr uint32, n int) []byte {
 	out := make([]byte, n)

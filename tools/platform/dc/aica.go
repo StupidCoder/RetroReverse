@@ -4,10 +4,11 @@ package dc
 // uploads into the 2 MB sound RAM, paced off the SH-4's instruction count.
 // The register block (SH-4 window 00700000, ARM window 00800000 — the same
 // registers) follows the machine's discipline: what a run has demanded is
-// modeled, everything else raw-stores and lands in the census. Sound
-// synthesis — the 64 channels — is a later milestone; what exists here is
-// what the boot needs: the ARM runs, the two CPUs converse through shared
-// RAM and the interrupt registers.
+// modeled, everything else raw-stores and lands in the census. The 64
+// voices' synthesis — sample decode, envelopes, the stereo mix — lives in
+// aica_synth.go; this file is the chassis: the ARM runs, the two CPUs
+// converse through shared RAM and the interrupt registers, the sample clock
+// ticks.
 //
 // The ARM7DI's instruction set is a subset of the ARMv5TE core in
 // tools/cpu/arm (no Thumb, no enhanced DSP), so the shared core executes the
@@ -36,77 +37,47 @@ const (
 // 2^prescale samples and flagging its interrupt bit on overflow. Exported
 // fields: it savestates.
 type aicaTimers struct {
-	Frac  uint32 // instructions accumulated toward the next sample
-	Sub   [3]uint32
-	SCIPD uint32 // pending, ARM side
-	MCIPD uint32 // pending, SH-4 side
+	Frac       uint32 // instructions accumulated toward the next sample
+	Sub        [3]uint32
+	SCIPD      uint32 // pending, ARM side
+	MCIPD      uint32 // pending, SH-4 side
+	SampleTick uint64 // output samples produced, the envelope steppers' clock
 }
 
 // timer register offsets in the block: TIMA 2890, TIMB 2894, TIMC 2898.
 func timerReg(i int) uint32 { return 0x2890 + uint32(i)*4 }
 
-// AICASlot is the playback-position model of one of the 64 voices: where the
-// sample would be if we synthesized it, which is what the driver's monitor
-// reads (MSLC at 280C, LP/SGC/EG at 2810, CA at 2814) report back. The
-// driver polls a voice's position to pace streams and to know when a one-shot
-// ended; a position that never moves is a voice that never finishes.
-// Synthesis itself — actually mixing the 64 channels — is a later milestone.
+// AICASlot is one of the 64 voices: the playback position the driver's
+// monitor reads (MSLC at 280C, LP/SGC/EG at 2810, CA at 2814) report back,
+// and the synthesis state — envelope and sample decoder — that aica_synth.go
+// mixes from. A voice restored from a pre-synthesis savestate loads with the
+// new fields zero: the decoder heals itself, the envelope sits at attack
+// level 0 and decays per the slot's own registers.
 type AICASlot struct {
 	Active bool   // keyed on and not yet ended
 	Pos    uint32 // current sample index within the sample
 	Frac   uint32 // 10-bit fractional phase accumulator
 	LP     bool   // loop-end-passed flag; a 2810 read clears it
+
+	EGState uint8  // attack/decay-1/decay-2/release, as 2810 encodes them
+	EGLevel uint16 // 10-bit attenuation: 0 open, 0x3FF silent
+
+	Cur, Prev int32  // the two samples the fractional phase interpolates
+	DecPos    uint32 // sample index Cur holds; ^0 = nothing decoded yet
+	AdHist    int32  // ADPCM predictor
+	AdStep    int32  // ADPCM step size
+	LoopHist  int32  // decoder state cached crossing the loop start (PCMS=2)
+	LoopStep  int32
+	LoopSeen  bool
 }
 
 // slotW reads a slot's 16-bit register word; the 32 words of each of the 64
 // slots sit on 4-byte stride in the block's low 8KB.
 func (m *Machine) slotW(slot, off uint32) uint32 { return m.AICARegs[slot*0x80+off] }
 
-// stepSlots advances every active voice by one output sample at its own
-// pitch: OCT is a signed octave (bits 14-11 of reg 18), FNS a 10-bit
-// fractional step, one phase unit = 1/1024 sample.
-func (m *Machine) stepSlots() {
-	for i := range m.Slots {
-		s := &m.Slots[i]
-		if !s.Active {
-			continue
-		}
-		slot := uint32(i)
-		pitch := m.slotW(slot, 0x18)
-		oct := int32(pitch>>11) & 0xF
-		if oct >= 8 {
-			oct -= 16
-		}
-		incr := uint64(0x400 + pitch&0x3FF)
-		if oct >= 0 {
-			incr <<= uint(oct)
-		} else {
-			incr >>= uint(-oct)
-		}
-		acc := uint64(s.Frac) + incr
-		s.Frac = uint32(acc & 0x3FF)
-		s.Pos += uint32(acc >> 10)
-		lea := m.slotW(slot, 0x0C) & 0xFFFF
-		if s.Pos < lea {
-			continue
-		}
-		if m.slotW(slot, 0x00)>>9&1 != 0 { // LPCTL: wrap to the loop start
-			lsa := m.slotW(slot, 0x08) & 0xFFFF
-			if lea > lsa {
-				s.Pos = lsa + (s.Pos-lea)%(lea-lsa)
-			} else {
-				s.Pos = lsa
-			}
-			s.LP = true
-		} else { // one-shot: the voice ends where the sample does
-			s.Pos = lea
-			s.Active = false
-		}
-	}
-}
-
 // tickAICA advances the sample clock by one SH-4 instruction and the timers
-// with it.
+// with it. mixSample (aica_synth.go) is the voices: position, envelope, and
+// the stereo mix.
 func (m *Machine) tickAICA() {
 	t := &m.Timers
 	t.Frac++
@@ -114,7 +85,7 @@ func (m *Machine) tickAICA() {
 		return
 	}
 	t.Frac = 0
-	m.stepSlots()
+	m.mixSample()
 	for i := 0; i < 3; i++ {
 		reg := m.AICARegs[timerReg(i)]
 		pre := (reg >> 8) & 7
@@ -231,7 +202,9 @@ func (m *Machine) aicaRead(off uint32, size int, sh4 bool) uint32 {
 			s.LP = false
 		}
 		if s.Active {
-			v |= 2 << 13 // sustain, envelope wide open
+			// The envelope generator's real state and 10-bit level, the
+			// level in the 13-bit field's high bits.
+			v |= uint32(s.EGState)<<13 | uint32(s.EGLevel)<<3
 		} else {
 			v |= 3<<13 | 0x1FFF // release, attenuated to silence
 		}
@@ -285,11 +258,14 @@ func (m *Machine) aicaWrite(off uint32, size int, v uint32, sh4 bool) {
 				s := &m.Slots[i]
 				on := m.AICARegs[uint32(i)*0x80]>>14&1 != 0
 				switch {
-				case on && !s.Active:
-					*s = AICASlot{Active: true}
+				case on && (!s.Active || s.EGState == egRelease):
+					// Key-on restarts a silent voice and retriggers a
+					// releasing one.
+					s.keyOn()
 				case !on && s.Active:
-					// Key-off: no release-envelope model; the voice is done.
-					s.Active = false
+					// Key-off sends the voice into release; the envelope
+					// retires it at the attenuation floor.
+					s.keyOff()
 				}
 			}
 		}

@@ -118,6 +118,12 @@ type Machine struct {
 
 	bios *biosHLE // installed by Boot; nil on a bare machine
 
+	// Audio capture (aica_synth.go): with AudioCapture set, every mixed
+	// stereo pair lands in AudioPCM. Pure instrument — the mix runs either
+	// way, and the buffer is never savestated or hashed.
+	AudioCapture bool
+	AudioPCM     []int16
+
 	// Instrumentation, all opt-in and nil-checked on the hot path.
 	OnStep    func(pc uint32)
 	OnDisplay func(field uint64)

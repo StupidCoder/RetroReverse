@@ -59,6 +59,8 @@ func main() {
 	dis := flag.String("dis", "", "disassemble ADDR[:N] and exit (hex)")
 	dump := flag.String("dump", "", "hex-dump ADDR:LEN and exit (hex)")
 	ramraw := flag.String("ramraw", "", "write the 16MB of main RAM to this file after the run")
+	aicaregs := flag.Bool("aicaregs", false, "print the AICA register census (which slot words the driver has written) after the run")
+	wav := flag.String("wav", "", "capture the AICA's stereo mix to this WAV over the whole run")
 	files := flag.Bool("files", false, "list the disc's files and exit")
 	gd := flag.Bool("gd", false, "log every GD-ROM read with the file it lands in")
 	savestate := flag.String("savestate", "", "write a savestate at the end of the run")
@@ -69,7 +71,7 @@ func main() {
 	flag.Parse()
 
 	if err := run(*image, *steps, *frames, *trace, *tracen, *tracefrom, bps, logpcs, watches, rwatches,
-		*poke, *keys, *shot, *vramshot, *dis, *dump, *ramraw, *files, *gd, *savestate, *loadstate,
+		*poke, *keys, *shot, *vramshot, *dis, *dump, *ramraw, *wav, *aicaregs, *files, *gd, *savestate, *loadstate,
 		*nospin, *cpuprofile, *verbose); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
@@ -77,8 +79,8 @@ func main() {
 }
 
 func run(image, stepsS string, frames uint64, trace bool, tracen uint64, tracefrom string,
-	bps, logpcs, watches, rwatches multiFlag, poke, keys, shot, vramshot, dis, dump, ramraw string,
-	files, gd bool, savestate, loadstate string, nospin bool, cpuprofile string, verbose bool) error {
+	bps, logpcs, watches, rwatches multiFlag, poke, keys, shot, vramshot, dis, dump, ramraw, wav string,
+	aicaregs, files, gd bool, savestate, loadstate string, nospin bool, cpuprofile string, verbose bool) error {
 
 	maxSteps, err := strconv.ParseUint(strings.TrimPrefix(stepsS, "0x"), pick(strings.HasPrefix(stepsS, "0x"), 16, 10), 64)
 	if err != nil {
@@ -196,6 +198,9 @@ func run(image, stepsS string, frames uint64, trace bool, tracen uint64, tracefr
 			return err
 		}
 	}
+	if wav != "" {
+		m.AudioCapture = true
+	}
 
 	if cpuprofile != "" {
 		f, err := os.Create(cpuprofile)
@@ -235,6 +240,9 @@ func run(image, stepsS string, frames uint64, trace bool, tracen uint64, tracefr
 			return err
 		}
 		fmt.Println("ramraw:", ramraw)
+	}
+	if aicaregs {
+		fmt.Print(m.AICARegCensus())
 	}
 	if dump != "" {
 		a, n, err := pair(dump)
@@ -277,6 +285,13 @@ func run(image, stepsS string, frames uint64, trace bool, tracen uint64, tracefr
 			return err
 		}
 		fmt.Println("savestate:", savestate)
+	}
+	if wav != "" {
+		if err := m.WriteWAV(wav); err != nil {
+			fmt.Println("wav:", err) // honest: silence is a fact, not an empty file
+		} else {
+			fmt.Printf("wav: %s (%s)\n", wav, m.AudioSummary())
+		}
 	}
 	if verbose {
 		census := m.Census()

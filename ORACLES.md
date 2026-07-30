@@ -487,13 +487,13 @@ probe that boots the ROM and settles it.
 
 SH-4 (SH7091) + Holly on `tools/platform/dc`, booting the disc's own
 `1ST_READ.BIN` with the five BIOS syscall vectors HLE'd behind poisoned low
-RAM (each unknown call logged once, per-name census). Crazy Taxi boots
-through its runtime init, serves VBlank interrupts, streams its sound driver
-off the disc and parks waiting for the AICA ARM7 — the declared frontier.
-Declared stubs: PVR tile accelerator (TA words counted, ch2 DMA completes
-without rendering), AICA ARM7 (sound RAM real, ARM held in reset), GD ATA
-register protocol, MMU. The scanout framebuffer renders when configured; an
-unconfigured framebuffer is an error, not a black PNG.
+RAM (each unknown call logged once, per-name census). Crazy Taxi plays from
+cold boot: the software PVR renders the menus and the drive, the `-keys`
+scripts steer it, and the AICA — a real ARM7 running the game's own driver —
+synthesizes the 64 voices (PCM8/PCM16/Yamaha-ADPCM, amplitude EG, pan) into
+a stereo 44.1 kHz mix. Declared stubs: AICA DSP effect path (dry mix only),
+GD ATA register protocol, MMU. The scanout framebuffer renders when
+configured; an unconfigured framebuffer is an error, not a black PNG.
 
 | flag | what it does |
 |---|---|
@@ -507,6 +507,9 @@ unconfigured framebuffer is an error, not a black PNG.
 | `-dis` / `-dump` | post-run disassembly / hex dump (`-steps 0` for static) |
 | `-files` / `-gd` | disc census; every GD read named by the file it lands in |
 | `-savestate` / `-loadstate` | savestates (continued vs restored runs byte-identical) |
+| `-wav out.wav` | capture the AICA's stereo mix over the run (peak/RMS summary printed; capture never changes the machine) |
+| `-aicaregs` | AICA register census: which slot words the driver has ever written |
+| `-ramraw FILE` | dump the 16 MB main RAM (savestate-diff lattice workhorse) |
 | `-v` | the unmodelled-hardware census — the worklist |
 
 The serial capture prints automatically: the SCIF transmit FIFO always
