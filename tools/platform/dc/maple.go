@@ -104,7 +104,7 @@ func (m *Machine) mapleDMA() {
 		dst := frame >> 8 & 0xFF
 		m.mapleRespond(cmd, dst, payload, recv)
 		if cmd != 1 && cmd != 4 {
-			m.logf("maple frame cmd %d dst %02X fn %08X arg %08X", cmd, dst, m.ram32(payload), m.ram32(payload+4))
+			m.logf("maple frame cmd %d dst %02X fn %08X arg %08X recv %08X", cmd, dst, m.ram32(payload), m.ram32(payload+4), recv)
 		}
 
 		if ctrl&(1<<31) != 0 {

@@ -80,23 +80,28 @@ type Machine struct {
 	C2DPendingBits  uint32
 
 	// TAList is the list type the TA currently has open (-1 none), TAVtx
-	// the current vertex parameter size; see holly.go's scanTAStream.
+	// the current vertex parameter size; see holly.go's taFeed.
 	// TAFrame records the current TA session's polygon-path stream for the
 	// rasteriser (pvr.go); TA_LIST_INIT stashes it into TAClosed — the TA is
 	// double-buffered, and the session STARTRENDER draws is the one that
-	// closed, not the one now recording.
-	TAList   int32
-	TAVtx    uint32
-	TAFrame  []byte
-	TAClosed []byte
+	// closed, not the one now recording. The stream arrives two ways the
+	// hardware also has: ch2 DMA jobs, and direct FIFO stores (the game's
+	// store queues) accumulated a word at a time in TAFifo. TANeed counts the
+	// bytes still owed on a 64-byte parameter; TAFifoCountdown paces the
+	// list-done interrupts a FIFO-submitted END_OF_LIST earns.
+	TAList          int32
+	TAVtx           uint32
+	TANeed          uint32
+	TAFrame         []byte
+	TAClosed        []byte
+	TAFifo          []byte
+	TAFifoCountdown uint32
 
 	// The PVR register file, stored raw at word granularity; video.go
 	// interprets the scanout set, everything else round-trips.
 	PVRRegs [0x2000 / 4]uint32
 
-	// TAWrites counts tile-accelerator FIFO words the machine swallowed —
-	// the honest record that geometry was submitted to a renderer that does
-	// not exist yet.
+	// TAWrites counts tile-accelerator words submitted by either path.
 	TAWrites uint64
 
 	// Maple is the controller bus register file; Pad the injectable port-A
@@ -177,21 +182,33 @@ func (m *Machine) Census() []string {
 }
 
 // backing resolves a physical address to plain memory, or nil for register
-// space. The 64-bit VRAM window is served linearly — a once-logged
-// simplification that must be revisited with the PVR's texture layout.
+// space. The VRAM array is kept in the 64-bit path's layout — the one texture
+// control words address — so the 64-bit window is direct and the 32-bit
+// window shuffles through the banks' word interleave.
 func (m *Machine) backing(addr uint32) ([]byte, uint32) {
 	switch {
 	case addr>>26 == 3: // 0x0C000000-0x0FFFFFFF: RAM and its mirrors
 		return m.RAM, addr & (RAMSize - 1)
 	case addr >= vram32 && addr < vram32+VRAMSize:
-		return m.VRAM, addr - vram32
+		return m.VRAM, vram32to64(addr - vram32)
 	case addr >= vram64 && addr < vram64+VRAMSize:
-		m.logf("VRAM 64-bit window served linearly")
 		return m.VRAM, addr - vram64
 	case addr >= aicaRAM && addr < aicaRAM+AICARAMSize:
 		return m.AICARAM, addr - aicaRAM
 	}
 	return nil, 0
+}
+
+// vram32to64 maps a 32-bit-path VRAM offset to its byte in the 64-bit-path
+// layout the VRAM array uses. The 8MB are two 4MB banks; the 64-bit window
+// interleaves them a 32-bit word at a time (bank 0 in each group's low word,
+// bank 1 in the high), so a byte's home is its bank word's slot in the
+// group. Bytes within a word stay adjacent, which is what lets backing()
+// hand out a direct slice for any aligned access.
+func vram32to64(off uint32) uint32 {
+	bank := off >> 22 & 1
+	i := off & 0x3FFFFF
+	return i>>2<<3 | bank<<2 | i&3
 }
 
 func (m *Machine) Fetch16(addr uint32) uint16 {
@@ -378,8 +395,15 @@ func (m *Machine) ioWrite(addr uint32, size int, v uint32) {
 		return
 	case addr >= taBase && addr < taEnd:
 		m.TAWrites++
-		if m.TAWrites == 1 {
-			m.logf("TA FIFO writes counted, not rendered (the PVR is a later milestone)")
+		switch {
+		case size != 4:
+			m.logf("TA FIFO write size %d unimplemented", size*8)
+		case addr < taBase+0x800000: // polygon path: parameters, word by word
+			m.taFifoWrite(v)
+		case addr < taBase+0x1000000:
+			m.logf("TA YUV-converter FIFO write unimplemented")
+		default:
+			m.logf("TA texture-path FIFO write unimplemented")
 		}
 		return
 	case addr >= flashBase && addr < flashBase+FlashSize:
@@ -412,12 +436,14 @@ func (m *Machine) pvrWrite(addr, v uint32) {
 	// close the opaque list — the game was built against hardware, so the
 	// hardware resets to list 0.
 	if addr == pvrBase+0x144 && v&0x80000000 != 0 {
-		m.TAList, m.TAVtx = 0, 32
+		m.TAList, m.TAVtx, m.TANeed = 0, 32, 0
+		m.TAFifo = m.TAFifo[:0]
 		m.TAClosed = append(m.TAClosed[:0], m.TAFrame...)
 		m.TAFrame = m.TAFrame[:0]
 	}
 	if addr == pvrBase+0x08 && v&1 != 0 {
-		m.TAList, m.TAVtx = 0, 32
+		m.TAList, m.TAVtx, m.TANeed = 0, 32, 0
+		m.TAFifo = m.TAFifo[:0]
 	}
 	if addr == pvrBase+0x14 {
 		// STARTRENDER: no rasteriser yet, so nothing is drawn — but the

@@ -7,34 +7,32 @@ package dc
 // the real stream with real textures:
 //
 //   - sprite parameters (type 5): textured or flat quads, 16-bit UVs, drawn
-//     as two affine triangles;
-//   - polygon vertices (type 4/7): packed-colour triangle strips, textured
-//     or flat.
+//     as two triangles;
+//   - polygon vertices (type 4/7): triangle strips in packed, floating or
+//     intensity colour (face colour from the header, mode 2 reusing the
+//     previous face colour), textured or flat, 32-bit or 16-bit UVs.
 //
-// The region array and tile binning are bypassed: the recorded stream is
-// rasterised directly at full frame, which ignores per-tile depth and sort
-// order. Translucent parameters blend source-over in submission order —
-// correct for the UI/logo scenes this milestone targets, wrong for depth-
-// sorted world geometry, and the census will say so when the time comes.
+// Depth is the PVR's own convention — vertices carry 1/w, larger is closer —
+// kept in a full-frame z-buffer and tested per pixel with the ISP compare
+// mode; UVs interpolate perspective-correctly (u/w, v/w, 1/w are the
+// screen-linear quantities and the hardware hands us 1/w as z). The region
+// array and tile binning are bypassed: the recorded stream is rasterised
+// directly at full frame. Translucent parameters blend source-over in
+// submission order — the auto-sort's depth ordering is not reproduced, and
+// scenes that rely on it will say so on screen.
 //
-// Textures live in the linear VRAM model (the 64-bit-path interleave is
-// still the machine's declared simplification) and decode 1555/565/4444,
-// twiddled or raster order. Palettes, VQ, mipmaps and YUV log once and draw
-// magenta, so an unimplemented format can never pass for black.
+// The VRAM array is the 64-bit path's own layout, so texture control words
+// address it directly; the framebuffer pointers are 32-bit-path addresses
+// and go through the bank interleave (machine.go's vram32to64). Textures
+// decode 1555/565/4444, twiddled or raster order, VQ and PAL4/PAL8,
+// mipmapped (sampled at the top level, chain offsets from the format's own
+// layout). YUV and offset colour log once; unimplemented formats draw
+// magenta, never black.
 
 import (
 	"encoding/binary"
 	"math"
 )
-
-// taRecord appends a submitted polygon-path stream to the frame recording.
-func (m *Machine) taRecord(src, byteLen uint32) {
-	for i := uint32(0); i < byteLen; i += 4 {
-		var b [4]byte
-		binary.LittleEndian.PutUint32(b[:], m.ram32(src+i))
-		m.TAFrame = append(m.TAFrame, b[:]...)
-	}
-}
 
 // renderFrame rasterises the recorded stream into the write framebuffer.
 // Called when the deferred STARTRENDER completion lands.
@@ -54,7 +52,8 @@ func (m *Machine) renderFrame() {
 	// then the frame clears to black, which is also what the intro wants.
 	m.clearFB(base, w, h)
 
-	st := renderState{m: m, base: base, w: w, h: h}
+	st := renderState{m: m, base: base, w: w, h: h,
+		zbuf: make([]float32, w*h), faceCol: 0xFFFFFFFF}
 	stream := m.TAClosed
 	vtx := uint32(32)
 	for off := 0; off+32 <= len(stream); {
@@ -69,18 +68,30 @@ func (m *Machine) renderFrame() {
 			st.strip = 0
 			textured := pcw&8 != 0
 			colType := pcw >> 4 & 3
+			offsCol := pcw&4 != 0
 			volume := pcw&0x40 != 0
+			st.colType = colType
+			st.uv16 = textured && pcw&1 != 0
 			vtx = 32
 			if volume || (textured && colType == 1) || pcw>>24&7 == 1 || pcw>>24&7 == 3 {
 				vtx = 64
 			}
-			off += 32
-			if volume && textured {
-				off += 32
+			hdr := 32
+			switch {
+			case volume && textured:
+				hdr = 64
+			case colType == 2 && offsCol && textured:
+				// intensity with offset: face colours in words 8-15
+				hdr = 64
+				if off+64 <= len(stream) {
+					st.faceCol = packFloatCol(stream[off+32:])
+				}
+			case colType == 2:
+				// intensity, no offset: face colour in words 4-7
+				st.faceCol = packFloatCol(stream[off+16:])
 			}
-			if colType != 0 {
-				st.skip("polygon colour type", colType)
-			}
+			// colour type 3 reuses the previous face colour as-is
+			off += hdr
 		case 5: // sprite header
 			st.loadHeader(pcw, stream[off:])
 			st.sprite = true
@@ -100,61 +111,80 @@ func (m *Machine) renderFrame() {
 			off += 32
 		}
 	}
-	m.logf("render: stream %dB, %d tris, %d px", len(stream), st.tris, st.px)
+	m.logf("render: stream %dB, %d tris, %d px -> %06X %dx%d", len(stream), st.tris, st.px, base, w, h)
 }
 
+// clearFB zeroes the write framebuffer; FB_W_SOF is a 32-bit-path address,
+// so each word goes through the bank interleave.
 func (m *Machine) clearFB(base uint32, w, h int) {
 	n := uint32(w * h * 2)
 	if base+n > VRAMSize {
 		n = VRAMSize - base
 	}
-	for i := uint32(0); i < n; i++ {
-		m.VRAM[base+i] = 0
+	for i := uint32(0); i+4 <= n; i += 4 {
+		off := vram32to64(base + i)
+		m.VRAM[off] = 0
+		m.VRAM[off+1] = 0
+		m.VRAM[off+2] = 0
+		m.VRAM[off+3] = 0
 	}
 }
 
 // renderState is the live header context during a frame walk.
 type renderState struct {
-	m       *Machine
-	base    uint32
-	w, h    int
-	sprite  bool
-	strip   int
-	tris    int
-	px      int
-	sv      [3]pvrVert
-	texture bool
-	blend   bool
-	texAddr uint32
-	texFmt  uint32
-	texTwid bool
-	texVQ   bool
-	texBank uint32
-	texUW   int
-	texVH   int
-	baseCol uint32
+	m        *Machine
+	base     uint32
+	w, h     int
+	zbuf     []float32
+	sprite   bool
+	strip    int
+	tris     int
+	px       int
+	sv       [3]pvrVert
+	texture  bool
+	blend    bool
+	gouraud  bool
+	uv16     bool
+	colType  uint32
+	faceCol  uint32 // intensity modes scale this; mode 3 reuses the last one
+	depthCmp uint32
+	zWrite   bool
+	texAddr  uint32
+	texMipIx uint32 // VQ mip: index-area offset to the top level
+	texFmt   uint32
+	texTwid  bool
+	texVQ    bool
+	texBank  uint32
+	texUW    int
+	texVH    int
+	baseCol  uint32
 }
 
 type pvrVert struct {
-	x, y  float32
-	u, v  float32
-	color uint32
+	x, y, z float32 // z is the PVR's 1/w: larger is closer
+	u, v    float32
+	color   uint32
 }
 
 func (st *renderState) skip(what string, v uint32) {
 	st.m.logf("render: %s %d unimplemented", what, v)
 }
 
-// loadHeader captures the TSP/texture words of a global parameter.
+// loadHeader captures the ISP/TSP/texture words of a global parameter.
 func (st *renderState) loadHeader(pcw uint32, p []byte) {
+	isp := binary.LittleEndian.Uint32(p[4:])
 	tsp := binary.LittleEndian.Uint32(p[8:])
 	tcw := binary.LittleEndian.Uint32(p[12:])
 	st.texture = pcw&8 != 0
+	st.gouraud = pcw&2 != 0
 	list := pcw >> 24 & 7
 	st.blend = list == 2 // the translucent list blends source-over
+	st.depthCmp = isp >> 29 & 7
+	st.zWrite = isp>>26&1 == 0
 	st.texUW = 8 << (tsp >> 3 & 7)
 	st.texVH = 8 << (tsp & 7)
 	st.texAddr = tcw & 0x1FFFFF << 3
+	st.texMipIx = 0
 	st.texFmt = tcw >> 27 & 7
 	st.texTwid = tcw>>26&1 == 0
 	st.texVQ = tcw>>30&1 != 0
@@ -164,7 +194,14 @@ func (st *renderState) loadHeader(pcw uint32, p []byte) {
 		st.texBank = tcw >> 21 & 0x3F
 	}
 	if tcw>>31&1 != 0 {
-		st.skip("mipmapped texture", 1) // sampled at full size; base level offset ignored
+		// Mipmapped: the address names the chain (smallest level first, a few
+		// dummy texels of padding at the front); sample the top level.
+		if st.texVQ {
+			st.texMipIx = vqMipIndexOffset(st.texUW)
+		} else {
+			st.texAddr += mipTopOffset(st.texUW, st.texFmt)
+		}
+		st.texVH = st.texUW // mipmapped textures are square
 	}
 	// Sprites carry their base colour in the header's word 4.
 	if len(p) >= 20 {
@@ -172,41 +209,104 @@ func (st *renderState) loadHeader(pcw uint32, p []byte) {
 	}
 }
 
+// mipTopOffset is the byte offset of the top (largest) mip level: the levels
+// below it hold (side²-1)/3 texels, plus three dummy texels of padding at the
+// start of the chain.
+func mipTopOffset(side int, fmt uint32) uint32 {
+	texels := uint32((side*side-1)/3 + 3)
+	switch fmt {
+	case 5: // PAL4: a nibble per texel
+		return texels / 2
+	case 6: // PAL8
+		return texels
+	default: // 16-bit formats
+		return texels * 2
+	}
+}
+
+// vqMipIndexOffset is the byte offset of the top level within a VQ texture's
+// index area: one index byte per 2x2 block, smaller levels first (a level
+// below 2x2 still spends a byte).
+func vqMipIndexOffset(side int) uint32 {
+	var off uint32
+	for s := 1; s < side; s *= 2 {
+		n := s * s / 4
+		if n < 1 {
+			n = 1
+		}
+		off += uint32(n)
+	}
+	return off
+}
+
+// packFloatCol packs a header's A,R,G,B floats into ARGB8888.
+func packFloatCol(p []byte) uint32 {
+	cl := func(f float32) uint32 {
+		if f <= 0 {
+			return 0
+		}
+		if f >= 1 {
+			return 255
+		}
+		return uint32(f * 255)
+	}
+	return cl(f32(p))<<24 | cl(f32(p[4:]))<<16 | cl(f32(p[8:]))<<8 | cl(f32(p[12:]))
+}
+
 func f32(p []byte) float32 {
 	return float32frombits(binary.LittleEndian.Uint32(p))
 }
 
 // drawSprite draws a type-5 quad: corners A,B,C given fully, D's position in
-// x/y only and its UV derived (the quad is a parallelogram in texture space).
+// x/y only, its z and UV derived (the quad is planar and a parallelogram in
+// texture space).
 func (st *renderState) drawSprite(p []byte) {
-	ax, ay := f32(p[4:]), f32(p[8:])
-	bx, by := f32(p[16:]), f32(p[20:])
-	cx, cy := f32(p[28:]), f32(p[32:])
+	ax, ay, az := f32(p[4:]), f32(p[8:]), f32(p[12:])
+	bx, by, bz := f32(p[16:]), f32(p[20:]), f32(p[24:])
+	cx, cy, cz := f32(p[28:]), f32(p[32:]), f32(p[36:])
 	dx, dy := f32(p[40:]), f32(p[44:])
 	au, av := unpackUV16(binary.LittleEndian.Uint32(p[52:]))
 	bu, bv := unpackUV16(binary.LittleEndian.Uint32(p[56:]))
 	cu, cv := unpackUV16(binary.LittleEndian.Uint32(p[60:]))
 	du, dv := au+cu-bu, av+cv-bv
-	a := pvrVert{ax, ay, au, av, st.baseCol}
-	b := pvrVert{bx, by, bu, bv, st.baseCol}
-	c := pvrVert{cx, cy, cu, cv, st.baseCol}
-	d := pvrVert{dx, dy, du, dv, st.baseCol}
+	dz := az + cz - bz
+	a := pvrVert{ax, ay, az, au, av, st.baseCol}
+	b := pvrVert{bx, by, bz, bu, bv, st.baseCol}
+	c := pvrVert{cx, cy, cz, cu, cv, st.baseCol}
+	d := pvrVert{dx, dy, dz, du, dv, st.baseCol}
 	st.tri(a, b, c)
 	st.tri(a, c, d)
 }
 
-// pushStripVertex feeds a polygon-list vertex (packed colour) into the
-// running triangle strip.
+// pushStripVertex feeds a polygon-list vertex into the running triangle
+// strip, resolving the header's colour type and UV width.
 func (st *renderState) pushStripVertex(p []byte, pcw uint32) {
 	v := pvrVert{
-		x:     f32(p[4:]),
-		y:     f32(p[8:]),
-		u:     f32(p[16:]),
-		v:     f32(p[20:]),
-		color: binary.LittleEndian.Uint32(p[24:]),
+		x: f32(p[4:]),
+		y: f32(p[8:]),
+		z: f32(p[12:]),
 	}
-	if !st.texture {
-		v.color = binary.LittleEndian.Uint32(p[16:])
+	if st.texture {
+		if st.uv16 {
+			v.u, v.v = unpackUV16(binary.LittleEndian.Uint32(p[16:]))
+		} else {
+			v.u, v.v = f32(p[16:]), f32(p[20:])
+		}
+	}
+	switch st.colType {
+	case 1: // floating colour: A,R,G,B floats, after the UVs when textured
+		if st.texture {
+			v.color = packFloatCol(p[32:])
+		} else {
+			v.color = packFloatCol(p[16:])
+		}
+	case 2, 3: // intensity: the face colour scaled by the vertex's intensity
+		v.color = scaleCol(st.faceCol, f32(p[24:]))
+	default: // packed colour in word 6
+		v.color = binary.LittleEndian.Uint32(p[24:])
+		if !st.texture {
+			v.color = binary.LittleEndian.Uint32(p[16:])
+		}
 	}
 	if st.strip < 3 {
 		st.sv[st.strip] = v
@@ -223,7 +323,45 @@ func (st *renderState) pushStripVertex(p []byte, pcw uint32) {
 	}
 }
 
-// tri rasterises one affine triangle.
+// scaleCol multiplies a packed colour's RGB by an intensity, keeping alpha.
+func scaleCol(col uint32, i float32) uint32 {
+	if i <= 0 {
+		return col & 0xFF000000
+	}
+	if i >= 1 {
+		return col
+	}
+	r := uint32(float32(col>>16&0xFF) * i)
+	g := uint32(float32(col>>8&0xFF) * i)
+	b := uint32(float32(col&0xFF) * i)
+	return col&0xFF000000 | r<<16 | g<<8 | b
+}
+
+// depthPass applies the header's ISP compare mode; z is 1/w, larger closer.
+func depthPass(mode uint32, z, old float32) bool {
+	switch mode {
+	case 0:
+		return false
+	case 1:
+		return z < old
+	case 2:
+		return z == old
+	case 3:
+		return z <= old
+	case 4:
+		return z > old
+	case 5:
+		return z != old
+	case 6:
+		return z >= old
+	default:
+		return true
+	}
+}
+
+// tri rasterises one triangle: depth-tested, UVs perspective-correct (the
+// screen-linear quantities are u·z, v·z and z itself), colours gouraud when
+// the header asks.
 func (st *renderState) tri(a, b, c pvrVert) {
 	minX := imax(0, int(min3(a.x, b.x, c.x)))
 	maxX := imin(st.w-1, int(max3(a.x, b.x, c.x)))
@@ -236,8 +374,14 @@ func (st *renderState) tri(a, b, c pvrVert) {
 	if area == 0 {
 		return
 	}
+	if debugPixelX >= minX && debugPixelX <= maxX && debugPixelY >= minY && debugPixelY <= maxY {
+		st.m.logf("debug-pixel tri tex=%v addr=%06X fmt=%d twid=%v vq=%v mipIx=%d %dx%d blend=%v", st.texture, st.texAddr, st.texFmt, st.texTwid, st.texVQ, st.texMipIx, st.texUW, st.texVH, st.blend)
+	}
 	st.tris++
 	inv := 1 / area
+	au, av := a.u*a.z, a.v*a.z
+	bu, bv := b.u*b.z, b.v*b.z
+	cu, cv := c.u*c.z, c.v*c.z
 	for y := minY; y <= maxY; y++ {
 		for x := minX; x <= maxX; x++ {
 			px, py := float32(x)+0.5, float32(y)+0.5
@@ -247,16 +391,36 @@ func (st *renderState) tri(a, b, c pvrVert) {
 			if w0 < 0 || w1 < 0 || w2 < 0 {
 				continue
 			}
+			z := w0*a.z + w1*b.z + w2*c.z
+			zi := y*st.w + x
+			if !depthPass(st.depthCmp, z, st.zbuf[zi]) {
+				continue
+			}
 			var cr, cg, cb, ca uint32
 			if st.texture {
-				u := w0*a.u + w1*b.u + w2*c.u
-				v := w0*a.v + w1*b.v + w2*c.v
+				u := w0*au + w1*bu + w2*cu
+				v := w0*av + w1*bv + w2*cv
+				if z != 0 {
+					u, v = u/z, v/z
+				}
 				cr, cg, cb, ca = st.sample(u, v)
+			} else if st.gouraud {
+				cr = uint32(w0*float32(a.color>>16&0xFF) + w1*float32(b.color>>16&0xFF) + w2*float32(c.color>>16&0xFF))
+				cg = uint32(w0*float32(a.color>>8&0xFF) + w1*float32(b.color>>8&0xFF) + w2*float32(c.color>>8&0xFF))
+				cb = uint32(w0*float32(a.color&0xFF) + w1*float32(b.color&0xFF) + w2*float32(c.color&0xFF))
+				ca = uint32(w0*float32(a.color>>24&0xFF) + w1*float32(b.color>>24&0xFF) + w2*float32(c.color>>24&0xFF))
 			} else {
 				col := a.color
 				cr, cg, cb, ca = col>>16&0xFF, col>>8&0xFF, col&0xFF, col>>24&0xFF
 			}
-			st.plot(x, y, cr, cg, cb, ca)
+			if st.plot(x, y, cr, cg, cb, ca) {
+				if x == debugPixelX && y == debugPixelY {
+					st.m.logf("debug-pixel plot tex=%v addr=%06X rgba=%d,%d,%d,%d z=%v", st.texture, st.texAddr, cr, cg, cb, ca, z)
+				}
+				if st.zWrite {
+					st.zbuf[zi] = z
+				}
+			}
 		}
 	}
 }
@@ -314,7 +478,7 @@ func (st *renderState) sample(u, v float32) (r, g, b, a uint32) {
 		}
 		bx, by := tx/2, ty/2
 		block := uint32((by/side)*(bw/side)+bx/side)*uint32(side*side) + twiddle(uint32(bx%side), uint32(by%side))
-		iOff := st.texAddr + 2048 + block
+		iOff := st.texAddr + 2048 + st.texMipIx + block
 		if iOff >= VRAMSize {
 			return 0, 0, 0, 0
 		}
@@ -364,16 +528,20 @@ func (st *renderState) sample(u, v float32) (r, g, b, a uint32) {
 	return
 }
 
-// plot writes one 565 pixel, blending when the list asks for it.
-func (st *renderState) plot(x, y int, r, g, b, a uint32) {
+// plot writes one 565 pixel, blending when the list asks for it; it reports
+// whether the pixel landed so the caller knows to update the z-buffer.
+func (st *renderState) plot(x, y int, r, g, b, a uint32) bool {
 	off := st.base + uint32(y*st.w+x)*2
 	if off+2 > VRAMSize {
-		return
+		return false
+	}
+	// The write pointer is a 32-bit-path address; a 565 pixel's two bytes
+	// stay adjacent through the interleave.
+	off = vram32to64(off)
+	if a == 0 {
+		return false
 	}
 	if st.blend {
-		if a == 0 {
-			return
-		}
 		old := uint32(st.m.VRAM[off]) | uint32(st.m.VRAM[off+1])<<8
 		or := old >> 11 & 31 << 3
 		og := old >> 5 & 63 << 2
@@ -381,13 +549,12 @@ func (st *renderState) plot(x, y int, r, g, b, a uint32) {
 		r = (r*a + or*(255-a)) / 255
 		g = (g*a + og*(255-a)) / 255
 		b = (b*a + ob*(255-a)) / 255
-	} else if a == 0 {
-		return
 	}
 	st.px++
 	px := uint16(r>>3<<11 | g>>2<<5 | b>>3)
 	st.m.VRAM[off] = uint8(px)
 	st.m.VRAM[off+1] = uint8(px >> 8)
+	return true
 }
 
 // twiddle interleaves x into odd bits and y into even bits — the PVR's
@@ -440,3 +607,7 @@ func imax(a, b int) int {
 	}
 	return b
 }
+
+// debugPixel: when >= 0, every triangle whose bounding box covers the pixel
+// logs its texture binding — a temporary lens for "what drew this garble".
+var debugPixelX, debugPixelY = -1, -1

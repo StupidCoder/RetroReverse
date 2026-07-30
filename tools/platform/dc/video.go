@@ -59,22 +59,24 @@ func (m *Machine) RenderFB() (*image.RGBA, error) {
 			if p+bpp > len(m.VRAM) {
 				return nil, fmt.Errorf("framebuffer overruns VRAM at line %d", y)
 			}
+			// FB_R_SOF is a 32-bit-path address; fetch each byte through the
+			// bank interleave.
+			b0 := m.VRAM[vram32to64(uint32(p))]
+			b1 := m.VRAM[vram32to64(uint32(p+1))]
 			var r, g, b uint8
 			switch depth {
 			case 0: // RGB555, little-endian
-				v := uint16(m.VRAM[p]) | uint16(m.VRAM[p+1])<<8
+				v := uint16(b0) | uint16(b1)<<8
 				r = uint8(v>>10&31) << 3
 				g = uint8(v>>5&31) << 3
 				b = uint8(v&31) << 3
 			case 1: // RGB565
-				v := uint16(m.VRAM[p]) | uint16(m.VRAM[p+1])<<8
+				v := uint16(b0) | uint16(b1)<<8
 				r = uint8(v>>11&31) << 3
 				g = uint8(v>>5&63) << 2
 				b = uint8(v&31) << 3
-			case 2: // RGB888, packed
-				b, g, r = m.VRAM[p], m.VRAM[p+1], m.VRAM[p+2]
-			default: // 0RGB8888
-				b, g, r = m.VRAM[p], m.VRAM[p+1], m.VRAM[p+2]
+			default: // RGB888 / 0RGB8888, packed
+				b, g, r = b0, b1, m.VRAM[vram32to64(uint32(p+2))]
 			}
 			i := img.PixOffset(x, y)
 			img.Pix[i+0], img.Pix[i+1], img.Pix[i+2], img.Pix[i+3] = r, g, b, 0xFF

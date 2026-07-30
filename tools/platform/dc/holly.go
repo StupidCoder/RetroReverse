@@ -8,6 +8,8 @@ package dc
 // 0x320). The VBlank heartbeat is ISTNRM bit 3, raised by the run loop every
 // field.
 
+import "encoding/binary"
+
 // Holly is the interrupt state of the system block.
 type Holly struct {
 	ISTNRM, ISTEXT, ISTERR    uint32
@@ -123,8 +125,7 @@ func (m *Machine) hollyWrite(addr, v uint32) {
 			// parameters manufactured list-completions the game never made.
 			src := m.CPU.OnchipReg(0xFFA00020)
 			if m.C2DStat&0x01000000 == 0 {
-				m.scanTAStream(src, m.C2DLen)
-				m.taRecord(src, m.C2DLen)
+				m.taSubmitDMA(src, m.C2DLen)
 			} else {
 				// The texture path: the pixels land in VRAM for the
 				// rasteriser to sample.
@@ -151,43 +152,83 @@ func (m *Machine) hollyWrite(addr, v uint32) {
 	m.updateIRL()
 }
 
-// scanTAStream walks a submitted TA parameter stream (32-byte parameters,
-// control word first) tracking the current list type from each global
-// parameter and collecting the matching list-complete bit at each
-// END_OF_LIST. The current list persists in Machine.TAList across DMA jobs —
-// a list continued in a later chunk must not have its completion attributed
-// to opaque — and resets the way the hardware's does: on TA_LIST_INIT and on
-// soft reset (machine.go).
-func (m *Machine) scanTAStream(src, byteLen uint32) {
-	for off := uint32(0); off+32 <= byteLen; {
-		pcw := m.ram32(src + off)
-		off += 32
-		switch pcw >> 29 {
-		case 0: // END_OF_LIST closes the open list
-			if m.TAList >= 0 && m.TAList < 5 {
-				m.C2DPendingBits |= taListDoneBit[m.TAList]
-			}
-			m.TAList = -1
-		case 4: // polygon header: names the list and fixes the vertex size
-			m.taOpenList(int32(pcw >> 24 & 7))
-			textured := pcw&8 != 0
-			colType := pcw >> 4 & 3
-			volume := pcw&0x40 != 0
-			m.TAVtx = 32
-			// 64-byte vertices: two-volume parameters, floating-point base
-			// color with a texture, and the modifier-volume lists' triangle
-			// records.
-			if volume || (textured && colType == 1) || m.TAList == 1 || m.TAList == 3 {
-				m.TAVtx = 64
-			}
-			if volume && textured { // the two-volume header carries a second TSP set
-				off += 32
-			}
-		case 5: // sprite header: sprite vertices are always 64 bytes
-			m.taOpenList(int32(pcw >> 24 & 7))
+// taSubmitDMA streams a ch2 DMA job's polygon-path words into the TA: each
+// 32-byte chunk is recorded for the rasteriser and fed to the list tracker.
+func (m *Machine) taSubmitDMA(src, byteLen uint32) {
+	var chunk [32]byte
+	for off := uint32(0); off+32 <= byteLen; off += 32 {
+		for i := uint32(0); i < 32; i += 4 {
+			binary.LittleEndian.PutUint32(chunk[i:], m.ram32(src+off+i))
+		}
+		m.TAFrame = append(m.TAFrame, chunk[:]...)
+		m.taFeed(chunk[:])
+	}
+}
+
+// taFifoWrite is the other submission path the hardware has: the game's
+// store queues (or plain stores) into the polygon-path FIFO window. Words
+// accumulate until a 32-byte chunk is complete, then follow the same
+// record-and-feed as a DMA'd chunk; an END_OF_LIST arriving this way earns
+// its list-done interrupt through a countdown of its own, deferred for the
+// same reason a DMA completion is.
+func (m *Machine) taFifoWrite(v uint32) {
+	var b [4]byte
+	binary.LittleEndian.PutUint32(b[:], v)
+	m.TAFifo = append(m.TAFifo, b[:]...)
+	if len(m.TAFifo) < 32 {
+		return
+	}
+	m.TAFrame = append(m.TAFrame, m.TAFifo...)
+	m.taFeed(m.TAFifo)
+	m.TAFifo = m.TAFifo[:0]
+	if m.C2DPendingBits != 0 && m.C2DCountdown == 0 && m.TAFifoCountdown == 0 {
+		m.TAFifoCountdown = 2000
+	}
+}
+
+// taFeed consumes one 32-byte TA parameter chunk (control word first),
+// tracking the current list type from each global parameter and collecting
+// the matching list-complete bit at each END_OF_LIST. The current list
+// persists in Machine.TAList across jobs — a list continued in a later chunk
+// must not have its completion attributed to opaque — and resets the way the
+// hardware's does: on TA_LIST_INIT and on soft reset (machine.go). A 64-byte
+// parameter owes a second chunk, counted in TANeed, consumed uninterpreted
+// even across job boundaries.
+func (m *Machine) taFeed(p []byte) {
+	if m.TANeed > 0 {
+		m.TANeed -= 32
+		return
+	}
+	pcw := binary.LittleEndian.Uint32(p)
+	switch pcw >> 29 {
+	case 0: // END_OF_LIST closes the open list
+		if m.TAList >= 0 && m.TAList < 5 {
+			m.C2DPendingBits |= taListDoneBit[m.TAList]
+		}
+		m.TAList = -1
+	case 4: // polygon header: names the list and fixes the vertex size
+		m.taOpenList(int32(pcw >> 24 & 7))
+		textured := pcw&8 != 0
+		colType := pcw >> 4 & 3
+		volume := pcw&0x40 != 0
+		m.TAVtx = 32
+		// 64-byte vertices: two-volume parameters, floating-point base
+		// color with a texture, and the modifier-volume lists' triangle
+		// records.
+		if volume || (textured && colType == 1) || m.TAList == 1 || m.TAList == 3 {
 			m.TAVtx = 64
-		case 7: // vertex parameter: the header decided its size
-			off += m.TAVtx - 32
+		}
+		if volume && textured { // the two-volume header carries a second TSP set
+			m.TANeed = 32
+		} else if colType == 2 && pcw&4 != 0 && textured {
+			m.TANeed = 32 // intensity-with-offset: face colours fill a second chunk
+		}
+	case 5: // sprite header: sprite vertices are always 64 bytes
+		m.taOpenList(int32(pcw >> 24 & 7))
+		m.TAVtx = 64
+	case 7: // vertex parameter: the header decided its size
+		if m.TAVtx == 64 {
+			m.TANeed = 32
 		}
 	}
 }
@@ -218,6 +259,12 @@ func (m *Machine) tickCompletions() {
 	if m.C2DCountdown > 0 {
 		if m.C2DCountdown--; m.C2DCountdown == 0 {
 			m.raiseNRM(istCh2DMA | m.C2DPendingBits)
+			m.C2DPendingBits = 0
+		}
+	}
+	if m.TAFifoCountdown > 0 {
+		if m.TAFifoCountdown--; m.TAFifoCountdown == 0 {
+			m.raiseNRM(m.C2DPendingBits)
 			m.C2DPendingBits = 0
 		}
 	}
