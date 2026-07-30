@@ -132,12 +132,14 @@ func (m *Machine) mapleRespond(cmd, dst, payload, recv uint32) {
 		for i := 0; i < 28 && i < len(name); i++ {
 			info[4+uint32(i)/4] |= uint32(name[i]) << (8 * (uint32(i) % 4))
 		}
-		m.Write32(recv, 5|src<<8|host<<16|uint32(len(info))<<24)
+		m.Write32(recv, 5|host<<8|src<<16|uint32(len(info))<<24) // responses answer TO the host FROM the device
 		for i, w := range info {
 			m.Write32(recv+4+uint32(i)*4, w)
 		}
-	case 4: // GETCOND -> 8: data transfer
-		m.Write32(recv, 8|src<<8|host<<16|3<<24)
+	case 9: // GET CONDITION -> 8: data transfer (command 4 is device shutdown,
+		// not GETCOND — the game polls 9 every field, and answering it
+		// "unsupported" was a controller that never felt a button)
+		m.Write32(recv, 8|host<<8|src<<16|3<<24)
 		m.Write32(recv+4, bswap(0x01000000)) // the function replying, bus byte order
 		m.Write32(recv+8, uint32(m.Pad.Buttons)|uint32(m.Pad.RT)<<16|uint32(m.Pad.LT)<<24)
 		m.Write32(recv+12, uint32(m.Pad.JoyX)|uint32(m.Pad.JoyY)<<8|0x80<<16|0x80<<24)
@@ -146,6 +148,6 @@ func (m *Machine) mapleRespond(cmd, dst, payload, recv uint32) {
 		// "function code unsupported" reply (0xFE), never the empty-socket
 		// word — a device must not vanish between commands.
 		m.logf("maple command %d answered as unsupported", cmd)
-		m.Write32(recv, 0xFE|src<<8|host<<16)
+		m.Write32(recv, 0xFE|host<<8|src<<16)
 	}
 }

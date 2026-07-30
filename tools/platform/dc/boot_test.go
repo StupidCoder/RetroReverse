@@ -120,8 +120,8 @@ func TestGETCONDReflectsPad(t *testing.T) {
 	put := func(off, v uint32) { binary.LittleEndian.PutUint32(m.RAM[off:], v) }
 	put(tbl+0, 1<<31)
 	put(tbl+4, 0x0C000000+recv)
-	put(tbl+8, 4|0x20<<8|0x00<<16|1<<24) // GETCOND, one payload word
-	put(tbl+12, 0x01000000)              // the function being queried
+	put(tbl+8, 9|0x20<<8|0x00<<16|1<<24) // GET CONDITION (command 9), one payload word
+	put(tbl+12, 0x00000001)              // the function queried, bus byte order
 
 	m.Write32(sbMDEN, 1)
 	m.Write32(sbMDSTAR, 0x0C000000+tbl)
