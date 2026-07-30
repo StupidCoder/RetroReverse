@@ -169,3 +169,115 @@ is the assembled-loop suite in `cpu_test.go` plus the golden decode table
 seeded with this game's own bootstrap; an env-gated per-instruction
 conformance harness (`SH4_SST_DIR`) is deliberately deferred until the suite
 files are in hand to pin the format against.
+
+## Part III — The sound processor and the frame loop
+
+The boot's declared frontier was a poll of sound RAM at `A080005C`: the SH-4
+waiting for a handshake from the AICA's own ARM7, which did not exist yet.
+The milestone that followed gave the machine its second processor — the
+shared `tools/cpu/arm` core, paced at one step per nine SH-4 instructions,
+running `AICADRV.BIN` from reset vector 0 in sound RAM — and the sound
+block's timers, counted in 44.1 kHz samples, feeding the SCIPD/MCIPD
+pending registers. When the driver answered the handshake, the game's
+mainline came alive: a 60 Hz field loop against a real line-sweeping SPG
+(lines 0..524, VBlank where the game's own `SPG_VBLANK_INT` asked for it).
+
+Two disciplines from earlier platforms were applied preemptively rather
+than re-learned:
+
+- **completions take time** — render and DMA interrupts are counted down,
+  never raised inside the store that starts the operation (the GameCube's
+  instant-I/O lesson);
+- **a device must not vanish between commands** — Maple commands the pad
+  does not speak answer "function unsupported" (0xFE), never the
+  empty-socket word.
+
+## Part IV — The display gate, the software PVR, and the first picture
+
+The game ran for billions of instructions with a configured-but-disabled
+display: framebuffer registers set, `FB_R_CTRL` enable clear, `VO_CONTROL`
+blanked, and a render-command queue that filled and timed out every frame.
+The gate was the tile accelerator's *list discipline*, recovered from the
+game's own bookkeeping (an expected-mask word at `[0C2E7E88]` against an
+accumulator at `[0C2E7E8C]`):
+
+1. only polygon-path (`10xxxxxx`) submissions carry TA parameters — a
+   texture-path job is pixels, and scanning pixels as parameters
+   manufactures completions the game never made;
+2. parameters have real sizes — 64-byte vertices exist, and a header can
+   owe a second 32-byte chunk;
+3. lists are strictly ordered and close *implicitly*: `TA_LIST_INIT`
+   leaves the opaque list open, and a header naming a different list fires
+   the open list's completion.
+
+With the completion count exact, the game wrote `STARTRENDER`, flipped its
+double buffer, set the enable bit, and unblanked. The renderer behind
+`STARTRENDER` is `pvr.go`: a software rasteriser over the *recorded* TA
+stream — recorded per session and double-buffered like the hardware's own
+(`TA_LIST_INIT` stashes the recording; the render draws the closed session,
+not the recording one). The first picture it produced was the no-VMU
+warning screen, in Japanese — the flash is erased, so the console has no
+language setting, and the game falls back to its first language.
+
+## Part V — The Start button, the second submission path, and the city
+
+### An input is consumed as edges
+
+The warning screen says "press Start" and ignored a Start held for three
+thousand fields. The chain, traced end to end: the game's VBlank ISR
+triggers a Maple DMA every field; the response parser (`0C14C548`) fills a
+52-byte record per port (port A at `0C2B6248`) with current buttons
+(active-high, +8) and *press edges* — current AND NOT previous — at +0x10,
+where "previous" is one field ago; the mainline copies driver records into
+game records (`0C029AA0` → port A at `0C1EBF6C`) once per loop; and the
+screen's handler advances on the *edge* word. An edge lives exactly one
+field. The mainline usually runs one loop per field, but occasionally
+overruns — and an overrun that swallows the edge's field loses the press
+forever, no matter how long the button stays down. Real hardware never
+overruns this screen; the model sometimes does, an accepted timing-fidelity
+gap. The oracle's `-keys` scripts therefore *tap* — three-field holds,
+repeated — and the screen advances: the ADX/CRI middleware splash, then the
+attract sequence.
+
+Two dead ends the trace also named: the record's identity pointer reads
+"(no device)" (the game classifies controllers by product-name bytes,
+'R'→wheel, 'F' at +10→fishing rod; the fallback is the standard-pad path,
+so the label is cosmetic), and a second consumer of the current-buttons
+word turned out to be the A+B+X+Y+Start soft-reset combo checker, not the
+screen.
+
+### The FIFO is half the hardware
+
+The attract scene submitted 23 million TA words and drew a fragmentary
+skeleton. The census said nothing was unimplemented — so the missing
+geometry was never *reaching* the rasteriser. It wasn't: direct stores into
+the TA FIFO window (`0x10000000`, fed by the SH-4's store queues — the
+mainline's registers hold `E000FAxx` addresses mid-frame) were counted and
+discarded, a leftover from the boot milestone. The game submits its UI by
+ch2 DMA and its *world* by store queue. One `taFeed` now consumes both
+paths chunk by chunk, with parameter sizes carried across job boundaries,
+and FIFO END_OF_LIST completions paced on their own countdown.
+
+### Two windows, one memory
+
+The last visible defect was a rectangle of coloured noise on the road: a
+256×256 VQ texture whose control-word address held zeros when dumped, yet
+sampled noise when drawn. The contradiction is the VRAM architecture: 8MB
+as two 4MB banks, addressable through a 32-bit window (banks in sequence)
+and a 64-bit window (banks interleaved a word at a time). The texture was
+uploaded through one window and sampled through the other — under the
+machine's old "both windows are linear" simplification, those are the same
+bytes; on hardware they are not. The VRAM array now lives in the 64-bit
+path's layout (texture control words address it directly), and the 32-bit
+window — including the framebuffer pointers, which are 32-bit-path
+addresses — goes through the interleave (`vram32to64`).
+
+The rasteriser grew what the attract census named, feature by feature:
+intensity colour modes (face colour from the header, scaled by a per-vertex
+float), floating colour, 16-bit strip UVs, mipmap chain offsets for every
+format, a 1/w depth buffer honouring the ISP compare mode, and
+perspective-correct UVs — the PVR hands the rasteriser 1/w as its depth
+value, so `u·z, v·z, z` are exactly the screen-linear quantities. The
+warning-screen render stayed byte-identical through every change, pinned by
+hash; and the attract mode now renders the city — storefronts, billboards,
+lane markings, and the black convertible the camera follows down the hill.
