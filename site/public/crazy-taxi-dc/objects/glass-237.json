@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Popped-glass state (model 237)",
+ "model": "glass-237.glb",
+ "props": {
+  "note": "the m238 traffic car's variant head"
+ }
+}

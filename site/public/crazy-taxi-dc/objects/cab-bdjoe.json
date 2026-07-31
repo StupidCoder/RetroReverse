@@ -3,5 +3,19 @@
  "version": 1,
  "type": "model3d",
  "name": "B.D.Joe's cab",
- "model": "cab-bdjoe.glb"
+ "model": "cab-bdjoe.glb",
+ "variants": [
+  {
+   "id": "detail",
+   "name": "Detail (attract)",
+   "scene": "detail",
+   "description": "the close-up body the attract mode draws"
+  },
+  {
+   "id": "in-drive",
+   "name": "In-drive",
+   "scene": "in-drive",
+   "description": "the chase-camera body the gameplay drives dispatch"
+  }
+ ]
 }

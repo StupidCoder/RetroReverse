@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Cable car (model 0)",
+ "model": "model-0.glb",
+ "props": {
+  "note": "the container's first model: the street tram (eyeballed — the game's own destination table names its 'Cable car stop's); outside our short trace windows"
+ }
+}

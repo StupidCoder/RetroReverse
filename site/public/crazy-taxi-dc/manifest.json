@@ -17,27 +17,6 @@
  },
  "assets": [
   {
-   "id": "arcade-city",
-   "category": "level",
-   "name": "Arcade city",
-   "group": "Courses",
-   "file": "levels/arcade-city.json"
-  },
-  {
-   "id": "original-city",
-   "category": "level",
-   "name": "Original city",
-   "group": "Courses",
-   "file": "levels/original-city.json"
-  },
-  {
-   "id": "crazy-box",
-   "category": "level",
-   "name": "Crazy Box",
-   "group": "Courses",
-   "file": "levels/crazy-box.json"
-  },
-  {
    "id": "cab-axel",
    "category": "object",
    "name": "Axel's cab",
@@ -120,6 +99,83 @@
    "name": "Traffic car (model 238)",
    "group": "Traffic",
    "file": "objects/traffic-238.json"
+  },
+  {
+   "id": "unused-15",
+   "category": "object",
+   "name": "Rear bumper variant (model 15)",
+   "group": "Curiosities",
+   "file": "objects/unused-15.json"
+  },
+  {
+   "id": "unused-29",
+   "category": "object",
+   "name": "Rear bumper variant (model 29)",
+   "group": "Curiosities",
+   "file": "objects/unused-29.json"
+  },
+  {
+   "id": "unused-12",
+   "category": "object",
+   "name": "Roof sign variant (model 12)",
+   "group": "Curiosities",
+   "file": "objects/unused-12.json"
+  },
+  {
+   "id": "model-0",
+   "category": "object",
+   "name": "Cable car (model 0)",
+   "group": "Curiosities",
+   "file": "objects/model-0.json"
+  },
+  {
+   "id": "model-235",
+   "category": "object",
+   "name": "Car transporter (model 235)",
+   "group": "Curiosities",
+   "file": "objects/model-235.json"
+  },
+  {
+   "id": "model-209",
+   "category": "object",
+   "name": "Traffic mid model (model 209)",
+   "group": "Curiosities",
+   "file": "objects/model-209.json"
+  },
+  {
+   "id": "traffic-58",
+   "category": "object",
+   "name": "Traffic variant head (model 58)",
+   "group": "Curiosities",
+   "file": "objects/traffic-58.json"
+  },
+  {
+   "id": "glass-183",
+   "category": "object",
+   "name": "Popped-glass state (model 183)",
+   "group": "Curiosities",
+   "file": "objects/glass-183.json"
+  },
+  {
+   "id": "glass-119",
+   "category": "object",
+   "name": "Popped-glass state (model 119)",
+   "group": "Curiosities",
+   "file": "objects/glass-119.json"
+  },
+  {
+   "id": "glass-193",
+   "category": "object",
+   "name": "Popped-glass state (model 193)",
+   "group": "Curiosities",
+   "file": "objects/glass-193.json"
+  },
+  {
+   "id": "glass-237",
+   "category": "object",
+   "name": "Popped-glass state (model 237)",
+   "group": "Curiosities",
+   "file": "objects/glass-237.json"
   }
  ]
 }

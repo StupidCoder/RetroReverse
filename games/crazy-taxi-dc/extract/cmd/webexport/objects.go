@@ -45,55 +45,84 @@ func at(model int, label string, x, y, z float32) placed {
 	return placed{model, label, [12]float32{1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, z}}
 }
 
-// The four player cabs. Names are the game's own driver-select captions;
-// wheel anchors are the captured dispatch transforms — each cab has its
-// own track and wheelbase, and Axel's and B.D.Joe's cabs share one set of
-// wheel models. The cab faces +z and the driver sits on the +x (left)
+// The four player cabs, each in two LODs the traces separated cleanly:
+// the DETAIL body the attract mode draws (with front overhang and seat
+// backs — the in-drive LOD omits what the chase camera never sees) and
+// the in-drive body the four gameplay drives dispatched. Names are the
+// game's own driver-select captions; wheel anchors are the captured
+// dispatch transforms — each cab has its own track and wheelbase, Axel's
+// and B.D.Joe's cabs share their wheel models at both LODs (the attract
+// counts add exactly: 164+320=484), and the attract capture proved the
+// detail wheels ride the same x/z anchors as the drive wheels. m14/m28/
+// m42/m56 are the rear bumpers (thin slabs at the tail), m13 etc. the
+// roof signs. The cab faces +z and the driver sits on the +x (left)
 // side, read off the seated driver's captured position.
-var cabs = []struct {
+type cabSpec struct {
 	id, name, driver string
-	parts            []placed
-}{
-	{"cab-axel", "Axel's cab", "axel", []placed{
-		{9, "body", ident},
-		{13, "roof sign", ident},
-		{14, "interior", ident},
-		at(7, "wheel front left", 6.9, 3.188, 15.5),
-		at(8, "wheel front right", -6.9, 3.188, 15.5),
-		at(10, "wheel rear left", 6.5, 3.096, -15.5),
-		at(11, "wheel rear right", -6.5, 3.096, -15.5),
-	}},
-	{"cab-bdjoe", "B.D.Joe's cab", "bdjoe", []placed{
-		{25, "body", ident},
-		{27, "roof sign", ident},
-		{28, "interior", ident},
-		at(7, "wheel front left", 6.9, 3.188, 15.25),
-		at(8, "wheel front right", -6.9, 3.188, 15.25),
-		at(10, "wheel rear left", 6.5, 3.097, -15.25),
-		at(11, "wheel rear right", -6.5, 3.097, -15.25),
-	}},
-	{"cab-gena", "Gena's cab", "gena", []placed{
-		{51, "body", ident},
-		{55, "roof sign", ident},
-		{56, "interior", ident},
-		at(49, "wheel front left", 6.6, 3.188, 14.6),
-		at(50, "wheel front right", -6.6, 3.188, 14.6),
-		at(52, "wheel rear left", 6.9, 3.096, -14.6),
-		at(53, "wheel rear right", -6.9, 3.096, -14.6),
-	}},
-	{"cab-gus", "Gus's cab", "gus", []placed{
-		{37, "body", ident},
-		{41, "roof sign", ident},
-		{42, "interior", ident},
-		at(35, "wheel front left", 6.8, 3.190, 14.5),
-		at(36, "wheel front right", -6.8, 3.190, 14.5),
-		at(38, "wheel rear left", 7.1, 3.095, -14.5),
-		at(39, "wheel rear right", -7.1, 3.095, -14.5),
-	}},
+	detail, drive    []placed
+}
+
+func cabParts(body, sign, rearBumper, fl, fr, rl, rr int, halfTrackF, yF, wheelbaseF, halfTrackR, yR, wheelbaseR float32) []placed {
+	return []placed{
+		{body, "body", ident},
+		{sign, "roof sign", ident},
+		{rearBumper, "rear bumper", ident},
+		at(fl, "wheel front left", halfTrackF, yF, wheelbaseF),
+		at(fr, "wheel front right", -halfTrackF, yF, wheelbaseF),
+		at(rl, "wheel rear left", halfTrackR, yR, -wheelbaseR),
+		at(rr, "wheel rear right", -halfTrackR, yR, -wheelbaseR),
+	}
+}
+
+var cabs = []cabSpec{
+	{"cab-axel", "Axel's cab", "axel",
+		cabParts(2, 13, 14, 3, 4, 5, 6, 6.9, 3.188, 15.5, 6.5, 3.096, 15.5),
+		cabParts(9, 13, 14, 7, 8, 10, 11, 6.9, 3.188, 15.5, 6.5, 3.096, 15.5)},
+	{"cab-bdjoe", "B.D.Joe's cab", "bdjoe",
+		cabParts(24, 27, 28, 3, 4, 5, 6, 6.9, 3.188, 15.25, 6.5, 3.097, 15.25),
+		cabParts(25, 27, 28, 7, 8, 10, 11, 6.9, 3.188, 15.25, 6.5, 3.097, 15.25)},
+	{"cab-gena", "Gena's cab", "gena",
+		cabParts(44, 55, 56, 45, 46, 47, 48, 6.6, 3.188, 14.6, 6.9, 3.096, 14.6),
+		cabParts(51, 55, 56, 49, 50, 52, 53, 6.6, 3.188, 14.6, 6.9, 3.096, 14.6)},
+	{"cab-gus", "Gus's cab", "gus",
+		cabParts(30, 41, 42, 31, 32, 33, 34, 6.8, 3.190, 14.5, 7.1, 3.095, 14.5),
+		cabParts(37, 41, 42, 35, 36, 38, 39, 6.8, 3.190, 14.5, 7.1, 3.095, 14.5)},
 }
 
 var driverNames = map[string]string{
 	"axel": "Axel", "bdjoe": "B.D.Joe", "gena": "Gena", "gus": "Gus",
+}
+
+// Curiosities: POLDC0 models the traces never (or only obliquely) touched,
+// shipped because unused data is half the fun of an excavation. Names
+// state what is KNOWN — a model no trace dispatched gets no invented
+// role beyond what its own bytes show.
+var curiosities = []struct {
+	id, name, descr string
+	parts           []placed
+}{
+	{"unused-15", "Rear bumper variant (model 15)",
+		"byte-for-byte layout twin of Axel's drawn rear bumper m14, different texture pair; never dispatched in any trace", []placed{{15, "model", ident}}},
+	{"unused-29", "Rear bumper variant (model 29)",
+		"the same second-livery pattern beside B.D.Joe's drawn m28; never dispatched in any trace", []placed{{29, "model", ident}}},
+	{"unused-12", "Roof sign variant (model 12)",
+		"sibling of the drawn roof sign m13 with the neighbouring texture (aux 86 vs 87); never dispatched in any trace", []placed{{12, "model", ident}}},
+	{"model-0", "Cable car (model 0)",
+		"the container's first model: the street tram (eyeballed — the game's own destination table names its 'Cable car stop's); outside our short trace windows", []placed{{0, "model", ident}}},
+	{"model-235", "Car transporter (model 235)",
+		"the ramp-trailer truck (eyeballed), the biggest vehicle model in the container; outside our trace windows", []placed{{235, "model", ident}}},
+	{"model-209", "Traffic mid model (model 209)",
+		"a 76-vertex body sharing the m194 traffic family's textures — a middle LOD no drive of ours dispatched", []placed{{209, "model", ident}}},
+	{"traffic-58", "Traffic variant head (model 58)",
+		"a fifth traffic family's 42-vertex head (textures 22/23); its body m59 beside it", []placed{{58, "head", ident}, {59, "body", ident}}},
+	{"glass-183", "Popped-glass state (model 183)",
+		"the m184 traffic car's 56-vertex variant head: the glass panels in their raised pose", []placed{{183, "model", ident}}},
+	{"glass-119", "Popped-glass state (model 119)",
+		"the m120 traffic car's variant head", []placed{{119, "model", ident}}},
+	{"glass-193", "Popped-glass state (model 193)",
+		"the m194 traffic car's variant head", []placed{{193, "model", ident}}},
+	{"glass-237", "Popped-glass state (model 237)",
+		"the m238 traffic car's variant head", []placed{{237, "model", ident}}},
 }
 
 // The traffic fleet: driver-independent vehicles drawn in every drive.
@@ -101,8 +130,7 @@ var driverNames = map[string]string{
 // two-quad wheel model the game places once per axle (captured anchors;
 // the quads carry the wheel photograph and spin about x at speed). The
 // 56-vertex variant heads (models 119/183/193/237, popped-glass states)
-// and the mid model 209 share these bodies' textures and stay out of the
-// gallery.
+// and the mid model 209 ship in the Curiosities group.
 var traffic = []struct {
 	id, name string
 	parts    []placed
@@ -158,15 +186,32 @@ func loadObjectSet(disc *dc.Disc, firstRead []byte) (*objectSet, error) {
 	return &objectSet{models: models, td: td, texdc: texdc, cache: map[int]image.Image{}}, nil
 }
 
-func (s *objectSet) texture(aux int) (image.Image, error) {
-	if img, ok := s.cache[aux]; ok {
+// texture decodes entry aux; with stripAlpha it returns a copy whose alpha
+// is forced opaque — the PVR's opaque list ignores texture alpha entirely,
+// and several cab textures carry stray zero-alpha texels that glTF's MASK
+// cutout would punch holes through (the vanishing front bumper corners and
+// wheel rims). Punch-through and translucent blocks keep the real alpha.
+func (s *objectSet) texture(aux int, stripAlpha bool) (image.Image, error) {
+	key := aux
+	if stripAlpha {
+		key = aux | 1<<20
+	}
+	if img, ok := s.cache[key]; ok {
 		return img, nil
 	}
 	img, err := s.td.Decode(aux, s.texdc)
 	if err != nil {
 		return nil, fmt.Errorf("texture %d: %w", aux, err)
 	}
-	s.cache[aux] = img
+	if stripAlpha {
+		op := image.NewRGBA(img.Bounds())
+		for i := 0; i < len(img.Pix); i += 4 {
+			op.Pix[i], op.Pix[i+1], op.Pix[i+2], op.Pix[i+3] = img.Pix[i], img.Pix[i+1], img.Pix[i+2], 255
+		}
+		s.cache[key] = op
+		return op, nil
+	}
+	s.cache[key] = img
 	return img, nil
 }
 
@@ -180,8 +225,9 @@ func (s *objectSet) node(p placed) (glb.VariantNode, error) {
 	m := s.models[p.model]
 	n := glb.VariantNode{Name: p.label}
 	type key struct {
-		aux   int
-		blend bool
+		aux          int
+		blend, punch bool
+		wrapS, wrapT int
 	}
 	texTris := map[key][][3]uint32{}
 	var order []key
@@ -189,6 +235,18 @@ func (s *objectSet) node(p placed) (glb.VariantNode, error) {
 	xf := p.m
 	for _, blk := range m.Blocks {
 		blend := blk.ListType() == 2
+		punch := blk.ListType() == 4
+		// TSP bits 18/17 select the PVR's mirrored repeat per axis, pinned
+		// by a control pair on the cab itself: the chrome strip tiling U
+		// 0..60 (bit clear) against the steering-wheel quarter spanning
+		// U 0..2 (bit set), same texture size, one differing bit.
+		wrapS, wrapT := 10497, 10497
+		if blk.TSP>>18&1 != 0 {
+			wrapS = 33648
+		}
+		if blk.TSP>>17&1 != 0 {
+			wrapT = 33648
+		}
 		for _, st := range blk.Strips {
 			base := uint32(len(n.Positions))
 			for _, v := range st.Verts {
@@ -208,8 +266,21 @@ func (s *objectSet) node(p placed) (glb.VariantNode, error) {
 			}
 			for _, t := range st.Tris() {
 				tri := [3]uint32{base + uint32(t[0]), base + uint32(t[1]), base + uint32(t[2])}
+				// The PVR does not cull, so the strips' winding is free to
+				// disagree with the stored vertex normals (and does, on most
+				// of the cab). A double-sided lighting pass flips its shading
+				// normal by winding, so reorder each triangle to agree with
+				// the game's own lighting inputs.
+				p0, p1, p2 := n.Positions[tri[0]], n.Positions[tri[1]], n.Positions[tri[2]]
+				e1 := [3]float32{p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]}
+				e2 := [3]float32{p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]}
+				fn := [3]float32{e1[1]*e2[2] - e1[2]*e2[1], e1[2]*e2[0] - e1[0]*e2[2], e1[0]*e2[1] - e1[1]*e2[0]}
+				vn := n.Normals[tri[0]]
+				if fn[0]*vn[0]+fn[1]*vn[1]+fn[2]*vn[2] < 0 {
+					tri[1], tri[2] = tri[2], tri[1]
+				}
 				if blk.Textured() && blk.Aux != 0xFFFFFFFF && int(blk.Aux) < len(s.td.Entries) {
-					k := key{int(blk.Aux), blend}
+					k := key{int(blk.Aux), blend, punch, wrapS, wrapT}
 					if _, ok := texTris[k]; !ok {
 						order = append(order, k)
 					}
@@ -221,13 +292,15 @@ func (s *objectSet) node(p placed) (glb.VariantNode, error) {
 		}
 	}
 	for _, k := range order {
-		img, err := s.texture(k.aux)
+		// Opaque-list textures render with alpha ignored on the PVR; only
+		// punch-through keeps the cutout and only translucent blends.
+		img, err := s.texture(k.aux, !k.blend && !k.punch)
 		if err != nil {
 			return glb.VariantNode{}, err
 		}
 		n.TexGroups = append(n.TexGroups, glb.TexturedGroup{
 			Tris: texTris[k], Image: img, Blend: k.blend,
-			WrapS: 10497, WrapT: 10497,
+			WrapS: k.wrapS, WrapT: k.wrapT,
 		})
 	}
 	if len(greyTris) > 0 {
@@ -238,16 +311,24 @@ func (s *objectSet) node(p placed) (glb.VariantNode, error) {
 	return n, nil
 }
 
-func (s *objectSet) writeAssembly(path, sceneName string, parts []placed) error {
+func (s *objectSet) variant(sceneName string, parts []placed) (glb.ModelVariant, error) {
 	var nodes []glb.VariantNode
 	for _, p := range parts {
 		n, err := s.node(p)
 		if err != nil {
-			return fmt.Errorf("%s: %w", p.label, err)
+			return glb.ModelVariant{}, fmt.Errorf("%s: %w", p.label, err)
 		}
 		nodes = append(nodes, n)
 	}
-	return glb.WriteVariantScenes(path, []glb.ModelVariant{{Name: sceneName, Nodes: nodes}})
+	return glb.ModelVariant{Name: sceneName, Nodes: nodes}, nil
+}
+
+func (s *objectSet) writeAssembly(path, sceneName string, parts []placed) error {
+	v, err := s.variant(sceneName, parts)
+	if err != nil {
+		return err
+	}
+	return glb.WriteVariantScenes(path, []glb.ModelVariant{v})
 }
 
 // exportSky writes the shared sky GLB — the dome and the translucent
@@ -283,19 +364,34 @@ func skyLayer(file string) schema.Layer {
 // exportObjects ships the object gallery: cabs, drivers, traffic.
 func exportObjects(ctx *cli.Context, s *objectSet) error {
 	b := ctx.Builder
+	total := len(cabs) + len(driverPoses) + len(traffic) + len(curiosities)
 	for i, c := range cabs {
 		file := c.id + ".glb"
 		p, err := b.Path("objects", file)
 		if err != nil {
 			return err
 		}
-		if err := s.writeAssembly(p, "cab", c.parts); err != nil {
+		det, err := s.variant("detail", c.detail)
+		if err != nil {
+			return fmt.Errorf("%s detail: %w", c.id, err)
+		}
+		drv, err := s.variant("in-drive", c.drive)
+		if err != nil {
+			return fmt.Errorf("%s drive: %w", c.id, err)
+		}
+		if err := glb.WriteVariantScenes(p, []glb.ModelVariant{det, drv}); err != nil {
 			return fmt.Errorf("%s: %w", c.id, err)
 		}
 		b.AddObject(schema.Asset{ID: c.id, Name: c.name, Group: "Player cabs"}, &schema.Object{
 			Type: schema.ObjectModel3D, Name: c.name, Model: file,
+			Variants: []schema.ModelVariant{
+				{ID: "detail", Name: "Detail (attract)", Scene: "detail",
+					Description: "the close-up body the attract mode draws"},
+				{ID: "in-drive", Name: "In-drive", Scene: "in-drive",
+					Description: "the chase-camera body the gameplay drives dispatch"},
+			},
 		})
-		ctx.Progress("objects", i+1, len(cabs)+len(driverPoses)+len(traffic), c.name)
+		ctx.Progress("objects", i+1, total, c.name)
 	}
 	done := len(cabs)
 	for _, key := range []string{"axel", "bdjoe", "gena", "gus"} {
@@ -314,7 +410,7 @@ func exportObjects(ctx *cli.Context, s *objectSet) error {
 			Type: schema.ObjectModel3D, Name: name, Model: file,
 		})
 		done++
-		ctx.Progress("objects", done, len(cabs)+len(driverPoses)+len(traffic), name)
+		ctx.Progress("objects", done, total, name)
 	}
 	for _, tr := range traffic {
 		file := tr.id + ".glb"
@@ -329,7 +425,23 @@ func exportObjects(ctx *cli.Context, s *objectSet) error {
 			Type: schema.ObjectModel3D, Name: tr.name, Model: file,
 		})
 		done++
-		ctx.Progress("objects", done, len(cabs)+len(driverPoses)+len(traffic), tr.name)
+		ctx.Progress("objects", done, total, tr.name)
+	}
+	for _, cu := range curiosities {
+		file := cu.id + ".glb"
+		p, err := b.Path("objects", file)
+		if err != nil {
+			return err
+		}
+		if err := s.writeAssembly(p, "model", cu.parts); err != nil {
+			return fmt.Errorf("%s: %w", cu.id, err)
+		}
+		b.AddObject(schema.Asset{ID: cu.id, Name: cu.name, Group: "Curiosities"}, &schema.Object{
+			Type: schema.ObjectModel3D, Name: cu.name, Model: file,
+			Props: map[string]any{"note": cu.descr},
+		})
+		done++
+		ctx.Progress("objects", done, total, cu.name)
 	}
 	return nil
 }

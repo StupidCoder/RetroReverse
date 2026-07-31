@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Rear bumper variant (model 29)",
+ "model": "unused-29.glb",
+ "props": {
+  "note": "the same second-livery pattern beside B.D.Joe's drawn m28; never dispatched in any trace"
+ }
+}

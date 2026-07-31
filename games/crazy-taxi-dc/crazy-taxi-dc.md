@@ -734,3 +734,53 @@ the four traffic cars. Verified the only honest way: every rendered
 check reopens the **shipped GLB** (`ctmodel -glbin`), and the cab, the
 upright drivers, the closed sky dome over its coastline ring all read
 back from the files the site serves.
+
+### Part XIII.2 — The cab bugs, and what the attract mode knew
+
+The first cab exports had four faults, reported from the Studio and each
+traced to a real mechanism:
+
+**Vanishing bumpers and rims.** The glb writer's default alpha mode is
+MASK — but the PVR's **opaque list ignores texture alpha entirely**, and
+several cab textures carry stray zero-alpha texels (23% of the bumper
+corners' texture, 68% of a wheel's). Three.js cut them out; the offline
+verifier, which doesn't honour alpha modes, showed them — a renderer
+disagreement the shipped-file rule alone didn't catch. The export now
+mirrors the hardware: opaque-list groups ship alpha-stripped, only
+punch-through keeps the cutout, only translucent blends.
+
+**The quarter-circle steering wheel.** The TSP word's bits 18/17 select
+the PVR's mirrored repeat per axis, pinned by a control pair on the cab
+itself: the chrome strip tiling U 0..60 (bit 18 clear) against the
+steering-wheel quarter spanning U 0..2 (bit 18 set) — same texture size,
+one differing bit. Mapped to glTF MIRRORED_REPEAT samplers. (The
+oracle's own rasteriser never implemented these bits either — a logged
+gap it got away with at 640×480.)
+
+**Random lighting.** The stored vertex normals are all unit length —
+the decode was right — but **724 of the cab's 912 triangles wind
+against them**: the PVR never culls, so the strips' winding is free to
+disagree, and a double-sided lighting pass flips its shading normal by
+winding. Every triangle is now reordered to agree with the game's own
+lighting inputs.
+
+**The missing front bumper and seat backs were never in the model.**
+The in-drive cab (m9) simply stops at z≈23 — the chase camera never
+sees the nose, so the LOD doesn't carry it. Tracing the attract mode
+(which films the cabs from the front) found the full-detail family the
+gameplay drives never dispatch: **m2 Axel, m24 B.D.Joe, m30 Gus (the
+former "fifth cab" mystery), m44 Gena** — with their own detailed wheel
+models, and the LOD sharing arithmetic exact (Axel 164 + Joe 320 =
+shared wheels 484). An attract capture put Gena's detail wheels on the
+same x/z anchors as her drive wheels mid-crash, so the assemblies reuse
+the standstill captures. Each cab GLB now ships two scenes — "detail
+(attract)" default, "in-drive" variant — and what I had labelled
+"interior" (m14/m28/m42/m56) is the **rear bumper**; the real seats ride
+the detail bodies.
+
+**Curiosities join the gallery** — the unused data is half the fun: the
+never-dispatched rear-bumper and roof-sign variants (m15/m29/m12), the
+popped-glass variant heads, the mid-LOD m209, a fifth traffic family
+(m58/59), **the cable car (model 0** — the tram whose stops the fare
+destination table names**)** and **the car-transporter truck (m235)**,
+both eyeballed identifications flagged as such.

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Popped-glass state (model 119)",
+ "model": "glass-119.glb",
+ "props": {
+  "note": "the m120 traffic car's variant head"
+ }
+}

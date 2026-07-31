@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Roof sign variant (model 12)",
+ "model": "unused-12.glb",
+ "props": {
+  "note": "sibling of the drawn roof sign m13 with the neighbouring texture (aux 86 vs 87); never dispatched in any trace"
+ }
+}

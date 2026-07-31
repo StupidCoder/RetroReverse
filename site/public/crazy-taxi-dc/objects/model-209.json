@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Traffic mid model (model 209)",
+ "model": "model-209.glb",
+ "props": {
+  "note": "a 76-vertex body sharing the m194 traffic family's textures — a middle LOD no drive of ours dispatched"
+ }
+}

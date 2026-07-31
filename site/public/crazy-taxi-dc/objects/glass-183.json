@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Popped-glass state (model 183)",
+ "model": "glass-183.glb",
+ "props": {
+  "note": "the m184 traffic car's 56-vertex variant head: the glass panels in their raised pose"
+ }
+}

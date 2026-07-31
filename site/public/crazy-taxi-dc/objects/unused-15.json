@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Rear bumper variant (model 15)",
+ "model": "unused-15.glb",
+ "props": {
+  "note": "byte-for-byte layout twin of Axel's drawn rear bumper m14, different texture pair; never dispatched in any trace"
+ }
+}

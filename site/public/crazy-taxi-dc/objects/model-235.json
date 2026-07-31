@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Car transporter (model 235)",
+ "model": "model-235.glb",
+ "props": {
+  "note": "the ramp-trailer truck (eyeballed), the biggest vehicle model in the container; outside our trace windows"
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Traffic variant head (model 58)",
+ "model": "traffic-58.glb",
+ "props": {
+  "note": "a fifth traffic family's 42-vertex head (textures 22/23); its body m59 beside it"
+ }
+}
