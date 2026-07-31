@@ -197,14 +197,17 @@ func loadObjectSet(disc *dc.Disc, firstRead []byte) (*objectSet, error) {
 type texMode int
 
 const (
-	texOpaque    texMode = iota // strip alpha: the PVR ignored it
-	texCutout                   // keep alpha, MASK at the default 0.5
-	texCutoutLow                // threshold alpha at 48: translucent-list
-	// impostor textures mix opaque body, ~30%-alpha windows and zero-alpha
-	// edges in ONE image; the PVR autosorts that per pixel, glTF BLEND
-	// cannot (no depth writes — the "inside-out" traffic). Thresholding
-	// keeps the windows as solid tinted glass and the depth order exact.
-	texBlend // keep alpha, BLEND, base colour baked in
+	// texSolid binarizes alpha at nonzero: exactly-zero texels stay holes,
+	// everything else ships solid. This is the oracle's own pixel rule
+	// (plot drops a==0 in every list and otherwise writes; the opaque list
+	// never blends) — and it is also how the translucent-list impostors
+	// READ in-game: their fractional-alpha panels composite against the
+	// car's own dark interior shell drawn beneath, so the accumulated
+	// result is solid. A fixed 48-style threshold cut the alpha-17/34
+	// body paint right off the traffic sedans; binarizing keeps it.
+	texSolid  texMode = iota
+	texCutout         // keep raw alpha, MASK at the default 0.5 (punch-through)
+	texBlend          // keep alpha, BLEND, base colour baked in
 )
 
 // rawTexture is the untouched decode of entry aux, cached.
@@ -221,30 +224,10 @@ func (s *objectSet) rawTexture(aux int) (*image.RGBA, error) {
 	return img, nil
 }
 
-// stats reports the decoded texture's alpha character: the fraction of
-// texels fully transparent and the fraction in between.
-func (s *objectSet) stats(aux int) (zero, partial float64, err error) {
-	img, err := s.rawTexture(aux)
-	if err != nil {
-		return 0, 0, err
-	}
-	var z, p, n int
-	for i := 3; i < len(img.Pix); i += 4 {
-		a := img.Pix[i]
-		switch {
-		case a <= 16:
-			z++
-		case a < 240:
-			p++
-		}
-		n++
-	}
-	return float64(z) / float64(n), float64(p) / float64(n), nil
-}
 
-// texture decodes entry aux for one shipping mode. texOpaque strips the
-// alpha the PVR would have ignored; texBlend multiplies the block's base
-// colour in (mul, 0-255 per channel); texCutout keeps the raw decode.
+// texture decodes entry aux for one shipping mode. texSolid binarizes
+// the alpha at nonzero; texBlend multiplies the block's base colour in
+// (mul, 0-255 per channel); texCutout keeps the raw decode.
 func (s *objectSet) texture(aux int, mode texMode, mul [4]uint8) (image.Image, error) {
 	key := fmt.Sprintf("%d-%d-%v", aux, mode, mul)
 	if img, ok := s.cache[key]; ok {
@@ -256,17 +239,11 @@ func (s *objectSet) texture(aux int, mode texMode, mul [4]uint8) (image.Image, e
 	}
 	var out image.Image = img
 	switch {
-	case mode == texOpaque:
-		op := image.NewRGBA(img.Bounds())
-		for i := 0; i < len(img.Pix); i += 4 {
-			op.Pix[i], op.Pix[i+1], op.Pix[i+2], op.Pix[i+3] = img.Pix[i], img.Pix[i+1], img.Pix[i+2], 255
-		}
-		out = op
-	case mode == texCutoutLow:
+	case mode == texSolid:
 		op := image.NewRGBA(img.Bounds())
 		for i := 0; i < len(img.Pix); i += 4 {
 			a := uint8(0)
-			if img.Pix[i+3] >= 48 {
+			if img.Pix[i+3] != 0 {
 				a = 255
 			}
 			op.Pix[i], op.Pix[i+1], op.Pix[i+2], op.Pix[i+3] = img.Pix[i], img.Pix[i+1], img.Pix[i+2], a
@@ -305,27 +282,18 @@ func (s *objectSet) node(p placed) (glb.VariantNode, error) {
 	var greyTris [][3]uint32
 	xf := p.m
 	for _, blk := range m.Blocks {
-		// Ship each block the way the PVR would have rendered it: the
-		// translucent list only actually blends where the block's base
-		// alpha or the texture's own alpha says so — the autosort made it
-		// free to park opaque impostor panels there.
-		mode := texOpaque
+		// Ship each block the way it reads on the hardware: solid with
+		// exact zero-alpha holes everywhere (the oracle's own pixel rule),
+		// except punch-through's real cutout compare and the blocks whose
+		// BASE alpha is fractional — the only surfaces that genuinely
+		// blend (the cab windshield).
+		mode := texSolid
 		mul := [4]uint8{255, 255, 255, 255}
 		switch blk.ListType() {
 		case 4:
 			mode = texCutout
 		case 2:
-			baseA := blk.BaseColor[3]
-			zero, partial := 0.0, 0.0
-			if blk.Textured() && blk.Aux != 0xFFFFFFFF && int(blk.Aux) < len(s.td.Entries) {
-				var err error
-				zero, partial, err = s.stats(int(blk.Aux))
-				if err != nil {
-					return glb.VariantNode{}, err
-				}
-			}
-			switch {
-			case baseA < 0.98:
+			if baseA := blk.BaseColor[3]; baseA < 0.98 {
 				mode = texBlend
 				for c := 0; c < 3; c++ {
 					v := blk.BaseColor[c]
@@ -335,8 +303,6 @@ func (s *objectSet) node(p placed) (glb.VariantNode, error) {
 					mul[c] = uint8(v * 255)
 				}
 				mul[3] = uint8(baseA * 255)
-			case partial > 0.02 || zero > 0.01:
-				mode = texCutoutLow
 			}
 		}
 		// TSP bits 18/17 select the PVR's mirrored repeat per axis, pinned

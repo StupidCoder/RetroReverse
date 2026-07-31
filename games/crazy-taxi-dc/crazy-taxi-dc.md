@@ -799,9 +799,13 @@ material with no reliable intra-mesh depth order — the inside-out look
 what the bytes say, not by which list they rode in: blocks whose BASE
 alpha is fractional (the cab windshield: opaque texture, base colour
 0.59/0.60/0.55 × a=0.44 — now baked into its image and blended) are the
-only true blends; mixed-alpha impostor textures ship as MASK cutouts
-with the threshold at the window texels' floor (≥48 → solid), so the
-glass stays visible as tinted panes, the sprite edges stay cut, and
-every face depth-writes. The whitish patches on the sedans are the
-textures' own painted reflections, previously diluted by blending —
-real texels, now shown solid.
+only true blends; every other texture ships solid with its exact
+zero-alpha texels as holes — which is the oracle's own pixel rule
+(`plot` drops a==0 in every list and otherwise writes), and also how
+the impostors read in-game: their fractional-alpha panels composite
+against the car's own dark shell drawn beneath, so the accumulated
+result is solid. (A first fix thresholded alpha at 48 and cut the
+alpha-17/34 body paint clean off the sedans — binarizing at nonzero is
+the rule the hardware actually follows.) The whitish patches on the
+sedans are the textures' own painted reflections, previously diluted
+by blending — real texels, now shown solid.
