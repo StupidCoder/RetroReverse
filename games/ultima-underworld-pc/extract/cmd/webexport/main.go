@@ -327,9 +327,11 @@ func exportAll(ctx *cli.Context, gameDir string, palN int, ceil bool) error {
 			if g.Material < 0 || g.Material >= len(o.Textures) {
 				continue
 			}
+			// Group Start/Count are in vertex units (the three.js addGroup
+			// convention level.go and objects.go emit).
 			var tris [][3]uint32
-			for t := g.Start; t < g.Start+g.Count; t++ {
-				tris = append(tris, [3]uint32{uint32(t * 3), uint32(t*3 + 1), uint32(t*3 + 2)})
+			for v := g.Start; v+2 < g.Start+g.Count; v += 3 {
+				tris = append(tris, [3]uint32{uint32(v), uint32(v + 1), uint32(v + 2)})
 			}
 			groups = append(groups, glb.TexturedGroup{
 				Tris:        tris,
