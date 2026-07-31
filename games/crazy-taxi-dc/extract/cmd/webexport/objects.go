@@ -163,7 +163,7 @@ type objectSet struct {
 	models []*assets.Model
 	td     *assets.TexDir
 	texdc  []byte
-	cache  map[int]image.Image
+	cache  map[string]image.Image
 }
 
 func loadObjectSet(disc *dc.Disc, firstRead []byte) (*objectSet, error) {
@@ -183,36 +183,106 @@ func loadObjectSet(disc *dc.Disc, firstRead []byte) (*objectSet, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &objectSet{models: models, td: td, texdc: texdc, cache: map[int]image.Image{}}, nil
+	return &objectSet{models: models, td: td, texdc: texdc, cache: map[string]image.Image{}}, nil
 }
 
-// texture decodes entry aux; with stripAlpha it returns a copy whose alpha
-// is forced opaque — the PVR's opaque list ignores texture alpha entirely,
-// and several cab textures carry stray zero-alpha texels that glTF's MASK
-// cutout would punch holes through (the vanishing front bumper corners and
-// wheel rims). Punch-through and translucent blocks keep the real alpha.
-func (s *objectSet) texture(aux int, stripAlpha bool) (image.Image, error) {
-	key := aux
-	if stripAlpha {
-		key = aux | 1<<20
-	}
+// texMode says how a group must ship, mirroring what the PVR would have
+// done with the same bytes. The translucent list autosorts per pixel on
+// the hardware, so the game parks whole impostor bodies there for free;
+// glTF BLEND (no depth writes) must be reserved for surfaces that are
+// actually translucent — by the block's own base alpha (the cab glass:
+// opaque texture, base a=0.44) or by partial texture alpha (the traffic
+// windows). Binary-alpha textures become MASK cutouts (the wheel photo
+// quads), fully-opaque ones ship opaque (the impostor body panels).
+type texMode int
+
+const (
+	texOpaque    texMode = iota // strip alpha: the PVR ignored it
+	texCutout                   // keep alpha, MASK at the default 0.5
+	texCutoutLow                // threshold alpha at 48: translucent-list
+	// impostor textures mix opaque body, ~30%-alpha windows and zero-alpha
+	// edges in ONE image; the PVR autosorts that per pixel, glTF BLEND
+	// cannot (no depth writes — the "inside-out" traffic). Thresholding
+	// keeps the windows as solid tinted glass and the depth order exact.
+	texBlend // keep alpha, BLEND, base colour baked in
+)
+
+// rawTexture is the untouched decode of entry aux, cached.
+func (s *objectSet) rawTexture(aux int) (*image.RGBA, error) {
+	key := fmt.Sprintf("raw-%d", aux)
 	if img, ok := s.cache[key]; ok {
-		return img, nil
+		return img.(*image.RGBA), nil
 	}
 	img, err := s.td.Decode(aux, s.texdc)
 	if err != nil {
 		return nil, fmt.Errorf("texture %d: %w", aux, err)
 	}
-	if stripAlpha {
+	s.cache[key] = img
+	return img, nil
+}
+
+// stats reports the decoded texture's alpha character: the fraction of
+// texels fully transparent and the fraction in between.
+func (s *objectSet) stats(aux int) (zero, partial float64, err error) {
+	img, err := s.rawTexture(aux)
+	if err != nil {
+		return 0, 0, err
+	}
+	var z, p, n int
+	for i := 3; i < len(img.Pix); i += 4 {
+		a := img.Pix[i]
+		switch {
+		case a <= 16:
+			z++
+		case a < 240:
+			p++
+		}
+		n++
+	}
+	return float64(z) / float64(n), float64(p) / float64(n), nil
+}
+
+// texture decodes entry aux for one shipping mode. texOpaque strips the
+// alpha the PVR would have ignored; texBlend multiplies the block's base
+// colour in (mul, 0-255 per channel); texCutout keeps the raw decode.
+func (s *objectSet) texture(aux int, mode texMode, mul [4]uint8) (image.Image, error) {
+	key := fmt.Sprintf("%d-%d-%v", aux, mode, mul)
+	if img, ok := s.cache[key]; ok {
+		return img, nil
+	}
+	img, err := s.rawTexture(aux)
+	if err != nil {
+		return nil, err
+	}
+	var out image.Image = img
+	switch {
+	case mode == texOpaque:
 		op := image.NewRGBA(img.Bounds())
 		for i := 0; i < len(img.Pix); i += 4 {
 			op.Pix[i], op.Pix[i+1], op.Pix[i+2], op.Pix[i+3] = img.Pix[i], img.Pix[i+1], img.Pix[i+2], 255
 		}
-		s.cache[key] = op
-		return op, nil
+		out = op
+	case mode == texCutoutLow:
+		op := image.NewRGBA(img.Bounds())
+		for i := 0; i < len(img.Pix); i += 4 {
+			a := uint8(0)
+			if img.Pix[i+3] >= 48 {
+				a = 255
+			}
+			op.Pix[i], op.Pix[i+1], op.Pix[i+2], op.Pix[i+3] = img.Pix[i], img.Pix[i+1], img.Pix[i+2], a
+		}
+		out = op
+	case mode == texBlend && mul != [4]uint8{255, 255, 255, 255}:
+		op := image.NewRGBA(img.Bounds())
+		for i := 0; i < len(img.Pix); i += 4 {
+			for c := 0; c < 4; c++ {
+				op.Pix[i+c] = uint8(uint32(img.Pix[i+c]) * uint32(mul[c]) / 255)
+			}
+		}
+		out = op
 	}
-	s.cache[key] = img
-	return img, nil
+	s.cache[key] = out
+	return out, nil
 }
 
 // node assembles one placed model into a named glTF node: positions and
@@ -226,7 +296,8 @@ func (s *objectSet) node(p placed) (glb.VariantNode, error) {
 	n := glb.VariantNode{Name: p.label}
 	type key struct {
 		aux          int
-		blend, punch bool
+		mode         texMode
+		mul          [4]uint8
 		wrapS, wrapT int
 	}
 	texTris := map[key][][3]uint32{}
@@ -234,8 +305,40 @@ func (s *objectSet) node(p placed) (glb.VariantNode, error) {
 	var greyTris [][3]uint32
 	xf := p.m
 	for _, blk := range m.Blocks {
-		blend := blk.ListType() == 2
-		punch := blk.ListType() == 4
+		// Ship each block the way the PVR would have rendered it: the
+		// translucent list only actually blends where the block's base
+		// alpha or the texture's own alpha says so — the autosort made it
+		// free to park opaque impostor panels there.
+		mode := texOpaque
+		mul := [4]uint8{255, 255, 255, 255}
+		switch blk.ListType() {
+		case 4:
+			mode = texCutout
+		case 2:
+			baseA := blk.BaseColor[3]
+			zero, partial := 0.0, 0.0
+			if blk.Textured() && blk.Aux != 0xFFFFFFFF && int(blk.Aux) < len(s.td.Entries) {
+				var err error
+				zero, partial, err = s.stats(int(blk.Aux))
+				if err != nil {
+					return glb.VariantNode{}, err
+				}
+			}
+			switch {
+			case baseA < 0.98:
+				mode = texBlend
+				for c := 0; c < 3; c++ {
+					v := blk.BaseColor[c]
+					if v > 1 {
+						v = 1
+					}
+					mul[c] = uint8(v * 255)
+				}
+				mul[3] = uint8(baseA * 255)
+			case partial > 0.02 || zero > 0.01:
+				mode = texCutoutLow
+			}
+		}
 		// TSP bits 18/17 select the PVR's mirrored repeat per axis, pinned
 		// by a control pair on the cab itself: the chrome strip tiling U
 		// 0..60 (bit clear) against the steering-wheel quarter spanning
@@ -280,7 +383,7 @@ func (s *objectSet) node(p placed) (glb.VariantNode, error) {
 					tri[1], tri[2] = tri[2], tri[1]
 				}
 				if blk.Textured() && blk.Aux != 0xFFFFFFFF && int(blk.Aux) < len(s.td.Entries) {
-					k := key{int(blk.Aux), blend, punch, wrapS, wrapT}
+					k := key{int(blk.Aux), mode, mul, wrapS, wrapT}
 					if _, ok := texTris[k]; !ok {
 						order = append(order, k)
 					}
@@ -292,14 +395,12 @@ func (s *objectSet) node(p placed) (glb.VariantNode, error) {
 		}
 	}
 	for _, k := range order {
-		// Opaque-list textures render with alpha ignored on the PVR; only
-		// punch-through keeps the cutout and only translucent blends.
-		img, err := s.texture(k.aux, !k.blend && !k.punch)
+		img, err := s.texture(k.aux, k.mode, k.mul)
 		if err != nil {
 			return glb.VariantNode{}, err
 		}
 		n.TexGroups = append(n.TexGroups, glb.TexturedGroup{
-			Tris: texTris[k], Image: img, Blend: k.blend,
+			Tris: texTris[k], Image: img, Blend: k.mode == texBlend,
 			WrapS: k.wrapS, WrapT: k.wrapT,
 		})
 	}

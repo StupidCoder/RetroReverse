@@ -784,3 +784,24 @@ popped-glass variant heads, the mid-LOD m209, a fifth traffic family
 (m58/59), **the cable car (model 0** — the tram whose stops the fare
 destination table names**)** and **the car-transporter truck (m235)**,
 both eyeballed identifications flagged as such.
+
+### Part XIII.3 — What the translucent list actually meant
+
+The traffic cars came back from the Studio semi-transparent and
+inside-out — and the mechanism is the PVR's translucent list itself.
+The impostor bodies are parked ENTIRELY in list 2 (the hardware
+autosorts per pixel, so it costs nothing there), with base alpha 1.0
+and textures that mix opaque body texels (255), ~30%-alpha window
+texels (68–102, real ARGB4444 steps) and zero-alpha sprite edges in
+one image. Mapping "translucent list" to glTF BLEND hands three.js a
+material with no reliable intra-mesh depth order — the inside-out look
+— while the PVR never had the problem. The faithful translation goes by
+what the bytes say, not by which list they rode in: blocks whose BASE
+alpha is fractional (the cab windshield: opaque texture, base colour
+0.59/0.60/0.55 × a=0.44 — now baked into its image and blended) are the
+only true blends; mixed-alpha impostor textures ship as MASK cutouts
+with the threshold at the window texels' floor (≥48 → solid), so the
+glass stays visible as tinted panes, the sprite edges stay cut, and
+every face depth-writes. The whitish patches on the sedans are the
+textures' own painted reflections, previously diluted by blending —
+real texels, now shown solid.

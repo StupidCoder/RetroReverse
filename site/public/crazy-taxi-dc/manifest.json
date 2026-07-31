@@ -17,6 +17,27 @@
  },
  "assets": [
   {
+   "id": "arcade-city",
+   "category": "level",
+   "name": "Arcade city",
+   "group": "Courses",
+   "file": "levels/arcade-city.json"
+  },
+  {
+   "id": "original-city",
+   "category": "level",
+   "name": "Original city",
+   "group": "Courses",
+   "file": "levels/original-city.json"
+  },
+  {
+   "id": "crazy-box",
+   "category": "level",
+   "name": "Crazy Box",
+   "group": "Courses",
+   "file": "levels/crazy-box.json"
+  },
+  {
    "id": "cab-axel",
    "category": "object",
    "name": "Axel's cab",
