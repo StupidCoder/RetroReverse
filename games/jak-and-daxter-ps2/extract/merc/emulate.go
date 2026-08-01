@@ -38,6 +38,7 @@ type OutVert struct {
 	RGBA [4]uint8
 	XYZ  [3]float32 // fixed 12.4, converted
 	ADC  bool
+	Addr uint32
 }
 
 // Emulate runs one fragment and returns the kicked GIF packets' vertices in
@@ -193,6 +194,7 @@ func f32bits(v uint32) float32 { return float32frombits(v) }
 type TopoVert struct {
 	Index int
 	ADC   bool
+	Addr  uint32 // slot address of the vertex's RGBA quadword
 }
 
 // EmulateTopology runs the fragment with vertex indices encoded into the
@@ -354,15 +356,37 @@ func (s *Session) RunFragment(fr *Fragment, gbase int) ([]TopoVert, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(a) != len(b) {
-		return nil, fmt.Errorf("merc session: nondeterministic runs (%d vs %d)", len(a), len(b))
+	// Pair entries by slot address (stale coincidences can shift the scan
+	// by a slot in one run; positional pairing is alignment-sensitive).
+	bm := make(map[uint32]TopoVert, len(b))
+	for _, t := range b {
+		bm[t.Addr] = t
+	}
+	lo, hi := uint32(0xFFFFFFFF), uint32(0)
+	for _, t := range a {
+		if tb, ok := bm[t.Addr]; ok && tb.Index-t.Index == 0x2000 {
+			if t.Addr < lo {
+				lo = t.Addr
+			}
+			if t.Addr > hi {
+				hi = t.Addr
+			}
+		}
 	}
 	out := make([]TopoVert, 0, len(a))
-	for i := range a {
-		if a[i].Index != b[i].Index && b[i].Index-a[i].Index == 0x2000 {
-			out = append(out, a[i]) // fresh: encoded this run
-		} else if a[i].Index == b[i].Index {
-			out = append(out, a[i]) // carried from an earlier fragment
+	for _, t := range a {
+		tb, ok := bm[t.Addr]
+		if !ok {
+			continue
+		}
+		switch {
+		case tb.Index-t.Index == 0x2000:
+			out = append(out, t)
+		case tb.Index == t.Index && t.Addr >= lo && t.Addr <= hi && (t.Addr-lo)%3 == 0:
+			// On the fresh packet's slot grid: a stitch vert carried in.
+			// Phase-offset survivors inside the span are stale packets.
+			t.Index &^= 0x2000
+			out = append(out, t)
 		}
 	}
 	return out, nil
@@ -429,44 +453,26 @@ func (s *Session) runOnce(fr *Fragment, gbase, bias int) ([]TopoVert, error) {
 		return nil, fmt.Errorf("merc session: fragment did not halt")
 	}
 	// Strips span fragments: the GIF tag is only patched when a strip
-	// closes, so per-fragment packets may be tagless. Harvest the slots
-	// directly: each vertex is 3 quadwords {ST, RGBA, XYZF2}; our encoded
-	// RGBA words ({idx16, 0, 0, 0x80}) identify vertices, the XYZ word's
-	// bit 15 is ADC. Slots are consecutive in strip order.
-	// Both output halves were cleared before the run, so fresh signature
-	// hits are unambiguous: scan both and take whichever half got them.
-	scan := func(lo, hi uint32) int {
-		n := 0
-		for q := lo; q+2 < hi; q++ {
+	// closes, so per-fragment packets may be tagless. Harvest BOTH output
+	// halves in address order by the encoded-RGBA signature; the caller's
+	// double-run diff isolates this fragment's packet (fresh hits appear
+	// only where this run wrote).
+	var vs []OutVert
+	for _, w := range [2][2]uint32{{371, 571}, {813, 1023}} {
+		for q := w[0]; q+2 < w[1]; q++ {
 			w0 := binary.LittleEndian.Uint32(data[(q&1023)*16:])
 			w1 := binary.LittleEndian.Uint32(data[(q&1023)*16+4:])
 			w2 := binary.LittleEndian.Uint32(data[(q&1023)*16+8:])
 			w3 := binary.LittleEndian.Uint32(data[(q&1023)*16+12:])
 			if w3 == 0x80 && w1 < 0x40 && w2 == 0 && w0 >= 1 && w0 < 256 {
-				n++
+				adcw := binary.LittleEndian.Uint32(data[((q-2)&1023)*16+12:])
+				vs = append(vs, OutVert{
+					RGBA: [4]uint8{uint8(w0), uint8(w1), 0, 0x80},
+					ADC:  adcw&0x8000 != 0,
+					Addr: q,
+				})
 				q += 2
 			}
-		}
-		return n
-	}
-	lo, hi := uint32(371), uint32(571)
-	if scan(813, 1023) > scan(371, 571) {
-		lo, hi = 813, 1023
-	}
-	var vs []OutVert
-	for q := lo; q+2 < hi; q++ {
-		w0 := binary.LittleEndian.Uint32(data[(q&1023)*16:])
-		w1 := binary.LittleEndian.Uint32(data[(q&1023)*16+4:])
-		w2 := binary.LittleEndian.Uint32(data[(q&1023)*16+8:])
-		w3 := binary.LittleEndian.Uint32(data[(q&1023)*16+12:])
-		if w3 == 0x80 && w1 < 0x40 && w2 == 0 && w0 >= 1 && w0 < 256 {
-			// RGBA slot at q; XYZ slot at q-2 carries the ADC bit.
-			adcw := binary.LittleEndian.Uint32(data[((q-2)&1023)*16+12:])
-			vs = append(vs, OutVert{
-				RGBA: [4]uint8{uint8(w0), uint8(w1), 0, 0x80},
-				ADC:  adcw&0x8000 != 0,
-			})
-			q += 2
 		}
 	}
 	if s.top == 0 {
@@ -477,7 +483,7 @@ func (s *Session) runOnce(fr *Fragment, gbase, bias int) ([]TopoVert, error) {
 	out := make([]TopoVert, 0, len(vs))
 	for _, v := range vs {
 		idx := int(v.RGBA[0]) | int(v.RGBA[1])<<8
-		out = append(out, TopoVert{Index: idx - 1, ADC: v.ADC})
+		out = append(out, TopoVert{Index: idx - 1, ADC: v.ADC, Addr: v.Addr})
 	}
 	return out, nil
 }

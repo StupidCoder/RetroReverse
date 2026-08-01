@@ -73,6 +73,13 @@ func (d *Decoder) BuildPrim(e *Effect, base [4]float32) (glb.Prim, error) {
 			if a == b || b == c || a == c {
 				continue
 			}
+			// Strip-stitch carriers produce degenerate slivers the GS
+			// draws off-screen; a fragment lattice spans 255 units, so a
+			// long edge marks one.
+			pa, pb, pc := p.Positions[a], p.Positions[b], p.Positions[c]
+			if dist2(pa, pb) > 40*40 || dist2(pb, pc) > 40*40 || dist2(pa, pc) > 40*40 {
+				continue
+			}
 			if ti&1 == 0 {
 				p.Tris = append(p.Tris, [3]uint32{a, b, c})
 			} else {
@@ -81,6 +88,11 @@ func (d *Decoder) BuildPrim(e *Effect, base [4]float32) (glb.Prim, error) {
 		}
 	}
 	return p, nil
+}
+
+func dist2(a, b [3]float32) float32 {
+	dx, dy, dz := a[0]-b[0], a[1]-b[1], a[2]-b[2]
+	return dx*dx + dy*dy + dz*dz
 }
 
 func normalize(x, y, z float32) [3]float32 {
