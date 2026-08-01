@@ -39,6 +39,7 @@ import (
 // Fragment is one VU1 batch: three consecutive source regions plus its bone
 // matrix uploads.
 type Fragment struct {
+	Off      uint32 // object offset of ByteData (for patching a live image)
 	ByteData []byte // V4-8 region: merc-byte-header + packed vertex bytes
 	LumpData []byte // V4-8 region: "lump" packed vertex bytes
 	FPData   []byte // V4-32 region: float data (merc-fp-header + floats)
@@ -115,6 +116,7 @@ func Parse(obj []byte, p uint32) (*Ctrl, error) {
 				return nil, fmt.Errorf("merc: effect %d frag %d data runs past object (0x%x + 0x%x)", e, f, gcur, need)
 			}
 			fr := Fragment{
+				Off:      gcur,
 				ByteData: obj[gcur : gcur+uint32(uQW)*16],
 				LumpData: obj[gcur+uint32(uQW)*16 : gcur+uint32(uQW+lQW)*16],
 				FPData:   obj[gcur+uint32(uQW+lQW)*16 : gcur+uint32(uQW+lQW+fpQW)*16],

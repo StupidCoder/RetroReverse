@@ -159,6 +159,7 @@ func parseGIF(mem []byte, qw uint32) ([]OutVert, error) {
 		qw++
 		for l := 0; l < nloop; l++ {
 			var v OutVert
+			sawXYZ := false
 			for r := 0; r < nreg; r++ {
 				reg := regs >> (4 * r) & 0xF
 				base := qw * 16
@@ -181,10 +182,13 @@ func parseGIF(mem []byte, qw uint32) ([]OutVert, error) {
 					v.ADC = w&0x8000 != 0
 					v.Addr = qw
 					copy(v.XYZQW[:], mem[base:base+16])
+					sawXYZ = true
 				}
 				qw++
 			}
-			out = append(out, v)
+			if sawXYZ {
+				out = append(out, v)
+			}
 		}
 		if eop {
 			return out, nil
@@ -455,11 +459,14 @@ func (s *Session) harvest(bias int) []TopoVert {
 	if os.Getenv("MERCDBG") != "" {
 		fmt.Fprintf(os.Stderr, "[kicks=%d %v", len(s.kicks), s.kicks)
 		for _, k := range s.kicks {
-			fmt.Fprintf(os.Stderr, " tag@%d={%08X %08X %08X %08X}", k,
-				binary.LittleEndian.Uint32(s.v.Data[(k&1023)*16:]),
-				binary.LittleEndian.Uint32(s.v.Data[(k&1023)*16+4:]),
-				binary.LittleEndian.Uint32(s.v.Data[(k&1023)*16+8:]),
-				binary.LittleEndian.Uint32(s.v.Data[(k&1023)*16+12:]))
+			for dq := -3; dq <= 3; dq++ {
+				q := (int(k) + dq) & 1023
+				fmt.Fprintf(os.Stderr, " [%+d]={%08X %08X %08X %08X}", dq,
+					binary.LittleEndian.Uint32(s.v.Data[q*16:]),
+					binary.LittleEndian.Uint32(s.v.Data[q*16+4:]),
+					binary.LittleEndian.Uint32(s.v.Data[q*16+8:]),
+					binary.LittleEndian.Uint32(s.v.Data[q*16+12:]))
+			}
 		}
 		fmt.Fprintln(os.Stderr, "]")
 	}
