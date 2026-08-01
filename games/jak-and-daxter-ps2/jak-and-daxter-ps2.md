@@ -151,3 +151,27 @@ camera rig) → a `res-lump` (`effect-name`, property symbols) → three
 assembly of the attract sequence. The formats of `merc-ctrl`,
 `joint`/`art-joint-geo` and `joint-anim-compressed` are the subject of the
 following Parts.
+
+## Part III — Texture pages (in progress)
+
+A `tpage-NNN` object is a texture page: header `{→file-info, →name, id,
+texture count, word counts, 3 × {data ptr, size-in-words, dst}}` with the
+descriptor pointer array at `P+0x7C`. The `texture` descriptor layout is read
+from `adgif-shader<-texture!` (`0x612684`), the engine's own TEX0/TEX1
+builder: `+0/+2` s16 w/h, `+4` mip count, `+5` filter, `+6` psm, `+8` clut
+psm, `+10/+12/…` per-mip destination block, `+24` clut block, `+26/…` per-mip
+tbw, `+0x24` →name. Blocks are page-relative; the runtime allocator adds the
+page's VRAM base into the segment `dst` words (tpage-463 lives at block
+`0x2141`, and every TEX0 the draw census reports is these fields plus that
+base). CLUTs are CSM1, PSMCT32 or PSMCT16, stored inside the page.
+
+`extract/tpage` + `extract/cmd/tpage` decode a page's textures to PNG through
+the GS address swizzles (`tools/platform/ps2` exports its sampler arithmetic
+as `TexAddr*`/`CSM1ClutXY`). Segment 0 — the always-resident far-mip tier,
+which also carries the CLUTs — uploads as one 128-px-wide PSMCT32 IMAGE
+transfer at the page base, verified byte-exact against live VRAM windows;
+four full textures decode pixel-identical through the oracle's `-gstex`
+sampler. The mid/near tiers (segments 1–2) stream in and out at runtime and
+do not tile VRAM cumulatively — live VRAM shows tier-2 rows (128-word
+stride) inside tier-1's nominal block range — so their VRAM mapping goes
+through the engine's tier allocator; solving it is the part's open item.
