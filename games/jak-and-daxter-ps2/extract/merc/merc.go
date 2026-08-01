@@ -33,6 +33,7 @@ package merc
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 )
 
 // Fragment is one VU1 batch: three consecutive source regions plus its bone
@@ -126,4 +127,67 @@ func Parse(obj []byte, p uint32) (*Ctrl, error) {
 		c.Effects = append(c.Effects, eff)
 	}
 	return c, nil
+}
+
+// --- vertex decode ----------------------------------------------------------
+//
+// The microprogram's vertex loop (mercmicro.dis 0x498+) defines the packing,
+// verified visually (the decoded logo renders as the logo):
+//
+//   - A vertex is THREE consecutive lump quadwords; in the V4-8 source that
+//     is 12 bytes {q0: b0,b1,nz,px | q1: dst1,dst2,ny,py | q2: b0,b1,nx,pz}.
+//     The w-lane bytes are the position on a fragment-local 8-bit lattice;
+//     the z-lane bytes are the normal; q1's x/y-lane bytes are OUTPUT SLOT
+//     addresses (VU quadwords, stride 3, base 7): the microcode scatter-
+//     writes each vertex into one or two GIF strip slots (two when a strip
+//     stitch reuses it), which is why an effect's dvert count exceeds its
+//     unique vertex count.
+//   - The fragment's fp region opens with the fragment origin as
+//     int-in-float (bias 0x4B010000 = 8454144.0, sign-folded):
+//     world = lattice byte + origin. The STROW payload emitted by
+//     draw-bones-merc carries the matching magic constants for the VIF row
+//     mode; offline, the plain byte + origin sum reproduces it.
+type Vertex struct {
+	X, Y, Z    float32
+	NX, NY, NZ int8
+	Slot1      int // output strip slot, -1 if unused
+	Slot2      int
+}
+
+func magicInt(f float32) float32 {
+	if f < 0 {
+		return f + 8454144.0
+	}
+	return f - 8454144.0
+}
+
+func f32at(b []byte, o int) float32 {
+	return math.Float32frombits(binary.LittleEndian.Uint32(b[o:]))
+}
+
+// Vertices decodes a fragment's vertex set.
+func (fr *Fragment) Vertices() []Vertex {
+	if len(fr.FPData) < 16 {
+		return nil
+	}
+	ox := magicInt(f32at(fr.FPData, 0))
+	oy := magicInt(f32at(fr.FPData, 4))
+	oz := magicInt(f32at(fr.FPData, 8))
+	n := fr.LumpQWC / 3
+	out := make([]Vertex, 0, n)
+	slot := func(d byte) int {
+		if d >= 7 && (int(d)-7)%3 == 0 {
+			return (int(d) - 7) / 3
+		}
+		return -1
+	}
+	for v := 0; v < n; v++ {
+		b := fr.LumpData[v*12 : v*12+12]
+		out = append(out, Vertex{
+			X: float32(b[3]) + ox, Y: float32(b[7]) + oy, Z: float32(b[11]) + oz,
+			NX: int8(b[10]), NY: int8(b[6]), NZ: int8(b[2]),
+			Slot1: slot(b[4]), Slot2: slot(b[5]),
+		})
+	}
+	return out
 }
