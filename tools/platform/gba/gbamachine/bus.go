@@ -94,6 +94,9 @@ func (b *bus) Read(a uint32) byte {
 // Write services a byte store, with the palette/VRAM/OAM byte-store quirks.
 func (b *bus) Write(a uint32, v byte) {
 	m := b.m
+	if m.OnWrite != nil {
+		m.OnWrite(a, v, m.cpu.R[15])
+	}
 	switch a >> 24 {
 	case 0x00, 0x01:
 		m.note("write to BIOS region 0x%08X (ignored)", a)
@@ -159,6 +162,10 @@ func (b *bus) Read16(a uint32) uint16 {
 
 func (b *bus) Write16(a uint32, v uint16) {
 	m := b.m
+	if m.OnWrite != nil {
+		m.OnWrite(a, byte(v), m.cpu.R[15])
+		m.OnWrite(a+1, byte(v>>8), m.cpu.R[15])
+	}
 	switch a >> 24 {
 	case 0x04:
 		m.ioWrite16(a, v)

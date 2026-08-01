@@ -55,6 +55,9 @@ is little-endian throughout.
   - [2. What the starting area is made of](#2-what-the-starting-area-is-made-of)
   - [3. The exporter, and how it is checked](#3-the-exporter-and-how-it-is-checked)
   - [4. VRAM holds a window, not a room](#4-vram-holds-a-window-not-a-room)
+  - [5. The ROM side: finding the room](#5-the-rom-side-finding-the-room)
+  - [6. The room format](#6-the-room-format)
+  - [7. Decoding it from the ROM alone](#7-decoding-it-from-the-rom-alone)
 
 ---
 
@@ -522,6 +525,99 @@ ground truth — tilemap, tiles and palette that provably reconstruct the frame 
 against which a **ROM-side** decoder can be checked once the compressed map
 format is found. The BIOS decompressors are already reimplemented (Part II §4),
 which is where that hunt starts.
+
+## 5. The ROM side: finding the room
+
+The hunt started by making the game narrate itself. `gbamachine` implements the
+BIOS decompressors, so `bootoracle -declog` reports every one the game
+performs — source, destination, size — which is a complete asset-load log
+obtained without reversing a single line of the game's loader.
+
+The first attempt returned **nothing**, and that nearly ended the investigation
+in the wrong place. The control that saved it was a unit test proving the hook
+fires; the real fault was the *window* — the run stopped at frame 1000 and the
+first decompression happens at frame 2102. **A zero-hit search is a claim about
+the instrument and about where you pointed it.**
+
+With the window widened, the starting area's load appears in full:
+
+| ROM source | destination | size | role |
+|---|---|---|---|
+| `$0836E448` | VRAM `$06000000` | 16384 | tileset stream 0 |
+| `$08370C18` | VRAM `$06004000` | 16384 | tileset stream 1 |
+| `$083734F0` | VRAM `$06008000` | 16384 | tileset stream 2 |
+| `$08381E9C` | RAM `$0202CEB4` | 16384 | BG2 metatile table |
+| `$08384068` | RAM `$02012654` | 16368 | BG1 metatile table |
+| `$08385E68` | RAM `$02025EB4` | 5418 | BG2 metatile-id grid |
+| `$08386AA8` | RAM `$0200B654` | 5418 | BG1 metatile-id grid |
+
+Everything is **BIOS LZ77** (SWI `$11`/`$12`), reached through a thunk table at
+`$080B14D8`/`$080B14DC`.
+
+## 6. The room format
+
+A room is **not stored as a tilemap**, which is why searching a ROM for
+something tilemap-shaped finds nothing. It is a grid of **metatile ids**, each
+indexing an 8-byte table entry that holds four tile entries — the 2×2 block that
+id expands to. The expander was found by watching writes to the destination
+buffer (`bootoracle -watch`) and reading the routine at **`$0801AB40`**:
+
+```
+LDRH r0,[r6,#0]     ; id from the grid
+CMP  r0,r9          ; r9 = 0x3FFF: above it, a separate (animated) path
+LSL  r0,r0,#2       ; id*4 ...
+LSL  r0,r0,#1       ; ... *2 = id*8 — an 8-byte table entry
+ADD  r1,r8,r0       ; base + 0x7004 + id*8
+LDRH r0,[r1,#0] / STRH r0,[r5,#0]   ; top-left
+LDRH r0,[r1,#2] / STRH r0,[r5,#2]   ; top-right
+LDRH r0,[r1,#4] / STRH r0,[r4,#0]   ; bottom-left   (r4 = r5 + one row)
+LDRH r0,[r1,#6] / STRH r0,[r4,#2]   ; bottom-right
+```
+
+The geometry came out of a disagreement rather than a guess. Comparing our
+decompressed id array against the game's own decompressed copy in RAM, the two
+matched for exactly **63 entries** and then diverged. 5418 bytes is 2709 ids,
+and **2709 = 63 × 43**: the ROM packs the grid **63 metatiles wide**, and the
+game copies it into a RAM buffer with a **64-wide stride**. With that, both id
+arrays match their RAM copies **100%**.
+
+So the starting area is **63 × 43 metatiles = 126 × 86 tiles**, in two layers
+that each carry their own id grid *and* their own metatile table. The pairing
+matters: crossing BG2's ids with BG1's table decodes to plausible-looking
+garbage.
+
+## 7. Decoding it from the ROM alone
+
+`tools/platform/gba/compress.go` reimplements LZ77 (and RLE) as pure functions
+over bytes — a second implementation from the BIOS HLE's bus-based one, guarded
+by a test that runs both over the same stream. `roomexport` then decompresses,
+expands the metatiles, and renders, with **no emulator running**.
+
+Two verifications, both against the game's own work:
+
+* **the decompressor** — our output versus the bytes the game's own BIOS call
+  produced in RAM: the metatile tables and attribute tables are **byte-identical
+  (16384/16384 and 4096/4096)**;
+* **the whole pipeline** — the expanded map versus the tilemap the game uploaded
+  to VRAM: **every entry the game had uploaded matches, on both layers, at the
+  same room alignment (56,35)**. Two independently decoded layers agreeing on
+  one camera position is not a coincidence one can arrange by accident.
+
+That second check needed care to be honest. A 32×32 screenblock is taller than
+the 20 visible tile rows, so its bottom rows are still zero when the export is
+taken. Scoring those as mismatches reports **71.9%** for a *perfect* decode —
+which reads exactly like a decoder that is nearly right, the most expensive kind
+of wrong answer. The verifier now scores only the cells the game actually
+uploaded and reports the rest separately.
+
+One more trap worth recording: a 4bpp tile index is 10 bits, so a layer
+addresses **1024 tiles = 32 KiB = two** of the 16 KiB tileset streams from its
+character base. Handing the renderer only the first stream draws garbage for
+every index above 511 — which looks like a decode bug and is not one.
+
+The id arrays, unlike the tables, are **live state**: the game rewrites them as
+the world changes, so a comparison must be made against a freshly loaded room,
+not a savestate taken after play.
 
 ---
 

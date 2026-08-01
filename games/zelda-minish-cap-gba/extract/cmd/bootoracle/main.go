@@ -22,6 +22,20 @@ func die(format string, a ...interface{}) {
 	os.Exit(2)
 }
 
+// parseAddr parses an ADDRESS, always as hex. Addresses go through their own
+// parser because guessing the base from the digits is a silent-wrong: "3005600"
+// contains no letters, so a guessing parser reads it as decimal 3,005,600 and
+// dumps 0x2DDCA0 without complaint — a plausible-looking hex dump of entirely
+// the wrong memory.
+func parseAddr(s string) uint64 {
+	s = strings.TrimPrefix(strings.TrimPrefix(s, "0x"), "$")
+	v, err := strconv.ParseUint(s, 16, 64)
+	if err != nil {
+		die("bad address %q (addresses are hex)", s)
+	}
+	return v
+}
+
 func parseNum(s string) uint64 {
 	s = strings.TrimPrefix(s, "0x")
 	if v, err := strconv.ParseUint(s, 16, 64); err == nil && strings.ContainsAny(s, "abcdefABCDEF") {
@@ -50,10 +64,13 @@ func main() {
 	trace := flag.Bool("trace", false, "trace instructions (with -tracen)")
 	tracen := flag.Int("tracen", 200, "how many instructions to trace")
 	traceFrom := flag.String("tracefrom", "", "start tracing at this PC (hex)")
+	dumpbin := flag.String("dumpbin", "", "write raw memory to a file after the run: ADDR:LEN:PATH (hex addr/len) — for disassembling code the game relocated into IWRAM")
 	dump := flag.String("dump", "", "hex-dump memory after the run: ADDR:LEN (hex)")
 	bp := flag.String("bp", "", "halting breakpoint PC (hex, comma-separated)")
 	irqlog := flag.Bool("irqlog", false, "log every interrupt dispatched")
 	shotEvery := flag.Uint64("shotevery", 0, "with -shot: also write a numbered capture every N frames (BASE-000123.png)")
+	declog := flag.Bool("declog", false, "log every BIOS decompression: SWI, ROM/RAM source, destination, size — the game's own asset loads")
+	watch := flag.String("watch", "", "log writes to an address range ADDR:LEN (hex), with the PC that made them")
 	snd := flag.Bool("snd", false, "dump the sound block: mixing registers, PSG channels, and the Direct Sound timer/DMA chain")
 	wav := flag.String("wav", "", "capture the sound the game's driver mixes and write it as a WAV")
 	flag.Parse()
@@ -79,9 +96,53 @@ func main() {
 		m.AudioCapture(true)
 	}
 
+	if *declog {
+		m.OnDecompress = func(swi, src, dst uint32, size int, pc uint32) {
+			kind := map[uint32]string{0x11: "LZ77", 0x12: "LZ77vram", 0x13: "Huffman", 0x14: "RLE", 0x15: "RLEvram"}[swi]
+			fmt.Printf("dec: %-8s src=%08X dst=%08X size=%6d  (pc %08X, frame %d)\n",
+				kind, src, dst, size, pc, m.Frame())
+		}
+	}
+	if *watch != "" {
+		fs := strings.SplitN(*watch, ":", 2)
+		if len(fs) != 2 {
+			die("bad -watch (want ADDR:LEN)")
+		}
+		lo := uint32(parseAddr(fs[0]))
+		hi := lo + uint32(parseAddr(fs[1]))
+		seen := map[uint32]int{}
+		m.OnWrite = func(addr uint32, v byte, pc uint32) {
+			if addr < lo || addr >= hi {
+				return
+			}
+			// One line per WRITER, not per write: a tilemap upload is thousands
+			// of stores from a handful of instructions, and the useful fact is
+			// which instructions.
+			if seen[pc]++; seen[pc] == 1 {
+				fmt.Printf("watch: first write to %08X from pc %08X (frame %d)\n", addr, pc, m.Frame())
+			}
+		}
+		defer func() {
+			type wc struct {
+				pc, n int
+			}
+			var l []wc
+			for pc, n := range seen {
+				l = append(l, wc{int(pc), n})
+			}
+			sort.Slice(l, func(i, j int) bool { return l[i].n > l[j].n })
+			for i, e := range l {
+				if i >= 10 {
+					break
+				}
+				fmt.Printf("watch: pc %08X wrote %d bytes in range\n", uint32(e.pc), e.n)
+			}
+		}()
+	}
+
 	if *bp != "" {
 		for _, s := range strings.Split(*bp, ",") {
-			m.AddBreakpoint(uint32(parseNum(s)))
+			m.AddBreakpoint(uint32(parseAddr(s)))
 		}
 	}
 	if *irqlog {
@@ -96,7 +157,7 @@ func main() {
 		var armed = *traceFrom == ""
 		var from uint32
 		if !armed {
-			from = uint32(parseNum(*traceFrom))
+			from = uint32(parseAddr(*traceFrom))
 		}
 		left := *tracen
 		m.OnStep = func(pc uint32) {
@@ -113,8 +174,11 @@ func main() {
 			code := m.Snapshot(pc, 4)
 			inst := arm.DecodeVariant(code, pc, m.ThumbState(), arm.V4T)
 			r := m.Regs()
-			fmt.Printf("%08X: %-32s r0=%08X r1=%08X r2=%08X r3=%08X sp=%08X lr=%08X\n",
-				pc, inst.Text, r[0], r[1], r[2], r[3], r[13], r[14])
+			fmt.Printf("%08X: %-30s", pc, inst.Text)
+			for i := 0; i < 13; i++ {
+				fmt.Printf(" r%d=%08X", i, r[i])
+			}
+			fmt.Printf(" sp=%08X lr=%08X\n", r[13], r[14])
 		}
 	}
 
@@ -216,7 +280,7 @@ func main() {
 	}
 	if *dump != "" {
 		fs := strings.SplitN(*dump, ":", 2)
-		addr, n := uint32(parseNum(fs[0])), uint32(parseNum(fs[1]))
+		addr, n := uint32(parseAddr(fs[0])), uint32(parseAddr(fs[1]))
 		data := m.Snapshot(addr, n)
 		for i := uint32(0); i < n; i += 16 {
 			end := i + 16
@@ -225,6 +289,17 @@ func main() {
 			}
 			fmt.Printf("%08X: % X\n", addr+i, data[i:end])
 		}
+	}
+	if *dumpbin != "" {
+		fs := strings.SplitN(*dumpbin, ":", 3)
+		if len(fs) != 3 {
+			die("bad -dumpbin (want ADDR:LEN:PATH)")
+		}
+		data := m.Snapshot(uint32(parseAddr(fs[0])), uint32(parseAddr(fs[1])))
+		if err := os.WriteFile(fs[2], data, 0o644); err != nil {
+			die("%v", err)
+		}
+		fmt.Printf("dumpbin: %d bytes from 0x%08X -> %s\n", len(data), parseAddr(fs[0]), fs[2])
 	}
 	if *shot != "" {
 		if err := m.Screenshot(*shot); err != nil {

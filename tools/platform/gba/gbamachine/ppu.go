@@ -433,9 +433,9 @@ func (p *ppu) bitmapLine(m *Machine, mode int, out *lineBuf) {
 
 // objSizes[shape][size] = {width, height} in pixels.
 var objSizes = [3][4][2]int{
-	{{8, 8}, {16, 16}, {32, 32}, {64, 64}},   // square
-	{{16, 8}, {32, 8}, {32, 16}, {64, 32}},   // horizontal
-	{{8, 16}, {8, 32}, {16, 32}, {32, 64}},   // vertical
+	{{8, 8}, {16, 16}, {32, 32}, {64, 64}}, // square
+	{{16, 8}, {32, 8}, {32, 16}, {64, 32}}, // horizontal
+	{{8, 16}, {8, 32}, {16, 32}, {32, 64}}, // vertical
 }
 
 func (p *ppu) objLine(m *Machine, y int, dispcnt uint16,

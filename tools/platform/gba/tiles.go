@@ -313,3 +313,102 @@ func TileSheetUsed(vram []byte, pal Palette, charBase uint32, bpp int, used map[
 	}
 	return img, idx
 }
+
+// --- rooms: the metatile layer -----------------------------------------------
+
+// A Minish Cap room is not stored as a tilemap. It is stored as a grid of
+// METATILE ids, each of which indexes an 8-byte table entry holding four tile
+// entries — the 2x2 block that id expands to. The game's expander (traced to
+// the routine at $0801AB40) walks the id array writing two tile rows at a time,
+// which is why the expanded map's row stride is twice the metatile grid's.
+//
+// This is a common 2-D console idiom rather than a Zelda invention: it buys a
+// 4x smaller map at the cost of one indirection, and it is why searching a ROM
+// for something that looks like a tilemap finds nothing.
+type Room struct {
+	// IDs is the metatile grid, row-major, WidthMeta entries per row.
+	IDs        []uint16
+	WidthMeta  int
+	HeightMeta int
+	// Table is the metatile definition block: 8 bytes (4 tile entries) each,
+	// ordered top-left, top-right, bottom-left, bottom-right.
+	Table []byte
+}
+
+// MetatileFlag marks an id that does not index the table directly. The game
+// compares each id against 0x3FFF and sends anything above it down a separate
+// path (an animated or scripted block); those are emitted as tile 0 here and
+// counted, rather than silently indexing past the table.
+const MetatileFlag = 0x3FFF
+
+// Expand builds the tile map: WidthMeta*2 tiles per row, HeightMeta*2 rows.
+// Returns the map as raw 16-bit entries in the layout the game's expander
+// produces, and how many ids were above MetatileFlag.
+func (r Room) Expand() (tiles []uint16, widthTiles, heightTiles, flagged int) {
+	widthTiles = r.WidthMeta * 2
+	heightTiles = r.HeightMeta * 2
+	tiles = make([]uint16, widthTiles*heightTiles)
+	for my := 0; my < r.HeightMeta; my++ {
+		for mx := 0; mx < r.WidthMeta; mx++ {
+			i := my*r.WidthMeta + mx
+			if i >= len(r.IDs) {
+				continue
+			}
+			id := int(r.IDs[i])
+			if id > MetatileFlag {
+				flagged++
+				continue
+			}
+			off := id * 8
+			if off+8 > len(r.Table) {
+				continue
+			}
+			q := func(n int) uint16 {
+				return uint16(r.Table[off+n*2]) | uint16(r.Table[off+n*2+1])<<8
+			}
+			top := my*2*widthTiles + mx*2
+			bot := top + widthTiles
+			tiles[top] = q(0)
+			tiles[top+1] = q(1)
+			tiles[bot] = q(2)
+			tiles[bot+1] = q(3)
+		}
+	}
+	return tiles, widthTiles, heightTiles, flagged
+}
+
+// RenderTiles draws a raw tile-entry map (as Expand produces) with the given
+// character data and palette.
+func RenderTiles(tiles []uint16, widthTiles, heightTiles int, vram []byte, pal Palette, charBase uint32, bpp int) *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, widthTiles*8, heightTiles*8))
+	for ty := 0; ty < heightTiles; ty++ {
+		for tx := 0; tx < widthTiles; tx++ {
+			e := tiles[ty*widthTiles+tx]
+			tile := int(e & 0x3FF)
+			hflip, vflip := e&(1<<10) != 0, e&(1<<11) != 0
+			bank := int(e >> 12)
+			for py := 0; py < 8; py++ {
+				sy := py
+				if vflip {
+					sy = 7 - py
+				}
+				row := TileRow(vram, charBase, tile, sy, bpp)
+				for px := 0; px < 8; px++ {
+					sx := px
+					if hflip {
+						sx = 7 - px
+					}
+					v := int(row[sx])
+					if v == 0 {
+						continue
+					}
+					if bpp == 4 {
+						v += bank * 16
+					}
+					img.SetRGBA(tx*8+px, ty*8+py, pal.RGBA(v))
+				}
+			}
+		}
+	}
+	return img
+}

@@ -2,6 +2,7 @@ package gbamachine
 
 import (
 	"encoding/binary"
+	"strings"
 	"testing"
 
 	"retroreverse.com/tools/platform/gba"
@@ -420,5 +421,48 @@ func TestExporterAgreesWithPPU(t *testing.T) {
 	}
 	if diff != 0 {
 		t.Errorf("exporter and PPU disagree on %d of %d pixels", diff, screenW*screenH)
+	}
+}
+
+// TestPureDecompressorMatchesBIOS guards the second deliberate duplication: the
+// BIOS SWI decompressors here work through the bus into a live machine's
+// memory, while tools/platform/gba's work on a plain byte slice for offline
+// extraction. Same algorithm, two call shapes — so run both over one stream and
+// require identical bytes.
+func TestPureDecompressorMatchesBIOS(t *testing.T) {
+	m := newTest(t)
+	b := &bus{m: m}
+
+	// 5 literals then three back-references. The last has length 18 and
+	// displacement 1 — a reference LONGER than its displacement, which is how
+	// the format encodes a run and what a block copy gets wrong (it would read
+	// bytes that have not been written yet).
+	want := "ZELDAZELDAZELDA" + strings.Repeat("A", 18)
+	stream := []byte{0x10, byte(len(want)), 0x00, 0x00,
+		0b00000111,              // tokens: 5 literals, then 3 references
+		'Z', 'E', 'L', 'D', 'A', //
+		0x20, 0x04, // length 5, displacement 5
+		0x20, 0x04, // length 5, displacement 5
+		0xF0, 0x00, // length 18, displacement 1 -> a run
+	}
+
+	for i, v := range stream {
+		b.Write(0x02000000+uint32(i), v)
+	}
+	m.lz77(b, 0x02000000, 0x03000000, false)
+	fromBIOS := make([]byte, len(want))
+	for i := range fromBIOS {
+		fromBIOS[i] = b.Read(0x03000000 + uint32(i))
+	}
+
+	fromPure, err := gba.LZ77Decompress(stream)
+	if err != nil {
+		t.Fatalf("pure decoder: %v", err)
+	}
+	if string(fromPure) != want {
+		t.Errorf("pure decoder = %q, want %q", fromPure, want)
+	}
+	if string(fromBIOS) != want {
+		t.Errorf("BIOS decoder = %q, want %q", fromBIOS, want)
 	}
 }

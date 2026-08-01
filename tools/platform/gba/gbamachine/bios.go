@@ -143,12 +143,15 @@ func biosSWI(m *Machine) func(*arm.CPU, uint32) bool {
 			m.bitUnPack(b, c.R[0], c.R[1], c.R[2])
 
 		case 0x11, 0x12: // LZ77UnComp to WRAM (byte writes) / VRAM (halfword writes)
+			m.noteDecompress(b, n, c.R[0], c.R[1], c.R[15])
 			m.lz77(b, c.R[0], c.R[1], n == 0x12)
 
 		case 0x13: // HuffUnComp
+			m.noteDecompress(b, n, c.R[0], c.R[1], c.R[15])
 			m.huffman(b, c.R[0], c.R[1])
 
 		case 0x14, 0x15: // RLUnComp WRAM/VRAM
+			m.noteDecompress(b, n, c.R[0], c.R[1], c.R[15])
 			m.rle(b, c.R[0], c.R[1], n == 0x15)
 
 		case 0x19: // SoundBias — sound is not modelled yet; the bias write is harmless
@@ -167,6 +170,17 @@ func biosSWI(m *Machine) func(*arm.CPU, uint32) bool {
 		}
 		return true
 	}
+}
+
+// noteDecompress reports a decompression to the OnDecompress hook. The size
+// comes out of the stream's own header, so the report names the compressed
+// source AND how much it expands to — which is exactly what is needed to find
+// an asset in the ROM and then check a reimplemented decoder against it.
+func (m *Machine) noteDecompress(b *bus, swi, src, dst, pc uint32) {
+	if m.OnDecompress == nil {
+		return
+	}
+	m.OnDecompress(swi, src, dst, int(b.Read32(src)>>8), pc)
 }
 
 // intrWait implements SWI 4/5: the BIOS enables IME, optionally discards stale

@@ -115,6 +115,17 @@ type Machine struct {
 	// screenshot is taken.
 	OnFrame func()
 
+	// OnWrite observes every byte the CPU stores, with the PC that stored it.
+	// This is what a write-watch is made of: the way to find the code that
+	// produced a value is to watch the address and capture the writer, not to
+	// guess at the format of what landed there.
+	OnWrite func(addr uint32, v byte, pc uint32)
+
+	// OnDecompress reports every BIOS decompression the game performs: which
+	// SWI, the source and destination addresses, and how many bytes came out.
+	// The game's own asset loads, narrated by the library it calls.
+	OnDecompress func(swi uint32, src, dst uint32, size int, pc uint32)
+
 	// Debugger control.
 	bps       map[uint32]bool
 	stop      bool
