@@ -138,30 +138,42 @@ func main() {
 		fmt.Printf("v%d: st=%.3f,%.3f q=%.4f rgba=%v xyz=%v adc=%v\n", i,
 			vs[i].ST[0], vs[i].ST[1], vs[i].ST[2], vs[i].RGBA, vs[i].XYZ, vs[i].ADC)
 	}
-	for ei := range c.Effects {
-		e := &c.Effects[ei]
-		for fi := range e.Fragments {
-			f2 := &e.Fragments[fi]
-			cfg2 := *cfg
-			cfg2.Bones = merc.IdentityBones(f2)
-			topo, err := merc.EmulateTopology(&cfg2, f2)
-			nv := f2.LumpQWC / 3
-			valid := 0
-			if err == nil {
-				for _, t := range topo {
-					if t.Index >= 0 && t.Index < nv {
-						valid++
-					}
+	sess, serr := merc.NewSession(micro, low, obj[0x1244+28:0x1244+44], cfg.STMagic)
+	check(serr)
+	e0 := &c.Effects[0]
+	gbase := 0
+	for fi := 0; fi < 6 && fi < len(e0.Fragments); fi++ {
+		f2 := &e0.Fragments[fi]
+		topo, terr := sess.RunFragment(f2, gbase)
+		nv := f2.LumpQWC / 3
+		valid := 0
+		if terr == nil {
+			for _, t := range topo {
+				if t.Index >= 0 && t.Index < gbase+nv {
+					valid++
 				}
 			}
-			status := ""
-			if err != nil {
-				status = "ERR " + err.Error()[:30]
-			}
-			if fi < 6 || valid*10 < len(topo)*9 {
-				fmt.Printf("  e%d f%d: nv=%d topo=%d valid=%d hdr=%v %s\n", ei, fi, nv, len(topo), valid, f2.ByteData[:16], status)
-			}
 		}
+		fmt.Printf("f%d: nv=%d topo=%d valid=%d", fi, nv, len(topo), valid)
+		if terr != nil {
+			fmt.Print(" ERR ", terr)
+		}
+		if fi >= 1 && fi <= 2 {
+			fmt.Print(" [")
+			for i, t := range topo {
+				if i > 24 {
+					break
+				}
+				m := ""
+				if t.ADC {
+					m = "A"
+				}
+				fmt.Printf("%d%s ", t.Index, m)
+			}
+			fmt.Print("]")
+		}
+		fmt.Println()
+		gbase += nv
 	}
 }
 

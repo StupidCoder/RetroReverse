@@ -330,7 +330,9 @@ func NewSession(micro, lowMem, ctrlRow []byte, stMagic uint32) (*Session, error)
 	if _, ok := v.Run(0, 4000); !ok {
 		return nil, fmt.Errorf("merc session: init prologue did not halt")
 	}
-	return &Session{v: v, magic: stMagic, first: true}, nil
+	// VIF double buffering: BASE 0x1BA, OFFSET 582 — TOPS alternates
+	// 442, (442+582)%1024 = 0, starting at BASE (DBF=0).
+	return &Session{v: v, magic: stMagic, top: 442, first: true}, nil
 }
 
 // RunFragment feeds one fragment (vertex indices globally encoded from
@@ -386,19 +388,56 @@ func (s *Session) RunFragment(fr *Fragment, gbase int) ([]TopoVert, error) {
 		copy(data[uint32(m.Dest)*16:], img)
 	}
 
+	// Diagnostic hygiene: clear both output halves so this fragment's
+	// packet cannot alias a stale one.
+	for q := 371; q < 582; q++ {
+		for k := 0; k < 16; k++ {
+			data[q*16+k] = 0
+		}
+	}
+	for q := 813; q < 1024; q++ {
+		for k := 0; k < 16; k++ {
+			data[q*16+k] = 0
+		}
+	}
 	s.v.Top = s.top
-	entry := uint32(0xA0)
+	entry := uint32(0x88)
 	if s.first {
-		entry = 0x88
+		entry = 0xA0
 		s.first = false
 	}
 	if _, ok := s.v.Run(entry, 400000); !ok {
 		return nil, fmt.Errorf("merc session: fragment did not halt")
 	}
-	packet := top + 371 + uint32(fr.FPQWC)
-	vs, err := parseGIF(s.v.Data, packet)
-	if err != nil {
-		return nil, err
+	// Strips span fragments: the GIF tag is only patched when a strip
+	// closes, so per-fragment packets may be tagless. Harvest the slots
+	// directly: each vertex is 3 quadwords {ST, RGBA, XYZF2}; our encoded
+	// RGBA words ({idx16, 0, 0, 0x80}) identify vertices, the XYZ word's
+	// bit 15 is ADC. Slots are consecutive in strip order.
+	half := [2]uint32{371, 582}
+	lo := half[0]
+	if top == 442 {
+		lo = 813
+	}
+	hi := lo + 211
+	if lo == 371 {
+		hi = 571
+	}
+	var vs []OutVert
+	for q := lo; q+2 < hi; q++ {
+		w0 := binary.LittleEndian.Uint32(data[(q&1023)*16:])
+		w1 := binary.LittleEndian.Uint32(data[(q&1023)*16+4:])
+		w2 := binary.LittleEndian.Uint32(data[(q&1023)*16+8:])
+		w3 := binary.LittleEndian.Uint32(data[(q&1023)*16+12:])
+		if w3 == 0x80 && w1 == 0 && w2 == 0 && w0 >= 1 && w0 < 65536 {
+			// RGBA slot at q; XYZ slot at q-2 carries the ADC bit.
+			adcw := binary.LittleEndian.Uint32(data[((q-2)&1023)*16+12:])
+			vs = append(vs, OutVert{
+				RGBA: [4]uint8{uint8(w0), uint8(w0 >> 8), 0, 0x80},
+				ADC:  adcw&0x8000 != 0,
+			})
+			q += 2
+		}
 	}
 	if s.top == 0 {
 		s.top = 442
