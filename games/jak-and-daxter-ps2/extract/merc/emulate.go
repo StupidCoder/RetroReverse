@@ -26,6 +26,9 @@ type EmuConfig struct {
 	Entry uint32 // microcode entry, byte address (0x128 for the merc main entry)
 	Init  bool   // run the constant-derivation prologue (entry 0) first
 	TracePC func(v *vu.VU, pc uint32)
+	DumpMem func(mem []byte)
+	ParseAt uint32 // if nonzero, parse the GIF packet here instead of the kick address
+	STMagic uint32 // the merc-ctrl's +44 word (the STROW x/y value)
 	Top   uint16 // input double-buffer base in quadwords
 }
 
@@ -43,7 +46,10 @@ func Emulate(cfg *EmuConfig, fr *Fragment, stMagic uint32) ([]OutVert, error) {
 	data := make([]byte, 16384)
 	copy(data, cfg.LowMem)
 
-	row := [4]uint32{0x47800000, 0x4B010000, stMagic, stMagic}
+	// STROW as draw-bones-merc's chain assembles it: the ctrl+44 word,
+	// then 0, 65536.0, 8454144.0 (the tag's vif1 slot is overwritten with
+	// ctrl+44 and becomes the first STROW data word).
+	row := [4]uint32{stMagic, stMagic, 0x47800000, 0x4B010000}
 	top := uint32(cfg.Top)
 
 	put := func(qw uint32, vals [4]uint32) {
@@ -52,11 +58,12 @@ func Emulate(cfg *EmuConfig, fr *Fragment, stMagic uint32) ([]OutVert, error) {
 		}
 	}
 	// V4-8 with STMOD 1: each source byte lands in one word as row[k]+b.
+	// Byte region: STMOD 0 — raw bytes (t2's vif words are {NOP, UNPACK}).
 	addr := top + 140
 	for r := 0; r < fr.ByteQWC; r++ {
 		var w [4]uint32
 		for k := 0; k < 4; k++ {
-			w[k] = row[k] + uint32(fr.ByteData[r*4+k])
+			w[k] = uint32(fr.ByteData[r*4+k])
 		}
 		put(addr, w)
 		addr++
@@ -106,16 +113,26 @@ func Emulate(cfg *EmuConfig, fr *Fragment, stMagic uint32) ([]OutVert, error) {
 			return nil, fmt.Errorf("merc emulate: init prologue did not halt; %x", v.BranchTrail())
 		}
 	}
-	if _, ok := v.Run(cfg.Entry, 400000); !ok {
-		return nil, fmt.Errorf("merc emulate: did not halt; last branches %x", v.BranchTrail())
+	halted := false
+	if _, ok := v.Run(cfg.Entry, 400000); ok {
+		halted = true
+	}
+	if cfg.DumpMem != nil {
+		cfg.DumpMem(v.Data)
 	}
 	var out []OutVert
+	if cfg.ParseAt != 0 {
+		kicks = []uint32{cfg.ParseAt}
+	}
 	for _, k := range kicks {
 		vs, err := parseGIF(v.Data, k)
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, vs...)
+	}
+	if !halted {
+		return out, fmt.Errorf("merc emulate: did not halt (%d kicks first); last branches %x", len(kicks), v.BranchTrail())
 	}
 	return out, nil
 }
@@ -171,3 +188,238 @@ func parseGIF(mem []byte, qw uint32) ([]OutVert, error) {
 }
 
 func f32bits(v uint32) float32 { return float32frombits(v) }
+
+// TopoVert is one packet vertex: which input vertex it is, and its ADC bit.
+type TopoVert struct {
+	Index int
+	ADC   bool
+}
+
+// EmulateTopology runs the fragment with vertex indices encoded into the
+// color-record stream (byte-region records, one per vertex, read one behind
+// the UV cursor), then reads them back from the packet's RGBA slots: the
+// exact strip order and ADC bits, keyed to input vertices.
+func EmulateTopology(cfg *EmuConfig, fr *Fragment) ([]TopoVert, error) {
+	patched := *fr
+	patched.ByteData = append([]byte(nil), fr.ByteData...)
+	// The color cursor starts one quadword after the UV cursor
+	// (hdr.byte12+1); record k in that stream colors vertex k.
+	base := (int(fr.ByteData[12]) + 1) * 4
+	nv := fr.LumpQWC / 3
+	for v := 0; base+v*4+3 < len(patched.ByteData) && v < nv+2; v++ {
+		patched.ByteData[base+v*4] = byte(v + 1) // +1: 0 is unused (visible vs zero-fill)
+		patched.ByteData[base+v*4+1] = 0
+		patched.ByteData[base+v*4+2] = 0
+		patched.ByteData[base+v*4+3] = 0x80
+	}
+	cfg2 := *cfg
+	cfg2.ParseAt = uint32(371 + fr.FPQWC)
+	vs, err := Emulate(&cfg2, &patched, cfg.STMagic)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]TopoVert, 0, len(vs))
+	for _, v := range vs {
+		out = append(out, TopoVert{Index: int(v.RGBA[0]) - 1, ADC: v.ADC})
+	}
+	return out, nil
+}
+
+// FindMicro locates the merc microprogram in ENGINE.CGO's raw entries: the
+// vu-function header {0x7E5, 0, 0x3F3, 0} followed by the code (VU code
+// carries no relocations, so the raw payload bytes are the program).
+func FindMicro(entries [][]byte) []byte {
+	needle := []byte{0xE5, 0x07, 0, 0, 0, 0, 0, 0, 0xF3, 0x03, 0, 0, 0, 0, 0, 0}
+	for _, e := range entries {
+		for i := 0; i+16+0x3F30 <= len(e); i++ {
+			match := true
+			for k, b := range needle {
+				if e[i+k] != b {
+					match = false
+					break
+				}
+			}
+			if match {
+				return e[i+16 : i+16+0x3F30]
+			}
+		}
+	}
+	return nil
+}
+
+// DefaultLowMem builds the constant block the chain would upload, using the
+// engine's own tag templates and a reference *math-camera* (captured live;
+// any well-formed camera works — the packet structure, not the projected
+// positions, is what topology extraction consumes).
+func DefaultLowMem() []byte {
+	low := make([]byte, 140*16)
+	put := func(qw, k int, v uint32) {
+		binary.LittleEndian.PutUint32(low[qw*16+k*4:], v)
+	}
+	put(0, 1, 0x301E4000) // GIF tag template: NREG 3, regs ST/RGBAQ/XYZF2
+	put(0, 2, 0x412)
+	put(1, 0, 5) // adgif tag: NLOOP 5, A+D
+	put(1, 1, 0x10000000)
+	put(1, 2, 14)
+	cam := [4][4]uint32{ // *math-camera* rows at title-logo
+		{0xBED66E1D, 0, 0, 0},
+		{0, 0xBE7A2B23, 0, 0},
+		{0, 0, 0xC5C808F1, 0xB8151DE3},
+		{0, 0, 0x4B4807A9, 0},
+	}
+	for r, row := range cam {
+		for k, v := range row {
+			put(3+r, k, v)
+		}
+	}
+	for k, v := range []uint32{0x45000000, 0x4AFFBF9B, 0x438428EE, 0x40800000} {
+		put(2, k, v) // hvdf offset
+	}
+	for k, v := range []uint32{0xBD3EA7E6, 0x3F800000, 0x3F800000, 0} {
+		put(7, k, v) // fog row
+	}
+	put(132, 3, 0x3F800000) // q divisor 1.0
+	for k := 0; k < 4; k++ {
+		put(138, k, 0x3F800000) // ambient 1: colors pass through
+	}
+	return low
+}
+
+// IdentityBones returns a bone image map covering the fragment's transfers
+// with identity matrices (rest/object pose).
+func IdentityBones(fr *Fragment) map[byte][]byte {
+	ident := make([]byte, 7*16)
+	for r := 0; r < 4; r++ {
+		binary.LittleEndian.PutUint32(ident[r*16+r*4:], 0x3F800000)
+	}
+	for r := 4; r < 7; r++ {
+		binary.LittleEndian.PutUint32(ident[r*16+(r-4)*4:], 0x3F800000)
+	}
+	m := map[byte][]byte{}
+	for _, x := range fr.Mats {
+		m[x.Index] = ident
+	}
+	return m
+}
+
+// Session runs an effect's fragments sequentially in one VU with real
+// double-buffering, so cross-fragment vertex reuse (header bytes 8/9) finds
+// the previous fragment's actual output.
+type Session struct {
+	v     *vu.VU
+	magic uint32
+	top   uint16
+	first bool
+}
+
+// NewSession builds the VU with the microprogram, low-mem block and ctrl row
+// installed, and runs the init prologue.
+func NewSession(micro, lowMem, ctrlRow []byte, stMagic uint32) (*Session, error) {
+	m := micro
+	if len(m) < 16384 {
+		mm := make([]byte, 16384)
+		copy(mm, m)
+		m = mm
+	}
+	data := make([]byte, 16384)
+	copy(data, lowMem)
+	if len(ctrlRow) >= 16 {
+		copy(data[139*16:], ctrlRow[:16])
+	}
+	v := vu.New(m, data)
+	if _, ok := v.Run(0, 4000); !ok {
+		return nil, fmt.Errorf("merc session: init prologue did not halt")
+	}
+	return &Session{v: v, magic: stMagic, first: true}, nil
+}
+
+// RunFragment feeds one fragment (vertex indices globally encoded from
+// gbase) and returns its packet topology.
+func (s *Session) RunFragment(fr *Fragment, gbase int) ([]TopoVert, error) {
+	patched := *fr
+	patched.ByteData = append([]byte(nil), fr.ByteData...)
+	base := (int(fr.ByteData[12]) + 1) * 4
+	nv := fr.LumpQWC / 3
+	for v := 0; base+v*4+3 < len(patched.ByteData) && v < nv+2; v++ {
+		idx := gbase + v + 1
+		patched.ByteData[base+v*4] = byte(idx)
+		patched.ByteData[base+v*4+1] = byte(idx >> 8)
+		patched.ByteData[base+v*4+2] = 0
+		patched.ByteData[base+v*4+3] = 0x80
+	}
+
+	data := s.v.Data
+	row := [4]uint32{s.magic, s.magic, 0x47800000, 0x4B010000}
+	top := uint32(s.top)
+	put := func(qw uint32, vals [4]uint32) {
+		for k, val := range vals {
+			binary.LittleEndian.PutUint32(data[(qw&1023)*16+uint32(k)*4:], val)
+		}
+	}
+	addr := top + 140
+	for r := 0; r < patched.ByteQWC; r++ {
+		var w [4]uint32
+		for k := 0; k < 4; k++ {
+			w[k] = uint32(patched.ByteData[r*4+k])
+		}
+		put(addr, w)
+		addr++
+	}
+	for r := 0; r < patched.LumpQWC; r++ {
+		var w [4]uint32
+		for k := 0; k < 4; k++ {
+			w[k] = row[k] + uint32(patched.LumpData[r*4+k])
+		}
+		put(addr, w)
+		addr++
+	}
+	for r := 0; r < patched.FPQWC; r++ {
+		var w [4]uint32
+		for k := 0; k < 4; k++ {
+			w[k] = binary.LittleEndian.Uint32(patched.FPData[r*16+k*4:])
+		}
+		put(addr, w)
+		addr++
+	}
+	for _, m := range fr.Mats {
+		img := identBone()
+		copy(data[uint32(m.Dest)*16:], img)
+	}
+
+	s.v.Top = s.top
+	entry := uint32(0xA0)
+	if s.first {
+		entry = 0x88
+		s.first = false
+	}
+	if _, ok := s.v.Run(entry, 400000); !ok {
+		return nil, fmt.Errorf("merc session: fragment did not halt")
+	}
+	packet := top + 371 + uint32(fr.FPQWC)
+	vs, err := parseGIF(s.v.Data, packet)
+	if err != nil {
+		return nil, err
+	}
+	if s.top == 0 {
+		s.top = 442
+	} else {
+		s.top = 0
+	}
+	out := make([]TopoVert, 0, len(vs))
+	for _, v := range vs {
+		idx := int(v.RGBA[0]) | int(v.RGBA[1])<<8
+		out = append(out, TopoVert{Index: idx - 1, ADC: v.ADC})
+	}
+	return out, nil
+}
+
+func identBone() []byte {
+	b := make([]byte, 7*16)
+	for r := 0; r < 4; r++ {
+		binary.LittleEndian.PutUint32(b[r*16+r*4:], 0x3F800000)
+	}
+	for r := 4; r < 7; r++ {
+		binary.LittleEndian.PutUint32(b[r*16+(r-4)*4:], 0x3F800000)
+	}
+	return b
+}
