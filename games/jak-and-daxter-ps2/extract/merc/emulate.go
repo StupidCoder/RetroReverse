@@ -24,6 +24,8 @@ type EmuConfig struct {
 	// Bones maps a matrix-palette index to its 7-quadword upload image.
 	Bones map[byte][]byte
 	Entry uint32 // microcode entry, byte address (0x128 for the merc main entry)
+	Init  bool   // run the constant-derivation prologue (entry 0) first
+	TracePC func(v *vu.VU, pc uint32)
 	Top   uint16 // input double-buffer base in quadwords
 }
 
@@ -94,8 +96,16 @@ func Emulate(cfg *EmuConfig, fr *Fragment, stMagic uint32) ([]OutVert, error) {
 	v := vu.New(micro, data)
 	v.Top = cfg.Top
 	v.ResetBranchLog(16)
+	if cfg.TracePC != nil {
+		v.Trace = func(vm *vu.VU, pc uint32, raw uint64) { cfg.TracePC(vm, pc) }
+	}
 	var kicks []uint32
 	v.XGKick = func(qw uint32) { kicks = append(kicks, qw) }
+	if cfg.Init {
+		if _, ok := v.Run(0, 4000); !ok {
+			return nil, fmt.Errorf("merc emulate: init prologue did not halt; %x", v.BranchTrail())
+		}
+	}
 	if _, ok := v.Run(cfg.Entry, 400000); !ok {
 		return nil, fmt.Errorf("merc emulate: did not halt; last branches %x", v.BranchTrail())
 	}
