@@ -359,7 +359,11 @@ func decodeMisc(w uint32, in Inst, immForm bool) Inst {
 		in.Text = fmt.Sprintf("%s %s, %s, %s", in.Mnem, regName[(w>>12)&0xF], regName[w&0xF], regName[(w>>16)&0xF])
 		return in
 	case 0b0111: // BKPT
-		if op == 0b1010 {
+		// The op field here is bits 24:21 of `cond 0001 0010 imm12 0111 imm4`,
+		// which is 0b1001 — not 0b1010, as this read until the ARMv4T variant's
+		// test pushed a known BKPT through both decoders and found only the
+		// executor recognised it.
+		if op == 0b1001 {
 			in.Mnem = "BKPT"
 			imm16 := (w>>4)&0xFFF0 | (w & 0xF)
 			in.Text = fmt.Sprintf("BKPT #0x%X", imm16)
@@ -718,7 +722,11 @@ func decodeUncond(w, addr uint32, in Inst) Inst {
 		in.Text = fmt.Sprintf("BLX 0x%08X", target)
 		in.Flow, in.Target, in.HasTarget, in.TargetThumb = FlowCall, target, true, true // switches to Thumb
 		return in
-	case (w>>26)&3 == 0b01 && (w>>20)&0xF7 == 0xF5: // PLD [Rn, …] — a cache hint, no effect on flow
+	// PLD [Rn, …] — a cache hint, no effect on flow. Bits 27:20 are `0101 U101`;
+	// masking the U bit out with 0xF7 leaves 0x55, NOT 0xF5 (which this compared
+	// against, so PLD silently fell through to `.word` until the ARMv4T variant's
+	// control case pushed a known PLD through the V5TE decoder).
+	case (w>>26)&3 == 0b01 && (w>>20)&0xF7 == 0x55:
 		in.Mnem = "PLD"
 		in.Text = fmt.Sprintf("PLD [%s]", regName[(w>>16)&0xF])
 		return in

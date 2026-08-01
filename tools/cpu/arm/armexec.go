@@ -32,7 +32,7 @@ func (c *CPU) stepARM() int {
 	w := c.read32aligned(c.cur)
 	cond := int(w >> 28)
 	if cond == condNV {
-		if c.Arch >= V6K && c.execUncondARMv6(w) {
+		if c.Arch.isV6() && c.execUncondARMv6(w) {
 			return 1
 		}
 		return c.execUncondARM(w)
@@ -43,7 +43,7 @@ func (c *CPU) stepARM() int {
 	}
 	// On ARMv6K the additions are tried first; they alias slots ARMv5TE assigns
 	// to SWP and MUL, so the base decoder must not see them (see variant.go).
-	if c.Arch >= V6K && c.execARMv6(w) {
+	if c.Arch.isV6() && c.execARMv6(w) {
 		if !c.branched {
 			c.R[15] = c.cur + 4
 		}
@@ -57,6 +57,13 @@ func (c *CPU) stepARM() int {
 }
 
 func (c *CPU) execUncondARM(w uint32) int {
+	// The whole unconditional space (cond == 0b1111) is UNDEFINED on ARMv4T: the
+	// ARM7TDMI treats 0xF-condition as "never", so BLX <imm> and PLD do not exist
+	// and such a word is a decode error rather than a branch.
+	if !c.Arch.v5OrLater() {
+		c.undefV4T(w, "cond=0b1111 (BLX immediate / PLD)")
+		return 1
+	}
 	if (w>>25)&7 == 0b101 { // BLX <imm> → switch to Thumb
 		h := (w >> 24) & 1
 		off := signExtend(w&0xFFFFFF, 24)<<2 | h<<1
@@ -366,13 +373,21 @@ func (c *CPU) execHalf(w uint32, sh uint32) {
 	case l == 0 && sh == 1: // STRH
 		writeback()
 		c.write16(addr, c.reg(rd))
-	case l == 0 && sh == 2: // LDRD — load Rd, Rd+1 from [addr], [addr+4]
+	case l == 0 && sh == 2: // LDRD — load Rd, Rd+1 from [addr], [addr+4] (ARMv5TE)
+		if !c.Arch.v5OrLater() {
+			c.undefV4T(w, "LDRD")
+			return
+		}
 		lo := c.read32(addr)
 		hi := c.read32(addr + 4)
 		writeback()
 		c.setReg(rd, lo)
 		c.setReg(rd+1, hi)
-	default: // l == 0 && sh == 3: STRD — store Rd, Rd+1 to [addr], [addr+4]
+	default: // l == 0 && sh == 3: STRD — store Rd, Rd+1 to [addr], [addr+4] (ARMv5TE)
+		if !c.Arch.v5OrLater() {
+			c.undefV4T(w, "STRD")
+			return
+		}
 		lo := c.reg(rd)
 		hi := c.reg(rd + 1)
 		writeback()

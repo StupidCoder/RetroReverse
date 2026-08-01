@@ -276,7 +276,7 @@ func (c *CPU) read32(a uint32) uint32 {
 	// an unaligned address returned e.g. 6 ROR 24 = 0x600 instead of 6 — this
 	// broke the game's MSBT label→index lookup (an index stored at an unaligned
 	// offset), rendering every such message as "NULL".
-	if c.Arch >= V6K {
+	if c.Arch.isV6() {
 		if c.wide != nil && a&3 == 0 {
 			return c.wide.Read32(a)
 		}
@@ -329,7 +329,7 @@ func (c *CPU) read32aligned(a uint32) uint32 {
 // re-appended a node that was still linked (X.next = X) and the sound thread
 // spun forever on the walk. One masked address, one dead game.
 func (c *CPU) write32(a, v uint32) {
-	if c.Arch < V6K {
+	if !c.Arch.isV6() {
 		a &^= 3
 	}
 	if c.wide != nil && a&3 == 0 {

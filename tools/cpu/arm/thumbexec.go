@@ -83,6 +83,10 @@ func (c *CPU) execThumb(h uint32) {
 		c.R[14] = (c.cur + 2) | 1
 		c.branchTo(target)
 	case h>>11 == 0b11101: // 19: BLX suffix — switch to ARM
+		if !c.Arch.v5OrLater() {
+			c.Halt("Thumb BLX (immediate) is undefined on ARMv4T: 0x%04X at 0x%08X", h, c.cur)
+			return
+		}
 		target := (c.R[14] + (h&0x7FF)<<1) &^ 3
 		c.R[14] = (c.cur + 2) | 1
 		c.Thumb = false
@@ -202,7 +206,11 @@ func (c *CPU) thumbHiRegExec(h uint32) {
 			c.R[rd] = v
 		}
 	default: // 0b11: BX / BLX
-		if (h>>7)&1 == 1 { // BLX
+		if (h>>7)&1 == 1 { // BLX (register, ARMv5)
+			if !c.Arch.v5OrLater() {
+				c.Halt("Thumb BLX (register) is undefined on ARMv4T: 0x%04X at 0x%08X", h, c.cur)
+				return
+			}
 			c.R[14] = (c.cur + 2) | 1
 		}
 		c.bxTo(c.reg(rm))

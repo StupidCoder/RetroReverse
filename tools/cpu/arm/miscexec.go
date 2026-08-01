@@ -11,6 +11,10 @@ func (c *CPU) execMisc(w uint32, immForm bool) {
 		return
 	}
 	if (w>>7)&1 == 1 { // signed multiplies (SMLAxy family)
+		if !c.Arch.v5OrLater() {
+			c.undefV4T(w, "SMLAxy")
+			return
+		}
 		c.execSignedMul(w)
 		return
 	}
@@ -29,25 +33,50 @@ func (c *CPU) execMisc(w uint32, immForm bool) {
 		switch op {
 		case 0b1001: // BX
 			c.bxTo(c.reg(w & 0xF))
-		case 0b1011: // CLZ
+		case 0b1011: // CLZ (ARMv5)
+			if !c.Arch.v5OrLater() {
+				c.undefV4T(w, "CLZ")
+				return
+			}
 			c.setReg((w>>12)&0xF, uint32(bits.LeadingZeros32(c.reg(w&0xF))))
 		default:
 			c.Halt("unimplemented misc 0x%08X at 0x%08X", w, c.cur)
 		}
-	case 0b0011: // BLX (register)
+	case 0b0011: // BLX (register, ARMv5)
 		if op == 0b1001 {
+			if !c.Arch.v5OrLater() {
+				c.undefV4T(w, "BLX (register)")
+				return
+			}
 			c.R[14] = c.cur + 4
 			c.bxTo(c.reg(w & 0xF))
 		} else {
 			c.Halt("unimplemented misc 0x%08X at 0x%08X", w, c.cur)
 		}
-	case 0b0101: // QADD / QSUB / QDADD / QDSUB
+	case 0b0101: // QADD / QSUB / QDADD / QDSUB (ARMv5TE)
+		if !c.Arch.v5OrLater() {
+			c.undefV4T(w, "QADD/QSUB")
+			return
+		}
 		c.execSaturating(w)
-	case 0b0111: // BKPT
+	case 0b0111: // BKPT (ARMv5)
+		if !c.Arch.v5OrLater() {
+			c.undefV4T(w, "BKPT")
+			return
+		}
 		c.Halt("BKPT #0x%X at 0x%08X", (w>>4)&0xFFF0|(w&0xF), c.cur)
 	default:
 		c.Halt("unimplemented misc 0x%08X at 0x%08X", w, c.cur)
 	}
+}
+
+// undefV4T halts on an encoding that exists on ARMv5 but is UNDEFINED on the
+// ARMv4T (the GBA's ARM7TDMI). Naming the instruction the encoding would have
+// been elsewhere is the point: reaching one means either the model is running
+// data as code, or this really is a v5 binary and the caller set the wrong
+// variant — and both are worth saying out loud rather than executing.
+func (c *CPU) undefV4T(w uint32, name string) {
+	c.Halt("%s is undefined on ARMv4T: 0x%08X at 0x%08X", name, w, c.cur)
 }
 
 func (c *CPU) execMSR(w uint32, immForm bool) {
