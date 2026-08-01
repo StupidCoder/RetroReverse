@@ -73,13 +73,28 @@ func main() {
 		}
 	}
 
+	// Accumulate every program the frame uploads: one head's chain only
+	// carries part of the code, so a dry pass over all of them builds the
+	// program memory the real VU would hold.
+	pre := merc.NewReplayer(ram)
+	pre.SkipRun = true
+	for _, h := range heads {
+		pre.Play(h)
+	}
+
+	hits := 0
+	var allData []uint32
 	seen := map[string]bool{}
 	var tris [][3]uint32
 	kept := 0
 	for _, h := range heads {
 		r := merc.NewReplayer(ram)
-		copy(r.V.Micro, micro)
+		r.RefLo, r.RefHi = 0x13A1210, 0x13A1210+0x2B000
+		copy(r.V.Micro, pre.V.Micro)
+		_ = micro
 		r.Play(h)
+		hits += r.RefHits
+		allData = append(allData, r.Refs...)
 		for _, pk := range r.Packets {
 			idx := make([]int, 0, len(pk))
 			adc := make([]bool, 0, len(pk))
@@ -131,7 +146,17 @@ func main() {
 			}
 		}
 	}
-	fmt.Printf("%d packets kept, %d triangles\n", kept, len(tris))
+	fmt.Printf("%d packets kept, %d triangles, artgroup-sourced tags %d\n", kept, len(tris), hits)
+	buckets := map[uint32]int{}
+	for _, a := range allData {
+		buckets[a>>16]++
+	}
+	fmt.Println("big-transfer sources by 64K page:")
+	for k, v := range buckets {
+		if v > 20 {
+			fmt.Printf("  0x%X0000: %d\n", k, v)
+		}
+	}
 	if len(tris) == 0 {
 		return
 	}

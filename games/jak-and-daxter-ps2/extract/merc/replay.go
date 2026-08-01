@@ -108,6 +108,12 @@ func (r *Replayer) Play(addr uint32) error {
 		if r.Trace {
 			fmt.Printf("dma@%06X id=%d qwc=%d ref=%06X vif=%08X %08X\n", addr, id, qwc, ref, v0, v1)
 		}
+		if r.RefHi > 0 && data >= r.RefLo && data < r.RefHi {
+			r.RefHits++
+		}
+		if qwc > 8 {
+			r.Refs = append(r.Refs, data)
+		}
 		stream := make([]uint32, 0, 2+qwc*4)
 		stream = append(stream, v0, v1)
 		for i := uint32(0); i < qwc*4; i++ {
