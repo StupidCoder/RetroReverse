@@ -67,15 +67,15 @@ func main() {
 	// The starting area ships as two layers, each its own id grid + metatile
 	// table, and they pair up: the terrain layer's ids only make sense with the
 	// terrain layer's table. Crossing them decodes to plausible-looking garbage.
-	idA := flag.String("ids", "08385E68", "terrain (BG2) metatile-id grid")
-	tabA := flag.String("table", "08381E9C", "terrain (BG2) metatile table")
-	idB := flag.String("ids1", "08386AA8", "overlay (BG1) metatile-id grid")
-	tabB := flag.String("table1", "08384068", "overlay (BG1) metatile table")
 	// Three 16 KiB tileset streams land back to back in VRAM at 0x00000,
 	// 0x04000 and 0x08000. A 4bpp tile index is 10 bits, so a layer addresses
 	// 1024 tiles = 32 KiB = TWO streams from its character base. Handing a
 	// renderer only the first one silently draws garbage for every index above
 	// 511 — which looks like a decode bug and is not one.
+	listAddr := flag.String("list", "081034D0", "the room's asset list (tilesets + metatile-id grids)")
+	metaAddr := flag.String("mlist", "0810279C", "the metatile-table asset list (shared between areas)")
+	tlistAddr := flag.String("tlist", "08100E88", "the tileset asset list (a room list often replaces only the banks that changed)")
+	scan := flag.Bool("scan", false, "enumerate every asset list in the ROM that loads a room map, and exit")
 	ts0 := flag.String("tiles0", "0836E448", "tileset stream at VRAM 0x00000")
 	ts1 := flag.String("tiles1", "08370C18", "tileset stream at VRAM 0x04000")
 	ts2 := flag.String("tiles2", "083734F0", "tileset stream at VRAM 0x08000")
@@ -113,24 +113,77 @@ func main() {
 		}
 	}
 
+	if *scan {
+		lists := ScanRoomLists(rom)
+		fmt.Printf("%d asset lists load a room map:\n", len(lists))
+		for i, a := range lists {
+			l, err := ParseAssetList(rom, a)
+			if err != nil {
+				continue
+			}
+			var ids, tsets int
+			for _, e := range l {
+				if e.Dst == 0x02025EB4 || e.Dst == 0x0200B654 {
+					ids++
+				}
+				if e.Dst>>24 == 6 {
+					tsets++
+				}
+			}
+			fmt.Printf("  [%3d] %08X  %d entries (%d id grids, %d tilesets)\n", i, a, len(l), ids, tsets)
+		}
+		return
+	}
+
+	roomList, err := ParseAssetList(rom, hex(*listAddr))
+	if err != nil {
+		die("room list: %v", err)
+	}
+	metaList, err := ParseAssetList(rom, hex(*metaAddr))
+	if err != nil {
+		die("metatile list: %v", err)
+	}
+	tilesetList, err := ParseAssetList(rom, hex(*tlistAddr))
+	if err != nil {
+		die("tileset list: %v", err)
+	}
+	assets, err := Resolve(roomList, metaList, tilesetList)
+	if err != nil {
+		die("%v", err)
+	}
+	fmt.Printf("room list %s: ids %08X/%08X, tables %08X/%08X, tilesets %08X/%08X/%08X\n",
+		*listAddr, assets.IDs[0], assets.IDs[1], assets.Tables[0], assets.Tables[1],
+		assets.Tilesets[0], assets.Tilesets[1], assets.Tilesets[2])
+
 	// Decompress the three tileset streams once; each layer takes the pair its
 	// character base spans.
 	vram := make([]byte, 0, 3*16384)
-	for i, a := range []string{*ts0, *ts1, *ts2} {
-		vram = append(vram, stream(rom, hex(a), fmt.Sprintf("tileset %d", i))...)
+	for i, a := range assets.Tilesets {
+		if a == 0 {
+			vram = append(vram, make([]byte, 16384)...) // this room does not replace this bank
+			continue
+		}
+		vram = append(vram, stream(rom, a, fmt.Sprintf("tileset %d", i))...)
 	}
+	_ = ts0
+	_ = ts1
+	_ = ts2
 
 	var rendered []*image.RGBA
 	for _, l := range []struct {
 		name          string
-		ids, tab      string
+		ids, tab      uint32
 		charBaseIndex int // which 16 KiB block this layer's character base sits at
 	}{
-		{"bg2", *idA, *tabA, 0},
-		{"bg1", *idB, *tabB, 1},
+		{"bg2", assets.IDs[0], assets.Tables[0], 0},
+		{"bg1", assets.IDs[1], assets.Tables[1], 1},
 	} {
-		ids := stream(rom, hex(l.ids), l.name+" ids")
-		table := stream(rom, hex(l.tab), l.name+" table")
+		if l.ids == 0 || l.tab == 0 {
+			fmt.Printf("%s: not present in this room\n", l.name)
+			continue
+		}
+		ids := stream(rom, l.ids, l.name+" ids")
+		table := stream(rom, l.tab, l.name+" table")
 		chars := vram[l.charBaseIndex*16384:]
 
 		room := gba.Room{WidthMeta: *widthMeta, HeightMeta: len(ids) / 2 / *widthMeta, Table: table}

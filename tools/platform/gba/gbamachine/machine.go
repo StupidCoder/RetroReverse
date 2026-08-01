@@ -124,7 +124,7 @@ type Machine struct {
 	// OnDecompress reports every BIOS decompression the game performs: which
 	// SWI, the source and destination addresses, and how many bytes came out.
 	// The game's own asset loads, narrated by the library it calls.
-	OnDecompress func(swi uint32, src, dst uint32, size int, pc uint32)
+	OnDecompress func(swi uint32, src, dst uint32, size int, pc, lr uint32)
 
 	// Debugger control.
 	bps       map[uint32]bool

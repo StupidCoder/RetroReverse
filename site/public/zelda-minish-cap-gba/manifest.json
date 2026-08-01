@@ -1,0 +1,26 @@
+{
+ "assets": [
+  {
+   "category": "level",
+   "description": "The field outside Link's house, where the game begins: 63x43 metatiles — 126x86 tiles — with the river and its bridges to the west, Link's house at the centre, and the wall of Hyrule Castle across the north. Both background layers are composited as the hardware stacks them, so the overlay layer's tree canopies sit over the terrain layer's shadows.",
+   "file": "levels/hyrule-field.json",
+   "group": "Overworld",
+   "id": "hyrule-field",
+   "name": "Hyrule Field (starting area)"
+  }
+ ],
+ "description": "The 2004 Game Boy Advance Zelda, developed by Capcom/Flagship — internally, as its own build string admits, \"ZELDA 5\". This map is decoded straight from the cartridge. A room is not stored as a tilemap at all: it is a grid of metatile ids, each expanding through an 8-byte table into a 2x2 block of tiles, all of it behind the BIOS's LZ77 compression, which is why nothing tilemap-shaped is findable in the ROM. The decode is checked against the game itself — the decompressed tables are byte-identical to what the console's own BIOS call produces, and the expanded map reproduces every tile the running game uploaded to video memory.",
+ "display": {
+  "native": {
+   "h": 160,
+   "w": 240
+  },
+  "tickHz": 60
+ },
+ "format": "retro-x",
+ "id": "zelda-minish-cap-gba",
+ "platform": "Game Boy Advance",
+ "title": "The Legend of Zelda: The Minish Cap",
+ "version": 1,
+ "year": 2004
+}

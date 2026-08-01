@@ -97,10 +97,10 @@ func main() {
 	}
 
 	if *declog {
-		m.OnDecompress = func(swi, src, dst uint32, size int, pc uint32) {
+		m.OnDecompress = func(swi, src, dst uint32, size int, pc, lr uint32) {
 			kind := map[uint32]string{0x11: "LZ77", 0x12: "LZ77vram", 0x13: "Huffman", 0x14: "RLE", 0x15: "RLEvram"}[swi]
-			fmt.Printf("dec: %-8s src=%08X dst=%08X size=%6d  (pc %08X, frame %d)\n",
-				kind, src, dst, size, pc, m.Frame())
+			fmt.Printf("dec: %-8s src=%08X dst=%08X size=%6d  (caller lr=%08X, frame %d)\n",
+				kind, src, dst, size, lr, m.Frame())
 		}
 	}
 	if *watch != "" {

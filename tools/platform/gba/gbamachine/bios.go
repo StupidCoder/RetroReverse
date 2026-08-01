@@ -180,7 +180,7 @@ func (m *Machine) noteDecompress(b *bus, swi, src, dst, pc uint32) {
 	if m.OnDecompress == nil {
 		return
 	}
-	m.OnDecompress(swi, src, dst, int(b.Read32(src)>>8), pc)
+	m.OnDecompress(swi, src, dst, int(b.Read32(src)>>8), pc, m.cpu.R[14])
 }
 
 // intrWait implements SWI 4/5: the BIOS enables IME, optionally discards stale

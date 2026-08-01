@@ -1,5 +1,26 @@
 {
  "format": "retro-x",
  "version": 1,
- "games": ["burnout-legends-psp", "crazy-taxi-dc", "elite-c64", "fort-apocalypse-c64", "loco-roco-psp", "luigis-mansion-gc", "marble-madness-amiga", "mario-kart-ds", "need-for-speed-3do", "outrun-2006-xbox", "pilotwings-64-n64", "ridge-racer-psx", "sonic-gg", "stunt-car-racer-amiga", "super-mario-3d-land-3ds", "super-mario-64-ds", "super-mario-land-gb", "turrican-amiga", "ultima-underworld-pc"]
+ "games": [
+  "burnout-legends-psp",
+  "crazy-taxi-dc",
+  "elite-c64",
+  "fort-apocalypse-c64",
+  "loco-roco-psp",
+  "luigis-mansion-gc",
+  "marble-madness-amiga",
+  "mario-kart-ds",
+  "need-for-speed-3do",
+  "outrun-2006-xbox",
+  "pilotwings-64-n64",
+  "ridge-racer-psx",
+  "sonic-gg",
+  "stunt-car-racer-amiga",
+  "super-mario-3d-land-3ds",
+  "super-mario-64-ds",
+  "super-mario-land-gb",
+  "turrican-amiga",
+  "ultima-underworld-pc",
+  "zelda-minish-cap-gba"
+ ]
 }

@@ -58,6 +58,8 @@ is little-endian throughout.
   - [5. The ROM side: finding the room](#5-the-rom-side-finding-the-room)
   - [6. The room format](#6-the-room-format)
   - [7. Decoding it from the ROM alone](#7-decoding-it-from-the-rom-alone)
+  - [8. The asset lists — every room, not one](#8-the-asset-lists--every-room-not-one)
+  - [9. In the Studio](#9-in-the-studio)
 
 ---
 
@@ -618,6 +620,53 @@ every index above 511 — which looks like a decode bug and is not one.
 The id arrays, unlike the tables, are **live state**: the game rewrites them as
 the world changes, so a comparison must be made against a freshly loaded room,
 not a savestate taken after play.
+
+## 8. The asset lists — every room, not one
+
+The four addresses in §5 were found for one area. The index that supplies them
+turned out to be hiding in plain sight: searching the ROM for a pointer to any
+of those streams finds **nothing**, and the control (searching for a pointer
+that certainly exists — the crt0's `AgbMain` literal) proves the search itself
+works. They are not stored as pointers.
+
+The loader at **`$080197D4`** explains why. It walks a list of 12-byte records:
+
+| offset | meaning |
+|---|---|
+| `+0` | source, as an offset **relative to `$08324AE4`**, with bit 31 = "another record follows" |
+| `+4` | destination address |
+| `+8` | size, with bit 31 = "compressed" |
+
+It also picks SWI `$12` over SWI `$11` when the destination is in VRAM — the
+byte-store rule from Part II §3, showing up in the game's own code.
+
+A room needs **two** lists: one carries its tilesets and its two metatile-id
+grids, the other the metatile tables, which are **shared between areas** (several
+rooms point at the same one). A third, fuller tileset list exists because a room
+list is often an *incremental* load that replaces only the character banks that
+changed since the last area — take it as the whole story and a bank stays zeroed.
+
+`roomexport -scan` enumerates every list in the ROM that loads a metatile-id
+grid: **600 of them**. `roomexport -list ADDR` then decodes any one. Rooms other
+than the starting area decode into coherent maps, with two caveats worth stating
+rather than papering over: the metatile grid **width is still assumed to be 63**
+(confirmed only for the starting area — other rooms almost certainly carry their
+own dimensions somewhere not yet found), and **palettes are per-area** and are
+not yet resolved from the lists, so another room renders in the starting area's
+colours or in greyscale.
+
+## 9. In the Studio
+
+`webexport` publishes the decoded room as a Retro-X game: the two layers are
+composited as the hardware stacks them, the result is sliced into 8×8 cells,
+and the distinct cells become an atlas (**932 of them** for 126×86 tiles) with
+an index grid. The level opens at the camera position the decode was verified
+at.
+
+Deduplicating by pixel **content** rather than by the game's tile id is
+deliberate: a GBA cell is a tile id *plus* a palette bank and two flip bits, so
+one id renders as up to 64 different pictures, and keying the atlas on the id
+alone would collapse them and repaint half the map wrong.
 
 ---
 
