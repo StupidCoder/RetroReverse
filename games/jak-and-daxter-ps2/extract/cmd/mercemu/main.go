@@ -175,6 +175,8 @@ func main() {
 		fmt.Println()
 		gbase += nv
 	}
+	fl, ferr := sess.Flush()
+	fmt.Printf("flush: %d entries err=%v\n", len(fl), ferr)
 }
 
 func check(err error) {

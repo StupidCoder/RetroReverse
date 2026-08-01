@@ -12,6 +12,7 @@ package merc
 import (
 	"encoding/binary"
 	"fmt"
+	"os"
 
 	"retroreverse.com/tools/cpu/vu"
 )
@@ -34,11 +35,12 @@ type EmuConfig struct {
 
 // OutVert is one GIF vertex from the kicked packet.
 type OutVert struct {
-	ST   [3]float32 // s, t, q
-	RGBA [4]uint8
-	XYZ  [3]float32 // fixed 12.4, converted
-	ADC  bool
-	Addr uint32
+	ST    [3]float32 // s, t, q
+	RGBA  [4]uint8
+	XYZ   [3]float32 // fixed 12.4, converted
+	ADC   bool
+	Addr  uint32
+	XYZQW [16]byte // raw XYZF2 quadword, for carried-vertex matching
 }
 
 // Emulate runs one fragment and returns the kicked GIF packets' vertices in
@@ -177,6 +179,8 @@ func parseGIF(mem []byte, qw uint32) ([]OutVert, error) {
 					w := binary.LittleEndian.Uint32(mem[base+12:])
 					v.XYZ = [3]float32{float32(int16(x)) / 16, float32(int16(y)) / 16, float32(z >> 4)}
 					v.ADC = w&0x8000 != 0
+					v.Addr = qw
+					copy(v.XYZQW[:], mem[base:base+16])
 				}
 				qw++
 			}
@@ -312,6 +316,10 @@ type Session struct {
 	magic uint32
 	top   uint16
 	first bool
+	kicks []uint32
+	// carried maps a previous packet's raw XYZ quadword to its resolved
+	// vertex index, for stitch verts whose color record was not encoded.
+	carried map[[16]byte]int
 }
 
 // NewSession builds the VU with the microprogram, low-mem block and ctrl row
@@ -334,62 +342,19 @@ func NewSession(micro, lowMem, ctrlRow []byte, stMagic uint32) (*Session, error)
 	}
 	// VIF double buffering: BASE 0x1BA, OFFSET 582 — TOPS alternates
 	// 442, (442+582)%1024 = 0, starting at BASE (DBF=0).
-	return &Session{v: v, magic: stMagic, top: 442, first: true}, nil
+	s2 := &Session{v: v, magic: stMagic, top: 442, first: true, carried: map[[16]byte]int{}}
+	v.XGKick = func(qw uint32) { s2.kicks = append(s2.kicks, qw) }
+	return s2, nil
 }
 
 // RunFragment feeds one fragment (vertex indices globally encoded from
-// gbase) and returns its packet topology. The fragment runs twice from the
-// same VU snapshot with two index encodings; only freshly written slots
-// differ between the runs, which separates this fragment's packet from
-// stale output (strips carry across fragments, so halves are never simply
-// clearable).
+// gbase into the color records) and returns the vertices of the packets the
+// microprogram KICKS during the run — the GIF tag is patched by kick time,
+// so NLOOP bounds the parse and no signature scanning is needed. Encoded
+// RGBA words resolve identity directly; stitch-carried verts (copied
+// verbatim from the previous packet) resolve by raw-XYZ-quadword match.
 func (s *Session) RunFragment(fr *Fragment, gbase int) ([]TopoVert, error) {
-	snap := s.v.Snapshot()
-	savedTop, savedFirst := s.top, s.first
-	a, err := s.runOnce(fr, gbase, 0)
-	if err != nil {
-		return nil, err
-	}
-	s.v.Restore(snap)
-	s.top, s.first = savedTop, savedFirst
-	b, err := s.runOnce(fr, gbase, 0x2000)
-	if err != nil {
-		return nil, err
-	}
-	// Pair entries by slot address (stale coincidences can shift the scan
-	// by a slot in one run; positional pairing is alignment-sensitive).
-	bm := make(map[uint32]TopoVert, len(b))
-	for _, t := range b {
-		bm[t.Addr] = t
-	}
-	lo, hi := uint32(0xFFFFFFFF), uint32(0)
-	for _, t := range a {
-		if tb, ok := bm[t.Addr]; ok && tb.Index-t.Index == 0x2000 {
-			if t.Addr < lo {
-				lo = t.Addr
-			}
-			if t.Addr > hi {
-				hi = t.Addr
-			}
-		}
-	}
-	out := make([]TopoVert, 0, len(a))
-	for _, t := range a {
-		tb, ok := bm[t.Addr]
-		if !ok {
-			continue
-		}
-		switch {
-		case tb.Index-t.Index == 0x2000:
-			out = append(out, t)
-		case tb.Index == t.Index && t.Addr >= lo && t.Addr <= hi && (t.Addr-lo)%3 == 0:
-			// On the fresh packet's slot grid: a stitch vert carried in.
-			// Phase-offset survivors inside the span are stale packets.
-			t.Index &^= 0x2000
-			out = append(out, t)
-		}
-	}
-	return out, nil
+	return s.runOnce(fr, gbase, 0)
 }
 
 func (s *Session) runOnce(fr *Fragment, gbase, bias int) ([]TopoVert, error) {
@@ -439,8 +404,7 @@ func (s *Session) runOnce(fr *Fragment, gbase, bias int) ([]TopoVert, error) {
 		addr++
 	}
 	for _, m := range fr.Mats {
-		img := identBone()
-		copy(data[uint32(m.Dest)*16:], img)
+		copy(data[uint32(m.Dest)*16:], identBone())
 	}
 
 	s.v.Top = s.top
@@ -449,43 +413,90 @@ func (s *Session) runOnce(fr *Fragment, gbase, bias int) ([]TopoVert, error) {
 		entry = 0xA0
 		s.first = false
 	}
-	if _, ok := s.v.Run(entry, 400000); !ok {
-		return nil, fmt.Errorf("merc session: fragment did not halt")
-	}
-	// Strips span fragments: the GIF tag is only patched when a strip
-	// closes, so per-fragment packets may be tagless. Harvest BOTH output
-	// halves in address order by the encoded-RGBA signature; the caller's
-	// double-run diff isolates this fragment's packet (fresh hits appear
-	// only where this run wrote).
-	var vs []OutVert
-	for _, w := range [2][2]uint32{{371, 571}, {813, 1023}} {
-		for q := w[0]; q+2 < w[1]; q++ {
-			w0 := binary.LittleEndian.Uint32(data[(q&1023)*16:])
-			w1 := binary.LittleEndian.Uint32(data[(q&1023)*16+4:])
-			w2 := binary.LittleEndian.Uint32(data[(q&1023)*16+8:])
-			w3 := binary.LittleEndian.Uint32(data[(q&1023)*16+12:])
-			if w3 == 0x80 && w1 < 0x40 && w2 == 0 && w0 >= 1 && w0 < 256 {
-				adcw := binary.LittleEndian.Uint32(data[((q-2)&1023)*16+12:])
-				vs = append(vs, OutVert{
-					RGBA: [4]uint8{uint8(w0), uint8(w1), 0, 0x80},
-					ADC:  adcw&0x8000 != 0,
-					Addr: q,
-				})
-				q += 2
+	s.kicks = nil
+	if os.Getenv("MERCDBG") != "" {
+		hits := map[uint32]int{}
+		s.v.Trace = func(vm *vu.VU, pc uint32, raw uint64) {
+			if pc >= 0x3E80 && pc <= 0x3F18 {
+				hits[pc]++
 			}
 		}
+		defer func() {
+			s.v.Trace = nil
+			fmt.Fprintf(os.Stderr, "[tailhits=%v]\n", hits)
+		}()
+	}
+	if _, ok := s.v.Run(entry, 400000); !ok {
+		return nil, fmt.Errorf("merc session: fragment did not halt")
 	}
 	if s.top == 0 {
 		s.top = 442
 	} else {
 		s.top = 0
 	}
-	out := make([]TopoVert, 0, len(vs))
-	for _, v := range vs {
-		idx := int(v.RGBA[0]) | int(v.RGBA[1])<<8
-		out = append(out, TopoVert{Index: idx - 1, ADC: v.ADC, Addr: v.Addr})
-	}
+
+	out := s.harvest(bias)
 	return out, nil
+}
+
+// Flush kicks the pending packet after the last fragment (the microcode
+// kicks a packet during the NEXT run's buffer swap; the chain ends with a
+// terminator call that reaches the kick tail).
+func (s *Session) Flush() ([]TopoVert, error) {
+	s.kicks = nil
+	if _, ok := s.v.Run(0x3E98, 40000); !ok {
+		return nil, fmt.Errorf("merc session: flush did not halt")
+	}
+	return s.harvest(0), nil
+}
+
+// harvest resolves the kicked packets collected since the last reset.
+func (s *Session) harvest(bias int) []TopoVert {
+	if os.Getenv("MERCDBG") != "" {
+		fmt.Fprintf(os.Stderr, "[kicks=%d %v", len(s.kicks), s.kicks)
+		for _, k := range s.kicks {
+			fmt.Fprintf(os.Stderr, " tag@%d={%08X %08X %08X %08X}", k,
+				binary.LittleEndian.Uint32(s.v.Data[(k&1023)*16:]),
+				binary.LittleEndian.Uint32(s.v.Data[(k&1023)*16+4:]),
+				binary.LittleEndian.Uint32(s.v.Data[(k&1023)*16+8:]),
+				binary.LittleEndian.Uint32(s.v.Data[(k&1023)*16+12:]))
+		}
+		fmt.Fprintln(os.Stderr, "]")
+	}
+	var out []TopoVert
+	nextCarried := map[[16]byte]int{}
+	for k, v := range s.carried {
+		nextCarried[k] = v
+	}
+	for _, k := range s.kicks {
+		vs, err := parseGIF(s.v.Data, k)
+		if err != nil {
+			continue
+		}
+		for _, v := range vs {
+			idx := -1
+			if v.RGBA[3] == 0x80 && v.RGBA[2] == 0 && v.RGBA[1] < 0x40 {
+				enc := int(v.RGBA[0]) | int(v.RGBA[1])<<8
+				if enc >= 1 {
+					idx = enc - 1 - bias
+					if idx >= 0x2000 {
+						idx -= 0x2000
+					}
+				}
+			}
+			if idx < 0 {
+				if ci, ok := s.carried[v.XYZQW]; ok {
+					idx = ci
+				}
+			}
+			if idx >= 0 {
+				nextCarried[v.XYZQW] = idx
+			}
+			out = append(out, TopoVert{Index: idx, ADC: v.ADC, Addr: v.Addr})
+		}
+	}
+	s.carried = nextCarried
+	return out
 }
 
 func identBone() []byte {
