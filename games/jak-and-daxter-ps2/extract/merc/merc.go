@@ -149,7 +149,7 @@ func Parse(obj []byte, p uint32) (*Ctrl, error) {
 //     mode; offline, the plain byte + origin sum reproduces it.
 type Vertex struct {
 	X, Y, Z    float32
-	NX, NY, NZ int8
+	NX, NY, NZ uint8 // raw lattice bytes; bias 128
 	Slot1      int // output strip slot, -1 if unused
 	Slot2      int
 }
@@ -185,9 +185,29 @@ func (fr *Fragment) Vertices() []Vertex {
 		b := fr.LumpData[v*12 : v*12+12]
 		out = append(out, Vertex{
 			X: float32(b[3]) + ox, Y: float32(b[7]) + oy, Z: float32(b[11]) + oz,
-			NX: int8(b[10]), NY: int8(b[6]), NZ: int8(b[2]),
+			NX: b[10], NY: b[6], NZ: b[2],
 			Slot1: slot(b[4]), Slot2: slot(b[5]),
 		})
+	}
+	return out
+}
+
+// Colors returns the fragment's per-vertex RGBA records (the byte-region
+// stream at header byte 12's quadword offset: one 4-byte record per vertex,
+// {r, g, b, a} with GS alpha 0x80 = 1.0).
+func (fr *Fragment) Colors() [][4]byte {
+	if len(fr.ByteData) < 23 {
+		return nil
+	}
+	off := int(fr.ByteData[12]) * 4
+	n := fr.LumpQWC / 3
+	out := make([][4]byte, 0, n)
+	for v := 0; v < n; v++ {
+		o := off + v*4
+		if o+4 > len(fr.ByteData) {
+			break
+		}
+		out = append(out, [4]byte{fr.ByteData[o], fr.ByteData[o+1], fr.ByteData[o+2], fr.ByteData[o+3]})
 	}
 	return out
 }
