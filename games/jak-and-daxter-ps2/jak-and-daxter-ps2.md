@@ -175,3 +175,32 @@ sampler. The mid/near tiers (segments 1–2) stream in and out at runtime and
 do not tile VRAM cumulatively — live VRAM shows tier-2 rows (128-word
 stride) inside tier-1's nominal block range — so their VRAM mapping goes
 through the engine's tier allocator; solving it is the part's open item.
+
+## Part IV — Merc models (in progress)
+
+Characters and dynamic models render through *merc*: a VU1 microprogram fed
+per-fragment VIF chains. The microcode is the `vu-function` object
+`merc-vu1-block` (`0x6E4960`): header `{0x7E5, 0x3F3}`, then 0x3F3 quadwords
+(16,176 bytes — the full VU1 program memory) at `+16`.
+`merc-vu1-add-vu-function` (`0x6E9E64`) uploads it in 127-quadword MPG
+chunks through `dma-buffer-add-vu-function` ref tags. The program
+disassembles completely with `tools/cmd/disvu`: a prologue that derives
+clip/scale constants (`loi 1/255` for colours, ±65535 clamps), a main entry
+at `0x128` and three secondary entries at `0x3510/0x3778/0x39E0` (matrix
+re-load variants), double-buffered via `xtop`, kicking finished GIF packets
+at `0x3EA8/0x3F10`.
+
+The entry protocol: the unpacked input buffer sits at `TOP`, with a control
+header quadword block at `TOP+140` (offsets/counts read as
+`ilw .x/.y/.z/.w 0..2(vi12)`) and the output area at `TOP+371`. VU1 low
+memory holds the per-frame constant block built by `merc-vu1-init-buffer`
+(`merc-vu1-low-mem`): transform rows at quadwords `0..7`, the camera matrix
+and fog constants at `132..139`.
+
+In the `logo` art group, each `merc-ctrl` (`+0x1240`, `+0x29ce0`) carries a
+header `{name?, size, #f, effect-count}`, a float block (scales/bounds), an
+effect table of 32-byte records `{…, fragment count, …, →extra-info}`, and
+the fragment streams — tightly-ranged byte records (compressed vertex data).
+The fragment wire format (`merc-byte-header`, `merc-fragment`,
+`merc-fp-header`) and the EE-side chain builder
+(`merc-vu1-initialize-chain`) are the open items of this Part.
