@@ -2,14 +2,638 @@
  "assets": [
   {
    "category": "level",
-   "description": "The field outside Link's house, where the game begins: 63x43 metatiles — 126x86 tiles — with the river and its bridges to the west, Link's house at the centre, and the wall of Hyrule Castle across the north. Both background layers are composited as the hardware stacks them, so the overlay layer's tree canopies sit over the terrain layer's shadows.",
-   "file": "levels/hyrule-field.json",
+   "description": "1 room assembled at the positions the game's own area table gives them — 1008x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-00.json",
    "group": "Overworld",
-   "id": "hyrule-field",
-   "name": "Hyrule Field (starting area)"
+   "id": "area-00",
+   "name": "Area 0"
+  },
+  {
+   "category": "level",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 1488x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-01.json",
+   "group": "Overworld",
+   "id": "area-01",
+   "name": "Area 1"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 1536x2576 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-02.json",
+   "group": "Overworld",
+   "id": "area-02",
+   "name": "Area 2"
+  },
+  {
+   "category": "level",
+   "description": "10 rooms assembled at the positions the game's own area table gives them — 2208x2448 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-03.json",
+   "group": "Overworld",
+   "id": "area-03",
+   "name": "Hyrule Field (area 3)"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 1008x960 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-04.json",
+   "group": "Overworld",
+   "id": "area-04",
+   "name": "Area 4"
+  },
+  {
+   "category": "level",
+   "description": "6 rooms assembled at the positions the game's own area table gives them — 1008x528 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-05.json",
+   "group": "Overworld",
+   "id": "area-05",
+   "name": "Area 5"
+  },
+  {
+   "category": "level",
+   "description": "5 rooms assembled at the positions the game's own area table gives them — 1008x1680 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-06.json",
+   "group": "Overworld",
+   "id": "area-06",
+   "name": "Area 6"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 1008x528 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-07.json",
+   "group": "Overworld",
+   "id": "area-07",
+   "name": "Area 7"
+  },
+  {
+   "category": "level",
+   "description": "3 rooms assembled at the positions the game's own area table gives them — 1008x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-08.json",
+   "group": "Overworld",
+   "id": "area-08",
+   "name": "Area 8"
+  },
+  {
+   "category": "level",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 1120x3360 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-09.json",
+   "group": "Overworld",
+   "id": "area-09",
+   "name": "Area 9"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 480x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-10.json",
+   "group": "Overworld",
+   "id": "area-10",
+   "name": "Area 10"
+  },
+  {
+   "category": "level",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 1008x1152 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-11.json",
+   "group": "Overworld",
+   "id": "area-11",
+   "name": "Area 11"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 1008x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-12.json",
+   "group": "Overworld",
+   "id": "area-12",
+   "name": "Area 12"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 1008x960 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-15.json",
+   "group": "Overworld",
+   "id": "area-15",
+   "name": "Area 15"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 720x624 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-16.json",
+   "group": "Overworld",
+   "id": "area-16",
+   "name": "Area 16"
+  },
+  {
+   "category": "level",
+   "description": "5 rooms assembled at the positions the game's own area table gives them — 1488x800 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-17.json",
+   "group": "Overworld",
+   "id": "area-17",
+   "name": "Area 17"
+  },
+  {
+   "category": "level",
+   "description": "4 rooms assembled at the positions the game's own area table gives them — 1440x800 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-18.json",
+   "group": "Overworld",
+   "id": "area-18",
+   "name": "Area 18"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 480x544 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-19.json",
+   "group": "Overworld",
+   "id": "area-19",
+   "name": "Area 19"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 496x512 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-20.json",
+   "group": "Overworld",
+   "id": "area-20",
+   "name": "Area 20"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 400x960 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-21.json",
+   "group": "Overworld",
+   "id": "area-21",
+   "name": "Area 21"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 480x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-22.json",
+   "group": "Overworld",
+   "id": "area-22",
+   "name": "Area 22"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 1008x960 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-23.json",
+   "group": "Overworld",
+   "id": "area-23",
+   "name": "Area 23"
+  },
+  {
+   "category": "level",
+   "description": "5 rooms assembled at the positions the game's own area table gives them — 976x1104 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-24.json",
+   "group": "Overworld",
+   "id": "area-24",
+   "name": "Area 24"
+  },
+  {
+   "category": "level",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 1008x736 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-25.json",
+   "group": "Overworld",
+   "id": "area-25",
+   "name": "Area 25"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 480x192 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-26.json",
+   "group": "Overworld",
+   "id": "area-26",
+   "name": "Area 26"
+  },
+  {
+   "category": "level",
+   "description": "10 rooms assembled at the positions the game's own area table gives them — 2000x576 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-32.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-32",
+   "name": "Area 32"
+  },
+  {
+   "category": "level",
+   "description": "13 rooms assembled at the positions the game's own area table gives them — 2048x624 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-33.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-33",
+   "name": "Area 33"
+  },
+  {
+   "category": "level",
+   "description": "13 rooms assembled at the positions the game's own area table gives them — 2032x400 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-34.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-34",
+   "name": "Area 34"
+  },
+  {
+   "category": "level",
+   "description": "9 rooms assembled at the positions the game's own area table gives them — 1776x384 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-35.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-35",
+   "name": "Area 35"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 240x160 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-36.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-36",
+   "name": "Area 36"
+  },
+  {
+   "category": "level",
+   "description": "14 rooms assembled at the positions the game's own area table gives them — 2032x368 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-37.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-37",
+   "name": "Area 37"
+  },
+  {
+   "category": "level",
+   "description": "17 rooms assembled at the positions the game's own area table gives them — 2112x1616 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-38.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-38",
+   "name": "Area 38"
+  },
+  {
+   "category": "level",
+   "description": "18 rooms assembled at the positions the game's own area table gives them — 2032x528 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-39.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-39",
+   "name": "Area 39"
+  },
+  {
+   "category": "level",
+   "description": "6 rooms assembled at the positions the game's own area table gives them — 1520x192 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-40.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-40",
+   "name": "Area 40"
+  },
+  {
+   "category": "level",
+   "description": "3 rooms assembled at the positions the game's own area table gives them — 752x288 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-41.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-41",
+   "name": "Area 41"
+  },
+  {
+   "category": "level",
+   "description": "5 rooms assembled at the positions the game's own area table gives them — 1008x432 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-42.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-42",
+   "name": "Area 42"
+  },
+  {
+   "category": "level",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 512x368 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-43.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-43",
+   "name": "Area 43"
+  },
+  {
+   "category": "level",
+   "description": "11 rooms assembled at the positions the game's own area table gives them — 560x1696 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-44.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-44",
+   "name": "Area 44"
+  },
+  {
+   "category": "level",
+   "description": "6 rooms assembled at the positions the game's own area table gives them — 1712x160 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-45.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-45",
+   "name": "Area 45"
+  },
+  {
+   "category": "level",
+   "description": "4 rooms assembled at the positions the game's own area table gives them — 2032x256 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-46.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-46",
+   "name": "Area 46"
+  },
+  {
+   "category": "level",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 496x720 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-47.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-47",
+   "name": "Area 47"
+  },
+  {
+   "category": "level",
+   "description": "4 rooms assembled at the positions the game's own area table gives them — 1008x336 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-48.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-48",
+   "name": "Area 48"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 240x416 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-49.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-49",
+   "name": "Area 49"
+  },
+  {
+   "category": "level",
+   "description": "24 rooms assembled at the positions the game's own area table gives them — 1920x1712 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-50.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-50",
+   "name": "Area 50"
+  },
+  {
+   "category": "level",
+   "description": "10 rooms assembled at the positions the game's own area table gives them — 1328x880 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-51.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-51",
+   "name": "Area 51"
+  },
+  {
+   "category": "level",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 528x320 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-52.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-52",
+   "name": "Area 52"
+  },
+  {
+   "category": "level",
+   "description": "10 rooms assembled at the positions the game's own area table gives them — 1984x1280 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-53.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-53",
+   "name": "Area 53"
+  },
+  {
+   "category": "level",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 544x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-54.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-54",
+   "name": "Area 54"
+  },
+  {
+   "category": "level",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 560x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-55.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-55",
+   "name": "Area 55"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 240x320 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-56.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-56",
+   "name": "Area 56"
+  },
+  {
+   "category": "level",
+   "description": "9 rooms assembled at the positions the game's own area table gives them — 976x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-64.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-64",
+   "name": "Area 64"
+  },
+  {
+   "category": "level",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 720x848 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-65.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-65",
+   "name": "Area 65"
+  },
+  {
+   "category": "level",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 528x160 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-66.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-66",
+   "name": "Area 66"
+  },
+  {
+   "category": "level",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 480x512 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-67.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-67",
+   "name": "Area 67"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 304x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-68.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-68",
+   "name": "Area 68"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 272x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-69.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-69",
+   "name": "Area 69"
+  },
+  {
+   "category": "level",
+   "description": "8 rooms assembled at the positions the game's own area table gives them — 976x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-70.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-70",
+   "name": "Area 70"
+  },
+  {
+   "category": "level",
+   "description": "3 rooms assembled at the positions the game's own area table gives them — 368x848 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-71.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-71",
+   "name": "Area 71"
+  },
+  {
+   "category": "level",
+   "description": "12 rooms assembled at the positions the game's own area table gives them — 1552x1456 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-72.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-72",
+   "name": "Area 72"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 272x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-73.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-73",
+   "name": "Area 73"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 240x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-74.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-74",
+   "name": "Area 74"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 656x640 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-77.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-77",
+   "name": "Area 77"
+  },
+  {
+   "category": "level",
+   "description": "10 rooms assembled at the positions the game's own area table gives them — 1808x2720 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-80.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-80",
+   "name": "Area 80"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 384x288 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-81.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-81",
+   "name": "Area 81"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 640x640 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-87.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-87",
+   "name": "Area 87"
+  },
+  {
+   "category": "level",
+   "description": "5 rooms assembled at the positions the game's own area table gives them — 1376x2048 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-88.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-88",
+   "name": "Area 88"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 320x480 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-89.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-89",
+   "name": "Area 89"
+  },
+  {
+   "category": "level",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 272x640 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-90.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-90",
+   "name": "Area 90"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 640x640 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-95.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-95",
+   "name": "Area 95"
+  },
+  {
+   "category": "level",
+   "description": "18 rooms assembled at the positions the game's own area table gives them — 1552x5168 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-96.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-96",
+   "name": "Area 96"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 240x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-97.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-97",
+   "name": "Area 97"
+  },
+  {
+   "category": "level",
+   "description": "5 rooms assembled at the positions the game's own area table gives them — 896x512 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-98.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-98",
+   "name": "Area 98"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 240x1120 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-103.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-103",
+   "name": "Area 103"
+  },
+  {
+   "category": "level",
+   "description": "9 rooms assembled at the positions the game's own area table gives them — 672x1760 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-104.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-104",
+   "name": "Area 104"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 640x640 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-111.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-111",
+   "name": "Area 111"
+  },
+  {
+   "category": "level",
+   "description": "51 rooms assembled at the positions the game's own area table gives them — 1920x9808 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-112.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-112",
+   "name": "Area 112"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 640x832 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-119.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-119",
+   "name": "Area 119"
+  },
+  {
+   "category": "level",
+   "description": "3 rooms assembled at the positions the game's own area table gives them — 464x1552 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-120.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-120",
+   "name": "Area 120"
+  },
+  {
+   "category": "level",
+   "description": "1 room assembled at the positions the game's own area table gives them — 640x640 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "file": "levels/area-127.json",
+   "group": "Interiors \u0026 dungeons",
+   "id": "area-127",
+   "name": "Area 127"
   }
  ],
- "description": "The 2004 Game Boy Advance Zelda, developed by Capcom/Flagship — internally, as its own build string admits, \"ZELDA 5\". This map is decoded straight from the cartridge. A room is not stored as a tilemap at all: it is a grid of metatile ids, each expanding through an 8-byte table into a 2x2 block of tiles, all of it behind the BIOS's LZ77 compression, which is why nothing tilemap-shaped is findable in the ROM. The decode is checked against the game itself — the decompressed tables are byte-identical to what the console's own BIOS call produces, and the expanded map reproduces every tile the running game uploaded to video memory.",
+ "description": "The 2004 Game Boy Advance Zelda, developed by Capcom/Flagship — internally, as its own build string admits, \"ZELDA 5\". Every map here is decoded straight from the cartridge. A room is not stored as a tilemap at all: it is a grid of metatile ids, each expanding through an 8-byte table into a 2x2 block of tiles, behind the BIOS's LZ77 compression. Rooms are not standalone either — the game's area tables place each one at a pixel position on a shared canvas, so what you see is the whole place assembled, not a screen at a time. The decode is checked against the game itself: the decompressed tables are byte-identical to what the console's own BIOS call produces, and the expanded map reproduces every tile the running game uploaded to video memory.",
  "display": {
   "native": {
    "h": 160,

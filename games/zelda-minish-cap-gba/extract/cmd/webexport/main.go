@@ -12,11 +12,14 @@
 // what the viewer actually draws.
 //
 //	webexport [-out DIR]
+//
+// Every AREA becomes one level: the game's own tables say where each of an
+// area's rooms sits on a shared canvas, so 419 room maps publish as 79 places
+// a player would recognise.
 package main
 
 import (
 	"crypto/sha256"
-	"encoding/binary"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -25,8 +28,6 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
-
-	"retroreverse.com/tools/platform/gba"
 )
 
 func die(format string, a ...interface{}) {
@@ -36,151 +37,124 @@ func die(format string, a ...interface{}) {
 
 func main() {
 	romPath := flag.String("rom", "../Legend of Zelda, The - The Minish Cap (USA).gba", "cartridge image")
-	palPath := flag.String("palette", "../work/starting-area/palette.bin", "palette captured by mapexport")
 	out := flag.String("out", "../../../site/public/zelda-minish-cap-gba", "Retro-X game directory")
+	maxArea := flag.Int("max", 128, "highest area id to consider")
+	maxCells := flag.Int("maxcells", 24000, "skip an area whose atlas would exceed this many distinct cells")
 	flag.Parse()
 
 	rom, err := os.ReadFile(*romPath)
 	if err != nil {
 		die("%v", err)
 	}
-	palRAM, err := os.ReadFile(*palPath)
-	if err != nil {
-		die("palette: %v (run mapexport first)", err)
-	}
-	pal := gba.ParsePalette(palRAM)
-
-	// The starting area, by its asset lists (see roomexport).
-	const (
-		roomListAddr    = 0x081034D0
-		metaListAddr    = 0x0810279C
-		tilesetListAddr = 0x08100E88
-	)
-	roomList, err := ParseAssetList(rom, roomListAddr)
-	if err != nil {
-		die("room list: %v", err)
-	}
-	metaList, err := ParseAssetList(rom, metaListAddr)
-	if err != nil {
-		die("metatile list: %v", err)
-	}
-	tsList, err := ParseAssetList(rom, tilesetListAddr)
-	if err != nil {
-		die("tileset list: %v", err)
-	}
-	assets, err := Resolve(roomList, metaList, tsList)
-	if err != nil {
-		die("%v", err)
-	}
-
-	unpack := func(addr uint32) []byte {
-		b, err := gba.LZ77Decompress(rom[gba.ROMOffset(addr):])
-		if err != nil {
-			die("%08X: %v", addr, err)
-		}
-		return b
-	}
-	vram := make([]byte, 0, 3*16384)
-	for _, a := range assets.Tilesets {
-		if a == 0 {
-			vram = append(vram, make([]byte, 16384)...)
-			continue
-		}
-		vram = append(vram, unpack(a)...)
-	}
-
-	const widthMeta = 63
-	var layers []*image.RGBA
-	var wt, ht int
-	for _, l := range []struct {
-		ids, tab uint32
-		charBase int
-	}{
-		{assets.IDs[0], assets.Tables[0], 0},
-		{assets.IDs[1], assets.Tables[1], 1},
-	} {
-		idb := unpack(l.ids)
-		room := gba.Room{WidthMeta: widthMeta, HeightMeta: len(idb) / 2 / widthMeta, Table: unpack(l.tab)}
-		room.IDs = make([]uint16, len(idb)/2)
-		for j := range room.IDs {
-			room.IDs[j] = binary.LittleEndian.Uint16(idb[j*2:])
-		}
-		tiles, w, h, _ := room.Expand()
-		wt, ht = w, h
-		layers = append(layers, gba.RenderTiles(tiles, w, h, vram[l.charBase*16384:], pal, 0, 4))
-	}
-
-	// Composite BG1 over BG2, as the hardware stacks them.
-	comp := image.NewRGBA(layers[0].Bounds())
-	draw.Draw(comp, comp.Bounds(), layers[0], image.Point{}, draw.Src)
-	draw.Draw(comp, comp.Bounds(), layers[1], image.Point{}, draw.Over)
-
-	// Slice into 8x8 cells, deduplicated by content.
-	index := map[[32]byte]int{}
-	var cellImgs []*image.RGBA
-	cells := make([]int, wt*ht)
-	for ty := 0; ty < ht; ty++ {
-		for tx := 0; tx < wt; tx++ {
-			sub := image.NewRGBA(image.Rect(0, 0, 8, 8))
-			draw.Draw(sub, sub.Bounds(), comp, image.Pt(tx*8, ty*8), draw.Src)
-			k := sha256.Sum256(sub.Pix)
-			id, ok := index[k]
-			if !ok {
-				id = len(cellImgs)
-				index[k] = id
-				cellImgs = append(cellImgs, sub)
-			}
-			cells[ty*wt+tx] = id
-		}
-	}
-
-	const cols = 16
-	rows := (len(cellImgs) + cols - 1) / cols
-	atlas := image.NewRGBA(image.Rect(0, 0, cols*8, rows*8))
-	for i, c := range cellImgs {
-		x, y := (i%cols)*8, (i/cols)*8
-		draw.Draw(atlas, image.Rect(x, y, x+8, y+8), c, image.Point{}, draw.Src)
-	}
-	fmt.Printf("%dx%d tiles, %d distinct cells -> atlas %dx%d\n", wt, ht, len(cellImgs), cols*8, rows*8)
-
 	levelsDir := filepath.Join(*out, "levels")
 	if err := os.MkdirAll(levelsDir, 0o755); err != nil {
 		die("%v", err)
 	}
-	writePNG(filepath.Join(levelsDir, "atlas_0.png"), atlas)
 
-	level := map[string]any{
-		"format": "retro-x", "version": 1, "type": "tilemap",
-		"camera": map[string]any{"mode": "map2d", "map2d": map[string]any{"maxNativeFactor": 1}},
-		"tilemap": map[string]any{
-			"tileSize": 8, "width": wt, "height": ht,
-			"atlas": map[string]any{"file": "atlas_0.png", "cols": cols},
-			"cells": cells,
-			// Where the game's own camera sat when the decode was verified.
-			"view": map[string]any{"x": 56 * 8, "y": 35 * 8, "w": 240, "h": 160},
-		},
+	type entry struct {
+		id, name, group string
+		rooms           int
+		w, h            int
 	}
-	writeJSON(filepath.Join(levelsDir, "hyrule-field.json"), level)
+	var made []entry
+	var skipped []string
+	for a := 0; a < *maxArea; a++ {
+		ar, err := LoadArea(rom, a)
+		if err != nil {
+			continue
+		}
+		as, err := buildArea(rom, ar)
+		if err != nil {
+			skipped = append(skipped, fmt.Sprintf("area %d: %v", a, err))
+			continue
+		}
+		img := as.img
+		wt, ht := img.Bounds().Dx()/8, img.Bounds().Dy()/8
 
-	man := map[string]any{
+		// Slice into 8x8 cells, deduplicated by CONTENT (see the note above).
+		index := map[[32]byte]int{}
+		var cellImgs []*image.RGBA
+		cells := make([]int, wt*ht)
+		for ty := 0; ty < ht; ty++ {
+			for tx := 0; tx < wt; tx++ {
+				sub := image.NewRGBA(image.Rect(0, 0, 8, 8))
+				draw.Draw(sub, sub.Bounds(), img, image.Pt(tx*8, ty*8), draw.Src)
+				k := sha256.Sum256(sub.Pix)
+				id, ok := index[k]
+				if !ok {
+					id = len(cellImgs)
+					index[k] = id
+					cellImgs = append(cellImgs, sub)
+				}
+				cells[ty*wt+tx] = id
+			}
+		}
+		if len(cellImgs) > *maxCells {
+			skipped = append(skipped, fmt.Sprintf("area %d: %d distinct cells exceeds the %d budget", a, len(cellImgs), *maxCells))
+			continue
+		}
+
+		const cols = 16
+		rows := (len(cellImgs) + cols - 1) / cols
+		atlas := image.NewRGBA(image.Rect(0, 0, cols*8, rows*8))
+		for i, c := range cellImgs {
+			x, y := (i%cols)*8, (i/cols)*8
+			draw.Draw(atlas, image.Rect(x, y, x+8, y+8), c, image.Point{}, draw.Src)
+		}
+		slug := fmt.Sprintf("area-%02d", a)
+		writePNG(filepath.Join(levelsDir, slug+"-atlas.png"), atlas)
+		writeJSON(filepath.Join(levelsDir, slug+".json"), map[string]any{
+			"format": "retro-x", "version": 1, "type": "tilemap",
+			"camera": map[string]any{"mode": "map2d", "map2d": map[string]any{"maxNativeFactor": 1}},
+			"tilemap": map[string]any{
+				"tileSize": 8, "width": wt, "height": ht,
+				"atlas": map[string]any{"file": slug + "-atlas.png", "cols": cols},
+				"cells": cells,
+				// Frame the whole area. A canvas is the bounding box of the
+				// area's rooms, so its corner is usually empty space — opening
+				// at a native-sized window there shows a black screen.
+				"view": map[string]any{"x": 0, "y": 0, "w": wt * 8, "h": ht * 8},
+			},
+		})
+		group := "Overworld"
+		if a >= 32 {
+			group = "Interiors & dungeons"
+		}
+		name := fmt.Sprintf("Area %d", a)
+		if a == 3 {
+			name = "Hyrule Field (area 3)"
+		}
+		made = append(made, entry{slug, name, group, as.rooms, img.Bounds().Dx(), img.Bounds().Dy()})
+	}
+
+	assets := make([]any, 0, len(made))
+	for _, e := range made {
+		assets = append(assets, map[string]any{
+			"id": e.id, "category": "level", "name": e.name, "group": e.group,
+			"description": fmt.Sprintf("%d room%s assembled at the positions the game's own area table gives them — %dx%d pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+				e.rooms, plural(e.rooms), e.w, e.h),
+			"file": "levels/" + e.id + ".json",
+		})
+	}
+	writeJSON(filepath.Join(*out, "manifest.json"), map[string]any{
 		"format": "retro-x", "version": 1,
 		"id": "zelda-minish-cap-gba", "title": "The Legend of Zelda: The Minish Cap",
 		"platform": "Game Boy Advance", "year": 2004,
-		"description": "The 2004 Game Boy Advance Zelda, developed by Capcom/Flagship — internally, as its own build string admits, \"ZELDA 5\". This map is decoded straight from the cartridge. A room is not stored as a tilemap at all: it is a grid of metatile ids, each expanding through an 8-byte table into a 2x2 block of tiles, all of it behind the BIOS's LZ77 compression, which is why nothing tilemap-shaped is findable in the ROM. The decode is checked against the game itself — the decompressed tables are byte-identical to what the console's own BIOS call produces, and the expanded map reproduces every tile the running game uploaded to video memory.",
-		"display": map[string]any{
-			"native": map[string]any{"w": 240, "h": 160}, "tickHz": 60,
-		},
-		"assets": []any{
-			map[string]any{
-				"id": "hyrule-field", "category": "level", "name": "Hyrule Field (starting area)",
-				"group":       "Overworld",
-				"description": "The field outside Link's house, where the game begins: 63x43 metatiles — 126x86 tiles — with the river and its bridges to the west, Link's house at the centre, and the wall of Hyrule Castle across the north. Both background layers are composited as the hardware stacks them, so the overlay layer's tree canopies sit over the terrain layer's shadows.",
-				"file":        "levels/hyrule-field.json",
-			},
-		},
+		"description": "The 2004 Game Boy Advance Zelda, developed by Capcom/Flagship — internally, as its own build string admits, \"ZELDA 5\". Every map here is decoded straight from the cartridge. A room is not stored as a tilemap at all: it is a grid of metatile ids, each expanding through an 8-byte table into a 2x2 block of tiles, behind the BIOS's LZ77 compression. Rooms are not standalone either — the game's area tables place each one at a pixel position on a shared canvas, so what you see is the whole place assembled, not a screen at a time. The decode is checked against the game itself: the decompressed tables are byte-identical to what the console's own BIOS call produces, and the expanded map reproduces every tile the running game uploaded to video memory.",
+		"display":     map[string]any{"native": map[string]any{"w": 240, "h": 160}, "tickHz": 60},
+		"assets":      assets,
+	})
+	fmt.Printf("published %d areas\n", len(made))
+	for _, s := range skipped {
+		fmt.Println("skipped:", s)
 	}
-	writeJSON(filepath.Join(*out, "manifest.json"), man)
-	fmt.Println("wrote", *out)
+}
+
+func plural(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
 }
 
 func writePNG(path string, img image.Image) {

@@ -60,6 +60,11 @@ is little-endian throughout.
   - [7. Decoding it from the ROM alone](#7-decoding-it-from-the-rom-alone)
   - [8. The asset lists — every room, not one](#8-the-asset-lists--every-room-not-one)
   - [9. In the Studio](#9-in-the-studio)
+- [Part V — Areas: how the rooms fit together](#part-v--areas-how-the-rooms-fit-together)
+  - [1. The room descriptor](#1-the-room-descriptor)
+  - [2. The five area tables](#2-the-five-area-tables)
+  - [3. Palettes](#3-palettes)
+  - [4. 419 rooms, 79 places](#4-419-rooms-79-places)
 
 ---
 
@@ -667,6 +672,88 @@ Deduplicating by pixel **content** rather than by the game's tile id is
 deliberate: a GBA cell is a tile id *plus* a palette bank and two flip bits, so
 one id renders as up to 64 different pictures, and keying the atlas on the id
 alone would collapse them and repaint half the map wrong.
+
+---
+
+# Part V — Areas: how the rooms fit together
+
+600 room maps is not a map of Hyrule; it is a pile of screens. The question
+that turns the pile into places is *where does each room sit* — and the game
+answers it in its own tables.
+
+## 1. The room descriptor
+
+Part IV had to be told a room's width. The game is told too, and finding where
+took one climb. The metatile expander writes into a 64-wide RAM buffer, but the
+ROM packs the grid at the room's real width, so something re-lays it out: the
+routine at **`$0807C8B0`**, which takes `(buffer, width, height)` and copies a
+W×H grid into the 64×64 buffer, zero-filling the rest. Logging its arguments
+for the starting area gives **63 × 43** — the same numbers derived in Part IV
+§6 from a disagreement in the data, now stated by the game itself.
+
+Its caller reads them from a **room descriptor** assembled in RAM at
+`$020342CC`:
+
+| offset | field |
+|---|---|
+| `+0x00` | width in pixels |
+| `+0x02` | height in pixels |
+| `+0x04`,`+0x06` | position on the area canvas |
+| `+0x08` | tileset asset list |
+| `+0x0C` | room asset list |
+| `+0x10` | metatile-table asset list |
+| `+0x14` | the area's script entry point |
+
+Every address Part IV hunted for by hand is in there — and so, crucially, is a
+**position**.
+
+## 2. The five area tables
+
+The descriptor is built at **`$08053020`** from five tables, all indexed by area
+id (the code holds `area*4` in `r6`):
+
+| table | contents |
+|---|---|
+| `$0811E214` | → the area's **room geometry**: 10-byte records, `$FFFF`-terminated |
+| `$08107988` | → an array of **room asset lists**, one per room |
+| `$0810246C` | → an array of **tileset lists**, chosen per room |
+| `$0810309C` | → the area's **metatile-table list**, shared by all its rooms |
+| `$080B755C` | → the area's **script** |
+
+A geometry record is `{x, y, w, h, tilesetIndex}` — **all in pixels**. That is
+the whole answer: an area is a set of rooms placed on one shared canvas. The
+starting area is **area 3, room 1**, at (1488, 2480), 1008×688 — and its nine
+siblings tile around it into the field that surrounds Hyrule Castle.
+
+## 3. Palettes
+
+The tileset list carries one record whose destination is **0**, which the loader
+routes to `$0801D714` instead of copying. Its word is a **palette set id**. A
+set indexes `$080FF850` to a run of 4-byte records `{srcIndex, destSlot,
+count|flag}`, each copying *count* 16-colour palettes from `$085A2E80 +
+srcIndex*32` into palette slot *destSlot*.
+
+Rebuilt from the ROM, that reproduces **211 of 256** background entries exactly
+against the palette the running game had loaded. The 45 that differ are
+**unfilled** in our copy — zeros where the game has colour — so a further
+palette load exists that this does not yet cover. Stated rather than smoothed
+over: it is why a few cells render black.
+
+## 4. 419 rooms, 79 places
+
+`areamap -list` walks the tables: **419 rooms across the areas that resolve**.
+`areamap -all` assembles each area by decoding every room and compositing it at
+its own coordinates — **79 areas, every room placed**, in about three seconds.
+Two areas (13 and 113) decode no room at all and are reported rather than
+quietly skipped.
+
+The shape of the result is the game's own structure showing through. Areas 0–26
+are large contiguous overworld chunks; area 3 assembles to 2208×2448 pixels with
+a hole in the middle where Hyrule Castle sits — because the castle is a
+*different area*. Areas 32 upward hold many small rooms on a sparse canvas:
+interiors and dungeons, grouped by region rather than joined into one space.
+
+The Studio now publishes **one level per area** instead of one per room.
 
 ---
 

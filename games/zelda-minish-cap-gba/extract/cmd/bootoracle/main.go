@@ -69,6 +69,7 @@ func main() {
 	bp := flag.String("bp", "", "halting breakpoint PC (hex, comma-separated)")
 	irqlog := flag.Bool("irqlog", false, "log every interrupt dispatched")
 	shotEvery := flag.Uint64("shotevery", 0, "with -shot: also write a numbered capture every N frames (BASE-000123.png)")
+	logpc := flag.String("logpc", "", "non-halting breakpoint: log registers every time this PC is reached (hex, comma-separated)")
 	declog := flag.Bool("declog", false, "log every BIOS decompression: SWI, ROM/RAM source, destination, size — the game's own asset loads")
 	watch := flag.String("watch", "", "log writes to an address range ADDR:LEN (hex), with the PC that made them")
 	snd := flag.Bool("snd", false, "dump the sound block: mixing registers, PSG channels, and the Direct Sound timer/DMA chain")
@@ -149,6 +150,27 @@ func main() {
 		m.OnIRQ = func(src uint16, handler, ret uint32) {
 			fmt.Printf("IRQ %04X -> handler 0x%08X (from 0x%08X, frame %d line %d)\n",
 				src, handler, ret, m.Frame(), m.Line())
+		}
+	}
+
+	if *logpc != "" {
+		want := map[uint32]bool{}
+		for _, x := range strings.Split(*logpc, ",") {
+			want[uint32(parseAddr(x))] = true
+		}
+		prev := m.OnStep
+		m.OnStep = func(pc uint32) {
+			if want[pc] {
+				r := m.Regs()
+				fmt.Printf("logpc %08X:", pc)
+				for i := 0; i <= 7; i++ {
+					fmt.Printf(" r%d=%08X", i, r[i])
+				}
+				fmt.Printf(" lr=%08X (frame %d)\n", r[14], m.Frame())
+			}
+			if prev != nil {
+				prev(pc)
+			}
 		}
 	}
 
