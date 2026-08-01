@@ -105,7 +105,15 @@ func main() {
 		writePNG(filepath.Join(levelsDir, slug+"-atlas.png"), atlas)
 		writeJSON(filepath.Join(levelsDir, slug+".json"), map[string]any{
 			"format": "retro-x", "version": 1, "type": "tilemap",
-			"camera": map[string]any{"mode": "map2d", "map2d": map[string]any{"maxNativeFactor": 1}},
+			// maxZoom is (screenWidth / view.w) * maxNativeFactor, so a view that
+			// frames the WHOLE area — which is what makes it open fitted — would
+			// cap zoom at "the whole area on screen" if the factor were 1. Scaling
+			// the factor by the view's width in native screens cancels the view out
+			// and leaves the usual limit: about 6x the console's pixels, the same
+			// range a level with a native-sized view gets.
+			"camera": map[string]any{"mode": "map2d", "map2d": map[string]any{
+				"maxNativeFactor": float64(wt*8) / 240.0,
+			}},
 			"tilemap": map[string]any{
 				"tileSize": 8, "width": wt, "height": ht,
 				"atlas": map[string]any{"file": slug + "-atlas.png", "cols": cols},

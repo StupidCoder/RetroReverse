@@ -1,7 +1,7 @@
 {
  "camera": {
   "map2d": {
-   "maxNativeFactor": 1
+   "maxNativeFactor": 9.2
   },
   "mode": "map2d"
  },
