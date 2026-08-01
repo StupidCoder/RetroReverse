@@ -133,13 +133,36 @@ func PaletteSetOf(rom []byte, list []AssetEntry) int {
 	return -1
 }
 
+// baseSets are the palette sets the engine loads BEFORE an area's own: the
+// common banks (0, 1 and 15) that every overworld room shares. An area set
+// covers only the slots it actually replaces — set 0x10 fills 2..14 — so
+// rebuilding from it alone leaves those common banks black, which is exactly
+// how the missing colours showed up. The pair was read off the running game
+// rather than guessed: with them applied first, the rebuilt table matches the
+// palette the console holds in all but two entries, and both of those are the
+// index-0 slot of a bank, which is the transparent/backdrop entry and is never
+// drawn.
+var baseSets = []int{0x0B, 0x0C}
+
 // BuildPalette assembles the 512-entry palette a palette set produces, as
-// palette RAM would hold it.
+// palette RAM would hold it, over the common base sets.
 func BuildPalette(rom []byte, set int) []uint16 {
 	pal := make([]uint16, 512)
+	for _, b := range baseSets {
+		applyPaletteSet(rom, pal, b)
+	}
+	applyPaletteSet(rom, pal, set)
+	return pal
+}
+
+// applyPaletteSet runs one set's copy records over pal.
+func applyPaletteSet(rom []byte, pal []uint16, set int) {
+	if set < 0 {
+		return
+	}
 	rec := rd32(rom, uint32(palGroupTable+set*4))
 	if rec == 0 || rec>>24 != 0x08 {
-		return pal
+		return
 	}
 	for i := 0; i < 64; i++ {
 		p := rec + uint32(i*4)
@@ -159,8 +182,7 @@ func BuildPalette(rom []byte, set int) []uint16 {
 			pal[d] = rd16(rom, src+uint32(c)*2)
 		}
 		if ctl&0x80 == 0 {
-			break
+			return
 		}
 	}
-	return pal
 }

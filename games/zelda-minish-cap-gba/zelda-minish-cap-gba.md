@@ -733,13 +733,29 @@ set indexes `$080FF850` to a run of 4-byte records `{srcIndex, destSlot,
 count|flag}`, each copying *count* 16-colour palettes from `$085A2E80 +
 srcIndex*32` into palette slot *destSlot*.
 
-Rebuilt from the ROM, that reproduces **211 of 256** background entries exactly
-against the palette the running game had loaded. The 45 that differ are
-**unfilled** in our copy — zeros where the game has colour — so a further
-palette load exists that this does not yet cover. Stated rather than smoothed
-over: it is why a few cells render black.
+An area set covers only the slots it replaces — the starting area's set fills
+2&ndash;14 — and the common banks come from **base sets loaded before it**
+(`$0B` and `$0C`, read off the running game rather than guessed). With those
+applied first the rebuilt table matches the palette the console holds in **254
+of 256** entries; the two that differ are both the index-0 slot of a bank, which
+is the transparent/backdrop entry and is never drawn.
 
-## 4. 419 rooms, 79 places
+## 4. Doors
+
+A transition is a call to the room-entry routine at **`$08052FF4`**, which takes
+an **(area, room)** pair and stores it in the room state block before the
+descriptor is rebuilt. Its caller at `$08051FB0` reads that pair out of an 8-byte
+**exit record** — `{area, room, …, x, y}`, the last two being where the player
+arrives — from a table at **`$080FCA20`**.
+
+Walking into Link's house is `(3, 1)` &rarr; `(34, 17)`, and area 34 is indeed
+one of the interior groups. What is **not** yet resolved is how a room selects
+its exit record: the index arrives in a register from the door object that was
+touched, so the mapping from a place on the map to a record is still open. Until
+that is settled the exits cannot be drawn on an area, which is why the maps here
+carry no door markers.
+
+## 5. 419 rooms, 79 places
 
 `areamap -list` walks the tables: **419 rooms across the areas that resolve**.
 `areamap -all` assembles each area by decoding every room and compositing it at
