@@ -165,6 +165,8 @@ func f32at(b []byte, o int) float32 {
 	return math.Float32frombits(binary.LittleEndian.Uint32(b[o:]))
 }
 
+func float32frombits(v uint32) float32 { return math.Float32frombits(v) }
+
 // Vertices decodes a fragment's vertex set.
 func (fr *Fragment) Vertices() []Vertex {
 	if len(fr.FPData) < 16 {
