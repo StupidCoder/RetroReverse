@@ -803,7 +803,45 @@ object supplied — the same shape as the door's record offset arriving in `r3`.
 Both therefore need the object the player interacted with, which needs a
 genuinely controllable Link and a real interaction.
 
-## 5. 419 rooms, 79 places
+## 5. Objects
+
+Every room places objects — pots, signs, chests, doors, enemies — and the list
+that describes them is **three levels deep**, which is why nothing flat ever
+found it:
+
+```
+$080D50FC[area] -> a per-room array
+            [room] -> a per-kind array
+              [kind] -> the object list
+```
+
+A list is 16-byte records ending in a `$FF` type byte. The spawner at
+`$0804AF68` reads three fields and hands them to the entity constructor:
+
+| offset | field |
+|---|---|
+| `+0x00` | type, and `+0x01` subtype |
+| `+0x02` | a parameter whose meaning depends on the type |
+| `+0x08`, `+0x0A` | x and y — **relative to the room**, added to the room's origin |
+| `+0x0C` | for spawned objects the handler; for others a second coordinate pair |
+
+The constructor chain is worth naming because it is what identifies the record
+layout: `$0804AF68` computes `entity.x = roomOrigin.x + record.x`, then calls
+`$0807DAD0` (allocate a slot and attach), which calls `$0807DB88` — and that one
+clears exactly **`$24` bytes**, which is where the entity stride comes from.
+
+Positions being room-relative is the useful part: adding the room's own (x, y)
+from the geometry table puts every object on the same canvas the maps are drawn
+on. `areamap -objects` does that, and the result is the check that the decode is
+real — six records land in a neat 3&times;2 grid in the garden in front of Link's
+house, and the rest sit on doors, bridges and paths. A wrong decode scatters.
+
+`objdump` walks the table: **21,036 objects across 477 rooms**. The room index
+must be bounded by the area's own geometry table — the object table carries no
+length, so reading a fixed 64 rooms per area walks off the end and counts
+garbage as objects (158,658 of them).
+
+## 6. 419 rooms, 79 places
 
 `areamap -list` walks the tables: **419 rooms across the areas that resolve**.
 `areamap -all` assembles each area by decoding every room and compositing it at

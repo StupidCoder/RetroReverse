@@ -16,6 +16,7 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	"image/color"
 	"image/draw"
 	"image/png"
 	"os"
@@ -142,12 +143,57 @@ func buildArea(rom []byte, ar *Area) (*assembled, error) {
 			r := ly.Bounds().Add(at)
 			draw.Draw(canvas, r, ly, image.Point{}, draw.Over)
 		}
+		// The room's objects, at their own coordinates plus the room origin.
+		if markObjects {
+			for k := 0; k < 4; k++ {
+				l := ListFor(rom, ar.ID, i, k)
+				if l == 0 {
+					continue
+				}
+				for _, ob := range Objects(rom, l, k) {
+					drawMarker(canvas, at.X+ob.X, at.Y+ob.Y, kindColour(k))
+				}
+			}
+		}
 		placed++
 	}
 	if placed == 0 {
 		return nil, fmt.Errorf("area %d: no room decoded", ar.ID)
 	}
 	return &assembled{canvas, minX, minY, placed}, nil
+}
+
+// markObjects draws the room's object records over the assembled map — the
+// visual check on the three-level object lookup: a correct decode puts markers
+// on doors, chests and signs, and a wrong one scatters them at random.
+var markObjects bool
+
+func kindColour(k int) color.RGBA {
+	switch k {
+	case 0:
+		return color.RGBA{255, 80, 80, 255}
+	case 1:
+		return color.RGBA{80, 255, 80, 255}
+	case 2:
+		return color.RGBA{80, 160, 255, 255}
+	default:
+		return color.RGBA{255, 230, 60, 255}
+	}
+}
+
+func drawMarker(img *image.RGBA, x, y int, c color.RGBA) {
+	for dy := -3; dy <= 3; dy++ {
+		for dx := -3; dx <= 3; dx++ {
+			if dx*dx+dy*dy > 9 {
+				continue
+			}
+			px, py := x+dx, y+dy
+			if px < 0 || py < 0 || px >= img.Bounds().Dx() || py >= img.Bounds().Dy() {
+				continue
+			}
+			img.SetRGBA(px, py, c)
+		}
+	}
 }
 
 func main() {
@@ -157,12 +203,14 @@ func main() {
 	all := flag.Bool("all", false, "assemble every area")
 	maxArea := flag.Int("max", 128, "highest area id to consider")
 	out := flag.String("out", "areas", "output directory")
+	marks := flag.Bool("objects", false, "draw the rooms' object records as markers")
 	flag.Parse()
 
 	rom, err := os.ReadFile(*romPath)
 	if err != nil {
 		die("%v", err)
 	}
+	markObjects = *marks
 
 	if *list {
 		total := 0
