@@ -54,6 +54,7 @@ type Page struct {
 	Textures []Texture
 
 	vram []byte // the page's footprint, byte-addressed from block 0
+	raw  []byte // the segments' bytes concatenated in file order (the atlas)
 }
 
 // GS pixel storage formats.
@@ -88,30 +89,42 @@ func Load(obj []byte) (*Page, error) {
 		segs = append(segs, seg{u32at(obj, P+0x18+k*12), u32at(obj, P+0x1C+k*12)})
 		pg.Words += segs[k].words
 	}
-	// Segment 0 uploads as a 128-px-wide PSMCT32 IMAGE transfer at the page
-	// base (VERIFIED byte-exact against live VRAM: every CLUT block and
-	// far-tier texel checked matches, and four full textures decode
-	// pixel-identical through the oracle's sampler). Segments 1-2 (the
-	// mid/near mip tiers, streamed in and out at runtime) do NOT tile VRAM
-	// cumulatively: live VRAM shows e.g. page-relative block 0x280 holding
-	// segment-2 data from word 0x2C0 with a 128-word row stride, so the
-	// tier-to-VRAM mapping goes through the engine's tier allocator, not the
-	// header dst deltas. OPEN: solve that mapping; until then the model
-	// below is segment-0-faithful and best-effort for tiers 1-2 (textures
-	// whose mip 0 lives in tier 1/2 may decode with a wrong layout).
+	// The page's upload primitive is upload-vram-data (0x6157FC): every
+	// transfer is a 128-px-wide PSMCT32 IMAGE (BITBLTBUF DBW=2, TRXREG
+	// RRW=128) whose source is consumed at 256 bytes per destination block,
+	// in block order. Under that model the concatenated segments form the
+	// boot-time page image; VERIFIED byte-exact against boot VRAM for
+	// segment 0 — the always-resident far tier, which carries every CLUT
+	// and every texture's deeper mips — and pixel-exact through the
+	// oracle's sampler for full textures whose mip 0 also sits there.
+	// The mid/near tiers (segments 1-2) stream through update-vram-pages'
+	// 16 KB chunk allocator with a per-chunk residency table (s2+180), so
+	// their live VRAM placement is dynamic and their positions inside the
+	// file atlas do not follow the header's dst deltas (seg1 is not even a
+	// whole number of 512-byte atlas rows). OPEN: reimplement the packer
+	// (texture-page-default-allocate) to place tier-1/2 mip 0 data exactly;
+	// mip-consistency (the game's mip chain is an exact 2x2 box filter)
+	// validates any placement without the oracle, and FitTiers below
+	// searches with it.
 	pg.vram = make([]byte, pg.Words*4)
-	segBase := uint32(0)
+	pg.raw = make([]byte, 0, pg.Words*4)
+	for _, s := range segs {
+		if int64(s.ptr)+int64(s.words)*4 <= int64(len(obj)) {
+			pg.raw = append(pg.raw, obj[s.ptr:s.ptr+s.words*4]...)
+		}
+	}
+	w := uint32(0)
 	for _, s := range segs {
 		if int64(s.ptr)+int64(s.words)*4 > int64(len(obj)) {
 			return nil, fmt.Errorf("tpage %s: segment [0x%x +0x%x words] outside object", pg.Name, s.ptr, s.words)
 		}
-		for w := uint32(0); w < s.words; w++ {
-			a := ps2.TexAddrPSMCT32(segBase/64, 2, w%128, w/128)
+		for i := uint32(0); i < s.words; i++ {
+			a := ps2.TexAddrPSMCT32(0, 2, w%128, w/128)
 			if int64(a)+4 <= int64(len(pg.vram)) {
-				binary.LittleEndian.PutUint32(pg.vram[a:], u32at(obj, s.ptr+w*4))
+				binary.LittleEndian.PutUint32(pg.vram[a:], u32at(obj, s.ptr+i*4))
 			}
+			w++
 		}
-		segBase += s.words
 	}
 
 	for i := 0; i < count; i++ {
@@ -288,4 +301,226 @@ func (pg *Page) Window(bp uint32) *image.RGBA {
 		}
 	}
 	return img
+}
+
+// --- tier fitting -----------------------------------------------------------
+//
+// The mid/near tiers stream through a chunk allocator, so a tier texture's
+// data does not sit at its descriptor's destination block in the file's
+// atlas. But the game's mip chain is an exact 2x2 box filter and every
+// texture's deepest mip lives in tier 0 (dense, verified), so the true atlas
+// position of each shallower mip is recoverable by search: the position
+// whose decode box-downscales onto the verified next-deeper mip.
+
+// FitResult reports one mip's search.
+type FitResult struct {
+	Searched bool
+	OK       bool
+	Offset   uint32 // byte offset of the texel data in the raw atlas
+	X, Y     int    // position in the 512-byte-wide atlas raster
+	Err      float64
+}
+
+// boxErr scores how well img box-downscales onto ref (mean abs RGB diff).
+func boxErr(img, ref *image.RGBA) float64 {
+	w, h := ref.Rect.Dx(), ref.Rect.Dy()
+	if img.Rect.Dx() != w*2 || img.Rect.Dy() != h*2 {
+		return 1e18
+	}
+	sum, n := 0.0, 0
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			var r, g, b int
+			for dy := 0; dy < 2; dy++ {
+				for dx := 0; dx < 2; dx++ {
+					c := img.RGBAAt(x*2+dx, y*2+dy)
+					r += int(c.R)
+					g += int(c.G)
+					b += int(c.B)
+				}
+			}
+			pc := ref.RGBAAt(x, y)
+			sum += abs3(r/4-int(pc.R)) + abs3(g/4-int(pc.G)) + abs3(b/4-int(pc.B))
+			n += 3
+		}
+	}
+	return sum / float64(n)
+}
+
+// texelAt reads texel (x,y) of a texture's mip as a CLUT index straight from
+// the raw atlas at byte position (offset, 512-wide raster).
+func (pg *Page) atlasIndex(t *Texture, x, y int) (uint32, bool) {
+	if x < 0 || y < 0 {
+		return 0, false
+	}
+	switch t.PSM {
+	case PSMT8:
+		a := y*512 + x
+		if a >= len(pg.raw) {
+			return 0, false
+		}
+		return uint32(pg.raw[a]), true
+	case PSMT4:
+		a := y*512 + x/2
+		if a >= len(pg.raw) {
+			return 0, false
+		}
+		v := uint32(pg.raw[a])
+		if x&1 != 0 {
+			v >>= 4
+		}
+		return v & 0xF, true
+	}
+	return 0, false
+}
+
+// FitTiers solves the atlas positions of every mip of t that does not
+// already decode consistently. Returns one FitResult per mip level.
+func (pg *Page) FitTiers(t *Texture) []FitResult {
+	res := make([]FitResult, t.Mips)
+	// Reference chain: start from the deepest mip via the block model
+	// (tier 0), then walk up, fitting each level against the one below.
+	ref, err := pg.Decode(t, t.Mips-1)
+	if err != nil {
+		return res
+	}
+	for m := t.Mips - 2; m >= 0; m-- {
+		// try the descriptor's own block first (dense tier-0 case)
+		if img, err := pg.Decode(t, m); err == nil && boxErr(img, ref) < 1.0 {
+			ref = img
+			continue
+		}
+		r := pg.fitOne(t, m, ref)
+		res[m] = r
+		if !r.OK {
+			break // can't anchor shallower mips
+		}
+		img := pg.decodeAtAtlas(t, m, r.Offset)
+		ref = img
+	}
+	return res
+}
+
+func (pg *Page) fitOne(t *Texture, m int, ref *image.RGBA) FitResult {
+	w, h := t.W>>m, t.H>>m
+	cl := pg.clutFor(t)
+	best := FitResult{Searched: true, Err: 1e18}
+	rows := len(pg.raw) / 512
+	stepX := 32 // observed placements sit on 32-texel columns
+	if w >= 512 {
+		stepX = 512
+	}
+	for y := 0; y+h <= rows; y++ {
+		for x := 0; x+w <= 512; x += stepX {
+			e := pg.tryFit(t, uint32(y), uint32(x), w, h, cl, ref)
+			if e < best.Err {
+				best.Err = e
+				best.X, best.Y = x, y
+				best.Offset = uint32(y)*512 + uint32(x)
+				if t.PSM == PSMT4 {
+					best.Offset = uint32(y)*512 + uint32(x/2)
+				}
+				if e == 0 {
+					best.OK = true
+					return best
+				}
+			}
+		}
+	}
+	best.OK = best.Err < 2.0
+	return best
+}
+
+// tryFit scores a candidate position: decode w×h from the atlas, box-filter
+// 2x2 in RGB, mean abs diff against the reference mip.
+func (pg *Page) tryFit(t *Texture, y0, x0 uint32, w, h int, cl []uint32, ref *image.RGBA) float64 {
+	sum, n := 0.0, 0
+	rw := ref.Rect.Dx()
+	// sample a sparse grid first for speed; full check only if promising
+	for _, full := range []bool{false, true} {
+		step := 4
+		if full {
+			step = 1
+			if sum/float64(max(n, 1)) > 8.0 {
+				break
+			}
+			sum, n = 0, 0
+		}
+		for ry := 0; ry < h/2; ry += step {
+			for rx := 0; rx < w/2; rx += step {
+				var r, g, b int
+				ok := true
+				for dy := 0; dy < 2; dy++ {
+					for dx := 0; dx < 2; dx++ {
+						idx, in := pg.atlasIndex(t, int(x0)+rx*2+dx, int(y0)+ry*2+dy)
+						if !in {
+							ok = false
+							break
+						}
+						c := cl[idx]
+						r += int(c & 0xFF)
+						g += int(c >> 8 & 0xFF)
+						b += int(c >> 16 & 0xFF)
+					}
+				}
+				if !ok || ry >= ref.Rect.Dy() || rx >= rw {
+					continue
+				}
+				pc := ref.RGBAAt(rx, ry)
+				sum += abs3(r/4-int(pc.R)) + abs3(g/4-int(pc.G)) + abs3(b/4-int(pc.B))
+				n += 3
+			}
+		}
+	}
+	if n == 0 {
+		return 1e18
+	}
+	return sum / float64(n)
+}
+
+func abs3(v int) float64 {
+	if v < 0 {
+		return float64(-v)
+	}
+	return float64(v)
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// decodeAtAtlas decodes mip m of t from a solved atlas position.
+func (pg *Page) decodeAtAtlas(t *Texture, m int, off uint32) *image.RGBA {
+	w, h := t.W>>m, t.H>>m
+	cl := pg.clutFor(t)
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	y0 := int(off / 512)
+	x0 := int(off % 512)
+	if t.PSM == PSMT4 {
+		x0 *= 2
+	}
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			idx, _ := pg.atlasIndex(t, x0+x, y0+y)
+			c := cl[idx]
+			a := c >> 24 & 0xFF * 2
+			if a > 255 {
+				a = 255
+			}
+			img.SetRGBA(x, y, color.RGBA{uint8(c), uint8(c >> 8), uint8(c >> 16), uint8(a)})
+		}
+	}
+	return img
+}
+
+// clutFor returns the texture's CLUT (from the verified tier-0 region).
+func (pg *Page) clutFor(t *Texture) []uint32 {
+	n := uint32(256)
+	if t.PSM == PSMT4 || t.PSM == PSMT4HL || t.PSM == PSMT4HH {
+		n = 16
+	}
+	return pg.clut(t, n)
 }
