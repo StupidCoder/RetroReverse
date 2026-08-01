@@ -742,39 +742,39 @@ is the transparent/backdrop entry and is never drawn.
 
 ## 4. Doors
 
-A transition is a call to `$08051F9C` with **(area, room, x, y)** — the room to
-enter and where to arrive — which stores the pair in the room state block and
-rebuilds the descriptor through `$08052FF4`. Walking into Link's house is
-`(3,&nbsp;1)` &rarr; `(34,&nbsp;17)`, and area 34 is indeed one of the interior
-groups.
+A transition calls `$08051F9C` with **(area, room, x, y)** — the room to enter
+and where to arrive — which stores the pair in the room state block and rebuilds
+the descriptor through `$08052FF4`.
 
-There is an 8-byte record layout for this at `$080FCA20` — `{area, room, …, x,
-y}` — read by the code at `$08051F80`. That path is *not* the one a door takes:
-walking through Link's doorway never reaches it.
-
-What the doorway reaches instead is this:
+Counting the call sites settles how doors work: `$08051F9C` is called from
+exactly **two** places. One is `$08051F8C`, and the code just above it is the
+general mechanism:
 
 ```
-MOV r0, #0x22        ; area 34
-MOV r1, #0x11        ; room 17
-MOV r2, #0
-MOV r3, #0
-BL  $08051F9C        ; enter
+LDR  r0, [pc, …]      ; the table at $080FCA20
+ADD  r3, r3, r0       ; + an offset chosen per door
+LDRB r0, [r3, #0x0]   ; area
+LDRB r1, [r3, #0x1]   ; room
+LDRH r2, [r3, #0x4]   ; arrival x
+LDRH r3, [r3, #0x6]   ; arrival y
 ```
 
-The destination is **immediate operands in code**. Doors are script routines,
-not rows of a table, which is why no index maps a room to an exit record.
+So doors **are** data after all: 8-byte records `{area, room, …, x, y}` at
+`$080FCA20`. The other call site, `$080539CE`, loads the destination as
+immediate operands (`MOV r0,#0x22`, `MOV r1,#0x11`) and is the *scripted* entry
+the game's opening uses to put Link in his house — a special case, not the rule.
 
-A ROM-wide scan for that shape — a `BL` to either entry point with `MOV r0`/`MOV
-r1` immediates in front of it — finds exactly **one** site: this door. So the
-literal form is the exception rather than the rule, and the other transitions
-compute their target from registers or from data reached some other way.
+That script is one step of a global transition state machine: a state byte at
+`$02000086` indexes a table of function pointers at `$080FCCFC`, and each step
+advances the byte. It is the sequence that runs a transition, not a per-door
+handler.
 
-The practical consequence is that area connectivity is **not** recoverable from
-a single table, and neither are door positions, which is what a marker on the
-map would need. Getting there means following the area scripts (descriptor
-`+0x14`) or the entity system that owns the trigger — a larger piece of work than
-the map decode was, and the reason the maps here still carry no door markers.
+What remains open is narrow and specific: the record **offset** arrives in `r3`
+at `$08051F80`, put there by whatever the player touched. Catching a normal door
+in the oracle and reading `r3` there gives the index, and with it the mapping
+from a place on the map to a record — the last piece a door marker needs. The
+scripted house entry does not take this path, so it cannot answer the question;
+a second, ordinary doorway has to be walked through.
 
 ## 5. 419 rooms, 79 places
 
