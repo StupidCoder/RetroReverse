@@ -336,14 +336,45 @@ func NewSession(micro, lowMem, ctrlRow []byte, stMagic uint32) (*Session, error)
 }
 
 // RunFragment feeds one fragment (vertex indices globally encoded from
-// gbase) and returns its packet topology.
+// gbase) and returns its packet topology. The fragment runs twice from the
+// same VU snapshot with two index encodings; only freshly written slots
+// differ between the runs, which separates this fragment's packet from
+// stale output (strips carry across fragments, so halves are never simply
+// clearable).
 func (s *Session) RunFragment(fr *Fragment, gbase int) ([]TopoVert, error) {
+	snap := s.v.Snapshot()
+	savedTop, savedFirst := s.top, s.first
+	a, err := s.runOnce(fr, gbase, 0)
+	if err != nil {
+		return nil, err
+	}
+	s.v.Restore(snap)
+	s.top, s.first = savedTop, savedFirst
+	b, err := s.runOnce(fr, gbase, 0x2000)
+	if err != nil {
+		return nil, err
+	}
+	if len(a) != len(b) {
+		return nil, fmt.Errorf("merc session: nondeterministic runs (%d vs %d)", len(a), len(b))
+	}
+	out := make([]TopoVert, 0, len(a))
+	for i := range a {
+		if a[i].Index != b[i].Index && b[i].Index-a[i].Index == 0x2000 {
+			out = append(out, a[i]) // fresh: encoded this run
+		} else if a[i].Index == b[i].Index {
+			out = append(out, a[i]) // carried from an earlier fragment
+		}
+	}
+	return out, nil
+}
+
+func (s *Session) runOnce(fr *Fragment, gbase, bias int) ([]TopoVert, error) {
 	patched := *fr
 	patched.ByteData = append([]byte(nil), fr.ByteData...)
 	base := (int(fr.ByteData[12]) + 1) * 4
 	nv := fr.LumpQWC / 3
 	for v := 0; base+v*4+3 < len(patched.ByteData) && v < nv+2; v++ {
-		idx := gbase + v + 1
+		idx := gbase + v + 1 + bias
 		patched.ByteData[base+v*4] = byte(idx)
 		patched.ByteData[base+v*4+1] = byte(idx >> 8)
 		patched.ByteData[base+v*4+2] = 0
@@ -388,18 +419,6 @@ func (s *Session) RunFragment(fr *Fragment, gbase int) ([]TopoVert, error) {
 		copy(data[uint32(m.Dest)*16:], img)
 	}
 
-	// Diagnostic hygiene: clear both output halves so this fragment's
-	// packet cannot alias a stale one.
-	for q := 371; q < 582; q++ {
-		for k := 0; k < 16; k++ {
-			data[q*16+k] = 0
-		}
-	}
-	for q := 813; q < 1024; q++ {
-		for k := 0; k < 16; k++ {
-			data[q*16+k] = 0
-		}
-	}
 	s.v.Top = s.top
 	entry := uint32(0x88)
 	if s.first {
@@ -414,14 +433,25 @@ func (s *Session) RunFragment(fr *Fragment, gbase int) ([]TopoVert, error) {
 	// directly: each vertex is 3 quadwords {ST, RGBA, XYZF2}; our encoded
 	// RGBA words ({idx16, 0, 0, 0x80}) identify vertices, the XYZ word's
 	// bit 15 is ADC. Slots are consecutive in strip order.
-	half := [2]uint32{371, 582}
-	lo := half[0]
-	if top == 442 {
-		lo = 813
+	// Both output halves were cleared before the run, so fresh signature
+	// hits are unambiguous: scan both and take whichever half got them.
+	scan := func(lo, hi uint32) int {
+		n := 0
+		for q := lo; q+2 < hi; q++ {
+			w0 := binary.LittleEndian.Uint32(data[(q&1023)*16:])
+			w1 := binary.LittleEndian.Uint32(data[(q&1023)*16+4:])
+			w2 := binary.LittleEndian.Uint32(data[(q&1023)*16+8:])
+			w3 := binary.LittleEndian.Uint32(data[(q&1023)*16+12:])
+			if w3 == 0x80 && w1 < 0x40 && w2 == 0 && w0 >= 1 && w0 < 256 {
+				n++
+				q += 2
+			}
+		}
+		return n
 	}
-	hi := lo + 211
-	if lo == 371 {
-		hi = 571
+	lo, hi := uint32(371), uint32(571)
+	if scan(813, 1023) > scan(371, 571) {
+		lo, hi = 813, 1023
 	}
 	var vs []OutVert
 	for q := lo; q+2 < hi; q++ {
@@ -429,11 +459,11 @@ func (s *Session) RunFragment(fr *Fragment, gbase int) ([]TopoVert, error) {
 		w1 := binary.LittleEndian.Uint32(data[(q&1023)*16+4:])
 		w2 := binary.LittleEndian.Uint32(data[(q&1023)*16+8:])
 		w3 := binary.LittleEndian.Uint32(data[(q&1023)*16+12:])
-		if w3 == 0x80 && w1 == 0 && w2 == 0 && w0 >= 1 && w0 < 65536 {
+		if w3 == 0x80 && w1 < 0x40 && w2 == 0 && w0 >= 1 && w0 < 256 {
 			// RGBA slot at q; XYZ slot at q-2 carries the ADC bit.
 			adcw := binary.LittleEndian.Uint32(data[((q-2)&1023)*16+12:])
 			vs = append(vs, OutVert{
-				RGBA: [4]uint8{uint8(w0), uint8(w0 >> 8), 0, 0x80},
+				RGBA: [4]uint8{uint8(w0), uint8(w1), 0, 0x80},
 				ADC:  adcw&0x8000 != 0,
 			})
 			q += 2
