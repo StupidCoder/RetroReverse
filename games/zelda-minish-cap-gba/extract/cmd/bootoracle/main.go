@@ -71,6 +71,7 @@ func main() {
 	shotEvery := flag.Uint64("shotevery", 0, "with -shot: also write a numbered capture every N frames (BASE-000123.png)")
 	logpc := flag.String("logpc", "", "non-halting breakpoint: log registers every time this PC is reached (hex, comma-separated)")
 	declog := flag.Bool("declog", false, "log every BIOS decompression: SWI, ROM/RAM source, destination, size — the game's own asset loads")
+	readwatch := flag.String("readwatch", "", "log READS of an address range ADDR:LEN (hex), with the PC — for finding the code that consumes a table")
 	watch := flag.String("watch", "", "log writes to an address range ADDR:LEN (hex), with the PC that made them")
 	snd := flag.Bool("snd", false, "dump the sound block: mixing registers, PSG channels, and the Direct Sound timer/DMA chain")
 	wav := flag.String("wav", "", "capture the sound the game's driver mixes and write it as a WAV")
@@ -103,6 +104,28 @@ func main() {
 			fmt.Printf("dec: %-8s src=%08X dst=%08X size=%6d  (caller lr=%08X, frame %d)\n",
 				kind, src, dst, size, lr, m.Frame())
 		}
+	}
+	if *readwatch != "" {
+		fs := strings.SplitN(*readwatch, ":", 2)
+		if len(fs) != 2 {
+			die("bad -readwatch (want ADDR:LEN)")
+		}
+		lo := uint32(parseAddr(fs[0]))
+		hi := lo + uint32(parseAddr(fs[1]))
+		seen := map[uint32]int{}
+		m.OnRead = func(addr uint32, v byte, pc uint32) {
+			if addr < lo || addr >= hi {
+				return
+			}
+			if seen[pc]++; seen[pc] == 1 {
+				fmt.Printf("readwatch: first read of %08X from pc %08X (frame %d)\n", addr, pc, m.Frame())
+			}
+		}
+		defer func() {
+			for pc, n := range seen {
+				fmt.Printf("readwatch: pc %08X read %d bytes in range\n", pc, n)
+			}
+		}()
 	}
 	if *watch != "" {
 		fs := strings.SplitN(*watch, ":", 2)

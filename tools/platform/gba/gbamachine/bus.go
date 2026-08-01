@@ -53,6 +53,9 @@ func (b *bus) romByte(a uint32) (byte, bool) {
 // Read services a byte load.
 func (b *bus) Read(a uint32) byte {
 	m := b.m
+	if m.OnRead != nil {
+		defer func() { m.OnRead(a, 0, m.cpu.R[15]) }()
+	}
 	switch a >> 24 {
 	case 0x00, 0x01:
 		if a < biosSize {
@@ -146,6 +149,10 @@ func (b *bus) Write(a uint32, v byte) {
 
 func (b *bus) Read16(a uint32) uint16 {
 	m := b.m
+	if m.OnRead != nil {
+		m.OnRead(a, 0, m.cpu.R[15])
+		m.OnRead(a+1, 0, m.cpu.R[15])
+	}
 	switch a >> 24 {
 	case 0x04:
 		return m.ioRead16(a)

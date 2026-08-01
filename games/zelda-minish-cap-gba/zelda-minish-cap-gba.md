@@ -21,7 +21,8 @@ applies from day one. The writeup proceeds in reading order:
   tilemaps and palettes, verified against the machine's own render — and what
   that says about where the ROM-side format hunt begins;
 * **Part V** — the world: maps, rooms, the Minish scale mechanic, entities;
-* **Part VI** — music and sound;
+* **Part VI** — the script: where the dialogue lives and how a message is built;
+* **Part VII** — music and sound;
 * **Appendix** — toolchain and reproduction.
 
 Methods: static analysis of the ROM image with the repository's own tools
@@ -791,6 +792,46 @@ a hole in the middle where Hyrule Castle sits — because the castle is a
 interiors and dungeons, grouped by region rather than joined into one space.
 
 The Studio now publishes **one level per area** instead of one per room.
+
+---
+
+# Part VI — The script
+
+The dialogue is **plain ASCII**. After a cartridge whose maps hide behind a
+metatile indirection, a relative-offset asset list and BIOS LZ77, the script is
+simply there: NUL-terminated strings filling the back of the ROM from about
+`$08900000`, with `$0A` for a line break.
+
+## 1. Control codes
+
+A message is not only text. Bytes below `$10` are inline commands — speaker and
+portrait, the colour that highlights a proper noun, pauses, and the branch a
+question takes. They do **not** all carry an operand, and assuming they do
+quietly eats the following letter: `0E 59 6F 75` is the code `$0E`, then
+`"You"`. Only `$01`&ndash;`$03` were observed to take one.
+
+Highlighted terms are the visible half of this: `[02 02]Lon Lon Ranch[02]` is
+the same colour-on, colour-off pairing the game uses for every item and place
+name it wants the player to notice.
+
+## 2. Extracting it
+
+`textdump` walks the ROM for NUL-terminated runs and keeps the ones that read as
+prose — inside the script region, containing spaces, and at least 70% letters.
+All three tests are needed: compressed graphics produce long printable runs
+constantly, and length alone finds **10,984** "messages" of which most are
+binary. The three together give **3,746**, and spot checks across them are
+dialogue, item names and character names throughout. The filter is a heuristic,
+so a handful of false positives survive at the edges.
+
+## 3. What it does not give
+
+The messages come out in ROM order, not by who says them. Which line a sign or a
+character shows is chosen by an index that has not been decoded: the text engine
+at `$0805EFA6` walks a pointer that is already resolved by the time it runs.
+Attributing a message to a signpost needs that lookup, which is the same
+unfinished thread as the door records — both are *selection*, and both are
+reached from the object that the player interacted with.
 
 ---
 

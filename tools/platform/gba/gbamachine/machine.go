@@ -115,6 +115,12 @@ type Machine struct {
 	// screenshot is taken.
 	OnFrame func()
 
+	// OnRead observes every byte the CPU loads, with the PC that loaded it —
+	// the complement of OnWrite. Finding the code that CONSUMES a table (a
+	// message, a pointer list) needs this: nothing is ever written to it, so a
+	// write-watch is silent by construction.
+	OnRead func(addr uint32, v byte, pc uint32)
+
 	// OnWrite observes every byte the CPU stores, with the PC that stored it.
 	// This is what a write-watch is made of: the way to find the code that
 	// produced a value is to watch the address and capture the writer, not to
