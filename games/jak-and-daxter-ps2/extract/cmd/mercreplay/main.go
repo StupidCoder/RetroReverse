@@ -86,10 +86,12 @@ func main() {
 	total, resolved := 0, 0
 	for _, h := range heads {
 		r := merc.NewReplayer(ram)
+		r.RefLo, r.RefHi = base, base+0x2B000
 		copy(r.V.Micro, mercMicro)
 		if err := r.Play(h); err != nil {
 			fmt.Printf("head 0x%X: %v (packets so far %d)\n", h, err, len(r.Packets))
 		}
+		hres := 0
 		for _, pk := range r.Packets {
 			for _, v := range pk {
 				total++
@@ -97,22 +99,18 @@ func main() {
 					enc := int(v.RGBA[0]) | int(v.RGBA[1])<<8
 					if enc >= 1 && enc <= gbase {
 						resolved++
+						hres++
 					}
 				}
 			}
 		}
-		if len(r.Packets) > 0 {
-			fmt.Printf("head 0x%X: %d packets, first sizes:", h, len(r.Packets))
-			for i, pk := range r.Packets {
-				if i > 6 {
-					break
-				}
-				fmt.Printf(" %d", len(pk))
-			}
-			fmt.Println()
+		if hres > 0 || r.RefHits > 0 {
+			fmt.Printf("head 0x%X: resolved %d, logo-refs %d, packets %d\n", h, hres, r.RefHits, len(r.Packets))
 		}
+
 	}
 	fmt.Printf("total packet verts %d, resolved %d\n", total, resolved)
+	_ = resolved
 }
 
 func check(err error) {

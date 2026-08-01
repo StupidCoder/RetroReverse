@@ -31,6 +31,9 @@ type Replayer struct {
 	Packets [][]OutVert // one slice per kicked packet, in kick order
 	Trace   bool
 	SkipRun bool // process uploads only (a dry pass to collect MPG code)
+	RefLo, RefHi uint32 // count ref tags into this range
+	RefHits      int
+	Refs         []uint32
 }
 
 func NewReplayer(ram []byte) *Replayer {
@@ -78,6 +81,10 @@ func (r *Replayer) Play(addr uint32) error {
 		case 3, 4: // REF, REFS
 			data = ref
 			next = addr + 16
+			if ref >= r.RefLo && ref < r.RefHi {
+				r.RefHits++
+			}
+			r.Refs = append(r.Refs, ref)
 		case 5: // CALL
 			data = addr + 16
 			if len(stack) < 2 {
@@ -148,26 +155,44 @@ func (r *Replayer) vif(w []uint32) error {
 		case cmd == 0x06, cmd == 0x07: // MSKPATH3, MARK
 		case cmd >= 0x10 && cmd <= 0x13: // FLUSH*
 		case cmd == 0x14, cmd == 0x15: // MSCAL, MSCALF
+			// The VU latches the CURRENT TOPS; DBF then flips so the
+			// following unpacks fill the other buffer.
+			vuTop := uint16(r.base)
+			if r.dbf {
+				vuTop = uint16((r.base + r.offset) & 0x3FF)
+			}
+			r.dbf = !r.dbf
 			r.tops = uint16(r.base)
 			if r.dbf {
 				r.tops = uint16((r.base + r.offset) & 0x3FF)
 			}
-			r.dbf = !r.dbf
-			r.V.Top = r.tops
+			r.V.Top = vuTop
 			if !r.SkipRun {
 				if _, ok := r.V.Run(imm*8&0x3FFF, 600000); !ok {
 					e := imm * 8 & 0x3FFF
-					return fmt.Errorf("replay: microprogram did not halt (MSCAL 0x%X; spin %x)",
-						e, r.V.BranchTrail())
+					hdr := ""
+					for q := uint32(r.tops) + 140; q < uint32(r.tops)+145; q++ {
+						hdr += fmt.Sprintf(" {%08X %08X %08X %08X}",
+							binary.LittleEndian.Uint32(r.V.Data[(q&1023)*16:]),
+							binary.LittleEndian.Uint32(r.V.Data[(q&1023)*16+4:]),
+							binary.LittleEndian.Uint32(r.V.Data[(q&1023)*16+8:]),
+							binary.LittleEndian.Uint32(r.V.Data[(q&1023)*16+12:]))
+					}
+					return fmt.Errorf("replay: microprogram did not halt (MSCAL 0x%X top=%d; spin %x; in:%s)",
+						e, r.tops, r.V.BranchTrail(), hdr)
 				}
 			}
 		case cmd == 0x17: // MSCNT: continue at the PC after the last halt
+			vuTop := uint16(r.base)
+			if r.dbf {
+				vuTop = uint16((r.base + r.offset) & 0x3FF)
+			}
+			r.dbf = !r.dbf
 			r.tops = uint16(r.base)
 			if r.dbf {
 				r.tops = uint16((r.base + r.offset) & 0x3FF)
 			}
-			r.dbf = !r.dbf
-			r.V.Top = r.tops
+			r.V.Top = vuTop
 			if !r.SkipRun {
 				if _, ok := r.V.Run(r.V.PC, 600000); !ok {
 					return fmt.Errorf("replay: microprogram did not halt (MSCNT)")
