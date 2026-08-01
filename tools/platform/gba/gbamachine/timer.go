@@ -53,15 +53,22 @@ func (m *Machine) tickTimers(cycles int) {
 			t.frac %= p
 		}
 		overflowBelow = false
+		overflows := 0
 		for ; ticks > 0; ticks-- {
 			t.counter++
 			if t.counter == 0 {
 				t.counter = t.reload
 				overflowBelow = true
+				overflows++
 				if t.ctrl&(1<<6) != 0 {
 					m.raise(uint16(irqTimer0) << uint(n))
 				}
 			}
+		}
+		// Timers 0 and 1 are also the Direct Sound sample clock: every overflow
+		// pops one sample out of whichever FIFO is bound to this timer.
+		if overflows > 0 && n < 2 {
+			m.fifoTimerOverflow(n, overflows)
 		}
 	}
 }

@@ -246,3 +246,108 @@ func TestForcedBlankIsWhite(t *testing.T) {
 		t.Errorf("forced blank pixel = %#08X, want 0xFFFFFFFF", m.screen[0])
 	}
 }
+
+// TestPSGChannelsSound is the control for the synthesis path. Minish Cap's
+// title screen renders in silence, and the only way to tell "the model's PSG is
+// broken" from "the game is not playing anything there" is to drive each
+// channel directly and confirm it CAN make a sound.
+func TestPSGChannelsSound(t *testing.T) {
+	cases := []struct {
+		name  string
+		setup func(m *Machine)
+	}{
+		{"square1", func(m *Machine) {
+			m.ioWrite16(0x062, 0xF780) // duty 50%, volume 15, no decay
+			m.ioWrite16(0x064, 0x8400) // trigger, freq 0x400
+		}},
+		{"square2", func(m *Machine) {
+			m.ioWrite16(0x068, 0xF780)
+			m.ioWrite16(0x06C, 0x8400)
+		}},
+		{"wave", func(m *Machine) {
+			// The wave channel's two banks are not interchangeable storage: the
+			// CPU accesses the bank that is NOT playing, so a driver fills the
+			// idle bank and then swaps to it. Writing with bank 0 selected and
+			// expecting to hear it is the mistake this sequence avoids — the
+			// data lands in bank 1, and playback keeps reading bank 0.
+			m.ioWrite16(0x070, 0x0080) // DAC on, playback bank 0 -> CPU writes bank 1
+			for r := uint32(0x090); r <= 0x09E; r += 2 {
+				m.ioWrite16(r, 0x0FF0) // a non-flat waveform
+			}
+			m.ioWrite16(0x070, 0x00C0) // swap: playback now reads the filled bank
+			m.ioWrite16(0x072, 0x2000) // full volume
+			m.ioWrite16(0x074, 0x8400) // trigger
+		}},
+		{"noise", func(m *Machine) {
+			m.ioWrite16(0x078, 0xF000) // volume 15, no decay
+			m.ioWrite16(0x07C, 0x8004) // trigger, a mid divisor
+		}},
+	}
+	for _, c := range cases {
+		m := newTest(t)
+		m.AudioCapture(true)
+		m.ioWrite16(0x084, 0x0080) // master power
+		m.ioWrite16(0x080, 0xFF77) // every channel, both sides, max volume
+		m.ioWrite16(0x082, 0x0002) // PSG at 100%
+		c.setup(m)
+		m.apu.mixCycles(1677721) // 0.1s
+		var peak int16
+		for _, s := range m.apu.PCM {
+			if s > peak {
+				peak = s
+			}
+		}
+		if peak == 0 {
+			t.Errorf("PSG %s produced silence", c.name)
+		}
+	}
+}
+
+// TestDirectSoundTransport drives the whole Direct Sound chain the way a game
+// does — a timer clocking the FIFO and a DMA in "special" timing refilling it
+// from RAM — and checks the game's own bytes come out the other end. This path
+// carries a GBA game's music, so a break in it is silence with every register
+// still reading back correctly.
+func TestDirectSoundTransport(t *testing.T) {
+	m := newTest(t)
+	b := &bus{m: m}
+	m.AudioCapture(true)
+
+	// A ramp for the driver's mix buffer.
+	for i := uint32(0); i < 64; i++ {
+		b.Write(0x02000000+i, byte(i*2))
+	}
+	m.ioWrite16(0x084, 0x0080) // master power
+	m.ioWrite16(0x082, 0x0304) // Direct Sound A at 100%, both sides, timer 0
+	// DMA1: source = the buffer, dest = FIFO_A, special timing, repeat.
+	m.ioWrite16(0x0BC, 0x0000)
+	m.ioWrite16(0x0BE, 0x0200)
+	m.ioWrite16(0x0C0, 0x00A0)
+	m.ioWrite16(0x0C2, 0x0400)
+	m.ioWrite16(0x0C4, 4)
+	m.ioWrite16(0x0C6, 1<<15|1<<10|1<<9|3<<12)
+	// Timer 0: overflow every 512 cycles.
+	m.ioWrite16(0x100, 0xFE00)
+	m.ioWrite16(0x102, 1<<7)
+
+	// The FIFO starts empty, so the first drain must pull the DMA refill in.
+	for i := 0; i < 8; i++ {
+		m.tickTimers(cyclesPerLine)
+	}
+	if m.apu.dsA.cur == 0 {
+		t.Fatalf("Direct Sound A never received a sample (fifo has %d)", len(m.apu.dsA.q))
+	}
+	if m.dma[1].latchSrc == 0x02000000 {
+		t.Error("the sound DMA never advanced its source pointer")
+	}
+	m.apu.mixCycles(100000)
+	var peak int16
+	for _, s := range m.apu.PCM {
+		if s > peak {
+			peak = s
+		}
+	}
+	if peak == 0 {
+		t.Error("Direct Sound carried samples but the mixer output silence")
+	}
+}

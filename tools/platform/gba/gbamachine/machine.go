@@ -85,6 +85,7 @@ type Machine struct {
 
 	vid    video
 	ppu    ppu
+	apu    *apu
 	dma    [4]dmaChan
 	timers [4]timer
 	eeprom eeprom
@@ -143,6 +144,7 @@ func New(rom *gba.ROM) *Machine {
 		logSeen: map[string]bool{},
 	}
 	m.eeprom.init()
+	m.apu = newAPU()
 	m.cpu = arm.NewCPU(&bus{m: m})
 	// The ARM7TDMI is ARMv4T, a strict SUBSET of the DS-era default: no BLX,
 	// CLZ, LDRD/STRD, PLD, the saturating group or the SMLAxy multiplies. Left

@@ -28,6 +28,10 @@ func (m *Machine) ioRead16(a uint32) uint16 {
 		v = uint16(m.vid.line)
 	case 0x088: // SOUNDBIAS: storage is honest enough for a bias
 		v = m.io[reg]
+	case 0x084, 0x090, 0x092, 0x094, 0x096, 0x098, 0x09A, 0x09C, 0x09E:
+		// The sound registers with real read-back: the channel-status bits and
+		// the wave RAM bank not currently playing.
+		v, _ = m.soundRead(reg)
 	case 0x0B8, 0x0C4, 0x0D0, 0x0DC: // DMAxCNT_L reads back 0
 		v = 0
 	case 0x0BA, 0x0C6, 0x0D2, 0x0DE: // DMAxCNT_H
@@ -56,8 +60,7 @@ func (m *Machine) ioRead16(a uint32) uint16 {
 		switch {
 		case reg <= 0x054: // the PPU register file: stored values are the truth
 			v = m.io[reg]
-		case reg >= 0x060 && reg <= 0x0A6: // sound: stored, and noted once
-			m.note("sound register 0x%03X read (sound is not yet modelled)", reg)
+		case reg >= 0x060 && reg <= 0x0A6: // the rest of the sound block: stored
 			v = m.io[reg]
 		case reg >= 0x120 && reg <= 0x15A: // serial: report an idle link
 			m.note("serial register 0x%03X read (link port not modelled; reads idle)", reg)
@@ -110,7 +113,9 @@ func (m *Machine) ioWrite16(a uint32, v uint16) {
 	case reg == 0x301: // HALTCNT: bit 7 selects Stop; either way, park until an IRQ
 		m.waiting, m.waitAny, m.waitMask = true, true, 0
 	case reg >= 0x060 && reg <= 0x0A6:
-		m.note("sound register 0x%03X written (sound is not yet modelled)", reg)
+		if !m.soundWrite(reg, v) {
+			m.note("sound register 0x%03X written but is not decoded (value 0x%04X)", reg, v)
+		}
 	case reg > 0x054 && reg < 0x060, reg >= 0x0A8 && reg < 0x0B0,
 		reg >= 0x110 && reg < 0x120, reg >= 0x134 && reg < 0x200 && reg != 0x132:
 		m.note("unmodelled I/O register 0x%03X written (value 0x%04X)", reg, v)

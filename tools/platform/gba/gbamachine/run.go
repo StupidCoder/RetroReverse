@@ -69,13 +69,22 @@ func (m *Machine) run(budget uint64, milestones map[uint32]string, untilFrame ui
 	end := m.Steps + budget
 
 	for m.Steps < end {
+		// The frame check comes BEFORE startLine, so a run always stops on a
+		// COMPLETED scanline. Checking it after startLine (as this did) breaks
+		// out of the line that just incremented the frame counter, skipping that
+		// line's timers and audio. That is invisible in a screenshot — the
+		// display for that line had already been composed — and a real loss
+		// across a savestate: a resumed run dropped one scanline of timer ticks,
+		// which desynchronised the Direct Sound FIFO against the straight run for
+		// 27 output frames. Only comparing the AUDIO across a save/resume
+		// boundary could find it.
+		if untilFrame != 0 && m.vid.frames >= untilFrame {
+			res.Reason = fmt.Sprintf("reached frame %d", m.vid.frames)
+			break
+		}
 		m.startLine()
 		if m.stop {
 			res.Reason = "stopped"
-			break
-		}
-		if untilFrame != 0 && m.vid.frames >= untilFrame {
-			res.Reason = fmt.Sprintf("reached frame %d", m.vid.frames)
 			break
 		}
 
@@ -99,6 +108,7 @@ func (m *Machine) run(budget uint64, milestones map[uint32]string, untilFrame ui
 			m.hblankNow()
 		}
 		m.tickTimers(cyclesPerLine)
+		m.apu.mixCycles(cyclesPerLine)
 
 		if m.stop {
 			res.Reason = "stopped"

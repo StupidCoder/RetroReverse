@@ -53,6 +53,8 @@ type snapshot struct {
 	DMA    [4]dmaChanState
 	Timers [4]timerState
 
+	APU apuState
+
 	EEPROMData  []byte
 	EEPROMSized bool
 	EEPROMIn    []byte
@@ -60,6 +62,47 @@ type snapshot struct {
 	EEPROMReady bool
 
 	ScreenPix []uint32
+}
+
+// apuState is the sound block. It is snapshotted for the same reason the rest
+// is: a resume that silently restarts the music from bar one is not the machine
+// the snapshot was taken of, and the tell (an envelope or a FIFO mid-note) is
+// exactly the kind of state that looks unimportant until a sound bug is being
+// chased across a savestate.
+type apuState struct {
+	Ch1, Ch2           squareState
+	Ch3                waveState
+	Ch4                noiseState
+	DSAQueue, DSBQueue []int8
+	DSACur, DSBCur     int8
+	Powered            bool
+	FrameAcc           float64
+	FrameSeq           int
+	SampleAcc          float64
+	MixRegL, MixRegH   uint16
+}
+
+type squareState struct {
+	Enabled, HasSweep, LengthEn, SwOn             bool
+	Phase                                         float64
+	DutySel, Freq, Length, Vol, EnvDir, EnvPeriod int
+	EnvTimer, SwPeriod, SwShift, SwDir, SwTimer   int
+	SwShadow                                      int
+}
+
+type waveState struct {
+	Enabled, DacOn, LengthEn, Force75, TwoBanks bool
+	Phase                                       float64
+	Freq, Length, VolShift, Bank                int
+	RAM                                         [2][16]byte
+}
+
+type noiseState struct {
+	Enabled, LengthEn, Width7                bool
+	LFSR                                     uint16
+	Timer                                    float64
+	Length, Vol, EnvDir, EnvPeriod, EnvTimer int
+	Divisor, Shift                           int
 }
 
 type dmaChanState struct {
@@ -91,6 +134,7 @@ func (m *Machine) snapshot() *snapshot {
 		EEPROMIn: cloneB(m.eeprom.inBits), EEPROMOut: cloneB(m.eeprom.outBits),
 		EEPROMReady: m.eeprom.ready,
 		ScreenPix:   append([]uint32(nil), m.screen[:]...),
+		APU:         snapAPU(m.apu),
 	}
 	for k, v := range m.io {
 		s.IO[k] = v
@@ -143,6 +187,60 @@ func (m *Machine) restore(s *snapshot) {
 	m.eeprom.ready = s.EEPROMReady
 
 	copy(m.screen[:], s.ScreenPix)
+	restoreAPU(m.apu, &s.APU)
+}
+
+func snapSquare(c *square) squareState {
+	return squareState{Enabled: c.enabled, HasSweep: c.hasSweep, LengthEn: c.lengthEn,
+		SwOn: c.swOn, Phase: c.phase, DutySel: c.dutySel, Freq: c.freq, Length: c.length,
+		Vol: c.vol, EnvDir: c.envDir, EnvPeriod: c.envPeriod, EnvTimer: c.envTimer,
+		SwPeriod: c.swPeriod, SwShift: c.swShift, SwDir: c.swDir, SwTimer: c.swTimer,
+		SwShadow: c.swShadow}
+}
+
+func loadSquare(c *square, s squareState) {
+	c.enabled, c.hasSweep, c.lengthEn, c.swOn = s.Enabled, s.HasSweep, s.LengthEn, s.SwOn
+	c.phase = s.Phase
+	c.dutySel, c.freq, c.length, c.vol = s.DutySel, s.Freq, s.Length, s.Vol
+	c.envDir, c.envPeriod, c.envTimer = s.EnvDir, s.EnvPeriod, s.EnvTimer
+	c.swPeriod, c.swShift, c.swDir, c.swTimer, c.swShadow = s.SwPeriod, s.SwShift, s.SwDir, s.SwTimer, s.SwShadow
+}
+
+func snapAPU(a *apu) apuState {
+	return apuState{
+		Ch1: snapSquare(&a.ch1), Ch2: snapSquare(&a.ch2),
+		Ch3: waveState{Enabled: a.ch3.enabled, DacOn: a.ch3.dacOn, LengthEn: a.ch3.lengthEn,
+			Force75: a.ch3.force75, TwoBanks: a.ch3.twoBanks, Phase: a.ch3.phase,
+			Freq: a.ch3.freq, Length: a.ch3.length, VolShift: a.ch3.volShift,
+			Bank: a.ch3.bank, RAM: a.ch3.ram},
+		Ch4: noiseState{Enabled: a.ch4.enabled, LengthEn: a.ch4.lengthEn, Width7: a.ch4.width7,
+			LFSR: a.ch4.lfsr, Timer: a.ch4.timer, Length: a.ch4.length, Vol: a.ch4.vol,
+			EnvDir: a.ch4.envDir, EnvPeriod: a.ch4.envPeriod, EnvTimer: a.ch4.envTimer,
+			Divisor: a.ch4.divisor, Shift: a.ch4.shift},
+		DSAQueue: append([]int8(nil), a.dsA.q...),
+		DSBQueue: append([]int8(nil), a.dsB.q...),
+		DSACur:   a.dsA.cur, DSBCur: a.dsB.cur,
+		Powered: a.powered, FrameAcc: a.frameAcc, FrameSeq: a.frameSeq,
+		SampleAcc: a.sampleAcc, MixRegL: a.mixRegL, MixRegH: a.mixRegH,
+	}
+}
+
+func restoreAPU(a *apu, s *apuState) {
+	loadSquare(&a.ch1, s.Ch1)
+	loadSquare(&a.ch2, s.Ch2)
+	a.ch3 = waveCh{enabled: s.Ch3.Enabled, dacOn: s.Ch3.DacOn, phase: s.Ch3.Phase,
+		freq: s.Ch3.Freq, length: s.Ch3.Length, lengthEn: s.Ch3.LengthEn,
+		volShift: s.Ch3.VolShift, force75: s.Ch3.Force75, ram: s.Ch3.RAM,
+		bank: s.Ch3.Bank, twoBanks: s.Ch3.TwoBanks}
+	a.ch4 = noiseCh{enabled: s.Ch4.Enabled, lfsr: s.Ch4.LFSR, timer: s.Ch4.Timer,
+		length: s.Ch4.Length, lengthEn: s.Ch4.LengthEn, vol: s.Ch4.Vol,
+		envDir: s.Ch4.EnvDir, envPeriod: s.Ch4.EnvPeriod, envTimer: s.Ch4.EnvTimer,
+		divisor: s.Ch4.Divisor, shift: s.Ch4.Shift, width7: s.Ch4.Width7}
+	a.dsA.q = append([]int8(nil), s.DSAQueue...)
+	a.dsB.q = append([]int8(nil), s.DSBQueue...)
+	a.dsA.cur, a.dsB.cur = s.DSACur, s.DSBCur
+	a.powered, a.frameAcc, a.frameSeq = s.Powered, s.FrameAcc, s.FrameSeq
+	a.sampleAcc, a.mixRegL, a.mixRegH = s.SampleAcc, s.MixRegL, s.MixRegH
 }
 
 // SaveState writes the machine to a gzipped gob file.

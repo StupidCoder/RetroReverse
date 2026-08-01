@@ -46,8 +46,9 @@ is little-endian throughout.
   - [4. The BIOS without a BIOS](#4-the-bios-without-a-bios)
   - [5. The PPU](#5-the-ppu)
   - [6. The EEPROM, and the bug that framed it](#6-the-eeprom-and-the-bug-that-framed-it)
-  - [7. What the boot reaches](#7-what-the-boot-reaches)
-  - [8. What is not modelled](#8-what-is-not-modelled)
+  - [7. Sound: one chip synthesised, one transported](#7-sound-one-chip-synthesised-one-transported)
+  - [8. What the boot reaches](#8-what-the-boot-reaches)
+  - [9. What is not modelled](#9-what-is-not-modelled)
 
 ---
 
@@ -330,7 +331,78 @@ hardware" trap in its save-device form, and the lesson generalises: **when a
 serial device's request lengths are prefixes of each other, the framing is the
 protocol.**
 
-## 7. What the boot reaches
+## 7. Sound: one chip synthesised, one transported
+
+The AGB carries the Game Boy's four PSG channels forward and adds its own two
+**Direct Sound** PCM channels. The model treats the two halves differently
+because the hardware does, and the difference is the whole point:
+
+* the **PSG channels are synthesised**. They are a *description* of a waveform —
+  frequency, duty, envelope, sweep — so the model keeps a phase accumulator per
+  channel and evaluates it per output sample, exactly as `tools/platform/gameboy`
+  does for the same four channels;
+* the **Direct Sound channels are transported**. They describe nothing. The
+  game's own sound driver mixes its PCM into a buffer in RAM, a DMA channel in
+  *special* timing refills a 32-byte FIFO, and a **timer overflow pops one
+  signed 8-bit sample** out of it. There is nothing to synthesise; the model's
+  entire job is to move the game's bytes at the rate the game's own timer asks
+  for.
+
+That second path is why a GBA game's music can be a streamed mixdown rather than
+a chiptune, and it makes sound inseparable from the DMA and timer models: get
+the timer rate wrong and the music plays at the wrong pitch while every register
+in the sound block still reads back correctly.
+
+`bootoracle -wav` captures the final stereo mix at 32768 Hz — the same
+verification artefact `tools/platform/dc` and `n3ds` produce, so a future
+reimplementation of the game's own sequencer can be checked against the sound
+its driver actually drove out of the hardware. `-snd` dumps the whole chain.
+
+**Timing honesty:** the scheduler ticks timers once per scanline, so a FIFO pop
+lands with scanline granularity (~16 µs) rather than at its exact cycle. The
+*rate* is exact — pops per second equal the timer's overflow rate — so pitch and
+duration are right and the error is sub-scanline jitter.
+
+### What the audio found that the video could not
+
+Comparing a captured WAV across a save/resume boundary exposed a **scheduler
+bug** that four byte-identical screenshot comparisons had already sailed past.
+The run loop checked its stop-at-frame condition *after* `startLine()`, so a run
+ending at frame *N* broke out of the line that had just incremented the frame
+counter — skipping that line's timers and audio. The display never noticed,
+because that line's pixels had already been composed. The sound did: a resumed
+run dropped one scanline of timer ticks, produced exactly **two fewer output
+samples**, and its Direct Sound FIFO ran one sample behind the straight run for
+27 output frames before a refill resynchronised it.
+
+The lesson is the repository's own, in a new costume: *a comparison is blind to
+whatever its instrument does not carry.* A frame buffer cannot see a dropped
+timer tick. With the check moved before `startLine()`, a resumed run's audio is
+now **sample-identical** to the straight run's, and the video stays
+byte-identical.
+
+### What the sound says about Minish Cap
+
+Both paths are verified by tests that drive them directly — all four PSG
+channels made to sound, and the full Direct Sound chain (timer → DMA → FIFO →
+mixer) carrying a known ramp. In the game itself:
+
+* **Direct Sound A carries everything audible.** It plays the logo and intro
+  music, and the file-select music after START;
+* **the PSG channels are allocated but silent.** `-snd` shows channels 1, 2 and
+  4 enabled with frequencies set and **volume 0** throughout the boot — which is
+  why "enabled" is a useless diagnostic on its own, and why the dump prints
+  volume and frequency next to it;
+* **the title screen is silent in this model**, and the reason is not a broken
+  audio path: the transport is provably identical to the moments that *do* play,
+  and the value being carried is zero. The game's own driver is mixing silence
+  there.
+
+Whether real hardware plays a title theme at that point is **open** — settling
+it needs a reference capture rather than a guess, and this repository's rule is
+to derive facts from the image and our own tools, not from outside sources.
+
+## 8. What the boot reaches
 
 From a cold start, with no BIOS image and no key input, the oracle reaches the
 **title screen** (~frame 900) and idles there correctly. Driven with `-keys`
@@ -345,16 +417,16 @@ Instruments on the `bootoracle`, all from the first phase: `-shot` (PNG),
 frames because a game waits for a press *edge*), `-trace`/`-tracefrom`, `-bp`,
 `-irqlog`, `-dump`, `-io` and `-log`.
 
-## 8. What is not modelled
+## 9. What is not modelled
 
 Stated plainly, because a gap that is not written down becomes a wrong
 conclusion later:
 
-* **Sound.** No PSG channels, no DirectSound FIFOs, no `SoundDriver*` SWIs
-  beyond harmless stubs. Every sound-register access is logged. This is the
-  largest gap and the next obvious phase.
 * **Mosaic.** Logged when used; Minish Cap's story sequence uses it on two
-  backgrounds, so it is the first small thing to add.
+  backgrounds, so it is the smallest remaining gap.
+* **The BIOS `SoundDriver*` SWIs** (0x1A-0x1E), beyond the harmless
+  `SoundDriverVSyncOn/Off` stubs. Minish Cap drives its own mixer and does not
+  need them; a game that uses the BIOS driver would.
 * **The serial/link port**, which reads as an idle link.
 * **Cycle-accurate timing.** The scheduler is nominal: a scanline's worth of
   instructions per line, waitstates and prefetch ignored. Timers tick per

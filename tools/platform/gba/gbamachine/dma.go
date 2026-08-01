@@ -43,8 +43,31 @@ func (m *Machine) dmaRegWrite(reg uint32, v uint16) {
 	}
 }
 
+// dmaSoundRefill runs channel n's Direct Sound refill: 4 words (16 bytes) into
+// the FIFO, with the destination held fixed. This is DMA timing mode 3
+// ("special"), which for channels 1 and 2 means "the sound FIFO asked". Unlike
+// every other transfer it is requested by the SOUND hardware rather than by the
+// raster, so it is driven from the FIFO drain (sound.go) rather than from a
+// timing trigger.
+func (m *Machine) dmaSoundRefill(n int) {
+	d := &m.dma[n]
+	if d.ctrl&(1<<15) == 0 || d.ctrl>>12&3 != 3 {
+		return // the channel is not armed for sound
+	}
+	b := &bus{m: m}
+	dst := d.dst
+	for i := uint32(0); i < 4; i++ {
+		b.Write32(dst, b.Read32(d.latchSrc&^3))
+		d.latchSrc += 4
+	}
+	if d.ctrl&(1<<14) != 0 {
+		m.raise(uint16(irqDMA0) << uint(n))
+	}
+}
+
 // dmaTrigger fires every enabled channel whose timing matches (1 = V-blank,
-// 2 = H-blank).
+// 2 = H-blank). Timing 3 is not raster-driven and is handled by
+// dmaSoundRefill.
 func (m *Machine) dmaTrigger(timing uint16) {
 	for n := range m.dma {
 		d := &m.dma[n]

@@ -53,6 +53,8 @@ func main() {
 	dump := flag.String("dump", "", "hex-dump memory after the run: ADDR:LEN (hex)")
 	bp := flag.String("bp", "", "halting breakpoint PC (hex, comma-separated)")
 	irqlog := flag.Bool("irqlog", false, "log every interrupt dispatched")
+	snd := flag.Bool("snd", false, "dump the sound block: mixing registers, PSG channels, and the Direct Sound timer/DMA chain")
+	wav := flag.String("wav", "", "capture the sound the game's driver mixes and write it as a WAV")
 	flag.Parse()
 
 	data, err := os.ReadFile(*rom)
@@ -70,6 +72,10 @@ func main() {
 			die("%v", err)
 		}
 		fmt.Printf("resumed at frame %d, PC 0x%08X\n", m.Frame(), m.PC())
+	}
+
+	if *wav != "" {
+		m.AudioCapture(true)
 	}
 
 	if *bp != "" {
@@ -175,6 +181,11 @@ func main() {
 			fmt.Println("log:", l)
 		}
 	}
+	if *snd {
+		for _, l := range m.SoundState() {
+			fmt.Println("snd:", l)
+		}
+	}
 	if *showIO {
 		fmt.Println("(io register file: values last written)")
 		for _, r := range []uint32{0x000, 0x004, 0x008, 0x00A, 0x00C, 0x00E, 0x050, 0x200} {
@@ -198,6 +209,13 @@ func main() {
 			die("%v", err)
 		}
 		fmt.Println("shot:", *shot)
+	}
+	if *wav != "" {
+		if err := m.WriteWAV(*wav); err != nil {
+			die("%v", err)
+		}
+		fmt.Printf("wav: %s (%d frames, %.2fs)\n", *wav, m.AudioSamples(),
+			float64(m.AudioSamples())/32768)
 	}
 	if *savestate != "" {
 		if err := m.SaveState(*savestate); err != nil {
