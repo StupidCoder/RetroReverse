@@ -1,0 +1,41 @@
+<p>Rooms are not islands. Each belongs to an <strong>area</strong>, and the area's tables say
+where every one of its rooms sits — as a pixel position on a single shared canvas. That is
+what makes a walkable place out of a pile of screens: the maps here are whole regions,
+assembled at the coordinates the game itself uses, not one screen at a time.</p>
+
+<h2>The room record</h2>
+<p>An area's geometry is a list of 10-byte records, one per room, ending in
+<code>$FFFF</code>. A record is five halfwords: the room's <em>x</em> and <em>y</em> on the
+area canvas, its width and height, and which of the area's tile sets it draws with — all
+four positional values in <em>pixels</em>. Dividing a size by 16 gives the metatile grid,
+because a metatile is 2&times;2 tiles of eight pixels. The field outside Link's house is
+1008&times;688 pixels — 63&times;43 metatiles — at (1488,&nbsp;2480) in its area.</p>
+
+<h3>What the engine assembles</h3>
+<p>On entering a room the engine builds a descriptor from these tables: the size, the
+position, the three asset lists, and the area's script entry point. The map itself is
+expanded into a fixed 64&times;64-metatile buffer — the room's grid copied in at its real
+width, the remainder cleared — which is why a room can be any size up to that bound without
+the renderer knowing anything about it.</p>
+
+<h2>Five tables, one index</h2>
+<p>Everything an area owns hangs off its id: the room geometry, the array of per-room asset
+lists, the array of tile sets its rooms choose between, the metatile tables its rooms share,
+and the code that runs while the player is there. A room is addressed as an area plus an
+index within it.</p>
+
+<h2>What the areas turn out to be</h2>
+<p>The grouping is the game's own, and it shows two distinct shapes. The low-numbered areas
+are large contiguous stretches of overworld: their rooms tile edge to edge into a continuous
+landscape, seams invisible, a river running from one room into the next. Hyrule Field
+assembles from ten rooms into 2208&times;2448 pixels — with a hole in the middle, because
+Hyrule Castle is not one of its rooms but an area of its own.</p>
+
+<p>The higher-numbered areas are the opposite: a dozen or more small rooms scattered across a
+mostly empty canvas. These are interiors and dungeon chambers, grouped by the region they
+belong to rather than joined into one space. Their coordinates keep them apart instead of
+fitting them together, and the doorways between them are decided by the area's script rather
+than by adjacency.</p>
+
+<h3>Scale</h3>
+<p>419 rooms resolve through these tables, and they assemble into 79 places.</p>

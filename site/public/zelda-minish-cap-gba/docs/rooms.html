@@ -1,0 +1,33 @@
+<p>A room is not a file. It is a short <strong>asset list</strong>: a run of 12-byte records
+naming what to load and where to put it. The loader walks the list, and each record gives a
+source, a destination and a size — with the top bit of the source word meaning "another
+record follows" and the top bit of the size meaning "this one is compressed".</p>
+
+<h2>Sources are relative</h2>
+<p>A record does not hold an address. It holds an <em>offset</em>, added to a fixed base of
+<code>$08324AE4</code> to reach the compressed stream. The consequence is worth stating
+plainly: there is no pointer anywhere in the cartridge that names a room's map, so the data
+cannot be found by looking for one.</p>
+
+<h3>The destination decides the method</h3>
+<p>The loader chooses between two BIOS decompression calls by looking at where the data is
+going. Anything bound for video memory goes through the halfword variant, because a
+single-byte write to video memory does not store a byte — the hardware writes it into both
+halves of the addressed halfword instead. The rest go through the byte variant. One record
+type is not a load at all: a destination of zero marks a command, and its word carries the
+palette set the room is drawn with.</p>
+
+<h2>Three lists per room</h2>
+<p>What a room needs arrives from three lists, not one. Its own list carries the two
+metatile-id grids and whichever tile blocks changed since the last room. A second list
+carries the metatile tables, which are shared by every room of an area — the blocks a
+region is built from are a property of the region, not of the room. A third holds the full
+set of tile blocks, and exists because a room list is usually an <em>incremental</em> load:
+it replaces only what differs, so reading it as the whole story leaves a character bank
+empty and half the tiles blank.</p>
+
+<h2>The grid is live</h2>
+<p>The metatile tables, once decompressed, stay as they came. The id grids do not: they are
+the world's mutable state. Cutting grass, opening a door or shattering a pot rewrites ids in
+place, so what sits in memory after play differs from what the cartridge holds. The blocks a
+room is made of are constant; the arrangement is not.</p>

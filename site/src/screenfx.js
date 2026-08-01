@@ -6,6 +6,8 @@
 //   crt - tube TV (C64 / Amiga): NTSC signal -> electron beam -> phosphor mask -> glass/glow
 //   gb  - Game Boy DMG: reflective 4-shade green dot-matrix with the "hovering pixel" drop shadow
 //   gg  - Game Gear: backlit colour LCD, visible pixel grid + subpixels, washed colour, backlight bloom
+//   gba - Game Boy Advance: the AGB's UNLIT reflective TFT — the same dot matrix, dim and flat,
+//         with almost no bloom and the ghosting a slow LCD shows when the view pans
 //
 // The overlay is pointer-events:none, so all the viewer's own drag/zoom/rotate interactions pass
 // straight through to it. The capture pipeline is display-agnostic (it only consumes the viewer's
@@ -344,6 +346,12 @@ const PROFILE_DEFAULTS = {
   // ds = the same colour dot-matrix shader as gg, tuned for the DS's backlit
   // TFT: crisp saturated cells, a faint grid, no STN wash or heavy bloom.
   ds: { pixelsPerCell: 1, gridStrength: 0.12, subpixel: 0.45, saturation: 0.92, glow: 0.06, ghost: 0.0 },
+  // gba = the original AGB panel: a reflective TFT with NO backlight, which is
+  // why the model is the colour dot-matrix shader with the bloom turned almost
+  // off and the colour pulled down. The screen is lit by whatever room light
+  // falls on it, so it reads dim and flat rather than washed the way the Game
+  // Gear's lit STN does, and its slow pixels smear when the camera pans.
+  gba: { pixelsPerCell: 1, gridStrength: 0.18, subpixel: 0.6, saturation: 0.7, glow: 0.02, ghost: 0.12 },
 };
 
 // The uniforms each profile's fragment shader declares (cached at link time, uploaded per frame).
@@ -354,9 +362,10 @@ const PROFILE_UNIFORMS = {
   gb: ['u_resolution', 'u_cellSize', 'u_gridOrigin', 'u_tint', 'u_gridStrength', 'u_shadowOpacity', 'u_shadowOffset', 'u_contrast'],
   gg: ['u_resolution', 'u_cellSize', 'u_gridOrigin', 'u_gridStrength', 'u_subpixel', 'u_saturation', 'u_glow'],
   ds: ['u_resolution', 'u_cellSize', 'u_gridOrigin', 'u_gridStrength', 'u_subpixel', 'u_saturation', 'u_glow'],
+  gba: ['u_resolution', 'u_cellSize', 'u_gridOrigin', 'u_gridStrength', 'u_subpixel', 'u_saturation', 'u_glow'],
 };
 
-const FRAG = { crt: FRAG_CRT, gb: FRAG_GB, gg: FRAG_GG, ds: FRAG_GG };
+const FRAG = { crt: FRAG_CRT, gb: FRAG_GB, gg: FRAG_GG, ds: FRAG_GG, gba: FRAG_GG };
 
 export class ScreenFilter {
   constructor(stageEl) {

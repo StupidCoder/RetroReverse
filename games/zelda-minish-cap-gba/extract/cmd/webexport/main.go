@@ -141,8 +141,14 @@ func main() {
 		"id": "zelda-minish-cap-gba", "title": "The Legend of Zelda: The Minish Cap",
 		"platform": "Game Boy Advance", "year": 2004,
 		"description": "The 2004 Game Boy Advance Zelda, developed by Capcom/Flagship — internally, as its own build string admits, \"ZELDA 5\". Every map here is decoded straight from the cartridge. A room is not stored as a tilemap at all: it is a grid of metatile ids, each expanding through an 8-byte table into a 2x2 block of tiles, behind the BIOS's LZ77 compression. Rooms are not standalone either — the game's area tables place each one at a pixel position on a shared canvas, so what you see is the whole place assembled, not a screen at a time. The decode is checked against the game itself: the decompressed tables are byte-identical to what the console's own BIOS call produces, and the expanded map reproduces every tile the running game uploaded to video memory.",
-		"display":     map[string]any{"native": map[string]any{"w": 240, "h": 160}, "tickHz": 60},
-		"assets":      assets,
+		// filter "gba": the AGB's unlit reflective panel (site/src/screenfx.js).
+		"display": map[string]any{"native": map[string]any{"w": 240, "h": 160}, "tickHz": 60, "filter": "gba"},
+		"docs": []any{
+			map[string]any{"id": "metatiles", "title": "A map of blocks", "file": "docs/metatiles.html"},
+			map[string]any{"id": "rooms", "title": "What a room is", "file": "docs/rooms.html"},
+			map[string]any{"id": "areas", "title": "Areas, and how they join", "file": "docs/areas.html"},
+		},
+		"assets": assets,
 	})
 	fmt.Printf("published %d areas\n", len(made))
 	for _, s := range skipped {

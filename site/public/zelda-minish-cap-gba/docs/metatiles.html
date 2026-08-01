@@ -1,0 +1,44 @@
+<p>Nothing in the cartridge looks like a map. A room's ground is stored as a grid of
+<strong>metatile ids</strong>, and each id is an index into a table of 2&times;2 blocks —
+four tile entries, eight bytes. Expanding one id writes two tiles into one row of the
+tilemap and two into the row below, so a room's tile map is twice the grid's size in each
+direction. The indirection buys a map a quarter the size, at the cost of one lookup per
+block, which is why searching the ROM for something tilemap-shaped finds nothing at all.</p>
+
+<h2>What a tile entry carries</h2>
+<p>Each of the four entries in a block is a hardware background-map entry: a 10-bit tile
+number, a horizontal and a vertical flip bit, and a 4-bit palette bank. The tile itself is
+4bpp — sixteen colours — and carries <em>no colour of its own</em>: the bank in the map
+entry decides which sixteen. The same tile number therefore appears in the world under
+several palettes, and a tile sheet drawn in one bank is one arbitrary recolouring of the
+art rather than the art.</p>
+
+<h3>Two layers</h3>
+<p>A room has two of these grids, each with its own id array <em>and</em> its own metatile
+table. The lower layer is the terrain: ground, paths, water, cliff faces. The upper layer
+is the overlay Link walks behind — tree canopies, the tops of fences, grass fringes. Its
+transparent cells let the terrain through, and its solid ones cover the shadows the terrain
+layer draws beneath every tree. The two are not interchangeable: an id array read through
+the other layer's table decodes to plausible-looking rubbish.</p>
+
+<h2>Character data</h2>
+<p>Tiles arrive as three 16&nbsp;KiB blocks placed back to back in video memory at
+<code>$06000000</code>, <code>$06004000</code> and <code>$06008000</code>. A background's
+tile numbers are ten bits, so each layer addresses 1024 tiles — 32&nbsp;KiB, <em>two</em>
+of those blocks counted from wherever its character base sits. The terrain layer reads the
+first two, the overlay layer the second and third.</p>
+
+<h2>Palettes</h2>
+<p>A room's colours come from a <strong>palette set</strong>, named by a record in the same
+list that supplies its tiles. A set is a short run of copy instructions — take this many
+16-colour palettes from the palette pool, put them in that slot — so areas share their
+common colours and override only the banks that differ. Sky, water and foliage move between
+regions by swapping a handful of banks rather than a whole table.</p>
+
+<h2>Compression</h2>
+<p>Every one of these blocks — the id grids, the metatile tables, the tile sheets — is
+stored compressed, and decompressed by the console's own BIOS routine rather than by game
+code. The format is a byte-oriented LZ77: a flag byte, then eight tokens that are either a
+literal or a two-byte back-reference of length 3&ndash;18 into what has already been
+produced. A reference may be longer than its own displacement, which is how the format
+spells a run.</p>

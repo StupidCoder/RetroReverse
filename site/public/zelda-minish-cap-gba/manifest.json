@@ -635,12 +635,30 @@
  ],
  "description": "The 2004 Game Boy Advance Zelda, developed by Capcom/Flagship — internally, as its own build string admits, \"ZELDA 5\". Every map here is decoded straight from the cartridge. A room is not stored as a tilemap at all: it is a grid of metatile ids, each expanding through an 8-byte table into a 2x2 block of tiles, behind the BIOS's LZ77 compression. Rooms are not standalone either — the game's area tables place each one at a pixel position on a shared canvas, so what you see is the whole place assembled, not a screen at a time. The decode is checked against the game itself: the decompressed tables are byte-identical to what the console's own BIOS call produces, and the expanded map reproduces every tile the running game uploaded to video memory.",
  "display": {
+  "filter": "gba",
   "native": {
    "h": 160,
    "w": 240
   },
   "tickHz": 60
  },
+ "docs": [
+  {
+   "file": "docs/metatiles.html",
+   "id": "metatiles",
+   "title": "A map of blocks"
+  },
+  {
+   "file": "docs/rooms.html",
+   "id": "rooms",
+   "title": "What a room is"
+  },
+  {
+   "file": "docs/areas.html",
+   "id": "areas",
+   "title": "Areas, and how they join"
+  }
+ ],
  "format": "retro-x",
  "id": "zelda-minish-cap-gba",
  "platform": "Game Boy Advance",
