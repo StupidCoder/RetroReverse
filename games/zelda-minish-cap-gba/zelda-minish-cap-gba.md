@@ -777,6 +777,32 @@ from a place on the map to a record — the last piece a door marker needs. The
 scripted house entry does not take this path, so it cannot answer the question;
 a second, ordinary doorway has to be walked through.
 
+### Why that is harder than it sounds
+
+Driving the oracle to an ordinary doorway needs the player to actually have
+control, and for a long stretch after the field appears they do not. Measured by
+holding a direction and diffing memory against a no-input run of the same
+length, the game ignores the d-pad for roughly **3,000 frames** past the point
+the field first draws: the intro is still running, and what looked like Link
+walking into his house was the opening sequence moving him.
+
+Even past that, movement can be blocked for an ordinary reason — the state that
+first responds to input has a **dialogue box open** ("Good morning, Master
+Smith"), and the box holds the player still until it is dismissed. A memory diff
+across four directions in that state shows the key register changing and
+*nothing else*, which reads exactly like "input is not wired up" and is not.
+
+Message selection resists the same probes as the door records, and for the same
+reason. A read-watch on the string finds only the renderer at `$0805EFA6`; the
+chooser never touches the text. Nor is there a table to find by shape: the ROM
+holds **no** absolute pointer table into the script region and no flat run of
+increasing offsets. The pointer is already resolved in a message-box context at
+`$020227A0` before anything observable happens to it, built from an id the
+object supplied — the same shape as the door's record offset arriving in `r3`.
+
+Both therefore need the object the player interacted with, which needs a
+genuinely controllable Link and a real interaction.
+
 ## 5. 419 rooms, 79 places
 
 `areamap -list` walks the tables: **419 rooms across the areas that resolve**.
