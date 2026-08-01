@@ -12,8 +12,9 @@ applies from day one. The writeup proceeds in reading order:
 
 * **Part I** — the cartridge image: the flat ROM dump, the AGB memory map, the
   cartridge header, the boot handshake and the crt0, and the save memory;
-* **Part II** — boot and initialization: from `AgbMain` through the interrupt
-  scaffolding to the first rendered frame;
+* **Part II** — the machine: the GBA oracle (`gbamachine`), what it models and
+  what it deliberately does not, and the boot it reproduces — title screen,
+  file select, and the opening story sequence;
 * **Part III** — engine architecture: the main loop, the IRQ handler at
   `$03005D90`, task/state dispatch, and the RAM layout;
 * **Part IV** — graphics and data formats: tiles, palettes, OAM, the BIOS
@@ -38,6 +39,15 @@ is little-endian throughout.
   - [3. The cartridge header (`$08000000`–`$080000BF`)](#3-the-cartridge-header-0800000008000obf)
   - [4. Boot: the BIOS handshake and the crt0](#4-boot-the-bios-handshake-and-the-crt0)
   - [5. The save memory](#5-the-save-memory)
+- [Part II — The machine](#part-ii--the-machine)
+  - [1. What the oracle is](#1-what-the-oracle-is)
+  - [2. The CPU: ARMv4T is a subset, and subsets need saying](#2-the-cpu-armv4t-is-a-subset-and-subsets-need-saying)
+  - [3. The bus and its byte-store quirks](#3-the-bus-and-its-byte-store-quirks)
+  - [4. The BIOS without a BIOS](#4-the-bios-without-a-bios)
+  - [5. The PPU](#5-the-ppu)
+  - [6. The EEPROM, and the bug that framed it](#6-the-eeprom-and-the-bug-that-framed-it)
+  - [7. What the boot reaches](#7-what-the-boot-reaches)
+  - [8. What is not modelled](#8-what-is-not-modelled)
 
 ---
 
@@ -176,6 +186,182 @@ bit transfers, either 512 B or 8 KiB (the driver probes at runtime; a
 Zelda-sized save will be the 8 KiB part — confirmed when we watch it, Part
 II+). No `SRAM_V`/`FLASH*_V` strings appear — the `$0E000000` region is unused
 by this cart.
+
+---
+
+# Part II — The machine
+
+## 1. What the oracle is
+
+**`tools/platform/gba/gbamachine`** is a Game Boy Advance: one ARM7TDMI on
+`tools/cpu/arm` over the flat AGB bus, the PPU with its palette/VRAM/OAM, four
+DMA channels, four timers, the keypad, the interrupt controller, and the
+cartridge's serial EEPROM. It is a **low-level emulation** like `dsmachine`,
+`n64` and `psx`: there is no operating system on a GBA, only hardware. The one
+thing lifted above the metal is the BIOS's software interrupts (§4).
+
+It is deliberately the single-core sibling of `dsmachine` and shares its shape:
+a **scanline scheduler**, interrupt delivery through a Go model of the BIOS's
+dispatch shim, an **honest unimplemented-hardware log** (`Machine.Log`) rather
+than registers that read back the last value written, and **savestates in the
+first phase** — the repository's oracle-capability-parity rule, since every
+platform that added them late wished it hadn't. A snapshot taken at frame 900
+and resumed for 600 more frames produces a frame **byte-identical** to the
+straight 1500-frame run.
+
+The GBA is the smallest machine here since the Game Boy, and the resemblance to
+the DS is not a coincidence in the other direction either: the DS's 2D engines
+are this PPU's descendants, and the DS BIOS's interrupt protocol is this one's.
+Much of `gbamachine` is `dsmachine` with a part removed.
+
+## 2. The CPU: ARMv4T is a subset, and subsets need saying
+
+The ARM7TDMI is **ARMv4T** — and the existing core defaulted to ARMv5TE,
+because that is what the DS's ARM9 is. The difference is not academic in the
+direction that matters: ARMv4T is a strict *subset*, so a V5TE decoder pointed
+at GBA code never *fails*. It silently decodes `BLX`, `CLZ`, `LDRD`/`STRD`,
+`PLD`, the saturating `QADD` family and the `SMLAxy` multiplies — none of which
+exist on this chip — as those instructions, and executes them.
+
+`tools/cpu/arm` therefore gained a third variant, **`arm.V4T`**, which marks
+those encodings undefined in both the decoder and the execution core. Two
+details were worth getting right:
+
+* the variant is **not an ordering**. The old code tested `Arch >= V6K` to mean
+  "is this the ARMv6 core"; with a third value that is a bug waiting for its
+  third caller, so those became explicit `isV6()` equality checks;
+* `V5TE` stays the **zero value**, so every existing machine model keeps the CPU
+  it had. A test pins that specifically — it is the kind of change that would
+  otherwise be discovered by a DS game quietly losing `BLX`.
+
+The V4T tests each carry a **control**: before asserting that V4T *rejects* an
+encoding, the same word is pushed through V5TE to confirm it is recognised
+there. Those controls immediately earned their keep by failing — and what they
+found was two pre-existing bugs in the shared ARMv5 decoder, not in the new
+code. `BKPT` was matched against op field `0b1010` when the encoding's is
+`0b1001`, and `PLD`'s mask compared against `0xF5` where bits 27:20 masked with
+`0xF7` yield `0x55`. **Neither instruction had ever decoded**; both fell through
+to `.word` in every DS and 3DS listing this repository has produced. Both are
+fixed.
+
+Switching Minish Cap's core from V5TE to V4T left its rendered frame
+byte-identical — the expected result, and the one worth recording: the game does
+not execute any v5-only encoding, so the guard costs nothing and the listings
+are now honest.
+
+## 3. The bus and its byte-store quirks
+
+The address decoder is Part I §2's map. Three behaviours are load-bearing:
+
+* every region is **mirrored** across its 16 MiB window. Top-of-IWRAM
+  (`$03FFFFxx`) is not a curiosity — it is how the BIOS's handler slot is
+  reached;
+* a **byte store to palette or BG VRAM writes the byte into *both halves* of the
+  addressed halfword**, and a byte store to OBJ VRAM or OAM is **ignored
+  entirely**. A model that just stores the byte boots fine and mis-renders
+  sprites, and worse, hides that whole class of bug in the guest;
+* the ROM appears three times (`$08`/`$0A`/`$0C`) with different waitstates,
+  which this nominal-timing model treats identically, and the `$0D` window is
+  where the EEPROM answers.
+
+## 4. The BIOS without a BIOS
+
+There is **no BIOS image**, and none is needed. As `dsmachine` (and the PSX
+model) already argue: the BIOS is a *library*, not a kernel — memory fills, a
+divider, `ArcTan2`, the affine-matrix helpers, the LZ77/Huffman/RLE
+decompressors, and the interrupt waits. Reimplementing that in Go is simpler and
+more auditable than interpreting a ROM the repository does not carry, and the
+decompressors are the same formats Part IV will need offline.
+
+Two pieces have real behaviour rather than arithmetic:
+
+* **`Halt`/`IntrWait`/`VBlankIntrWait` park the CPU.** It executes nothing until
+  the scheduler delivers an interrupt it asked for, so an idle game costs
+  nothing and a *missing* interrupt source shows up as a core parked in
+  `IntrWait 0x1` rather than as a busy loop that merely looks slow;
+* the **interrupt dispatch shim**. The game's handler is not the vector — it is
+  a routine the BIOS *calls*. The BIOS pushes `{r0-r3, r12, lr}`, calls through
+  the pointer the crt0 planted at `$03007FFC` (Part I §4 watched it do exactly
+  that), and returns with `subs pc, lr, #4`, which restores the CPSR — the mode,
+  the interrupt mask, and the **Thumb bit**. On a machine whose game code is
+  almost entirely Thumb, jumping straight to the handler instead returns into
+  ARM state at a Thumb address and the boot dies somewhere with no visible
+  relationship to interrupts. `IntrWait`'s other half matters too: the BIOS only
+  *clears* the check flags at `$03007FF8`; the **game's own handler** must set
+  them, and a game whose handler never does hangs on hardware too.
+
+## 5. The PPU
+
+A per-scanline software renderer for all six modes — 0/1/2 (text and affine
+backgrounds), 3/4/5 (the bitmap modes) — with regular and affine sprites in
+4/8bpp and both 1D and 2D character mapping, the two rectangular windows plus
+the OBJ window, and the full blend/brighten/darken effects including the
+semi-transparent-sprite override. Each visible line composes its enabled layers
+into buffers and then applies the per-pixel priority, window and blending rules.
+
+Forced blank (DISPCNT bit 7) blanks the screen to **white**, not black — pinned
+by a test, because it is exactly the kind of rule that is easy to get backwards
+and that looks plausible either way on a screenshot.
+
+## 6. The EEPROM, and the bug that framed it
+
+The cart's serial EEPROM (Part I §5) is addressed one **bit** per bus access
+through the `$0D` window: the game lays a request out in RAM a bit per halfword,
+DMAs it out, then DMAs 68 halfwords back for the answer.
+
+The first implementation parsed the bit stream as it arrived, and Minish Cap
+told me precisely how wrong that was — twice, in the game's own words. The file
+select reported *"The data in File 2 is corrupted"*, and name entry ended in
+*"Unable to save file."*
+
+The cause is that **a request is framed by the DMA, not by its content**. A read
+request is `"11"` + address + stop: 9 bits on a 512 B part (6-bit address), 17
+on an 8 KiB one (14-bit). The first nine bits of a 17-bit request are a
+perfectly well-formed 9-bit request. A bit-by-bit parser therefore commits to
+the wrong address width on the very first request it ever sees, sizes itself to
+512 B, and reads and writes the wrong blocks for ever after. Real hardware has
+the same ambiguity and resolves it the same way the model now does: the transfer
+ends when the DMA ends, so the device counts the bits it was handed and only
+*then* decides what it was asked. With that fixed the corruption dialog is gone
+— a blank EEPROM reads as a new file, which is what it is.
+
+This is the "a stub that reads ready is indistinguishable from working
+hardware" trap in its save-device form, and the lesson generalises: **when a
+serial device's request lengths are prefixes of each other, the framing is the
+protocol.**
+
+## 7. What the boot reaches
+
+From a cold start, with no BIOS image and no key input, the oracle reaches the
+**title screen** (~frame 900) and idles there correctly. Driven with `-keys`
+press scripts it goes through **file select**, **name entry**, creates a file,
+and plays the **opening stained-glass story sequence** with its text
+(`figures/title.png`, `figures/story.png`). The CPU never halts on an
+unimplemented instruction along the way, and the only entries in the honest-gaps
+log are the sound registers and two mosaic uses (§8).
+
+Instruments on the `bootoracle`, all from the first phase: `-shot` (PNG),
+`-savestate`/`-loadstate`, `-keys` (hold or frame-scripted presses, held 20
+frames because a game waits for a press *edge*), `-trace`/`-tracefrom`, `-bp`,
+`-irqlog`, `-dump`, `-io` and `-log`.
+
+## 8. What is not modelled
+
+Stated plainly, because a gap that is not written down becomes a wrong
+conclusion later:
+
+* **Sound.** No PSG channels, no DirectSound FIFOs, no `SoundDriver*` SWIs
+  beyond harmless stubs. Every sound-register access is logged. This is the
+  largest gap and the next obvious phase.
+* **Mosaic.** Logged when used; Minish Cap's story sequence uses it on two
+  backgrounds, so it is the first small thing to add.
+* **The serial/link port**, which reads as an idle link.
+* **Cycle-accurate timing.** The scheduler is nominal: a scanline's worth of
+  instructions per line, waitstates and prefetch ignored. Timers tick per
+  scanline, which will need to be finer once the sound FIFOs are real.
+* **The BIOS as an image** — by design (§4). A direct read of the BIOS region
+  (an anti-emulator probe) is logged and returns zero rather than the
+  prefetch-latch value real hardware exposes.
 
 ---
 

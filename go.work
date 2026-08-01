@@ -23,4 +23,5 @@ use (
 	./games/super-mario-land-gb/extract
 	./games/turrican-amiga/extract
 	./games/ultima-underworld-pc/extract
+	./games/zelda-minish-cap-gba/extract
 )
