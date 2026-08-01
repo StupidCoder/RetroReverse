@@ -32,10 +32,14 @@ identity. The directories:
 | `SBK/` / `MUS/` | 989SND sound banks / music banks, per level |
 | `STR/` | streamed cutscene data, one file per scene-part (spooled `art-joint-anim` chunks; the audio for a scene streams alongside) |
 
-The boot order, observed live at the linker (Part II): `KERNEL.CGO` →
-`GAME.CGO` → `ENGINE.CGO` → `ART.CGO` → `COMMON.CGO` → `TIT.DGO` → `VI1.DGO`
-(the title screen shows Sandover Village behind the logo, so the level is
-resident before the menu). `INT.DGO` loads when the intro cutscene starts.
+The boot order, observed live at the linker (Part II): the CGO set
+(`KERNEL` → `GAME` → `ENGINE` → `ART` → common actor packs) first, then
+`VI1.DGO` immediately — the title screen shows Sandover Village behind the
+logo, so the level is resident before the menu. The TIT logo/title art
+groups arrive in the same window via the `load-dir-art-group` id path
+rather than an archive load, and the memory-card prompt (dismissed with ✕)
+gates the NDI/logo scenes, whose animations then stream from `STR/` as
+spooled objects. `INT.DGO` loads when the intro cutscene starts.
 
 ### The DGO/CGO container
 
@@ -120,7 +124,19 @@ the running game: `tpage-463` (ART.CGO, 242,128 bytes, 252 pointer fixups, 251
 symbol patches spanning both patch kinds and both intern kinds) linked offline
 at the live base `0x90ACC0` with the live `-goalsyms` table is identical to
 the RAM image the game's own linker produced (`cmp` clean over the full
-object).
+object, captured at `finish` entry). `logo-cam` (TIT.DGO, 5,760 bytes at live
+base `0xC6FB40`) matches on 5,743 of 5,760 bytes; the 17 differing bytes sit
+in four small clusters inside its `res-lump` and are runtime state written
+after linking by the art-group's `login` method, not linker output.
+
+Two loading paths reach this format. CGO/DGO archive loads pass through
+`link_control::begin` on the EE (`saved_link_control` `0x137260` holds the
+background loader's control block; the earliest boot links use a stack-local
+one). Art groups pulled by id via `load-dir-art-group` — the TIT logo/title
+set among them — and the STR-spooled cutscene animations (`ndi-intro`,
+`logo-intro`, `logo-intro-2`, … observed live) are placed by
+`ultimate-memcpy` from a spool buffer instead and do not cross
+`link_control::begin`; their in-RAM images obey the same object layout.
 
 ### Art-group anatomy (by relocation report)
 
