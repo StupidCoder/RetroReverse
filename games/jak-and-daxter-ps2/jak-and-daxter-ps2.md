@@ -201,6 +201,25 @@ In the `logo` art group, each `merc-ctrl` (`+0x1240`, `+0x29ce0`) carries a
 header `{name?, size, #f, effect-count}`, a float block (scales/bounds), an
 effect table of 32-byte records `{…, fragment count, …, →extra-info}`, and
 the fragment streams — tightly-ranged byte records (compressed vertex data).
-The fragment wire format (`merc-byte-header`, `merc-fragment`,
-`merc-fp-header`) and the EE-side chain builder
-(`merc-vu1-initialize-chain`) are the open items of this Part.
+`draw-bones-merc` (`0x6EC794`) walks the control per frame and emits the
+chain, defining the wire format. The effect table sits at basic+108 (count
+at basic+52), one 32-byte `merc-effect` record per effect: `{+0 →geometry
+stream, +4 →fragment-control stream, +18 fragment count, +22 triangle
+count, +24 dvert count, +28 →extra-info}`. A `merc-fragment-control`
+record is `{u8 byte-NUM, u8 lump-NUM, u8 fp-QWC, u8 matrix-count}` followed
+by matrix-count `{u8 palette-index, u8 vu-dest}` pairs. The geometry
+stream holds, per fragment and back to back: a V4-8 region of
+`ceil(byte-NUM/4)` quadwords unpacked to `TOP+140` (the VIF immediate is
+`0xC08C`: address 140, unsigned, TOPS-relative — its head is the
+`merc-byte-header`, whose byte k lands in component k%4 of quadword
+140+k/4), a second V4-8 "lump" region, and a V4-32 float region. Each
+bone matrix is a 7-quadword ref from a 128-byte-stride palette (built by
+`bones-mtx-calc`) to the VU address named in the pair; an `MSCAL` closes
+every fragment, and a bucket's first fragment re-uploads the low-memory
+constant block (8 quadwords from `*merc-bucket-info*` plus ctrl+28).
+`extract/merc` parses all of this; both `logo` merc-ctrls tile their
+geometry streams exactly — each effect's fragments end at the next
+effect's start to the byte, 356 fragments in total.
+
+The remaining item is the vertex packing inside the byte/lump/fp regions
+(the microprogram's decompression loops), which yields triangles.
