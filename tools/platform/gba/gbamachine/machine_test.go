@@ -351,3 +351,74 @@ func TestDirectSoundTransport(t *testing.T) {
 		t.Error("Direct Sound carried samples but the mixer output silence")
 	}
 }
+
+// TestExporterAgreesWithPPU is the guard on the deliberate duplication between
+// the scanline renderer here and the offline decoder in tools/platform/gba
+// (tiles.go). They exist separately on purpose — one answers "what does the
+// wire carry on line Y", the other "what does the whole map look like" — but
+// two implementations of the same tile format drift apart silently unless
+// something makes them agree. This renders a synthetic scene through both and
+// requires the visible window to match pixel for pixel.
+func TestExporterAgreesWithPPU(t *testing.T) {
+	m := newTest(t)
+	b := &bus{m: m}
+
+	// A 4bpp character set: tile n is a solid block of palette index n.
+	for n := 1; n < 16; n++ {
+		for row := 0; row < 8; row++ {
+			for byteIdx := 0; byteIdx < 4; byteIdx++ {
+				b.Write16(0x06000000+uint32(n*32+row*4+byteIdx)&^1,
+					uint16(n)<<12|uint16(n)<<8|uint16(n)<<4|uint16(n))
+			}
+		}
+	}
+	// Palette bank 0: index i is a distinguishable colour.
+	for i := 1; i < 16; i++ {
+		b.Write16(0x05000000+uint32(i)*2, uint16(i)*0x0421)
+	}
+	// A tilemap at screenblock 8 (0x4000) cycling tiles, with some flips.
+	for ty := 0; ty < 32; ty++ {
+		for tx := 0; tx < 32; tx++ {
+			e := uint16((tx+ty)%15 + 1)
+			if tx%3 == 0 {
+				e |= 1 << 10 // hflip
+			}
+			if ty%4 == 0 {
+				e |= 1 << 11 // vflip
+			}
+			b.Write16(0x06004000+uint32(ty*32+tx)*2, e)
+		}
+	}
+
+	m.ioWrite16(0x000, 0x0100) // mode 0, BG0 on
+	m.ioWrite16(0x008, 0x0800) // BG0: charbase 0, screenbase 8, 4bpp, 32x32
+	m.ioWrite16(0x010, 0)      // no scroll — the exporter renders the map unscrolled
+	m.ioWrite16(0x012, 0)
+
+	for y := 0; y < screenH; y++ {
+		m.ppu.renderLine(m, y)
+	}
+
+	vram := m.Snapshot(0x06000000, vramSize)
+	pal := gba.ParsePalette(m.Snapshot(0x05000000, palSize))
+	layer := gba.DecodeBGCNT(m.Reg(0x008))
+	img := layer.Render(vram, pal)
+
+	diff := 0
+	for y := 0; y < screenH; y++ {
+		for x := 0; x < screenW; x++ {
+			c := img.RGBAAt(x, y)
+			want := uint32(0xFF)<<24 | uint32(c.R)<<16 | uint32(c.G)<<8 | uint32(c.B)
+			if c.A == 0 {
+				want = 0xFF000000 | uint32(pal.RGBA(0).R)<<16 |
+					uint32(pal.RGBA(0).G)<<8 | uint32(pal.RGBA(0).B)
+			}
+			if m.screen[y*screenW+x] != want {
+				diff++
+			}
+		}
+	}
+	if diff != 0 {
+		t.Errorf("exporter and PPU disagree on %d of %d pixels", diff, screenW*screenH)
+	}
+}

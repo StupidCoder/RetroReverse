@@ -35,3 +35,24 @@ func (m *Machine) Screenshot(path string) error {
 	}
 	return f.Close()
 }
+
+// RenderLayers recomposes the CURRENT video state and returns the frame, with
+// sprites optionally suppressed. It steps no CPU and consumes no time: it
+// re-runs the PPU over the VRAM, palette and registers exactly as they stand,
+// which is what makes it usable as a reference for an offline exporter — a
+// background-only picture cannot otherwise be obtained from a running game,
+// because the game rewrites DISPCNT every frame and would undo a poke.
+func (m *Machine) RenderLayers(objects bool) *image.RGBA {
+	saved := m.io[0x000]
+	if !objects {
+		m.io[0x000] = saved &^ (1 << 12)
+	}
+	savedScreen := m.screen
+	for y := 0; y < screenH; y++ {
+		m.ppu.renderLine(m, y)
+	}
+	img := m.Screen()
+	m.io[0x000] = saved
+	m.screen = savedScreen
+	return img
+}

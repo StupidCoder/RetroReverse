@@ -17,8 +17,9 @@ applies from day one. The writeup proceeds in reading order:
   file select, and the opening story sequence;
 * **Part III** — engine architecture: the main loop, the IRQ handler at
   `$03005D90`, task/state dispatch, and the RAM layout;
-* **Part IV** — graphics and data formats: tiles, palettes, OAM, the BIOS
-  compression formats (LZ77/Huffman/RLE) and the game's own asset containers;
+* **Part IV** — graphics: the starting area lifted out of VRAM — tiles,
+  tilemaps and palettes, verified against the machine's own render — and what
+  that says about where the ROM-side format hunt begins;
 * **Part V** — the world: maps, rooms, the Minish scale mechanic, entities;
 * **Part VI** — music and sound;
 * **Appendix** — toolchain and reproduction.
@@ -49,6 +50,11 @@ is little-endian throughout.
   - [7. Sound: one chip synthesised, one transported](#7-sound-one-chip-synthesised-one-transported)
   - [8. What the boot reaches](#8-what-the-boot-reaches)
   - [9. What is not modelled](#9-what-is-not-modelled)
+- [Part IV — Graphics: the first export](#part-iv--graphics-the-first-export)
+  - [1. Reaching the starting area](#1-reaching-the-starting-area)
+  - [2. What the starting area is made of](#2-what-the-starting-area-is-made-of)
+  - [3. The exporter, and how it is checked](#3-the-exporter-and-how-it-is-checked)
+  - [4. VRAM holds a window, not a room](#4-vram-holds-a-window-not-a-room)
 
 ---
 
@@ -434,6 +440,88 @@ conclusion later:
 * **The BIOS as an image** — by design (§4). A direct read of the BIOS region
   (an anti-emulator probe) is logged and returns zero rather than the
   prefetch-latch value real hardware exposes.
+
+---
+
+# Part IV — Graphics: the first export
+
+## 1. Reaching the starting area
+
+The oracle is driven from a cold boot into gameplay with one `-keys` script:
+title → file select → name entry → the stained-glass story slides → the field
+outside Link's house. Gameplay begins around **frame 6400**, and `-shotevery`
+turns a single run into a contact sheet, which is how the transition was found
+without guessing frame numbers.
+
+## 2. What the starting area is made of
+
+`DISPCNT = 0x1740` — **mode 0** (four text backgrounds), BG0/BG1/BG2 enabled,
+sprites on, 1D object mapping. The three layers divide the work exactly as a
+2-D Zelda would:
+
+| layer | BGCNT | size | char base | screen base | tiles used | role |
+|---|---|---|---|---|---|---|
+| BG0 | — | 32×32 | `$0C000` | `$0F800` | 1 | the HUD/text layer, empty in the field |
+| BG1 | — | 32×32 | `$04000` | `$0E800` | 54 | the overlay: treetops, grass fringes, things Link walks *behind* |
+| BG2 | — | 32×32 | `$00000` | `$0E000` | 176 | the terrain: ground, paths, fences, water |
+
+All three are **4bpp** (16 colours per tile, palette bank chosen per map cell)
+and all three are 32×32 tiles — one screenblock, 256×256 pixels. BG1 and BG2
+share a scroll position (`8,14`); BG0 does not scroll, as a HUD layer should
+not.
+
+A detail worth stating because it is easy to get wrong in an exporter: **a 4bpp
+tile carries no colour of its own.** The map entry picks the 16-colour bank, so
+a tile sheet rendered with bank 0 throughout is not the game's art — it is one
+arbitrary recolouring of it. The exporter colours each tile with the bank the
+map actually pairs it with, and reports how many tiles appear under more than
+one bank (6 on BG2, 1 on BG1 — the shared fringe tiles).
+
+## 3. The exporter, and how it is checked
+
+`mapexport` writes, per enabled text layer: the tilemap as raw bytes and as
+JSON, the character data as raw bytes, a tile sheet of the tiles the map
+references (each in its own palette bank), and the whole layer rendered at
+native size — plus the palette, the composed screen, and a manifest naming
+every register the decode depended on.
+
+The decoding lives in **`tools/platform/gba/tiles.go`**, deliberately separate
+from the PPU's scanline renderer: the two answer different questions ("what does
+the wire carry on line Y, with this scroll and these effects" versus "what does
+the whole map look like"). Two implementations of one format drift apart
+silently, so a test renders a synthetic scene through **both** and requires the
+pixels to agree.
+
+The export itself is checked the way this repository requires — by opening the
+files it shipped, not by re-rendering the structs that wrote them. `-verify`
+reads the layer PNGs back off disk, recomposes them with the scroll and priority
+from the manifest, and compares against the machine's own background-only render
+(`RenderLayers(false)`, which re-runs the PPU over the current video state
+without stepping the CPU, since the game would rewrite `DISPCNT` if it were
+poked). The result:
+
+```
+verify: recomposed the exported PNGs — 0/38400 pixels differ (0.00%)
+```
+
+## 4. VRAM holds a window, not a room
+
+The honest limit of this export, established by experiment rather than assumed.
+Walking Link a few tiles east and south and re-exporting changes **65% of the
+BG2 tilemap bytes** while only **1% of the character data** moves.
+
+So the 32×32 screenblock in VRAM is a **sliding window** that the game refills
+as the camera scrolls — not the starting area's map. The tileset is largely
+stable across the walk (the field shares its art), but the map is streamed. What
+`mapexport` lifts is therefore *the scene the game had already decompressed at
+that frame*, bounded by what is on screen; a room the game has not loaded does
+not exist to it.
+
+That makes this the right first step and not the last one. It gives byte-exact
+ground truth — tilemap, tiles and palette that provably reconstruct the frame —
+against which a **ROM-side** decoder can be checked once the compressed map
+format is found. The BIOS decompressors are already reimplemented (Part II §4),
+which is where that hunt starts.
 
 ---
 

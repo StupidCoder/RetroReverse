@@ -20,7 +20,13 @@ import (
 	"retroreverse.com/tools/cpu/arm"
 )
 
-const stateVersion = 1
+// stateVersion is bumped whenever the snapshot's CONTENT changes, not just when
+// its layout breaks. gob fills a field absent from an older file with its zero
+// value, so a version-1 state (written before the APU existed) would load
+// cleanly into a version-2 machine with the whole sound block silently zeroed —
+// a resumed run that looks fine and has lost its music. Rejecting it is the
+// honest outcome; see the repo's savestate-lineage lesson.
+const stateVersion = 2
 
 type snapshot struct {
 	Version  int

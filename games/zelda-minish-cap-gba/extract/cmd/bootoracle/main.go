@@ -53,6 +53,7 @@ func main() {
 	dump := flag.String("dump", "", "hex-dump memory after the run: ADDR:LEN (hex)")
 	bp := flag.String("bp", "", "halting breakpoint PC (hex, comma-separated)")
 	irqlog := flag.Bool("irqlog", false, "log every interrupt dispatched")
+	shotEvery := flag.Uint64("shotevery", 0, "with -shot: also write a numbered capture every N frames (BASE-000123.png)")
 	snd := flag.Bool("snd", false, "dump the sound block: mixing registers, PSG channels, and the Direct Sound timer/DMA chain")
 	wav := flag.String("wav", "", "capture the sound the game's driver mixes and write it as a WAV")
 	flag.Parse()
@@ -148,8 +149,22 @@ func main() {
 			sort.Slice(script, func(i, j int) bool { return script[i].frame < script[j].frame })
 		}
 	}
+	// Periodic capture and the key script share OnFrame, so they compose.
+	var frameHooks []func()
+	if *shotEvery > 0 && *shot != "" {
+		base := strings.TrimSuffix(*shot, ".png")
+		frameHooks = append(frameHooks, func() {
+			f := m.Frame()
+			if f%*shotEvery != 0 {
+				return
+			}
+			if err := m.Screenshot(fmt.Sprintf("%s-%06d.png", base, f)); err != nil {
+				die("%v", err)
+			}
+		})
+	}
 	if len(script) > 0 {
-		m.OnFrame = func() {
+		frameHooks = append(frameHooks, func() {
 			f := m.Frame()
 			var mask uint16
 			for _, p := range script {
@@ -160,6 +175,13 @@ func main() {
 				}
 			}
 			m.SetKeys(mask)
+		})
+	}
+	if len(frameHooks) > 0 {
+		m.OnFrame = func() {
+			for _, h := range frameHooks {
+				h()
+			}
 		}
 	}
 
