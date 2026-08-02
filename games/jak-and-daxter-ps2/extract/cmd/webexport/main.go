@@ -68,11 +68,9 @@ func main() {
 		check(err)
 		node := scene.AddNode(fmt.Sprintf("logo-%d", ci), -1,
 			[3]float32{}, [4]float32{0, 0, 0, 1}, [3]float32{1, 1, 1})
-		dec := &merc.Decoder{Micro: micro, LowMem: merc.DefaultLowMem(), STMagic: merc.CtrlSTMagic(obj, off), CtrlRow: obj[off+28 : off+44]}
 		var prims []glb.Prim
 		for i := range c.Effects {
-			p, err := dec.BuildPrim(&c.Effects[i], gold)
-			check(err)
+			p := merc.StripPrim(&c.Effects[i], gold)
 			if len(p.Tris) > 0 {
 				prims = append(prims, p)
 			}

@@ -59,6 +59,19 @@ func main() {
 	obj, _, err := goalobj.Link(raw, 0, tab)
 	check(err)
 
+	engData, err := vol.ReadFile("CGO/ENGINE.CGO;1")
+	check(err)
+	eng, err := goalobj.ReadDGO(engData)
+	check(err)
+	var raws [][]byte
+	for _, e := range eng.Entries {
+		raws = append(raws, e.Data)
+	}
+	micro := merc.FindMicro(raws)
+	if micro == nil {
+		fmt.Fprintln(os.Stderr, "merc microcode not found in ENGINE.CGO")
+		os.Exit(1)
+	}
 	scene := glb.NewScene()
 	gold := [4]float32{0.83, 0.68, 0.28, 1}
 	for ci, off := range ctrls {
@@ -68,7 +81,7 @@ func main() {
 			[3]float32{}, [4]float32{0, 0, 0, 1}, [3]float32{1, 1, 1})
 		var prims []glb.Prim
 		for i := range c.Effects {
-			p := merc.BuildPrim(&c.Effects[i], gold)
+			p := merc.StripPrim(&c.Effects[i], gold)
 			if len(p.Tris) > 0 {
 				prims = append(prims, p)
 			}
