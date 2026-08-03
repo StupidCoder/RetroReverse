@@ -317,4 +317,31 @@ And the payoff: the two merc-ctrls are not two poses — they are the
 a black backing plate with the 旧世界の遺産 subtitle). They ship to the
 Studio as separate textured GLBs.
 
-Open next: the ndi/evilbro/evilsis art groups and Part V joint animations.
+### The second loop family (characters)
+
+Multi-matrix fragments run a different vertex loop (0xCB8 onward) that
+reloads the bone matrix per vertex — the matrix selector is lump q0's
+x-lane byte. In that family the second store's rebuild guard reads the
+MATRIX byte's biased sign (`ilw.x` + `ibgez`) where the single-matrix loop
+reads the ADC byte's zeroness (`ilw.y` + `ibne`); the unified per-write
+rule that matches the microprogram on every model tested is: first store
+ADC when ctl ≤ 0x80, second store ADC only when ctl < 0x80 AND the matrix
+byte ≥ 0x80. The ST constants are also per model — evilbro's ctrl words
+give u = s/32 − 1.5 where the logo's give s/128 — so the decoder computes
+texture coordinates with the machine's own float math from ctrl+44 and
+ctrl+32 rather than a fixed divisor.
+
+With those two corrections the file-only reconstruction is zero-diff
+against the emulated microprogram on every effect of every art group
+exported so far — logo (17,142 triangles), ndi (1,076), evilbro (3,282)
+and evilsis (4,496) — and each equals its effect records exactly. The
+characters render in clean T-pose from identity bones: merc vertex
+positions are model-space (bind pose), so the skeleton is only needed for
+animation, not for the rest shape. One tpage trap: descriptor tables may
+contain `#f` slots, and texture ids index the table BY POSITION — the
+reader keeps placeholders (tpage-1457's null slot had shifted every later
+texture down by one).
+
+In the Studio: the two title logos, the Naughty Dog logo, and Gol and
+Maia from the intro cutscene. Open next: Part V joint animations (the
+art groups' joints + joint-anim-compressed) and the cutscene cameras.
