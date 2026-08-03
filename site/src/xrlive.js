@@ -73,6 +73,86 @@ export class LiveLayer {
     return dst;
   }
 
+  // precomputePhases walks each animated surface through its whole cycle ONCE,
+  // keeping a keyed texture per distinct state, so that at runtime a repaint is
+  // a texture-pointer swap instead of a canvas readback plus an upload.
+  //
+  // This exists because the readback cost 4.31 ms per frame on a Quest 3 and
+  // 0.006 ms on an M3 — a ~700x gap that is not a CPU gap. getImageData makes
+  // the driver synchronise, and that is priced per call on a mobile part, not
+  // per pixel. The cycles are short (Sonic's rings are 6 frames over a 10-frame
+  // period), so the whole set is a few hundred KB and is captured in one go
+  // while the map is still building.
+  //
+  // Returns a short description for the status line.
+  precomputePhases(advance, tickHz, maxFrames = 180, maxPhases = 24) {
+    const live = this.surfaces.filter((s) => s.own);
+    if (!live.length) return '';
+    const t0 = performance.now();
+    const sig = (cv) => {
+      const c = cv.getContext('2d', { willReadFrequently: true });
+      const d = new Uint32Array(c.getImageData(0, 0, cv.width, cv.height).data.buffer);
+      let h = 2166136261;
+      for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); }
+      return h >>> 0;
+    };
+    for (const s of live) {
+      // Consume the flag the surface starts dirty with: it means "upload me
+      // once", not "the art changed". Left set, the first pass sees a repaint
+      // that never happened, matches the state it just captured, and concludes
+      // the cycle has ONE frame — a still, silently.
+      s.clear();
+      s.phases = [this._phaseTex(s.canvas)];
+      s.sigs = [sig(s.canvas)];
+      s.events = 0;
+      s.period = 0;
+    }
+    let frames = 0;
+    while (frames < maxFrames && live.some((s) => !s.period)) {
+      advance(1 / tickHz); // one engine frame
+      frames++;
+      for (const s of live) {
+        if (s.period || !s.dirty()) continue;
+        s.clear();
+        s.events++;
+        const g = sig(s.canvas);
+        if (s.sigs.includes(g)) { s.period = s.phases.length; continue; }
+        if (s.phases.length >= maxPhases) { s.period = -1; continue; } // no closed cycle
+        s.sigs.push(g);
+        s.phases.push(this._phaseTex(s.canvas));
+      }
+    }
+    let ok = 0, fell = 0;
+    for (const s of live) {
+      if (s.period > 0) {
+        ok++;
+        s.idx = s.events % s.period;
+        s.mesh.material.map = s.phases[s.idx];
+      } else {
+        // Cycle never closed: keep the per-repaint keying for this one rather
+        // than showing the wrong frame.
+        fell++;
+        s.period = 0;
+        for (const t of s.phases) t.dispose();
+        s.phases = null;
+      }
+    }
+    return `phases ${ok}/${live.length}${fell ? ` (${fell} live)` : ''} in ${Math.round(performance.now() - t0)} ms`;
+  }
+
+  _phaseTex(src) {
+    const THREE = this.THREE;
+    const t = new THREE.CanvasTexture(this._keyed(src));
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.magFilter = THREE.NearestFilter;
+    t.minFilter = THREE.LinearMipmapLinearFilter;
+    t.generateMipmaps = true;
+    if (this.renderer && this.aniso > 1) {
+      t.anisotropy = Math.min(this.aniso, this.renderer.capabilities.getMaxAnisotropy());
+    }
+    return t;
+  }
+
   get counts() {
     const q = this.sprites.reduce((n, g) => n + g.items.length, 0);
     const tiles = this.surfaces.reduce((n, s) => n + s.rects.length, 0);
@@ -247,6 +327,14 @@ export class LiveLayer {
     this.uploads = 0;
     for (const s of this.surfaces) {
       if (!s.dirty()) continue;
+      s.clear();
+      if (s.period > 0) {
+        // Precomputed: the repaint just means "next state", so this is a
+        // pointer swap — no readback, no upload.
+        s.idx = (s.idx + 1) % s.period;
+        s.mesh.material.map = s.phases[s.idx];
+        continue;
+      }
       if (s.own) {
         const t0 = performance.now();
         this._keyed(s.canvas, s.own); // re-key the repainted tile
@@ -254,7 +342,6 @@ export class LiveLayer {
       }
       s.tex.needsUpdate = true;
       this.uploads++;
-      s.clear();
     }
     for (const c of this.cells) {
       const i = c.index();
@@ -272,5 +359,6 @@ export class LiveLayer {
       m.material.dispose();
     }
     for (const c of this.cells) for (const t of c.texs) t.dispose();
+    for (const s of this.surfaces) if (s.phases) for (const t of s.phases) t.dispose();
   }
 }

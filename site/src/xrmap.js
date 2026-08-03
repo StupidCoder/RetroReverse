@@ -457,11 +457,21 @@ export class MapAR {
       });
       this._ar.stage.scene.add(layer.group);
       this._liveLayer = layer;
+      // One-time: walk each animated surface through its cycle and keep a keyed
+      // texture per state, so a repaint costs a pointer swap instead of a
+      // canvas readback every frame. ?xrphases=0 keeps the per-frame path.
+      let phaseNote = '';
+      if (this._param('xrphases') !== '0') {
+        phaseNote = layer.precomputePhases(
+          (dt) => this.opts.live.advance(dt), this.opts.live.tickHz || 60,
+        );
+      }
       const c = layer.counts;
       const bits = [];
       if (c.sprites) bits.push(`${c.sprites} sprites/${c.atlases}`);
       if (c.tiles) bits.push(`${c.tiles} anim tiles`);
       if (c.cells) bits.push(`${c.cells} strips`);
+      if (phaseNote) bits.push(phaseNote);
       if (bits.length) this._note = `${this._note ? `${this._note} · ` : ''}live ${bits.join(', ')}`;
     } catch (e) {
       // A broken live layer must not cost the user the map: fall back to the
