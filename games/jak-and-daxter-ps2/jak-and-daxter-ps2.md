@@ -224,7 +224,10 @@ effect's start to the byte, 356 fragments in total.
 ### The vertex format and strip topology (complete)
 
 The lump region packs one vertex per three quadwords — twelve source bytes
-`{q0: ctlA, adc-ctl, nz, px | q1: dest1, dest2, ny, py | q2: s, t, nx, pz}`.
+`{q0: ctlA, adc-ctl, nx, px | q1: dest1, dest2, ny, py | q2: s, t, nz, pz}`
+(the normal is the z-lanes in quadword order — the microcode's transform is
+row4·q0.z + row5·q1.z + row6·q2.z — verified at 0.97 mean |dot| against
+geometric normals, while the reversed order scores 0.06).
 The w-lane bytes are the position on a fragment-local 8-bit lattice; the
 fragment origin arrives in the fp region's first quadword as
 integers-in-floats (bias `0x4B010000` = 8454144.0, sign-folded), so world
