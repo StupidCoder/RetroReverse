@@ -68,8 +68,10 @@ export async function mount(ctx, doc) {
 
   // cell animators: tw×th strips at (tx,ty) with per-phase holds
   const objLayer = new Container();
+  const cellAnimRecs = []; // kept for the AR live layer
   for (const ca of tm.cellAnims || []) {
     const ts = tm.tileSize;
+    const canvases = [];
     const texs = ca.phases.map((ph) => {
       const cv = document.createElement('canvas');
       cv.width = ca.tw * ts; cv.height = ca.th * ts;
@@ -85,6 +87,7 @@ export async function mount(ctx, doc) {
       });
       const tex = Texture.from(cv);
       tex.source.scaleMode = 'nearest';
+      canvases.push(cv);
       return tex;
     });
     const spr = new Sprite(texs[0]);
@@ -100,6 +103,11 @@ export async function mount(ctx, doc) {
           spr.texture = texs[idx];
         }
       },
+    });
+    cellAnimRecs.push({
+      spr, canvases,
+      x: ca.tx * ts, y: ca.ty * ts, w: ca.tw * ts, h: ca.th * ts,
+      index: () => idx,
     });
   }
 
@@ -294,6 +302,7 @@ export async function mount(ctx, doc) {
     params,
     onStatus: (t) => { xrStatus.hidden = false; xrStatus.textContent = t; },
     size: () => ({ w: map.widthPx, h: map.heightPx }),
+    live: liveModel({ tm, map, world, pickables, cellAnimRecs, anims, tickHz }),
     snap: {
       begin() {
         // Stop the clock: chunks are read one per frame, so a running tile /
@@ -320,6 +329,7 @@ export async function mount(ctx, doc) {
   });
   ctx.displayPanel?.section('AR');
   ctx.displayPanel?.toggle('Key out the backdrop', ar.keying, (on) => ar.setKeying(on));
+  if (ar.hasLive) ctx.displayPanel?.toggle('Animate in AR', ar.live, (on) => ar.setLive(on));
 
   window.__rx = { app, world, objLayer, pickables, cam, map, ar }; // debug handle
 
@@ -413,6 +423,13 @@ class TileMapPlain {
     if (rec) this._paint(rec, atlasTile);
   }
 
+  // dynamicSources lists the canvases that get repainted over time, paired
+  // with the texture source that identifies them among the map's sprites.
+  // `baked` holds exactly the animated tiles, so it is the whole answer here.
+  dynamicSources() {
+    return [...this.baked.values()].map((r) => ({ src: r.tex.source, canvas: r.cv }));
+  }
+
   mirror() {
     // wrap copies share textures: rebuild sprite tree cheaply
     const c = new Container();
@@ -442,6 +459,11 @@ class BlockMap {
     this.blockTex = {};
     this.regionTex = {};   // regionIdx -> { blockIdx -> tex } (alternate palettes)
     this.blocksWithTile = new Map();
+    // kept for dynamicSources(): which tiles animate, and (filled by cycle())
+    // which blocks the colour cycle rewrites
+    this._animTiles = new Set();
+    for (const a of tm.tileAnims || []) for (const t of a.tiles) this._animTiles.add(t);
+    this._cycleBlocks = [];
     this.regions = (tm.paletteFx?.regions || []).map((r) => ({
       ...r,
       map: this._remap(tm.paletteFx.palette, r.palette),
@@ -530,6 +552,25 @@ class BlockMap {
     for (const idx of this.blocksWithTile.get(tileId) || []) this.repaintBlock(idx);
   }
 
+  // Which block canvases actually change: the blocks containing an animated
+  // tile (repaintBlock touches the plain block AND its palette-region twins)
+  // plus the blocks the colour cycle rewrites. Blocks that merely sit in a
+  // palette region are static and must NOT be listed — that is why this is
+  // enumerated rather than "every block".
+  dynamicSources() {
+    const idxs = new Set(this._cycleBlocks || []);
+    for (const t of this._animTiles || []) for (const i of this.blocksWithTile.get(t) || []) idxs.add(i);
+    const out = [];
+    for (const idx of idxs) {
+      if (this.blockTex[idx]) out.push({ src: this.blockTex[idx].source, canvas: this.blockCanvas[idx] });
+      for (const ri of Object.keys(this.regionTex)) {
+        const rec = this.regionTex[ri][idx];
+        if (rec) out.push({ src: rec.tex.source, canvas: rec.cv });
+      }
+    }
+    return out;
+  }
+
   mirror() {
     const c = new Container();
     for (const s of this.container.children) {
@@ -556,6 +597,7 @@ class BlockMap {
       blocks.push({ idx, cells, clean: this.blockCanvas[idx].getContext('2d').getImageData(0, 0, B, B) });
     }
     if (!blocks.length) return null;
+    this._cycleBlocks = blocks.map((b) => b.idx);
     const apply = (s) => {
       for (const b of blocks) {
         const ctx = this.blockCanvas[b.idx].getContext('2d');
@@ -731,4 +773,114 @@ class MapCamera {
       this.zoomAt(sp.x, sp.y, e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP);
     }, { passive: false });
   }
+}
+
+// ---- AR live layer: what moves, described as plain data --------------------------
+//
+// The AR map is baked from a stopped clock, so the moving parts are drawn over
+// it as three.js geometry instead. This side owns the PixiJS knowledge and
+// hands xrlive.js a description with no three.js in it — and nothing here
+// re-implements sprite2d.js. The SpriteInstances keep ticking; `read` just
+// reports where they are.
+//
+// Returns null when a level has nothing that moves (Turrican pins one frame per
+// placement, Minish Cap's markers are static), so those levels keep the still
+// path exactly as it was.
+function liveModel({ tm, map, world, pickables, cellAnimRecs, anims, tickHz }) {
+  // A placement is live if its frame program has more than one step or it
+  // carries a path. Turrican's `anim: "f9"` expands to steps [[9,1]] — one
+  // step, no path — so its 226 placements stay in the bake where they belong.
+  const visible = (node) => {
+    for (let n = node; n && n !== world; n = n.parent) if (n.visible === false) return false;
+    return true;
+  };
+  const liveSprites = pickables.filter(({ inst }) =>
+    (inst.prog?.length > 1 || inst.anim?.path?.length) && visible(inst.node));
+
+  const groups = new Map(); // atlas image + tint -> group
+  for (const p of liveSprites) {
+    const tint = p.inst.sprite.tint;
+    const key = `${p.obj.img.src}|${tint}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        img: p.obj.img, cw: p.obj.cellW, ch: p.obj.cellH,
+        tint: tint && tint !== 0xffffff ? tint : null,
+        items: [],
+      });
+    }
+    groups.get(key).items.push({
+      // Read from the SpriteInstance's own fields rather than the Pixi display
+      // objects: the display position also carries the cylinder-wrap hop, which
+      // is a camera artefact and has no meaning on a map hanging in a room.
+      read(o) {
+        const inst = p.inst, s = inst.sprite;
+        o.col = inst.prog[inst.idx][0];
+        o.row = inst.anim.row || 0;
+        o.flip = s.scale.x < 0;
+        // A mirrored sprite is flipped about its own origin, so its left edge
+        // moves to pos + pivot − cellW. (level2d's picking box at the top of
+        // this file has the unflipped form only; nothing ships hflip today, so
+        // it has never fired.)
+        o.x = p.pl.pos[0] + s.position.x + (o.flip ? s.pivot.x - p.obj.cellW : -s.pivot.x);
+        o.y = p.pl.pos[1] + s.position.y - s.pivot.y;
+        o.hidden = false;
+      },
+    });
+  }
+
+  // Every tile animation, block repaint and palette cycle works by repainting a
+  // canvas, so one rule covers all three: find the canvases, find the cells
+  // drawing them, and let the texture upload do the rest. The dirty flag comes
+  // free — pixi already calls source.update() at every repaint site.
+  const surfaces = [];
+  const dyn = new Map(map.dynamicSources ? map.dynamicSources().map((d) => [d.src, d]) : []);
+  if (dyn.size) {
+    const byCanvas = new Map();
+    for (const s of map.container.children) {
+      const d = dyn.get(s.texture?.source);
+      if (!d) continue;
+      if (!byCanvas.has(d.canvas)) byCanvas.set(d.canvas, { canvas: d.canvas, src: d.src, rects: [] });
+      const f = s.texture.frame;
+      const flip = s.scale.x < 0;
+      byCanvas.get(d.canvas).rects.push({
+        x: flip ? s.x - f.width : s.x, y: s.y, w: f.width, h: f.height, flip,
+      });
+    }
+    for (const rec of byCanvas.values()) {
+      if (!rec.rects.length) continue;
+      let dirty = true; // upload once on the first frame
+      rec.src.on('update', () => { dirty = true; });
+      surfaces.push({ ...rec, dirty: () => dirty, clear: () => { dirty = false; } });
+    }
+  }
+
+  const cells = (cellAnimRecs || []).map((c) => ({
+    x: c.x, y: c.y, w: c.w, h: c.h, canvases: c.canvases, index: c.index,
+  }));
+
+  if (!groups.size && !surfaces.length && !cells.length) return null;
+
+  return {
+    tickHz,
+    sprites: [...groups.values()],
+    surfaces,
+    cells,
+    // Non-wrapping maps clip their object layer to the playfield; a cylinder
+    // does not (level2d does the same).
+    clip: () => (tm.wrap === 'x' ? null : { w: map.widthPx, h: map.heightPx }),
+    // The XR frame loop drives this — the Pixi ticker is stopped for the whole
+    // session, because window rAF is not reliably serviced while presenting.
+    advance(dt) {
+      const df = dt * (tickHz || 60);
+      for (const a of anims) a.tick(df);
+    },
+    begin() {
+      for (const p of liveSprites) p.inst.node.visible = false;
+      for (const c of cellAnimRecs || []) c.spr.visible = false;
+    },
+    end() {
+      for (const p of liveSprites) p.inst.node.visible = true;
+      for (const c of cellAnimRecs || []) c.spr.visible = true;
+    },
+  };
 }

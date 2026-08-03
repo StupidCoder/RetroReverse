@@ -32,7 +32,9 @@ export class MapAR {
     this.supported = arSupported;
     this.onChange = null;
     this.keying = this._param('xrkey') !== 'none';
+    this.live = this._param('xrlive') !== '0' && !!opts.live;
     this._ar = null;
+    this._liveLayer = null;
     this._teardown = null;
     this._ready = false;
     this._note = '';
@@ -63,6 +65,19 @@ export class MapAR {
     this._dropChunks();
   }
 
+  // Whether this level has anything that moves at all — Turrican pins one frame
+  // per placement and has no tile animation, so it has none and the toggle is
+  // not offered.
+  get hasLive() { return !!this.opts.live; }
+
+  // Same drop-and-rebake as setKeying: the bake genuinely differs, because live
+  // mode hides the moving pieces so they are not baked in twice.
+  setLive(on) {
+    if (!this.opts.live || on === this.live) return;
+    this.live = on;
+    this._dropChunks();
+  }
+
   async enter() {
     if (!this._ar) await this._build();
     if (!this._ready && this._param('xrsnap') === 'pre') {
@@ -77,6 +92,13 @@ export class MapAR {
       this._startPump();
       this._pump = () => this._step();
       this._ar.stage.updaters.add(this._pump);
+    } else if (this.live && this.opts.live && !this._liveLayer) {
+      // Re-entering with the chunks still built: re-arm the live layer without
+      // paying for another snapshot.
+      this.opts.snap.begin();
+      this.opts.live.begin();
+      this._liveOn = true;
+      this._liveStart();
     }
   }
 
@@ -85,6 +107,7 @@ export class MapAR {
   dispose() {
     this._ar?.exit();
     this._abortPump();
+    this._liveEnd();
     this._dropChunks();
     this._teardown?.();
     this._teardown = null;
@@ -96,13 +119,31 @@ export class MapAR {
   // else would ever call end() and the flat view would stay frozen for good.
   _abortPump() {
     if (!this._plan) return;
-    this.opts.snap.end();
-    if (this._pump) { this._ar?.stage.updaters.delete(this._pump); this._pump = null; }
     this._plan = null;
+    if (this._pump) { this._ar?.stage.updaters.delete(this._pump); this._pump = null; }
+    this._liveEnd();
+  }
+
+  // _liveEnd gives the 2-D view its clock back and is the ONLY place that does.
+  // Every exit path routes through it — abort, session end, dispose, both
+  // toggles — because the ticker now stays stopped for the whole session, and
+  // a missed restore would follow the user out of the headset as a permanently
+  // frozen flat view.
+  _liveEnd() {
+    try {
+      if (this._liveLayer) {
+        this._liveLayer.dispose();
+        this._ar?.stage.scene.remove(this._liveLayer.group);
+        this._liveLayer = null;
+      }
+      if (this._liveOn) { this.opts.live.end(); this._liveOn = false; }
+    } catch { /* the pixi app can already be gone on a late sessionend */ }
+    this.opts.snap.end();
   }
 
   _dropChunks() {
     this._abortPump();
+    this._liveEnd();
     this._ready = false;
     if (!this._group) return;
     for (const m of [...this._group.children]) {
@@ -117,6 +158,7 @@ export class MapAR {
     const { el } = this.opts;
     const { THREE, Stage } = await import('./engine3d.js');
     this.THREE = THREE;
+    ({ LiveLayer: this.LiveLayer } = await import('./xrlive.js'));
 
     // An immersive session renders into its own framebuffer, so the canvas
     // backing this context never has to be on screen — and must not be, or it
@@ -147,10 +189,25 @@ export class MapAR {
       onStatus: (t) => this.opts.onStatus?.(t),
     });
     this._ar.onChange = (on) => {
-      if (!on) this._abortPump(); // left mid-snapshot: unfreeze the 2-D view
+      // Leaving — mid-snapshot or after one — must always give the flat view
+      // its clock back; in live mode the ticker stayed stopped the whole time.
+      if (!on) { this._abortPump(); this._liveEnd(); }
       this.onChange?.(on);
     };
     this._maxW = maxW;
+
+    // Registered once, for the life of the stage.
+    this._liveStep = (dt) => {
+      if (!this._liveLayer || !this._ready) return; // still baking, or still mode
+      // Load-bearing: this Stage's setAnimationLoop keeps running on its hidden
+      // 0x0 mount forever once built, so without this guard the animations
+      // would advance from BOTH clocks whenever the flat page is ticking —
+      // everything at double speed.
+      if (!stage.renderer.xr.isPresenting) return;
+      this.opts.live.advance(Math.min(dt, 0.05));
+      this._liveLayer.sync();
+    };
+    stage.updaters.add(this._liveStep);
 
     this._teardown = () => { stage.dispose(); mount.remove(); };
   }
@@ -173,6 +230,9 @@ export class MapAR {
     }
     this._plan = { rects, i: 0, res, W: w, H: h, phase: 'read', bufs: [], hist: new Map(), dropped: 0, kept: 0 };
     this.opts.snap.begin();
+    // Hide the movers BEFORE the first read: they are about to be drawn live,
+    // and a baked copy underneath would show as a ghost through their alpha.
+    if (this.live && this.opts.live) { this.opts.live.begin(); this._liveOn = true; }
     this.status(`AR: reading map 0/${rects.length}`);
   }
 
@@ -328,14 +388,41 @@ export class MapAR {
   }
 
   _finish(p, err) {
-    this.opts.snap.end();
     if (this._pump) { this._ar.stage.updaters.delete(this._pump); this._pump = null; }
     this._plan = null;
     p.bufs.length = 0;
-    if (err) { this.status(err); return; }
+    if (err) { this._liveEnd(); this.status(err); return; }
+    this._W = p.W; this._H = p.H;
+    if (this._liveOn) this._liveStart();
+    else this.opts.snap.end(); // still mode: the 2-D view gets its clock back now
     // Stand back far enough to take the whole thing in.
     this._ar.distance = this._num('xrdist', Math.max(1.2, 0.62 * this._maxW));
     this._ready = true;
+  }
+
+  // In live mode the Pixi ticker stays stopped for the whole session and the
+  // XR frame loop advances the same `anims` array instead — window rAF is not
+  // reliably serviced while an immersive session is presenting, which is why
+  // three swaps to the session's own rAF in setAnimationLoop.
+  _liveStart() {
+    try {
+      const layer = new this.LiveLayer(this.THREE, this.opts.live, {
+        W: this._W, H: this._H, renderer: this._ar.stage.renderer,
+      });
+      this._ar.stage.scene.add(layer.group);
+      this._liveLayer = layer;
+      const c = layer.counts;
+      const bits = [];
+      if (c.sprites) bits.push(`${c.sprites} sprites/${c.atlases}`);
+      if (c.tiles) bits.push(`${c.tiles} anim tiles`);
+      if (c.cells) bits.push(`${c.cells} strips`);
+      if (bits.length) this._note = `${this._note ? `${this._note} · ` : ''}live ${bits.join(', ')}`;
+    } catch (e) {
+      // A broken live layer must not cost the user the map: fall back to the
+      // still, which is what they had before.
+      this._liveEnd();
+      this._note = `${this._note ? `${this._note} · ` : ''}live failed: ${e.message || e.name}`;
+    }
   }
 }
 
