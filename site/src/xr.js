@@ -51,10 +51,15 @@ export class ARSession {
     this.targetSize = opts.targetSize || 1.0;
     this.distance = opts.distance ?? 1.5;
     this.dropBelowEye = opts.dropBelowEye ?? 0.15;
+    // Which extent the targetSize applies to: a level wants its FOOTPRINT a
+    // metre across (height follows), a single object its longest axis, so a
+    // tall thin model does not come out enormous.
+    this.fitAxis = opts.fitAxis || 'horizontal'; // 'horizontal' | 'longest'
     // The world-space horizontal direction the viewer should be looking ALONG
-    // — i.e. the document's own establishing shot, so the diorama presents the
-    // side the level was framed from. Defaults to looking toward +Z (a viewer
-    // on the −Z side), which is where most of these documents put the camera.
+    // — i.e. the shot the diorama should present. A level passes its
+    // document's establishing camera; the object viewer passes a function, so
+    // whichever side you had orbited to is the side you get. Defaults to
+    // looking toward +Z (a viewer on the −Z side).
     this.frontDir = opts.frontDir || new THREE.Vector3(0, 0, 1);
     this.onScene = opts.onScene || null;   // the view's own scene tweaks (sky, cutscenes)
     this.onChange = opts.onChange || null; // the shell's button/filter state, assigned later
@@ -199,18 +204,21 @@ export class ARSession {
 
     const size = box.getSize(new THREE.Vector3());
     const centre = box.getCenter(new THREE.Vector3());
-    const span = Math.max(size.x, size.z) || Math.max(size.y, 1);
-    const k = this.targetSize / span; // metres per world unit
+    const span = this.fitAxis === 'longest'
+      ? Math.max(size.x, size.y, size.z)
+      : Math.max(size.x, size.z) || Math.max(size.y, 1);
+    const k = this.targetSize / (span || 1); // metres per world unit
 
     scene.scale.setScalar(k);
     scene.updateMatrixWorld(true);
 
-    // Yaw so that the viewer's forward maps onto the document's establishing
+    // Yaw so that the viewer's forward maps onto the requested establishing
     // direction: we need R·fwd = frontDir, and for horizontal unit vectors
     // that is the difference of their bearings. (Rotating BY the head's own
     // bearing instead of by the difference turns the diorama the wrong way —
     // it is the inverse rotation that carries fwd onto a fixed axis.)
-    const yaw = Math.atan2(this.frontDir.x, this.frontDir.z) - Math.atan2(fwd.x, fwd.z);
+    const front = typeof this.frontDir === 'function' ? this.frontDir() : this.frontDir;
+    const yaw = Math.atan2(front.x, front.z) - Math.atan2(fwd.x, fwd.z);
 
     const rig = this.rig;
     rig.position.set(0, 0, 0);

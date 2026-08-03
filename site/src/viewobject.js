@@ -212,6 +212,7 @@ function loadImg(url) {
 async function mount3D(ctx, doc) {
   const { stage: el, game, asset, params } = ctx;
   const { THREE, Stage, ObjectLibrary, wireMaterial } = await import('./engine3d.js');
+  const { ARSession } = await import('./xr.js');
 
   const stage = new Stage(el, { fov: 45 });
   let clearIsolationRef = null; // assigned by the part-isolation block below
@@ -263,9 +264,13 @@ async function mount3D(ctx, doc) {
     stage.updaters.add(() => {
       const c = centroid();
       const d = c.clone().sub(last);
+      last = c;
+      // In an XR session the head owns the camera; nudging it here would be
+      // overwritten anyway, and the drift into controls.target would come
+      // back out in the pose restored on exit.
+      if (!stage.inputEnabled) return;
       stage.camera.position.add(d);
       stage.controls.target.add(d);
-      last = c;
     });
   } else {
     stage.frame(inst.node);
@@ -504,14 +509,85 @@ async function mount3D(ctx, doc) {
       });
   }
 
-  window.__rxo = { stage, inst, bones }; // debug handle
+  // ---- AR (hold it in your hand) -------------------------------------------------
+  // Same session machinery as the levels, fitted to the object's LONGEST axis
+  // rather than its footprint: a lamppost should be a metre tall, not a metre
+  // wide and ten metres tall.
+  const xrStatus = document.createElement('div');
+  xrStatus.className = 'hud xr-status';
+  xrStatus.hidden = true;
+  el.appendChild(xrStatus);
+  const xrNum = (k, d) => {
+    const n = parseFloat(params?.get?.(k) ?? params?.[k]);
+    return Number.isFinite(n) && n > 0 ? n : d;
+  };
+
+  // contentBox measures what you will actually be handed. Neither shortcut
+  // works for a skinned model: its geometry bounds are the BIND pose and
+  // include far-parked hidden parts (the bob-omb measures 13.7 that way
+  // against a real 6), while the bone cloud is only the skeleton and
+  // understates the skin around it (5.9 — the model would arrive at 2.3 m
+  // when asked for 1). So pose the vertices and measure those.
+  const contentBox = () => {
+    const box = new THREE.Box3();
+    const v = new THREE.Vector3();
+    let posed = false;
+    inst.node.updateMatrixWorld(true);
+    inst.node.traverse((o) => {
+      if (!o.isSkinnedMesh || !o.visible) return;
+      const pos = o.geometry.attributes.position;
+      if (!pos) return;
+      posed = true;
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i);
+        o.applyBoneTransform(i, v);      // bind pose -> current pose, mesh-local
+        box.expandByPoint(o.localToWorld(v));
+      }
+    });
+    // Unskinned meshes (and whole unskinned models) measure straight.
+    inst.node.traverse((o) => {
+      if (o.isMesh && !o.isSkinnedMesh && o.visible) box.expandByObject(o);
+    });
+    if (box.isEmpty() && !posed) box.setFromObject(inst.node); // `inst` is reassigned by the variant switcher
+    return box;
+  };
+
+  let arSpin = false;
+  const ar = stage.camera.isPerspectiveCamera
+    ? new ARSession({
+      stage,
+      contentBox,
+      fitAxis: 'longest',
+      targetSize: xrNum('xrsize', 1.0),
+      distance: xrNum('xrdist', 0.8), // arm's length: a held object, not a stage
+      // Present whichever side you had orbited to.
+      frontDir: () => {
+        const d = stage.controls.target.clone().sub(stage.camera.position);
+        d.y = 0;
+        return d.lengthSq() > 1e-9 ? d.normalize() : new THREE.Vector3(0, 0, 1);
+      },
+      onStatus: (t) => { xrStatus.hidden = false; xrStatus.textContent = t; },
+      onScene: (on) => {
+        // Autorotate would spin the model where it hangs (the session skips
+        // controls.update, but leaving the flag set would resume the spin the
+        // moment you exit, from a pose you never chose).
+        if (on) { arSpin = stage.controls.autoRotate; stage.controls.autoRotate = false; }
+        else stage.controls.autoRotate = arSpin;
+        hud.hidden = on;
+      },
+    })
+    : null;
+
+  window.__rxo = { stage, inst, bones, ar, contentBox }; // debug handle
 
   return {
     unmount() {
       window.removeEventListener('keydown', onKey);
+      ar?.exit();
       stage.dispose();
-      list.remove(); hud.remove(); tp?.remove();
+      list.remove(); hud.remove(); tp?.remove(); xrStatus.remove();
     },
+    xr: ar,
     sources: () => [stage.canvas],
     setNative(size) { stage.setNative(size); },
     pixelGrid: () => (stage.native
