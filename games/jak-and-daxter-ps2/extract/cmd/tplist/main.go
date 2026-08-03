@@ -14,13 +14,13 @@ func main() {
 	st, _ := f.Stat()
 	vol, err := iso9660.Open(f, st.Size())
 	check(err)
-	data, err := vol.ReadFile("DGO/TIT.DGO;1")
+	data, err := vol.ReadFile(os.Args[3] + ";1")
 	check(err)
 	d, err := goalobj.ReadDGO(data)
 	check(err)
 	tab, err := goalobj.LoadSymTab(os.Args[2])
 	check(err)
-	for _, name := range []string{"tpage-415", "tpage-416"} {
+	for _, name := range os.Args[4:] {
 		for _, e := range d.Entries {
 			if e.Name != name {
 				continue

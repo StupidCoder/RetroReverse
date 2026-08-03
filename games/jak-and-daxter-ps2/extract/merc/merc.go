@@ -47,6 +47,8 @@ type Fragment struct {
 	LumpQWC  int    // NUM of the second unpack
 	FPQWC    int    // quadwords of float data
 	Mats     []MatXfer
+	STRow    uint32 // ctrl+44: the VIF row magic added to the s/t bytes
+	STOff    uint32 // ctrl+32: the vf19 row the microcode adds after
 }
 
 // MatXfer is one bone-matrix upload: palette slot -> VU address.
@@ -121,7 +123,8 @@ func Parse(obj []byte, p uint32) (*Ctrl, error) {
 				LumpData: obj[gcur+uint32(uQW)*16 : gcur+uint32(uQW+lQW)*16],
 				FPData:   obj[gcur+uint32(uQW+lQW)*16 : gcur+uint32(uQW+lQW+fpQW)*16],
 				ByteQWC:  uNum, LumpQWC: lNum, FPQWC: fpQW,
-				Mats: xfers,
+				Mats:  xfers,
+				STRow: u32(obj, p+44), STOff: u32(obj, p+32),
 			}
 			gcur += uint32(uQW+lQW+fpQW) * 16
 			eff.Fragments = append(eff.Fragments, fr)
@@ -160,7 +163,8 @@ type Vertex struct {
 	Slot2      int
 	D1, D2     byte // raw dest bytes
 	Ctl        byte // q0 y-lane ADC control (biased 0x80 via the VIF row's low half)
-	U, V       float32 // texture coords: q2 x/y bytes / 128 (REPEAT wrap)
+	Mat        byte // q0 x-lane: matrix selector; its sign also guards the D2 rebuild
+	U, V       float32 // texture coords (GS ST space, REPEAT wrap): see Vertices
 }
 
 func magicInt(f float32) float32 {
@@ -192,6 +196,14 @@ func (fr *Fragment) Vertices() []Vertex {
 		}
 		return -1
 	}
+	// Texture coords reproduce the machine's float path exactly: the VIF
+	// row adds ctrl+44 to the byte at the bit level (a mantissa step), the
+	// microcode then adds vf19 = ctrl+32. For the logo the pair is
+	// ±66047.0 (u = s/128); evilbro's is 264188.0 / -264189.5 (u = s/32
+	// - 1.5) — always compute it from the words.
+	st := func(b byte) float32 {
+		return float32frombits(fr.STRow+uint32(b)) + float32frombits(fr.STOff)
+	}
 	for v := 0; v < n; v++ {
 		b := fr.LumpData[v*12 : v*12+12]
 		out = append(out, Vertex{
@@ -199,8 +211,8 @@ func (fr *Fragment) Vertices() []Vertex {
 			NX: b[2], NY: b[6], NZ: b[10],
 			Slot1: slot(b[4]), Slot2: slot(b[5]),
 			D1: b[4], D2: b[5],
-			Ctl: b[1],
-			U:  float32(b[8]) / 128, V: float32(b[9]) / 128,
+			Ctl: b[1], Mat: b[0],
+			U:  st(b[8]), V: st(b[9]),
 		})
 	}
 	return out

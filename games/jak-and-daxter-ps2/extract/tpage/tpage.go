@@ -130,7 +130,11 @@ func Load(obj []byte) (*Page, error) {
 	for i := 0; i < count; i++ {
 		d := u32at(obj, P+0x7C+uint32(i)*4)
 		if d == 0 || int64(d)+0x40 > int64(len(obj)) {
-			continue // #f (a symbol cell address, far beyond the object)
+			// #f (a symbol cell address, far beyond the object): keep the
+			// slot so texture INDICES stay aligned — ids address the table
+			// by position.
+			pg.Textures = append(pg.Textures, Texture{})
+			continue
 		}
 		mips := int(obj[d+4])
 		if mips < 1 {

@@ -44,15 +44,20 @@ func walkFragment(fr *Fragment, prev map[byte]slotRef, vbase int) map[byte]slotR
 	vs := fr.Vertices()
 	slots := make(map[byte]slotRef, len(vs)+8)
 	for i, v := range vs {
-		// c = int16(byte + rowMagic&0xFFFF); the logo's magic low half is
-		// 0xFF80, i.e. c = byte - 0x80.
+		// c = int16(byte + rowMagic&0xFFFF); the magic low half is 0xFF80,
+		// i.e. c = byte - 0x80. The first store carries ADC whenever c <= 0.
+		// The second store is rebuilt clean when c == 0 (single-matrix loop,
+		// ibne guard at 0x718) or when the matrix byte's biased sign is
+		// negative (per-vertex-matrix loop, ilw.x + ibgez guard at 0xE28):
+		// so it keeps ADC only for c < 0 with mat byte >= 0x80.
 		c := int(v.Ctl) - 0x80
+		d2adc := c < 0 && v.Mat >= 0x80
 		slots[v.D1] = slotRef{vert: vbase + i, adc: c <= 0}
 		if v.D2 != v.D1 {
-			slots[v.D2] = slotRef{vert: vbase + i, adc: c < 0}
-		} else if c == 0 {
-			// same slot written twice: the second (clean) store wins
-			slots[v.D1] = slotRef{vert: vbase + i, adc: false}
+			slots[v.D2] = slotRef{vert: vbase + i, adc: d2adc}
+		} else {
+			// same slot written twice: the second store wins
+			slots[v.D1] = slotRef{vert: vbase + i, adc: d2adc}
 		}
 	}
 	tbl := int(fr.ByteData[0]) * 4
