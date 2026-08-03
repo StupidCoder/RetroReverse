@@ -7,7 +7,6 @@ import { Application, Container, Graphics, Rectangle, Sprite, Texture } from 'pi
 import { SpriteObject, loadImage } from './sprite2d.js';
 import { mulberry32 } from './data.js';
 import { PanInput } from './pancam.js';
-import { PanelAR } from './xr2d.js';
 
 const hexRgb = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
 
@@ -282,17 +281,45 @@ export async function mount(ctx, doc) {
     });
   }
 
-  // ---- AR: the map hangs in the room ------------------------------------------
+  // ---- AR: the WHOLE map hangs in the room -------------------------------------
+  // Dynamic import: this drags three.js in, and a 2-D level should not pay for
+  // that on load — MapAR builds nothing until the button is pressed.
+  const { MapAR } = await import('./xrmap.js');
   const xrStatus = document.createElement('div');
   xrStatus.className = 'hud xr-status';
   xrStatus.hidden = true;
   stage.appendChild(xrStatus);
-  const ar = new PanelAR({
+  const ar = new MapAR({
     el: stage,
-    canvas: () => app.canvas,
     params,
     onStatus: (t) => { xrStatus.hidden = false; xrStatus.textContent = t; },
+    size: () => ({ w: map.widthPx, h: map.heightPx }),
+    snap: {
+      begin() {
+        // Stop the clock: chunks are read one per frame, so a running tile /
+        // cell / palette animation would freeze at a different phase in each
+        // chunk and leave the difference visible on the chunk boundary.
+        app.ticker.stop();
+        // Undo the cylinder hop — objects must sit at their real map position,
+        // not the one the visible window pushed them to.
+        for (const p of pickables) p.inst.node.x = p.pl.pos[0];
+      },
+      read(x, y, w, h, resolution) {
+        // The frame is in `world` local space. For a non-wrapping map the only
+        // holder sits at x=0; for a cylinder the middle copy does, and that is
+        // the one cellAnims and objLayer are aligned with.
+        return app.renderer.extract.pixels({
+          target: world, frame: new Rectangle(x, y, w, h), resolution,
+        });
+      },
+      end() {
+        cam.apply();
+        app.ticker.start();
+      },
+    },
   });
+  ctx.displayPanel?.section('AR');
+  ctx.displayPanel?.toggle('Key out the backdrop', ar.keying, (on) => ar.setKeying(on));
 
   window.__rx = { app, world, objLayer, pickables, cam, map, ar }; // debug handle
 

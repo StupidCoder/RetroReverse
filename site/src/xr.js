@@ -55,6 +55,14 @@ export class ARSession {
     // metre across (height follows), a single object its longest axis, so a
     // tall thin model does not come out enormous.
     this.fitAxis = opts.fitAxis || 'horizontal'; // 'horizontal' | 'longest'
+    // A wall-sized map does not fit an AXIS, it fits a BOX. Given the content
+    // size in world units, return metres per world unit; overrides
+    // fitAxis/targetSize entirely.
+    this.fitScale = opts.fitScale || null; // (size: Vector3) => number
+    // Content that can only be BUILT once the session is running — a map
+    // snapshot read out of another renderer — reports through here. While it
+    // is false the placement waits instead of fitting an empty scene.
+    this.ready = opts.ready || null; // () => boolean
     // The world-space horizontal direction the viewer should be looking ALONG
     // — i.e. the shot the diorama should present. A level passes its
     // document's establishing camera; the object viewer passes a function, so
@@ -170,6 +178,10 @@ export class ARSession {
   _frame(frame) {
     this.rig?.updateMatrixWorld(true);
     if (!this._place || !frame) return;
+    // Not "nothing to place" — not YET. Reset the pose counter too, or a slow
+    // build would trip POSE_GIVE_UP and report a tracking failure that never
+    // happened.
+    if (this.ready && !this.ready()) { this._waited = 0; return; }
     const ref = this.stage.renderer.xr.getReferenceSpace();
     const pose = ref && frame.getViewerPose(ref);
     if (!pose) {
@@ -207,7 +219,8 @@ export class ARSession {
     const span = this.fitAxis === 'longest'
       ? Math.max(size.x, size.y, size.z)
       : Math.max(size.x, size.z) || Math.max(size.y, 1);
-    const k = this.targetSize / (span || 1); // metres per world unit
+    // metres per world unit
+    const k = this.fitScale ? this.fitScale(size) : this.targetSize / (span || 1);
 
     scene.scale.setScalar(k);
     scene.updateMatrixWorld(true);
@@ -235,7 +248,8 @@ export class ARSession {
     rig.updateMatrixWorld(true);
 
     this._place = false;
-    this._fit = `${fmt(size.x)}×${fmt(size.y)}×${fmt(size.z)} u · ${fmt(1 / k)} u/m · ${this.targetSize} m at ${this.distance} m`;
+    // The metres ACHIEVED, not the metres requested — more use to both callers.
+    this._fit = `${fmt(size.x)}×${fmt(size.y)} u · ${fmt(1 / k)} u/m · ${fmt(size.x * k)}×${fmt(size.y * k)} m at ${fmt(this.distance)} m`;
     this.status(`in AR · ${this._fit}`);
   }
 
