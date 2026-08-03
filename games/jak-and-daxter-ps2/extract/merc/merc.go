@@ -156,6 +156,7 @@ type Vertex struct {
 	Slot2      int
 	D1, D2     byte // raw dest bytes
 	Ctl        byte // q0 y-lane ADC control (biased 0x80 via the VIF row's low half)
+	U, V       float32 // texture coords: q2 x/y bytes / 128 (REPEAT wrap)
 }
 
 func magicInt(f float32) float32 {
@@ -195,19 +196,20 @@ func (fr *Fragment) Vertices() []Vertex {
 			Slot1: slot(b[4]), Slot2: slot(b[5]),
 			D1: b[4], D2: b[5],
 			Ctl: b[1],
+			U:  float32(b[8]) / 128, V: float32(b[9]) / 128,
 		})
 	}
 	return out
 }
 
 // Colors returns the fragment's per-vertex RGBA records (the byte-region
-// stream at header byte 12's quadword offset: one 4-byte record per vertex,
-// {r, g, b, a} with GS alpha 0x80 = 1.0).
+// stream at header byte 1's quadword offset — right after the copy table:
+// one 4-byte record per vertex, {r, g, b, a} with GS 0x80 = 1.0).
 func (fr *Fragment) Colors() [][4]byte {
 	if len(fr.ByteData) < 23 {
 		return nil
 	}
-	off := int(fr.ByteData[12]) * 4
+	off := int(fr.ByteData[1]) * 4
 	n := fr.LumpQWC / 3
 	out := make([][4]byte, 0, n)
 	for v := 0; v < n; v++ {

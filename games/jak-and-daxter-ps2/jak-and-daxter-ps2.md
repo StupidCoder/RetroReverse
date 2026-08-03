@@ -273,5 +273,45 @@ variants of the logo model (near-identical bounds, different letter poses)
 and export as separate GLB nodes; per-fragment bounding boxes all fit the
 255-unit lattice, confirming every origin decode.
 
-Open for Part IV: material binding (adgif blocks → tpage textures) and UV
-scale, then the ndi/evilbro/evilsis groups and Part V joint animations.
+### Materials: adgif templates, the texture-id remap, UVs (complete)
+
+A fragment whose fp region exceeds the origin quadword carries one or more
+5-quadword adgif blocks — A+D pairs for {TEX0_1, TEX1_1, MIPTBP1_1,
+CLAMP_1, ALPHA_1}. On disc the TEX0/TEX1 data words are zeroed templates;
+`adgif-shader-login` (0x611F84) fills them at load time, in place, and the
+diff between the disc object and its logged-in RAM copy names every field:
+
+- The texture id lives in the TEX1 quadword's third word (upper 24 bits,
+  low byte is the register number 0x14): `(page << 20) | (index << 8)`.
+- Login first passes the id through `level-remap-texture` (0x68EAE4): a
+  binary search over sorted 8-byte `{original-id, loaded-id}` pairs
+  shipped in the level's vis object (title-vis header: pointer at +0x34,
+  count at +0x38). The logo's ids remap from logical pages 0x623/0x624 to
+  tpage 415 (`title-vis-pris`), indices 0–4: charHOLD (the 4×4 gradient
+  the letters tile), logo-black, precursor_legacy (the 256×64 subtitle),
+  trademark, and precursor_legacy_japan (512×128).
+- The remapped id then indexes the texture-page directory; offline the
+  tpage object of that page id supplies the descriptor and pixels
+  (extract/tpage — every RAM TEX0 cross-checks against the descriptor:
+  TBP/CBP/PSM/dimensions all match with the page loaded at its VRAM base).
+
+The first adgif block applies from the fragment's packet start; each
+further block is inserted mid-strip into a hole in the dest sequence big
+enough for the insert (tag + 5 A+D ≈ 6–7 quadwords), so a gap of ≥6 beyond
+the vertex stride marks the material switch (ctrl2's fragment 19 carries
+two blocks this way).
+
+UVs are exact by construction: lump q2's x/y bytes go through the VIF row
+add (ctrl+44, `0x4780FF80` = 66047.0, so byte k becomes 66047 + k/128)
+and the microprogram adds vf19 = ctrl+32 — which is the same constant
+negated (−66047.0). The texture coordinate is therefore **byte/128** with
+REPEAT wrap. Per-vertex colors are the record stream (GS scale, 0x80 =
+1.0); the letters' fire gradient is vertex colors over the 4×4 charHOLD
+texture.
+
+And the payoff: the two merc-ctrls are not two poses — they are the
+**English and Japanese logos** (the second draws ジャック×ダクスター over
+a black backing plate with the 旧世界の遺産 subtitle). They ship to the
+Studio as separate textured GLBs.
+
+Open next: the ndi/evilbro/evilsis art groups and Part V joint animations.

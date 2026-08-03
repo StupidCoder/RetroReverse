@@ -29,11 +29,7 @@ package merc
 //     so the whole effect is one continuous vertex sequence whose ADC bits
 //     gate the triangle kicks.
 
-import (
-	"sort"
-
-	"retroreverse.com/tools/lib/glb"
-)
+import "retroreverse.com/tools/lib/glb"
 
 // slotRef is one output position's content after a fragment's scatter+copies.
 type slotRef struct {
@@ -85,25 +81,12 @@ func walkFragment(fr *Fragment, prev map[byte]slotRef, vbase int) map[byte]slotR
 // EffectSequence flattens the effect into the GS-visible vertex stream:
 // each fragment's occupied output positions in ascending address order.
 func EffectSequence(e *Effect) []TopoVert {
-	var seq []TopoVert
-	var prev map[byte]slotRef
-	vbase := 0
-	for fi := range e.Fragments {
-		fr := &e.Fragments[fi]
-		slots := walkFragment(fr, prev, vbase)
-		dests := make([]int, 0, len(slots))
-		for d := range slots {
-			dests = append(dests, int(d))
-		}
-		sort.Ints(dests)
-		for _, d := range dests {
-			r := slots[byte(d)]
-			seq = append(seq, TopoVert{Index: r.vert, ADC: r.adc})
-		}
-		prev = slots
-		vbase += fr.LumpQWC / 3
+	seq, _ := EffectStream(e)
+	out := make([]TopoVert, len(seq))
+	for i, s := range seq {
+		out[i] = TopoVert{Index: s.Index, ADC: s.ADC}
 	}
-	return seq
+	return out
 }
 
 // StripPrim builds one effect's primitive from file data only.
