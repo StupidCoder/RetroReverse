@@ -6,6 +6,46 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "enemy 0x37",
+   "object": "enemy",
+   "pos": [
+    136,
+    88
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08034C61",
+    "id": "0x37",
+    "record": "0x080E3768",
+    "respawn slot": 0,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "enemy 0x37",
+   "object": "enemy",
+   "pos": [
+    136,
+    424
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08034C61",
+    "id": "0x37",
+    "record": "0x080E3768",
+    "respawn slot": 0,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -2734,6 +2774,12 @@
    0
   ],
   "height": 80,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 640,

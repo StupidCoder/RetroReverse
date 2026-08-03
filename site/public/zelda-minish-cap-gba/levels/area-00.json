@@ -6,6 +6,668 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "object 0x73",
+   "object": "object",
+   "pos": [
+    504,
+    984
+   ],
+   "props": {
+    "b4/b5": "12/00",
+    "class": "6 (object)",
+    "handler": "0x08097A5D",
+    "id": "0x73",
+    "record": "0x080F4D00",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "object 0x73",
+   "object": "object",
+   "pos": [
+    424,
+    952
+   ],
+   "props": {
+    "b4/b5": "13/00",
+    "class": "6 (object)",
+    "handler": "0x08097A5D",
+    "id": "0x73",
+    "record": "0x080F4D10",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "doorway (sub 0x63)",
+   "object": "doorway",
+   "pos": [
+    200,
+    308
+   ],
+   "props": {
+    "b4/b5": "00/04",
+    "class": "6 (object)",
+    "extra": "0x003C0000",
+    "handler": "0x08080E09",
+    "id": "0x00",
+    "record": "0x080F4D20",
+    "slot": 0,
+    "sub": "0x63"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "doorway (sub 0x63)",
+   "object": "doorway",
+   "pos": [
+    408,
+    692
+   ],
+   "props": {
+    "b4/b5": "00/04",
+    "class": "6 (object)",
+    "extra": "0x003D0000",
+    "handler": "0x08080E09",
+    "id": "0x00",
+    "record": "0x080F4D30",
+    "slot": 0,
+    "sub": "0x63"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 4,
+   "name": "object 0x3E",
+   "object": "object",
+   "pos": [
+    472,
+    858
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0808D0C9",
+    "id": "0x3E",
+    "record": "0x080F4E80",
+    "slot": 1,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 5,
+   "name": "object 0x19",
+   "object": "object",
+   "pos": [
+    704,
+    80
+   ],
+   "props": {
+    "b4/b5": "02/00",
+    "class": "6 (object)",
+    "handler": "0x080866C1",
+    "id": "0x19",
+    "record": "0x080F4E90",
+    "slot": 1,
+    "sub": "0x08"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 6,
+   "name": "enemy 0x00",
+   "object": "enemy",
+   "pos": [
+    328,
+    56
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "extra": "0x002000A0",
+    "h6": "0x161A",
+    "handler": "0x0801EAB1",
+    "id": "0x00",
+    "record": "0x080F4F30",
+    "respawn slot": 0,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 7,
+   "name": "enemy 0x00",
+   "object": "enemy",
+   "pos": [
+    280,
+    152
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "extra": "0x002000A0",
+    "h6": "0x161A",
+    "handler": "0x0801EAB1",
+    "id": "0x00",
+    "record": "0x080F4F40",
+    "respawn slot": 1,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 8,
+   "name": "enemy 0x00",
+   "object": "enemy",
+   "pos": [
+    440,
+    424
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "extra": "0x01600160",
+    "h6": "0x141C",
+    "handler": "0x0801EAB1",
+    "id": "0x00",
+    "record": "0x080F4F50",
+    "respawn slot": 2,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 9,
+   "name": "enemy 0x00",
+   "object": "enemy",
+   "pos": [
+    520,
+    504
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "extra": "0x01B001C0",
+    "h6": "0x0A12",
+    "handler": "0x0801EAB1",
+    "id": "0x00",
+    "record": "0x080F4F60",
+    "respawn slot": 3,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 10,
+   "name": "enemy 0x00",
+   "object": "enemy",
+   "pos": [
+    648,
+    392
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "extra": "0x01400250",
+    "h6": "0x1A0C",
+    "handler": "0x0801EAB1",
+    "id": "0x00",
+    "record": "0x080F4F70",
+    "respawn slot": 4,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 11,
+   "name": "enemy 0x00",
+   "object": "enemy",
+   "pos": [
+    328,
+    488
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "extra": "0x01800120",
+    "h6": "0x1210",
+    "handler": "0x0801EAB1",
+    "id": "0x00",
+    "record": "0x080F4F80",
+    "respawn slot": 5,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 12,
+   "name": "enemy 0x00",
+   "object": "enemy",
+   "pos": [
+    168,
+    408
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "extra": "0x01800030",
+    "h6": "0x0C1A",
+    "handler": "0x0801EAB1",
+    "id": "0x00",
+    "record": "0x080F4F90",
+    "respawn slot": 6,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 13,
+   "name": "enemy 0x01",
+   "object": "enemy",
+   "pos": [
+    928,
+    464
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "extra": "0x01D00320",
+    "h6": "0x0C14",
+    "handler": "0x0801EE19",
+    "id": "0x01",
+    "record": "0x080F4FA0",
+    "respawn slot": 7,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 14,
+   "name": "enemy 0x01",
+   "object": "enemy",
+   "pos": [
+    928,
+    592
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "extra": "0x02000330",
+    "h6": "0x0E12",
+    "handler": "0x0801EE19",
+    "id": "0x01",
+    "record": "0x080F4FB0",
+    "respawn slot": 8,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 15,
+   "name": "enemy 0x01",
+   "object": "enemy",
+   "pos": [
+    832,
+    624
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "extra": "0x02400320",
+    "h6": "0x1220",
+    "handler": "0x0801EE19",
+    "id": "0x01",
+    "record": "0x080F4FC0",
+    "respawn slot": 9,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 16,
+   "name": "enemy 0x01",
+   "object": "enemy",
+   "pos": [
+    896,
+    736
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "extra": "0x02B00350",
+    "h6": "0x0A0C",
+    "handler": "0x0801EE19",
+    "id": "0x01",
+    "record": "0x080F4FD0",
+    "respawn slot": 10,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 17,
+   "name": "enemy 0x01",
+   "object": "enemy",
+   "pos": [
+    424,
+    712
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "extra": "0x02B00190",
+    "h6": "0x060E",
+    "handler": "0x0801EE19",
+    "id": "0x01",
+    "record": "0x080F4FE0",
+    "respawn slot": 11,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 18,
+   "name": "enemy 0x01",
+   "object": "enemy",
+   "pos": [
+    640,
+    752
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "extra": "0x02C00240",
+    "h6": "0x0E0C",
+    "handler": "0x0801EE19",
+    "id": "0x01",
+    "record": "0x080F4FF0",
+    "respawn slot": 12,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 19,
+   "name": "enemy 0x01",
+   "object": "enemy",
+   "pos": [
+    944,
+    256
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "extra": "0x00E00390",
+    "h6": "0x1406",
+    "handler": "0x0801EE19",
+    "id": "0x01",
+    "record": "0x080F5000",
+    "respawn slot": 13,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 20,
+   "name": "enemy 0x01",
+   "object": "enemy",
+   "pos": [
+    584,
+    728
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x0801EE19",
+    "id": "0x01",
+    "record": "0x080F5010",
+    "respawn slot": 14,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 21,
+   "name": "enemy 0x65",
+   "object": "enemy",
+   "pos": [
+    288,
+    96
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08049B71",
+    "id": "0x65",
+    "record": "0x080F5020",
+    "respawn slot": 15,
+    "slot": 2,
+    "sub": "0x05"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 22,
+   "name": "enemy 0x65",
+   "object": "enemy",
+   "pos": [
+    224,
+    176
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08049B71",
+    "id": "0x65",
+    "record": "0x080F5030",
+    "respawn slot": 16,
+    "slot": 2,
+    "sub": "0x06"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 23,
+   "name": "enemy 0x65",
+   "object": "enemy",
+   "pos": [
+    400,
+    416
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08049B71",
+    "id": "0x65",
+    "record": "0x080F5040",
+    "respawn slot": 17,
+    "slot": 2,
+    "sub": "0x07"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 24,
+   "name": "enemy 0x65",
+   "object": "enemy",
+   "pos": [
+    432,
+    480
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08049B71",
+    "id": "0x65",
+    "record": "0x080F5050",
+    "respawn slot": 18,
+    "slot": 2,
+    "sub": "0x08"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 25,
+   "name": "enemy 0x65",
+   "object": "enemy",
+   "pos": [
+    592,
+    384
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08049B71",
+    "id": "0x65",
+    "record": "0x080F5060",
+    "respawn slot": 19,
+    "slot": 2,
+    "sub": "0x09"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 26,
+   "name": "enemy 0x65",
+   "object": "enemy",
+   "pos": [
+    640,
+    448
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08049B71",
+    "id": "0x65",
+    "record": "0x080F5070",
+    "respawn slot": 20,
+    "slot": 2,
+    "sub": "0x0A"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 27,
+   "name": "enemy 0x65",
+   "object": "enemy",
+   "pos": [
+    896,
+    528
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08049B71",
+    "id": "0x65",
+    "record": "0x080F5080",
+    "respawn slot": 21,
+    "slot": 2,
+    "sub": "0x0B"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 28,
+   "name": "enemy 0x65",
+   "object": "enemy",
+   "pos": [
+    880,
+    656
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08049B71",
+    "id": "0x65",
+    "record": "0x080F5090",
+    "respawn slot": 22,
+    "slot": 2,
+    "sub": "0x0C"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 29,
+   "name": "tile patch (flag 0x36)",
+   "object": "tile-patch",
+   "pos": [
+    160,
+    512
+   ],
+   "props": {
+    "flag": "0x36",
+    "metatile": "0x1D",
+    "op": 10,
+    "record": "0x080F5220"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 30,
+   "name": "tile patch (flag 0x37)",
+   "object": "tile-patch",
+   "pos": [
+    176,
+    512
+   ],
+   "props": {
+    "flag": "0x37",
+    "metatile": "0x1D",
+    "op": 10,
+    "record": "0x080F5228"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 31,
+   "name": "tile patch (flag 0x38)",
+   "object": "tile-patch",
+   "pos": [
+    48,
+    864
+   ],
+   "props": {
+    "flag": "0x38",
+    "metatile": "0x1D",
+    "op": 10,
+    "record": "0x080F5230"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 32,
+   "name": "tile patch (flag 0x39)",
+   "object": "tile-patch",
+   "pos": [
+    64,
+    864
+   ],
+   "props": {
+    "flag": "0x39",
+    "metatile": "0x1D",
+    "op": 10,
+    "record": "0x080F5238"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 33,
+   "name": "tile patch (flag 0x3A)",
+   "object": "tile-patch",
+   "pos": [
+    80,
+    864
+   ],
+   "props": {
+    "flag": "0x3A",
+    "metatile": "0x1D",
+    "op": 10,
+    "record": "0x080F5240"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -15890,6 +16552,12 @@
    64
   ],
   "height": 126,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 1008,

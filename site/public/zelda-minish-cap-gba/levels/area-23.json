@@ -6,6 +6,59 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "enemy 0x14",
+   "object": "enemy",
+   "pos": [
+    824,
+    280
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08027D6D",
+    "id": "0x14",
+    "record": "0x080F4468",
+    "respawn slot": 0,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "tile patch (flag 0x40)",
+   "object": "tile-patch",
+   "pos": [
+    736,
+    272
+   ],
+   "props": {
+    "flag": "0x40",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080F4488"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "tile patch (flag 0x41)",
+   "object": "tile-patch",
+   "pos": [
+    864,
+    272
+   ],
+   "props": {
+    "flag": "0x41",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080F4490"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -15134,6 +15187,12 @@
    0
   ],
   "height": 120,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 960,

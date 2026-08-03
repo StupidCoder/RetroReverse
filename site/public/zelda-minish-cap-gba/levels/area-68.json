@@ -6,6 +6,28 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "object 0x69",
+   "object": "object",
+   "pos": [
+    152,
+    136
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08094A0D",
+    "id": "0x69",
+    "mode": 4,
+    "record": "0x080F0B28",
+    "script": "0x08011BE4",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -1154,6 +1176,12 @@
    246
   ],
   "height": 30,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 240,

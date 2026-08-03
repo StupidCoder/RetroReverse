@@ -6,6 +6,156 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "NPC 0x4E",
+   "object": "npc",
+   "pos": [
+    160,
+    88
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806D9D1",
+    "id": "0x4E",
+    "mode": 4,
+    "record": "0x080E37B0",
+    "script": "0x0800D874",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "NPC 0x4E",
+   "object": "npc",
+   "pos": [
+    160,
+    88
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806D9D1",
+    "id": "0x4E",
+    "mode": 4,
+    "record": "0x080E37C0",
+    "script": "0x0800D8E4",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "object 0x95",
+   "object": "object",
+   "pos": [
+    232,
+    264
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0809CF25",
+    "id": "0x95",
+    "record": "0x080E37D0",
+    "slot": 0,
+    "sub": "0x03"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "object 0x95",
+   "object": "object",
+   "pos": [
+    56,
+    216
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0809CF25",
+    "id": "0x95",
+    "record": "0x080E37E0",
+    "slot": 0,
+    "sub": "0x04"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 4,
+   "name": "object 0x95",
+   "object": "object",
+   "pos": [
+    264,
+    216
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0809CF25",
+    "id": "0x95",
+    "record": "0x080E37F0",
+    "slot": 0,
+    "sub": "0x05"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 5,
+   "name": "object 0x95",
+   "object": "object",
+   "pos": [
+    56,
+    136
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0809CF25",
+    "id": "0x95",
+    "record": "0x080E3800",
+    "slot": 0,
+    "sub": "0x03"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 6,
+   "name": "object 0x95",
+   "object": "object",
+   "pos": [
+    152,
+    328
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0809CF25",
+    "id": "0x95",
+    "record": "0x080E3810",
+    "slot": 0,
+    "sub": "0x07"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 7,
+   "name": "object 0x72",
+   "object": "object",
+   "pos": [
+    160,
+    88
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080979B5",
+    "id": "0x72",
+    "record": "0x080E3870",
+    "slot": 1,
+    "sub": "0x00"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -2414,6 +2564,12 @@
    594
   ],
   "height": 60,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 480,

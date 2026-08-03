@@ -6,6 +6,244 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "enemy 0x2C",
+   "object": "enemy",
+   "pos": [
+    248,
+    88
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08031375",
+    "id": "0x2C",
+    "record": "0x080D9FC8",
+    "respawn slot": 0,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "enemy 0x2C",
+   "object": "enemy",
+   "pos": [
+    120,
+    120
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08031375",
+    "id": "0x2C",
+    "record": "0x080D9FD8",
+    "respawn slot": 1,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "tile patch (flag 0x34)",
+   "object": "tile-patch",
+   "pos": [
+    160,
+    32
+   ],
+   "props": {
+    "flag": "0x34",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080D9FF8"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "enemy 0x16",
+   "object": "enemy",
+   "pos": [
+    88,
+    312
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "extra": "0x006A0000",
+    "handler": "0x0802890D",
+    "id": "0x16",
+    "record": "0x080DA048",
+    "respawn slot": 0,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 4,
+   "name": "tile patch (flag 0x36)",
+   "object": "tile-patch",
+   "pos": [
+    256,
+    304
+   ],
+   "props": {
+    "flag": "0x36",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080DA068"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 5,
+   "name": "tile patch (flag 0x37)",
+   "object": "tile-patch",
+   "pos": [
+    480,
+    64
+   ],
+   "props": {
+    "flag": "0x37",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080DA0D0"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 6,
+   "name": "object 0x05",
+   "object": "object",
+   "pos": [
+    552,
+    328
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0808220D",
+    "id": "0x05",
+    "record": "0x080DA100",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 7,
+   "name": "object 0x05",
+   "object": "object",
+   "pos": [
+    568,
+    344
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0808220D",
+    "id": "0x05",
+    "record": "0x080DA110",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 8,
+   "name": "object 0x05",
+   "object": "object",
+   "pos": [
+    568,
+    328
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0808220D",
+    "id": "0x05",
+    "record": "0x080DA120",
+    "slot": 0,
+    "sub": "0x5D"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 9,
+   "name": "object 0x05",
+   "object": "object",
+   "pos": [
+    552,
+    344
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0808220D",
+    "id": "0x05",
+    "record": "0x080DA130",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 10,
+   "name": "enemy 0x2C",
+   "object": "enemy",
+   "pos": [
+    600,
+    296
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08031375",
+    "id": "0x2C",
+    "record": "0x080DA160",
+    "respawn slot": 0,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 11,
+   "name": "enemy 0x2C",
+   "object": "enemy",
+   "pos": [
+    504,
+    344
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08031375",
+    "id": "0x2C",
+    "record": "0x080DA170",
+    "respawn slot": 1,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 12,
+   "name": "doorway (sub 0x63)",
+   "object": "doorway",
+   "pos": [
+    888,
+    292
+   ],
+   "props": {
+    "b4/b5": "00/04",
+    "class": "6 (object)",
+    "extra": "0x00380000",
+    "handler": "0x08080E09",
+    "id": "0x00",
+    "record": "0x080DA1B8",
+    "slot": 0,
+    "sub": "0x63"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -6818,6 +7056,12 @@
    0
   ],
   "height": 54,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 432,

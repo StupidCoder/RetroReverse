@@ -145,13 +145,23 @@ func buildArea(rom []byte, ar *Area) (*assembled, error) {
 		}
 		// The room's objects, at their own coordinates plus the room origin.
 		if markObjects {
-			for k := 0; k < 4; k++ {
-				l := ListFor(rom, ar.ID, i, k)
+			for slot := 0; slot < 3; slot++ {
+				l := ListFor(rom, ar.ID, i, slot)
 				if l == 0 {
 					continue
 				}
-				for _, ob := range Objects(rom, l, k) {
-					drawMarker(canvas, at.X+ob.X, at.Y+ob.Y, kindColour(k))
+				for _, ob := range Objects(rom, l, slot) {
+					if !ob.Placed() {
+						continue
+					}
+					drawMarker(canvas, at.X+ob.X, at.Y+ob.Y, classColour(ob.Class))
+				}
+			}
+			if l := ListFor(rom, ar.ID, i, 3); l != 0 {
+				for _, c := range Commands(rom, l) {
+					if x, y, ok := c.Pos(); ok {
+						drawMarker(canvas, at.X+x, at.Y+y, color.RGBA{255, 230, 60, 255})
+					}
 				}
 			}
 		}
@@ -168,16 +178,16 @@ func buildArea(rom []byte, ar *Area) (*assembled, error) {
 // on doors, chests and signs, and a wrong one scatters them at random.
 var markObjects bool
 
-func kindColour(k int) color.RGBA {
-	switch k {
-	case 0:
+func classColour(class int) color.RGBA {
+	switch class {
+	case 3: // enemy
 		return color.RGBA{255, 80, 80, 255}
-	case 1:
+	case 6: // object
 		return color.RGBA{80, 255, 80, 255}
-	case 2:
-		return color.RGBA{80, 160, 255, 255}
+	case 7: // npc
+		return color.RGBA{80, 220, 255, 255}
 	default:
-		return color.RGBA{255, 230, 60, 255}
+		return color.RGBA{220, 120, 255, 255}
 	}
 }
 

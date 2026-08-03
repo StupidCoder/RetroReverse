@@ -101,9 +101,21 @@ func main() {
 			x, y := (i%cols)*8, (i/cols)*8
 			draw.Draw(atlas, image.Rect(x, y, x+8, y+8), c, image.Point{}, draw.Src)
 		}
+		// The room records become clickable markers: entities from slots 0-2
+		// (managers excluded — the spawner never places them), positioned
+		// slot-3 commands, all at room origin + record position, which is the
+		// same arithmetic the compositor used for the pixels above.
+		var placements []any
+		for i, m := range as.marks {
+			placements = append(placements, map[string]any{
+				"id": i, "object": m.style, "pos": []int{m.x, m.y},
+				"anim": "main", "name": m.name, "props": m.props,
+			})
+		}
+
 		slug := fmt.Sprintf("area-%02d", a)
 		writePNG(filepath.Join(levelsDir, slug+"-atlas.png"), atlas)
-		writeJSON(filepath.Join(levelsDir, slug+".json"), map[string]any{
+		doc := map[string]any{
 			"format": "retro-x", "version": 1, "type": "tilemap",
 			// maxZoom is (screenWidth / view.w) * maxNativeFactor, so a view that
 			// frames the WHOLE area — which is what makes it open fitted — would
@@ -121,9 +133,14 @@ func main() {
 				// Frame the whole area. A canvas is the bounding box of the
 				// area's rooms, so its corner is usually empty space — opening
 				// at a native-sized window there shows a black screen.
-				"view": map[string]any{"x": 0, "y": 0, "w": wt * 8, "h": ht * 8},
+				"view":   map[string]any{"x": 0, "y": 0, "w": wt * 8, "h": ht * 8},
+				"layers": []any{map[string]any{"id": "markers", "name": "Object markers"}},
 			},
-		})
+		}
+		if len(placements) > 0 {
+			doc["placements"] = placements
+		}
+		writeJSON(filepath.Join(levelsDir, slug+".json"), doc)
 		group := "Overworld"
 		if a >= 32 {
 			group = "Interiors & dungeons"
@@ -139,11 +156,12 @@ func main() {
 	for _, e := range made {
 		assets = append(assets, map[string]any{
 			"id": e.id, "category": "level", "name": e.name, "group": e.group,
-			"description": fmt.Sprintf("%d room%s assembled at the positions the game's own area table gives them — %dx%d pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+			"description": fmt.Sprintf("%d room%s assembled at the positions the game's own area table gives them — %dx%d pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
 				e.rooms, plural(e.rooms), e.w, e.h),
 			"file": "levels/" + e.id + ".json",
 		})
 	}
+	assets = append(assets, writeMarkers(*out)...)
 	writeJSON(filepath.Join(*out, "manifest.json"), map[string]any{
 		"format": "retro-x", "version": 1,
 		"id": "zelda-minish-cap-gba", "title": "The Legend of Zelda: The Minish Cap",

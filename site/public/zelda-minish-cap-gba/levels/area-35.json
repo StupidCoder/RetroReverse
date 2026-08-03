@@ -6,6 +6,1123 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "NPC 0x1C",
+   "object": "npc",
+   "pos": [
+    152,
+    120
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x08065055",
+    "id": "0x1C",
+    "record": "0x080F5738",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "object 0x4F",
+   "object": "object",
+   "pos": [
+    120,
+    200
+   ],
+   "props": {
+    "b4/b5": "02/00",
+    "class": "6 (object)",
+    "handler": "0x08090F71",
+    "id": "0x4F",
+    "record": "0x080F58C8",
+    "slot": 1,
+    "sub": "0x02"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "object 0x4E",
+   "object": "object",
+   "pos": [
+    172,
+    40
+   ],
+   "props": {
+    "b4/b5": "00/08",
+    "class": "6 (object)",
+    "handler": "0x08090EA9",
+    "id": "0x4E",
+    "record": "0x080F58D8",
+    "slot": 1,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "object 0x38",
+   "object": "object",
+   "pos": [
+    192,
+    78
+   ],
+   "props": {
+    "b4/b5": "01/00",
+    "class": "6 (object)",
+    "handler": "0x0808BE85",
+    "id": "0x38",
+    "record": "0x080F58E8",
+    "slot": 1,
+    "sub": "0x51"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 4,
+   "name": "NPC 0x46",
+   "object": "npc",
+   "pos": [
+    356,
+    120
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806C39D",
+    "id": "0x46",
+    "mode": 4,
+    "record": "0x080F5958",
+    "script": "0x0800E920",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 5,
+   "name": "NPC 0x13",
+   "object": "npc",
+   "pos": [
+    341,
+    168
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x08063741",
+    "id": "0x13",
+    "mode": 4,
+    "record": "0x080F5968",
+    "script": "0x0800ED04",
+    "slot": 0,
+    "sub": "0x02"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 6,
+   "name": "NPC 0x13",
+   "object": "npc",
+   "pos": [
+    454,
+    106
+   ],
+   "props": {
+    "b4/b5": "01/00",
+    "class": "7 (npc)",
+    "handler": "0x08063741",
+    "id": "0x13",
+    "mode": 4,
+    "record": "0x080F5978",
+    "script": "0x0800ED04",
+    "slot": 0,
+    "sub": "0x04"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 7,
+   "name": "NPC 0x06",
+   "object": "npc",
+   "pos": [
+    408,
+    152
+   ],
+   "props": {
+    "b4/b5": "00/04",
+    "class": "7 (npc)",
+    "handler": "0x08061B8D",
+    "id": "0x06",
+    "mode": 4,
+    "record": "0x080F5988",
+    "script": "0x080100FC",
+    "slot": 0,
+    "sub": "0x03"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 8,
+   "name": "NPC 0x06",
+   "object": "npc",
+   "pos": [
+    320,
+    80
+   ],
+   "props": {
+    "b4/b5": "00/04",
+    "class": "7 (npc)",
+    "handler": "0x08061B8D",
+    "id": "0x06",
+    "mode": 4,
+    "record": "0x080F5998",
+    "script": "0x0800EC8C",
+    "slot": 0,
+    "sub": "0x05"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 9,
+   "name": "NPC 0x53",
+   "object": "npc",
+   "pos": [
+    296,
+    120
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806E309",
+    "id": "0x53",
+    "mode": 4,
+    "record": "0x080F59A8",
+    "script": "0x08010BB4",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 10,
+   "name": "object 0x4F",
+   "object": "object",
+   "pos": [
+    376,
+    200
+   ],
+   "props": {
+    "b4/b5": "02/00",
+    "class": "6 (object)",
+    "handler": "0x08090F71",
+    "id": "0x4F",
+    "record": "0x080F59E8",
+    "slot": 1,
+    "sub": "0x02"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 11,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    312,
+    72
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080F59F8",
+    "slot": 1,
+    "sub": "0x0A"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 12,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    344,
+    72
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080F5A08",
+    "slot": 1,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 13,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    376,
+    72
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080F5A18",
+    "slot": 1,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 14,
+   "name": "object 0x4E",
+   "object": "object",
+   "pos": [
+    328,
+    40
+   ],
+   "props": {
+    "b4/b5": "00/08",
+    "class": "6 (object)",
+    "handler": "0x08090EA9",
+    "id": "0x4E",
+    "record": "0x080F5A28",
+    "slot": 1,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 15,
+   "name": "object 0x4E",
+   "object": "object",
+   "pos": [
+    312,
+    176
+   ],
+   "props": {
+    "b4/b5": "02/09",
+    "class": "6 (object)",
+    "handler": "0x08090EA9",
+    "id": "0x4E",
+    "record": "0x080F5A38",
+    "slot": 1,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 16,
+   "name": "object 0x4E",
+   "object": "object",
+   "pos": [
+    464,
+    72
+   ],
+   "props": {
+    "b4/b5": "01/0A",
+    "class": "6 (object)",
+    "handler": "0x08090EA9",
+    "id": "0x4E",
+    "record": "0x080F5A48",
+    "slot": 1,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 17,
+   "name": "object 0x38",
+   "object": "object",
+   "pos": [
+    448,
+    142
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0808BE85",
+    "id": "0x38",
+    "record": "0x080F5A58",
+    "slot": 1,
+    "sub": "0x58"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 18,
+   "name": "NPC 0x37",
+   "object": "npc",
+   "pos": [
+    616,
+    65
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806A359",
+    "id": "0x37",
+    "record": "0x080F5B0C",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 19,
+   "name": "object 0x4F",
+   "object": "object",
+   "pos": [
+    744,
+    88
+   ],
+   "props": {
+    "b4/b5": "01/00",
+    "class": "6 (object)",
+    "handler": "0x08090F71",
+    "id": "0x4F",
+    "record": "0x080F5B5C",
+    "slot": 1,
+    "sub": "0x02"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 20,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    616,
+    72
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080F5B6C",
+    "slot": 1,
+    "sub": "0x1E"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 21,
+   "name": "object 0x38",
+   "object": "object",
+   "pos": [
+    560,
+    46
+   ],
+   "props": {
+    "b4/b5": "01/00",
+    "class": "6 (object)",
+    "handler": "0x0808BE85",
+    "id": "0x38",
+    "record": "0x080F5B7C",
+    "slot": 1,
+    "sub": "0x4B"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 22,
+   "name": "NPC 0x0D",
+   "object": "npc",
+   "pos": [
+    936,
+    92
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x08062E21",
+    "id": "0x0D",
+    "mode": 4,
+    "record": "0x080F5C10",
+    "script": "0x08010674",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 23,
+   "name": "NPC 0x0E",
+   "object": "npc",
+   "pos": [
+    816,
+    86
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x08062E61",
+    "id": "0x0E",
+    "mode": 4,
+    "record": "0x080F5C20",
+    "script": "0x080106AC",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 24,
+   "name": "object 0x02",
+   "object": "object",
+   "pos": [
+    832,
+    96
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08081815",
+    "id": "0x02",
+    "record": "0x080F5C70",
+    "slot": 1,
+    "sub": "0x68"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 25,
+   "name": "object 0x02",
+   "object": "object",
+   "pos": [
+    848,
+    96
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08081815",
+    "id": "0x02",
+    "record": "0x080F5C80",
+    "slot": 1,
+    "sub": "0x69"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 26,
+   "name": "object 0x02",
+   "object": "object",
+   "pos": [
+    864,
+    96
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08081815",
+    "id": "0x02",
+    "record": "0x080F5C90",
+    "slot": 1,
+    "sub": "0x6A"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 27,
+   "name": "object 0x02",
+   "object": "object",
+   "pos": [
+    880,
+    96
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08081815",
+    "id": "0x02",
+    "record": "0x080F5CA0",
+    "slot": 1,
+    "sub": "0x6B"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 28,
+   "name": "object 0x4E",
+   "object": "object",
+   "pos": [
+    976,
+    120
+   ],
+   "props": {
+    "b4/b5": "01/08",
+    "class": "6 (object)",
+    "handler": "0x08090EA9",
+    "id": "0x4E",
+    "record": "0x080F5CB0",
+    "slot": 1,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 29,
+   "name": "object 0x4E",
+   "object": "object",
+   "pos": [
+    840,
+    40
+   ],
+   "props": {
+    "b4/b5": "00/09",
+    "class": "6 (object)",
+    "handler": "0x08090EA9",
+    "id": "0x4E",
+    "record": "0x080F5CC0",
+    "slot": 1,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 30,
+   "name": "object 0x4E",
+   "object": "object",
+   "pos": [
+    904,
+    40
+   ],
+   "props": {
+    "b4/b5": "00/0A",
+    "class": "6 (object)",
+    "handler": "0x08090EA9",
+    "id": "0x4E",
+    "record": "0x080F5CD0",
+    "slot": 1,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 31,
+   "name": "object 0x92",
+   "object": "object",
+   "pos": [
+    932,
+    72
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0809CC5D",
+    "id": "0x92",
+    "record": "0x080F5CE0",
+    "slot": 1,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 32,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    964,
+    72
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080F5CF0",
+    "slot": 1,
+    "sub": "0x1A"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 33,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    936,
+    104
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080F5D00",
+    "slot": 1,
+    "sub": "0x3A"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 34,
+   "name": "object 0x4F",
+   "object": "object",
+   "pos": [
+    776,
+    136
+   ],
+   "props": {
+    "b4/b5": "03/00",
+    "class": "6 (object)",
+    "handler": "0x08090F71",
+    "id": "0x4F",
+    "record": "0x080F5D10",
+    "slot": 1,
+    "sub": "0x02"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 35,
+   "name": "NPC 0x44",
+   "object": "npc",
+   "pos": [
+    1200,
+    64
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806C205",
+    "id": "0x44",
+    "mode": 4,
+    "record": "0x080F5DB0",
+    "script": "0x08011B40",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 36,
+   "name": "object 0x4F",
+   "object": "object",
+   "pos": [
+    1256,
+    104
+   ],
+   "props": {
+    "b4/b5": "01/00",
+    "class": "6 (object)",
+    "handler": "0x08090F71",
+    "id": "0x4F",
+    "record": "0x080F5DF0",
+    "slot": 1,
+    "sub": "0x02"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 37,
+   "name": "doorway (sub 0x63)",
+   "object": "doorway",
+   "pos": [
+    1400,
+    116
+   ],
+   "props": {
+    "b4/b5": "00/04",
+    "class": "6 (object)",
+    "extra": "0x00B40000",
+    "handler": "0x08080E09",
+    "id": "0x00",
+    "record": "0x080F5E48",
+    "slot": 0,
+    "sub": "0x63"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 38,
+   "name": "object 0x4F",
+   "object": "object",
+   "pos": [
+    1288,
+    88
+   ],
+   "props": {
+    "b4/b5": "03/00",
+    "class": "6 (object)",
+    "handler": "0x08090F71",
+    "id": "0x4F",
+    "record": "0x080F5E88",
+    "slot": 1,
+    "sub": "0x02"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 39,
+   "name": "object 0x4F",
+   "object": "object",
+   "pos": [
+    1512,
+    88
+   ],
+   "props": {
+    "b4/b5": "01/00",
+    "class": "6 (object)",
+    "handler": "0x08090F71",
+    "id": "0x4F",
+    "record": "0x080F5E98",
+    "slot": 1,
+    "sub": "0x02"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 40,
+   "name": "NPC 0x57",
+   "object": "npc",
+   "pos": [
+    1400,
+    32
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806E91D",
+    "id": "0x57",
+    "mode": 4,
+    "record": "0x080F5EA8",
+    "script": "0x0800BA3C",
+    "slot": 1,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 41,
+   "name": "tile patch (flag 0xB5)",
+   "object": "tile-patch",
+   "pos": [
+    1440,
+    32
+   ],
+   "props": {
+    "flag": "0xB5",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080F5ED8"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 42,
+   "name": "tile patch (flag 0xB6)",
+   "object": "tile-patch",
+   "pos": [
+    1456,
+    32
+   ],
+   "props": {
+    "flag": "0xB6",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080F5EE0"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 43,
+   "name": "tile patch (flag 0xB7)",
+   "object": "tile-patch",
+   "pos": [
+    1472,
+    32
+   ],
+   "props": {
+    "flag": "0xB7",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080F5EE8"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 44,
+   "name": "object 0x69",
+   "object": "object",
+   "pos": [
+    1536,
+    0
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08094A0D",
+    "id": "0x69",
+    "mode": 4,
+    "record": "0x080F5F18",
+    "script": "0x08014548",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 45,
+   "name": "object 0x4F",
+   "object": "object",
+   "pos": [
+    1656,
+    168
+   ],
+   "props": {
+    "b4/b5": "02/00",
+    "class": "6 (object)",
+    "handler": "0x08090F71",
+    "id": "0x4F",
+    "record": "0x080F5F98",
+    "slot": 1,
+    "sub": "0x02"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 46,
+   "name": "object 0x4F",
+   "object": "object",
+   "pos": [
+    1656,
+    8
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08090F71",
+    "id": "0x4F",
+    "record": "0x080F5FA8",
+    "slot": 1,
+    "sub": "0x1B"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 47,
+   "name": "object 0x35",
+   "object": "object",
+   "pos": [
+    1656,
+    24
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0808B86D",
+    "id": "0x35",
+    "record": "0x080F5FB8",
+    "slot": 1,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 48,
+   "name": "NPC 0x3F",
+   "object": "npc",
+   "pos": [
+    120,
+    281
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806BD55",
+    "id": "0x3F",
+    "mode": 4,
+    "record": "0x080F601C",
+    "script": "0x08014628",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 49,
+   "name": "object 0x69",
+   "object": "object",
+   "pos": [
+    0,
+    224
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08094A0D",
+    "id": "0x69",
+    "mode": 4,
+    "record": "0x080F602C",
+    "script": "0x080145B0",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 50,
+   "name": "object 0x69",
+   "object": "object",
+   "pos": [
+    0,
+    224
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08094A0D",
+    "id": "0x69",
+    "mode": 4,
+    "record": "0x080F603C",
+    "script": "0x080145E8",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 51,
+   "name": "object 0x54",
+   "object": "object",
+   "pos": [
+    168,
+    286
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x80000000",
+    "h6": "0x0008",
+    "handler": "0x080911ED",
+    "id": "0x54",
+    "record": "0x080F604C",
+    "slot": 0,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 52,
+   "name": "object 0x4F",
+   "object": "object",
+   "pos": [
+    120,
+    376
+   ],
+   "props": {
+    "b4/b5": "02/00",
+    "class": "6 (object)",
+    "handler": "0x08090F71",
+    "id": "0x4F",
+    "record": "0x080F606C",
+    "slot": 1,
+    "sub": "0x02"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 53,
+   "name": "object 0x22",
+   "object": "object",
+   "pos": [
+    56,
+    296
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08087BAD",
+    "id": "0x22",
+    "record": "0x080F607C",
+    "slot": 1,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 54,
+   "name": "object 0x22",
+   "object": "object",
+   "pos": [
+    184,
+    288
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08087BAD",
+    "id": "0x22",
+    "record": "0x080F608C",
+    "slot": 1,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 55,
+   "name": "NPC 0x3F",
+   "object": "npc",
+   "pos": [
+    440,
+    280
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806BD55",
+    "id": "0x3F",
+    "mode": 4,
+    "record": "0x080F60E4",
+    "script": "0x08014804",
+    "slot": 0,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 56,
+   "name": "NPC 0x51",
+   "object": "npc",
+   "pos": [
+    256,
+    224
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806DED1",
+    "id": "0x51",
+    "mode": 4,
+    "record": "0x080F60F4",
+    "script": "0x080148F0",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 57,
+   "name": "object 0x4F",
+   "object": "object",
+   "pos": [
+    440,
+    376
+   ],
+   "props": {
+    "b4/b5": "02/00",
+    "class": "6 (object)",
+    "handler": "0x08090F71",
+    "id": "0x4F",
+    "record": "0x080F6114",
+    "slot": 1,
+    "sub": "0x03"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 58,
+   "name": "object 0x35",
+   "object": "object",
+   "pos": [
+    440,
+    360
+   ],
+   "props": {
+    "b4/b5": "00/FF",
+    "class": "6 (object)",
+    "handler": "0x0808B86D",
+    "id": "0x35",
+    "record": "0x080F6124",
+    "slot": 1,
+    "sub": "0x01"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -10670,6 +11787,12 @@
    0
   ],
   "height": 48,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 384,

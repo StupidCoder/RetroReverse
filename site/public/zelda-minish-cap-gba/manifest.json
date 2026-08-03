@@ -2,7 +2,7 @@
  "assets": [
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 1008x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 1008x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-00.json",
    "group": "Overworld",
    "id": "area-00",
@@ -10,7 +10,7 @@
   },
   {
    "category": "level",
-   "description": "2 rooms assembled at the positions the game's own area table gives them — 1488x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 1488x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-01.json",
    "group": "Overworld",
    "id": "area-01",
@@ -18,7 +18,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 1536x2576 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 1536x2576 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-02.json",
    "group": "Overworld",
    "id": "area-02",
@@ -26,7 +26,7 @@
   },
   {
    "category": "level",
-   "description": "10 rooms assembled at the positions the game's own area table gives them — 2208x2448 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "10 rooms assembled at the positions the game's own area table gives them — 2208x2448 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-03.json",
    "group": "Overworld",
    "id": "area-03",
@@ -34,7 +34,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 1008x960 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 1008x960 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-04.json",
    "group": "Overworld",
    "id": "area-04",
@@ -42,7 +42,7 @@
   },
   {
    "category": "level",
-   "description": "6 rooms assembled at the positions the game's own area table gives them — 1008x528 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "6 rooms assembled at the positions the game's own area table gives them — 1008x528 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-05.json",
    "group": "Overworld",
    "id": "area-05",
@@ -50,7 +50,7 @@
   },
   {
    "category": "level",
-   "description": "5 rooms assembled at the positions the game's own area table gives them — 1008x1680 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "5 rooms assembled at the positions the game's own area table gives them — 1008x1680 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-06.json",
    "group": "Overworld",
    "id": "area-06",
@@ -58,7 +58,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 1008x528 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 1008x528 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-07.json",
    "group": "Overworld",
    "id": "area-07",
@@ -66,7 +66,7 @@
   },
   {
    "category": "level",
-   "description": "3 rooms assembled at the positions the game's own area table gives them — 1008x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "3 rooms assembled at the positions the game's own area table gives them — 1008x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-08.json",
    "group": "Overworld",
    "id": "area-08",
@@ -74,7 +74,7 @@
   },
   {
    "category": "level",
-   "description": "2 rooms assembled at the positions the game's own area table gives them — 1120x3360 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 1120x3360 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-09.json",
    "group": "Overworld",
    "id": "area-09",
@@ -82,7 +82,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 480x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 480x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-10.json",
    "group": "Overworld",
    "id": "area-10",
@@ -90,7 +90,7 @@
   },
   {
    "category": "level",
-   "description": "2 rooms assembled at the positions the game's own area table gives them — 1008x1152 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 1008x1152 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-11.json",
    "group": "Overworld",
    "id": "area-11",
@@ -98,7 +98,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 1008x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 1008x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-12.json",
    "group": "Overworld",
    "id": "area-12",
@@ -106,7 +106,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 1008x960 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 1008x960 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-15.json",
    "group": "Overworld",
    "id": "area-15",
@@ -114,7 +114,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 720x624 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 720x624 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-16.json",
    "group": "Overworld",
    "id": "area-16",
@@ -122,7 +122,7 @@
   },
   {
    "category": "level",
-   "description": "5 rooms assembled at the positions the game's own area table gives them — 1488x800 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "5 rooms assembled at the positions the game's own area table gives them — 1488x800 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-17.json",
    "group": "Overworld",
    "id": "area-17",
@@ -130,7 +130,7 @@
   },
   {
    "category": "level",
-   "description": "4 rooms assembled at the positions the game's own area table gives them — 1440x800 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "4 rooms assembled at the positions the game's own area table gives them — 1440x800 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-18.json",
    "group": "Overworld",
    "id": "area-18",
@@ -138,7 +138,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 480x544 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 480x544 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-19.json",
    "group": "Overworld",
    "id": "area-19",
@@ -146,7 +146,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 496x512 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 496x512 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-20.json",
    "group": "Overworld",
    "id": "area-20",
@@ -154,7 +154,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 400x960 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 400x960 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-21.json",
    "group": "Overworld",
    "id": "area-21",
@@ -162,7 +162,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 480x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 480x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-22.json",
    "group": "Overworld",
    "id": "area-22",
@@ -170,7 +170,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 1008x960 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 1008x960 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-23.json",
    "group": "Overworld",
    "id": "area-23",
@@ -178,7 +178,7 @@
   },
   {
    "category": "level",
-   "description": "5 rooms assembled at the positions the game's own area table gives them — 976x1104 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "5 rooms assembled at the positions the game's own area table gives them — 976x1104 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-24.json",
    "group": "Overworld",
    "id": "area-24",
@@ -186,7 +186,7 @@
   },
   {
    "category": "level",
-   "description": "2 rooms assembled at the positions the game's own area table gives them — 1008x736 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 1008x736 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-25.json",
    "group": "Overworld",
    "id": "area-25",
@@ -194,7 +194,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 480x192 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 480x192 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-26.json",
    "group": "Overworld",
    "id": "area-26",
@@ -202,7 +202,7 @@
   },
   {
    "category": "level",
-   "description": "10 rooms assembled at the positions the game's own area table gives them — 2000x576 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "10 rooms assembled at the positions the game's own area table gives them — 2000x576 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-32.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-32",
@@ -210,7 +210,7 @@
   },
   {
    "category": "level",
-   "description": "13 rooms assembled at the positions the game's own area table gives them — 2048x624 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "13 rooms assembled at the positions the game's own area table gives them — 2048x624 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-33.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-33",
@@ -218,7 +218,7 @@
   },
   {
    "category": "level",
-   "description": "13 rooms assembled at the positions the game's own area table gives them — 2032x400 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "13 rooms assembled at the positions the game's own area table gives them — 2032x400 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-34.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-34",
@@ -226,7 +226,7 @@
   },
   {
    "category": "level",
-   "description": "9 rooms assembled at the positions the game's own area table gives them — 1776x384 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "9 rooms assembled at the positions the game's own area table gives them — 1776x384 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-35.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-35",
@@ -234,7 +234,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 240x160 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 240x160 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-36.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-36",
@@ -242,7 +242,7 @@
   },
   {
    "category": "level",
-   "description": "14 rooms assembled at the positions the game's own area table gives them — 2032x368 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "14 rooms assembled at the positions the game's own area table gives them — 2032x368 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-37.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-37",
@@ -250,7 +250,7 @@
   },
   {
    "category": "level",
-   "description": "17 rooms assembled at the positions the game's own area table gives them — 2112x1616 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "17 rooms assembled at the positions the game's own area table gives them — 2112x1616 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-38.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-38",
@@ -258,7 +258,7 @@
   },
   {
    "category": "level",
-   "description": "18 rooms assembled at the positions the game's own area table gives them — 2032x528 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "18 rooms assembled at the positions the game's own area table gives them — 2032x528 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-39.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-39",
@@ -266,7 +266,7 @@
   },
   {
    "category": "level",
-   "description": "6 rooms assembled at the positions the game's own area table gives them — 1520x192 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "6 rooms assembled at the positions the game's own area table gives them — 1520x192 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-40.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-40",
@@ -274,7 +274,7 @@
   },
   {
    "category": "level",
-   "description": "3 rooms assembled at the positions the game's own area table gives them — 752x288 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "3 rooms assembled at the positions the game's own area table gives them — 752x288 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-41.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-41",
@@ -282,7 +282,7 @@
   },
   {
    "category": "level",
-   "description": "5 rooms assembled at the positions the game's own area table gives them — 1008x432 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "5 rooms assembled at the positions the game's own area table gives them — 1008x432 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-42.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-42",
@@ -290,7 +290,7 @@
   },
   {
    "category": "level",
-   "description": "2 rooms assembled at the positions the game's own area table gives them — 512x368 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 512x368 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-43.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-43",
@@ -298,7 +298,7 @@
   },
   {
    "category": "level",
-   "description": "11 rooms assembled at the positions the game's own area table gives them — 560x1696 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "11 rooms assembled at the positions the game's own area table gives them — 560x1696 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-44.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-44",
@@ -306,7 +306,7 @@
   },
   {
    "category": "level",
-   "description": "6 rooms assembled at the positions the game's own area table gives them — 1712x160 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "6 rooms assembled at the positions the game's own area table gives them — 1712x160 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-45.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-45",
@@ -314,7 +314,7 @@
   },
   {
    "category": "level",
-   "description": "4 rooms assembled at the positions the game's own area table gives them — 2032x256 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "4 rooms assembled at the positions the game's own area table gives them — 2032x256 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-46.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-46",
@@ -322,7 +322,7 @@
   },
   {
    "category": "level",
-   "description": "2 rooms assembled at the positions the game's own area table gives them — 496x720 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 496x720 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-47.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-47",
@@ -330,7 +330,7 @@
   },
   {
    "category": "level",
-   "description": "4 rooms assembled at the positions the game's own area table gives them — 1008x336 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "4 rooms assembled at the positions the game's own area table gives them — 1008x336 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-48.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-48",
@@ -338,7 +338,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 240x416 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 240x416 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-49.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-49",
@@ -346,7 +346,7 @@
   },
   {
    "category": "level",
-   "description": "24 rooms assembled at the positions the game's own area table gives them — 1920x1712 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "24 rooms assembled at the positions the game's own area table gives them — 1920x1712 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-50.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-50",
@@ -354,7 +354,7 @@
   },
   {
    "category": "level",
-   "description": "10 rooms assembled at the positions the game's own area table gives them — 1328x880 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "10 rooms assembled at the positions the game's own area table gives them — 1328x880 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-51.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-51",
@@ -362,7 +362,7 @@
   },
   {
    "category": "level",
-   "description": "2 rooms assembled at the positions the game's own area table gives them — 528x320 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 528x320 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-52.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-52",
@@ -370,7 +370,7 @@
   },
   {
    "category": "level",
-   "description": "10 rooms assembled at the positions the game's own area table gives them — 1984x1280 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "10 rooms assembled at the positions the game's own area table gives them — 1984x1280 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-53.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-53",
@@ -378,7 +378,7 @@
   },
   {
    "category": "level",
-   "description": "2 rooms assembled at the positions the game's own area table gives them — 544x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 544x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-54.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-54",
@@ -386,7 +386,7 @@
   },
   {
    "category": "level",
-   "description": "2 rooms assembled at the positions the game's own area table gives them — 560x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 560x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-55.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-55",
@@ -394,7 +394,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 240x320 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 240x320 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-56.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-56",
@@ -402,7 +402,7 @@
   },
   {
    "category": "level",
-   "description": "9 rooms assembled at the positions the game's own area table gives them — 976x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "9 rooms assembled at the positions the game's own area table gives them — 976x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-64.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-64",
@@ -410,7 +410,7 @@
   },
   {
    "category": "level",
-   "description": "2 rooms assembled at the positions the game's own area table gives them — 720x848 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 720x848 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-65.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-65",
@@ -418,7 +418,7 @@
   },
   {
    "category": "level",
-   "description": "2 rooms assembled at the positions the game's own area table gives them — 528x160 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 528x160 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-66.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-66",
@@ -426,7 +426,7 @@
   },
   {
    "category": "level",
-   "description": "2 rooms assembled at the positions the game's own area table gives them — 480x512 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 480x512 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-67.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-67",
@@ -434,7 +434,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 304x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 304x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-68.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-68",
@@ -442,7 +442,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 272x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 272x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-69.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-69",
@@ -450,7 +450,7 @@
   },
   {
    "category": "level",
-   "description": "8 rooms assembled at the positions the game's own area table gives them — 976x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "8 rooms assembled at the positions the game's own area table gives them — 976x1008 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-70.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-70",
@@ -458,7 +458,7 @@
   },
   {
    "category": "level",
-   "description": "3 rooms assembled at the positions the game's own area table gives them — 368x848 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "3 rooms assembled at the positions the game's own area table gives them — 368x848 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-71.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-71",
@@ -466,7 +466,7 @@
   },
   {
    "category": "level",
-   "description": "12 rooms assembled at the positions the game's own area table gives them — 1552x1456 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "12 rooms assembled at the positions the game's own area table gives them — 1552x1456 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-72.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-72",
@@ -474,7 +474,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 272x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 272x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-73.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-73",
@@ -482,7 +482,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 240x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 240x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-74.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-74",
@@ -490,7 +490,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 656x640 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 656x640 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-77.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-77",
@@ -498,7 +498,7 @@
   },
   {
    "category": "level",
-   "description": "10 rooms assembled at the positions the game's own area table gives them — 1808x2720 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "10 rooms assembled at the positions the game's own area table gives them — 1808x2720 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-80.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-80",
@@ -506,7 +506,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 384x288 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 384x288 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-81.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-81",
@@ -514,7 +514,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 640x640 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 640x640 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-87.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-87",
@@ -522,7 +522,7 @@
   },
   {
    "category": "level",
-   "description": "5 rooms assembled at the positions the game's own area table gives them — 1376x2048 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "5 rooms assembled at the positions the game's own area table gives them — 1376x2048 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-88.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-88",
@@ -530,7 +530,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 320x480 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 320x480 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-89.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-89",
@@ -538,7 +538,7 @@
   },
   {
    "category": "level",
-   "description": "2 rooms assembled at the positions the game's own area table gives them — 272x640 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "2 rooms assembled at the positions the game's own area table gives them — 272x640 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-90.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-90",
@@ -546,7 +546,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 640x640 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 640x640 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-95.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-95",
@@ -554,7 +554,7 @@
   },
   {
    "category": "level",
-   "description": "18 rooms assembled at the positions the game's own area table gives them — 1552x5168 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "18 rooms assembled at the positions the game's own area table gives them — 1552x5168 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-96.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-96",
@@ -562,7 +562,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 240x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 240x240 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-97.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-97",
@@ -570,7 +570,7 @@
   },
   {
    "category": "level",
-   "description": "5 rooms assembled at the positions the game's own area table gives them — 896x512 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "5 rooms assembled at the positions the game's own area table gives them — 896x512 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-98.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-98",
@@ -578,7 +578,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 240x1120 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 240x1120 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-103.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-103",
@@ -586,7 +586,7 @@
   },
   {
    "category": "level",
-   "description": "9 rooms assembled at the positions the game's own area table gives them — 672x1760 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "9 rooms assembled at the positions the game's own area table gives them — 672x1760 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-104.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-104",
@@ -594,7 +594,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 640x640 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 640x640 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-111.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-111",
@@ -602,7 +602,7 @@
   },
   {
    "category": "level",
-   "description": "51 rooms assembled at the positions the game's own area table gives them — 1920x9808 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "51 rooms assembled at the positions the game's own area table gives them — 1920x9808 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-112.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-112",
@@ -610,7 +610,7 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 640x832 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 640x832 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-119.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-119",
@@ -618,7 +618,7 @@
   },
   {
    "category": "level",
-   "description": "3 rooms assembled at the positions the game's own area table gives them — 464x1552 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "3 rooms assembled at the positions the game's own area table gives them — 464x1552 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-120.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-120",
@@ -626,11 +626,59 @@
   },
   {
    "category": "level",
-   "description": "1 room assembled at the positions the game's own area table gives them — 640x640 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set.",
+   "description": "1 room assembled at the positions the game's own area table gives them — 640x640 pixels. Decoded from the cartridge: LZ77 streams, a metatile grid expanded through its 2x2 table, and the area's palette set. The markers are the rooms' own object records — enemies, objects, NPCs and the flag-gated tile patches — from the per-room tables at $080D50FC; click one for its identifiers.",
    "file": "levels/area-127.json",
    "group": "Interiors \u0026 dungeons",
    "id": "area-127",
    "name": "Area 127"
+  },
+  {
+   "category": "object",
+   "description": "A class-3 entity record. The class is identified structurally: slot-2 records of this class carry a respawn index (0..31) that the room loader checks against a per-room kill flag before spawning — the mechanism that keeps a defeated enemy dead. The behaviour handler comes from the game's own dispatch table at $080D3BF8, indexed by the record's id byte.",
+   "file": "objects/enemy.json",
+   "group": "Markers",
+   "id": "enemy",
+   "name": "Enemy"
+  },
+  {
+   "category": "object",
+   "description": "A class-6 entity record — the placed props of the world: pots, bushes, chests and their kin. The behaviour handler comes from the dispatch table at $080B2D4C, indexed by the record's id byte; equal ids mean equal behaviour everywhere.",
+   "file": "objects/object.json",
+   "group": "Markers",
+   "id": "object",
+   "name": "Object"
+  },
+  {
+   "category": "object",
+   "description": "Object id 00: point records that tile an entry region — six of them cover the door of Link's house in a 16-pixel grid. The sub byte selects where the door leads; the transition itself reads an 8-byte {area, room, x, y} record from the table at $080FCA20.",
+   "file": "objects/doorway.json",
+   "group": "Markers",
+   "id": "doorway",
+   "name": "Doorway"
+  },
+  {
+   "category": "object",
+   "description": "A class-7 entity record. 88 of the cartridge's 111 NPC records attach a ROM pointer at spawn (mode 4 via $0807DAD0) — a script for the 139-opcode interpreter at $0807DFBC, which is where an NPC's dialogue and behaviour live. The handler table is at $080B313C, 12 bytes per id.",
+   "file": "objects/npc.json",
+   "group": "Markers",
+   "id": "npc",
+   "name": "NPC"
+  },
+  {
+   "category": "object",
+   "description": "A slot-3 command record (op 10, or op 2 for the inverse): when the named save flag is set, the room loader rewrites the metatile at this position ($0807B314). This is how a revealed secret — a burned bush, an opened passage — persists on the map.",
+   "file": "objects/tile-patch.json",
+   "group": "Markers",
+   "id": "tile-patch",
+   "name": "Tile patch"
+  },
+  {
+   "category": "object",
+   "description": "A slot-3 command record (op 4): spawns manager 0x24 at this pixel position with two byte parameters ($0804B300). Managers are room-logic entities; this is the only command that carries a pixel position of its own.",
+   "file": "objects/spawn-marker.json",
+   "group": "Markers",
+   "id": "spawn-marker",
+   "name": "Manager spawn"
   }
  ],
  "description": "The 2004 Game Boy Advance Zelda, developed by Capcom/Flagship — internally, as its own build string admits, \"ZELDA 5\". Every map here is decoded straight from the cartridge. A room is not stored as a tilemap at all: it is a grid of metatile ids, each expanding through an 8-byte table into a 2x2 block of tiles, behind the BIOS's LZ77 compression. Rooms are not standalone either — the game's area tables place each one at a pixel position on a shared canvas, so what you see is the whole place assembled, not a screen at a time. The decode is checked against the game itself: the decompressed tables are byte-identical to what the console's own BIOS call produces, and the expanded map reproduces every tile the running game uploaded to video memory.",

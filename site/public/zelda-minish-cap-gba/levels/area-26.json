@@ -6,6 +6,143 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "object 0x82",
+   "object": "object",
+   "pos": [
+    88,
+    56
+   ],
+   "props": {
+    "b4/b5": "01/00",
+    "class": "6 (object)",
+    "handler": "0x08098CF5",
+    "id": "0x82",
+    "record": "0x080F9B78",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "NPC 0x4C",
+   "object": "npc",
+   "pos": [
+    320,
+    104
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806CF19",
+    "id": "0x4C",
+    "mode": 4,
+    "record": "0x080F9B88",
+    "script": "0x08009318",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "NPC 0x4C",
+   "object": "npc",
+   "pos": [
+    208,
+    104
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806CF19",
+    "id": "0x4C",
+    "mode": 4,
+    "record": "0x080F9B98",
+    "script": "0x08009340",
+    "slot": 0,
+    "sub": "0x05"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "NPC 0x4C",
+   "object": "npc",
+   "pos": [
+    432,
+    104
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806CF19",
+    "id": "0x4C",
+    "mode": 4,
+    "record": "0x080F9BA8",
+    "script": "0x08009340",
+    "slot": 0,
+    "sub": "0x0A"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 4,
+   "name": "NPC 0x4C",
+   "object": "npc",
+   "pos": [
+    0,
+    120
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806CF19",
+    "id": "0x4C",
+    "mode": 4,
+    "record": "0x080F9BB8",
+    "script": "0x08009348",
+    "slot": 0,
+    "sub": "0x04"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 5,
+   "name": "NPC 0x4C",
+   "object": "npc",
+   "pos": [
+    264,
+    136
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806CF19",
+    "id": "0x4C",
+    "record": "0x080F9BC8",
+    "slot": 0,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 6,
+   "name": "NPC 0x4C",
+   "object": "npc",
+   "pos": [
+    264,
+    136
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806CF19",
+    "id": "0x4C",
+    "record": "0x080F9BD8",
+    "slot": 0,
+    "sub": "0x02"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -1454,6 +1591,12 @@
    184
   ],
   "height": 24,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 192,

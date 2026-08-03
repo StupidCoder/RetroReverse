@@ -6,6 +6,298 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "object 0x82",
+   "object": "object",
+   "pos": [
+    120,
+    72
+   ],
+   "props": {
+    "b4/b5": "03/00",
+    "class": "6 (object)",
+    "handler": "0x08098CF5",
+    "id": "0x82",
+    "record": "0x080F664C",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "object 0x95",
+   "object": "object",
+   "pos": [
+    104,
+    232
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0809CF25",
+    "id": "0x95",
+    "record": "0x080F665C",
+    "slot": 0,
+    "sub": "0x03"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "object 0x95",
+   "object": "object",
+   "pos": [
+    40,
+    128
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0809CF25",
+    "id": "0x95",
+    "record": "0x080F666C",
+    "slot": 0,
+    "sub": "0x03"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "object 0x95",
+   "object": "object",
+   "pos": [
+    200,
+    128
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0809CF25",
+    "id": "0x95",
+    "record": "0x080F667C",
+    "slot": 0,
+    "sub": "0x04"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 4,
+   "name": "object 0x95",
+   "object": "object",
+   "pos": [
+    152,
+    280
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0809CF25",
+    "id": "0x95",
+    "record": "0x080F668C",
+    "slot": 0,
+    "sub": "0x05"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 5,
+   "name": "object 0x4F",
+   "object": "object",
+   "pos": [
+    184,
+    296
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08090F71",
+    "id": "0x4F",
+    "record": "0x080F66DC",
+    "slot": 1,
+    "sub": "0x17"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 6,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    40,
+    120
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080F66EC",
+    "slot": 1,
+    "sub": "0x20"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 7,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    200,
+    120
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080F66FC",
+    "slot": 1,
+    "sub": "0x20"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 8,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    40,
+    360
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080F670C",
+    "slot": 1,
+    "sub": "0x20"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 9,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    200,
+    360
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080F671C",
+    "slot": 1,
+    "sub": "0x20"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 10,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    84,
+    168
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080F672C",
+    "slot": 1,
+    "sub": "0x21"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 11,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    156,
+    168
+   ],
+   "props": {
+    "b4/b5": "01/00",
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080F673C",
+    "slot": 1,
+    "sub": "0x21"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 12,
+   "name": "object 0x05",
+   "object": "object",
+   "pos": [
+    24,
+    168
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0808220D",
+    "id": "0x05",
+    "record": "0x080F674C",
+    "slot": 1,
+    "sub": "0x60"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 13,
+   "name": "object 0x05",
+   "object": "object",
+   "pos": [
+    216,
+    168
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0808220D",
+    "id": "0x05",
+    "record": "0x080F675C",
+    "slot": 1,
+    "sub": "0x60"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 14,
+   "name": "object 0x05",
+   "object": "object",
+   "pos": [
+    56,
+    168
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0808220D",
+    "id": "0x05",
+    "record": "0x080F676C",
+    "slot": 1,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 15,
+   "name": "object 0x05",
+   "object": "object",
+   "pos": [
+    184,
+    168
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0808220D",
+    "id": "0x05",
+    "record": "0x080F677C",
+    "slot": 1,
+    "sub": "0x00"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -1574,6 +1866,12 @@
    246
   ],
   "height": 52,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 416,

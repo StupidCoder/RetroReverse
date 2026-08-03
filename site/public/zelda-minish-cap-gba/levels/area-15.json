@@ -6,6 +6,113 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "enemy 0x07",
+   "object": "enemy",
+   "pos": [
+    680,
+    520
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08021759",
+    "id": "0x07",
+    "record": "0x080F44E0",
+    "respawn slot": 0,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "enemy 0x07",
+   "object": "enemy",
+   "pos": [
+    680,
+    584
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08021759",
+    "id": "0x07",
+    "record": "0x080F44F0",
+    "respawn slot": 1,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "enemy 0x07",
+   "object": "enemy",
+   "pos": [
+    536,
+    568
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08021759",
+    "id": "0x07",
+    "record": "0x080F4500",
+    "respawn slot": 2,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "tile patch (flag 0x42)",
+   "object": "tile-patch",
+   "pos": [
+    592,
+    448
+   ],
+   "props": {
+    "flag": "0x42",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080F4520"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 4,
+   "name": "tile patch (flag 0x43)",
+   "object": "tile-patch",
+   "pos": [
+    816,
+    656
+   ],
+   "props": {
+    "flag": "0x43",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080F4528"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 5,
+   "name": "tile patch (flag 0x44)",
+   "object": "tile-patch",
+   "pos": [
+    368,
+    480
+   ],
+   "props": {
+    "flag": "0x44",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080F4530"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -15134,6 +15241,12 @@
    2
   ],
   "height": 120,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 960,

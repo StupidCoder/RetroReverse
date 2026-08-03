@@ -6,6 +6,259 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "object 0x3E",
+   "object": "object",
+   "pos": [
+    232,
+    1504
+   ],
+   "props": {
+    "b4/b5": "01/00",
+    "class": "6 (object)",
+    "handler": "0x0808D0C9",
+    "id": "0x3E",
+    "record": "0x080F53E0",
+    "slot": 0,
+    "sub": "0x08"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "object 0x6A",
+   "object": "object",
+   "pos": [
+    232,
+    496
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08094A45",
+    "id": "0x6A",
+    "mode": 4,
+    "record": "0x080F5448",
+    "script": "0x08013BE8",
+    "slot": 0,
+    "sub": "0x17"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "NPC 0x4E",
+   "object": "npc",
+   "pos": [
+    0,
+    352
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806D9D1",
+    "id": "0x4E",
+    "mode": 4,
+    "record": "0x080F5458",
+    "script": "0x08013F94",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "NPC 0x4E",
+   "object": "npc",
+   "pos": [
+    0,
+    352
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806D9D1",
+    "id": "0x4E",
+    "mode": 4,
+    "record": "0x080F5468",
+    "script": "0x08013FE8",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 4,
+   "name": "NPC 0x4E",
+   "object": "npc",
+   "pos": [
+    0,
+    352
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806D9D1",
+    "id": "0x4E",
+    "mode": 4,
+    "record": "0x080F5478",
+    "script": "0x08013B18",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 5,
+   "name": "object 0xB0",
+   "object": "object",
+   "pos": [
+    232,
+    936
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x80008000",
+    "handler": "0x080A066D",
+    "id": "0xB0",
+    "record": "0x080F5488",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 6,
+   "name": "object 0x03",
+   "object": "object",
+   "pos": [
+    200,
+    904
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x80010000",
+    "handler": "0x08081AC9",
+    "id": "0x03",
+    "record": "0x080F5498",
+    "slot": 0,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 7,
+   "name": "object 0x03",
+   "object": "object",
+   "pos": [
+    264,
+    904
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x80020000",
+    "handler": "0x08081AC9",
+    "id": "0x03",
+    "record": "0x080F54A8",
+    "slot": 0,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 8,
+   "name": "NPC 0x4E",
+   "object": "npc",
+   "pos": [
+    232,
+    56
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806D9D1",
+    "id": "0x4E",
+    "mode": 4,
+    "record": "0x080F5630",
+    "script": "0x08014274",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 9,
+   "name": "object 0x3E",
+   "object": "object",
+   "pos": [
+    232,
+    40
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0808D0C9",
+    "id": "0x3E",
+    "record": "0x080F56B0",
+    "slot": 1,
+    "sub": "0x06"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 10,
+   "name": "object 0x3E",
+   "object": "object",
+   "pos": [
+    232,
+    88
+   ],
+   "props": {
+    "b4/b5": "01/00",
+    "class": "6 (object)",
+    "handler": "0x0808D0C9",
+    "id": "0x3E",
+    "record": "0x080F56C0",
+    "slot": 1,
+    "sub": "0x07"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 11,
+   "name": "object 0x3E",
+   "object": "object",
+   "pos": [
+    231,
+    88
+   ],
+   "props": {
+    "b4/b5": "02/00",
+    "class": "6 (object)",
+    "handler": "0x0808D0C9",
+    "id": "0x3E",
+    "record": "0x080F56D0",
+    "slot": 1,
+    "sub": "0x07"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 12,
+   "name": "object 0x3E",
+   "object": "object",
+   "pos": [
+    232,
+    320
+   ],
+   "props": {
+    "b4/b5": "01/00",
+    "class": "6 (object)",
+    "handler": "0x0808D0C9",
+    "id": "0x3E",
+    "record": "0x080F56E0",
+    "slot": 1,
+    "sub": "0x08"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -11266,6 +11519,12 @@
    0
   ],
   "height": 194,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 1552,

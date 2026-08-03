@@ -15386,6 +15386,12 @@
    533
   ],
   "height": 126,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 1008,

@@ -6,6 +6,113 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "object 0x57",
+   "object": "object",
+   "pos": [
+    104,
+    104
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x000C0000",
+    "handler": "0x08091EF5",
+    "id": "0x57",
+    "record": "0x080F0950",
+    "slot": 1,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "object 0x57",
+   "object": "object",
+   "pos": [
+    936,
+    376
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x000E0000",
+    "handler": "0x08091EF5",
+    "id": "0x57",
+    "record": "0x080F0960",
+    "slot": 1,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "object 0x9C",
+   "object": "object",
+   "pos": [
+    840,
+    224
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x000F0000",
+    "handler": "0x0809E825",
+    "id": "0x9C",
+    "record": "0x080F0970",
+    "slot": 1,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "tile patch (flag 0x0D)",
+   "object": "tile-patch",
+   "pos": [
+    912,
+    80
+   ],
+   "props": {
+    "flag": "0x0D",
+    "metatile": "0x168",
+    "op": 10,
+    "record": "0x080F0A10"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 4,
+   "name": "tile patch (flag 0x11)",
+   "object": "tile-patch",
+   "pos": [
+    32,
+    480
+   ],
+   "props": {
+    "flag": "0x11",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080F0A18"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 5,
+   "name": "tile patch (flag 0x12)",
+   "object": "tile-patch",
+   "pos": [
+    160,
+    480
+   ],
+   "props": {
+    "flag": "0x12",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080F0A20"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -8330,6 +8437,12 @@
    1093
   ],
   "height": 66,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 528,

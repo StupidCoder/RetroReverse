@@ -1,0 +1,25 @@
+{
+ "animations": [
+  {
+   "durations": [
+    30
+   ],
+   "frames": 1,
+   "id": "main",
+   "loop": "loop"
+  }
+ ],
+ "atlas": {
+  "anchor": [
+   8,
+   8
+  ],
+  "cellH": 16,
+  "cellW": 16,
+  "file": "spawn-marker.png"
+ },
+ "format": "retro-x",
+ "name": "Manager spawn",
+ "type": "sprite2d",
+ "version": 1
+}

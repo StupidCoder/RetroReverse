@@ -6,6 +6,100 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "object 0x0C",
+   "object": "object",
+   "pos": [
+    136,
+    104
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x00390000",
+    "handler": "0x08083DD9",
+    "id": "0x0C",
+    "record": "0x080DA210",
+    "slot": 0,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "tile patch (flag 0x3A)",
+   "object": "tile-patch",
+   "pos": [
+    128,
+    96
+   ],
+   "props": {
+    "flag": "0x3A",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080DA2C0"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "enemy 0x2C",
+   "object": "enemy",
+   "pos": [
+    88,
+    280
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08031375",
+    "id": "0x2C",
+    "record": "0x080DA33C",
+    "respawn slot": 0,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "enemy 0x2C",
+   "object": "enemy",
+   "pos": [
+    88,
+    296
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08031375",
+    "id": "0x2C",
+    "record": "0x080DA34C",
+    "respawn slot": 1,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 4,
+   "name": "enemy 0x2C",
+   "object": "enemy",
+   "pos": [
+    456,
+    328
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08031375",
+    "id": "0x2C",
+    "record": "0x080DA35C",
+    "respawn slot": 2,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -2958,6 +3052,12 @@
    350
   ],
   "height": 46,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 368,

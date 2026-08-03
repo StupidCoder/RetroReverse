@@ -805,41 +805,124 @@ genuinely controllable Link and a real interaction.
 
 ## 5. Objects
 
-Every room places objects — pots, signs, chests, doors, enemies — and the list
+Every room places objects — pots, doorways, NPCs, enemies — and the list
 that describes them is **three levels deep**, which is why nothing flat ever
 found it:
 
 ```
 $080D50FC[area] -> a per-room array
-            [room] -> a per-kind array
-              [kind] -> the object list
+            [room] -> a per-SLOT array (8 slots)
+              [slot] -> the list itself
 ```
 
-A list is 16-byte records ending in a `$FF` type byte. The spawner at
-`$0804AF68` reads three fields and hands them to the entity constructor:
+The first reading of this data called all eight slots "object lists" and
+counted 21,036 records. That number was wrong, because the slots are not
+eight of the same thing — the room loader treats each index differently:
+
+| slot | contents | walker |
+|---|---|---|
+| 0, 1 | entity records, spawned on every entry | `$0804ADDC` |
+| 2 | entity records with **respawn tracking** | `$0804B058` |
+| 3 | 8-byte **command** records, zero-terminated | `$0804B1AC` |
+| 4–7 | one function pointer, called directly | `$08000EF2` |
+
+Walked honestly that is **3,605 entities and 564 commands across 467 rooms**;
+the other 17k "objects" were slot-3 command bytes mis-parsed as 16-byte
+records. (The room index must still be bounded by the area's own geometry
+table — the object table carries no length of its own.)
+
+### The entity record
+
+A slot-0/1/2 list is 16-byte records ending in a `$FF` byte, read by
+`$0804ADF8`:
 
 | offset | field |
 |---|---|
-| `+0x00` | type, and `+0x01` subtype |
-| `+0x02` | a parameter whose meaning depends on the type |
+| `+0x00` | low nibble: **class**; high nibble: initial-state flags |
+| `+0x01` | low nibble: target entity list; high nibble: spawn **mode** |
+| `+0x02` | **id** within the class (entity+9), `+0x03` sub-id (entity+0xA) |
+| `+0x04`, `+0x05` | copied to entity+0xB and entity+0xE |
+| `+0x06` | u16, meaning depends on the class |
 | `+0x08`, `+0x0A` | x and y — **relative to the room**, added to the room's origin |
-| `+0x0C` | for spawned objects the handler; for others a second coordinate pair |
+| `+0x0C` | mode 4: an attached pointer; otherwise per-species data |
 
-The constructor chain is worth naming because it is what identifies the record
-layout: `$0804AF68` computes `entity.x = roomOrigin.x + record.x`, then calls
-`$0807DAD0` (allocate a slot and attach), which calls `$0807DB88` — and that one
-clears exactly **`$24` bytes**, which is where the entity stride comes from.
+Spawn mode 0 places the entity; mode 1 spawns it raw (no position, no extra
+fields); mode 4 places it and **attaches the `+0x0C` word** via `$0807DAD0`;
+mode 5 skips the spawn if class+id already exists. Class 9 records are never
+placed at all — the spawner skips the position step — so their x/y bytes mean
+whatever the species wants them to mean.
 
-Positions being room-relative is the useful part: adding the room's own (x, y)
-from the geometry table puts every object on the same canvas the maps are drawn
-on. `areamap -objects` does that, and the result is the check that the decode is
-real — six records land in a neat 3&times;2 grid in the garden in front of Link's
-house, and the rest sit on doors, bridges and paths. A wrong decode scatters.
+### What a class is
 
-`objdump` walks the table: **21,036 objects across 477 rooms**. The room index
-must be bounded by the area's own geometry table — the object table carries no
-length, so reading a fixed 64 rooms per area walks off the end and counts
-garbage as objects (158,658 of them).
+The class nibble is the entity's kind byte (entity+8), and the evidence for
+what each one *is* comes from the loader itself:
+
+* **class 3 — enemies.** Slot 2's walker counts records 0..31 and checks a
+  per-index kill flag (`$08049D1C`) before spawning, class 3 only; the index
+  is remembered in entity+0x6C. That is the machinery that keeps a defeated
+  enemy dead — and only enemies need it.
+* **class 6 — objects.** The placed props of the world, 1,865 records.
+* **class 7 — NPCs.** 88 of the 111 records use mode 4, and the attached
+  pointer is a ROM script for the 139-opcode interpreter at `$0807DFBC`
+  (opcode table `$0811E524`) — dialogue and behaviour. Enemies never attach
+  scripts.
+* **class 9 — managers.** Room-logic entities, never placed.
+
+The behaviour handler is **not in the record**. The per-class update
+functions (table at `$080B2248`, indexed by entity+8) dispatch entity+9
+through per-class tables:
+
+```
+class 3 -> $080D3BF8[id]      class 4 -> $08129320[id]
+class 6 -> $080B2D4C[id]      class 7 -> $080B313C + id*12
+class 8 -> $080B2CE8[id]      class 9 -> $080B3054[id]
+```
+
+Every class's observed maximum id fits its table's extent — 194 entries for
+class 6 against a maximum id of 188, 58 for class 9 against 56 — which is the
+check that the mapping is real. `objdump -handlers` groups the cartridge's
+records by resolved handler; equal ids mean equal behaviour everywhere.
+
+Two species could be named from the map alone. Object id `00` appears in
+16-pixel point grids that tile entry regions — six of them cover the door of
+Link's house — with the sub byte selecting the destination: a **doorway**.
+Object id `2D` sits exactly on the drawn **postbox** beside that door. The
+transition a doorway triggers reads an 8-byte `{area, room, _, _, x:u16,
+y:u16}` record from the table at `$080FCA20`, index arriving in a game-state
+byte (`$02032EC0+3`, read at `$08051F78`) — entry `0x01` of that table lands
+back in front of Link's house.
+
+### The slot-3 commands
+
+A slot-3 record is 8 bytes `{op, b1, b2, b3, h4:u16, h6:u16}`, opcode
+dispatched through the jump table at `$0804B1CC`. The ones that matter:
+
+* **op 1** — play song `b1` (`$0807CCB4`).
+* **op 2 / op 10** — flag-gated **metatile patches**: op 10 writes metatile
+  `h6` at position `h4` when save-flag `h2` is set (`$0807B314`); op 2
+  registers the inverse while its flag is unset. A position packs as
+  `y*64+x` in metatile units — this is how a burned bush or opened passage
+  persists on the map. An op-2 patch can name a tile in a *different* room
+  of the area, so its position is only trusted inside its own room.
+* **op 4** — spawn manager `0x24` at pixel `(h4, h6)` with two byte
+  parameters (`$0804B300`) — the only command carrying a pixel position.
+
+### On the Studio maps
+
+`webexport` turns all of this into clickable markers on every area: entities
+from slots 0–2 (managers excluded — inventing positions for them would be a
+lie) and the positioned commands, each at room origin + record position, the
+same arithmetic the compositor uses for the pixels. The info popup shows the
+identifiers: class, id, sub-id, slot, respawn index, resolved handler
+address, attached script pointer, record address. A marker whose record
+position falls outside its own room is dropped rather than plotted — a few
+species (enemy `49`) reuse the position bytes for other data, and a wrong
+marker is worse than none.
+
+The visual check on the whole decode: the doorway grid tiles Link's front
+door, a doorway pair sits on the hollow-tree Minish entrance, the postbox
+marker lands on the drawn postbox, and the flag-gated patches cluster where
+the map shows disturbable ground. A wrong decode scatters.
 
 ## 6. 419 rooms, 79 places
 

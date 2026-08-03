@@ -6,6 +6,85 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "NPC 0x36",
+   "object": "npc",
+   "pos": [
+    120,
+    48
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806A1D9",
+    "id": "0x36",
+    "mode": 4,
+    "record": "0x080F9F28",
+    "script": "0x080160A8",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "object 0x69",
+   "object": "object",
+   "pos": [
+    88,
+    72
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08094A0D",
+    "id": "0x69",
+    "mode": 4,
+    "record": "0x080F9F38",
+    "script": "0x0801613C",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "object 0x4F",
+   "object": "object",
+   "pos": [
+    120,
+    152
+   ],
+   "props": {
+    "b4/b5": "02/00",
+    "class": "6 (object)",
+    "handler": "0x08090F71",
+    "id": "0x4F",
+    "record": "0x080F9F58",
+    "slot": 1,
+    "sub": "0x06"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    88,
+    72
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080F9F68",
+    "slot": 1,
+    "sub": "0x10"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -614,6 +693,12 @@
    0
   ],
   "height": 20,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 160,

@@ -6,6 +6,170 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    52,
+    40
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080D8EE0",
+    "slot": 1,
+    "sub": "0x3F"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    40,
+    72
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080D8EF0",
+    "slot": 1,
+    "sub": "0x0C"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    128,
+    36
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080D8F00",
+    "slot": 1,
+    "sub": "0x42"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    176,
+    76
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080D8F10",
+    "slot": 1,
+    "sub": "0x43"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 4,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    194,
+    32
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080D8F20",
+    "slot": 1,
+    "sub": "0x40"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 5,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    56,
+    136
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080D8F30",
+    "slot": 1,
+    "sub": "0x41"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 6,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    56,
+    216
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080D8F40",
+    "slot": 1,
+    "sub": "0x41"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 7,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    184,
+    136
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080D8F50",
+    "slot": 1,
+    "sub": "0x41"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 8,
+   "name": "object 0x4D",
+   "object": "object",
+   "pos": [
+    184,
+    216
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080905A1",
+    "id": "0x4D",
+    "record": "0x080D8F60",
+    "slot": 1,
+    "sub": "0x41"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -1214,6 +1378,12 @@
    371
   ],
   "height": 40,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 320,

@@ -6,6 +6,122 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "object 0x69",
+   "object": "object",
+   "pos": [
+    120,
+    72
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08094A0D",
+    "id": "0x69",
+    "mode": 4,
+    "record": "0x080DA3A4",
+    "script": "0x0800B614",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "object 0x1B",
+   "object": "object",
+   "pos": [
+    120,
+    72
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08086A91",
+    "id": "0x1B",
+    "record": "0x080DA3B4",
+    "slot": 0,
+    "sub": "0x16"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "object 0x69",
+   "object": "object",
+   "pos": [
+    376,
+    72
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08094A0D",
+    "id": "0x69",
+    "mode": 4,
+    "record": "0x080DA40C",
+    "script": "0x0800B6C8",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "object 0x1B",
+   "object": "object",
+   "pos": [
+    376,
+    72
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08086A91",
+    "id": "0x1B",
+    "record": "0x080DA41C",
+    "slot": 0,
+    "sub": "0x0B"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 4,
+   "name": "object 0x69",
+   "object": "object",
+   "pos": [
+    632,
+    72
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08094A0D",
+    "id": "0x69",
+    "mode": 4,
+    "record": "0x080DA474",
+    "script": "0x0800B730",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 5,
+   "name": "object 0x1B",
+   "object": "object",
+   "pos": [
+    632,
+    72
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08086A91",
+    "id": "0x1B",
+    "record": "0x080DA484",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -3398,6 +3514,12 @@
    1688
   ],
   "height": 36,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 288,

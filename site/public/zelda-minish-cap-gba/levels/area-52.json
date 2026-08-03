@@ -6,6 +6,64 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "doorway (sub 0x63)",
+   "object": "doorway",
+   "pos": [
+    120,
+    36
+   ],
+   "props": {
+    "b4/b5": "00/04",
+    "class": "6 (object)",
+    "extra": "0x005D0000",
+    "handler": "0x08080E09",
+    "id": "0x00",
+    "record": "0x080D9388",
+    "slot": 0,
+    "sub": "0x63"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "NPC 0x43",
+   "object": "npc",
+   "pos": [
+    408,
+    88
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806C13D",
+    "id": "0x43",
+    "mode": 4,
+    "record": "0x080D93E0",
+    "script": "0x0800B91C",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "tile patch (flag 0x5E)",
+   "object": "tile-patch",
+   "pos": [
+    400,
+    32
+   ],
+   "props": {
+    "flag": "0x5E",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080D9410"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -2654,6 +2712,12 @@
    17
   ],
   "height": 40,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 320,

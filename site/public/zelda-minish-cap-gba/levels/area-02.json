@@ -6,6 +6,190 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "object 0x77",
+   "object": "object",
+   "pos": [
+    1032,
+    296
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x08097D79",
+    "id": "0x77",
+    "record": "0x080EE80C",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "object 0x4C",
+   "object": "object",
+   "pos": [
+    840,
+    312
+   ],
+   "props": {
+    "b4/b5": "01/F0",
+    "class": "6 (object)",
+    "extra": "0x00CA0000",
+    "handler": "0x0808F969",
+    "id": "0x4C",
+    "record": "0x080EE81C",
+    "slot": 0,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "enemy 0x41",
+   "object": "enemy",
+   "pos": [
+    1432,
+    936
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08038CA5",
+    "id": "0x41",
+    "record": "0x080EE82C",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "object 0xB7",
+   "object": "object",
+   "pos": [
+    1288,
+    632
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080A0E99",
+    "id": "0xB7",
+    "record": "0x080EE83C",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 4,
+   "name": "NPC 0x04",
+   "object": "npc",
+   "pos": [
+    1032,
+    472
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x080603FD",
+    "id": "0x04",
+    "mode": 4,
+    "record": "0x080EE86C",
+    "script": "0x08010AE4",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 5,
+   "name": "object 0x19",
+   "object": "object",
+   "pos": [
+    528,
+    0
+   ],
+   "props": {
+    "b4/b5": "00/0C",
+    "class": "6 (object)",
+    "handler": "0x080866C1",
+    "id": "0x19",
+    "record": "0x080EEB2C",
+    "slot": 1,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 6,
+   "name": "object 0x38",
+   "object": "object",
+   "pos": [
+    896,
+    62
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0808BE85",
+    "id": "0x38",
+    "record": "0x080EEB3C",
+    "slot": 1,
+    "sub": "0xC8"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 7,
+   "name": "object 0x38",
+   "object": "object",
+   "pos": [
+    1216,
+    62
+   ],
+   "props": {
+    "b4/b5": "01/00",
+    "class": "6 (object)",
+    "handler": "0x0808BE85",
+    "id": "0x38",
+    "record": "0x080EEB4C",
+    "slot": 1,
+    "sub": "0xC9"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 8,
+   "name": "tile patch (flag 0xCB)",
+   "object": "tile-patch",
+   "pos": [
+    1392,
+    512
+   ],
+   "props": {
+    "flag": "0xCB",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080EED14"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 9,
+   "name": "tile patch (flag 0xCC)",
+   "object": "tile-patch",
+   "pos": [
+    1248,
+    80
+   ],
+   "props": {
+    "flag": "0xCC",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080EED1C"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -61838,6 +62022,12 @@
    0
   ],
   "height": 322,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 2576,

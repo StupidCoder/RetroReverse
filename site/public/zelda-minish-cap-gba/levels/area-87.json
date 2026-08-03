@@ -6,6 +6,82 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "object 0x08",
+   "object": "object",
+   "pos": [
+    344,
+    520
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x80000000",
+    "handler": "0x08083321",
+    "id": "0x08",
+    "record": "0x080D7914",
+    "slot": 0,
+    "sub": "0x05"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "object 0x08",
+   "object": "object",
+   "pos": [
+    392,
+    520
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x80000000",
+    "handler": "0x08083321",
+    "id": "0x08",
+    "record": "0x080D7924",
+    "slot": 0,
+    "sub": "0x07"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "object 0x27",
+   "object": "object",
+   "pos": [
+    184,
+    136
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080891DD",
+    "id": "0x27",
+    "record": "0x080D7934",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "object 0x55",
+   "object": "object",
+   "pos": [
+    232,
+    184
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x080916CD",
+    "id": "0x55",
+    "record": "0x080D7944",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -6414,6 +6490,12 @@
    580
   ],
   "height": 80,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 640,

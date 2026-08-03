@@ -6,6 +6,43 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "object 0x0C",
+   "object": "object",
+   "pos": [
+    376,
+    40
+   ],
+   "props": {
+    "b4/b5": "76/00",
+    "class": "6 (object)",
+    "handler": "0x08083DD9",
+    "id": "0x0C",
+    "record": "0x080D89C4",
+    "slot": 0,
+    "sub": "0x04"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "tile patch (flag 0x77)",
+   "object": "tile-patch",
+   "pos": [
+    368,
+    256
+   ],
+   "props": {
+    "flag": "0x77",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080D8BA4"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -5594,6 +5631,12 @@
    0
   ],
   "height": 90,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 720,

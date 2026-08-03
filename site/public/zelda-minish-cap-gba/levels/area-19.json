@@ -6,6 +6,86 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "NPC 0x4E",
+   "object": "npc",
+   "pos": [
+    248,
+    56
+   ],
+   "props": {
+    "class": "7 (npc)",
+    "handler": "0x0806D9D1",
+    "id": "0x4E",
+    "mode": 4,
+    "record": "0x080F4658",
+    "script": "0x0800B964",
+    "slot": 0,
+    "sub": "0x07"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "doorway (sub 0x56)",
+   "object": "doorway",
+   "pos": [
+    216,
+    120
+   ],
+   "props": {
+    "b4/b5": "00/04",
+    "class": "6 (object)",
+    "extra": "0x00460000",
+    "handler": "0x08080E09",
+    "id": "0x00",
+    "record": "0x080F4678",
+    "slot": 0,
+    "sub": "0x56"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "enemy 0x07",
+   "object": "enemy",
+   "pos": [
+    168,
+    72
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08021759",
+    "id": "0x07",
+    "record": "0x080F4698",
+    "respawn slot": 0,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "enemy 0x17",
+   "object": "enemy",
+   "pos": [
+    232,
+    120
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x080292A1",
+    "id": "0x17",
+    "record": "0x080F46A8",
+    "respawn slot": 1,
+    "slot": 2,
+    "sub": "0x02"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -4094,6 +4174,12 @@
    0
   ],
   "height": 68,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 544,

@@ -6,6 +6,140 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "object 0x41",
+   "object": "object",
+   "pos": [
+    104,
+    408
+   ],
+   "props": {
+    "class": "6 (object)",
+    "handler": "0x0808DB55",
+    "id": "0x41",
+    "record": "0x080D7C7C",
+    "slot": 0,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "enemy 0x2C",
+   "object": "enemy",
+   "pos": [
+    88,
+    136
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08031375",
+    "id": "0x2C",
+    "record": "0x080D7C9C",
+    "respawn slot": 0,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "enemy 0x2C",
+   "object": "enemy",
+   "pos": [
+    120,
+    168
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08031375",
+    "id": "0x2C",
+    "record": "0x080D7CAC",
+    "respawn slot": 1,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "enemy 0x2C",
+   "object": "enemy",
+   "pos": [
+    152,
+    328
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08031375",
+    "id": "0x2C",
+    "record": "0x080D7CBC",
+    "respawn slot": 2,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 4,
+   "name": "object 0x03",
+   "object": "object",
+   "pos": [
+    408,
+    72
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x40450001",
+    "handler": "0x08081AC9",
+    "id": "0x03",
+    "record": "0x080D7D04",
+    "slot": 0,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 5,
+   "name": "object 0x08",
+   "object": "object",
+   "pos": [
+    456,
+    88
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x4045FFFF",
+    "handler": "0x08083321",
+    "id": "0x08",
+    "record": "0x080D7D14",
+    "slot": 0,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 6,
+   "name": "enemy 0x2C",
+   "object": "enemy",
+   "pos": [
+    360,
+    88
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x08031375",
+    "id": "0x2C",
+    "record": "0x080D7D74",
+    "respawn slot": 0,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -3854,6 +3988,12 @@
    233
   ],
   "height": 64,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 512,

@@ -6,6 +6,255 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "object 0x03",
+   "object": "object",
+   "pos": [
+    152,
+    728
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x80000000",
+    "handler": "0x08081AC9",
+    "id": "0x03",
+    "record": "0x080F9CD0",
+    "slot": 0,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "object 0x03",
+   "object": "object",
+   "pos": [
+    184,
+    728
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x80010000",
+    "handler": "0x08081AC9",
+    "id": "0x03",
+    "record": "0x080F9CE0",
+    "slot": 0,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "object 0x03",
+   "object": "object",
+   "pos": [
+    152,
+    760
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x80020000",
+    "handler": "0x08081AC9",
+    "id": "0x03",
+    "record": "0x080F9CF0",
+    "slot": 0,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "object 0x03",
+   "object": "object",
+   "pos": [
+    184,
+    760
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x80030000",
+    "handler": "0x08081AC9",
+    "id": "0x03",
+    "record": "0x080F9D00",
+    "slot": 0,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 4,
+   "name": "object 0x08",
+   "object": "object",
+   "pos": [
+    168,
+    680
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x00AEFFFF",
+    "handler": "0x08083321",
+    "id": "0x08",
+    "record": "0x080F9D20",
+    "slot": 0,
+    "sub": "0x04"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 5,
+   "name": "object 0x03",
+   "object": "object",
+   "pos": [
+    72,
+    488
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x80000000",
+    "handler": "0x08081AC9",
+    "id": "0x03",
+    "record": "0x080F9D78",
+    "slot": 0,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 6,
+   "name": "object 0x03",
+   "object": "object",
+   "pos": [
+    72,
+    552
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x80010000",
+    "handler": "0x08081AC9",
+    "id": "0x03",
+    "record": "0x080F9D88",
+    "slot": 0,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 7,
+   "name": "object 0x03",
+   "object": "object",
+   "pos": [
+    56,
+    520
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x80020000",
+    "handler": "0x08081AC9",
+    "id": "0x03",
+    "record": "0x080F9D98",
+    "slot": 0,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 8,
+   "name": "object 0x03",
+   "object": "object",
+   "pos": [
+    88,
+    520
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x80030000",
+    "handler": "0x08081AC9",
+    "id": "0x03",
+    "record": "0x080F9DA8",
+    "slot": 0,
+    "sub": "0x01"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 9,
+   "name": "object 0x08",
+   "object": "object",
+   "pos": [
+    72,
+    440
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x00AFFFFF",
+    "handler": "0x08083321",
+    "id": "0x08",
+    "record": "0x080F9DC8",
+    "slot": 0,
+    "sub": "0x04"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 10,
+   "name": "object 0x08",
+   "object": "object",
+   "pos": [
+    232,
+    440
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x00B00000",
+    "handler": "0x08083321",
+    "id": "0x08",
+    "record": "0x080F9DD8",
+    "slot": 0,
+    "sub": "0x04"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 11,
+   "name": "object 0x08",
+   "object": "object",
+   "pos": [
+    232,
+    360
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x00B1FFFF",
+    "handler": "0x08083321",
+    "id": "0x08",
+    "record": "0x080F9E30",
+    "slot": 0,
+    "sub": "0x06"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 12,
+   "name": "object 0x24",
+   "object": "object",
+   "pos": [
+    240,
+    304
+   ],
+   "props": {
+    "class": "6 (object)",
+    "extra": "0x00B10000",
+    "handler": "0x08088805",
+    "id": "0x24",
+    "record": "0x080F9E40",
+    "slot": 0,
+    "sub": "0x02"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -4890,6 +5139,12 @@
    1
   ],
   "height": 106,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 848,

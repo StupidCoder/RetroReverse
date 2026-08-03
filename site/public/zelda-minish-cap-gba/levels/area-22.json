@@ -6,6 +6,114 @@
   "mode": "map2d"
  },
  "format": "retro-x",
+ "placements": [
+  {
+   "anim": "main",
+   "id": 0,
+   "name": "doorway (sub 0x63)",
+   "object": "doorway",
+   "pos": [
+    224,
+    292
+   ],
+   "props": {
+    "b4/b5": "00/04",
+    "class": "6 (object)",
+    "extra": "0x004D0000",
+    "handler": "0x08080E09",
+    "id": "0x00",
+    "record": "0x080F47B0",
+    "slot": 0,
+    "sub": "0x63"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 1,
+   "name": "enemy 0x1C",
+   "object": "enemy",
+   "pos": [
+    208,
+    88
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x0802B2AD",
+    "id": "0x1C",
+    "record": "0x080F47D0",
+    "respawn slot": 0,
+    "slot": 2,
+    "sub": "0x00"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 2,
+   "name": "enemy 0x01",
+   "object": "enemy",
+   "pos": [
+    408,
+    520
+   ],
+   "props": {
+    "class": "3 (enemy)",
+    "handler": "0x0801EE19",
+    "id": "0x01",
+    "record": "0x080F47E0",
+    "respawn slot": 1,
+    "slot": 2,
+    "sub": "0x02"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 3,
+   "name": "tile patch (flag 0x4A)",
+   "object": "tile-patch",
+   "pos": [
+    432,
+    64
+   ],
+   "props": {
+    "flag": "0x4A",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080F4800"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 4,
+   "name": "tile patch (flag 0x4B)",
+   "object": "tile-patch",
+   "pos": [
+    256,
+    512
+   ],
+   "props": {
+    "flag": "0x4B",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080F4808"
+   }
+  },
+  {
+   "anim": "main",
+   "id": 5,
+   "name": "tile patch (flag 0x4C)",
+   "object": "tile-patch",
+   "pos": [
+    272,
+    512
+   ],
+   "props": {
+    "flag": "0x4C",
+    "metatile": "0x74",
+    "op": 2,
+    "record": "0x080F4810"
+   }
+  }
+ ],
  "tilemap": {
   "atlas": {
    "cols": 16,
@@ -7574,6 +7682,12 @@
    82
   ],
   "height": 126,
+  "layers": [
+   {
+    "id": "markers",
+    "name": "Object markers"
+   }
+  ],
   "tileSize": 8,
   "view": {
    "h": 1008,
