@@ -4,5 +4,5 @@
  "type": "model3d",
  "name": "Scale up kinoko",
  "model": "scale_up_kinoko.glb",
- "billboard": "yaw"
+ "billboard": "camera"
 }

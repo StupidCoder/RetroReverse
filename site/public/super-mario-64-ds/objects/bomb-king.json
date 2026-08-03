@@ -78,5 +78,6 @@
   }
  ],
  "model": "bomb_king.glb",
- "skinnedClone": true
+ "skinnedClone": true,
+ "billboard": "camera"
 }

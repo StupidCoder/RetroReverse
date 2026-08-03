@@ -1035,25 +1035,44 @@ func sign(v float64) float64 {
 	return 1
 }
 
-// billboardMode reports the Retro-X billboard mode for a model, from the
-// game's own data rather than the geometry's shape: the DS engine substitutes
-// the camera's rotation when it composes a bone whose flag word at +$3C has
-// bit 0 set (sm64ds/bmd.go). A model that is a SINGLE such bone is a
-// camera-facing sprite in its entirety — Bob-omb Battlefield's trees are one
-// two-triangle quad each — and turning the whole object is exactly what the
-// viewer's yaw billboard does.
+// yawOnlyBillboards is an EDITORIAL list, not a decode.
 //
-// Models that billboard only PART of a deeper skeleton are left alone: the
-// GLB carries those per node, and swinging the whole object would be wrong.
+// The cartridge marks camera-facing bones with one flag and one flag only (see
+// the census in sm64ds/skin.go): it cannot tell a yaw billboard from a fully
+// camera-aligned one, and neither can the geometry — bomb_tree's quad is
+// 1.22:1, near-square, like the balls. On hardware the distinction is close to
+// unobservable, because SM64DS's camera stays roughly horizontal and there the
+// two modes look identical.
 //
-// "yaw" is the only mode Retro-X has, and it matches what these sprites do on
-// hardware — SM64DS's trees stay upright when the camera looks down at them
-// rather than lying flat to face it. Whether bit 1 of the same flag word
-// selects a full camera-aligned billboard is not something our decode
-// establishes, and it is not guessed at here.
+// A Studio diorama gets looked at from above, where they do not. These models
+// read as upright standing props and keep their feet on the ground; everything
+// else marked is a ball, a star or a character's body, and faces the viewer
+// outright.
+var yawOnlyBillboards = map[string]bool{
+	"bomb_tree": true, "toge_tree": true, "yashi_tree": true, "yuki_tree": true,
+	"bk_billbord": true, // a signboard on a post
+}
+
+// billboardMode reports the Retro-X billboard mode for a model. The DS engine
+// substitutes the camera's rotation when it composes a bone whose flag word at
+// +$3C has bit 0 set (sm64ds/bmd.go), so ANY model carrying such a bone is
+// billboarded: a single-bone sprite turns whole, a character turns only the
+// marked part (the bob-omb's body_bill, King Bob-omb's body). The viewer picks
+// those parts out of the GLB, which carries the flag per node in
+// extras.billboard; this doc-level value tells it which way to turn them.
 func billboardMode(m *sm64ds.Model) string {
-	if len(m.Skel) == 1 && m.Skel[0].Billboard {
+	bill := false
+	for _, j := range m.Skel {
+		if j.Billboard {
+			bill = true
+			break
+		}
+	}
+	if !bill {
+		return ""
+	}
+	if yawOnlyBillboards[m.Name] {
 		return "yaw"
 	}
-	return ""
+	return "camera"
 }

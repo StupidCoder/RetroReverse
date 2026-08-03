@@ -126,5 +126,6 @@
   }
  ],
  "model": "hanachan_body03.glb",
- "skinnedClone": true
+ "skinnedClone": true,
+ "billboard": "camera"
 }

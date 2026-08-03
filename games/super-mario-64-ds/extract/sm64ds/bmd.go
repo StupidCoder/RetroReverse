@@ -237,10 +237,11 @@ func Decode(data []byte, name string) (*Model, error) {
 			// +$3C bit 0 marks a camera-facing bone: set on the bob-omb's
 			// "body_bill" and the tree quads, clear on roots and feet — the
 			// flag the engine's bone compose treats as the billboard bit.
-			Billboard: b.u32(r+0x3C)&1 != 0,
-			S:         [3]float64{fxv(r + 0x10), fxv(r + 0x14), fxv(r + 0x18)},
-			R:         [3]float64{angv(r + 0x1C), angv(r + 0x1E), angv(r + 0x20)},
-			T:         [3]float64{fxv(r + 0x24), fxv(r + 0x28), fxv(r + 0x2C)},
+			Billboard:  b.u32(r+0x3C)&1 != 0,
+			Flags:      b.u32(r + 0x3C),
+			S:          [3]float64{fxv(r + 0x10), fxv(r + 0x14), fxv(r + 0x18)},
+			R:          [3]float64{angv(r + 0x1C), angv(r + 0x1E), angv(r + 0x20)},
+			T:          [3]float64{fxv(r + 0x24), fxv(r + 0x28), fxv(r + 0x2C)},
 		}
 	}
 	stack := make([]nitro.Mat43, 32)

@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Koopa bomb",
- "model": "koopa_bomb.glb"
+ "model": "koopa_bomb.glb",
+ "billboard": "camera"
 }

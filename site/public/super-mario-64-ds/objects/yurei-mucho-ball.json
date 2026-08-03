@@ -4,5 +4,5 @@
  "type": "model3d",
  "name": "Yurei mucho ball",
  "model": "yurei_mucho_ball.glb",
- "billboard": "yaw"
+ "billboard": "camera"
 }

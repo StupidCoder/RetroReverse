@@ -36,5 +36,6 @@
   }
  ],
  "model": "horuhei.glb",
- "skinnedClone": true
+ "skinnedClone": true,
+ "billboard": "camera"
 }

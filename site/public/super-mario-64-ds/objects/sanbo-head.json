@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Sanbo head",
- "model": "sanbo_head.glb"
+ "model": "sanbo_head.glb",
+ "billboard": "camera"
 }

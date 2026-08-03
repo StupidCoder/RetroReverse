@@ -24,5 +24,6 @@
   }
  ],
  "model": "bombhei.glb",
- "skinnedClone": true
+ "skinnedClone": true,
+ "billboard": "camera"
 }

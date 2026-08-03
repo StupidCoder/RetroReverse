@@ -4,5 +4,5 @@
  "type": "model3d",
  "name": "Big 1up number",
  "model": "big_1up_number.glb",
- "billboard": "yaw"
+ "billboard": "camera"
 }

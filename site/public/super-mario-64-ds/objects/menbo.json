@@ -30,5 +30,6 @@
   }
  ],
  "model": "menbo.glb",
- "skinnedClone": true
+ "skinnedClone": true,
+ "billboard": "camera"
 }

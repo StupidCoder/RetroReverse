@@ -12,5 +12,6 @@
   }
  ],
  "model": "basabasa.glb",
- "skinnedClone": true
+ "skinnedClone": true,
+ "billboard": "camera"
 }

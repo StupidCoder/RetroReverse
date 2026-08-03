@@ -15,12 +15,22 @@ import (
 
 // SkelJoint is one .bmd bone's bind-pose local transform.
 type SkelJoint struct {
-	Name      string
-	Parent    int // absolute index, -1 for roots
-	S, T      [3]float64
-	R         [3]float64 // radians, engine Rx·Ry·Rz order
-	Billboard bool       // bone flag word +$3C bit 0: camera-facing part
+	Name       string
+	Parent     int // absolute index, -1 for roots
+	S, T       [3]float64
+	R          [3]float64 // radians, engine Rx·Ry·Rz order
+	Billboard bool   // bone flag word +$3C bit 0: camera-facing part
+	Flags     uint32 // the raw bone flag word at +$3C
 }
+
+// Only two values of the flag word occur in the whole cartridge (censused with
+// cmd/bbflags over every .bmd): 0x1 on 46 bones — the trees, the bob-omb's
+// body_bill, King Bob-omb's body, the balls, bk_billbord — and 0x4 on 372,
+// which are limbs (springs, feet, hands, wings, tails) and plainly not
+// billboards. Bit 1 is never set anywhere, so the format does NOT distinguish
+// a yaw billboard from a fully camera-aligned one: there is one flag and one
+// engine behaviour. Anything that splits those two cases is a presentation
+// choice, not something the cartridge states.
 
 // NamedBCA pairs a decoded animation with its clip name.
 type NamedBCA struct {

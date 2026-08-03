@@ -4,5 +4,5 @@
  "type": "model3d",
  "name": "Obj kumo",
  "model": "obj_kumo.glb",
- "billboard": "yaw"
+ "billboard": "camera"
 }

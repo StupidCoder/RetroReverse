@@ -565,17 +565,6 @@ export class ObjectLibrary {
       };
     }
     const updates = [];
-    if (doc.billboard === 'yaw') {
-      updates.push((dt, camPos) => {
-        // Against the node's WORLD position: camPos is a world position, but
-        // node.position is local to the placement group that carries the
-        // transform (usually 0,0,0), so the old subtraction turned every
-        // billboard to face the world origin instead of the eye. Invisible
-        // from a distance, glaring once you can walk up to one.
-        const p = node.getWorldPosition(_wp);
-        node.rotation.y = Math.atan2(camPos.x - p.x, camPos.z - p.z);
-      });
-    }
     // material UV animation + flipbooks, replayed on the game's frame clock
     if (doc.uvAnims?.length || doc.flipbooks?.length) {
       const mats = {};
@@ -618,6 +607,31 @@ export class ObjectLibrary {
       });
     }
     if (inst.mixer) updates.push((dt) => inst.mixer.update(dt));
+    // Billboards go LAST, after the mixer. The parts that turn are skeleton
+    // bones, and a clip writes every bone each frame — the split billboard
+    // leaves carry identity tracks precisely so the viewer supplies their
+    // orientation, which it cannot do if the mixer runs afterwards.
+    if (doc.billboard) {
+      // The game marks camera-facing BONES, not whole models, and the GLB
+      // carries that per node (extras.billboard, from the .bmd flag word).
+      // So a character turns only its marked part — the bob-omb's body_bill
+      // swings while its feet stay put — and a one-bone sprite, which has no
+      // marked node to find, turns whole.
+      const parts = [];
+      node.traverse((o) => { if (o.userData?.billboard) parts.push(o); });
+      if (!parts.length) parts.push(node);
+      const full = doc.billboard === 'camera';
+      updates.push((dt, camPos) => {
+        for (const p of parts) {
+          if (full) {
+            p.lookAt(camPos); // a sphere has no upright to keep
+          } else {
+            const wp = p.getWorldPosition(_wp);
+            p.rotation.y = Math.atan2(camPos.x - wp.x, camPos.z - wp.z);
+          }
+        }
+      });
+    }
     if (updates.length) inst.update = (dt, camPos, t) => { for (const u of updates) u(dt, camPos, t); };
     return inst;
   }

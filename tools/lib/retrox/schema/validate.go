@@ -875,7 +875,7 @@ func (c *checker) checkObject(p string, o *Object, assets map[string]*Asset) {
 		if full != "" {
 			c.checkGLBBindings(p, full, o)
 		}
-		if o.Billboard != "" && o.Billboard != "yaw" {
+		if o.Billboard != "" && o.Billboard != "yaw" && o.Billboard != "camera" {
 			c.errf(p, "unknown model billboard %q", o.Billboard)
 		}
 		if o.AtlasPicture != "" {

@@ -4,5 +4,5 @@
  "type": "model3d",
  "name": "Ar1 12",
  "model": "ar1_12.glb",
- "billboard": "yaw"
+ "billboard": "camera"
 }

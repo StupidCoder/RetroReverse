@@ -36,5 +36,6 @@
   }
  ],
  "model": "mip.glb",
- "skinnedClone": true
+ "skinnedClone": true,
+ "billboard": "camera"
 }

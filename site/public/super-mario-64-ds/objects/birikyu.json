@@ -18,5 +18,6 @@
   }
  ],
  "model": "birikyu.glb",
- "skinnedClone": true
+ "skinnedClone": true,
+ "billboard": "camera"
 }

@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Keronpa",
- "model": "keronpa.glb"
+ "model": "keronpa.glb",
+ "billboard": "camera"
 }

@@ -36,5 +36,6 @@
   }
  ],
  "model": "snowman_model.glb",
- "skinnedClone": true
+ "skinnedClone": true,
+ "billboard": "camera"
 }

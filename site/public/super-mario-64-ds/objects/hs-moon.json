@@ -4,5 +4,5 @@
  "type": "model3d",
  "name": "Hs moon",
  "model": "hs_moon.glb",
- "billboard": "yaw"
+ "billboard": "camera"
 }

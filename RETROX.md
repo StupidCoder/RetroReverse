@@ -509,10 +509,16 @@ This makes the sheet directly usable in other projects and legible to a human.
                                              //   chains, shadow-caster proxies, liveries.
   "instanced": true,                         // geometry safe to share across placements
   "skinnedClone": false,                     // placements must deep-clone (skinned meshes)
-  "billboard": "yaw",                        // rotate the whole model to face the camera
-                                             //   about world-up (flat "tree quad" models);
-                                             //   per-BONE billboarding is a GLB node extra
-                                             //   ({"billboard": true}), not a document field
+  "billboard": "yaw",                        // turn to face the camera: "yaw" about world-up
+                                             //   (upright props — a flat "tree quad" stays
+                                             //   standing when viewed from above), "camera"
+                                             //   full (sprites of round things, which have
+                                             //   no upright to keep).
+                                             //   WHICH PARTS turn is a GLB node extra
+                                             //   ({"billboard": true}) — a character turns
+                                             //   only its marked bones, a model with no
+                                             //   marked node turns whole. This field is the
+                                             //   mode for them, not a whole-model switch.
   "animations": [                            // metadata over the GLB's named clips
     { "id": "spin", "clip": "spin",          // ✱ clip = the GLB animation name
       "name": "Victory spin", "fps": 30,     // authored frame rate (step-quantized playback)

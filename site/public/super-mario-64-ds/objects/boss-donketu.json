@@ -54,5 +54,6 @@
   }
  ],
  "model": "boss_donketu.glb",
- "skinnedClone": true
+ "skinnedClone": true,
+ "billboard": "camera"
 }
