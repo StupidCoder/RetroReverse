@@ -137,7 +137,11 @@ func Parse(obj []byte, p uint32) (*Ctrl, error) {
 // verified visually (the decoded logo renders as the logo):
 //
 //   - A vertex is THREE consecutive lump quadwords; in the V4-8 source that
-//     is 12 bytes {q0: b0,b1,nz,px | q1: dst1,dst2,ny,py | q2: b0,b1,nx,pz}.
+//     is 12 bytes {q0: b0,ctl,nx,px | q1: dst1,dst2,ny,py | q2: s,t,nz,pz}.
+//     The normal is the z-lanes IN QUADWORD ORDER — the microcode's normal
+//     transform is row4*q0.z + row5*q1.z + row6*q2.z, so the vector is
+//     (b2, b6, b10) (verified: 0.97 mean |dot| against geometric normals;
+//     the swapped order scores 0.06).
 //     The w-lane bytes are the position on a fragment-local 8-bit lattice;
 //     the z-lane bytes are the normal; q1's x/y-lane bytes are OUTPUT SLOT
 //     addresses (VU quadwords, stride 3, base 7): the microcode scatter-
@@ -192,7 +196,7 @@ func (fr *Fragment) Vertices() []Vertex {
 		b := fr.LumpData[v*12 : v*12+12]
 		out = append(out, Vertex{
 			X: float32(b[3]) + ox, Y: float32(b[7]) + oy, Z: float32(b[11]) + oz,
-			NX: b[10], NY: b[6], NZ: b[2],
+			NX: b[2], NY: b[6], NZ: b[10],
 			Slot1: slot(b[4]), Slot2: slot(b[5]),
 			D1: b[4], D2: b[5],
 			Ctl: b[1],

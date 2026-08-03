@@ -484,6 +484,7 @@ async function mount3D(ctx, doc) {
               map: m.map || null, color: m.color.clone(),
               transparent: m.transparent, opacity: m.opacity,
               alphaTest: m.alphaTest, side: m.side, name: m.name,
+              vertexColors: m.vertexColors, // COLOR_0-tinted models (Jak's logo) keep their tint
               envMap: m.envMap || null, combine: m.combine ?? THREE.MultiplyOperation,
               reflectivity: m.reflectivity ?? 1,
             });

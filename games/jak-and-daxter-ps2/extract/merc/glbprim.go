@@ -53,6 +53,7 @@ func TexturedPrims(e *Effect, resolve func(ShaderRef) Material) []glb.Prim {
 			m = resolve(shaders[i])
 		}
 		prims[i].DoubleSided = true
+		prims[i].Unlit = true // GS look: texture x vertex color, no runtime lighting
 		prims[i].Image = m.Image
 		prims[i].Blend = m.Blend
 		if m.Image == nil {
@@ -92,20 +93,28 @@ func TexturedPrims(e *Effect, resolve func(ShaderRef) Material) []glb.Prim {
 			mi = 0
 		}
 		p := &prims[mi]
-		p.Tris = append(p.Tris, [3]uint32{local(mi, w[0]), local(mi, w[1]), local(mi, w[2])})
+		// The GS never culls, so the strips carry no winding convention;
+		// wind each triangle to agree with its own vertex normals.
+		a, b, c := w[0], w[1], w[2]
+		av, bv, cv := pos[a], pos[b], pos[c]
+		ux, uy, uz := bv[0]-av[0], bv[1]-av[1], bv[2]-av[2]
+		vx, vy, vz := cv[0]-av[0], cv[1]-av[1], cv[2]-av[2]
+		gx, gy, gz := uy*vz-uz*vy, uz*vx-ux*vz, ux*vy-uy*vx
+		ns := [3]float32{
+			nrm[a][0] + nrm[b][0] + nrm[c][0],
+			nrm[a][1] + nrm[b][1] + nrm[c][1],
+			nrm[a][2] + nrm[b][2] + nrm[c][2],
+		}
+		if gx*ns[0]+gy*ns[1]+gz*ns[2] < 0 {
+			a, b = b, a
+		}
+		p.Tris = append(p.Tris, [3]uint32{local(mi, a), local(mi, b), local(mi, c)})
 	}
 	out := prims[:0]
 	for _, p := range prims {
-		if len(p.Tris) == 0 {
-			continue
+		if len(p.Tris) > 0 {
+			out = append(out, p)
 		}
-		for _, c := range p.Colors {
-			if c[3] < 250 {
-				p.Blend = true
-				break
-			}
-		}
-		out = append(out, p)
 	}
 	return out
 }
