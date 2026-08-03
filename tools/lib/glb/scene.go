@@ -30,6 +30,8 @@ type Scene struct {
 	samplers  []map[string]any
 	channels  []map[string]any
 	animSamp  []map[string]any
+	skins     []map[string]any
+	clips     []map[string]any
 	imageIdx  map[image.Image]int
 	roots     []int
 }
@@ -75,6 +77,7 @@ type Prim struct {
 	Tris      [][3]uint32
 
 	Image       image.Image
+	Joints      []uint8 // per-vertex joint index (single influence) for skinning
 	BaseColor   [4]float32
 	Unlit       bool
 	DoubleSided bool
@@ -100,6 +103,10 @@ func (s *Scene) AddMesh(node int, name string, prims []Prim) error {
 		}
 		if p.Colors != nil {
 			attrs["COLOR_0"] = s.b.addColors(p.Colors)
+		}
+		if p.Joints != nil {
+			attrs["JOINTS_0"] = s.addJoints(p.Joints)
+			attrs["WEIGHTS_0"] = s.addUnitWeights(len(p.Joints))
 		}
 		idx := make([]uint32, 0, len(p.Tris)*3)
 		for _, t := range p.Tris {
@@ -263,16 +270,49 @@ func (s *Scene) Write(path, sceneName string) error {
 	if unlit {
 		doc["extensionsUsed"] = []string{"KHR_materials_unlit"}
 	}
+	anims := s.clips
 	if len(s.channels) > 0 {
-		doc["animations"] = []map[string]any{{
+		anims = append([]map[string]any{{
 			"name": "banner", "channels": s.channels, "samplers": s.animSamp,
-		}}
+		}}, anims...)
+	}
+	if len(anims) > 0 {
+		doc["animations"] = anims
+	}
+	if len(s.skins) > 0 {
+		doc["skins"] = s.skins
 	}
 	data, err := pack(doc, s.b.bin.Bytes())
 	if err != nil {
 		return err
 	}
 	return os.WriteFile(path, data, 0o644)
+}
+
+// addJoints writes a VEC4 ubyte JOINTS_0 accessor (single influence).
+func (s *Scene) addJoints(j []uint8) int {
+	buf := make([]byte, 4*len(j))
+	for i, v := range j {
+		buf[i*4] = v
+	}
+	vi := s.b.addView(buf)
+	s.b.accessors = append(s.b.accessors, accessor{
+		BufferView: vi, ComponentType: 5121, Count: len(j), Type: "VEC4",
+	})
+	return len(s.b.accessors) - 1
+}
+
+// addUnitWeights writes a VEC4 float WEIGHTS_0 accessor of {1,0,0,0}.
+func (s *Scene) addUnitWeights(n int) int {
+	buf := make([]byte, 16*n)
+	for i := 0; i < n; i++ {
+		putF32(buf[i*16:], 1)
+	}
+	vi := s.b.addView(buf)
+	s.b.accessors = append(s.b.accessors, accessor{
+		BufferView: vi, ComponentType: 5126, Count: n, Type: "VEC4",
+	})
+	return len(s.b.accessors) - 1
 }
 
 func putF32(b []byte, v float32) {

@@ -1,7 +1,15 @@
 {
+ "animations": [
+  {
+   "clip": "ndi-idle",
+   "id": "ndi-idle",
+   "loop": "loop"
+  }
+ ],
  "format": "retro-x",
  "model": "ndi-logo.glb",
  "name": "Naughty Dog logo",
+ "skinnedClone": true,
  "type": "model3d",
  "version": 1
 }

@@ -345,3 +345,57 @@ texture down by one).
 In the Studio: the two title logos, the Naughty Dog logo, and Gol and
 Maia from the intro cutscene. Open next: Part V joint animations (the
 art groups' joints + joint-anim-compressed) and the cutscene cameras.
+
+## Part V — Skeletons and joint animations
+
+The art group carries the skeleton and its animations alongside the merc
+meshes:
+
+- **joint** (80 bytes): `{name, number, parent joint|#f, bind 4×4}`. The
+  bind field is the INVERSE bind pose (world→bone) — byte-for-byte the
+  glTF `inverseBindMatrices` entry, since a row-major row-vector matrix
+  has the same 16-float layout as its column-major column-vector
+  transpose. An **art-joint-geo** lists its joints (count at basic+8,
+  pointers from +28); a group can carry several skeletons (the logo has
+  two: English and Japanese, 51 joints each).
+- **art-joint-anim**: basic `{+4 name, +8 joint count, +40 →control}`;
+  **joint-anim-compressed-control** = `{u32 numFrames, u32 fixedQWC, u32
+  frameQWC, →fixed block, numFrames × →frame block}`.
+- The **fixed block** opens with a 64-byte header: words +0..52 hold one
+  4-bit mask per joint (8 per word, low nibble first), +56 the joint
+  count (excluding two leading "matrix joints" — align and prejoint,
+  which decode as full 4×4s gated by the flag bits at +60). Stream
+  offsets `{+64,+68,+72}` (relative to +80) name three streams: "big"
+  (64-byte matrices / 8-byte quaternions / 8-byte float translation
+  pairs), words, and halfwords. A **frame block** has the same three
+  offsets at `{+0,+4,+8}` relative to +16.
+- Nibble bits: 1 = translation animated, 2 = quaternion animated, 4 =
+  scale animated, 8 = translation stored as float32×3 (else int16×3 in
+  4-unit steps, the ×4 baked into the decompressor's weight vector).
+  Quaternions are int16 Q1.15 (with hemisphere sign-fixing on
+  accumulate), scales int16 Q4.12. Animated components stream per frame,
+  fixed ones once — the same nibble drives complementary handlers in
+  `decompress-fixed-data-to-accumulator` (0x68AACC) and
+  `decompress-frame-data-to-accumulator` (0x68A46C), whose 16-entry
+  dispatch tables `make-joint-jump-tables` (0x689644) builds in
+  scratchpad. In the big stream, float translations precede the
+  quaternion.
+- Skinning: the merc vertex's matrix byte (lump q0.x) addresses the bone
+  palette — `addr = byte & 0x7F` through the running MatXfer dest map
+  (uploads persist across fragments), palette index − 1 = joint number,
+  and `0xFF` reuses the previous vertex's matrix (the loaded rows simply
+  stay). Merc positions scale into joint space by the merc-ctrl +28
+  float. Anim quaternions match the bind-locals' quaternions in the same
+  convention (verified: the 1-frame idle anims reproduce the bind-local
+  rotations exactly on rigid joints, translations within the ±4-unit
+  quantization).
+
+`extract/merc/anim.go` and `skin.go` implement all of this; the decode's
+desync detector is that every quaternion of every frame lands unit-norm
+(it does, on all 6 anims of the four groups — the logo's 31-frame intro
+and loop animations included). The Studio GLBs now ship glTF skins and
+animation clips: the title logos play their intro/loop animations, and
+Gol and Maia stand in their idle poses.
+
+Open next: the STR-spooled cutscene animations (ndi-intro, the evilbro/
+evilsis intro performance) and the cutscene cameras (logo-cam, ndi-cam).

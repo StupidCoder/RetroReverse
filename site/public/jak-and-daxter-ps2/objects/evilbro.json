@@ -1,7 +1,15 @@
 {
+ "animations": [
+  {
+   "clip": "evilbro-idle",
+   "id": "evilbro-idle",
+   "loop": "loop"
+  }
+ ],
  "format": "retro-x",
  "model": "evilbro.glb",
  "name": "Gol (intro cutscene)",
+ "skinnedClone": true,
  "type": "model3d",
  "version": 1
 }

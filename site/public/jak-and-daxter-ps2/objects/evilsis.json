@@ -1,7 +1,15 @@
 {
+ "animations": [
+  {
+   "clip": "evilsis-idle",
+   "id": "evilsis-idle",
+   "loop": "loop"
+  }
+ ],
  "format": "retro-x",
  "model": "evilsis.glb",
  "name": "Maia (intro cutscene)",
+ "skinnedClone": true,
  "type": "model3d",
  "version": 1
 }

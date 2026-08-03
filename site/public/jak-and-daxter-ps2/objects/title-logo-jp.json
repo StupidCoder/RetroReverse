@@ -1,7 +1,25 @@
 {
+ "animations": [
+  {
+   "clip": "logo-idle",
+   "id": "logo-idle",
+   "loop": "loop"
+  },
+  {
+   "clip": "logo-logo-intro-2-pre",
+   "id": "logo-logo-intro-2-pre",
+   "loop": "loop"
+  },
+  {
+   "clip": "logo-logo-loop-pre",
+   "id": "logo-logo-loop-pre",
+   "loop": "loop"
+  }
+ ],
  "format": "retro-x",
  "model": "title-logo-jp.glb",
  "name": "Title logo (Japan)",
+ "skinnedClone": true,
  "type": "model3d",
  "version": 1
 }

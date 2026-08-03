@@ -18,11 +18,35 @@ type Material struct {
 	Blend bool
 }
 
+// SkinTracker carries the running bone-palette state across a ctrl's
+// fragments: MatXfer uploads persist in VU memory, so vertices may address
+// matrices uploaded by earlier fragments; 0xFF reuses the previous
+// vertex's matrix.
+type SkinTracker struct {
+	dests map[byte]byte
+	last  uint8
+}
+
+func NewSkinTracker() *SkinTracker {
+	return &SkinTracker{dests: map[byte]byte{}}
+}
+
 // TexturedPrims builds one effect's primitives, one per adgif block, with
 // UVs (dest bytes / 128, REPEAT) and per-vertex colors (records, GS scale
 // 0x80 = 1.0). resolve maps a shader to its texture; a nil Image falls
 // back to flat gold.
 func TexturedPrims(e *Effect, resolve func(ShaderRef) Material) []glb.Prim {
+	return texturedPrims(e, resolve, nil, 1)
+}
+
+// TexturedPrimsSkinned additionally fills per-vertex joint indices
+// (palette index - 1) and scales positions into joint space (the merc-ctrl
+// +28 scale).
+func TexturedPrimsSkinned(e *Effect, resolve func(ShaderRef) Material, tr *SkinTracker, posScale float32) []glb.Prim {
+	return texturedPrims(e, resolve, tr, posScale)
+}
+
+func texturedPrims(e *Effect, resolve func(ShaderRef) Material, tr *SkinTracker, posScale float32) []glb.Prim {
 	seq, shaders := EffectStream(e)
 
 	// effect-wide vertex tables
@@ -30,11 +54,17 @@ func TexturedPrims(e *Effect, resolve func(ShaderRef) Material) []glb.Prim {
 	var nrm [][3]float32
 	var uv [][2]float32
 	var col [][4]uint8
+	var jnt []uint8
 	for fi := range e.Fragments {
 		fr := &e.Fragments[fi]
 		cols := fr.Colors()
+		if tr != nil {
+			for _, m := range fr.Mats {
+				tr.dests[m.Dest] = m.Index
+			}
+		}
 		for i, v := range fr.Vertices() {
-			pos = append(pos, [3]float32{v.X, v.Y, v.Z})
+			pos = append(pos, [3]float32{v.X * posScale, v.Y * posScale, v.Z * posScale})
 			nrm = append(nrm, normalize(float32(v.NX), float32(v.NY), float32(v.NZ)))
 			uv = append(uv, [2]float32{v.U, v.V})
 			c := [4]uint8{255, 255, 255, 255}
@@ -42,6 +72,16 @@ func TexturedPrims(e *Effect, resolve func(ShaderRef) Material) []glb.Prim {
 				c = [4]uint8{gs(cols[i][0]), gs(cols[i][1]), gs(cols[i][2]), gs(cols[i][3])}
 			}
 			col = append(col, c)
+			if tr != nil {
+				j := tr.last
+				if v.Mat != 0xFF {
+					if idx, ok := tr.dests[v.Mat&0x7F]; ok && idx > 0 {
+						j = idx - 1
+					}
+				}
+				tr.last = j
+				jnt = append(jnt, j)
+			}
 		}
 	}
 
@@ -73,6 +113,9 @@ func TexturedPrims(e *Effect, resolve func(ShaderRef) Material) []glb.Prim {
 		p.Normals = append(p.Normals, nrm[v])
 		p.UVs = append(p.UVs, uv[v])
 		p.Colors = append(p.Colors, col[v])
+		if jnt != nil {
+			p.Joints = append(p.Joints, jnt[v])
+		}
 		remap[mi][v] = li
 		return li
 	}

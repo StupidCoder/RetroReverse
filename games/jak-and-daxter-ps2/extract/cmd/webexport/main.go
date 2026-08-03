@@ -14,6 +14,7 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -68,6 +69,12 @@ func (l *level) resolve(s merc.ShaderRef) merc.Material {
 
 // dgoEntry returns the named v4 (data) entry — archives may also carry a v3
 // code object under the same name (INT.DGO's evilbro does).
+func u32of(b []byte, o uint32) uint32 {
+	return uint32(b[o]) | uint32(b[o+1])<<8 | uint32(b[o+2])<<16 | uint32(b[o+3])<<24
+}
+
+func float32frombits(v uint32) float32 { return math.Float32frombits(v) }
+
 func dgoEntry(d *goalobj.DGO, name string) []byte {
 	for _, e := range d.Entries {
 		if e.Name == name && len(e.Data) >= 12 &&
@@ -142,17 +149,20 @@ func main() {
 		return l
 	}
 
-	// findCtrls locates every merc-ctrl basic in a linked object via the
+	// findTyped locates basics of a named type in a linked object via the
 	// relocation report's type-word patches.
-	findCtrls := func(rep *goalobj.LinkReport) []uint32 {
+	findTyped := func(rep *goalobj.LinkReport, typeName string) []uint32 {
 		var out []uint32
 		for off, name := range rep.SymbolRef {
-			if name == "merc-ctrl" {
+			if name == typeName {
 				out = append(out, off+4)
 			}
 		}
 		sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
 		return out
+	}
+	findCtrls := func(rep *goalobj.LinkReport) []uint32 {
+		return findTyped(rep, "merc-ctrl")
 	}
 
 	type assetOut struct{ id, name, group string }
@@ -178,16 +188,38 @@ func main() {
 		if ctrlIdx >= 0 {
 			ctrls = ctrls[ctrlIdx : ctrlIdx+1]
 		}
+		var clipNames []string
+		jointType := tab.Syms["joint"].Value
+		geoType := tab.Syms["art-joint-geo"].Value
+		animType := tab.Syms["art-joint-anim"].Value
+		geos := findTyped(rep, "art-joint-geo")
+		_ = geoType
 		scene := glb.NewScene()
 		for ci, off := range ctrls {
 			c, err := merc.Parse(obj, off)
 			check(err)
 			node := scene.AddNode(fmt.Sprintf("%s-%d", entry, ci), -1,
 				[3]float32{}, [4]float32{0, 0, 0, 1}, [3]float32{1, 1, 1})
+			// skeleton: geo i pairs with ctrl i
+			var joints []merc.Joint
+			gi := ci
+			if ctrlIdx >= 0 {
+				gi = ctrlIdx
+			}
+			if gi < len(geos) {
+				joints = merc.GeoJoints(obj, geos[gi], jointType)
+			}
+			tr := merc.NewSkinTracker()
+			scale := float32frombits(u32of(obj, off+28))
 			var prims []glb.Prim
 			want, got := 0, 0
 			for i := range c.Effects {
-				ps := merc.TexturedPrims(&c.Effects[i], lv.resolve)
+				var ps []glb.Prim
+				if len(joints) > 0 {
+					ps = merc.TexturedPrimsSkinned(&c.Effects[i], lv.resolve, tr, scale)
+				} else {
+					ps = merc.TexturedPrims(&c.Effects[i], lv.resolve)
+				}
 				want += c.Effects[i].TriCount
 				for _, p := range ps {
 					got += len(p.Tris)
@@ -198,12 +230,81 @@ func main() {
 				fmt.Fprintf(os.Stderr, "webexport: %s ctrl %d: %d tris vs records' %d\n", entry, ci, got, want)
 			}
 			check(scene.AddMesh(node, fmt.Sprintf("%s-%d", entry, ci), prims))
+			if len(joints) == 0 {
+				continue
+			}
+			// joint nodes: local bind TRS; glTF ibm = transpose(Bind)
+			nodeIDs := make([]int, len(joints))
+			for j, jt := range joints {
+				world := merc.Mat4(jt.Bind).Inverse()
+				local := world
+				parent := -1
+				if jt.Parent >= 0 {
+					local = world.Mul(merc.Mat4(joints[jt.Parent].Bind))
+					parent = nodeIDs[jt.Parent]
+				}
+				t, q, s := local.TRS()
+				nodeIDs[j] = scene.AddNode(jt.Name, parent, t, q, s)
+			}
+			// A row-major row-vector matrix has the same 16-float layout as
+			// its column-major column-vector transpose: the Bind bytes ARE
+			// the glTF inverse-bind matrix.
+			ibm := make([][16]float32, len(joints))
+			for j, jt := range joints {
+				ibm[j] = jt.Bind
+			}
+			skin := scene.AddSkin(nodeIDs, ibm)
+			scene.SetNodeSkin(node, skin)
+			// animation clips (all anims whose joint count matches)
+			for _, ap := range merc.FindAnims(obj, animType) {
+				a, err := merc.DecodeJointAnim(obj, ap)
+				if err != nil || a.NumJoints != len(joints) {
+					continue
+				}
+				clip := scene.NewClip(a.Name)
+				dup := false
+				for _, n := range clipNames {
+					if n == a.Name {
+						dup = true
+					}
+				}
+				if !dup {
+					clipNames = append(clipNames, a.Name)
+				}
+				times := make([]float32, len(a.Frames))
+				for f := range times {
+					times[f] = float32(f) / 30
+				}
+				for j := 2; j < len(joints); j++ {
+					qs := make([][4]float32, len(a.Frames))
+					ts := make([][3]float32, len(a.Frames))
+					ss := make([][3]float32, len(a.Frames))
+					for f, fr := range a.Frames {
+						qs[f] = fr[j].Quat
+						ts[f] = fr[j].Trans
+						ss[f] = fr[j].Scale
+					}
+					clip.Rotations(nodeIDs[j], times, qs)
+					clip.Vec3s(nodeIDs[j], "translation", times, ts)
+					clip.Vec3s(nodeIDs[j], "scale", times, ss)
+				}
+				clip.Finish()
+			}
 		}
 		check(scene.Write(filepath.Join(*site, "objects", fileName+".glb"), fileName))
-		writeJSON(filepath.Join(*site, "objects", fileName+".json"), map[string]any{
+		objDoc := map[string]any{
 			"format": "retro-x", "version": 1, "type": "model3d",
 			"name": title, "model": fileName + ".glb",
-		})
+		}
+		if len(clipNames) > 0 {
+			objDoc["skinnedClone"] = true
+			var anims []any
+			for _, n := range clipNames {
+				anims = append(anims, map[string]any{"id": n, "clip": n, "loop": "loop"})
+			}
+			objDoc["animations"] = anims
+		}
+		writeJSON(filepath.Join(*site, "objects", fileName+".json"), objDoc)
 		assets = append(assets, assetOut{fileName, title, group})
 		fmt.Printf("webexport: %s (%s, %d ctrl(s))\n", fileName, entry, len(ctrls))
 	}
