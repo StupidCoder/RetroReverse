@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Big 1up number",
- "model": "big_1up_number.glb"
+ "model": "big_1up_number.glb",
+ "billboard": "yaw"
 }

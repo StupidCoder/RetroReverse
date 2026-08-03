@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Power up item",
- "model": "power_up_item.glb"
+ "model": "power_up_item.glb",
+ "billboard": "yaw"
 }

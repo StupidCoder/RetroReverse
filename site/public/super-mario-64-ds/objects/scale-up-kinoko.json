@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Scale up kinoko",
- "model": "scale_up_kinoko.glb"
+ "model": "scale_up_kinoko.glb",
+ "billboard": "yaw"
 }

@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Snow ball",
- "model": "snow_ball.glb"
+ "model": "snow_ball.glb",
+ "billboard": "yaw"
 }

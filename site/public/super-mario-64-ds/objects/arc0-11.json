@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Arc0 11",
- "model": "arc0_11.glb"
+ "model": "arc0_11.glb",
+ "billboard": "yaw"
 }

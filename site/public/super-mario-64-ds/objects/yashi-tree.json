@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Yashi tree",
- "model": "yashi_tree.glb"
+ "model": "yashi_tree.glb",
+ "billboard": "yaw"
 }

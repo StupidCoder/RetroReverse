@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Bomb tree",
- "model": "bomb_tree.glb"
+ "model": "bomb_tree.glb",
+ "billboard": "yaw"
 }

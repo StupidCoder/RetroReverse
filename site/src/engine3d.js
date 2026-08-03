@@ -567,7 +567,13 @@ export class ObjectLibrary {
     const updates = [];
     if (doc.billboard === 'yaw') {
       updates.push((dt, camPos) => {
-        node.rotation.y = Math.atan2(camPos.x - node.position.x, camPos.z - node.position.z);
+        // Against the node's WORLD position: camPos is a world position, but
+        // node.position is local to the placement group that carries the
+        // transform (usually 0,0,0), so the old subtraction turned every
+        // billboard to face the world origin instead of the eye. Invisible
+        // from a distance, glaring once you can walk up to one.
+        const p = node.getWorldPosition(_wp);
+        node.rotation.y = Math.atan2(camPos.x - p.x, camPos.z - p.z);
       });
     }
     // material UV animation + flipbooks, replayed on the game's frame clock

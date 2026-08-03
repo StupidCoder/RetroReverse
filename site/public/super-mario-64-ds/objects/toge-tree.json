@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Toge tree",
- "model": "toge_tree.glb"
+ "model": "toge_tree.glb",
+ "billboard": "yaw"
 }

@@ -485,6 +485,7 @@ func exportModels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string) error {
 			Type: schema.ObjectModel3D, Name: name, Model: file,
 			SkinnedClone: len(clips) > 0,
 			Animations:   clipAnims(clips),
+			Billboard:    billboardMode(m),
 		}
 		b.AddObject(schema.Asset{ID: id, Name: name, Group: sec}, doc)
 		refs[m.Name] = id
@@ -571,6 +572,7 @@ func exportArchiveGLBs(ctx *cli.Context, ls *sm64ds.LevelSet, bindings map[int][
 		id := objectID(stem)
 		b.AddObject(schema.Asset{ID: id, Name: title(stem), Group: "Archive members"}, &schema.Object{
 			Type: schema.ObjectModel3D, Name: title(stem), Model: stem + ".glb",
+			Billboard: billboardMode(m),
 		})
 		refs[stem] = id
 		n++
@@ -1031,4 +1033,27 @@ func sign(v float64) float64 {
 		return -1
 	}
 	return 1
+}
+
+// billboardMode reports the Retro-X billboard mode for a model, from the
+// game's own data rather than the geometry's shape: the DS engine substitutes
+// the camera's rotation when it composes a bone whose flag word at +$3C has
+// bit 0 set (sm64ds/bmd.go). A model that is a SINGLE such bone is a
+// camera-facing sprite in its entirety — Bob-omb Battlefield's trees are one
+// two-triangle quad each — and turning the whole object is exactly what the
+// viewer's yaw billboard does.
+//
+// Models that billboard only PART of a deeper skeleton are left alone: the
+// GLB carries those per node, and swinging the whole object would be wrong.
+//
+// "yaw" is the only mode Retro-X has, and it matches what these sprites do on
+// hardware — SM64DS's trees stay upright when the camera looks down at them
+// rather than lying flat to face it. Whether bit 1 of the same flag word
+// selects a full camera-aligned billboard is not something our decode
+// establishes, and it is not guessed at here.
+func billboardMode(m *sm64ds.Model) string {
+	if len(m.Skel) == 1 && m.Skel[0].Billboard {
+		return "yaw"
+	}
+	return ""
 }

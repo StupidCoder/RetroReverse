@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Ar1 15",
- "model": "ar1_15.glb"
+ "model": "ar1_15.glb",
+ "billboard": "yaw"
 }

@@ -2,14 +2,25 @@
 // into the room as a tabletop model floating in front of the viewer: a metre
 // across by default, whatever the game's own units happen to be.
 //
-// The session does NOT scale the scene. It parents the stage camera into a
-// rig group that carries the position, yaw and uniform scale, so every world
-// coordinate in the document — fog distances, fly speed, route points,
-// cutscene camera keyframes — keeps meaning exactly what it meant before, and
-// leaving the session is one removal. three composes the rig for us
-// (cameraXR.matrixWorld = rig.matrixWorld · view.matrix, applied to the left
-// and right eye cameras too), so a rig scaled by 16 also scales the stereo
-// eye separation, which is what a world where 1 m = 16 units needs.
+// Two transforms do the work, and WHICH one carries the scale matters:
+//
+//   scene.scale  — metres per world unit, so the level reads a metre across.
+//   rig          — the camera's parent: position and yaw only, UNIT SCALE,
+//                  and deliberately NOT a child of the scene.
+//
+// The scale cannot live on the rig. three's setProjectionFromUnion builds the
+// frustum it culls against by measuring the IPD from cameraL/cameraR's
+// matrixWorld — world units — while taking near and the fov extents from the
+// projection matrices, which are metres. Under a rig scaled by 16 the IPD
+// comes out 16× too large, zOffset with it, and `near2 = near + zOffset` puts
+// the culling near plane at about half a metre: everything you lean toward
+// vanishes whole. Scaling the scene instead leaves the camera in metres,
+// which is the space three's XR path assumes.
+//
+// The rig is kept out of the scene graph for the same reason — as a child it
+// would inherit scene.scale and hand the camera a non-unit scale again. Being
+// parentless, its world matrix is its own, and _frame refreshes it each frame
+// before three reads it.
 //
 // There is no console on the headset, so every failure has to be legible on
 // the page itself: `status` reports what happened and survives session exit.
@@ -100,10 +111,10 @@ export class ARSession {
     stage.controls.enabled = false;
     stage.inputEnabled = false;
 
+    this._sceneScale = stage.scene.scale.clone();
     this.rig = new THREE.Group();
     this.rig.name = 'xr-rig';
-    stage.scene.add(this.rig);
-    this.rig.add(stage.camera);
+    this.rig.add(stage.camera); // parentless on purpose — see the note at the top
     // In a session the near/far planes are read in METRES and pushed to the
     // compositor as depthNear/depthFar, whatever the world units are.
     stage.camera.near = 0.02;
@@ -146,9 +157,13 @@ export class ARSession {
     this.session?.end().catch(() => {});
   }
 
-  // _frame runs once per XR frame, before the scene updaters. It does nothing
-  // at all once the diorama is placed.
+  // _frame runs once per XR frame, before the scene updaters and before the
+  // render. Beyond placing the diorama it keeps the rig's world matrix fresh:
+  // the rig has no parent, so scene.updateMatrixWorld() inside render will not
+  // reach it, and three reads parent.matrixWorld when it composes the eye
+  // cameras.
   _frame(frame) {
+    this.rig?.updateMatrixWorld(true);
     if (!this._place || !frame) return;
     const ref = this.stage.renderer.xr.getReferenceSpace();
     const pose = ref && frame.getViewerPose(ref);
@@ -157,8 +172,15 @@ export class ARSession {
       if (++this._waited === POSE_GIVE_UP) this.status('AR: no head pose — tracking not available');
       return;
     }
+    // Measure unscaled: contentBox reads world matrices, and on a recenter the
+    // scene already carries the previous fit's scale.
+    const scene = this.stage.scene;
+    scene.scale.set(1, 1, 1);
+    scene.updateMatrixWorld(true);
     const box = this.contentBox?.();
     if (!box || box.isEmpty()) {
+      scene.scale.copy(this._sceneScale);
+      scene.updateMatrixWorld(true);
       this._place = false;
       this.status('AR: nothing to place (empty content box)');
       return;
@@ -178,7 +200,10 @@ export class ARSession {
     const size = box.getSize(new THREE.Vector3());
     const centre = box.getCenter(new THREE.Vector3());
     const span = Math.max(size.x, size.z) || Math.max(size.y, 1);
-    const scale = span / this.targetSize; // world units per metre
+    const k = this.targetSize / span; // metres per world unit
+
+    scene.scale.setScalar(k);
+    scene.updateMatrixWorld(true);
 
     // Yaw so that the viewer's forward maps onto the document's establishing
     // direction: we need R·fwd = frontDir, and for horizontal unit vectors
@@ -190,17 +215,19 @@ export class ARSession {
     const rig = this.rig;
     rig.position.set(0, 0, 0);
     rig.quaternion.setFromAxisAngle(UP, yaw);
-    rig.scale.setScalar(scale);
+    rig.scale.set(1, 1, 1);
     rig.updateMatrixWorld(true);
-    // Solve the translation directly: with the rig at the origin its world
-    // matrix is R·S, so t = centre − R·S·at puts the reference-space point
-    // `at` exactly on the content's centre. Correct for any starting
-    // orientation and wherever the guardian happened to put the floor origin.
-    rig.position.copy(centre).sub(at.clone().applyMatrix4(rig.matrixWorld));
+    // Solve the translation directly. The rig maps reference space to world
+    // space, and the content's centre now sits at k·centre there, so with the
+    // rig at the origin (world matrix R) the answer is t = k·centre − R·at:
+    // the point `at`, a comfortable distance ahead of the head, lands exactly
+    // on the middle of the level. Correct for any starting orientation and
+    // wherever the guardian happened to put the floor origin.
+    rig.position.copy(centre).multiplyScalar(k).sub(at.clone().applyMatrix4(rig.matrixWorld));
     rig.updateMatrixWorld(true);
 
     this._place = false;
-    this._fit = `${fmt(size.x)}×${fmt(size.y)}×${fmt(size.z)} u · ${fmt(scale)} u/m · ${this.targetSize} m at ${this.distance} m`;
+    this._fit = `${fmt(size.x)}×${fmt(size.y)}×${fmt(size.z)} u · ${fmt(1 / k)} u/m · ${this.targetSize} m at ${this.distance} m`;
     this.status(`in AR · ${this._fit}`);
   }
 
@@ -213,9 +240,13 @@ export class ARSession {
     }
     stage.onXRFrame = null;
     if (this.rig) {
-      this.rig.remove(stage.camera);
-      stage.scene.remove(this.rig);
+      this.rig.remove(stage.camera); // the rig was never in the scene
       this.rig = null;
+    }
+    if (this._sceneScale) {
+      stage.scene.scale.copy(this._sceneScale);
+      stage.scene.updateMatrixWorld(true);
+      this._sceneScale = null;
     }
     stage.scene.background = this._bg;
     stage.scene.fog = this._fog;

@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Hs moon",
- "model": "hs_moon.glb"
+ "model": "hs_moon.glb",
+ "billboard": "yaw"
 }

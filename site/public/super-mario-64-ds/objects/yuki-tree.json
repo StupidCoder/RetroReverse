@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Yuki tree",
- "model": "yuki_tree.glb"
+ "model": "yuki_tree.glb",
+ "billboard": "yaw"
 }

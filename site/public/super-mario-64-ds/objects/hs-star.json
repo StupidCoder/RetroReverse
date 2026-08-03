@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Hs star",
- "model": "hs_star.glb"
+ "model": "hs_star.glb",
+ "billboard": "yaw"
 }

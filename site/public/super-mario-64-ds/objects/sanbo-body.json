@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Sanbo body",
- "model": "sanbo_body.glb"
+ "model": "sanbo_body.glb",
+ "billboard": "yaw"
 }

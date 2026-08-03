@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Bk billbord",
- "model": "bk_billbord.glb"
+ "model": "bk_billbord.glb",
+ "billboard": "yaw"
 }

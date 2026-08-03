@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Obj kumo",
- "model": "obj_kumo.glb"
+ "model": "obj_kumo.glb",
+ "billboard": "yaw"
 }

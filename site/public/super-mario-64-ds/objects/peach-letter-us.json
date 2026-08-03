@@ -3,5 +3,6 @@
  "version": 1,
  "type": "model3d",
  "name": "Peach letter US",
- "model": "peach_letter_US.glb"
+ "model": "peach_letter_US.glb",
+ "billboard": "yaw"
 }
