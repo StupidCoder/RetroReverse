@@ -67,7 +67,7 @@ function showLanding() {
   landing.hidden = false;
   $('gameTitle').textContent = '';
   for (const id of ['catSelect', 'assetSelect', 'variantSelect']) $(id).hidden = true;
-  for (const id of ['displayBtn', 'wireBtn', 'sunBtn', 'filterBtn', 'infoBtn']) $(id).hidden = true;
+  for (const id of ['displayBtn', 'wireBtn', 'sunBtn', 'filterBtn', 'xrBtn', 'infoBtn']) $(id).hidden = true;
 
   landing.innerHTML = '';
   const head = document.createElement('div');
@@ -232,6 +232,8 @@ function buildTopbar(game, asset, params) {
   $('wireBtn').hidden = true;
   $('sunBtn').hidden = true;
   $('displayBtn').hidden = true;
+  $('xrBtn').hidden = true;
+  $('xrBtn').classList.remove('on');
   requestAnimationFrame(updateTopbarFades);
 }
 
@@ -284,6 +286,32 @@ function wireViewButtons(game, view) {
     if (sunOn) view.setSunlight(true);
     sb.classList.toggle('on', sunOn);
     sb.onclick = () => { sunOn = !sunOn; view.setSunlight(sunOn); sb.classList.toggle('on', sunOn); };
+  }
+
+  // AR: the button only exists where immersive-ar does, and the probe is
+  // async — a navigation can beat it, so re-check that this view is still the
+  // one on screen before un-hiding.
+  const xb = $('xrBtn');
+  if (view.xr) {
+    view.xr.supported.then((ok) => {
+      if (!ok || current?.view !== view) return;
+      xb.hidden = false;
+      requestAnimationFrame(updateTopbarFades);
+      xb.onclick = () => {
+        if (view.xr.active) view.xr.exit();
+        else view.xr.enter().catch((e) => toast(`AR: ${e.message || e.name}`));
+      };
+      view.xr.onChange = (on) => {
+        xb.classList.toggle('on', on);
+        // The screen filter cannot follow into a session: setNative's resize
+        // is a no-op while presenting, and screenfx captures the canvas, which
+        // no longer receives the frame.
+        $('filterBtn').disabled = on;
+        if (!screenFx || !filterOn) return;
+        screenFx.setEnabled(!on);
+        view.setNative?.(on ? null : game.display.native);
+      };
+    });
   }
 
   const db = $('displayBtn');

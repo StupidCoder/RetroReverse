@@ -48,31 +48,65 @@ export class Stage {
     this.controls.update();
 
     this.renderer = renderer;
-    this.updaters = new Set();  // fn(dt, camPos, elapsed)
+    // XR is armed on every stage but inert until a session starts (three only
+    // consults renderer.xr when isPresenting). setAnimationLoop rather than a
+    // hand-rolled rAF because three swaps the window's rAF for the XR
+    // session's one on sessionstart and back on sessionend, which a
+    // requestAnimationFrame loop cannot do — it would keep running alongside
+    // the session and render every frame twice.
+    renderer.xr.enabled = true;
+    this.updaters = new Set();  // fn(dt, camPosWorld, elapsed)
     this.overrideRender = null; // cutscene player takes the frame over
+    this.onXRFrame = null;      // ARSession reads the head pose from the XRFrame
+    this.inputEnabled = true;   // false parks FlyCam/PanInput (an XR session drives the camera)
     this._clock = new THREE.Clock();
-    this._raf = 0;
+    this._camWorld = new THREE.Vector3();
     this._tick = this._tick.bind(this);
     this._ro = new ResizeObserver(() => this._resize());
     this._ro.observe(el);
     this._resize();
-    this._raf = requestAnimationFrame(this._tick);
+    renderer.setAnimationLoop(this._tick);
     this.elapsed = 0;
   }
 
   get canvas() { return this.renderer.domElement; }
 
-  _tick() {
-    this._raf = requestAnimationFrame(this._tick);
+  _tick(time, frame) {
+    // three's animation loop schedules the NEXT frame after the callback
+    // returns, where the old hand-rolled rAF scheduled it first — so an
+    // exception in a data-driven updater would now stop the viewer dead
+    // instead of costing one frame. Keep the old failure mode.
+    try {
+      this._frame(frame);
+    } catch (e) {
+      console.error('stage frame', e);
+    }
+  }
+
+  _frame(frame) {
+    const xr = this.renderer.xr.isPresenting;
     const dt = Math.min(0.1, this._clock.getDelta());
     this.elapsed += dt;
-    if (this.overrideRender) { this.overrideRender(dt); return; }
-    this.controls.update();
-    for (const u of this.updaters) u(dt, this.camera.position, this.elapsed);
+    if (this.overrideRender && !xr) { this.overrideRender(dt); return; }
+    // OrbitControls.update() has no `enabled` guard — only its event handlers
+    // do — so it must not be CALLED in a session: it rewrites camera.position
+    // from its own spherical every frame, which both fights the head pose and
+    // leaves its internal state poisoned for the desktop view on exit.
+    if (xr) this.onXRFrame?.(frame);
+    else this.controls.update();
+    // World position, not camera.position: under an XR rig the camera is a
+    // child and its local position is the head pose in metres. Identical to
+    // camera.position for the parentless desktop camera.
+    const camPos = this.camera.getWorldPosition(this._camWorld);
+    for (const u of this.updaters) u(dt, camPos, this.elapsed);
     this.renderer.render(this.scene, this.camera);
   }
 
   _resize() {
+    // WebGLRenderer.setSize() warns and no-ops while presenting; the XR
+    // manager owns the drawing buffer for the session's duration and restores
+    // the old size itself on exit (we re-derive the aspect there).
+    if (this.renderer.xr.isPresenting || this._disposed) return;
     const w = this.el.clientWidth, h = this.el.clientHeight;
     if (!w || !h) return;
     if (this.native) {
@@ -133,8 +167,48 @@ export class Stage {
     this.controls.update();
   }
 
+  // cameraSnapshot/cameraRestore bracket anything that drives the camera
+  // itself (an XR session; a cutscene would qualify too). An XR session
+  // OVERWRITES position/quaternion/scale/fov/zoom and both projection
+  // matrices every frame from the head pose and never puts them back.
+  cameraSnapshot() {
+    const c = this.camera;
+    return {
+      position: c.position.clone(),
+      quaternion: c.quaternion.clone(),
+      up: c.up.clone(),
+      near: c.near, far: c.far, zoom: c.zoom,
+      fov: c.fov, aspect: c.aspect,
+      ortho: c.isOrthographicCamera ? { l: c.left, r: c.right, t: c.top, b: c.bottom } : null,
+      target: this.controls.target.clone(),
+      controlsEnabled: this.controls.enabled,
+    };
+  }
+
+  cameraRestore(s) {
+    if (!s) return;
+    const c = this.camera;
+    c.position.copy(s.position);
+    c.quaternion.copy(s.quaternion);
+    c.up.copy(s.up);
+    c.near = s.near; c.far = s.far; c.zoom = s.zoom;
+    if (s.fov !== undefined) c.fov = s.fov;
+    if (s.aspect !== undefined) c.aspect = s.aspect;
+    if (s.ortho) { c.left = s.ortho.l; c.right = s.ortho.r; c.top = s.ortho.t; c.bottom = s.ortho.b; }
+    c.updateProjectionMatrix();
+    this.controls.target.copy(s.target);
+    this.controls.enabled = s.controlsEnabled;
+    this._resize();          // the XR manager restored the buffer size, not the aspect
+    this.controls.update();
+  }
+
   dispose() {
-    cancelAnimationFrame(this._raf);
+    // A navigation mid-session must not leave the session alive with a dead
+    // renderer behind it. The session's async teardown can land after this,
+    // so _disposed parks the restore path it triggers.
+    this._disposed = true;
+    this.renderer.xr.getSession()?.end().catch(() => {});
+    this.renderer.setAnimationLoop(null);
     this._ro.disconnect();
     this.renderer.dispose();
     this.renderer.domElement.remove();
@@ -179,6 +253,7 @@ export class FlyCam {
     this._onPtrUp = (e) => this._ptrs.delete(e.pointerId);
     this._onWheel = (e) => {
       e.preventDefault();
+      if (stage.inputEnabled === false) return;
       const cam = stage.camera, target = controls.target;
       const fwd = target.clone().sub(cam.position).normalize();
       const step = -(e.deltaY / 100) * this.speed * DOLLY_STEP * (this.shift ? 2.5 : 1);
@@ -192,7 +267,7 @@ export class FlyCam {
     cv.addEventListener('wheel', this._onWheel, { passive: false });
     this._onKeyDown = (e) => {
       this.shift = e.shiftKey;
-      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.altKey || e.ctrlKey || e.metaKey || stage.inputEnabled === false) return;
       if (KEYS.has(e.code)) { this.keys.add(e.code); e.preventDefault(); }
     };
     this._onKeyUp = (e) => { this.shift = e.shiftKey; this.keys.delete(e.code); };
@@ -209,7 +284,7 @@ export class FlyCam {
   // _look rotates the camera in place: dx/dy in pixels, first-person
   // convention (drag right = look right, drag down = look down).
   _look(dx, dy) {
-    if (!dx && !dy) return;
+    if ((!dx && !dy) || this.stage.inputEnabled === false) return;
     const cam = this.stage.camera, target = this.stage.controls.target;
     const off = target.clone().sub(cam.position);
     if (dx) off.applyAxisAngle(UP, -dx * LOOK_SENS);
@@ -223,6 +298,10 @@ export class FlyCam {
   }
 
   update(dt) {
+    // While an XR session owns the camera the fly controls are parked: their
+    // writes to camera.position/controls.target would be silently overwritten
+    // by the head pose and would corrupt the pose restored on exit.
+    if (this.stage.inputEnabled === false) { this.keys.clear(); return; }
     const k = this.keys;
     const l = this.sticks?.l || ZERO, r = this.sticks?.r || ZERO;
     const mf = (k.has('KeyW') ? 1 : 0) - (k.has('KeyS') ? 1 : 0) - l.y;

@@ -173,6 +173,9 @@ body {
   font-size: 12px; color: var(--dim); text-shadow: 0 1px 2px #000;
   pointer-events: none; max-width: 70vw;
 }
+/* AR status: sits above the control hint. The headset has no console, so this
+   line is where an AR failure has to be readable. */
+.hud.xr-status { bottom: 26px; color: var(--accent); }
 
 /* ---- cutscene transport ---- */
 .transport {

@@ -7,6 +7,7 @@
 import { THREE, Stage, FlyCam, ObjectLibrary, loadGLB, applyWireframe, applyTexFilter, applyTransform, flyHint } from './engine3d.js';
 import { CutscenePlayer } from './cutscene.js';
 import { PanInput } from './pancam.js';
+import { ARSession, arSupported } from './xr.js';
 
 export async function mount(ctx, doc) {
   const { stage: el, game, asset, params } = ctx;
@@ -89,7 +90,7 @@ export async function mount(ctx, doc) {
         }
       },
     });
-    stage.updaters.add((dt) => panInput.step(dt));
+    stage.updaters.add((dt) => { if (stage.inputEnabled) panInput.step(dt); });
     // Grabbing the stage arrests a glide in progress.
     stage.canvas.addEventListener('pointerdown', () => panInput.stop());
   }
@@ -115,12 +116,13 @@ export async function mount(ctx, doc) {
       const group = new THREE.Group();
       group.add(gltf.scene);
       group.visible = ly.visible !== false;
+      group.userData.layer = ly; // role/attach/mode — read by contentBox() and AR mode
       applyLayerLook(gltf.scene, ly);
       stage.scene.add(group);
       roots.push(group);
       layerNodes.set(ly.id, { group, def: ly });
       if (ly.attach === 'camera' || ly.attach === 'cameraYaw') {
-        stage.updaters.add(() => group.position.copy(stage.camera.position));
+        stage.updaters.add((dt, camPos) => group.position.copy(camPos));
       }
     }));
     for (const ly of doc.scene.layers) {
@@ -279,6 +281,10 @@ export async function mount(ctx, doc) {
   let down = null, lastTap = 0;
   stage.canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; });
   stage.canvas.addEventListener('pointerup', (e) => {
+    // In an XR session the canvas is not what the viewer is looking at, and a
+    // dom-overlay can still deliver pointer events — an infocard opened behind
+    // the immersive view is invisible and unclosable.
+    if (stage.renderer.xr.isPresenting) return;
     if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;
     const now = performance.now();
     const dbl = now - lastTap < 320;
@@ -421,18 +427,100 @@ export async function mount(ctx, doc) {
     return dir + ref;
   }
 
-  window.__rx3 = { stage, placementById, layerNodes, doc, get player() { return player; } }; // debug
+  // ---- AR (diorama) mode ----------------------------------------------------------
+  // The level goes into the room as a tabletop model. There is no console on a
+  // headset, so the status line is the only channel a failure has.
+  const param = (k) => params.get?.(k) ?? params[k];
+  const num = (v, d) => { const n = parseFloat(v); return Number.isFinite(n) && n > 0 ? n : d; };
+
+  const xrStatus = document.createElement('div');
+  xrStatus.className = 'hud xr-status';
+  xrStatus.hidden = true;
+  el.appendChild(xrStatus);
+  const setStatus = (t) => { xrStatus.hidden = false; xrStatus.textContent = t; };
+
+  // contentBox measures what the diorama should be fitted to. The skybox has
+  // to be excluded or the fit is meaningless: SM64DS's vr01.glb is a
+  // ~118,000-unit dome around a 16-unit level, and Box3 does not skip
+  // invisible objects, so the hidden collision shell has to go too.
+  function contentBox() {
+    const box = new THREE.Box3();
+    for (const r of roots) {
+      const ly = r.userData.layer;
+      if (ly && (ly.role === 'sky' || ly.role === 'collision' || ly.attach === 'camera' || ly.attach === 'cameraYaw')) continue;
+      if (!r.visible) continue;
+      box.expandByObject(r);
+    }
+    return box;
+  }
+
+  // The direction the document's own opening shot looks along, flattened: the
+  // diorama turns so you are standing where that camera stood. Bob-omb
+  // Battlefield's is [0.1,12.9,-17.5] → [0.1,2.9,-0.3], i.e. looking +Z.
+  function establishingDir() {
+    const d = new THREE.Vector3();
+    if (cam.pos && cam.target) d.fromArray(cam.target).sub(new THREE.Vector3().fromArray(cam.pos));
+    d.y = 0;
+    return d.lengthSq() > 1e-9 ? d.normalize() : new THREE.Vector3(0, 0, 1);
+  }
+
+  let arSaved = null;
+  function setARScene(on) {
+    if (on) {
+      // In AR the room is the backdrop; the game's sky belongs to the game's
+      // world. (A future VR mode standing inside the level at 1:1 would want
+      // it back — hence save/restore rather than a one-way hide.)
+      arSaved = new Map();
+      for (const { group, def } of layerNodes.values()) {
+        if (def.role !== 'sky' && def.attach !== 'camera' && def.attach !== 'cameraYaw') continue;
+        arSaved.set(group, group.visible);
+        group.visible = false;
+      }
+      player?.dispose();
+      for (const b of scriptBtns) b.disabled = true;
+      hud.hidden = true;
+    } else {
+      for (const [g, v] of arSaved || []) g.visible = v;
+      arSaved = null;
+      for (const b of scriptBtns) b.disabled = false;
+      hud.hidden = false;
+    }
+  }
+
+  // Ortho stages (the pan2d levels) have no place in a headset.
+  const ar = stage.camera.isPerspectiveCamera
+    ? new ARSession({
+      stage,
+      contentBox,
+      targetSize: num(param('xrsize'), 1.0),
+      distance: num(param('xrdist'), 1.5),
+      frontDir: establishingDir(),
+      onStatus: setStatus,
+      onScene: setARScene,
+    })
+    : null;
+  // ?xrdebug=1 answers "why is there no XR button?" without a console.
+  if (param('xrdebug')) {
+    arSupported.then((ok) => setStatus(
+      ok ? 'AR: supported' : navigator.xr ? 'AR: immersive-ar not supported by this browser' : 'AR: no navigator.xr (needs a secure origin)',
+    ));
+  }
+
+  window.__rx3 = { stage, placementById, layerNodes, doc, ar, contentBox, get player() { return player; } }; // debug
 
   return {
     unmount() {
+      ar?.exit();
       player?.dispose();
       fly?.dispose();
       panInput?.dispose();
       stage.dispose();
       closeCard();
       hud.remove();
+      xrStatus.remove();
       el.querySelector('.side-list')?.remove();
     },
+    xr: ar,
     sources: () => [stage.canvas],
     setWireframe(on) { for (const r of roots) applyWireframe(r, on); },
     setVariant(id) { activeVariant = id; applyVariant(); },
