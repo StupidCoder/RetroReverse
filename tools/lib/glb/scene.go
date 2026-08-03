@@ -78,6 +78,7 @@ type Prim struct {
 
 	Image       image.Image
 	Joints      []uint8 // per-vertex joint index (single influence) for skinning
+	Layer       int     // draw-order layer (source submission order); >0 emits extras.layer
 	BaseColor   [4]float32
 	Unlit       bool
 	DoubleSided bool
@@ -142,6 +143,9 @@ func (s *Scene) addMaterial(p *Prim) int {
 	mat := map[string]any{
 		"pbrMetallicRoughness": pbr,
 		"doubleSided":          p.DoubleSided,
+	}
+	if p.Layer > 0 {
+		mat["extras"] = map[string]any{"layer": p.Layer}
 	}
 	if p.Unlit {
 		mat["extensions"] = map[string]any{"KHR_materials_unlit": struct{}{}}

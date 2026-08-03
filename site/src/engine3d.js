@@ -493,6 +493,15 @@ export class ObjectLibrary {
           m.depthWrite = false;
           m.needsUpdate = true;
         }
+        if (Number.isFinite(m.userData?.layer) && m.userData.layer > 0) {
+          // Source submission order: on the original hardware later coplanar
+          // draws win the depth tie, so pull each successive material layer
+          // slightly toward the camera to keep decal stacks from z-fighting.
+          m.polygonOffset = true;
+          m.polygonOffsetFactor = -m.userData.layer;
+          m.polygonOffsetUnits = -2 * m.userData.layer;
+          m.needsUpdate = true;
+        }
         if (m.userData?.blend === 'alpha') {
           // The source hardware's translucent pass: alpha blend with depth
           // writes off (Luigi's Mansion draws its flashlight cone this way).

@@ -14,6 +14,7 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	"image/color"
 	"math"
 	"os"
 	"path/filepath"
@@ -53,18 +54,55 @@ func (l *level) resolve(s merc.ShaderRef) merc.Material {
 	}
 	img, err := pg.Decode(&pg.Textures[idx], 0)
 	check(err)
-	blend := false
-	b := img.Bounds()
-	for y := b.Min.Y; y < b.Max.Y && !blend; y++ {
+	out, blend := gsAlphaPolicy(img)
+	l.cache[id] = texEntry{out, blend}
+	return merc.Material{Image: out, Blend: blend}
+}
+
+// gsAlphaPolicy converts a texture's GS alpha channel (0x80 = 1.0) to GLB
+// semantics. The standard merc path draws with ABE off (the chain's GIF
+// tag PRIM field is 0x3C — blending disabled), so most alpha channels are
+// masks/data, not coverage: a channel that is all-opaque-ish, or that
+// would erase nearly the whole texture, exports opaque. Channels with a
+// real transparent population export as cutout (MASK) or, when they carry
+// a genuine gradient, as BLEND (the alpha-bucket effects: banners, soft
+// wisps).
+func gsAlphaPolicy(src image.Image) (image.Image, bool) {
+	b := src.Bounds()
+	out := image.NewRGBA(b)
+	total, zeros, mids := 0, 0, 0
+	for y := b.Min.Y; y < b.Max.Y; y++ {
 		for x := b.Min.X; x < b.Max.X; x++ {
-			if _, _, _, a := img.At(x, y).RGBA(); a < 0xFA00 {
-				blend = true
-				break
+			r, g, bl, a := src.At(x, y).RGBA()
+			a8 := int(a >> 8)
+			a2 := a8 * 2 // GS 0x80 = 1.0
+			if a2 > 255 {
+				a2 = 255
 			}
+			total++
+			if a2 < 16 {
+				zeros++
+			} else if a2 < 240 {
+				mids++
+			}
+			out.SetRGBA(x, y, color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(bl >> 8), uint8(a2)})
 		}
 	}
-	l.cache[id] = texEntry{img, blend}
-	return merc.Material{Image: img, Blend: blend}
+	zf := float64(zeros) / float64(total)
+	mf := float64(mids) / float64(total)
+	if zf < 0.01 || zf > 0.9 {
+		// no real transparent population (or the channel would erase the
+		// texture — it is data, not coverage): opaque
+		for y := b.Min.Y; y < b.Max.Y; y++ {
+			for x := b.Min.X; x < b.Max.X; x++ {
+				c := out.RGBAAt(x, y)
+				c.A = 255
+				out.SetRGBA(x, y, c)
+			}
+		}
+		return out, false
+	}
+	return out, mf > 0.05 // gradient -> BLEND, hard cutout -> MASK
 }
 
 // dgoEntry returns the named v4 (data) entry — archives may also carry a v3
@@ -228,6 +266,9 @@ func main() {
 			}
 			if got != want {
 				fmt.Fprintf(os.Stderr, "webexport: %s ctrl %d: %d tris vs records' %d\n", entry, ci, got, want)
+			}
+			for pi := range prims {
+				prims[pi].Layer = pi + 1
 			}
 			check(scene.AddMesh(node, fmt.Sprintf("%s-%d", entry, ci), prims))
 			if len(joints) == 0 {
