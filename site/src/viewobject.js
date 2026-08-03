@@ -132,15 +132,30 @@ async function mount2D(ctx, doc) {
   hud.textContent = `${obj.cellW}×${obj.cellH} px cells · ${doc.animations?.length || 0} animations · drag to pan · wheel/pinch to zoom`;
   stage.appendChild(hud);
 
-  window.__rxo2 = { app, world, inst, obj }; // debug handle
+  // ---- AR: the sprite hangs in the room ---------------------------------------
+  const { PanelAR } = await import('./xr2d.js');
+  const xrStatus = document.createElement('div');
+  xrStatus.className = 'hud xr-status';
+  xrStatus.hidden = true;
+  stage.appendChild(xrStatus);
+  const ar = new PanelAR({
+    el: stage,
+    canvas: () => app.canvas,
+    params: ctx.params,
+    onStatus: (t) => { xrStatus.hidden = false; xrStatus.textContent = t; },
+  });
+
+  window.__rxo2 = { app, world, inst, obj, ar }; // debug handle
 
   return {
     unmount() {
       removeEventListener('resize', onResize);
+      ar.dispose();
       app.destroy(true, { children: true });
-      list.remove(); hud.remove(); tp?.remove();
+      list.remove(); hud.remove(); tp?.remove(); xrStatus.remove();
       stage.classList.remove('render2d');
     },
+    xr: ar,
     sources: () => [app.canvas],
     pixelGrid: () => ({
       cell: world.scale.x, ox: world.position.x, oy: world.position.y,

@@ -7,6 +7,7 @@ import { Application, Container, Graphics, Rectangle, Sprite, Texture } from 'pi
 import { SpriteObject, loadImage } from './sprite2d.js';
 import { mulberry32 } from './data.js';
 import { PanInput } from './pancam.js';
+import { PanelAR } from './xr2d.js';
 
 const hexRgb = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
 
@@ -281,16 +282,31 @@ export async function mount(ctx, doc) {
     });
   }
 
-  window.__rx = { app, world, objLayer, pickables, cam, map }; // debug handle
+  // ---- AR: the map hangs in the room ------------------------------------------
+  const xrStatus = document.createElement('div');
+  xrStatus.className = 'hud xr-status';
+  xrStatus.hidden = true;
+  stage.appendChild(xrStatus);
+  const ar = new PanelAR({
+    el: stage,
+    canvas: () => app.canvas,
+    params,
+    onStatus: (t) => { xrStatus.hidden = false; xrStatus.textContent = t; },
+  });
+
+  window.__rx = { app, world, objLayer, pickables, cam, map, ar }; // debug handle
 
   return {
     unmount() {
       input.dispose();
+      ar.dispose();
       app.destroy(true, { children: true });
       closeCard();
       hud.remove();
+      xrStatus.remove();
       stage.classList.remove('render2d');
     },
+    xr: ar,
     sources: () => [app.canvas],
     // { cell, ox, oy, ref } — one game pixel in viewer px + the grid origin
     // (the shape screenfx._pixelCell consumes; it phase-locks the filter's
