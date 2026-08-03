@@ -36,14 +36,26 @@ func StripPrim(e *Effect, base [4]float32) glb.Prim {
 			}
 			return 0x80
 		}
-		// slot -> vertex
+		// Slot assignment: a vertex writes ONE slot when its two dest
+		// bytes agree (8,640 of 9,283 do); a second, distinct dest is a
+		// genuine strip-stitch duplicate. A dest below the slot base 7
+		// addresses VU low memory — a discarded write, i.e. no output
+		// there — and marks the run boundary.
 		slots := map[int]int{}
+		term := map[int]bool{}
 		for i, v := range vs {
+			low := v.D1 < 7 || v.D2 < 7
 			if v.Slot1 >= 0 {
 				slots[v.Slot1] = i
+				if low {
+					term[v.Slot1] = true
+				}
 			}
-			if v.Slot2 >= 0 {
+			if v.Slot2 >= 0 && v.Slot2 != v.Slot1 {
 				slots[v.Slot2] = i
+				if low {
+					term[v.Slot2] = true
+				}
 			}
 		}
 		mx := -1
@@ -60,25 +72,21 @@ func StripPrim(e *Effect, base [4]float32) glb.Prim {
 				n = 0
 				continue
 			}
-			if flagOf(v) != 0x80 {
-				// ADC-tagged: enters the window but closes the run before it
-				w[0], w[1], w[2] = w[1], w[2], v
-				n = 1
-				continue
-			}
 			w[0], w[1], w[2] = w[1], w[2], v
 			if n < 2 {
 				n++
-				continue
+			} else if flagOf(v) == 0x80 {
+				a, b, c := bi+uint32(w[0]), bi+uint32(w[1]), bi+uint32(w[2])
+				if a != b && b != c && a != c {
+					if s&1 == 0 {
+						p.Tris = append(p.Tris, [3]uint32{a, b, c})
+					} else {
+						p.Tris = append(p.Tris, [3]uint32{a, c, b})
+					}
+				}
 			}
-			a, b, c := bi+uint32(w[0]), bi+uint32(w[1]), bi+uint32(w[2])
-			if a == b || b == c || a == c {
-				continue
-			}
-			if s&1 == 0 {
-				p.Tris = append(p.Tris, [3]uint32{a, b, c})
-			} else {
-				p.Tris = append(p.Tris, [3]uint32{a, c, b})
+			if term[s] {
+				n = 0
 			}
 		}
 	}

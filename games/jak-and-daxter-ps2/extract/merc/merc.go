@@ -154,6 +154,7 @@ type Vertex struct {
 	NX, NY, NZ uint8 // raw lattice bytes; bias 128
 	Slot1      int // output strip slot, -1 if unused
 	Slot2      int
+	D1, D2     byte // raw dest bytes
 }
 
 func magicInt(f float32) float32 {
@@ -191,6 +192,7 @@ func (fr *Fragment) Vertices() []Vertex {
 			X: float32(b[3]) + ox, Y: float32(b[7]) + oy, Z: float32(b[11]) + oz,
 			NX: b[10], NY: b[6], NZ: b[2],
 			Slot1: slot(b[4]), Slot2: slot(b[5]),
+			D1: b[4], D2: b[5],
 		})
 	}
 	return out
