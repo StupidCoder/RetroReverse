@@ -49,8 +49,15 @@ export class LiveLayer {
   }
 
   // _keyed copies a canvas through a private one with the backdrop punched to
-  // transparent. Cheap: these are single tiles or blocks (32x32 for Sonic), and
-  // it only runs when the source is actually repainted.
+  // transparent.
+  //
+  // For CELL strips this runs once at build and is free. For SURFACES it runs
+  // on every repaint, and it is a canvas readback round-trip — drawImage,
+  // getImageData, putImageData — which is nearly free on a desktop CPU and is
+  // exactly the kind of operation that is NOT on a mobile part with limited
+  // memory bandwidth. Its cost is therefore reported separately by the perf
+  // readout (`key N.NN ms`) and can be switched off with ?xrlivekey=0, so the
+  // question is settled by the device rather than by a desktop measurement.
   _keyed(src, dst) {
     const w = src.width, h = src.height;
     if (!dst) { dst = document.createElement('canvas'); dst.width = w; dst.height = h; }
@@ -236,10 +243,17 @@ export class LiveLayer {
       g.geo.attributes.uv.needsUpdate = true;
       g.mesh.visible = n > 0;
     }
+    this.keyMs = 0;
+    this.uploads = 0;
     for (const s of this.surfaces) {
       if (!s.dirty()) continue;
-      if (s.own) this._keyed(s.canvas, s.own); // re-key the repainted tile
+      if (s.own) {
+        const t0 = performance.now();
+        this._keyed(s.canvas, s.own); // re-key the repainted tile
+        this.keyMs += performance.now() - t0;
+      }
       s.tex.needsUpdate = true;
+      this.uploads++;
       s.clear();
     }
     for (const c of this.cells) {

@@ -201,7 +201,7 @@ export class MapAR {
     this._maxW = maxW;
 
     // Registered once, for the life of the stage.
-    this._perf = { n: 0, t: 0, live: 0, worst: 0 };
+    this._perf = { n: 0, t: 0, live: 0, key: 0, up: 0, worst: 0 };
     this._liveStep = (dt) => {
       // Load-bearing: this Stage's setAnimationLoop keeps running on its hidden
       // 0x0 mount forever once built, so without this guard the animations
@@ -213,6 +213,8 @@ export class MapAR {
         this.opts.live.advance(Math.min(dt, 0.05));
         this._liveLayer.sync();
         this._perf.live += performance.now() - t0;
+        this._perf.key += this._liveLayer.keyMs || 0;
+        this._perf.up += this._liveLayer.uploads || 0;
       }
       // There is no console on a headset, so the frame budget has to be
       // legible on the status line or it cannot be measured at all.
@@ -224,9 +226,11 @@ export class MapAR {
         const info = stage.renderer.info.render;
         this._perfNote = `${Math.round(p.n / p.t)} fps (worst ${Math.round(p.worst * 1000)} ms) · `
           + `${info.calls} calls · ${(info.triangles / 1000).toFixed(1)}k tris`
-          + (p.live ? ` · live ${(p.live / p.n).toFixed(2)} ms` : '');
+          + (p.live ? ` · live ${(p.live / p.n).toFixed(2)} ms` : '')
+          + (p.key ? ` (key ${(p.key / p.n).toFixed(2)})` : '')
+          + (p.up ? ` · ${(p.up / p.n).toFixed(1)} uploads/f` : '');
         this.status(this._base || 'in AR');
-        this._perf = { n: 0, t: 0, live: 0, worst: 0 };
+        this._perf = { n: 0, t: 0, live: 0, key: 0, up: 0, worst: 0 };
       }
     };
     stage.updaters.add(this._liveStep);
@@ -445,7 +449,9 @@ export class MapAR {
     try {
       const layer = new this.LiveLayer(this.THREE, this.opts.live, {
         W: this._W, H: this._H, renderer: this._ar.stage.renderer,
-        key: this._key,                                  // same backdrop the bake keyed out
+        // Same backdrop the bake keyed out. ?xrlivekey=0 drops it, which is the
+        // A/B for whether the per-repaint canvas readback is what costs frames.
+        key: this._param('xrlivekey') === '0' ? null : this._key,
         aniso: Math.max(1, Math.round(this._num('xraniso', 4))),
         blend: this._param('xrblend') === '1',
       });
