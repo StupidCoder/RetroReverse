@@ -15,14 +15,30 @@
 
 const VERTS = 6; // two triangles, non-indexed — the quad counts are tiny
 
+// The live quads sit ON the baked map, which is at z = 0. Alpha-tested
+// geometry writes depth, so exactly-coplanar quads would z-fight; these push
+// them apart in MAP PIXELS, which at a typical fit (~0.6 mm per pixel) is far
+// too small to see and far too large to fight.
+const Z_SURFACES = 0.5;
+const Z_CELLS = 0.75;
+const Z_SPRITES = 1.0;
+
 export class LiveLayer {
   // (THREE, live, { W, H, renderer }) — W/H are the map's pixel size; the
   // group's coordinate system is 1 unit = 1 map pixel, +Y up, origin centre.
-  constructor(THREE, live, { W, H, renderer }) {
+  constructor(THREE, live, { W, H, renderer, key = null, aniso = 4, blend = false }) {
     this.THREE = THREE;
     this.live = live;
     this.W = W;
     this.H = H;
+    this.renderer = renderer;
+    // The backdrop colour the map bake keyed out. Tile art and cell strips are
+    // whole opaque tiles — sky pixels and all — so without this they come back
+    // as solid sky-coloured blocks over the keyed map. Sprites are cut-out art
+    // with real alpha and are left alone.
+    this.key = key;
+    this.aniso = aniso;
+    this.blend = blend;
     this.group = new THREE.Group();
     this._scratch = {};
     this._clip = live.clip?.() || null;
@@ -30,6 +46,24 @@ export class LiveLayer {
     this.sprites = (live.sprites || []).map((g) => this._buildSprites(g, renderer));
     this.surfaces = (live.surfaces || []).map((s) => this._buildSurface(s));
     this.cells = (live.cells || []).map((c) => this._buildCell(c));
+  }
+
+  // _keyed copies a canvas through a private one with the backdrop punched to
+  // transparent. Cheap: these are single tiles or blocks (32x32 for Sonic), and
+  // it only runs when the source is actually repainted.
+  _keyed(src, dst) {
+    const w = src.width, h = src.height;
+    if (!dst) { dst = document.createElement('canvas'); dst.width = w; dst.height = h; }
+    const c = dst.getContext('2d', { willReadFrequently: true });
+    c.clearRect(0, 0, w, h);
+    c.drawImage(src, 0, 0);
+    if (!this.key) return dst;
+    const img = c.getImageData(0, 0, w, h);
+    const u32 = new Uint32Array(img.data.buffer);
+    const want = ((0xff000000 | (this.key.b << 16) | (this.key.g << 8) | this.key.r) >>> 0);
+    for (let i = 0; i < u32.length; i++) if (u32[i] === want) u32[i] = 0;
+    c.putImageData(img, 0, 0);
+    return dst;
   }
 
   get counts() {
@@ -48,21 +82,25 @@ export class LiveLayer {
     t.minFilter = THREE.LinearMipmapLinearFilter;
     t.generateMipmaps = true;
     t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
-    if (renderer) t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    if (renderer && this.aniso > 1) t.anisotropy = Math.min(this.aniso, renderer.capabilities.getMaxAnisotropy());
     t.needsUpdate = true;
     return t;
   }
 
   _material(map) {
     const THREE = this.THREE;
-    // premultipliedAlpha is FALSE here, unlike the baked chunks: those are
-    // premultiplied because the keyer writes (0,0,0,0), while a PNG or canvas
-    // upload is straight alpha. The flag is per-material, so the two differ
-    // on purpose.
+    // Alpha is BINARY here — cut-out sprite art, and keyed tile art — so an
+    // alpha test in the OPAQUE pass is both correct and much cheaper on a
+    // tiler than blended geometry: it keeps depth writes, so overlapping quads
+    // reject each other's fragments instead of every layer paying full fill.
+    // ?xrblend=1 puts it back in the transparent pass.
+    // premultipliedAlpha is false regardless, unlike the baked chunks: those
+    // are premultiplied because the keyer writes (0,0,0,0), while a PNG or
+    // canvas upload is straight alpha.
     return new THREE.MeshBasicMaterial({
       map, toneMapped: false, side: THREE.DoubleSide,
-      transparent: true, alphaTest: 0.5, premultipliedAlpha: false,
-      depthWrite: false,
+      alphaTest: 0.5, premultipliedAlpha: false,
+      transparent: this.blend, depthWrite: !this.blend,
     });
   }
 
@@ -81,6 +119,7 @@ export class LiveLayer {
     const mesh = new THREE.Mesh(geo, mat);
     mesh.frustumCulled = false; // the quads move; the group is small anyway
     mesh.renderOrder = 2;
+    mesh.position.z = Z_SPRITES;
     this.group.add(mesh);
     return { ...g, geo, pos, uv, mesh, iw: g.img.width, ih: g.img.height };
   }
@@ -91,11 +130,18 @@ export class LiveLayer {
   // actually dirty.
   _buildSurface(s) {
     const THREE = this.THREE;
-    const tex = new THREE.CanvasTexture(s.canvas);
+    // Draw from a keyed COPY, refreshed whenever the source is repainted —
+    // the tile art is opaque and would otherwise punch sky-coloured blocks
+    // through the keyed map.
+    const own = this.key ? this._keyed(s.canvas) : s.canvas;
+    const tex = new THREE.CanvasTexture(own);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.magFilter = THREE.NearestFilter;
     tex.minFilter = THREE.LinearMipmapLinearFilter;
     tex.generateMipmaps = true;
+    if (this.renderer && this.aniso > 1) {
+      tex.anisotropy = Math.min(this.aniso, this.renderer.capabilities.getMaxAnisotropy());
+    }
     const geo = new THREE.BufferGeometry();
     const n = s.rects.length;
     const pos = new Float32Array(n * VERTS * 3);
@@ -108,14 +154,16 @@ export class LiveLayer {
     const mesh = new THREE.Mesh(geo, this._material(tex));
     mesh.frustumCulled = false;
     mesh.renderOrder = 1; // under the sprites, over the baked chunks
+    mesh.position.z = Z_SURFACES;
     this.group.add(mesh);
-    return { ...s, tex, mesh };
+    return { ...s, tex, mesh, own: this.key ? own : null };
   }
 
   _buildCell(c) {
     const THREE = this.THREE;
+    // Phase canvases are pre-baked and never change, so key them once here.
     const texs = c.canvases.map((cv) => {
-      const t = new THREE.CanvasTexture(cv);
+      const t = new THREE.CanvasTexture(this.key ? this._keyed(cv) : cv);
       t.colorSpace = THREE.SRGBColorSpace;
       t.magFilter = THREE.NearestFilter;
       t.minFilter = THREE.LinearMipmapLinearFilter;
@@ -130,6 +178,7 @@ export class LiveLayer {
     const mesh = new THREE.Mesh(geo, this._material(texs[0]));
     mesh.frustumCulled = false;
     mesh.renderOrder = 1;
+    mesh.position.z = Z_CELLS;
     this.group.add(mesh);
     return { ...c, texs, mesh, shown: -1 };
   }
@@ -189,6 +238,7 @@ export class LiveLayer {
     }
     for (const s of this.surfaces) {
       if (!s.dirty()) continue;
+      if (s.own) this._keyed(s.canvas, s.own); // re-key the repainted tile
       s.tex.needsUpdate = true;
       s.clear();
     }

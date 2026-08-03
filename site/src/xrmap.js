@@ -53,7 +53,11 @@ export class MapAR {
   }
 
   status(t) {
-    this.opts.onStatus?.(this._note ? `${t} · ${this._note}` : t);
+    this._base = t;
+    const bits = [t];
+    if (this._note) bits.push(this._note);
+    if (this._perfNote) bits.push(this._perfNote);
+    this.opts.onStatus?.(bits.join(' · '));
   }
 
   // setKeying drops the built map so the next entry re-snapshots with the new
@@ -197,15 +201,33 @@ export class MapAR {
     this._maxW = maxW;
 
     // Registered once, for the life of the stage.
+    this._perf = { n: 0, t: 0, live: 0, worst: 0 };
     this._liveStep = (dt) => {
-      if (!this._liveLayer || !this._ready) return; // still baking, or still mode
       // Load-bearing: this Stage's setAnimationLoop keeps running on its hidden
       // 0x0 mount forever once built, so without this guard the animations
       // would advance from BOTH clocks whenever the flat page is ticking —
       // everything at double speed.
       if (!stage.renderer.xr.isPresenting) return;
-      this.opts.live.advance(Math.min(dt, 0.05));
-      this._liveLayer.sync();
+      if (this._liveLayer && this._ready) {
+        const t0 = performance.now();
+        this.opts.live.advance(Math.min(dt, 0.05));
+        this._liveLayer.sync();
+        this._perf.live += performance.now() - t0;
+      }
+      // There is no console on a headset, so the frame budget has to be
+      // legible on the status line or it cannot be measured at all.
+      const p = this._perf;
+      p.n++;
+      p.t += dt;
+      p.worst = Math.max(p.worst, dt);
+      if (p.n >= 45) {
+        const info = stage.renderer.info.render;
+        this._perfNote = `${Math.round(p.n / p.t)} fps (worst ${Math.round(p.worst * 1000)} ms) · `
+          + `${info.calls} calls · ${(info.triangles / 1000).toFixed(1)}k tris`
+          + (p.live ? ` · live ${(p.live / p.n).toFixed(2)} ms` : '');
+        this.status(this._base || 'in AR');
+        this._perf = { n: 0, t: 0, live: 0, worst: 0 };
+      }
     };
     stage.updaters.add(this._liveStep);
 
@@ -277,6 +299,7 @@ export class MapAR {
       p.phase = 'key';
       p.i = 0;
       p.key = this.keying ? this._pickKey(p) : null;
+      this._key = p.key; // the live layer keys its tile art with the same colour
       this.status(`AR: building ${0}/${p.rects.length}`);
     }
   }
@@ -353,7 +376,11 @@ export class MapAR {
       tex.magFilter = THREE.NearestFilter;            // game pixels, up close
       tex.minFilter = THREE.LinearMipmapLinearFilter; // clean from across the room
       tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-      tex.anisotropy = Math.min(8, this._ar.stage.renderer.capabilities.getMaxAnisotropy());
+      // Anisotropy is expensive per fragment on a mobile tiler and a wall-sized
+      // map is exactly the glancing-angle case that samples it hardest. 4 by
+      // default rather than 8; ?xraniso=1 turns it off, =8 restores it.
+      const aniso = Math.max(1, Math.round(this._num('xraniso', 4)));
+      if (aniso > 1) tex.anisotropy = Math.min(aniso, this._ar.stage.renderer.capabilities.getMaxAnisotropy());
       tex.needsUpdate = true;
 
       // Geometry comes from the FRAME, never the canvas, so half-res chunks
@@ -368,9 +395,19 @@ export class MapAR {
       }
       uv.needsUpdate = true;
 
+      // The keyer writes (0,0,0,0), so alpha here is BINARY — which means an
+      // alpha test in the OPAQUE pass is exact, and much kinder to a tiled
+      // GPU than blended geometry: depth writes let overlapping quads reject
+      // each other instead of every layer paying full fill rate. That is the
+      // main suspect for a headset falling behind on a wall-sized map.
+      // ?xrblend=1 restores the blended path.
+      const blend = this._param('xrblend') === '1';
       const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
         map: tex, toneMapped: false, side: THREE.DoubleSide,
-        transparent: !!p.key, premultipliedAlpha: !!p.key, depthWrite: !p.key,
+        alphaTest: p.key && !blend ? 0.5 : 0,
+        transparent: !!p.key && blend,
+        premultipliedAlpha: !!p.key && blend,
+        depthWrite: !(p.key && blend),
       }));
       // 1 world unit = 1 map pixel, origin at the map's centre, +Y up.
       mesh.position.set(r.x + r.w / 2 - p.W / 2, p.H / 2 - r.y - r.h / 2, 0);
@@ -408,6 +445,9 @@ export class MapAR {
     try {
       const layer = new this.LiveLayer(this.THREE, this.opts.live, {
         W: this._W, H: this._H, renderer: this._ar.stage.renderer,
+        key: this._key,                                  // same backdrop the bake keyed out
+        aniso: Math.max(1, Math.round(this._num('xraniso', 4))),
+        blend: this._param('xrblend') === '1',
       });
       this._ar.stage.scene.add(layer.group);
       this._liveLayer = layer;
