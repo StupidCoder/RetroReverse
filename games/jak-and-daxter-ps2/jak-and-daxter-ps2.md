@@ -221,5 +221,57 @@ constant block (8 quadwords from `*merc-bucket-info*` plus ctrl+28).
 geometry streams exactly — each effect's fragments end at the next
 effect's start to the byte, 356 fragments in total.
 
-The remaining item is the vertex packing inside the byte/lump/fp regions
-(the microprogram's decompression loops), which yields triangles.
+### The vertex format and strip topology (complete)
+
+The lump region packs one vertex per three quadwords — twelve source bytes
+`{q0: ctlA, adc-ctl, nz, px | q1: dest1, dest2, ny, py | q2: s, t, nx, pz}`.
+The w-lane bytes are the position on a fragment-local 8-bit lattice; the
+fragment origin arrives in the fp region's first quadword as
+integers-in-floats (bias `0x4B010000` = 8454144.0, sign-folded), so world
+position = lattice byte + origin. The z-lanes are the normal, and q2's x/y
+lanes are texture coordinates. The fp region otherwise opens with the
+fragment's adgif (material) block, copied verbatim to the head of the
+output packet.
+
+Topology needs no emulation — the file states it, in three mechanisms read
+off the microprogram (`mercmicro.dis`) and verified against it:
+
+- **Scatter order.** The two dest bytes of q1 are quadword offsets into the
+  fragment's output packet; each vertex stores its `{ST, RGBA, XYZF2}`
+  triple at one or both (dest1 = dest2 for ~93% of vertices; distinct dests
+  are strip stitches). The GS consumes the packet in address order, so
+  ascending dest order is the strip order. Gaps between dests hold
+  mid-strip A+D packets (material switches), not vertices.
+- **Per-write ADC.** q0's y-lane byte, biased `0x80` (through the VIF-row
+  16-bit truncation trick: the row magic's low half is `0xFF80`), controls
+  the strip-restart bit per write: positive = both writes clean, zero = the
+  dest1 write gets ADC and the dest2 write is clean (the microcode rebuilds
+  the position register between the two stores, `0x718–0x748`), negative =
+  both writes ADC.
+- **Stitch-copy tables.** At fragment end (`0x3C40–0x3E90`) the microcode
+  runs a copy table from the byte header: `hdr[0]` = table offset in
+  quadwords, `hdr[7]` entries copy within the fragment's own output,
+  `hdr[8]` entries copy from the previous fragment's output (the other
+  DBF buffer half). Each 4-byte entry is `{src dest, dst dest, ?, b3}`;
+  the copy's ADC is the source's ADC XOR b3 (the tail re-derives the bit
+  via `itof15.w` plus an `add.w` of b3 — adding 1.0 lands exactly on the
+  mantissa bit that is the ADC flag).
+
+The remaining header bytes fall out: `hdr[1]` is the quadword offset of the
+per-vertex RGBA records (alpha `0x80` = 1.0 — the "flag" byte of earlier
+sessions is just alpha), immediately after the copy table; `hdr[2]` the
+byte-region NUM; `hdr[3]` = byte+lump NUM (fp offset). Strips span
+fragments — mid-strip packets are kicked without a fresh PRIM write — so an
+effect is one continuous vertex sequence whose ADC bits gate the kicks.
+
+`extract/merc/strips.go` implements exactly this from disc bytes, and
+`extract/cmd/fragprobe` diffs it against the microprogram emulated on the
+same fragments (`merc/emulate.go`, index-encoded colour records): all six
+effects across both `logo` merc-ctrls agree triangle-for-triangle —
+17,142 of 17,142, zero difference either way. The two merc-ctrls are two
+variants of the logo model (near-identical bounds, different letter poses)
+and export as separate GLB nodes; per-fragment bounding boxes all fit the
+255-unit lattice, confirming every origin decode.
+
+Open for Part IV: material binding (adgif blocks → tpage textures) and UV
+scale, then the ndi/evilbro/evilsis groups and Part V joint animations.

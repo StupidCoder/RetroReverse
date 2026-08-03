@@ -81,16 +81,16 @@ func main() {
 
 	writeJSON(filepath.Join(*site, "objects", "title-logo.json"), map[string]any{
 		"format": "retro-x", "version": 1, "type": "model3d",
-		"name": "Title logo (geometry WIP)", "model": "title-logo.glb",
+		"name": "Title logo", "model": "title-logo.glb",
 	})
 	writeJSON(filepath.Join(*site, "manifest.json"), map[string]any{
 		"format": "retro-x", "version": 1,
 		"id": "jak-and-daxter-ps2", "title": "Jak & Daxter: The Precursor Legacy",
 		"platform": "Sony PlayStation 2", "year": 2001,
-		"description": "Naughty Dog's PlayStation 2 debut: a seamless world written in the studio's own Lisp (GOAL), streamed level by level from DGO archives the engine links into place at load time. This export begins where the game does — the animated title logo, decoded from the disc alone: the archive container and the engine's runtime linker were reimplemented byte-exact, and the logo's skinned meshes are read straight out of the merc renderer's fragment format — fragment-local 8-bit vertex lattices, per-fragment origins hidden in float bit patterns, and triangle strips reassembled from the VU1 microprogram's own output-slot scatter. The triangle-strip reconstruction is still being verified against the renderer's own microprogram — the mesh is recognizably the logo but not yet watertight. Textures and the intro cutscenes are on their way.",
+		"description": "Naughty Dog's PlayStation 2 debut: a seamless world written in the studio's own Lisp (GOAL), streamed level by level from DGO archives the engine links into place at load time. This export begins where the game does — the animated title logo, decoded from the disc alone: the archive container and the engine's runtime linker were reimplemented byte-exact, and the logo's skinned meshes are read straight out of the merc renderer's fragment format — fragment-local 8-bit vertex lattices, per-fragment origins hidden in float bit patterns, and triangle strips reassembled from the VU1 microprogram's own output-slot scatter. The triangle strips are rebuilt from the file bytes alone — dest-byte scatter order, per-write ADC flags, and the byte-header's stitch-copy tables — and verified triangle-for-triangle against the microprogram's own emulated output: all 17,142 triangles match. The two merc-ctrls are two variants of the logo and ship as separate nodes. Textures and the intro cutscenes are on their way.",
 		"assets": []any{
 			map[string]any{"id": "title-logo", "category": "object",
-				"name": "Title logo (geometry WIP)", "group": "Title screen",
+				"name": "Title logo", "group": "Title screen",
 				"file": "objects/title-logo.json"},
 		},
 	})

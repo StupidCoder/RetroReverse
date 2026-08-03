@@ -155,6 +155,7 @@ type Vertex struct {
 	Slot1      int // output strip slot, -1 if unused
 	Slot2      int
 	D1, D2     byte // raw dest bytes
+	Ctl        byte // q0 y-lane ADC control (biased 0x80 via the VIF row's low half)
 }
 
 func magicInt(f float32) float32 {
@@ -193,6 +194,7 @@ func (fr *Fragment) Vertices() []Vertex {
 			NX: b[10], NY: b[6], NZ: b[2],
 			Slot1: slot(b[4]), Slot2: slot(b[5]),
 			D1: b[4], D2: b[5],
+			Ctl: b[1],
 		})
 	}
 	return out

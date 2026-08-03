@@ -212,11 +212,11 @@ type TopoVert struct {
 func EmulateTopology(cfg *EmuConfig, fr *Fragment) ([]TopoVert, error) {
 	patched := *fr
 	patched.ByteData = append([]byte(nil), fr.ByteData...)
-	// The color cursor starts one quadword after the UV cursor
-	// (hdr.byte12+1); record k in that stream colors vertex k.
-	base := (int(fr.ByteData[12]) + 1) * 4
+	// The color cursor base is header byte 1 (ilwr.y vi03, (vi12)): the
+	// records follow the copy table, record k colors vertex k.
+	base := int(fr.ByteData[1]) * 4
 	nv := fr.LumpQWC / 3
-	for v := 0; base+v*4+3 < len(patched.ByteData) && v < nv+2; v++ {
+	for v := 0; base+v*4+3 < len(patched.ByteData) && v < nv; v++ {
 		patched.ByteData[base+v*4] = byte(v + 1) // +1: 0 is unused (visible vs zero-fill)
 		patched.ByteData[base+v*4+1] = 0
 		patched.ByteData[base+v*4+2] = 0
@@ -364,9 +364,9 @@ func (s *Session) RunFragment(fr *Fragment, gbase int) ([]TopoVert, error) {
 func (s *Session) runOnce(fr *Fragment, gbase, bias int) ([]TopoVert, error) {
 	patched := *fr
 	patched.ByteData = append([]byte(nil), fr.ByteData...)
-	base := (int(fr.ByteData[12]) + 1) * 4
+	base := int(fr.ByteData[1]) * 4
 	nv := fr.LumpQWC / 3
-	for v := 0; base+v*4+3 < len(patched.ByteData) && v < nv+2; v++ {
+	for v := 0; base+v*4+3 < len(patched.ByteData) && v < nv; v++ {
 		idx := gbase + v + 1 + bias
 		patched.ByteData[base+v*4] = byte(idx)
 		patched.ByteData[base+v*4+1] = byte(idx >> 8)
