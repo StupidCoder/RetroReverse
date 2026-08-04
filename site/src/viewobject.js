@@ -578,8 +578,15 @@ async function mount3D(ctx, doc) {
     ? new ARSession({
       stage,
       contentBox,
-      fitAxis: 'longest',
-      targetSize: xrNum('xrsize', 1.0),
+      // A play area is far taller than it is wide, so fit the FOOTPRINT to a
+      // metre square and allow up to 1.8 m of height rather than squeezing the
+      // longest axis — a tall model should use the headroom, not shrink to fit
+      // it into the same box a wide one gets.
+      fitScale: (size) => Math.min(
+        xrNum('xrsize', 1.0) / (size.x || 1),
+        xrNum('xrsize', 1.0) / (size.z || 1),
+        xrNum('xrheight', 1.8) / (size.y || 1),
+      ),
       // Standing on the floor rather than hanging at eye level: a model reads
       // as an object in the room that way, and WebXR's local-floor reference
       // space already puts y = 0 on the real floor, so it costs nothing.

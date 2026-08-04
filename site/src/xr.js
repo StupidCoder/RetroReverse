@@ -41,6 +41,7 @@ export const arSupported = (async () => {
 
 const UP = new THREE.Vector3(0, 1, 0);
 const POSE_GIVE_UP = 120; // frames (~2 s) to wait for tracking before saying so
+const SPAWN_KEY = 'rx.xr.spawn'; // the chosen floor spot, in bounded-floor coords
 
 export class ARSession {
   // { stage, contentBox: () => THREE.Box3|null, targetSize (m), distance (m),
@@ -109,7 +110,10 @@ export class ARSession {
         // means the animation loop never starts — a black session with no
         // error anywhere.
         requiredFeatures: ['local-floor'],
-        optionalFeatures: ['dom-overlay'],
+        // bounded-floor is what makes a spawn point meaningful: its origin is
+        // fixed to the guardian, so a point expressed in it means the same
+        // physical spot next session, and its boundsGeometry is the play area.
+        optionalFeatures: ['dom-overlay', 'bounded-floor'],
         domOverlay: { root: document.body },
       });
     } catch (e) {
@@ -147,7 +151,15 @@ export class ARSession {
     // The controller trigger re-places the diorama in front of wherever you
     // are now looking (and re-measures the content, so a level whose rooms
     // streamed in after entry gets refitted).
-    session.addEventListener('select', () => { this._place = true; this._waited = 0; });
+    // The trigger re-places the content. If a controller is pointing at the
+    // floor it goes THERE — which is the whole point in a small room, where
+    // "a fixed distance ahead" usually lands you against a wall with no way to
+    // walk around the far side.
+    session.addEventListener('select', (e) => {
+      this._pendingRay = e.inputSource || null;
+      this._place = true;
+      this._waited = 0;
+    });
     // Restore off three's OWN sessionend, not the session's 'end'. A listener
     // on the session fires in registration order, and ours would be added
     // before three's (setSession registers it) — so it would run while
@@ -157,6 +169,12 @@ export class ARSession {
     // clearing the flag and restoring the size.
     this._onEnd = () => this._end();
     stage.renderer.xr.addEventListener('sessionend', this._onEnd);
+
+    // Asked for SEPARATELY rather than as the session's reference space: if
+    // the runtime cannot provide it, setSession would reject and the session
+    // would come up black. This way it is simply absent and the fallbacks
+    // apply.
+    this._bounded = await session.requestReferenceSpace('bounded-floor').catch(() => null);
 
     stage.renderer.xr.setReferenceSpaceType('local-floor');
     try {
@@ -227,9 +245,14 @@ export class ARSession {
     const hold = this.anchor === 'floor'
       ? new THREE.Vector3(centre.x, box.min.y, centre.z)
       : centre;
-    const at = this.anchor === 'floor'
-      ? new THREE.Vector3(p.x, 0, p.z).addScaledVector(fwd, this.distance)
-      : new THREE.Vector3(p.x, p.y - this.dropBelowEye, p.z).addScaledVector(fwd, this.distance);
+    const spawn = this._spawnPoint(frame, ref);
+    const at = spawn
+      // A chosen spot: keep its x/z and take the height from the anchor, so an
+      // eye-level diorama hangs ABOVE the same place a floor model stands on.
+      ? new THREE.Vector3(spawn.x, this.anchor === 'floor' ? 0 : p.y - this.dropBelowEye, spawn.z)
+      : this.anchor === 'floor'
+        ? new THREE.Vector3(p.x, 0, p.z).addScaledVector(fwd, this.distance)
+        : new THREE.Vector3(p.x, p.y - this.dropBelowEye, p.z).addScaledVector(fwd, this.distance);
     const span = this.fitAxis === 'longest'
       ? Math.max(size.x, size.y, size.z)
       : Math.max(size.x, size.z) || Math.max(size.y, 1);
@@ -263,9 +286,79 @@ export class ARSession {
 
     this._place = false;
     // The metres ACHIEVED, not the metres requested — more use to both callers.
-    this._fit = `${fmt(size.x)}×${fmt(size.y)} u · ${fmt(1 / k)} u/m · ${fmt(size.x * k)}×${fmt(size.y * k)} m`
-      + ` at ${fmt(this.distance)} m, ${this.anchor}`;
+    this._fit = `${fmt(size.x)}×${fmt(size.y)}×${fmt(size.z)} u · `
+      + `${fmt(size.x * k)}×${fmt(size.y * k)}×${fmt(size.z * k)} m · ${this.anchor}`
+      + (this._spawnNote ? ` · ${this._spawnNote}` : '');
     this.status(`in AR · ${this._fit}`);
+  }
+
+  // _spawnPoint resolves where content should stand, in reference space, in
+  // this order: the floor spot just pointed at, a spot stored from a previous
+  // session, the centre of the play area, or nothing (meaning "a fixed
+  // distance ahead", the old behaviour).
+  _spawnPoint(frame, ref) {
+    const ray = this._pendingRay;
+    this._pendingRay = null;
+    if (ray) {
+      const hit = this._floorHit(frame, ref, ray);
+      if (hit) {
+        this._userSpawn = hit;
+        this._store(frame, ref, hit);
+        this._spawnNote = 'spawn: pointed';
+        return hit;
+      }
+    }
+    if (this._userSpawn) return this._userSpawn;
+
+    const b = this._bounded;
+    if (!b) { this._spawnNote = 'spawn: ahead (no bounded-floor)'; return null; }
+    const pose = frame.getPose(b, ref);
+    if (!pose) return null;
+    const m = new THREE.Matrix4().fromArray(pose.transform.matrix);
+
+    const saved = readStored();
+    if (saved) {
+      this._spawnNote = 'spawn: saved';
+      return new THREE.Vector3(saved.x, 0, saved.z).applyMatrix4(m).setY(0);
+    }
+    // The play area's centroid — which is what "somewhere I can walk all the
+    // way around" means, and needs no interaction at all.
+    const pts = b.boundsGeometry;
+    if (pts?.length >= 3) {
+      let x = 0, z = 0;
+      for (const q of pts) { x += q.x; z += q.z; }
+      this._spawnNote = `spawn: play-area centre (${pts.length}pt)`;
+      return new THREE.Vector3(x / pts.length, 0, z / pts.length).applyMatrix4(m).setY(0);
+    }
+    this._spawnNote = 'spawn: ahead (no bounds)';
+    return null;
+  }
+
+  // _floorHit intersects a controller's aim with the floor plane (y = 0, which
+  // is what local-floor means).
+  _floorHit(frame, ref, src) {
+    if (!src?.targetRaySpace) return null;
+    const pose = frame.getPose(src.targetRaySpace, ref);
+    if (!pose) return null;
+    const o = pose.transform.position, q = pose.transform.orientation;
+    const dir = new THREE.Vector3(0, 0, -1)
+      .applyQuaternion(new THREE.Quaternion(q.x, q.y, q.z, q.w));
+    if (dir.y > -1e-3) return null;            // aimed level or upward: no floor
+    const t = -o.y / dir.y;
+    if (!(t > 0) || t > 20) return null;       // behind, or absurdly far
+    return new THREE.Vector3(o.x + dir.x * t, 0, o.z + dir.z * t);
+  }
+
+  // Stored in BOUNDED coordinates. local-floor's origin is re-established every
+  // session, so a point saved in it would land somewhere new each time; the
+  // bounded space is pinned to the guardian, so it does not.
+  _store(frame, ref, pt) {
+    const b = this._bounded;
+    if (!b) return;
+    const pose = frame.getPose(ref, b);
+    if (!pose) return;
+    const v = pt.clone().applyMatrix4(new THREE.Matrix4().fromArray(pose.transform.matrix));
+    try { localStorage.setItem(SPAWN_KEY, JSON.stringify({ x: v.x, z: v.z })); } catch { /* private mode */ }
   }
 
   _end() {
@@ -295,6 +388,13 @@ export class ARSession {
     this.onScene?.(false);
     this.onChange?.(false);
   }
+}
+
+function readStored() {
+  try {
+    const v = JSON.parse(localStorage.getItem(SPAWN_KEY) || 'null');
+    return v && Number.isFinite(v.x) && Number.isFinite(v.z) ? v : null;
+  } catch { return null; }
 }
 
 function fmt(v) {
