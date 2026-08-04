@@ -1,43 +1,32 @@
-// xrmap.js — the WHOLE 2-D map, wall-sized, hanging in your room.
+// xrmap.js — the AR session shell for a 2-D level.
 //
-// The screen-shaped mirror in xr2d.js shows a window into the map. This shows
-// the map: every cell of it at once, a few metres across, so you walk up to
-// read the pixels and step back for the overview. The backdrop colour is keyed
-// out, so a Turrican level hangs in the air without its sky and Fort
-// Apocalypse without its black.
+// The map itself is drawn by xrtiles.js (one draw call for every cell) and its
+// cast by xrsprites.js (one for every placement), both built from the plain
+// arrays tileatlas.js produces. This file owns only the session: the hidden
+// stage, the placement, the toggles and the readout.
 //
-// It does NOT reimplement the tilemap in three.js. level2d.js already builds
-// the entire map as Pixi sprites up front — no culling, no windowing — so the
-// picture is read straight out of the renderer that already draws it, which
-// keeps block indirection, palette regions, tile flips, baked tile-animation
-// canvases and every placement sprite exactly as the flat view has them.
-//
-// The map is read in CHUNKS, one per XR frame, because a single render target
-// the size of a Turrican level may not fit the GPU's texture limit and reading
-// it in one go would stall the compositor. Chunks that turn out to be entirely
-// backdrop are dropped rather than uploaded — on a sky-heavy level that is most
-// of them.
+// It used to snapshot the level out of PixiJS and hang the pixels as textured
+// chunks. That worked and was bandwidth-bound on a headset — 17.7 MB of baked
+// texture for Sonic act01 against 77 KB of tile art for the same level, which
+// on a part with limited memory bandwidth is the whole difference between 50
+// and 90 fps. Sampling the source art instead deleted the chunk pump, the
+// half-resolution budget, the per-repaint canvas readback, the phase
+// precomputation that worked around it, and the still/live duality with it.
 
 import { ARSession, arSupported } from './xr.js';
 
-const CHUNK = 1024;     // px per chunk, before the texture-size clamp
-const PAD = 2;          // px of real neighbouring content around each chunk
-const BUDGET = 12e6;    // px above which the snapshot drops to half resolution
-const SAMPLE = 16;      // histogram every Nth pixel when deriving the key
-
 export class MapAR {
-  // { el, params, onStatus, size: () => ({w,h}), snap: {begin, read, end} }
+  // { el, params, onStatus, model: () => ({ tm, atlasImg, tickHz, clip,
+  //   placements, advance(dt), begin(), end() }) }
   constructor(opts) {
     this.opts = opts;
     this.supported = arSupported;
     this.onChange = null;
     this.keying = this._param('xrkey') !== 'none';
-    this.live = this._param('xrlive') !== '0' && !!opts.live;
     this._ar = null;
-    this._liveLayer = null;
-    this._teardown = null;
-    this._ready = false;
+    this._built = false;
     this._note = '';
+    this._running = false;
   }
 
   get active() { return !!this._ar?.active; }
@@ -60,447 +49,185 @@ export class MapAR {
     this.opts.onStatus?.(bits.join(' · '));
   }
 
-  // setKeying drops the built map so the next entry re-snapshots with the new
-  // setting. Called from the display panel, which is reachable on the flat
-  // screen before you put the headset on.
+  // Rebuilding is now milliseconds rather than a re-snapshot, so the backdrop
+  // toggle is instant — which matters, because it is wrong by default on the
+  // top-down maps and right on the side-scrollers, and no rule in the data
+  // separates them.
   setKeying(on) {
     if (on === this.keying) return;
     this.keying = on;
-    this._dropChunks();
-  }
-
-  // Whether this level has anything that moves at all — Turrican pins one frame
-  // per placement and has no tile animation, so it has none and the toggle is
-  // not offered.
-  get hasLive() { return !!this.opts.live; }
-
-  // Same drop-and-rebake as setKeying: the bake genuinely differs, because live
-  // mode hides the moving pieces so they are not baked in twice.
-  setLive(on) {
-    if (!this.opts.live || on === this.live) return;
-    this.live = on;
-    this._dropChunks();
+    this._dropContent();
   }
 
   async enter() {
     if (!this._ar) await this._build();
-    if (!this._ready && this._param('xrsnap') === 'pre') {
-      // Escape hatch: if the 2-D renderer turns out not to serve readPixels
-      // while a session is presenting, take the snapshot on the flat page
-      // first. Costs the user activation on slow maps, hence not the default.
-      this._startPump();
-      while (!this._ready) this._step();
-    }
-    // Capability probe for the tilemap renderer that will replace the
-    // snapshot: it needs GLSL3, a mip-complete DataArrayTexture, texelFetch
-    // and textureGrad to behave on the headset's driver, and none of that can
-    // be established from a desktop. Short-circuits the snapshot entirely.
-    if (this._param('xrspike') === '1') {
-      const { buildSpike } = await import('./xrspike.js');
-      const { w, h } = this.opts.size();
-      this._W = w; this._H = h;
-      this._spike = buildSpike(this.THREE, this._ar.stage.renderer, w, h);
-      this._ar.stage.scene.add(this._spike.group);
-      this._note = this._spike.note;
-      this._ready = true;
-      this._ar.distance = this._num('xrdist', Math.max(1.2, 0.62 * this._maxW));
-      await this._ar.enter();
-      this.status('spike');
-      return;
-    }
+    if (!this._built) this._buildContent();
     await this._ar.enter();
-    if (!this._ready) {
-      this._startPump();
-      this._pump = () => this._step();
-      this._ar.stage.updaters.add(this._pump);
-    } else if (this.live && this.opts.live && !this._liveLayer) {
-      // Re-entering with the chunks still built: re-arm the live layer without
-      // paying for another snapshot.
-      this.opts.snap.begin();
-      this.opts.live.begin();
-      this._liveOn = true;
-      this._liveStart();
-    }
   }
 
   exit() { this._ar?.exit(); }
 
   dispose() {
     this._ar?.exit();
-    if (this._spike) {
-      this._ar?.stage.scene.remove(this._spike.group);
-      this._spike.dispose();
-      this._spike = null;
-    }
-    this._abortPump();
-    this._liveEnd();
-    this._dropChunks();
+    this._stop();
+    this._dropContent();
     this._teardown?.();
     this._teardown = null;
     this._ar = null;
   }
 
-  // _abortPump gives the 2-D view its clock back. snap.begin() stopped the
-  // ticker; if the session ends (or the toggle flips) mid-snapshot, nothing
-  // else would ever call end() and the flat view would stay frozen for good.
-  _abortPump() {
-    if (!this._plan) return;
-    this._plan = null;
-    if (this._pump) { this._ar?.stage.updaters.delete(this._pump); this._pump = null; }
-    this._liveEnd();
+  // _stop hands the flat view its clock back. The session drives the placement
+  // animations itself (window rAF is not reliably serviced while presenting),
+  // so the pixi ticker is stopped for its duration and every exit path must
+  // come through here.
+  _stop() {
+    if (!this._running) return;
+    this._running = false;
+    try { this.opts.model().end?.(); } catch { /* the view may already be gone */ }
   }
 
-  // _liveEnd gives the 2-D view its clock back and is the ONLY place that does.
-  // Every exit path routes through it — abort, session end, dispose, both
-  // toggles — because the ticker now stays stopped for the whole session, and
-  // a missed restore would follow the user out of the headset as a permanently
-  // frozen flat view.
-  _liveEnd() {
-    try {
-      if (this._liveLayer) {
-        this._liveLayer.dispose();
-        this._ar?.stage.scene.remove(this._liveLayer.group);
-        this._liveLayer = null;
-      }
-      if (this._liveOn) { this.opts.live.end(); this._liveOn = false; }
-    } catch { /* the pixi app can already be gone on a late sessionend */ }
-    this.opts.snap.end();
-  }
-
-  _dropChunks() {
-    this._abortPump();
-    this._liveEnd();
-    this._ready = false;
-    if (!this._group) return;
-    for (const m of [...this._group.children]) {
-      this._group.remove(m);
-      m.geometry.dispose();
-      m.material.map?.dispose();
-      m.material.dispose();
+  _dropContent() {
+    this._built = false;
+    for (const part of [this._tiles, this._sprites]) {
+      if (!part) continue;
+      this._ar?.stage.scene.remove(part.group);
+      part.dispose();
     }
+    this._tiles = null;
+    this._sprites = null;
   }
 
   async _build() {
     const { el } = this.opts;
     const { THREE, Stage } = await import('./engine3d.js');
     this.THREE = THREE;
-    ({ LiveLayer: this.LiveLayer } = await import('./xrlive.js'));
+    ({ buildTileModel: this.buildTileModel } = await import('./tileatlas.js'));
+    ({ TileMapMesh: this.TileMapMesh } = await import('./xrtiles.js'));
+    ({ SpriteLayer: this.SpriteLayer } = await import('./xrsprites.js'));
 
     // An immersive session renders into its own framebuffer, so the canvas
     // backing this context never has to be on screen — and must not be, or it
-    // would cover the 2-D view it is reading from.
+    // would cover the 2-D view.
     const mount = document.createElement('div');
     mount.style.cssText = 'position:absolute;left:0;top:0;width:0;height:0;overflow:hidden;pointer-events:none';
     el.appendChild(mount);
     const stage = new Stage(mount, { fov: 50, near: 0.01, far: 200 });
-    this._group = new THREE.Group();
-    stage.scene.add(this._group);
+    this.stage = stage;
 
     const maxW = this._num('xrw', this._num('xrsize', 4.0));
     const maxH = this._num('xrh', 2.5);
 
     this._ar = new ARSession({
       stage,
-      // The FULL map rect, not the built geometry: dropping the all-backdrop
-      // chunks would otherwise shrink the box and re-centre the composition.
       contentBox: () => {
-        const { w, h } = this.opts.size();
+        const { w, h } = this._mapPx();
         return new THREE.Box3(new THREE.Vector3(-w / 2, -h / 2, 0), new THREE.Vector3(w / 2, h / 2, 0));
       },
-      // A wall fits a box, not an axis.
       fitScale: (size) => Math.min(maxW / (size.x || 1), maxH / (size.y || 1)),
-      ready: () => this._ready,
-      dropBelowEye: 0,          // a picture hangs at eye level
-      frontDir: new THREE.Vector3(0, 0, -1), // the quads' faces are +Z
+      ready: () => this._built,
+      dropBelowEye: 0,                        // a picture hangs at eye level
+      frontDir: new THREE.Vector3(0, 0, -1),  // the quads' faces are +Z
       onStatus: (t) => this.opts.onStatus?.(t),
     });
     this._ar.onChange = (on) => {
-      // Leaving — mid-snapshot or after one — must always give the flat view
-      // its clock back; in live mode the ticker stayed stopped the whole time.
-      if (!on) { this._abortPump(); this._liveEnd(); }
+      if (!on) this._stop();
       this.onChange?.(on);
     };
     this._maxW = maxW;
 
-    // Registered once, for the life of the stage.
-    this._perf = { n: 0, t: 0, live: 0, key: 0, up: 0, worst: 0 };
-    this._liveStep = (dt) => {
-      // Load-bearing: this Stage's setAnimationLoop keeps running on its hidden
-      // 0x0 mount forever once built, so without this guard the animations
-      // would advance from BOTH clocks whenever the flat page is ticking —
-      // everything at double speed.
-      if (!stage.renderer.xr.isPresenting) return;
-      if (this._liveLayer && this._ready) {
+    // Everything animates, always, and it costs a slot-table write plus at
+    // most 429 quads — so there is no longer a still mode to choose.
+    this._perf = { n: 0, t: 0, cpu: 0, worst: 0 };
+    this._step = (dt) => {
+      if (!stage.renderer.xr.isPresenting) return; // the hidden stage loops forever
+      if (this._built) {
         const t0 = performance.now();
-        this.opts.live.advance(Math.min(dt, 0.05));
-        this._liveLayer.sync();
-        this._perf.live += performance.now() - t0;
-        this._perf.key += this._liveLayer.keyMs || 0;
-        this._perf.up += this._liveLayer.uploads || 0;
+        const m = this.opts.model();
+        const clamped = Math.min(dt, 0.05);
+        m.advance(clamped);                       // the placements' own clock
+        this._tiles.advance(clamped * (m.tickHz || 60)); // engine frames
+        this._sprites?.sync();
+        this._perf.cpu += performance.now() - t0;
       }
-      // There is no console on a headset, so the frame budget has to be
-      // legible on the status line or it cannot be measured at all.
       const p = this._perf;
-      p.n++;
-      p.t += dt;
-      p.worst = Math.max(p.worst, dt);
+      p.n++; p.t += dt; p.worst = Math.max(p.worst, dt);
       if (p.n >= 45) {
         const info = stage.renderer.info.render;
         this._perfNote = `${Math.round(p.n / p.t)} fps (worst ${Math.round(p.worst * 1000)} ms) · `
-          + `${info.calls} calls · ${(info.triangles / 1000).toFixed(1)}k tris`
-          + (p.live ? ` · live ${(p.live / p.n).toFixed(2)} ms` : '')
-          + (p.key ? ` (key ${(p.key / p.n).toFixed(2)})` : '')
-          + (p.up ? ` · ${(p.up / p.n).toFixed(1)} uploads/f` : '');
+          + `${info.calls} calls · ${info.triangles} tris · cpu ${(p.cpu / p.n).toFixed(2)} ms`;
         this.status(this._base || 'in AR');
-        this._perf = { n: 0, t: 0, live: 0, key: 0, up: 0, worst: 0 };
+        this._perf = { n: 0, t: 0, cpu: 0, worst: 0 };
       }
     };
-    stage.updaters.add(this._liveStep);
+    stage.updaters.add(this._step);
 
     this._teardown = () => { stage.dispose(); mount.remove(); };
   }
 
-  // _startPump plans the chunk grid and freezes the 2-D view. Nothing is read
-  // yet — _step does one chunk per call.
-  _startPump() {
-    const { w, h } = this.opts.size();
-    const cap = this._ar.stage.renderer.capabilities.maxTextureSize || 4096;
-    const chunk = Math.min(this._num('xrchunk', CHUNK), cap - 2 * PAD);
-    const budget = this._num('xrbudget', BUDGET);
-    const res = w * h > budget ? 0.5 : 1;
-    this._note = res !== 1 ? `half-res: ${(w * h / 1e6).toFixed(1)} Mpx over ${(budget / 1e6).toFixed(0)} Mpx budget` : '';
-
-    const rects = [];
-    for (let y = 0; y < h; y += chunk) {
-      for (let x = 0; x < w; x += chunk) {
-        rects.push({ x, y, w: Math.min(chunk, w - x), h: Math.min(chunk, h - y) });
-      }
-    }
-    this._plan = { rects, i: 0, res, W: w, H: h, phase: 'read', bufs: [], hist: new Map(), dropped: 0, kept: 0 };
-    this.opts.snap.begin();
-    // Hide the movers BEFORE the first read: they are about to be drawn live,
-    // and a baked copy underneath would show as a ghost through their alpha.
-    if (this.live && this.opts.live) { this.opts.live.begin(); this._liveOn = true; }
-    this.status(`AR: reading map 0/${rects.length}`);
+  _mapPx() {
+    if (this._tiles) return this._tiles.model.mapPx;
+    const { tm } = this.opts.model();
+    const cell = tm.tileSize * (tm.blocks ? tm.blocks.size : 1);
+    return { w: tm.width * cell, h: tm.height * cell };
   }
 
-  _step() {
-    const p = this._plan;
-    if (!p) return;
-    try {
-      if (p.phase === 'read') this._stepRead(p);
-      else this._stepKey(p);
-    } catch (e) {
-      this._finish(p, `AR: snapshot failed (${e.message || e.name}) — try ?xrsnap=pre`);
-    }
-  }
+  // Synchronous and measured in milliseconds, so it happens inside the click
+  // that opens the session — no pump, no progress gate.
+  _buildContent() {
+    const THREE = this.THREE;
+    const t0 = performance.now();
+    const m = this.opts.model();
 
-  _stepRead(p) {
-    const r = p.rects[p.i];
-    // PAD pulls in real neighbouring content so each chunk's mip chain does not
-    // clamp at its own border and show a seam under minification. Off the map
-    // it yields transparency; on a wrapping map it yields the wrapped content.
-    // pixi returns { pixels, width, height } — and its width/height are the
-    // render target's actual size, which is what the canvas must be built at;
-    // recomputing them from the frame would drift on rounding.
-    const out = this.opts.snap.read(r.x - PAD, r.y - PAD, r.w + 2 * PAD, r.h + 2 * PAD, p.res);
-    const px = out?.pixels;
-    if (!px || !px.length) {
-      this._finish(p, 'AR: snapshot came back empty — try ?xrsnap=pre');
-      return;
-    }
-    p.bufs.push({ px, cw: out.width, ch: out.height });
-    if (this.keying && !this._forcedKey()) {
-      const u32 = new Uint32Array(px.buffer);
-      for (let i = 0; i < u32.length; i += SAMPLE) {
-        const v = u32[i];
-        if ((v & 0xff000000) === 0) continue; // fully transparent, not a colour
-        p.hist.set(v, (p.hist.get(v) || 0) + 1);
-      }
-    }
-    p.i++;
-    if (p.i < p.rects.length) {
-      this.status(`AR: reading map ${p.i}/${p.rects.length}`);
-    } else {
-      p.phase = 'key';
-      p.i = 0;
-      p.key = this.keying ? this._pickKey(p) : null;
-      this._key = p.key; // the live layer keys its tile art with the same colour
-      this.status(`AR: building ${0}/${p.rects.length}`);
-    }
+    const img = m.atlasImg;
+    const cv = document.createElement('canvas');
+    cv.width = img.width; cv.height = img.height;
+    const c2 = cv.getContext('2d', { willReadFrequently: true });
+    c2.imageSmoothingEnabled = false;
+    c2.drawImage(img, 0, 0);
+
+    const model = this.buildTileModel({
+      tm: m.tm,
+      atlas: c2.getImageData(0, 0, img.width, img.height),
+      key: this.keying ? (this._forcedKey() || 'auto') : 'none',
+      maxLayers: this.stage.renderer.getContext().getParameter(0x88FF), // MAX_ARRAY_TEXTURE_LAYERS
+    });
+
+    const aniso = Math.max(1, Math.round(this._num('xraniso', 4)));
+    const blend = this._param('xrblend') === '1';
+    this._tiles = new this.TileMapMesh(THREE, model, { renderer: this.stage.renderer, aniso, blend });
+    this.stage.scene.add(this._tiles.group);
+
+    this._sprites = new this.SpriteLayer(THREE, {
+      placements: m.placements,
+      clip: m.clip,
+      W: model.mapPx.w, H: model.mapPx.h,
+      renderer: this.stage.renderer,
+    });
+    this.stage.scene.add(this._sprites.group);
+
+    const s = model.stats, sc = this._sprites.counts;
+    const ms = Math.round(performance.now() - t0);
+    this._note = `${s.bricks} bricks · ${s.slots} slots/${s.layers}L`
+      + (model.P > 1 ? `/P${model.P}` : '')
+      + ` · ${sc.sprites} sprites/${sc.sheets} sheets`
+      + ` · ${Math.round((s.tilesKB + s.indexKB + s.farKB) / 1024 * 10) / 10} MB · ${ms} ms`
+      + (model.key ? ` · key #${hex(model.key)} ${Math.round(model.keyStats.cellPct)}% cells` : ' · unkeyed');
+    // A map that keys away to nothing is never what was wanted; say so rather
+    // than present an empty wall.
+    if (model.key && model.keyStats.cellPct > 95) this._note += ' — KEY REMOVES NEARLY EVERYTHING';
+
+    this._ar.distance = this._num('xrdist', Math.max(1.2, 0.62 * this._maxW));
+    m.begin?.();
+    this._running = true;
+    this._built = true;
   }
 
   _forcedKey() {
     const v = this._param('xrkey');
-    if (!v || v === 'none') return null;
-    const m = /^#?([0-9a-f]{6})$/i.exec(v);
-    if (!m) return null;
-    const n = parseInt(m[1], 16);
+    const mm = /^#?([0-9a-f]{6})$/i.exec(v || '');
+    if (!mm) return null;
+    const n = parseInt(mm[1], 16);
     return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
-  }
-
-  _pickKey(p) {
-    const forced = this._forcedKey();
-    if (forced) {
-      this._note = `key #${hex(forced)} (forced)`;
-      return forced;
-    }
-    let best = 0, bestN = 0, total = 0;
-    for (const [v, n] of p.hist) { total += n; if (n > bestN) { bestN = n; best = v; } }
-    if (!total) return null;
-    const key = { r: best & 255, g: (best >> 8) & 255, b: (best >> 16) & 255 };
-    this._note = `key #${hex(key)} ${Math.round((100 * bestN) / total)}%`;
-    return key;
-  }
-
-  _stepKey(p) {
-    const THREE = this.THREE;
-    const r = p.rects[p.i];
-    const { px, cw, ch } = p.bufs[p.i];
-    p.bufs[p.i] = null; // let the buffer go as soon as it is uploaded
-    const tol = Math.max(0, Math.floor(this._num('xrtol', 0)));
-
-    let kept = 0;
-    if (p.key) {
-      const u32 = new Uint32Array(px.buffer);
-      // Store 0 on a match: that zeroes RGB *and* alpha in one write, which is
-      // what keeps the buffer premultiplied-correct — a keyed pixel must be
-      // (0,0,0,0), not (sky,0), or the mip chain averages sky into the edges.
-      if (tol === 0) {
-        // >>> 0: `|` yields a SIGNED int32, so 0xff000000|… is negative while
-        // the Uint32Array elements are unsigned — the comparison would never
-        // match and every pixel would survive the key.
-        const want = ((0xff000000 | (p.key.b << 16) | (p.key.g << 8) | p.key.r) >>> 0);
-        for (let i = 0; i < u32.length; i++) {
-          if (u32[i] === want) u32[i] = 0; else if (u32[i] & 0xff000000) kept++;
-        }
-      } else {
-        for (let i = 0; i < u32.length; i++) {
-          const v = u32[i];
-          if ((v & 0xff000000) === 0) continue;
-          if (Math.abs((v & 255) - p.key.r) <= tol && Math.abs(((v >> 8) & 255) - p.key.g) <= tol
-            && Math.abs(((v >> 16) & 255) - p.key.b) <= tol) u32[i] = 0;
-          else kept++;
-        }
-      }
-    } else {
-      kept = 1;
-    }
-
-    if (kept === 0) {
-      p.dropped++;
-    } else {
-      p.kept++;
-      const cv = document.createElement('canvas');
-      cv.width = cw; cv.height = ch;
-      const img = new ImageData(px instanceof Uint8ClampedArray ? px : new Uint8ClampedArray(px.buffer), cw, ch);
-      cv.getContext('2d').putImageData(img, 0, 0);
-
-      const tex = new THREE.CanvasTexture(cv);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.generateMipmaps = true;
-      tex.magFilter = THREE.NearestFilter;            // game pixels, up close
-      tex.minFilter = THREE.LinearMipmapLinearFilter; // clean from across the room
-      tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-      // Anisotropy is expensive per fragment on a mobile tiler and a wall-sized
-      // map is exactly the glancing-angle case that samples it hardest. 4 by
-      // default rather than 8; ?xraniso=1 turns it off, =8 restores it.
-      const aniso = Math.max(1, Math.round(this._num('xraniso', 4)));
-      if (aniso > 1) tex.anisotropy = Math.min(aniso, this._ar.stage.renderer.capabilities.getMaxAnisotropy());
-      tex.needsUpdate = true;
-
-      // Geometry comes from the FRAME, never the canvas, so half-res chunks
-      // still span the right area.
-      const geo = new THREE.PlaneGeometry(r.w, r.h);
-      // Inset the UVs past the padding, so the padded ring feeds the mip chain
-      // but is never itself sampled.
-      const uv = geo.attributes.uv;
-      const iu = (PAD * p.res) / cw, iv = (PAD * p.res) / ch;
-      for (let i = 0; i < uv.count; i++) {
-        uv.setXY(i, iu + uv.getX(i) * (1 - 2 * iu), iv + uv.getY(i) * (1 - 2 * iv));
-      }
-      uv.needsUpdate = true;
-
-      // The keyer writes (0,0,0,0), so alpha here is BINARY — which means an
-      // alpha test in the OPAQUE pass is exact, and much kinder to a tiled
-      // GPU than blended geometry: depth writes let overlapping quads reject
-      // each other instead of every layer paying full fill rate. That is the
-      // main suspect for a headset falling behind on a wall-sized map.
-      // ?xrblend=1 restores the blended path.
-      const blend = this._param('xrblend') === '1';
-      const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-        map: tex, toneMapped: false, side: THREE.DoubleSide,
-        alphaTest: p.key && !blend ? 0.5 : 0,
-        transparent: !!p.key && blend,
-        premultipliedAlpha: !!p.key && blend,
-        depthWrite: !(p.key && blend),
-      }));
-      // 1 world unit = 1 map pixel, origin at the map's centre, +Y up.
-      mesh.position.set(r.x + r.w / 2 - p.W / 2, p.H / 2 - r.y - r.h / 2, 0);
-      this._group.add(mesh);
-    }
-
-    p.i++;
-    if (p.i < p.rects.length) {
-      this.status(`AR: building ${p.i}/${p.rects.length}`);
-    } else {
-      const note = this._note ? `${this._note} · ` : '';
-      this._note = `${note}${p.kept}/${p.rects.length} chunks${p.dropped ? `, ${p.dropped} all-backdrop` : ''}`;
-      this._finish(p, null);
-    }
-  }
-
-  _finish(p, err) {
-    if (this._pump) { this._ar.stage.updaters.delete(this._pump); this._pump = null; }
-    this._plan = null;
-    p.bufs.length = 0;
-    if (err) { this._liveEnd(); this.status(err); return; }
-    this._W = p.W; this._H = p.H;
-    if (this._liveOn) this._liveStart();
-    else this.opts.snap.end(); // still mode: the 2-D view gets its clock back now
-    // Stand back far enough to take the whole thing in.
-    this._ar.distance = this._num('xrdist', Math.max(1.2, 0.62 * this._maxW));
-    this._ready = true;
-  }
-
-  // In live mode the Pixi ticker stays stopped for the whole session and the
-  // XR frame loop advances the same `anims` array instead — window rAF is not
-  // reliably serviced while an immersive session is presenting, which is why
-  // three swaps to the session's own rAF in setAnimationLoop.
-  _liveStart() {
-    try {
-      const layer = new this.LiveLayer(this.THREE, this.opts.live, {
-        W: this._W, H: this._H, renderer: this._ar.stage.renderer,
-        // Same backdrop the bake keyed out. ?xrlivekey=0 drops it, which is the
-        // A/B for whether the per-repaint canvas readback is what costs frames.
-        key: this._param('xrlivekey') === '0' ? null : this._key,
-        aniso: Math.max(1, Math.round(this._num('xraniso', 4))),
-        blend: this._param('xrblend') === '1',
-      });
-      this._ar.stage.scene.add(layer.group);
-      this._liveLayer = layer;
-      // One-time: walk each animated surface through its cycle and keep a keyed
-      // texture per state, so a repaint costs a pointer swap instead of a
-      // canvas readback every frame. ?xrphases=0 keeps the per-frame path.
-      let phaseNote = '';
-      if (this._param('xrphases') !== '0') {
-        phaseNote = layer.precomputePhases(
-          (dt) => this.opts.live.advance(dt), this.opts.live.tickHz || 60,
-        );
-      }
-      const c = layer.counts;
-      const bits = [];
-      if (c.sprites) bits.push(`${c.sprites} sprites/${c.atlases}`);
-      if (c.tiles) bits.push(`${c.tiles} anim tiles`);
-      if (c.cells) bits.push(`${c.cells} strips`);
-      if (phaseNote) bits.push(phaseNote);
-      if (bits.length) this._note = `${this._note ? `${this._note} · ` : ''}live ${bits.join(', ')}`;
-    } catch (e) {
-      // A broken live layer must not cost the user the map: fall back to the
-      // still, which is what they had before.
-      this._liveEnd();
-      this._note = `${this._note ? `${this._note} · ` : ''}live failed: ${e.message || e.name}`;
-    }
   }
 }
 
