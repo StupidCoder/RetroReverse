@@ -32,7 +32,7 @@ import (
 type level struct {
 	remap merc.RemapTable
 	pages map[int]*tpage.Page
-	cache map[uint32]texEntry
+	cache map[texKey]texEntry
 }
 
 type texEntry struct {
@@ -40,44 +40,74 @@ type texEntry struct {
 	blend bool
 }
 
-func (l *level) resolve(s merc.ShaderRef) merc.Material {
+// Material modes, per effect (see resolve).
+const (
+	modeCutout = iota // base bucket: ATE GEQUAL 0x26 cutout
+	modeOpaque        // alpha bucket: the replace pass covers every texel
+)
+
+type texKey struct {
+	id   uint32
+	mode int
+}
+
+// resolve maps a fragment's adgif to a GLB material under the measured
+// bucket semantics (cmd/gsaudit on captured frames, root-ordered walk):
+//
+//   - flag-0 effects draw in the base merc bucket: PRIM ABE=0 and TEST
+//     {ATE=1 ATST=GEQUAL AREF=0x26 AFAIL=KEEP} — binary cutout at the
+//     hardware threshold (modeCutout).
+//   - flag-0x100 effects draw in the alpha bucket with TEST ATE=0 (never
+//     a cutout) and a per-fragment SEQUENCE of ALPHA equations: source-
+//     over (0x44), REPLACE (0x00) and additive-by-dest-alpha (0x58, the
+//     envmap shine; the logo's electric effect adds plain additive 0x68).
+//     The replace pass gives every texel full coverage, so the net base
+//     is opaque (modeOpaque); the additive shine passes are a separate
+//     open item. The disc adgifs all carry source-over — the runtime
+//     chain rewrites ALPHA per pass, so the disc value must not be used
+//     to pick a mode.
+func (l *level) resolve(s merc.ShaderRef, flags int) merc.Material {
+	mode := modeCutout
+	if flags&0x100 != 0 {
+		mode = modeOpaque
+	}
 	id := l.remap.Lookup(s.RawID)
-	if e, ok := l.cache[id]; ok {
+	key := texKey{id, mode}
+	if e, ok := l.cache[key]; ok {
 		return merc.Material{Image: e.img, Blend: e.blend}
 	}
 	pg := l.pages[int(id>>20)]
 	idx := int(id >> 8 & 0xFFF)
 	if pg == nil || idx >= len(pg.Textures) || pg.Textures[idx].W == 0 {
 		fmt.Fprintf(os.Stderr, "webexport: no texture for id %08x (raw %08x)\n", id, s.RawID)
-		l.cache[id] = texEntry{}
+		l.cache[key] = texEntry{}
 		return merc.Material{}
 	}
 	img, err := pg.Decode(&pg.Textures[idx], 0)
 	check(err)
-	out := gsAlphaCutout(img)
-	l.cache[id] = texEntry{out, false}
+	out := gsAlpha(img, mode)
+	l.cache[key] = texEntry{out, false}
 	return merc.Material{Image: out}
 }
 
-// gsAlphaCutout applies the measured merc draw semantics to a texture's
-// GS alpha channel. The character base pass draws with PRIM ABE=0 and
-// TEST {ATE=1, ATST=GEQUAL, AREF=0x26, AFAIL=KEEP} — read from the game's
-// own bucket-init packets and strip tags by replaying a captured title
-// frame (cmd/gsaudit; the state was matched to the models through their
-// logged-in TEX0 words). No blending exists on this path: a texel either
-// passes the alpha test (GS alpha >= 0x26 of 0x80) and renders exactly as
-// if opaque, or is discarded. The faithful GLB is therefore a MASK cutout
-// with binarized alpha at the hardware threshold; a texture whose texels
-// all pass is simply opaque.
-func gsAlphaCutout(src image.Image) image.Image {
+// gsAlpha renders a texture's GS alpha channel (CLUT alpha, 0x80 = 1.0)
+// into GLB semantics for the given material mode — see resolve for where
+// the modes come from.
+func gsAlpha(src image.Image, mode int) image.Image {
 	b := src.Bounds()
 	out := image.NewRGBA(b)
 	for y := b.Min.Y; y < b.Max.Y; y++ {
 		for x := b.Min.X; x < b.Max.X; x++ {
 			r, g, bl, a := src.At(x, y).RGBA()
-			a8 := uint8(255)
-			if a>>8 < 0x26 { // GS units: CLUT alpha 0x80 = 1.0
-				a8 = 0
+			var a8 uint8
+			switch mode {
+			case modeCutout: // binary at the alpha-test threshold
+				a8 = 255
+				if a>>8 < 0x26 { // GS units: CLUT alpha 0x80 = 1.0
+					a8 = 0
+				}
+			case modeOpaque:
+				a8 = 255
 			}
 			out.SetRGBA(x, y, color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(bl >> 8), a8})
 		}
@@ -158,7 +188,7 @@ func main() {
 		l := &level{
 			remap: merc.LoadRemapTable(vis),
 			pages: map[int]*tpage.Page{},
-			cache: map[uint32]texEntry{},
+			cache: map[texKey]texEntry{},
 		}
 		addPages(l, d)
 		// the always-resident common art pages (tpage-463 & co.)
@@ -278,10 +308,12 @@ func main() {
 			want, got := 0, 0
 			for i := range c.Effects {
 				var ps []glb.Prim
+				flags := c.Effects[i].Flags
+				res := func(s merc.ShaderRef) merc.Material { return lv.resolve(s, flags) }
 				if len(joints) > 0 {
-					ps = merc.TexturedPrimsSkinned(&c.Effects[i], lv.resolve, tr, scale)
+					ps = merc.TexturedPrimsSkinned(&c.Effects[i], res, tr, scale)
 				} else {
-					ps = merc.TexturedPrims(&c.Effects[i], lv.resolve)
+					ps = merc.TexturedPrims(&c.Effects[i], res)
 				}
 				want += c.Effects[i].TriCount
 				for _, p := range ps {

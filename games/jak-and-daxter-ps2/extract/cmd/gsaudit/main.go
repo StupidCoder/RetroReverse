@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
+	"strings"
 
 	"retroreverse.com/games/jak-and-daxter-ps2/extract/merc"
 )
@@ -33,6 +35,10 @@ type drawKey struct {
 
 var draws = map[drawKey]int{}   // -> vertex count
 var drawPkts = map[drawKey]int{}
+var watch = map[uint64]bool{}   // TBP0 values to log per-draw, in order
+var watchN = 0
+var adHist = map[string]map[byte]int{} // src -> A+D reg -> count
+var alphaVals = map[string]map[uint64]int{} // src -> ALPHA data -> count
 
 // feed walks a GIF stream (byte slice, 16-byte qwords) updating the shadow
 // state and recording draw events.
@@ -81,6 +87,10 @@ func (g *gsState) feed(mem []byte, src string) {
 					}
 				case 0xE: // A+D
 					ad := mem[qw*16+8]
+					if adHist[src] == nil {
+						adHist[src] = map[byte]int{}
+					}
+					adHist[src][ad]++
 					switch ad {
 					case 0x00:
 						g.prim = data & 0x7FF
@@ -90,6 +100,10 @@ func (g *gsState) feed(mem []byte, src string) {
 						g.texa = data
 					case 0x42, 0x43:
 						g.alpha[ad-0x42] = data
+						if alphaVals[src] == nil {
+							alphaVals[src] = map[uint64]int{}
+						}
+						alphaVals[src][data]++
 					case 0x47, 0x48:
 						g.test[ad-0x47] = data
 					case 0x49:
@@ -104,6 +118,11 @@ func (g *gsState) feed(mem []byte, src string) {
 			k := drawKey{src, g.prim, g.test[ctx], g.alpha[ctx], g.tex0[ctx]}
 			draws[k] += verts
 			drawPkts[k]++
+			if watch[g.tex0[ctx]&0x3FFF] && watchN < 200 {
+				watchN++
+				fmt.Printf("DRAW %-10s %3d verts PRIM{%s} TEST{%s} ALPHA{%s} TEX0{%s}\n",
+					src, verts, decodePrim(k.prim), decodeTest(k.test), decodeAlpha(k.alpha), decodeTex0(k.tex0))
+			}
 		}
 		if eop {
 			return
@@ -132,7 +151,17 @@ func decodeTex0(t uint64) string {
 
 func main() {
 	ramF := flag.String("ram", "", "RAM image")
+	watchF := flag.String("watch", "", "comma-separated TBP0 hex values to log per-draw in frame order")
 	flag.Parse()
+	for _, t := range strings.Split(*watchF, ",") {
+		if t == "" {
+			continue
+		}
+		v, err := strconv.ParseUint(t, 0, 64)
+		if err == nil {
+			watch[v&0x3FFF] = true
+		}
+	}
 	ram, err := os.ReadFile(*ramF)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -154,7 +183,28 @@ func main() {
 		pre.Play(h)
 	}
 
+	// root heads: not reachable as a CALL/NEXT target from any other head —
+	// replaying only those preserves the frame's real DMA (and so GS) order.
+	called := map[uint32]bool{}
 	for _, h := range heads {
+		r := merc.NewReplayer(ram)
+		r.SkipRun = true
+		r.OnTag = func(addr, ref uint32, id int) {
+			if id == 2 || id == 5 {
+				called[ref] = true
+			}
+		}
+		r.Play(h)
+	}
+	var roots []uint32
+	for _, h := range heads {
+		if !called[h] {
+			roots = append(roots, h)
+		}
+	}
+	fmt.Printf("%d root heads: %x\n", len(roots), roots)
+
+	for _, h := range roots {
 		r := merc.NewReplayer(ram)
 		copy(r.V.Micro, pre.V.Micro)
 		gs := &gsState{}
@@ -173,6 +223,20 @@ func main() {
 	var rows []row
 	for k, v := range draws {
 		rows = append(rows, row{k, v})
+	}
+	for src, h := range alphaVals {
+		fmt.Printf("ALPHA values %-10s:", src)
+		for v, n := range h {
+			fmt.Printf(" %010X:%d", v, n)
+		}
+		fmt.Println()
+	}
+	for src, h := range adHist {
+		fmt.Printf("A+D regs %-10s:", src)
+		for reg, n := range h {
+			fmt.Printf(" %02X:%d", reg, n)
+		}
+		fmt.Println()
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].v > rows[j].v })
 	for _, r := range rows {

@@ -39,6 +39,9 @@ type Replayer struct {
 	// data — the bucket-init register packets live here).
 	Direct    func(qws []byte)
 	LastEntry uint32 // byte address of the last MSCAL entry
+	// OnTag, when set, observes every DMA tag walked: its address, the
+	// tag's ref/next field and the tag id.
+	OnTag func(addr, ref uint32, id int)
 }
 
 func NewReplayer(ram []byte) *Replayer {
@@ -112,6 +115,9 @@ func (r *Replayer) Play(addr uint32) error {
 		}
 		if r.Trace {
 			fmt.Printf("dma@%06X id=%d qwc=%d ref=%06X vif=%08X %08X\n", addr, id, qwc, ref, v0, v1)
+		}
+		if r.OnTag != nil {
+			r.OnTag(addr, ref, id)
 		}
 		if r.RefHi > 0 && data >= r.RefLo && data < r.RefHi {
 			r.RefHits++

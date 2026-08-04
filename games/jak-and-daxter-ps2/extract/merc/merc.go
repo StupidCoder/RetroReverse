@@ -61,6 +61,11 @@ type Effect struct {
 	FragCount int
 	TriCount  int
 	DVertCount int
+	// Flags is the record's u16 at +26. Bit 8 marks the effects draw-bones
+	// routes through the second (alpha) bucket — eyes, armor, hair: their
+	// fragments write their own TEST (ATE off) and ALPHA registers, so
+	// texture alpha is not coverage there.
+	Flags     int
 	Fragments []Fragment
 }
 
@@ -95,6 +100,7 @@ func Parse(obj []byte, p uint32) (*Ctrl, error) {
 			FragCount:  int(u16(obj, rec+18)),
 			TriCount:   int(u16(obj, rec+22)),
 			DVertCount: int(u16(obj, rec+24)),
+			Flags:      int(u16(obj, rec+26)),
 		}
 		gcur, ccur := geo, fc
 		for f := 0; f < eff.FragCount; f++ {
