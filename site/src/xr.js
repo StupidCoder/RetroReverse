@@ -81,7 +81,10 @@ export class PerfMeter {
     // totals resident on the GPU: what a draw call has to rebind between.
     const note = `${Math.round(n / this._t)} fps (worst ${Math.round(this._worst * 1000)} ms)`
       + ` · ${info.render.calls} calls · ${info.render.triangles} tris`
-      + ` · ${info.memory.textures} tex · ${info.programs?.length ?? 0} prog`
+      // Resident geometries and textures are the leak instrument: a shell that
+      // swaps content in a live session has no renderer teardown to fall back
+      // on, so these must come back to a flat baseline after a switch.
+      + ` · ${info.memory.geometries} geo · ${info.memory.textures} tex · ${info.programs?.length ?? 0} prog`
       + ` · cpu ${(upd + draw).toFixed(2)} ms (upd ${upd.toFixed(2)} · draw ${draw.toFixed(2)})`;
     this.reset();
     this._base = { upd: p.upd, draw: p.draw };
@@ -130,6 +133,15 @@ export class ARSession {
     this.onScene = opts.onScene || null;   // the view's own scene tweaks (sky, cutscenes)
     this.onChange = opts.onChange || null; // the shell's button/filter state, assigned later
     this.onStatus = opts.onStatus || null;
+    // Hooks for a shell that keeps ONE session across many contents.
+    // onFrame gets every XR frame (the menu raycasts its pointer there);
+    // onSelect gets first refusal on a pinch and returns true if it consumed
+    // it, so pointing at a menu row does not also re-place the scene behind it;
+    // onPlaced fires once each time a fit succeeds, which is when new content
+    // is safe to reveal.
+    this.onFrame = opts.onFrame || null;
+    this.onSelect = opts.onSelect || null;
+    this.onPlaced = opts.onPlaced || null;
     // Carried on the instance so the shell can gate its button without
     // importing this module (and pulling three.js into the landing page).
     this.supported = arSupported;
@@ -143,6 +155,31 @@ export class ARSession {
   get active() { return !!this.session; }
 
   status(text) { this.onStatus?.(text); }
+
+  // setContent points a LIVE session at different content. Everything the fit
+  // depends on is re-read here and a placement is requested; nothing about the
+  // session itself is touched, which is the whole point — the alternative is
+  // ending it and asking for a new one, and WebXR wants a user gesture for
+  // that which an asset load has long since spent.
+  setContent(c = {}) {
+    if (c.contentBox) this.contentBox = c.contentBox;
+    if (c.frontDir) this.frontDir = c.frontDir;
+    this.ready = c.ready || null;
+    const fit = c.fit || {};
+    this.targetSize = fit.targetSize ?? 1.0;
+    this.distance = fit.distance ?? 1.5;
+    this.dropBelowEye = fit.dropBelowEye ?? 0.15;
+    this.anchor = fit.anchor === 'floor' ? 'floor' : 'eye';
+    this.fitAxis = fit.fitAxis || 'horizontal';
+    this.fitScale = fit.fitScale || null;
+    this.rePlace();
+  }
+
+  // rePlace asks for a fresh fit on the next frame that has a head pose.
+  rePlace() {
+    this._place = true;
+    this._waited = 0;
+  }
 
   async enter() {
     if (this.session) return;
@@ -163,7 +200,11 @@ export class ARSession {
         // bounded-floor is what makes a spawn point meaningful: its origin is
         // fixed to the guardian, so a point expressed in it means the same
         // physical spot next session, and its boundsGeometry is the play area.
-        optionalFeatures: ['dom-overlay', 'bounded-floor'],
+        // hand-tracking is not needed to POINT — a pinch already arrives as a
+        // select from a tracked-pointer input source — but asking costs nothing
+        // and is what would let a ray start at the fingertip rather than at the
+        // runtime's own grip pose.
+        optionalFeatures: ['dom-overlay', 'bounded-floor', 'hand-tracking'],
         domOverlay: { root: document.body },
       });
     } catch (e) {
@@ -174,6 +215,10 @@ export class ARSession {
 
     this.session = session;
     this._snap = stage.cameraSnapshot();
+    // Remember WHICH scene these belong to. A shell that swaps content replaces
+    // stage.scene outright, and restoring the first level's fog onto the last
+    // one's scene at exit would be a haze nobody asked for.
+    this._scene = stage.scene;
     this._bg = stage.scene.background;
     this._fog = stage.scene.fog;
     // A Color background is harmless (three forces a transparent clear for an
@@ -206,9 +251,11 @@ export class ARSession {
     // "a fixed distance ahead" usually lands you against a wall with no way to
     // walk around the far side.
     session.addEventListener('select', (e) => {
+      // The menu gets first refusal: a pinch aimed at a panel row is a click,
+      // and must NOT also re-place the scene sitting behind the panel.
+      if (this.onSelect?.(e.inputSource) === true) return;
       this._pendingRay = e.inputSource || null;
-      this._place = true;
-      this._waited = 0;
+      this.rePlace();
     });
     // Restore off three's OWN sessionend, not the session's 'end'. A listener
     // on the session fires in registration order, and ours would be added
@@ -252,6 +299,13 @@ export class ARSession {
   // cameras.
   _frame(frame) {
     this.rig?.updateMatrixWorld(true);
+    // The menu aims its pointer here: it needs the frame and the reference
+    // space, and this is the one callback that has both. Before the placement
+    // work below, so a pointer keeps tracking even while content is streaming.
+    if (frame && this.onFrame) {
+      const ref = this.stage.renderer.xr.getReferenceSpace();
+      if (ref) { try { this.onFrame(frame, ref); } catch (e) { console.error('xr onFrame', e); } }
+    }
     if (!this._place || !frame) return;
     // Not "nothing to place" — not YET. Reset the pose counter too, or a slow
     // build would trip POSE_GIVE_UP and report a tracking failure that never
@@ -345,6 +399,10 @@ export class ARSession {
       + ` · eye ${fmt(p.y)} m`
       + (this._spawnNote ? ` · ${this._spawnNote}` : '');
     this.status(`in AR · ${this._fit}`);
+    // New content is built hidden and revealed here: until a fit has landed it
+    // would be drawn at the PREVIOUS content's scale and rig offset, which for
+    // one or two frames looks like the room lurching.
+    this.onPlaced?.(this._fit);
   }
 
   // _spawnPoint resolves where content should stand, in reference space, in
@@ -428,13 +486,18 @@ export class ARSession {
       this.rig.remove(stage.camera); // the rig was never in the scene
       this.rig = null;
     }
+    // Onto the scene these were taken FROM, which a content swap may have
+    // replaced since. Restoring them onto whatever is current instead would
+    // hand the last level the first one's fog.
+    const scene = this._scene || stage.scene;
     if (this._sceneScale) {
-      stage.scene.scale.copy(this._sceneScale);
-      stage.scene.updateMatrixWorld(true);
+      scene.scale.copy(this._sceneScale);
+      scene.updateMatrixWorld(true);
       this._sceneScale = null;
     }
-    stage.scene.background = this._bg;
-    stage.scene.fog = this._fog;
+    scene.background = this._bg;
+    scene.fog = this._fog;
+    this._scene = null;
     stage.inputEnabled = true;
     stage.cameraRestore(this._snap);
     this._snap = null;

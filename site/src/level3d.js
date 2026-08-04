@@ -4,7 +4,7 @@
 // onClick interactions, and the cutscene scripts. All of it from the level
 // document; no per-game code.
 
-import { THREE, Stage, FlyCam, ObjectLibrary, loadGLB, applyWireframe, applyTexFilter, applyTransform, flyHint } from './engine3d.js';
+import { THREE, Stage, FlyCam, ObjectLibrary, loadGLB, applyWireframe, applyTexFilter, applyTransform, flyHint, disposeScene } from './engine3d.js';
 import { CutscenePlayer } from './cutscene.js';
 import { PanInput } from './pancam.js';
 import { ARSession, arSupported, PerfMeter } from './xr.js';
@@ -22,9 +22,17 @@ export async function mount(ctx, doc) {
   // next scene's.
   const signal = ctx.signal ?? new AbortController().signal;
 
-  const stage = new Stage(el, cam);
-  if (doc.scene?.background) stage.scene.background = new THREE.Color(doc.scene.background);
-  if (doc.scene?.fog) {
+  // ctx.stage3d is the XR shell handing over ITS stage: one renderer, kept
+  // alive across content swaps so the session survives them. The view then owns
+  // the scene but not the stage, and everything that belongs to the stage —
+  // camera input, picking, the AR button — is the shell's business instead.
+  const ownStage = !ctx.stage3d;
+  const stage = ctx.stage3d || new Stage(el, cam);
+  // The shell's scene carries no background or fog: ARSession clears both for
+  // the session's duration anyway (they would paint over passthrough), and
+  // writing them here would leave the FIRST level's fog to be restored on exit.
+  if (ownStage && doc.scene?.background) stage.scene.background = new THREE.Color(doc.scene.background);
+  if (ownStage && doc.scene?.fog) {
     stage.scene.fog = new THREE.Fog(new THREE.Color(doc.scene.fog.color), doc.scene.fog.near, doc.scene.fog.far);
   }
   stage.scene.add(new THREE.AmbientLight(0xffffff, 2.2));
@@ -32,16 +40,20 @@ export async function mount(ctx, doc) {
   key.position.set(1, 2, 1.4);
   stage.scene.add(key);
 
+  // Camera input belongs to the stage, and in a session the head owns the
+  // camera outright — a FlyCam or PanInput built against the shell's stage
+  // would only attach listeners to a canvas nobody is looking at and leave
+  // them there for the next content.
   let fly = null;
-  if (cam.mode === 'fly') fly = new FlyCam(stage, cam.fly?.speed);
-  if (cam.mode === 'orbit' && cam.orbit) {
+  if (ownStage && cam.mode === 'fly') fly = new FlyCam(stage, cam.fly?.speed);
+  if (ownStage && cam.mode === 'orbit' && cam.orbit) {
     stage.controls.autoRotate = !!cam.orbit.autoRotate;
     stage.controls.autoRotateSpeed = (cam.orbit.autoRotateSpeed || 0.3) * 6;
     if (cam.orbit.minDist) stage.controls.minDistance = cam.orbit.minDist;
     if (cam.orbit.maxDist) stage.controls.maxDistance = cam.orbit.maxDist;
   }
   let panInput = null;
-  if (cam.mode === 'pan2d') {
+  if (ownStage && cam.mode === 'pan2d') {
     // Levels that are 3D geometry but 2D in spirit (Loco Roco): the camera
     // faces the plane and never rotates — drag pans, wheel/pinch zooms, and
     // (Stage) it looks through an orthographic frustum, so scrolling slides
@@ -326,8 +338,11 @@ export async function mount(ctx, doc) {
   const closeCard = () => { card?.remove(); card = null; };
 
   let down = null, lastTap = 0;
-  stage.canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; });
-  stage.canvas.addEventListener('pointerup', (e) => {
+  // Picking is a stage concern too: these listeners live on a canvas the view
+  // does not own, and on a persistent stage they would pile up one pair per
+  // content swap, each closing over a scene that has been disposed.
+  const onDown = (e) => { down = { x: e.clientX, y: e.clientY }; };
+  const onUp = (e) => {
     // In an XR session the canvas is not what the viewer is looking at, and a
     // dom-overlay can still deliver pointer events — an infocard opened behind
     // the immersive view is invisible and unclosable.
@@ -343,7 +358,11 @@ export async function mount(ctx, doc) {
     if (dbl) return showInfo(e, pl, inst);
     if (pl.onClick) return runAction(pl, hit, e);
     showInfo(e, pl, inst);
-  });
+  };
+  if (ownStage) {
+    stage.canvas.addEventListener('pointerdown', onDown);
+    stage.canvas.addEventListener('pointerup', onUp);
+  }
 
   function pick(e) {
     const r = stage.canvas.getBoundingClientRect();
@@ -563,8 +582,20 @@ export async function mount(ctx, doc) {
     }
   }
 
-  // Ortho stages (the pan2d levels) have no place in a headset.
-  const ar = stage.camera.isPerspectiveCamera
+  // Everything a session needs to place this level, in one object. When the XR
+  // shell owns the stage it takes this and drives its own long-lived session;
+  // the per-view ARSession below is the standalone path.
+  const arContent = {
+    contentBox,
+    frontDir: establishingDir(),
+    setPresenting: setARScene,
+    fit: { targetSize: num(param('xrsize'), 1.0), distance: num(param('xrdist'), 1.5) },
+  };
+
+  // Ortho stages (the pan2d levels) have no place in a headset — but that is a
+  // fact about the DESKTOP camera, not about the level: the shell's stage is
+  // always perspective, so a pan2d level reaches AR through arContent above.
+  const ar = ownStage && stage.camera.isPerspectiveCamera
     ? new ARSession({
       stage,
       contentBox,
@@ -591,13 +622,29 @@ export async function mount(ctx, doc) {
       player?.dispose();
       fly?.dispose();
       panInput?.dispose();
-      stage.dispose();
+      if (ownStage) {
+        stage.canvas.removeEventListener('pointerdown', onDown);
+        stage.canvas.removeEventListener('pointerup', onUp);
+        stage.dispose(); // takes the canvas with it, so unhook first
+      }
+      // Give the GPU its memory back. `roots` is the precise record of what
+      // this mount built — layers, streamed rooms, placements, the billboard
+      // batch — so it is a better answer than walking the scene, which only
+      // sees what is still attached to it. The library on top of that: its
+      // protos are not in any scene graph at all.
+      //
+      // Both matter only on a stage that outlives the view. With its own
+      // renderer, Stage.dispose() drops the whole context and none of this is
+      // observable — which is exactly why it was never here.
+      for (const r of roots) disposeScene(r);
+      lib.dispose();
       closeCard();
       hud.remove();
       xrStatus.remove();
       el.querySelector('.side-list')?.remove();
     },
     xr: ar,
+    arContent,
     sources: () => [stage.canvas],
     setWireframe(on) { for (const r of roots) applyWireframe(r, on); },
     setVariant(id) { activeVariant = id; applyVariant(); },

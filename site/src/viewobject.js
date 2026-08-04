@@ -226,20 +226,29 @@ function loadImg(url) {
 
 async function mount3D(ctx, doc) {
   const { stage: el, game, asset, params } = ctx;
-  const { THREE, Stage, ObjectLibrary, wireMaterial } = await import('./engine3d.js');
+  const { THREE, Stage, ObjectLibrary, wireMaterial, disposeScene } = await import('./engine3d.js');
   const { ARSession } = await import('./xr.js');
 
-  const stage = new Stage(el, { fov: 45 });
+  // ctx.stage3d is the XR shell's own stage, kept alive across content swaps so
+  // the session survives them (see level3d.js for the same handover). With it,
+  // the camera, its input and the AR button all belong to the shell.
+  const ownStage = !ctx.stage3d;
+  const stage = ctx.stage3d || new Stage(el, { fov: 45 });
   let clearIsolationRef = null; // assigned by the part-isolation block below
-  stage.scene.background = new THREE.Color(0x101520);
+  // A solid background would be painted over the passthrough; in a session
+  // the room IS the backdrop.
+  if (ownStage) stage.scene.background = new THREE.Color(0x101520);
   const ambient = new THREE.AmbientLight(0xffffff, 2.2);
   stage.scene.add(ambient);
   const key = new THREE.DirectionalLight(0xffffff, 1.2);
   key.position.set(1, 2, 1.4);
   stage.scene.add(key);
-  stage.controls.autoRotate = true;
-  stage.controls.autoRotateSpeed = 1.0;
-  el.addEventListener('pointerdown', () => { stage.controls.autoRotate = false; }, { once: true });
+  const stopSpin = () => { stage.controls.autoRotate = false; };
+  if (ownStage) {
+    stage.controls.autoRotate = true;
+    stage.controls.autoRotateSpeed = 1.0;
+    el.addEventListener('pointerdown', stopSpin, { once: true });
+  }
 
   const lib = new ObjectLibrary(game, ctx.signal);
   // Model variants (Retro-X `variants`): one glTF scene each in the same GLB.
@@ -258,7 +267,7 @@ async function mount3D(ctx, doc) {
     if (o.isBone) bones.push(o);
     if (o.isSkinnedMesh) o.frustumCulled = false;
   });
-  if (bones.length) {
+  if (bones.length && ownStage) {
     inst.mixer?.update(0);
     inst.node.updateMatrixWorld(true);
     const v = new THREE.Vector3();
@@ -292,8 +301,13 @@ async function mount3D(ctx, doc) {
       stage.camera.position.add(d);
       stage.controls.target.add(d);
     });
-  } else {
+  } else if (ownStage) {
     stage.frame(inst.node);
+  } else {
+    // Skinned models still need one mixer tick before anything measures them:
+    // the AR fit reads POSED vertices, and at t=0 they are still the bind pose.
+    inst.mixer?.update(0);
+    inst.node.updateMatrixWorld(true);
   }
 
   let handle = null;
@@ -407,27 +421,30 @@ async function mount3D(ctx, doc) {
     if (n === inst.node || isolated === n) clearIsolation();
     else isolate(n);
   };
-  el.addEventListener('dblclick', (e) => {
+  // Isolation is driven by pointing at the canvas, which in a session nobody is
+  // looking at — and these listeners would otherwise accumulate one set per
+  // content swap on a stage that outlives the view.
+  const onDbl = (e) => {
     // After a touch double-tap the browser synthesizes a dblclick too; without
     // this guard pickAt ran twice and the second call undid the isolation.
     if (performance.now() < suppressDbl) return;
     pickAt(e.clientX, e.clientY);
-  });
+  };
   // Touch double-tap, hand-rolled. A tap must be short, still and
   // one-fingered (a drag end or a pinch finger is not a tap); two taps
   // within 600 ms and 64 px pick.
   const taps = new Map();
   let lastTap = -1e9, lastTapAt = [0, 0], suppressDbl = 0;
-  el.addEventListener('pointerdown', (e) => {
+  const onTapDown = (e) => {
     if (e.pointerType !== 'touch') return;
     if (taps.size) for (const t of taps.values()) t.moved = true; // second finger: a pinch, not taps
     taps.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now(), moved: taps.size > 0 });
-  });
-  el.addEventListener('pointermove', (e) => {
+  };
+  const onTapMove = (e) => {
     const t = taps.get(e.pointerId);
     if (t && Math.hypot(e.clientX - t.x, e.clientY - t.y) > 12) t.moved = true;
-  });
-  el.addEventListener('pointerup', (e) => {
+  };
+  const onTapUp = (e) => {
     const t = taps.get(e.pointerId);
     if (!t) return;
     taps.delete(e.pointerId);
@@ -441,10 +458,15 @@ async function mount3D(ctx, doc) {
       lastTap = now;
       lastTapAt = [e.clientX, e.clientY];
     }
-  });
-  el.addEventListener('pointercancel', (e) => taps.delete(e.pointerId));
+  };
+  const onTapCancel = (e) => taps.delete(e.pointerId);
   const onKey = (e) => { if (e.key === 'Escape') clearIsolation(); };
-  window.addEventListener('keydown', onKey);
+  const isoEvents = [['dblclick', onDbl], ['pointerdown', onTapDown], ['pointermove', onTapMove],
+    ['pointerup', onTapUp], ['pointercancel', onTapCancel]];
+  if (ownStage) {
+    for (const [n, f] of isoEvents) el.addEventListener(n, f);
+    window.addEventListener('keydown', onKey);
+  }
   clearIsolationRef = clearIsolation;
 
   // ---- sun toggle: models that carry normals can opt into real lighting ----
@@ -573,8 +595,26 @@ async function mount3D(ctx, doc) {
     return box;
   };
 
+  // The AR fitting policy for an object, in one object so the XR shell can take
+  // it and drive its own long-lived session instead of this per-view one.
+  const arContent = {
+    contentBox,
+    fit: {
+      fitScale: (size) => Math.min(
+        xrNum('xrsize', 1.0) / (size.x || 1),
+        xrNum('xrsize', 1.0) / (size.z || 1),
+        xrNum('xrheight', 1.8) / (size.y || 1),
+      ),
+      anchor: (params?.get?.('xranchor') ?? params?.xranchor) === 'eye' ? 'eye' : 'floor',
+      distance: xrNum('xrdist', 1.2),
+    },
+    // Without an orbit camera to read, present the model's front.
+    frontDir: () => new THREE.Vector3(0, 0, 1),
+    setPresenting: () => {},
+  };
+
   let arSpin = false;
-  const ar = stage.camera.isPerspectiveCamera
+  const ar = ownStage && stage.camera.isPerspectiveCamera
     ? new ARSession({
       stage,
       contentBox,
@@ -617,12 +657,32 @@ async function mount3D(ctx, doc) {
 
   return {
     unmount() {
-      window.removeEventListener('keydown', onKey);
       ar?.exit();
-      stage.dispose();
+      if (ownStage) {
+        window.removeEventListener('keydown', onKey);
+        for (const [n, f] of isoEvents) el.removeEventListener(n, f);
+        el.removeEventListener('pointerdown', stopSpin);
+        stage.dispose();
+      }
+      // Give the GPU its memory back — see the same block in level3d.js. Only
+      // observable on a stage that outlives the view; with its own renderer,
+      // Stage.dispose() drops the whole context instead.
+      disposeScene(inst.node);
+      lib.dispose();
       list.remove(); hud.remove(); tp?.remove(); xrStatus.remove();
     },
     xr: ar,
+    arContent,
+    // The clip list is built as DOM buttons rather than through displayPanel,
+    // so the in-headset Controls tab needs its own way in.
+    clips: () => (doc.animations || []).map((a) => ({
+      id: a.id, name: a.name || a.id, on: handle?.meta?.id === a.id,
+    })),
+    playClip(id) {
+      handle = inst.playAnim?.(id);
+      btns.forEach((x, i) => x.classList.toggle('on', (doc.animations || [])[i]?.id === id));
+      return handle;
+    },
     sources: () => [stage.canvas],
     setNative(size) { stage.setNative(size); },
     pixelGrid: () => (stage.native

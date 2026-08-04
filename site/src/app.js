@@ -22,6 +22,62 @@ let games = [];
 let current = null;   // { game, asset, view, params }
 let screenFx = null;
 let filterOn = false; // the user's screen-filter choice survives navigation
+// The XR shell outlives every view — that is its whole purpose. teardown()
+// destroys the mounted view's renderer, and an XRSession lives on one of those,
+// which is why switching assets used to mean leaving the headset.
+let xrShell = null;
+
+// mountView is the ctx -> view step, shared by the desktop shell and the XR one
+// so there is a single mount path rather than two that can drift.
+async function mountView(ctx) {
+  const mod = await VIEWS[ctx.asset.category]();
+  return mod.mount(ctx);
+}
+
+const param = (p, k) => p?.get?.(k) ?? p?.[k];
+
+// enterXR hands the whole viewport over to the shell. The desktop view is torn
+// down first: the shell rebuilds the same asset against its OWN stage, and two
+// copies of a mansion is not a thing to do to a headset.
+//
+// The session is requested inside the click, before anything loads — WebXR
+// wants a user gesture, and a level's download would spend it.
+async function enterXR(game, asset, fake) {
+  // Read before the teardown below clears `current`: the ?xr* knobs retune size
+  // and distance from the headset without a redeploy, and losing them here
+  // would quietly ignore every one of them.
+  const params = current?.params;
+  if (!xrShell) {
+    const { XRShell } = await import('./xrshell.js');
+    xrShell = new XRShell({
+      games,
+      mountView,
+      params: () => xrShell.params,
+      // Keep the URL honest as you browse in the headset, so taking it off
+      // lands the flat site on whatever you were last looking at.
+      onSwitch: (gameId, assetId) => {
+        // Keep the query. The ?xr* knobs retune size, distance and keying from
+        // the headset without a redeploy, and rewriting the hash without them
+        // would quietly cancel every one after the first switch.
+        const q = new URLSearchParams(xrShell.params || '').toString();
+        const g = games.find((x) => x.id === gameId);
+        const a = g?.asset(assetId);
+        history.replaceState(null, '', `#/${encodeURIComponent(gameId)}/${encodeURIComponent(assetId)}${q ? `?${q}` : ''}`);
+        document.title = `${a?.name || assetId} — ${g?.man.title || gameId}`;
+      },
+    });
+    xrShell.onChange = (on) => {
+      $('xrBtn').classList.toggle('on', on);
+      $('filterBtn').disabled = on;
+      if (screenFx && filterOn) screenFx.setEnabled(!on);
+      // Leaving puts the flat site back, on whatever the headset ended on.
+      if (!on) route();
+    };
+  }
+  xrShell.params = params;
+  teardown();
+  await xrShell.enter(game.id, asset.id, { fake });
+}
 
 // ---- routing ---------------------------------------------------------------
 
@@ -124,6 +180,13 @@ function teardown() {
 
 let mountSeq = 0;
 async function showAsset(game, asset, params) {
+  // While the shell is presenting it owns the only mounted view: the desktop
+  // one must not be built alongside it, or a level would exist twice. The route
+  // still updates, so taking the headset off lands where you left it.
+  if (xrShell?.active) {
+    xrShell.switchTo(game.id, asset.id);
+    return;
+  }
   const seq = ++mountSeq;
   teardown();
   const abort = (mountAbort = new AbortController());
@@ -134,8 +197,7 @@ async function showAsset(game, asset, params) {
   buildTopbar(game, asset, params);
   spinner(true);
   try {
-    const mod = await VIEWS[asset.category]();
-    const view = await mod.mount({
+    const view = await mountView({
       stage, game, asset, params,
       signal: abort.signal,
       navigate: (assetId, p) => navigate(game.id, assetId, p),
@@ -291,8 +353,34 @@ function wireViewButtons(game, view) {
   // AR: the button only exists where immersive-ar does, and the probe is
   // async — a navigation can beat it, so re-check that this view is still the
   // one on screen before un-hiding.
+  //
+  // The session belongs to the XR shell, not to this view: it has to survive
+  // the teardown that switching assets performs. The view only has to be able
+  // to be REBUILT against the shell's stage, which is what arContent says.
+  // Two AR paths, for now. A 3-D view offers arContent and goes through the XR
+  // shell, whose session survives switching asset. The 2-D map and sprite panel
+  // still own their session (MapAR / PanelAR) and behave exactly as before —
+  // moving them onto the shell is a later step, and until then their button
+  // must keep working.
   const xb = $('xrBtn');
-  if (view.xr) {
+  const fake = param(current?.params, 'xrfake') === '1';
+  if (view.arContent) {
+    // view.xr carries the probe so the landing page never imports xr.js (and
+    // with it three.js); a pan2d level has no per-view session at all, and by
+    // then this module is loaded anyway, so a dynamic import costs nothing.
+    const probe = fake ? Promise.resolve(true)
+      : (view.xr?.supported ?? import('./xr.js').then((m) => m.arSupported));
+    probe.then((ok) => {
+      if (!ok || current?.view !== view) return;
+      const asset = current.asset;
+      xb.hidden = false;
+      requestAnimationFrame(updateTopbarFades);
+      xb.onclick = () => {
+        if (xrShell?.active) return xrShell.exit();
+        enterXR(game, asset, fake).catch((e) => toast(`AR: ${e.message || e.name}`));
+      };
+    });
+  } else if (view.xr) {
     view.xr.supported.then((ok) => {
       if (!ok || current?.view !== view) return;
       xb.hidden = false;
@@ -303,9 +391,6 @@ function wireViewButtons(game, view) {
       };
       view.xr.onChange = (on) => {
         xb.classList.toggle('on', on);
-        // The screen filter cannot follow into a session: setNative's resize
-        // is a no-op while presenting, and screenfx captures the canvas, which
-        // no longer receives the frame.
         $('filterBtn').disabled = on;
         if (!screenFx || !filterOn) return;
         screenFx.setEnabled(!on);
