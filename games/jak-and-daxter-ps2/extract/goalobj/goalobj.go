@@ -193,6 +193,17 @@ func Link(data []byte, base uint32, st *SymTab) ([]byte, *LinkReport, error) {
 		stream = data[16+objSize+12:]
 	case version == 3:
 		return nil, nil, fmt.Errorf("goalobj: v3 (segmented code) not implemented")
+	case version == 2:
+		// v2 (STR spool chunks): the link block LEADS — {tag, linkDataSize,
+		// ver} header, wire stream at +12, object at +linkDataSize (the size
+		// counts the header). The stream itself is the same wire v2.
+		linkSize := int(w(4))
+		if linkSize < 12 || linkSize > len(data) {
+			return nil, nil, fmt.Errorf("goalobj: v2 link block size 0x%x out of range", linkSize)
+		}
+		obj = append([]byte(nil), data[linkSize:]...)
+		wire = 2
+		stream = data[12:linkSize]
 	default:
 		return nil, nil, fmt.Errorf("goalobj: unknown version %d", version)
 	}

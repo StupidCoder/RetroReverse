@@ -4,6 +4,11 @@
    "clip": "ndi-idle",
    "id": "ndi-idle",
    "loop": "loop"
+  },
+  {
+   "clip": "ndi-ndi-intro",
+   "id": "ndi-ndi-intro",
+   "loop": "loop"
   }
  ],
  "format": "retro-x",

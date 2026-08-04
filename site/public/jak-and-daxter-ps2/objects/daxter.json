@@ -1,0 +1,415 @@
+{
+ "animations": [
+  {
+   "clip": "sidekick-run-to-stance",
+   "id": "sidekick-run-to-stance",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-run-to-stance-loop",
+   "id": "sidekick-run-to-stance-loop",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-stance-loop",
+   "id": "sidekick-stance-loop",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-run",
+   "id": "sidekick-run",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-run-up",
+   "id": "sidekick-run-up",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-run-down",
+   "id": "sidekick-run-down",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-walk",
+   "id": "sidekick-walk",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-walk-up",
+   "id": "sidekick-walk-up",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-walk-down",
+   "id": "sidekick-walk-down",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-run-squash",
+   "id": "sidekick-run-squash",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-run-squash-weak",
+   "id": "sidekick-run-squash-weak",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-stance-to-duck",
+   "id": "sidekick-stance-to-duck",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-duck-stance",
+   "id": "sidekick-duck-stance",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-duck-walk",
+   "id": "sidekick-duck-walk",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-turn-around",
+   "id": "sidekick-turn-around",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-jump",
+   "id": "sidekick-jump",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-jump-land",
+   "id": "sidekick-jump-land",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-painful-land",
+   "id": "sidekick-painful-land",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-painful-land-end",
+   "id": "sidekick-painful-land-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-jump-loop",
+   "id": "sidekick-jump-loop",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-jump-short-land",
+   "id": "sidekick-jump-short-land",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-jump-forward",
+   "id": "sidekick-jump-forward",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-duck-high-jump",
+   "id": "sidekick-duck-high-jump",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-launch-jump",
+   "id": "sidekick-launch-jump",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-launch-jump-loop",
+   "id": "sidekick-launch-jump-loop",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-edge-grab-stance0",
+   "id": "sidekick-edge-grab-stance0",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-edge-grab-stance1",
+   "id": "sidekick-edge-grab-stance1",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-edge-grab-stance1-alt",
+   "id": "sidekick-edge-grab-stance1-alt",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-falling-to-edge-grab",
+   "id": "sidekick-falling-to-edge-grab",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-edge-grab-swing-left",
+   "id": "sidekick-edge-grab-swing-left",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-edge-grab-swing-right",
+   "id": "sidekick-edge-grab-swing-right",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-edge-grab-to-jump",
+   "id": "sidekick-edge-grab-to-jump",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-edge-grab-off",
+   "id": "sidekick-edge-grab-off",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-attack-from-stance",
+   "id": "sidekick-attack-from-stance",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-attack-from-stance-end",
+   "id": "sidekick-attack-from-stance-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-attack-from-stance-alt-end",
+   "id": "sidekick-attack-from-stance-alt-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-attack-from-stance-run-end",
+   "id": "sidekick-attack-from-stance-run-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-attack-from-stance-run-alt-end",
+   "id": "sidekick-attack-from-stance-run-alt-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-attack-from-jump",
+   "id": "sidekick-attack-from-jump",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-attack-from-jump-loop",
+   "id": "sidekick-attack-from-jump-loop",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-attack-from-jump-end",
+   "id": "sidekick-attack-from-jump-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-attack-punch",
+   "id": "sidekick-attack-punch",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-attack-punch-end",
+   "id": "sidekick-attack-punch-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-attack-punch-alt-end",
+   "id": "sidekick-attack-punch-alt-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-attack-uppercut",
+   "id": "sidekick-attack-uppercut",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-flop-down",
+   "id": "sidekick-flop-down",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-flop-down-loop",
+   "id": "sidekick-flop-down-loop",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-flop-down-land",
+   "id": "sidekick-flop-down-land",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-moving-flop-down",
+   "id": "sidekick-moving-flop-down",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-moving-flop-down-loop",
+   "id": "sidekick-moving-flop-down-loop",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-moving-flop-down-land",
+   "id": "sidekick-moving-flop-down-land",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-duck-roll",
+   "id": "sidekick-duck-roll",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-duck-roll-end",
+   "id": "sidekick-duck-roll-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-wheel-flip",
+   "id": "sidekick-wheel-flip",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-wheel-flip-land",
+   "id": "sidekick-wheel-flip-land",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-hit-from-front",
+   "id": "sidekick-hit-from-front",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-hit-from-back",
+   "id": "sidekick-hit-from-back",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-hit-up",
+   "id": "sidekick-hit-up",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-deatha",
+   "id": "sidekick-deatha",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-death-painful-land",
+   "id": "sidekick-death-painful-land",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-yellow-running-blast",
+   "id": "sidekick-yellow-running-blast",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-yellow-running-blast-end",
+   "id": "sidekick-yellow-running-blast-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-yellow-jumping-blast",
+   "id": "sidekick-yellow-jumping-blast",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-powerup",
+   "id": "sidekick-powerup",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-shocked",
+   "id": "sidekick-shocked",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-wade-shallow-walk",
+   "id": "sidekick-wade-shallow-walk",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-wade-deep-walk",
+   "id": "sidekick-wade-deep-walk",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-swim-stance",
+   "id": "sidekick-swim-stance",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-swim-walk",
+   "id": "sidekick-swim-walk",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-swim-walk-to-down",
+   "id": "sidekick-swim-walk-to-down",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-swim-down",
+   "id": "sidekick-swim-down",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-swim-down-to-up",
+   "id": "sidekick-swim-down-to-up",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-swim-up",
+   "id": "sidekick-swim-up",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-swim-up-to-stance",
+   "id": "sidekick-swim-up-to-stance",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-swim-jump",
+   "id": "sidekick-swim-jump",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-trip",
+   "id": "sidekick-trip",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-fuel-cell-victory-9",
+   "id": "sidekick-fuel-cell-victory-9",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-free-run",
+   "id": "sidekick-free-run",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-free-jog",
+   "id": "sidekick-free-jog",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-free-walk",
+   "id": "sidekick-free-walk",
+   "loop": "loop"
+  },
+  {
+   "clip": "sidekick-ndi-intro",
+   "id": "sidekick-ndi-intro",
+   "loop": "loop"
+  }
+ ],
+ "format": "retro-x",
+ "model": "daxter.glb",
+ "name": "Daxter",
+ "skinnedClone": true,
+ "type": "model3d",
+ "version": 1
+}

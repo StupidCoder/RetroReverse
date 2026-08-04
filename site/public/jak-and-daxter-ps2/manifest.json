@@ -23,6 +23,20 @@
   },
   {
    "category": "object",
+   "file": "objects/jak.json",
+   "group": "Title screen",
+   "id": "jak",
+   "name": "Jak"
+  },
+  {
+   "category": "object",
+   "file": "objects/daxter.json",
+   "group": "Title screen",
+   "id": "daxter",
+   "name": "Daxter"
+  },
+  {
+   "category": "object",
    "file": "objects/evilbro.json",
    "group": "Intro cutscene",
    "id": "evilbro",

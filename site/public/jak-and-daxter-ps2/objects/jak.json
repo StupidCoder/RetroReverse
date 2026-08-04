@@ -1,0 +1,490 @@
+{
+ "animations": [
+  {
+   "clip": "eichar-run-to-stance",
+   "id": "eichar-run-to-stance",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-run-to-stance-loop",
+   "id": "eichar-run-to-stance-loop",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-stance-loop",
+   "id": "eichar-stance-loop",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-run-to-stance-left",
+   "id": "eichar-run-to-stance-left",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-run-to-stance-loop-left",
+   "id": "eichar-run-to-stance-loop-left",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-stance-loop-left",
+   "id": "eichar-stance-loop-left",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-run-to-stance-right",
+   "id": "eichar-run-to-stance-right",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-run-to-stance-loop-right",
+   "id": "eichar-run-to-stance-loop-right",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-stance-loop-right",
+   "id": "eichar-stance-loop-right",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-run-to-stance-up",
+   "id": "eichar-run-to-stance-up",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-run-to-stance-loop-up",
+   "id": "eichar-run-to-stance-loop-up",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-stance-loop-up",
+   "id": "eichar-stance-loop-up",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-run-to-stance-down",
+   "id": "eichar-run-to-stance-down",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-run-to-stance-loop-down",
+   "id": "eichar-run-to-stance-loop-down",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-stance-loop-down",
+   "id": "eichar-stance-loop-down",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-run",
+   "id": "eichar-run",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-run-up",
+   "id": "eichar-run-up",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-run-down",
+   "id": "eichar-run-down",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-run-right",
+   "id": "eichar-run-right",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-run-left",
+   "id": "eichar-run-left",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-walk",
+   "id": "eichar-walk",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-walk-up",
+   "id": "eichar-walk-up",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-walk-down",
+   "id": "eichar-walk-down",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-walk-right",
+   "id": "eichar-walk-right",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-walk-left",
+   "id": "eichar-walk-left",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-run-squash",
+   "id": "eichar-run-squash",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-run-squash-weak",
+   "id": "eichar-run-squash-weak",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-stance-to-duck",
+   "id": "eichar-stance-to-duck",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-duck-stance",
+   "id": "eichar-duck-stance",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-duck-walk",
+   "id": "eichar-duck-walk",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-turn-around",
+   "id": "eichar-turn-around",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-jump",
+   "id": "eichar-jump",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-jump-land",
+   "id": "eichar-jump-land",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-painful-land",
+   "id": "eichar-painful-land",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-painful-land-end",
+   "id": "eichar-painful-land-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-jump-loop",
+   "id": "eichar-jump-loop",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-jump-short-land",
+   "id": "eichar-jump-short-land",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-jump-forward",
+   "id": "eichar-jump-forward",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-duck-high-jump",
+   "id": "eichar-duck-high-jump",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-launch-jump",
+   "id": "eichar-launch-jump",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-launch-jump-loop",
+   "id": "eichar-launch-jump-loop",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-edge-grab-stance0",
+   "id": "eichar-edge-grab-stance0",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-edge-grab-stance1",
+   "id": "eichar-edge-grab-stance1",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-falling-to-edge-grab",
+   "id": "eichar-falling-to-edge-grab",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-edge-grab-swing-left",
+   "id": "eichar-edge-grab-swing-left",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-edge-grab-swing-right",
+   "id": "eichar-edge-grab-swing-right",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-edge-grab-to-jump",
+   "id": "eichar-edge-grab-to-jump",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-edge-grab-off",
+   "id": "eichar-edge-grab-off",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-attack-from-stance",
+   "id": "eichar-attack-from-stance",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-attack-from-stance-end",
+   "id": "eichar-attack-from-stance-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-attack-from-stance-alt-end",
+   "id": "eichar-attack-from-stance-alt-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-attack-from-stance-run-end",
+   "id": "eichar-attack-from-stance-run-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-attack-from-stance-run-alt-end",
+   "id": "eichar-attack-from-stance-run-alt-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-attack-from-jump",
+   "id": "eichar-attack-from-jump",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-attack-from-jump-loop",
+   "id": "eichar-attack-from-jump-loop",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-attack-from-jump-end",
+   "id": "eichar-attack-from-jump-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-attack-punch",
+   "id": "eichar-attack-punch",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-attack-punch-end",
+   "id": "eichar-attack-punch-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-attack-punch-alt-end",
+   "id": "eichar-attack-punch-alt-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-attack-uppercut",
+   "id": "eichar-attack-uppercut",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-flop-down",
+   "id": "eichar-flop-down",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-flop-down-loop",
+   "id": "eichar-flop-down-loop",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-flop-down-land",
+   "id": "eichar-flop-down-land",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-moving-flop-down",
+   "id": "eichar-moving-flop-down",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-moving-flop-down-loop",
+   "id": "eichar-moving-flop-down-loop",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-moving-flop-down-land",
+   "id": "eichar-moving-flop-down-land",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-duck-roll",
+   "id": "eichar-duck-roll",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-duck-roll-end",
+   "id": "eichar-duck-roll-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-wheel-flip",
+   "id": "eichar-wheel-flip",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-wheel-flip-land",
+   "id": "eichar-wheel-flip-land",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-hit-from-front",
+   "id": "eichar-hit-from-front",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-hit-from-back",
+   "id": "eichar-hit-from-back",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-hit-up",
+   "id": "eichar-hit-up",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-deatha",
+   "id": "eichar-deatha",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-death-painful-land",
+   "id": "eichar-death-painful-land",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-smack-surface",
+   "id": "eichar-smack-surface",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-smack-surface-end",
+   "id": "eichar-smack-surface-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-yellow-running-blast",
+   "id": "eichar-yellow-running-blast",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-yellow-running-blast-end",
+   "id": "eichar-yellow-running-blast-end",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-yellow-jumping-blast",
+   "id": "eichar-yellow-jumping-blast",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-powerup",
+   "id": "eichar-powerup",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-shocked",
+   "id": "eichar-shocked",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-wade-shallow-walk",
+   "id": "eichar-wade-shallow-walk",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-wade-deep-walk",
+   "id": "eichar-wade-deep-walk",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-swim-stance",
+   "id": "eichar-swim-stance",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-swim-walk",
+   "id": "eichar-swim-walk",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-swim-walk-to-down",
+   "id": "eichar-swim-walk-to-down",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-swim-down",
+   "id": "eichar-swim-down",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-swim-down-to-up",
+   "id": "eichar-swim-down-to-up",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-swim-up",
+   "id": "eichar-swim-up",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-swim-up-to-stance",
+   "id": "eichar-swim-up-to-stance",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-swim-jump",
+   "id": "eichar-swim-jump",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-periscope-grab",
+   "id": "eichar-periscope-grab",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-trip",
+   "id": "eichar-trip",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-fuel-cell-victory-9",
+   "id": "eichar-fuel-cell-victory-9",
+   "loop": "loop"
+  },
+  {
+   "clip": "eichar-ndi-intro",
+   "id": "eichar-ndi-intro",
+   "loop": "loop"
+  }
+ ],
+ "format": "retro-x",
+ "model": "jak.glb",
+ "name": "Jak",
+ "skinnedClone": true,
+ "type": "model3d",
+ "version": 1
+}

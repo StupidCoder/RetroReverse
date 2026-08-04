@@ -206,14 +206,59 @@ func main() {
 	type assetOut struct{ id, name, group string }
 	var assets []assetOut
 
+	// loadSpool links a STR spool container (sector-0 chunk-start table, v2
+	// GOAL object chunks) and returns each art-joint-anim's chunk parts in
+	// spool order. Chunk boundaries don't duplicate frames — the whole clip
+	// is the parts' frames concatenated.
+	spools := map[string]map[string][]*merc.JointAnim{}
+	animType := tab.Syms["art-joint-anim"].Value
+	loadSpool := func(path string) map[string][]*merc.JointAnim {
+		if s, ok := spools[path]; ok {
+			return s
+		}
+		data, err := vol.ReadFile(path + ";1")
+		check(err)
+		var starts []int
+		for o := 0; o+4 <= 2048; o += 4 {
+			v := int(u32of(data, uint32(o)))
+			if v == 0 {
+				break
+			}
+			starts = append(starts, v*2048)
+		}
+		s := map[string][]*merc.JointAnim{}
+		for ci, st := range starts {
+			end := len(data)
+			if ci+1 < len(starts) {
+				end = starts[ci+1]
+			}
+			obj, _, err := goalobj.Link(data[st:end], 0, tab)
+			check(err)
+			for _, ap := range merc.FindAnims(obj, animType) {
+				a, err := merc.DecodeJointAnim(obj, ap)
+				check(err)
+				s[a.Name] = append(s[a.Name], a)
+			}
+		}
+		spools[path] = s
+		return s
+	}
+
 	// export writes one GLB: the named merc-ctrls of one art group (ctrl
-	// index -1 = all ctrls as nodes of one file).
-	export := func(dgoPath, entry, visName, fileName, title, group string, ctrlIdx int) {
-		d := loadDGO(dgoPath)
+	// index -1 = all ctrls as nodes of one file). entry may name another
+	// archive as "PATH:name" — always-resident art (CGO/ART.CGO's player
+	// models) draws with whichever level is loaded, so the texture remap
+	// still comes from dgoPath's vis object.
+	export := func(dgoPath, entry, visName, fileName, title, group string, ctrlIdx int, spoolFiles ...string) {
+		entryDGO := dgoPath
+		if i := strings.IndexByte(entry, ':'); i >= 0 {
+			entryDGO, entry = entry[:i], entry[i+1:]
+		}
+		d := loadDGO(entryDGO)
 		lv := loadLevel(dgoPath, visName)
 		raw := dgoEntry(d, entry)
 		if raw == nil {
-			fmt.Fprintf(os.Stderr, "webexport: no entry %s in %s\n", entry, dgoPath)
+			fmt.Fprintf(os.Stderr, "webexport: no entry %s in %s\n", entry, entryDGO)
 			return
 		}
 		obj, rep, err := goalobj.Link(raw, 0, tab)
@@ -296,31 +341,28 @@ func main() {
 			}
 			skin := scene.AddSkin(nodeIDs, ibm)
 			scene.SetNodeSkin(node, skin)
-			// animation clips (all anims whose joint count matches)
-			for _, ap := range merc.FindAnims(obj, animType) {
-				a, err := merc.DecodeJointAnim(obj, ap)
-				if err != nil || a.NumJoints != len(joints) {
-					continue
-				}
-				clip := scene.NewClip(a.Name)
+			// animation clips: all resident anims whose joint count matches,
+			// then any spooled (STR) clips that fit this skeleton
+			addClip := func(name string, frames [][]merc.JointPose) {
+				clip := scene.NewClip(name)
 				dup := false
 				for _, n := range clipNames {
-					if n == a.Name {
+					if n == name {
 						dup = true
 					}
 				}
 				if !dup {
-					clipNames = append(clipNames, a.Name)
+					clipNames = append(clipNames, name)
 				}
-				times := make([]float32, len(a.Frames))
+				times := make([]float32, len(frames))
 				for f := range times {
 					times[f] = float32(f) / 30
 				}
 				for j := 2; j < len(joints); j++ {
-					qs := make([][4]float32, len(a.Frames))
-					ts := make([][3]float32, len(a.Frames))
-					ss := make([][3]float32, len(a.Frames))
-					for f, fr := range a.Frames {
+					qs := make([][4]float32, len(frames))
+					ts := make([][3]float32, len(frames))
+					ss := make([][3]float32, len(frames))
+					for f, fr := range frames {
 						qs[f] = fr[j].Quat
 						ts[f] = fr[j].Trans
 						ss[f] = fr[j].Scale
@@ -330,6 +372,32 @@ func main() {
 					clip.Vec3s(nodeIDs[j], "scale", times, ss)
 				}
 				clip.Finish()
+			}
+			for _, ap := range merc.FindAnims(obj, animType) {
+				a, err := merc.DecodeJointAnim(obj, ap)
+				if err != nil || a.NumJoints != len(joints) {
+					continue
+				}
+				addClip(a.Name, a.Frames)
+			}
+			for _, sf := range spoolFiles {
+				var names []string
+				sp := loadSpool(sf)
+				for n := range sp {
+					names = append(names, n)
+				}
+				sort.Strings(names)
+				for _, n := range names {
+					parts := sp[n]
+					if parts[0].NumJoints != len(joints) {
+						continue
+					}
+					var frames [][]merc.JointPose
+					for _, a := range parts {
+						frames = append(frames, a.Frames...)
+					}
+					addClip(n, frames)
+				}
 			}
 		}
 		check(scene.Write(filepath.Join(*site, "objects", fileName+".glb"), fileName))
@@ -352,7 +420,9 @@ func main() {
 
 	export("DGO/TIT.DGO", "logo", "title-vis", "title-logo", "Title logo", "Title screen", 0)
 	export("DGO/TIT.DGO", "logo", "title-vis", "title-logo-jp", "Title logo (Japan)", "Title screen", 1)
-	export("DGO/TIT.DGO", "ndi", "title-vis", "ndi-logo", "Naughty Dog logo", "Title screen", -1)
+	export("DGO/TIT.DGO", "ndi", "title-vis", "ndi-logo", "Naughty Dog logo", "Title screen", -1, "STR/NDINTRO.STR")
+	export("DGO/TIT.DGO", "CGO/ART.CGO:eichar", "title-vis", "jak", "Jak", "Title screen", -1, "STR/NDINTRO.STR")
+	export("DGO/TIT.DGO", "CGO/ART.CGO:sidekick", "title-vis", "daxter", "Daxter", "Title screen", -1, "STR/NDINTRO.STR")
 	export("DGO/INT.DGO", "evilbro", "intro-vis", "evilbro", "Gol (intro cutscene)", "Intro cutscene", -1)
 	export("DGO/INT.DGO", "evilsis", "intro-vis", "evilsis", "Maia (intro cutscene)", "Intro cutscene", -1)
 
