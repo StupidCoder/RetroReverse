@@ -13,7 +13,7 @@
 // half-resolution budget, the per-repaint canvas readback, the phase
 // precomputation that worked around it, and the still/live duality with it.
 
-import { ARSession, arSupported } from './xr.js';
+import { ARSession, arSupported, PerfMeter } from './xr.js';
 
 export class MapAR {
   // { el, params, onStatus, model: () => ({ tm, atlasImg, tickHz, clip,
@@ -137,26 +137,25 @@ export class MapAR {
 
     // Everything animates, always, and it costs a slot-table write plus at
     // most 429 quads — so there is no longer a still mode to choose.
-    this._perf = { n: 0, t: 0, cpu: 0, worst: 0 };
+    // The readout is PerfMeter's now, shared with the 3-D diorama. This step
+    // IS a stage updater, so the model advance it does below is already
+    // inside the meter's "upd" bucket — the hand-rolled cpu accumulator this
+    // replaced measured exactly that, and one less way to phrase the same
+    // number is one less way for two views to disagree about it.
+    this._meter = new PerfMeter();
     this._step = (dt) => {
       if (!stage.renderer.xr.isPresenting) return; // the hidden stage loops forever
       if (this._built) {
-        const t0 = performance.now();
         const m = this.opts.model();
         const clamped = Math.min(dt, 0.05);
         m.advance(clamped);                       // the placements' own clock
         this._tiles.advance(clamped * (m.tickHz || 60)); // engine frames
         this._sprites?.sync();
-        this._perf.cpu += performance.now() - t0;
       }
-      const p = this._perf;
-      p.n++; p.t += dt; p.worst = Math.max(p.worst, dt);
-      if (p.n >= 45) {
-        const info = stage.renderer.info.render;
-        this._perfNote = `${Math.round(p.n / p.t)} fps (worst ${Math.round(p.worst * 1000)} ms) · `
-          + `${info.calls} calls · ${info.triangles} tris · cpu ${(p.cpu / p.n).toFixed(2)} ms`;
+      const note = this._meter.sample(dt, stage);
+      if (note) {
+        this._perfNote = note;
         this.status(this._base || 'in AR');
-        this._perf = { n: 0, t: 0, cpu: 0, worst: 0 };
       }
     };
     stage.updaters.add(this._step);

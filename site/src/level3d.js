@@ -7,7 +7,7 @@
 import { THREE, Stage, FlyCam, ObjectLibrary, loadGLB, applyWireframe, applyTexFilter, applyTransform, flyHint } from './engine3d.js';
 import { CutscenePlayer } from './cutscene.js';
 import { PanInput } from './pancam.js';
-import { ARSession, arSupported } from './xr.js';
+import { ARSession, arSupported, PerfMeter } from './xr.js';
 
 export async function mount(ctx, doc) {
   const { stage: el, game, asset, params } = ctx;
@@ -437,7 +437,31 @@ export async function mount(ctx, doc) {
   xrStatus.className = 'hud xr-status';
   xrStatus.hidden = true;
   el.appendChild(xrStatus);
-  const setStatus = (t) => { xrStatus.hidden = false; xrStatus.textContent = t; };
+  let statusBase = '', perfNote = '';
+  const showStatus = () => {
+    xrStatus.hidden = false;
+    xrStatus.textContent = perfNote ? `${statusBase} · ${perfNote}` : statusBase;
+  };
+  const setStatus = (t) => { statusBase = t; showStatus(); };
+
+  // The frame readout — the same line the 2-D map shows in AR, for the same
+  // reason: a diorama that drops frames on the part has to say so where you
+  // can read it, and "it feels like 30" is not a measurement. ?perf=1 puts it
+  // on the desktop HUD too, so a change can be given a control reading
+  // without the headset (a desktop number is not the target, only a control).
+  const meter = new PerfMeter();
+  const perfHud = !!param('perf');
+  stage.updaters.add((dt) => {
+    const xr = stage.renderer.xr.isPresenting;
+    if (!xr && !perfHud) {
+      // A reading must not outlive the session that produced it.
+      if (perfNote) { perfNote = ''; meter.reset(); }
+      return;
+    }
+    const note = meter.sample(dt, stage);
+    if (!note) return;
+    if (xr) { perfNote = note; showStatus(); } else hud.textContent = `${hint} · ${note}`;
+  });
 
   // contentBox measures what the diorama should be fitted to. The skybox has
   // to be excluded or the fit is meaningless: SM64DS's vr01.glb is a

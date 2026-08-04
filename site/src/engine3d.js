@@ -60,6 +60,13 @@ export class Stage {
     this.onXRFrame = null;      // ARSession reads the head pose from the XRFrame
     this.inputEnabled = true;   // false parks FlyCam/PanInput (an XR session drives the camera)
     this._clock = new THREE.Clock();
+    // Cumulative CPU milliseconds, split at the one boundary that is actually
+    // a boundary: what the scene's own updaters cost, and what handing the
+    // scene to three costs. Never reset here — readers (xr.js PerfMeter) take
+    // deltas, so two of them cannot rob each other. Only the SUBMISSION is
+    // measured: the GPU's own time lands after this frame, and pretending
+    // otherwise would be a bucket whose blind spot its own sum cannot show.
+    this.perf = { upd: 0, draw: 0 };
     this._camWorld = new THREE.Vector3();
     this._tick = this._tick.bind(this);
     this._ro = new ResizeObserver(() => this._resize());
@@ -98,8 +105,12 @@ export class Stage {
     // child and its local position is the head pose in metres. Identical to
     // camera.position for the parentless desktop camera.
     const camPos = this.camera.getWorldPosition(this._camWorld);
+    const t0 = performance.now();
     for (const u of this.updaters) u(dt, camPos, this.elapsed);
+    const t1 = performance.now();
     this.renderer.render(this.scene, this.camera);
+    this.perf.upd += t1 - t0;
+    this.perf.draw += performance.now() - t1;
   }
 
   _resize() {

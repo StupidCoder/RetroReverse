@@ -39,6 +39,56 @@ export const arSupported = (async () => {
   }
 })();
 
+// PerfMeter turns the frame clock and the renderer's own counters into one
+// readout line, averaged over a window of frames. A headset has no devtools
+// and no console, so the only honest way to know what a scene costs there is
+// to make the scene say it: the numbers that matter are the ones measured on
+// the part, not on a desktop profile of the same page.
+//
+// It reads Stage.perf (cumulative CPU milliseconds, split into the updaters
+// and the render submission) and takes deltas, so it can be driven from a
+// stage updater — which runs BEFORE the render, meaning both the renderer's
+// counters and the CPU totals it sees lag by one frame. Over a 45-frame
+// window that is noise, and an updater is the only place a view can hook
+// without owning the loop.
+export class PerfMeter {
+  constructor(opts = {}) {
+    this.every = opts.every || 45; // frames per readout (~0.5 s at 90 Hz)
+    this.reset();
+  }
+
+  reset() {
+    this._n = 0;
+    this._t = 0;
+    this._worst = 0;
+    this._base = null;
+  }
+
+  // sample returns the readout line when a window closes, null otherwise.
+  sample(dt, stage) {
+    const p = stage.perf;
+    if (!this._base) this._base = { upd: p.upd, draw: p.draw };
+    this._n++;
+    this._t += dt;
+    this._worst = Math.max(this._worst, dt);
+    if (this._n < this.every) return null;
+    const n = this._n;
+    const info = stage.renderer.info;
+    const upd = (p.upd - this._base.upd) / n;
+    const draw = (p.draw - this._base.draw) / n;
+    // calls/triangles are per render() — in a session that is BOTH eyes,
+    // since three draws the stereo pair inside one call. tex and prog are
+    // totals resident on the GPU: what a draw call has to rebind between.
+    const note = `${Math.round(n / this._t)} fps (worst ${Math.round(this._worst * 1000)} ms)`
+      + ` · ${info.render.calls} calls · ${info.render.triangles} tris`
+      + ` · ${info.memory.textures} tex · ${info.programs?.length ?? 0} prog`
+      + ` · cpu ${(upd + draw).toFixed(2)} ms (upd ${upd.toFixed(2)} · draw ${draw.toFixed(2)})`;
+    this.reset();
+    this._base = { upd: p.upd, draw: p.draw };
+    return note;
+  }
+}
+
 const UP = new THREE.Vector3(0, 1, 0);
 const POSE_GIVE_UP = 120; // frames (~2 s) to wait for tracking before saying so
 const SPAWN_KEY = 'rx.xr.spawn'; // the chosen floor spot, in bounded-floor coords
