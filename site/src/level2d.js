@@ -341,7 +341,7 @@ export async function mount(ctx, doc) {
   ctx.displayPanel?.toggle('Key out the backdrop', ar.keying, (on) => ar.setKeying(on));
   if (ar.hasLive) ctx.displayPanel?.toggle('Animate in AR', ar.live, (on) => ar.setLive(on));
 
-  window.__rx = { app, world, objLayer, pickables, cam, map, ar, doc, tm, atlasImg, fxAnims, cellAnimRecs }; // debug handle
+  window.__rx = { app, world, objLayer, pickables, cam, map, ar, doc, tm, atlasImg, anims, fxAnims, cellAnimRecs }; // debug handle
 
   return {
     unmount() {
