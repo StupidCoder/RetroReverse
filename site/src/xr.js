@@ -136,7 +136,11 @@ export class ARSession {
     // is safe to reveal.
     this.onFrame = opts.onFrame || null;
     this.onSelect = opts.onSelect || null;
+    this.onSelectStart = opts.onSelectStart || null;
+    this.onSelectEnd = opts.onSelectEnd || null;
     this.onPlaced = opts.onPlaced || null;
+    this.placement = null;  // { hold, at, k, yaw } — see applyPlacement
+    this._userAt = null;    // where the viewer last dragged content to
     // Carried on the instance so the shell can gate its button without
     // importing this module (and pulling three.js into the landing page).
     this.supported = arSupported;
@@ -170,10 +174,69 @@ export class ARSession {
     this.rePlace();
   }
 
-  // rePlace asks for a fresh fit on the next frame that has a head pose.
+  // rePlace asks for a fresh fit on the next frame that has a head pose. It is
+  // also the way back from a drag that went wrong — hence forgetting where the
+  // viewer last put things, so the spawn logic gets to choose again.
   rePlace() {
+    this._userAt = null;
     this._place = true;
     this._waited = 0;
+  }
+
+  // applyPlacement is the whole of "where is the content" — and the only place
+  // that writes the rig. Four numbers say it:
+  //
+  //   hold  a point of the CONTENT, in unscaled content units
+  //   at    a point of the ROOM, in reference space
+  //   k     metres per content unit
+  //   yaw   the content's bearing
+  //
+  // and they mean "put hold at at, this big, facing this way". The rig maps
+  // reference space to world space, so with the rig's rotation R the solve is
+  // t = k·hold − R·at.
+  //
+  // Everything places through this: the automatic fit, and the hands. That is
+  // what makes grabbing cheap — dragging is not a new transform stack, it is
+  // the same four numbers with `at` coming from a hand instead of from a spawn
+  // point. It also means a grab can re-express (hold, at) for the point you
+  // actually grabbed WITHOUT anything moving, because any pair satisfying
+  // k·hold − R·at = t describes the same placement.
+  applyPlacement({ hold, at, k, yaw }) {
+    const rig = this.rig;
+    if (!rig) return;
+    this.placement = { hold: hold.clone(), at: at.clone(), k, yaw };
+    const scene = this.stage.scene;
+    scene.scale.setScalar(k);
+    scene.updateMatrixWorld(true);
+    rig.position.set(0, 0, 0);
+    rig.quaternion.setFromAxisAngle(UP, yaw);
+    rig.scale.set(1, 1, 1);
+    rig.updateMatrixWorld(true);
+    rig.position.copy(hold).multiplyScalar(k).sub(at.clone().applyMatrix4(rig.matrixWorld));
+    rig.updateMatrixWorld(true);
+
+    // The metres ACHIEVED, not the metres requested — more use to both callers.
+    // The head's height is the tell for whether local-floor is being measured
+    // or guessed: it should read as your actual eye height. If it does and the
+    // content still looks wrong, the placement is at fault; if it reads far off,
+    // the runtime's floor is, and no amount of arithmetic here fixes that.
+    const s = this._size;
+    if (s) {
+      this._fit = `${fmt(s.x)}×${fmt(s.y)}×${fmt(s.z)} u · `
+        + `${fmt(s.x * k)}×${fmt(s.y * k)}×${fmt(s.z * k)} m · ${this.anchor}`
+        + (this._kFit ? ` · ${(k / this._kFit).toFixed(2)}× fit` : '')
+        + ` · eye ${fmt(this._eye ?? 0)} m`
+        + (this._spawnNote ? ` · ${this._spawnNote}` : '');
+    }
+  }
+
+  // setUserAnchor remembers where the viewer dragged the content to, so the
+  // NEXT asset arrives in the same place — you arrange your room once, not once
+  // per asset. Stored in bounded coords on the next frame that has one, which
+  // is what makes it survive the session (see _store).
+  setUserAnchor(at) {
+    this._userAt = at.clone();
+    this._storePending = true;
   }
 
   // reattach re-installs the per-frame hook on the stage. A shell that swaps
@@ -255,13 +318,13 @@ export class ARSession {
     // floor it goes THERE — which is the whole point in a small room, where
     // "a fixed distance ahead" usually lands you against a wall with no way to
     // walk around the far side.
-    session.addEventListener('select', (e) => {
-      // The menu gets first refusal: a pinch aimed at a panel row is a click,
-      // and must NOT also re-place the scene sitting behind the panel.
-      if (this.onSelect?.(e.inputSource) === true) return;
-      this._pendingRay = e.inputSource || null;
-      this.rePlace();
-    });
+    // A pinch is either a click on the menu or a grab of the content; it no
+    // longer re-places anything. Pointing at the floor to place used to live
+    // here, and dragging the content where you want it is strictly better —
+    // "Recentre" on the panel is the way back.
+    session.addEventListener('select', (e) => this.onSelect?.(e.inputSource));
+    session.addEventListener('selectstart', (e) => this.onSelectStart?.(e.inputSource));
+    session.addEventListener('selectend', (e) => this.onSelectEnd?.(e.inputSource));
     // Restore off three's OWN sessionend, not the session's 'end'. A listener
     // on the session fires in registration order, and ours would be added
     // before three's (setSession registers it) — so it would run while
@@ -304,6 +367,13 @@ export class ARSession {
   // cameras.
   _frame(frame) {
     this.rig?.updateMatrixWorld(true);
+    // A drag finished: write where it ended up, in bounded coords so it means
+    // the same physical spot next session. Deferred to a frame because that is
+    // where the bounded-space pose lives.
+    if (this._storePending && this._userAt && frame) {
+      const ref = this.stage.renderer.xr.getReferenceSpace();
+      if (ref) { this._store(frame, ref, this._userAt); this._storePending = false; }
+    }
     // The menu aims its pointer here: it needs the frame and the reference
     // space, and this is the one callback that has both. Before the placement
     // work below, so a pointer keeps tracking even while content is streaming.
@@ -355,21 +425,23 @@ export class ARSession {
       ? new THREE.Vector3(centre.x, box.min.y, centre.z)
       : centre;
     const spawn = this._spawnPoint(frame, ref);
-    const at = spawn
-      // A chosen spot: keep its x/z and take the height from the anchor, so an
-      // eye-level diorama hangs ABOVE the same place a floor model stands on.
-      ? new THREE.Vector3(spawn.x, this.anchor === 'floor' ? 0 : p.y - this.dropBelowEye, spawn.z)
-      : this.anchor === 'floor'
-        ? new THREE.Vector3(p.x, 0, p.z).addScaledVector(fwd, this.distance)
-        : new THREE.Vector3(p.x, p.y - this.dropBelowEye, p.z).addScaledVector(fwd, this.distance);
+    // A spot the viewer dragged content to is taken WHOLE, height included: if
+    // you lifted the last map to eye level, the next one belongs there too.
+    // Everything else only contributes x/z, and the height comes from the
+    // anchor — so an eye-level diorama hangs ABOVE the place a floor model
+    // would stand on.
+    const at = this._userAt ? this._userAt.clone()
+      : spawn
+        ? new THREE.Vector3(spawn.x, this.anchor === 'floor' ? 0 : p.y - this.dropBelowEye, spawn.z)
+        : this.anchor === 'floor'
+          ? new THREE.Vector3(p.x, 0, p.z).addScaledVector(fwd, this.distance)
+          : new THREE.Vector3(p.x, p.y - this.dropBelowEye, p.z).addScaledVector(fwd, this.distance);
+    if (this._userAt) this._spawnNote = 'spawn: where you put it';
     const span = this.fitAxis === 'longest'
       ? Math.max(size.x, size.y, size.z)
       : Math.max(size.x, size.z) || Math.max(size.y, 1);
     // metres per world unit
     const k = this.fitScale ? this.fitScale(size) : this.targetSize / (span || 1);
-
-    scene.scale.setScalar(k);
-    scene.updateMatrixWorld(true);
 
     // Yaw so that the viewer's forward maps onto the requested establishing
     // direction: we need R·fwd = frontDir, and for horizontal unit vectors
@@ -379,30 +451,12 @@ export class ARSession {
     const front = typeof this.frontDir === 'function' ? this.frontDir() : this.frontDir;
     const yaw = Math.atan2(front.x, front.z) - Math.atan2(fwd.x, fwd.z);
 
-    const rig = this.rig;
-    rig.position.set(0, 0, 0);
-    rig.quaternion.setFromAxisAngle(UP, yaw);
-    rig.scale.set(1, 1, 1);
-    rig.updateMatrixWorld(true);
-    // Solve the translation directly. The rig maps reference space to world
-    // space, and the content's centre now sits at k·centre there, so with the
-    // rig at the origin (world matrix R) the answer is t = k·centre − R·at:
-    // the point `at`, a comfortable distance ahead of the head, lands exactly
-    // on the middle of the level. Correct for any starting orientation and
-    // wherever the guardian happened to put the floor origin.
-    rig.position.copy(hold).multiplyScalar(k).sub(at.clone().applyMatrix4(rig.matrixWorld));
-    rig.updateMatrixWorld(true);
+    this._size = size;
+    this._eye = p.y;
+    this._kFit = k;                 // what the grab's scale limits are measured against
+    this.applyPlacement({ hold, at, k, yaw });
 
     this._place = false;
-    // The metres ACHIEVED, not the metres requested — more use to both callers.
-    // The head's height is the tell for whether local-floor is being measured
-    // or guessed: it should read as your actual eye height. If it does and the
-    // content still looks wrong, the placement is at fault; if it reads far off,
-    // the runtime's floor is, and no amount of arithmetic here fixes that.
-    this._fit = `${fmt(size.x)}×${fmt(size.y)}×${fmt(size.z)} u · `
-      + `${fmt(size.x * k)}×${fmt(size.y * k)}×${fmt(size.z * k)} m · ${this.anchor}`
-      + ` · eye ${fmt(p.y)} m`
-      + (this._spawnNote ? ` · ${this._spawnNote}` : '');
     this.status(`in AR · ${this._fit}`);
     // New content is built hidden and revealed here: until a fit has landed it
     // would be drawn at the PREVIOUS content's scale and rig offset, which for
@@ -411,23 +465,14 @@ export class ARSession {
   }
 
   // _spawnPoint resolves where content should stand, in reference space, in
-  // this order: the floor spot just pointed at, a spot stored from a previous
-  // session, the centre of the play area, or nothing (meaning "a fixed
-  // distance ahead", the old behaviour).
+  // this order: a spot stored from a previous session, the centre of the play
+  // area, or nothing (meaning "a fixed distance ahead").
+  //
+  // The spot pointed at with a trigger used to come first. Dragging content
+  // where you want it replaced it — and now WRITES the stored spot, so the
+  // arrangement still survives the session, just chosen by hand instead of by
+  // aiming at the floor.
   _spawnPoint(frame, ref) {
-    const ray = this._pendingRay;
-    this._pendingRay = null;
-    if (ray) {
-      const hit = this._floorHit(frame, ref, ray);
-      if (hit) {
-        this._userSpawn = hit;
-        this._store(frame, ref, hit);
-        this._spawnNote = 'spawn: pointed';
-        return hit;
-      }
-    }
-    if (this._userSpawn) return this._userSpawn;
-
     const b = this._bounded;
     if (!b) { this._spawnNote = 'spawn: ahead (no bounded-floor)'; return null; }
     const pose = frame.getPose(b, ref);
@@ -450,21 +495,6 @@ export class ARSession {
     }
     this._spawnNote = 'spawn: ahead (no bounds)';
     return null;
-  }
-
-  // _floorHit intersects a controller's aim with the floor plane (y = 0, which
-  // is what local-floor means).
-  _floorHit(frame, ref, src) {
-    if (!src?.targetRaySpace) return null;
-    const pose = frame.getPose(src.targetRaySpace, ref);
-    if (!pose) return null;
-    const o = pose.transform.position, q = pose.transform.orientation;
-    const dir = new THREE.Vector3(0, 0, -1)
-      .applyQuaternion(new THREE.Quaternion(q.x, q.y, q.z, q.w));
-    if (dir.y > -1e-3) return null;            // aimed level or upward: no floor
-    const t = -o.y / dir.y;
-    if (!(t > 0) || t > 20) return null;       // behind, or absurdly far
-    return new THREE.Vector3(o.x + dir.x * t, 0, o.z + dir.z * t);
   }
 
   // Stored in BOUNDED coordinates. local-floor's origin is re-established every

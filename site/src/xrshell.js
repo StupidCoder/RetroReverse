@@ -32,6 +32,7 @@ import { THREE, Stage } from './engine3d.js';
 import { ARSession, arSupported, PerfMeter } from './xr.js';
 import { Panel, Pointer } from './xrui.js';
 import { Browser } from './xrbrowser.js';
+import { Grabber } from './xrgrab.js';
 
 // What a session can swap to without ending. Everything else is listed but not
 // selectable — see the note on `disabled` in xrbrowser.js.
@@ -139,6 +140,8 @@ export class XRShell {
         onStatus: (t) => { this._msg = t; this._status(); },
         onFrame: (frame, ref) => this._frame(frame, ref),
         onSelect: (src) => this._select(src),
+        onSelectStart: (src) => this._selectStart(src),
+        onSelectEnd: (src) => this.grab.end(src),
         onPlaced: () => this._onPlaced(),
       });
       this.ar.onChange = (on) => {
@@ -149,6 +152,20 @@ export class XRShell {
         this.onChange?.(on);
       };
     }
+    // Moving and resizing the content with your hands. Built after the session,
+    // because it drives it — and it never touches the rig itself, it hands
+    // ARSession the same four numbers the automatic fit does.
+    this.grab = new Grabber({
+      ar: this.ar,
+      // Only the content is grabbable: not the menu (the pointer owns that),
+      // and not the camera or the lights, which have nothing to hit but would
+      // be walked on every cast.
+      pickables: () => this.stage.scene.children.filter(
+        (o) => o !== this.ui && !o.isCamera && !o.isLight,
+      ),
+      onChange: () => this._status(),
+    });
+
     this._built = true;
     window.__xr = this; // debug handle, like __rx3 / __rxo
   }
@@ -361,6 +378,8 @@ export class XRShell {
   _drop() {
     const cur = this._current;
     this._current = null;
+    // Whatever was being held is about to stop existing.
+    this.grab?.cancel();
     if (cur) {
       cur.abort.abort();
       cur.view?.arContent?.setPresenting?.(false);
@@ -492,8 +511,13 @@ export class XRShell {
         this._anchorUI(new THREE.Vector3(p.x, p.y, p.z), new THREE.Quaternion(o.x, o.y, o.z, o.w));
       }
     }
-    this._layoutUI();  // the rig moves on every re-place; the menu must not
-    this._aim(frame, ref, rig);
+    const rays = this._rays = this._aim(frame, ref, rig);
+    // Grabbing first, THEN the menu: a drag moves the rig, and the menu is
+    // anchored in the room, so it has to be re-placed against the rig the drag
+    // just produced or it swims by a frame.
+    this.grab.rebaseWith(rays);
+    this.grab.update(rays);
+    this._layoutUI();
   }
 
   // Point at whatever is pointing at the panel. Hands deliver a targetRaySpace
@@ -501,13 +525,23 @@ export class XRShell {
   // none of this needs the hand-tracking feature or a single joint.
   _aim(frame, ref, rig) {
     const sources = this.ar?.session?.inputSources || [];
+    const rays = new Map();
     let best = null, posed = 0;
     for (const src of sources) {
       if (!src.targetRaySpace) continue;
       const pose = frame.getPose(src.targetRaySpace, ref);
       if (!pose) continue;
       posed++;
-      const m = new THREE.Matrix4().fromArray(pose.transform.matrix).premultiply(rig.matrixWorld);
+      // Reference space first: that is the space grabbing works in, because it
+      // is the space that does not move when the content does.
+      const rm = new THREE.Matrix4().fromArray(pose.transform.matrix);
+      const rq = new THREE.Quaternion().setFromRotationMatrix(rm);
+      rays.set(src, {
+        origin: new THREE.Vector3().setFromMatrixPosition(rm),
+        dir: new THREE.Vector3(0, 0, -1).applyQuaternion(rq).normalize(),
+      });
+
+      const m = rm.clone().premultiply(rig.matrixWorld);
       const origin = new THREE.Vector3().setFromMatrixPosition(m);
       const dir = new THREE.Vector3(0, 0, -1)
         .applyQuaternion(new THREE.Quaternion().setFromRotationMatrix(m)).normalize();
@@ -519,9 +553,10 @@ export class XRShell {
     // Say what the pointer can see. With no console on the headset, "is it even
     // getting a ray?" is otherwise unanswerable — and it was the exact question
     // when the frame hook went missing and there was no laser to be seen.
-    const note = `${sources.length} src/${posed} posed${best?.hit ? ' · on panel' : ''}`;
+    const grabbing = this.grab.active ? ` · ${this.grab.mode}` : '';
+    const note = `${sources.length} src/${posed} posed${best?.hit ? ' · on panel' : ''}${grabbing}`;
     if (note !== this._ptr) { this._ptr = note; this._status(); }
-    if (!best) { this.pointer.hide(); return; }
+    if (!best) { this.pointer.hide(); return rays; }
     // Into the menu group's space: the pointer lives under it, and it carries
     // the inverse of the fit scale (see _layoutUI). A world-space beam would be
     // drawn in the wrong place, by a factor that changes with every asset.
@@ -535,6 +570,7 @@ export class XRShell {
       best.hit ? new THREE.Quaternion() : null,
     );
     this._applyHover();
+    return rays;
   }
 
   _applyHover() {
@@ -562,8 +598,6 @@ export class XRShell {
     return null;
   }
 
-  // Returns true when the pinch was ours, so ARSession does not also re-place
-  // the scene behind the panel.
   _select() {
     const h = this._hover;
     if (!h) return false;
@@ -571,6 +605,14 @@ export class XRShell {
     if (!h.rect) return true;   // a pinch on the panel's own background: eaten, not a click
     if (this.browser.click(h.rect)) this._redraw();
     return true;
+  }
+
+  // A pinch is a click if it lands on the menu and a grab otherwise. The menu
+  // gets first refusal, so you can never drag the room by reaching for a row.
+  _selectStart(src) {
+    if (this._hover) return;              // on the menu: the click handles it
+    const rays = this._rays;
+    this.grab.start(src, rays?.get(src));
   }
 
   _say(t) { this._msg = t; this._status(); }
