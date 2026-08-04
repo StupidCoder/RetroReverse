@@ -35,6 +35,74 @@ type level struct {
 	cache map[texKey]texEntry
 }
 
+// eyeSpec bakes a character's runtime-composited eye slots (merc.CompositeEye
+// — see merc/eyes.go for the render-eyes derivation). The disc marks the two
+// eyes with programmer_eye_left/_right placeholder textures; the sizes and
+// resting gaze are the character's live eye-control values (title-logo.state
+// array at *eye-control-array*), lids open. The iris/pupil textures are the
+// shared runtime bindings (bam-iris-16x16, autoeye-pupil); the lid texture is
+// per-character (autoeye-lid default, the sidekick's sk-eye-lid override) —
+// all verified against the live composite by TBP+CBP.
+type eyeSpec struct {
+	lid  string // lid texture name
+	l, r merc.EyeParams
+}
+
+// eyeSpecs by export entry name. Gol and Maia have no captured eye-control
+// (their cutscene doesn't run in the saved states); they get the human
+// template Jak uses.
+var humanEyes = eyeSpec{
+	lid: "autoeye-lid",
+	l:   merc.EyeParams{X: -0.1171875, Y: 0.046875, IrisSize: 0.890625, PupilSize: 0.4375, LidHeight: 1},
+	r:   merc.EyeParams{X: 0.1171875, Y: 0.046875, IrisSize: 0.890625, PupilSize: 0.4375, LidHeight: 1},
+}
+
+var eyeSpecs = map[string]eyeSpec{
+	"eichar": humanEyes,
+	"sidekick": {
+		lid: "sk-eye-lid",
+		l:   merc.EyeParams{X: -0.1953125, Y: 0.203125, IrisSize: 0.375, LidHeight: 1},
+		r:   merc.EyeParams{X: 0.1953125, Y: 0.203125, IrisSize: 0.375, LidHeight: 1},
+	},
+	"evilbro": humanEyes,
+	"evilsis": humanEyes,
+}
+
+// findTex locates a texture by name across the level's pages (raw GS alpha).
+func (l *level) findTex(name string) image.Image {
+	ids := make([]int, 0, len(l.pages))
+	for id := range l.pages {
+		ids = append(ids, id)
+	}
+	sort.Ints(ids)
+	for _, id := range ids {
+		pg := l.pages[id]
+		for i := range pg.Textures {
+			if pg.Textures[i].Name == name && pg.Textures[i].W > 0 {
+				img, err := pg.DecodeGS(&pg.Textures[i], 0)
+				check(err)
+				return img
+			}
+		}
+	}
+	return nil
+}
+
+// eyeImage composites one eye slot for the entry's spec.
+func (l *level) eyeImage(spec eyeSpec, right bool) image.Image {
+	iris := l.findTex("bam-iris-16x16")
+	pupil := l.findTex("autoeye-pupil")
+	lid := l.findTex(spec.lid)
+	if iris == nil || pupil == nil || lid == nil {
+		return nil
+	}
+	p := spec.l
+	if right {
+		p = spec.r
+	}
+	return merc.CompositeEye(iris, pupil, lid, p, right).Image()
+}
+
 type texEntry struct {
 	img   image.Image
 	blend bool
@@ -66,7 +134,7 @@ type texKey struct {
 //     open item. The disc adgifs all carry source-over — the runtime
 //     chain rewrites ALPHA per pass, so the disc value must not be used
 //     to pick a mode.
-func (l *level) resolve(s merc.ShaderRef, flags int) merc.Material {
+func (l *level) resolve(s merc.ShaderRef, flags int, eyes *eyeSpec) merc.Material {
 	mode := modeCutout
 	if flags&0x100 != 0 {
 		mode = modeOpaque
@@ -82,6 +150,21 @@ func (l *level) resolve(s merc.ShaderRef, flags int) merc.Material {
 		fmt.Fprintf(os.Stderr, "webexport: no texture for id %08x (raw %08x)\n", id, s.RawID)
 		l.cache[key] = texEntry{}
 		return merc.Material{}
+	}
+	// The 4x4 programmer_eye placeholders mark the runtime-composited eye
+	// slots: bake them with the character's eye spec (uncached — the
+	// composite is per-character, the cache key is only the texture id).
+	if eyes != nil {
+		switch pg.Textures[idx].Name {
+		case "programmer_eye_left":
+			if img := l.eyeImage(*eyes, false); img != nil {
+				return merc.Material{Image: img}
+			}
+		case "programmer_eye_right":
+			if img := l.eyeImage(*eyes, true); img != nil {
+				return merc.Material{Image: img}
+			}
+		}
 	}
 	img, err := pg.Decode(&pg.Textures[idx], 0)
 	check(err)
@@ -306,10 +389,14 @@ func main() {
 			scale := float32frombits(u32of(obj, off+28))
 			var prims []glb.Prim
 			want, got := 0, 0
+			eyes := (*eyeSpec)(nil)
+			if sp, ok := eyeSpecs[entry]; ok {
+				eyes = &sp
+			}
 			for i := range c.Effects {
 				var ps []glb.Prim
 				flags := c.Effects[i].Flags
-				res := func(s merc.ShaderRef) merc.Material { return lv.resolve(s, flags) }
+				res := func(s merc.ShaderRef) merc.Material { return lv.resolve(s, flags, eyes) }
 				if len(joints) > 0 {
 					ps = merc.TexturedPrimsSkinned(&c.Effects[i], res, tr, scale)
 				} else {

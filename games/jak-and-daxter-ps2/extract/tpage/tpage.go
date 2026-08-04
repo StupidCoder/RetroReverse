@@ -224,6 +224,16 @@ func expand16(px uint32) uint32 {
 // Decode renders mip level m of texture t as an RGBA image. PS2 alpha
 // (0x80 = opaque) is scaled to 8 bits.
 func (pg *Page) Decode(t *Texture, m int) (*image.RGBA, error) {
+	return pg.decode(t, m, false)
+}
+
+// DecodeGS is Decode with the alpha channel kept in raw GS units
+// (0x80 = 1.0) — for consumers that reproduce GS blend math.
+func (pg *Page) DecodeGS(t *Texture, m int) (*image.RGBA, error) {
+	return pg.decode(t, m, true)
+}
+
+func (pg *Page) decode(t *Texture, m int, rawAlpha bool) (*image.RGBA, error) {
 	if m >= t.Mips {
 		return nil, fmt.Errorf("tpage: %s has %d mips", t.Name, t.Mips)
 	}
@@ -234,9 +244,12 @@ func (pg *Page) Decode(t *Texture, m int) (*image.RGBA, error) {
 	bp, bw := uint32(t.TBP[m]), uint32(t.TBW[m])
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
 	set := func(x, y int, px uint32) {
-		a := px >> 24 & 0xFF * 2
-		if a > 255 {
-			a = 255
+		a := px >> 24 & 0xFF
+		if !rawAlpha {
+			a *= 2
+			if a > 255 {
+				a = 255
+			}
 		}
 		img.SetRGBA(x, y, color.RGBA{uint8(px), uint8(px >> 8), uint8(px >> 16), uint8(a)})
 	}

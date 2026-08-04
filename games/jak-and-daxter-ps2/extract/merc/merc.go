@@ -66,6 +66,7 @@ type Effect struct {
 	// fragments write their own TEST (ATE off) and ALPHA registers, so
 	// texture alpha is not coverage there.
 	Flags     int
+	ExtraInfo uint32 // record +28: →extra-info block (0 = none)
 	Fragments []Fragment
 }
 
@@ -101,6 +102,7 @@ func Parse(obj []byte, p uint32) (*Ctrl, error) {
 			TriCount:   int(u16(obj, rec+22)),
 			DVertCount: int(u16(obj, rec+24)),
 			Flags:      int(u16(obj, rec+26)),
+			ExtraInfo:  u32(obj, rec+28),
 		}
 		gcur, ccur := geo, fc
 		for f := 0; f < eff.FragCount; f++ {
