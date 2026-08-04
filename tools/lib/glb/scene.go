@@ -83,6 +83,7 @@ type Prim struct {
 	Unlit       bool
 	DoubleSided bool
 	Blend       bool // alphaMode BLEND instead of MASK when the texture has alpha
+	Additive    bool // additive blending: BLEND + Retro-X extras {blend: "additive"}
 	WrapS       int  // glTF sampler wrap enums; 0 = REPEAT
 	WrapT       int
 }
@@ -144,8 +145,16 @@ func (s *Scene) addMaterial(p *Prim) int {
 		"pbrMetallicRoughness": pbr,
 		"doubleSided":          p.DoubleSided,
 	}
+	extras := map[string]any{}
 	if p.Layer > 0 {
-		mat["extras"] = map[string]any{"layer": p.Layer}
+		extras["layer"] = p.Layer
+	}
+	if p.Additive {
+		extras["blend"] = "additive"
+		mat["alphaMode"] = "BLEND"
+	}
+	if len(extras) > 0 {
+		mat["extras"] = extras
 	}
 	if p.Unlit {
 		mat["extensions"] = map[string]any{"KHR_materials_unlit": struct{}{}}
@@ -173,7 +182,7 @@ func (s *Scene) addMaterial(p *Prim) int {
 		}
 		s.textures = append(s.textures, map[string]any{"sampler": len(s.samplers) - 1, "source": img})
 		pbr["baseColorTexture"] = map[string]int{"index": len(s.textures) - 1}
-		if p.Blend {
+		if p.Blend || p.Additive {
 			mat["alphaMode"] = "BLEND"
 		} else {
 			mat["alphaMode"] = "MASK"

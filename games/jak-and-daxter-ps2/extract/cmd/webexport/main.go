@@ -88,6 +88,118 @@ func (l *level) findTex(name string) image.Image {
 	return nil
 }
 
+// baseGS returns a shader's base texture with raw GS alpha (the shine
+// mask), routing the programmer_eye placeholders through the composite.
+func (l *level) baseGS(s merc.ShaderRef, eyes *eyeSpec) image.Image {
+	id := l.remap.Lookup(s.RawID)
+	pg := l.pages[int(id>>20)]
+	idx := int(id >> 8 & 0xFFF)
+	if pg == nil || idx >= len(pg.Textures) || pg.Textures[idx].W == 0 {
+		return nil
+	}
+	if eyes != nil {
+		switch pg.Textures[idx].Name {
+		case "programmer_eye_left":
+			if iris, pupil, lid := l.findTex("bam-iris-16x16"), l.findTex("autoeye-pupil"), l.findTex(eyes.lid); iris != nil && pupil != nil && lid != nil {
+				return merc.CompositeEye(iris, pupil, lid, eyes.l, false).RawImage()
+			}
+		case "programmer_eye_right":
+			if iris, pupil, lid := l.findTex("bam-iris-16x16"), l.findTex("autoeye-pupil"), l.findTex(eyes.lid); iris != nil && pupil != nil && lid != nil {
+				return merc.CompositeEye(iris, pupil, lid, eyes.r, true).RawImage()
+			}
+		}
+	}
+	img, err := pg.DecodeGS(&pg.Textures[idx], 0)
+	check(err)
+	return img
+}
+
+// envMean returns the mean RGB (0..1) of the envmap texture id — the
+// average of the sphere-mapped sample over all reflection directions, the
+// static stand-in for the view-dependent lookup (bam-eyelight: a tiny glint
+// on black, mean ~0.02; bam-hairhilite: a broad highlight, mean ~0.29).
+func (l *level) envMean(rawID uint32) [3]float32 {
+	id := l.remap.Lookup(rawID)
+	pg := l.pages[int(id>>20)]
+	idx := int(id >> 8 & 0xFFF)
+	if pg == nil || idx >= len(pg.Textures) || pg.Textures[idx].W == 0 {
+		return [3]float32{1, 1, 1}
+	}
+	img, err := pg.DecodeGS(&pg.Textures[idx], 0)
+	check(err)
+	var sr, sg, sb, n int
+	b := img.Bounds()
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			c := img.RGBAAt(x, y)
+			sr, sg, sb, n = sr+int(c.R), sg+int(c.G), sb+int(c.B), n+1
+		}
+	}
+	return [3]float32{float32(sr) / float32(n) / 255, float32(sg) / float32(n) / 255, float32(sb) / float32(n) / 255}
+}
+
+// shine builds the additive-pass material for one shader of a flag-0x100
+// effect (see merc/envmap.go). The hardware pass is Cs*Ad + Cd — Cs the
+// sphere-mapped envmap texel x the tint (GS modulate), Ad the mask the base
+// pass left in framebuffer alpha (= the base texture's alpha channel). The
+// static bake replaces the view-dependent envmap sample with the texture's
+// mean: texel = envMean x tint x mask x intensity(dist 0).
+func (l *level) shine(s merc.ShaderRef, env *merc.EnvSpec, eyes *eyeSpec) merc.Material {
+	base := l.baseGS(s, eyes)
+	if base == nil {
+		return merc.Material{}
+	}
+	// intensity at the bake's reference distance 0: clamp(Base, 0, 1)
+	inten := env.Base
+	if inten > 1 {
+		inten = 1
+	}
+	if inten < 0 {
+		inten = 0
+	}
+	mean := l.envMean(env.RawID)
+	tint := func(c int) float32 { return mean[c] * float32(env.Tint[c]) / 128 * inten }
+	b := base.Bounds()
+	out := image.NewRGBA(b)
+	at := func(x, y int) color.RGBA {
+		switch im := base.(type) {
+		case *image.RGBA: // tpage bytes: non-premultiplied + raw GS alpha
+			return im.RGBAAt(x, y)
+		case *image.NRGBA: // eye composite RawImage
+			c := im.NRGBAAt(x, y)
+			return color.RGBA{c.R, c.G, c.B, c.A}
+		}
+		return color.RGBA{}
+	}
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			px := at(x, y)
+			var r, g, bl float32
+			if env.RawID != 0 {
+				m := float32(px.A) / 128 // the mask, GS 0x80 = 1.0
+				r, g, bl = tint(0)*m, tint(1)*m, tint(2)*m
+			} else {
+				r = tint(0) * float32(px.R) / 255
+				g = tint(1) * float32(px.G) / 255
+				bl = tint(2) * float32(px.B) / 255
+			}
+			out.SetRGBA(x, y, color.RGBA{clampF(r), clampF(g), clampF(bl), 255})
+		}
+	}
+	return merc.Material{Image: out}
+}
+
+func clampF(v float32) uint8 {
+	v *= 255
+	if v < 0 {
+		return 0
+	}
+	if v > 255 {
+		return 255
+	}
+	return uint8(v)
+}
+
 // eyeImage composites one eye slot for the entry's spec.
 func (l *level) eyeImage(spec eyeSpec, right bool) image.Image {
 	iris := l.findTex("bam-iris-16x16")
@@ -393,6 +505,7 @@ func main() {
 			if sp, ok := eyeSpecs[entry]; ok {
 				eyes = &sp
 			}
+			var shinePrims []glb.Prim
 			for i := range c.Effects {
 				var ps []glb.Prim
 				flags := c.Effects[i].Flags
@@ -407,12 +520,33 @@ func main() {
 					got += len(p.Tris)
 				}
 				prims = append(prims, ps...)
+				// the flag-0x100 effects' second, additive pass: the same
+				// geometry again with the extra-info envmap material.
+				// Shader-less extras (env.RawID == 0, ALPHA 0x68 by FIX —
+				// the logo's electric glow) are an animated flash (the
+				// extra-info's type-2 rows read like a flicker table), not
+				// a resting look, and are left out of the static bake.
+				if env := merc.ParseExtraInfo(obj, c.Effects[i].ExtraInfo); env != nil && env.RawID != 0 && flags&0x100 != 0 {
+					sres := func(s merc.ShaderRef) merc.Material { return lv.shine(s, env, eyes) }
+					var sp []glb.Prim
+					if len(joints) > 0 {
+						sp = merc.TexturedPrimsSkinned(&c.Effects[i], sres, tr, scale)
+					} else {
+						sp = merc.TexturedPrims(&c.Effects[i], sres)
+					}
+					shinePrims = append(shinePrims, sp...)
+				}
 			}
 			if got != want {
 				fmt.Fprintf(os.Stderr, "webexport: %s ctrl %d: %d tris vs records' %d\n", entry, ci, got, want)
 			}
+			// shine prims draw after every base prim, in effect order
+			prims = append(prims, shinePrims...)
 			for pi := range prims {
 				prims[pi].Layer = pi + 1
+			}
+			for pi := len(prims) - len(shinePrims); pi < len(prims); pi++ {
+				prims[pi].Additive = true
 			}
 			check(scene.AddMesh(node, fmt.Sprintf("%s-%d", entry, ci), prims))
 			if len(joints) == 0 {
