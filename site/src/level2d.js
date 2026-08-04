@@ -43,26 +43,35 @@ export async function mount(ctx, doc) {
 
   // ---- animation clock (engine frames at tickHz) -------------------------------
   const tickHz = game.display.tickHz || 60;
-  const anims = []; // objects with tick(dfFrames)
+  const anims = [];   // objects with tick(dfFrames): the placements
+  // The effect animations are kept apart from the object ones: they mutate the
+  // MAP (repainting tile canvases), which the AR renderer reproduces by other
+  // means, so it must be able to tick the objects without them. reset() puts
+  // one back to frame 0, which is what makes a frame-exact comparison against
+  // another renderer possible at all.
+  const fxAnims = [];
   app.ticker.add(() => {
     const df = (app.ticker.deltaMS * tickHz) / 1000;
     for (const a of anims) a.tick(df);
+    for (const a of fxAnims) a.tick(df);
   });
 
   // tile animations: repaint tile ids through their frame lists
   for (const ta of tm.tileAnims || []) {
     let acc = 0, step = 0;
-    anims.push({
+    const show = (s) => {
+      const fr = ta.frames[s % ta.frames.length];
+      ta.tiles.forEach((t, i) => map.paintTile(t, fr[i]));
+    };
+    fxAnims.push({
       tick(df) {
         acc += df;
         const period = ta.periodFrames || 10;
         let changed = false;
         while (acc >= period) { acc -= period; step++; changed = true; }
-        if (changed) {
-          const fr = ta.frames[step % ta.frames.length];
-          ta.tiles.forEach((t, i) => map.paintTile(t, fr[i]));
-        }
+        if (changed) show(step);
       },
+      reset() { acc = 0; step = 0; show(0); },
     });
   }
 
@@ -94,7 +103,7 @@ export async function mount(ctx, doc) {
     spr.position.set(ca.tx * ts, ca.ty * ts);
     world.addChild(spr);
     let idx = 0, acc = 0;
-    anims.push({
+    fxAnims.push({
       tick(df) {
         acc += df;
         while (acc >= (ca.phases[idx].frames || 1)) {
@@ -103,6 +112,7 @@ export async function mount(ctx, doc) {
           spr.texture = texs[idx];
         }
       },
+      reset() { acc = 0; idx = 0; spr.texture = texs[0]; },
     });
     cellAnimRecs.push({
       spr, canvases,
@@ -114,7 +124,7 @@ export async function mount(ctx, doc) {
   // palette cycle (block maps)
   if (tm.paletteFx?.cycle && map.cycle) {
     const fx = map.cycle(tm.paletteFx);
-    if (fx) anims.push(fx);
+    if (fx) fxAnims.push(fx);
   }
 
   // ---- camera ---------------------------------------------------------------------
@@ -331,7 +341,7 @@ export async function mount(ctx, doc) {
   ctx.displayPanel?.toggle('Key out the backdrop', ar.keying, (on) => ar.setKeying(on));
   if (ar.hasLive) ctx.displayPanel?.toggle('Animate in AR', ar.live, (on) => ar.setLive(on));
 
-  window.__rx = { app, world, objLayer, pickables, cam, map, ar }; // debug handle
+  window.__rx = { app, world, objLayer, pickables, cam, map, ar, doc, tm, atlasImg, fxAnims, cellAnimRecs }; // debug handle
 
   return {
     unmount() {
@@ -631,6 +641,7 @@ class BlockMap {
         while (acc >= period) { acc -= period; step = (step + 1) % steps.length; changed = true; }
         if (changed) apply(step);
       },
+      reset: () => { acc = 0; step = 0; apply(0); },
     };
   }
 }

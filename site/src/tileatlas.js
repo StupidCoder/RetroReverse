@@ -60,12 +60,24 @@ export function buildTileModel(opts) {
     if (key) keyStats.pixelPct = colourShare(px, use, ts, key);
   }
 
-  // A tile is "blank" when every one of its texels is the key: cells made only
-  // of blank tiles draw nothing and are discarded in one texel fetch.
+  // A tile is "blank" when every one of its texels is the key.
   const blank = new Set();
   if (key) {
     for (const t of use.keys()) if (isUniform(px(t), ts, key)) blank.add(t);
   }
+  // Cell emptiness is baked into the index once, so it may only consider tiles
+  // whose content can never change. A tile an animation drives is blank in
+  // some frames and not others; flagging its cell empty would delete the
+  // animation, and giving it no slot would leave the lookup pointing at slot 0
+  // — which is how Fort Apocalypse drew its purple border where the map has
+  // black. Those tiles get a (transparent) slot like any other and are
+  // discarded per frame by the alpha test instead.
+  const animated = new Set();
+  for (const ta of tm.tileAnims || []) {
+    for (const t of ta.tiles) animated.add(t);
+    for (const fr of ta.frames) for (const t of fr) animated.add(t);
+  }
+  const alwaysBlank = new Set([...blank].filter((t) => !animated.has(t)));
 
   // ---- palette variants ----------------------------------------------------------
   const regions = (tm.paletteFx?.regions || []).map((r) => ({
@@ -83,6 +95,41 @@ export function buildTileModel(opts) {
   const shown = new Set(use.keys());
   for (const ta of tm.tileAnims || []) for (const fr of ta.frames) for (const t of fr) shown.add(t);
 
+  // variantPixels applies the same transform the bake does, so "is this blank?"
+  // and "what is baked here?" are answered by one piece of code.
+  const variantPixels = (tile, variant, step) => {
+    const src = px(tile);
+    const out = new Uint8Array(src);
+    const rmap = variant > 0 ? regions[variant - 1].map : null;
+    for (let i = 0; i < ts * ts; i++) {
+      const o = i * 4;
+      let r = out[o], g = out[o + 1], b = out[o + 2];
+      if (rmap) {
+        const t2 = rmap.get((r << 16) | (g << 8) | b);
+        if (t2) { [r, g, b] = t2; }
+      } else if (step > 0) {
+        const from = cycSteps[0];
+        for (let c = 0; c < from.length; c++) {
+          const f = from[c];
+          if (r === f[0] && g === f[1] && b === f[2]) { [r, g, b] = cycSteps[step][c]; break; }
+        }
+      }
+      out[o] = r; out[o + 1] = g; out[o + 2] = b;
+    }
+    return out;
+  };
+  // Blankness is PER VARIANT. Inside a palette region the backdrop colour is
+  // remapped to something visible, so a tile that is pure sky in the base
+  // palette is real art there — keying it away deleted a third of Sonic's
+  // act10.
+  const blankIn = new Map(); // "tile|variant" -> bool
+  const isBlank = (t, v) => {
+    const k = t + '|' + v;
+    let b = blankIn.get(k);
+    if (b === undefined) { b = !!key && isUniform(variantPixels(t, v, 0), ts, key); blankIn.set(k, b); }
+    return b;
+  };
+
   // ---- slot allocation -------------------------------------------------------------
   // One slot per (atlas tile, variant, cycle step) that can occur. The cycle
   // only ever touches variant 0, so the other variants get one step each.
@@ -95,9 +142,16 @@ export function buildTileModel(opts) {
     if (i === undefined) { i = slotSrc.length; slotOf.set(k, i); slotSrc.push({ tile: t, variant: v, step: s }); }
     return i;
   };
+  // One shared, entirely transparent slot for every tile that is pure
+  // backdrop. A blank tile still needs somewhere to point: a cell is only
+  // flagged empty when ALL of it is blank, and a Sonic block mixes blank
+  // sub-tiles with solid ones, so those sub-tiles are looked up like any
+  // other. Leaving them unallocated is what made block 27 draw a stray tile —
+  // an absent LUT entry reads as slot 0, which is some other tile's art.
+  const blankSlot = alloc(-1, 0, 0);
   for (const t of shown) {
-    if (blank.has(t)) continue; // never sampled — a blank cell is discarded
     for (let v = 0; v < numVariants; v++) {
+      if (isBlank(t, v)) continue; // resolves to blankSlot
       const steps = v === 0 && cycTiles.has(t) ? numSteps : 1;
       for (let s = 0; s < steps; s++) alloc(t, v, s);
     }
@@ -113,29 +167,15 @@ export function buildTileModel(opts) {
   const tiles = new Uint8Array(lw * lw * 4 * layers);
   for (let i = 0; i < slotSrc.length; i++) {
     const { tile, variant, step } = slotSrc[i];
-    const src = px(tile);
+    if (tile < 0) continue; // the shared blank slot: zeros are already correct
+    const src = variantPixels(tile, variant, step);
     const lay = Math.floor(i / (P * P));
     const k = i - lay * P * P;
     const ox = (k % P) * ts, oy = Math.floor(k / P) * ts;
-    const rmap = variant > 0 ? regions[variant - 1].map : null;
     for (let y = 0; y < ts; y++) {
       for (let x = 0; x < ts; x++) {
         const s0 = (y * ts + x) * 4;
         let r = src[s0], g = src[s0 + 1], b = src[s0 + 2], a = src[s0 + 3];
-        if (rmap) {
-          const t2 = rmap.get((r << 16) | (g << 8) | b);
-          if (t2) { r = t2[0]; g = t2[1]; b = t2[2]; }
-        } else if (step > 0) {
-          const from = cycSteps[0];
-          for (let c = 0; c < from.length; c++) {
-            const f = from[c];
-            if (r === f[0] && g === f[1] && b === f[2]) {
-              const t2 = cycSteps[step][c];
-              r = t2[0]; g = t2[1]; b = t2[2];
-              break;
-            }
-          }
-        }
         // Keyed texels are (0,0,0,0), never (sky,0): the mip chain averages
         // premultiplied values, so edges never blend the backdrop back in.
         if (key && r === key.r && g === key.g && b === key.b) { r = g = b = a = 0; }
@@ -148,14 +188,25 @@ export function buildTileModel(opts) {
   // ---- the slot LUT -----------------------------------------------------------------
   const numIds = Math.max(1, 1 + Math.max(...shown, 0));
   const lut = new Uint8Array(numIds * numVariants * 4);
+  // A tile animation's step 0 shows frames[0], not the tile's own art — the
+  // flat view repaints the tile canvas the moment the animation starts, so
+  // "no override" is a transient that only exists before the first tick and
+  // is not part of the cycle. Seeding it here is what makes frame 0 of the two
+  // renderers the same frame.
+  const initialOverrides = new Map();
+  for (const ta of tm.tileAnims || []) {
+    const fr = ta.frames[0] || [];
+    ta.tiles.forEach((t, i) => { if (fr[i] !== undefined) initialOverrides.set(t, fr[i]); });
+  }
+
   const writeSlots = (overrides = null, step = 0) => {
     for (let v = 0; v < numVariants; v++) {
       for (let t = 0; t < numIds; t++) {
         const a = overrides?.get(t) ?? t;
-        if (blank.has(a)) continue;
         const s = v === 0 && cycTiles.has(a) ? step % numSteps : 0;
-        const slot = slotOf.get(slotKey(a, v, s));
-        if (slot === undefined) continue;
+        // Anything without art of its own resolves to the transparent slot,
+        // never to slot 0 by omission.
+        const slot = slotOf.get(slotKey(a, v, s)) ?? blankSlot;
         const o = (v * numIds + t) * 4;
         lut[o] = slot & 255;
         lut[o + 1] = (slot >> 8) & 255;
@@ -163,7 +214,7 @@ export function buildTileModel(opts) {
     }
     return lut;
   };
-  writeSlots();
+  writeSlots(initialOverrides);
 
   // ---- the block table ---------------------------------------------------------------
   let blocks = null;
@@ -183,9 +234,9 @@ export function buildTileModel(opts) {
 
   // ---- the cell index -----------------------------------------------------------------
   const index = new Uint8Array(W * H * 4);
-  const blankCell = (id) => (blockTiles
-    ? (blockTiles[id] || []).every((t) => blank.has(t))
-    : blank.has(id));
+  const blankCell = (id, variant) => (blockTiles
+    ? (blockTiles[id] || []).every((t) => isBlank(t, variant) && !animated.has(t))
+    : isBlank(id, variant) && !animated.has(id));
   let empties = 0;
   const cellPx = ts * sub;
   for (let r = 0; r < H; r++) {
@@ -202,7 +253,7 @@ export function buildTileModel(opts) {
           && cy >= rg.rect.y && cy < rg.rect.y + rg.rect.h);
         if (ri >= 0) variant = ri + 1;
       }
-      const empty = key ? blankCell(id) : false;
+      const empty = key ? blankCell(id, variant) : false;
       if (empty) empties++;
       const o = (r * W + c) * 4;
       index[o] = id & 255;
@@ -280,6 +331,7 @@ export function buildTileModel(opts) {
   }
 
   return {
+    tm, initialOverrides,
     ts, sub, P, layers, lw,
     grid: { w: W, h: H },
     mapPx: { w: W * cellPx, h: H * cellPx },
