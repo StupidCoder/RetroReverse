@@ -170,22 +170,27 @@ export class Pointer {
     this.group.visible = false;
   }
 
-  // origin/dir in the space the group lives in; hit is the panel intersection
-  // (with its face normal) or null for a free-floating ray.
-  aim(origin, dir, hit) {
+  // origin and end are in THIS GROUP'S PARENT space, not world space. The
+  // pointer hangs under the menu group, which carries the inverse of the fit
+  // scale, so world coordinates fed in here would put the laser somewhere else
+  // entirely — and by a factor that changes with every asset.
+  //
+  // faceQuat orients the dot (the surface it landed on, in the same space);
+  // null means the ray hit nothing and only the beam is drawn.
+  aim(origin, end, faceQuat) {
     this.group.visible = true;
-    const end = hit ? hit.point : origin.clone().addScaledVector(dir, 2.5);
     const pos = this.line.geometry.attributes.position;
     pos.setXYZ(0, origin.x, origin.y, origin.z);
     pos.setXYZ(1, end.x, end.y, end.z);
     pos.needsUpdate = true;
     this.line.geometry.computeBoundingSphere();
-    this.dot.visible = !!hit;
-    if (hit) {
-      // Lift the dot off the surface along the ray, not the normal: the panel
-      // is double-sided and can be read from behind.
-      this.dot.position.copy(hit.point).addScaledVector(dir, -0.004);
-      this.dot.quaternion.copy(hit.quaternion);
+    this.dot.visible = !!faceQuat;
+    if (faceQuat) {
+      // Lift the dot off the surface along the ray, not along the normal: the
+      // panel is double-sided and can be read from behind.
+      const back = origin.clone().sub(end).normalize().multiplyScalar(0.004);
+      this.dot.position.copy(end).add(back);
+      this.dot.quaternion.copy(faceQuat);
     }
   }
 

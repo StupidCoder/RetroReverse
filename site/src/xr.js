@@ -181,6 +181,16 @@ export class ARSession {
     this._waited = 0;
   }
 
+  // reattach re-installs the per-frame hook on the stage. A shell that swaps
+  // content resets the stage between assets, and anything it clears that
+  // belongs to the SESSION has to come back — losing this one costs the
+  // pointer, the placement solve and the menu's anchoring at once, with no
+  // error anywhere. Cheap enough to call after every swap rather than trust
+  // that the reset left it alone.
+  reattach() {
+    if (this.session) this.stage.onXRFrame = (frame) => this._frame(frame);
+  }
+
   async enter() {
     if (this.session) return;
     const stage = this.stage;
@@ -242,7 +252,7 @@ export class ARSession {
 
     this._place = true;
     this._waited = 0;
-    stage.onXRFrame = (frame) => this._frame(frame);
+    this.reattach();
     // The controller trigger re-places the diorama in front of wherever you
     // are now looking (and re-measures the content, so a level whose rooms
     // streamed in after entry gets refitted).

@@ -36,6 +36,8 @@ import { Browser } from './xrbrowser.js';
 // What a session can swap to without ending. Everything else is listed but not
 // selectable — see the note on `disabled` in xrbrowser.js.
 const SHOWABLE = new Set(['level', 'object']);
+const UP = new THREE.Vector3(0, 1, 0);
+const ONE = new THREE.Vector3(1, 1, 1);
 
 export class XRShell {
   // { games, mountView(ctx) -> view, params, onSwitch(gameId, assetId), onChange(active) }
@@ -65,7 +67,16 @@ export class XRShell {
     this.host.style.display = '';
     // The AR path reports through ARSession.onChange; the fake one has no
     // session to report for.
-    if (this.fake) { this._fakeOn = true; this._fakeAttach(); this._open(true); this.onChange?.(true); } else await this.ar.enter();
+    if (this.fake) { this._fakeOn = true; this._fakeAttach(); this._open(true); this.onChange?.(true); } else {
+      // Re-anchor every session, and stay INVISIBLE until there is a head pose
+      // to anchor to. The menu's resting place before that is the reference
+      // space's origin — which is a spot on the floor, and a panel served up
+      // inside the carpet is worse than no panel.
+      this._uiRef = null;
+      this.ui.visible = false;
+      this._open(true);
+      await this.ar.enter();
+    }
     // Enter first, load second: the room comes up with the menu in it and the
     // asset arrives behind it. See the header note on user activation.
     await this.switchTo(gameId, assetId);
@@ -127,7 +138,10 @@ export class XRShell {
         onPlaced: () => this._onPlaced(),
       });
       this.ar.onChange = (on) => {
-        if (!on) this._teardownFake();
+        // Leaving drops the content: the desktop view is about to rebuild the
+        // same asset, and the shell holding on to a whole mansion behind it is
+        // a copy nobody can see.
+        if (!on) { this._teardownFake(); this._drop(); this.pointer.hide(); }
         this.onChange?.(on);
       };
     }
@@ -176,7 +190,7 @@ export class XRShell {
   }
 
   _status() {
-    const bits = [this._msg, this._perf].filter(Boolean);
+    const bits = [this._msg, this._ptr, this._perf].filter(Boolean);
     this.panel?.setStatus(bits.join(' · '));
   }
 
@@ -328,6 +342,10 @@ export class XRShell {
     // take the menu's own textures with it.
     this.ui.removeFromParent();
     this.stage.resetContent(this._ownUpdaters);
+    // The session's own wiring, re-asserted rather than assumed: resetContent
+    // is about content, and what it does or does not clear must not be able to
+    // silently cost us the frame hook.
+    this.ar?.reattach();
     this.stage.scene.add(this.ui);
     this.stage.scene.scale.set(1, 1, 1);
     this._shown = true;
@@ -373,31 +391,51 @@ export class XRShell {
 
   // ---- the menu in the room --------------------------------------------------------
 
-  // ARSession fits by scaling stage.scene, and the UI is in that scene — so the
-  // group carries the inverse. The scene only ever has a uniform scale (the rig
-  // carries the yaw), so world = k * local and the correction is exact.
+  // Put the menu where it was anchored. Two corrections, every frame:
+  //
+  // The anchor is held in REFERENCE space, not world space, so it stays put in
+  // the ROOM. The rig is what maps one to the other, and re-placing the content
+  // (the Recentre button, a pointed floor spot) moves the rig — so a world-space
+  // anchor would drag the menu along with the diorama instead of leaving it
+  // where you put it.
+  //
+  // And ARSession fits by scaling stage.scene, which the menu is in, so the
+  // group carries the inverse or the panel would resize with every asset. The
+  // scene's transform is a pure uniform scale — the rig carries position and
+  // yaw, and it is not the scene's parent — so world = k * local exactly.
   _layoutUI() {
     if (this.fake) return; // the menu rides the camera there, not the scene
+    const rig = this.ar?.rig;
+    if (!this._uiRef || !rig) return;
     const k = this.stage.scene.scale.x || 1;
+    const m = new THREE.Matrix4()
+      .compose(this._uiRef.pos, this._uiRef.quat, ONE)
+      .premultiply(rig.matrixWorld);
+    const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), scl = new THREE.Vector3();
+    m.decompose(pos, quat, scl);
+    this.ui.position.copy(pos).divideScalar(k);
+    this.ui.quaternion.copy(quat);
     this.ui.scale.setScalar(1 / k);
-    if (this._uiWorld) {
-      this.ui.position.copy(this._uiWorld.pos).divideScalar(k);
-      this.ui.quaternion.copy(this._uiWorld.quat);
-    }
   }
 
   // Park the menu where the viewer is looking, once, and leave it there: it is
   // furniture in the room, not a heads-up display that swims with the head.
+  // headPos/headQuat are in reference space — see _layoutUI.
   _anchorUI(headPos, headQuat) {
     const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(headQuat);
     fwd.y = 0;
     if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1);
     fwd.normalize();
     const pos = headPos.clone().addScaledVector(fwd, 1.15).setY(headPos.y - 0.1);
+    // A quad's front is its +Z, and Matrix4.lookAt(eye, target) sets +Z to
+    // (eye - target) — so the EYE argument is the head, not the panel. The
+    // other way round hangs the panel facing away from you, and because the
+    // material is double-sided it does not vanish, it reads mirrored.
     const quat = new THREE.Quaternion().setFromRotationMatrix(
-      new THREE.Matrix4().lookAt(pos, headPos, new THREE.Vector3(0, 1, 0)),
+      new THREE.Matrix4().lookAt(headPos, pos, UP),
     );
-    this._uiWorld = { pos, quat };
+    this._uiRef = { pos, quat };
+    this.ui.visible = true;
     // The tab sits just below the panel, where the panel would be if it were
     // open — so opening and closing does not move the thing you aim at.
     this.tab.group.position.set(0, -this.panel.height / 2 - 0.10, 0);
@@ -409,14 +447,17 @@ export class XRShell {
   _frame(frame, ref) {
     const rig = this.ar?.rig;
     if (!rig) return;
-    const pose = frame.getViewerPose(ref);
-    if (pose && !this._uiWorld) {
-      const p = pose.transform.position, o = pose.transform.orientation;
-      this._anchorUI(
-        new THREE.Vector3(p.x, p.y, p.z).applyMatrix4(rig.matrixWorld),
-        new THREE.Quaternion().setFromRotationMatrix(rig.matrixWorld).multiply(new THREE.Quaternion(o.x, o.y, o.z, o.w)),
-      );
+    if (!this._uiRef) {
+      // Reference space, straight off the pose: the anchor is a spot in the
+      // room, and the rig that maps it into the world moves whenever content
+      // is re-placed.
+      const pose = frame.getViewerPose(ref);
+      if (pose) {
+        const p = pose.transform.position, o = pose.transform.orientation;
+        this._anchorUI(new THREE.Vector3(p.x, p.y, p.z), new THREE.Quaternion(o.x, o.y, o.z, o.w));
+      }
     }
+    this._layoutUI();  // the rig moves on every re-place; the menu must not
     this._aim(frame, ref, rig);
   }
 
@@ -425,11 +466,12 @@ export class XRShell {
   // none of this needs the hand-tracking feature or a single joint.
   _aim(frame, ref, rig) {
     const sources = this.ar?.session?.inputSources || [];
-    let best = null;
+    let best = null, posed = 0;
     for (const src of sources) {
       if (!src.targetRaySpace) continue;
       const pose = frame.getPose(src.targetRaySpace, ref);
       if (!pose) continue;
+      posed++;
       const m = new THREE.Matrix4().fromArray(pose.transform.matrix).premultiply(rig.matrixWorld);
       const origin = new THREE.Vector3().setFromMatrixPosition(m);
       const dir = new THREE.Vector3(0, 0, -1)
@@ -439,10 +481,24 @@ export class XRShell {
       if (hit) break;
     }
     this._hover = best?.hit || null;
+    // Say what the pointer can see. With no console on the headset, "is it even
+    // getting a ray?" is otherwise unanswerable — and it was the exact question
+    // when the frame hook went missing and there was no laser to be seen.
+    const note = `${sources.length} src/${posed} posed${best?.hit ? ' · on panel' : ''}`;
+    if (note !== this._ptr) { this._ptr = note; this._status(); }
     if (!best) { this.pointer.hide(); return; }
-    this.pointer.aim(best.origin, best.dir, best.hit ? {
-      point: best.hit.point, quaternion: best.hit.mesh.getWorldQuaternion(new THREE.Quaternion()),
-    } : null);
+    // Into the menu group's space: the pointer lives under it, and it carries
+    // the inverse of the fit scale (see _layoutUI). A world-space beam would be
+    // drawn in the wrong place, by a factor that changes with every asset.
+    this.ui.updateMatrixWorld(true);
+    const end = best.hit ? best.hit.point.clone() : best.origin.clone().addScaledVector(best.dir, 2.5);
+    this.pointer.aim(
+      this.ui.worldToLocal(best.origin.clone()),
+      this.ui.worldToLocal(end),
+      // Panel and tab both face +Z with no rotation of their own inside the
+      // group, so the surface the dot sits on is the group's own facing.
+      best.hit ? new THREE.Quaternion() : null,
+    );
     this._applyHover();
   }
 
@@ -459,6 +515,9 @@ export class XRShell {
     // near plane sized to the level — any fixed range would be wrong for one of
     // the two, and a raycast against two known quads has no use for one.
     const ray = new THREE.Raycaster(origin, dir);
+    // three's raycaster does not consult `visible` — an unanchored menu still
+    // sitting at the origin would answer pinches from inside the floor.
+    if (!this.ui.visible) return null;
     for (const p of [this.panel, this.tab]) {
       if (!p.group.visible) continue;
       const hits = ray.intersectObject(p.mesh, false);
@@ -503,7 +562,7 @@ export class XRShell {
     // apparent size is distance over scale — so the menu reads the same whether
     // it is hanging in front of a door handle or a mansion.
     const d = Math.max(1.2, stage.camera.near * 12);
-    this._uiWorld = null;
+    this._uiRef = null;
     this.ui.scale.setScalar(d / 1.2);
     this.ui.quaternion.identity();
     this.ui.position.set(0, 0, -d);

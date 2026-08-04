@@ -250,8 +250,14 @@ export class Stage {
     this.updaters.clear();
     if (keep) for (const u of keep) this.updaters.add(u);
     this.overrideRender = null;
-    this.onXRFrame = null;
-    Object.assign(this.controls, this._ctrlDefaults, {
+    // onXRFrame is NOT cleared here, and controls.enabled is NOT restored.
+    // Both belong to the SESSION, which outlives the content on this stage —
+    // ARSession installs the frame hook at enter() and drops it at _end().
+    // Clearing it here killed the pointer, the panel's anchoring and the
+    // placement solve on the first swap after entering, which reads as "no
+    // laser, no content, and a menu buried in the floor".
+    const { enabled, ...content } = this._ctrlDefaults;
+    Object.assign(this.controls, content, {
       mouseButtons: { ...this._ctrlDefaults.mouseButtons },
       touches: { ...this._ctrlDefaults.touches },
     });
