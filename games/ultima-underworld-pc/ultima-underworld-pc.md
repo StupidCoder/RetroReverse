@@ -688,11 +688,22 @@ rebuilt as a **textured 3D mesh** — reimplemented in Go and hooked into the St
   (full height to the ceiling) or higher (a step up) — floors textured `F32`, walls `W64`, through
   the texture list. The wall's top is sampled at **both shared corners** of the edge (not one), so a
   ramp meets a flush neighbour with no wall and produces a *triangular* side wall instead of a
-  spurious vertical segment. Wall textures use a **uniform texel scale** (`WallTexUnitsPerCopy` — one
-  copy per tile width horizontally and per tile-width vertically), so a tall wall *tiles* the texture
-  rather than stretching one copy floor-to-ceiling, and the UVs are oriented upright and un-mirrored
-  (V=0 at the foot, U reading left-to-right for a viewer on the open side) — verified with
-  `levrender -uvtest` (colour-by-UV) and a first-person textured render of the game's arched door.
+  spurious vertical segment. Wall textures are **stretched corner to corner** — one copy
+  clothes a wall whatever its height — and the UVs are oriented upright and un-mirrored (V=0 at the
+  foot, U reading left-to-right for a viewer on the open side), verified with `levrender -uvtest`
+  (colour-by-UV) and a first-person textured render of the game's arched door.
+
+  *This was wrong until 2026-08.* The exporter tiled the texture at a fixed texel scale
+  (`WallTexUnitsPerCopy`, one copy per tile width vertically), so a full-height wall showed its
+  texture **four times over**. Three things say stretch, and the assumption cited none of them:
+  W64.TR holds wall *panels* — several are a single arched door with a floor line under it, a
+  hanging banner, or a grating standing on the floor, which tiled would read as four stacked doors;
+  the game's own frame (`work/dungeon.png`, its engine running under our oracle) draws stone blocks
+  with visibly **non-square texels**, taller than wide, which is what a 64×64 texture stretched over
+  a four-tile wall looks like; and the renderer's VM draws textured quads with *implicit corner UVs*
+  (`disasm/uw-render.annotations.txt` §10d, opcodes `0xA0/A2/A4/A6`) — the four texture corners land
+  on the four polygon corners whatever the polygon's shape. Every wall UV now falls inside 0..1,
+  which is also what let the whole dungeon collapse into a single atlased draw call.
   **Diagonal tiles (types 2-5)** are emitted exactly: the solid corner
   (NW/NE/SW/SE, derived from neighbour solidity in the real levels) is cut off, leaving a *triangular*
   floor, a diagonal wall across the hypotenuse, and normal walls on only the two open edges. A
