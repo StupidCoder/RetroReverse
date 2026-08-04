@@ -64,9 +64,12 @@ export class SpriteLayer {
         live: (p.inst.prog?.length > 1) || !!p.inst.anim?.path?.length,
         tint: p.inst.sprite?.tint,
       }));
-    items.sort((a, b) => (b.live ? 1 : 0) - (a.live ? 1 : 0)); // animating first
+    // NOT sorted: with translucent sprites the paint order is visible, and
+    // pixi's is placement order. The upload is capped at 429 quads anyway, and
+    // a level with nothing animating still uploads nothing.
     this.items = items;
     this.liveCount = items.filter((i) => i.live).length;
+    this.anyLive = this.liveCount > 0;
 
     const n = items.length;
     const pos = new Float32Array(n * VERTS * 3);
@@ -91,9 +94,14 @@ export class SpriteLayer {
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     this.geometry = geo;
 
+    // Real alpha blending, NOT an alpha test. Sprite art is not binary alpha:
+    // Sonic's marker placeholders are ~35% translucent, and an alphaTest of
+    // 0.5 discarded them outright while the flat view blended them over the
+    // map. The tiles can stay in the opaque pass — their alpha IS binary — but
+    // the cast cannot.
     this.material = new THREE.MeshBasicMaterial({
       map: tex, vertexColors: true, toneMapped: false, side: THREE.DoubleSide,
-      alphaTest: 0.5, transparent: blend, depthWrite: !blend,
+      transparent: true, depthWrite: false,
     });
     this.mesh = new THREE.Mesh(geo, this.material);
     this.mesh.frustumCulled = false;
@@ -115,8 +123,10 @@ export class SpriteLayer {
   // sync(all) rewrites the animating prefix; `all` also does the static tail,
   // which only happens once at construction.
   sync(all = false) {
-    const n = all ? this.items.length : this.liveCount;
-    if (!n) return;
+    // Live items are interleaved with static ones, so a refresh rewrites the
+    // whole (small) buffer — but only when something actually animates.
+    if (!all && !this.anyLive) return;
+    const n = this.items.length;
     const o = this._scratch;
     const aw = this.atlas.canvas.width, ah = this.atlas.canvas.height;
     let drawn = 0;
@@ -155,10 +165,6 @@ export class SpriteLayer {
     // dirty, so a level whose placements all pin one frame uploads nothing.
     posAttr.clearUpdateRanges?.();
     uvAttr.clearUpdateRanges?.();
-    if (!all && posAttr.addUpdateRange) {
-      posAttr.addUpdateRange(0, n * VERTS * 3);
-      uvAttr.addUpdateRange(0, n * VERTS * 2);
-    }
     posAttr.needsUpdate = true;
     uvAttr.needsUpdate = true;
     if (all) this.geometry.attributes.color.needsUpdate = true;
