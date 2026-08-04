@@ -580,7 +580,14 @@ async function mount3D(ctx, doc) {
       contentBox,
       fitAxis: 'longest',
       targetSize: xrNum('xrsize', 1.0),
-      distance: xrNum('xrdist', 0.8), // arm's length: a held object, not a stage
+      // Standing on the floor rather than hanging at eye level: a model reads
+      // as an object in the room that way, and WebXR's local-floor reference
+      // space already puts y = 0 on the real floor, so it costs nothing.
+      // ?xranchor=eye hangs it at eye height instead.
+      anchor: (params?.get?.('xranchor') ?? params?.xranchor) === 'eye' ? 'eye' : 'floor',
+      // Far enough back to look down at something on the floor; arm's length
+      // would put it under your chin.
+      distance: xrNum('xrdist', 1.2),
       // Present whichever side you had orbited to.
       frontDir: () => {
         const d = stage.controls.target.clone().sub(stage.camera.position);

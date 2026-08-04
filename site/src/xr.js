@@ -51,6 +51,13 @@ export class ARSession {
     this.targetSize = opts.targetSize || 1.0;
     this.distance = opts.distance ?? 1.5;
     this.dropBelowEye = opts.dropBelowEye ?? 0.15;
+    // Where the content meets the room. 'eye' hangs its CENTRE at head height
+    // (a diorama, a wall map); 'floor' stands its LOWEST point on the physical
+    // floor. The latter is free: the session already requests a local-floor
+    // reference space, in which y = 0 is the floor the headset measured, so
+    // the object only has to be anchored by its underside instead of its
+    // middle.
+    this.anchor = opts.anchor === 'floor' ? 'floor' : 'eye';
     // Which extent the targetSize applies to: a level wants its FOOTPRINT a
     // metre across (height follows), a single object its longest axis, so a
     // tall thin model does not come out enormous.
@@ -211,11 +218,18 @@ export class ARSession {
     if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1); // straight up/down: fall back to −Z
     fwd.normalize();
 
-    // Where the diorama's centre should land, in reference space (metres).
-    const at = new THREE.Vector3(p.x, p.y - this.dropBelowEye, p.z).addScaledVector(fwd, this.distance);
-
     const size = box.getSize(new THREE.Vector3());
     const centre = box.getCenter(new THREE.Vector3());
+    // Which point of the content is being placed, and where it goes. For a
+    // floor anchor both drop to ground level: the box's bottom-centre, onto
+    // y = 0 ahead of the viewer. fwd is already flattened, so the target stays
+    // on the floor plane.
+    const hold = this.anchor === 'floor'
+      ? new THREE.Vector3(centre.x, box.min.y, centre.z)
+      : centre;
+    const at = this.anchor === 'floor'
+      ? new THREE.Vector3(p.x, 0, p.z).addScaledVector(fwd, this.distance)
+      : new THREE.Vector3(p.x, p.y - this.dropBelowEye, p.z).addScaledVector(fwd, this.distance);
     const span = this.fitAxis === 'longest'
       ? Math.max(size.x, size.y, size.z)
       : Math.max(size.x, size.z) || Math.max(size.y, 1);
@@ -244,12 +258,13 @@ export class ARSession {
     // the point `at`, a comfortable distance ahead of the head, lands exactly
     // on the middle of the level. Correct for any starting orientation and
     // wherever the guardian happened to put the floor origin.
-    rig.position.copy(centre).multiplyScalar(k).sub(at.clone().applyMatrix4(rig.matrixWorld));
+    rig.position.copy(hold).multiplyScalar(k).sub(at.clone().applyMatrix4(rig.matrixWorld));
     rig.updateMatrixWorld(true);
 
     this._place = false;
     // The metres ACHIEVED, not the metres requested — more use to both callers.
-    this._fit = `${fmt(size.x)}×${fmt(size.y)} u · ${fmt(1 / k)} u/m · ${fmt(size.x * k)}×${fmt(size.y * k)} m at ${fmt(this.distance)} m`;
+    this._fit = `${fmt(size.x)}×${fmt(size.y)} u · ${fmt(1 / k)} u/m · ${fmt(size.x * k)}×${fmt(size.y * k)} m`
+      + ` at ${fmt(this.distance)} m, ${this.anchor}`;
     this.status(`in AR · ${this._fit}`);
   }
 
