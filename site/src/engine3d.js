@@ -417,6 +417,12 @@ export async function loadGLB(url, signal) {
 // cone's 8x128 gradient into rings) — "nearest"/default = point-sampled
 // magnification (PSX-style).
 export function applyTexFilter(root, mode) {
+  // No mode means the manifest did not state one, which means "however the
+  // asset was authored" — the glTF sampler already says. It must NOT mean
+  // nearest: that silently blocked Jak & Daxter's textures, whose GLBs all
+  // declare LINEAR, because this path (unlike level3d's) called in
+  // unconditionally and the fallback below is nearest.
+  if (!mode) return;
   root.traverse((o) => {
     const m = o.material;
     if (!m) return;

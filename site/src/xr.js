@@ -286,8 +286,13 @@ export class ARSession {
 
     this._place = false;
     // The metres ACHIEVED, not the metres requested — more use to both callers.
+    // The head's height is the tell for whether local-floor is being measured
+    // or guessed: it should read as your actual eye height. If it does and the
+    // content still looks wrong, the placement is at fault; if it reads far off,
+    // the runtime's floor is, and no amount of arithmetic here fixes that.
     this._fit = `${fmt(size.x)}×${fmt(size.y)}×${fmt(size.z)} u · `
       + `${fmt(size.x * k)}×${fmt(size.y * k)}×${fmt(size.z * k)} m · ${this.anchor}`
+      + ` · eye ${fmt(p.y)} m`
       + (this._spawnNote ? ` · ${this._spawnNote}` : '');
     this.status(`in AR · ${this._fit}`);
   }

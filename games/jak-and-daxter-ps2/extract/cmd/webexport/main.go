@@ -669,8 +669,13 @@ func main() {
 		"format": "retro-x", "version": 1,
 		"id": "jak-and-daxter-ps2", "title": "Jak & Daxter: The Precursor Legacy",
 		"platform": "Sony PlayStation 2", "year": 2001,
+		// The GS filters textures bilinearly; these models are drawn with
+		// filtering on, so nearest sampling is not authenticity, it is a
+		// mistake. Stating it explicitly rather than relying on the glTF
+		// sampler, so the viewer never has to guess.
+		"display":     map[string]any{"texFilter": "linear"},
 		"description": "Naughty Dog's PlayStation 2 debut: a seamless world written in the studio's own Lisp (GOAL), streamed level by level from DGO archives the engine links into place at load time. This export begins where the game does — the title and intro models, decoded from the disc alone: the archive container and the engine's runtime linker were reimplemented byte-exact, and the skinned meshes are read straight out of the merc renderer's fragment format — fragment-local 8-bit vertex lattices, per-fragment origins hidden in float bit patterns, and triangle strips rebuilt from the file bytes alone (dest-byte scatter order, per-write ADC flags, the byte-header's stitch-copy tables), verified triangle-for-triangle against the microprogram's own emulated output. The materials are equally the disc's own: each fragment's adgif template names its texture by id, the level's remap table resolves it to a texture-page slot, and the tpage decoder supplies the pixels. The title model turns out to be two logos, English and Japanese. The intro cutscenes are on their way.",
-		"assets": manifest,
+		"assets":      manifest,
 	})
 	fmt.Println("webexport: wrote", *site)
 }
