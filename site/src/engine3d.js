@@ -483,7 +483,13 @@ export class ObjectLibrary {
       const mats = new Set();
       for (const sc of proto.gltf.scenes?.length ? proto.gltf.scenes : [proto.gltf.scene]) {
         sc.traverse((o) => {
-          for (const m of o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []) mats.add(m);
+          for (const m of o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []) {
+            mats.add(m);
+            // Submission order carries the depth-tie semantics (GS GEQUAL):
+            // renderOrder keeps it under three's opaque sort; ties then
+            // resolve later-wins via the default LessEqualDepth.
+            if (Number.isFinite(m.userData?.layer)) o.renderOrder = m.userData.layer;
+          }
         });
       }
       for (const m of mats) {
@@ -493,10 +499,12 @@ export class ObjectLibrary {
           m.depthWrite = false;
           m.needsUpdate = true;
         }
+        // extras.layer = the source submission ordinal. The GS rasterizes in
+        // fixed point and tests GEQUAL, so a later draw of the same plane
+        // wins its depth tie EXACTLY. GL's equivalent: keep the submission
+        // order (renderOrder) under the default LessEqualDepth, plus a mild
+        // polygonOffset for coplanar decals whose tessellation differs.
         if (Number.isFinite(m.userData?.layer) && m.userData.layer > 0) {
-          // Source submission order: on the original hardware later coplanar
-          // draws win the depth tie, so pull each successive material layer
-          // slightly toward the camera to keep decal stacks from z-fighting.
           m.polygonOffset = true;
           m.polygonOffsetFactor = -m.userData.layer;
           m.polygonOffsetUnits = -2 * m.userData.layer;
