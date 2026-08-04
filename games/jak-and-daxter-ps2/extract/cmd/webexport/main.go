@@ -270,6 +270,38 @@ func main() {
 			for pi := range prims {
 				prims[pi].Layer = pi + 1
 			}
+			// Decal layers sit on genuinely coplanar planes that the GS
+			// resolved by submission order. polygonOffset alone is below
+			// the depth quantization at distance, so also lift each layer
+			// along its vertex normals by a size-relative epsilon — about
+			// 0.01% of the model per layer, invisible but decisive.
+			var mn, mx [3]float32
+			first := true
+			for _, p := range prims {
+				for _, v := range p.Positions {
+					for k := 0; k < 3; k++ {
+						if first || v[k] < mn[k] {
+							mn[k] = v[k]
+						}
+						if first || v[k] > mx[k] {
+							mx[k] = v[k]
+						}
+					}
+					first = false
+				}
+			}
+			diag := float32(math.Sqrt(float64((mx[0]-mn[0])*(mx[0]-mn[0]) + (mx[1]-mn[1])*(mx[1]-mn[1]) + (mx[2]-mn[2])*(mx[2]-mn[2]))))
+			eps := diag * 1e-4
+			for pi := range prims {
+				p := &prims[pi]
+				lift := eps * float32(pi)
+				for vi := range p.Positions {
+					n := p.Normals[vi]
+					p.Positions[vi][0] += n[0] * lift
+					p.Positions[vi][1] += n[1] * lift
+					p.Positions[vi][2] += n[2] * lift
+				}
+			}
 			check(scene.AddMesh(node, fmt.Sprintf("%s-%d", entry, ci), prims))
 			if len(joints) == 0 {
 				continue
