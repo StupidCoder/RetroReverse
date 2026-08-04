@@ -462,6 +462,28 @@ function filterTex(tex, mode) {
 
 const LOOPMAP = { loop: THREE.LoopRepeat, pingpong: THREE.LoopPingPong, once: THREE.LoopOnce, hold: THREE.LoopOnce };
 
+// billboardCell picks which cell of a sprite sheet a billboard shows: the row
+// from the camera's bearing (a Doom-style directional sprite's eight views),
+// the column from its animation clock. dx/dz point from the sprite to the
+// eye. Shared with billboards.js, which draws the same sprites merged — two
+// spellings of this rule would be two sprites disagreeing about which way a
+// creature faces.
+export function billboardCell(doc, dx, dz, t) {
+  const views = doc.views || 1;
+  const anim = (doc.animations || [])[0] || { col: 0, framesPerView: 1, fps: 0 };
+  let row = 0;
+  if (views > 1) {
+    const ang = Math.atan2(dx, dz) - (doc.heading || 0);
+    const step = (2 * Math.PI) / views;
+    row = Math.round(ang / step) % views;
+    if (row < 0) row += views;
+  }
+  const per = anim.framesPerView || 1;
+  const fps = anim.fps || 0;
+  const frame = fps > 0 ? Math.floor(t * fps) % per : 0;
+  return { row, col: (anim.col || 0) + frame };
+}
+
 // ObjectLibrary caches loaded object documents + payloads per game and
 // instantiates them for placements.
 export class ObjectLibrary {
@@ -665,7 +687,11 @@ export class ObjectLibrary {
     const map = proto.tex.clone();
     map.needsUpdate = true;
     const blend = doc.blend || 'opaque';
-    const matOpts = { map, side: THREE.DoubleSide, toneMapped: false, alphaTest: 0.5 };
+    // forceSinglePass: a transparent DoubleSide mesh is otherwise drawn TWICE
+    // — three renders back faces then front faces so a self-overlapping shape
+    // composites in order. A flat quad has one face, so the second pass draws
+    // the same pixels again for nothing, at double the draw calls.
+    const matOpts = { map, side: THREE.DoubleSide, forceSinglePass: true, toneMapped: false, alphaTest: 0.5 };
     if (blend === 'additive') Object.assign(matOpts, { transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, alphaTest: 0 });
     else if (blend === 'alpha') Object.assign(matOpts, { transparent: true, depthWrite: false });
     const geo = new THREE.PlaneGeometry(w, h);
@@ -687,23 +713,12 @@ export class ObjectLibrary {
       map.offset.set((col * cw) / im.width, 1 - ((row + 1) * ch) / im.height);
     };
     setCell(0, anim.col || 0);
-    const views = doc.views || 1;
-    const heading = doc.heading || 0;
     const inst = { node, doc, asset: proto.asset };
     inst.update = (dt, camPos, t) => {
       const dx = camPos.x - node.getWorldPosition(_wp).x;
       const dz = camPos.z - _wp.z;
-      const ang = Math.atan2(dx, dz) - heading;
-      let row = 0;
-      if (views > 1) {
-        const step = (2 * Math.PI) / views;
-        row = Math.round(ang / step) % views;
-        if (row < 0) row += views;
-      }
-      const per = anim.framesPerView || 1;
-      const fps = anim.fps || 0;
-      const frame = fps > 0 ? Math.floor(t * fps) % per : 0;
-      setCell(row, (anim.col || 0) + frame);
+      const { row, col } = billboardCell(doc, dx, dz, t);
+      setCell(row, col);
       if ((doc.mode || 'camera') === 'camera') node.lookAt(camPos);
       else node.rotation.set(0, Math.atan2(dx, dz), 0);
     };

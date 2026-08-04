@@ -8,6 +8,7 @@ import { THREE, Stage, FlyCam, ObjectLibrary, loadGLB, applyWireframe, applyTexF
 import { CutscenePlayer } from './cutscene.js';
 import { PanInput } from './pancam.js';
 import { ARSession, arSupported, PerfMeter } from './xr.js';
+import { BillboardBatch } from './billboards.js';
 
 export async function mount(ctx, doc) {
   const { stage: el, game, asset, params } = ctx;
@@ -257,12 +258,58 @@ export async function mount(ctx, doc) {
           }
         }
       }
-      if (inst.update) stage.updaters.add((dt, cp, t) => { if (node.visible) inst.update(dt, cp, t); });
+      if (inst.update) {
+        // Kept on the record: if this placement joins the billboard batch its
+        // own per-frame work is what the batch replaces, and an updater still
+        // in the set would be a lookAt on a mesh nobody draws.
+        const upd = (dt, cp, t) => { if (node.visible) inst.update(dt, cp, t); };
+        placementById.get(pl.id).upd = upd;
+        stage.updaters.add(upd);
+      }
       wireBehavior(stage, node, pl, routeById);
     } catch (e) {
       if (!signal.aborted) console.warn('placement failed', pl.object, e);
     }
   }));
+
+  // ---- billboard batching -------------------------------------------------------------
+  // A level's sprite cast is the draw call budget: 571 placements on the
+  // Abyss's level 8, each its own mesh, material and texture. Merged into one
+  // atlas and one geometry they are a single call, and the per-sprite lookAt
+  // updaters go with them. The placement groups stay exactly as they were —
+  // they still carry the transform, the visibility and the pick record — so
+  // layers, variants, rooms and clicking are untouched by this.
+  // ?nobatch=1 keeps the per-sprite meshes, which is what the batch is
+  // checked AGAINST: the two paths have to render the same picture.
+  let billboards = null;
+  {
+    const cand = [...placementById.values()].filter((r) => r.inst.doc?.type === 'billboard3d');
+    if (cand.length >= 8 && !(params.get?.('nobatch') ?? params.nobatch)) {
+      const batch = new BillboardBatch({ maxTextureSize: stage.renderer.capabilities.maxTextureSize });
+      for (const r of cand) if (batch.add(r.node, r.inst)) r.batched = true;
+      const stats = batch.size ? batch.build() : null;
+      if (stats) {
+        billboards = batch;
+        stage.scene.add(batch.group);
+        roots.push(batch.group);
+        for (const r of cand) if (r.batched && r.upd) stage.updaters.delete(r.upd);
+        // World space, not the camera's local: under an AR rig the camera is
+        // a child of the rig and the scene carries the diorama's scale, so
+        // the eye has to be expressed where the sprites live.
+        const camLocal = new THREE.Vector3();
+        stage.updaters.add((dt, camPos, t) => {
+          camLocal.copy(camPos);
+          batch.group.parent?.worldToLocal(camLocal);
+          batch.update(camLocal, t);
+        });
+      } else {
+        // Nothing was taken apart unless build() succeeded, so the per-sprite
+        // path is still intact here.
+        for (const r of cand) r.batched = false;
+        console.warn('billboard batch not built (atlas would exceed the texture limit)');
+      }
+    }
+  }
 
   // hoisted: the variant setter can fire while placements are still loading
   function applyVariant() {
@@ -302,12 +349,17 @@ export async function mount(ctx, doc) {
     const r = stage.canvas.getBoundingClientRect();
     const p = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     raycaster.setFromCamera(p, stage.camera);
+    let hit = null, dist = Infinity;
     for (const h of raycaster.intersectObjects(pickables, true)) {
       let o = h.object;
       while (o && !o.userData.pick) o = o.parent;
-      if (o?.visible !== false && o?.userData.pick) return o;
+      if (o?.visible !== false && o?.userData.pick) { hit = o; dist = h.distance; break; }
     }
-    return null;
+    // A batched sprite has no mesh of its own left to hit, so the batch
+    // answers for it — and the nearer of the two answers wins, or clicking a
+    // chest would report the wall behind it.
+    const b = billboards?.pick(raycaster);
+    return b && b.distance < dist ? b.node : hit;
   }
 
   function runAction(pl, node, e) {
@@ -530,11 +582,12 @@ export async function mount(ctx, doc) {
     ));
   }
 
-  window.__rx3 = { stage, placementById, layerNodes, doc, ar, contentBox, get player() { return player; } }; // debug
+  window.__rx3 = { stage, placementById, layerNodes, doc, ar, contentBox, get billboards() { return billboards; }, get player() { return player; } }; // debug
 
   return {
     unmount() {
       ar?.exit();
+      billboards?.dispose();
       player?.dispose();
       fly?.dispose();
       panInput?.dispose();
@@ -563,6 +616,10 @@ export async function mount(ctx, doc) {
         Layers: (doc.scene?.layers || []).map((l) => l.id).join(', ') || '—',
         Rooms: doc.scene?.rooms ? `${doc.scene.rooms.list.length} (${roomsLoaded} loaded)` : '—',
         Placements: (doc.placements || []).length,
+        Sprites: billboards?.stats
+          ? `${billboards.stats.sprites} batched · ${billboards.stats.draws} draw call${billboards.stats.draws > 1 ? 's' : ''}`
+            + ` · ${billboards.stats.sheets} sheets in a ${billboards.stats.atlas} atlas`
+          : '—',
         Variants: variants.map((v) => v.id).join(', ') || '—',
         Camera: `${cam.mode} · ${stage.camera.isOrthographicCamera ? 'orthographic' : 'perspective'}${cam.fly ? ` · ${cam.fly.speed} u/s` : ''}`,
       };
