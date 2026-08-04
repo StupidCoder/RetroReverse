@@ -363,6 +363,19 @@ func exportAll(ctx *cli.Context, gameDir string, palN int, ceil bool) error {
 				WrapS:  10497, WrapT: 10497,
 			})
 		}
+		// And then one primitive per material CLASS. Every texture the level
+		// uses goes into one atlas and the UVs are rewritten into it, so what
+		// separates primitives is no longer the picture but the STATE: whether
+		// the material cuts out, and whether it is drawn from both sides.
+		//
+		// This is only possible because wall textures are stretched rather than
+		// tiled: every UV lands inside 0..1, so a sub-rectangle of an atlas can
+		// stand in for a whole texture. While walls tiled, a single draw call
+		// would have meant splitting the geometry or wrapping in a shader.
+		if at, auv := atlasGroups(groups, uvs); at != nil {
+			groups, uvs = at, auv
+		}
+
 		glbFile := fmt.Sprintf("level%d.glb", n+1)
 		gp, err := b.Path("levels", glbFile)
 		if err != nil {
