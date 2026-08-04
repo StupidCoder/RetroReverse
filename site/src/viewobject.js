@@ -273,6 +273,11 @@ async function mount3D(ctx, doc) {
     const dist = (r * 2.2) / Math.sin((stage.camera.fov * Math.PI) / 360);
     stage.camera.position.copy(c0).add(new THREE.Vector3(0.55, 0.25, 1).normalize().multiplyScalar(dist));
     stage.camera.near = Math.max(0.01, r / 50);
+    stage.camera.far = Math.max(stage.camera.far, dist + r * 10);
+    // Without this the default near/far (0.1/100000) stay baked into the
+    // projection until the first resize rebuilds it — at character scale
+    // that is not enough depth precision and everything shimmers.
+    stage.camera.updateProjectionMatrix();
     stage.controls.target.copy(c0);
     stage.controls.update();
     let last = c0.clone();
