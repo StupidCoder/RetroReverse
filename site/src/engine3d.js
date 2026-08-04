@@ -499,17 +499,6 @@ export class ObjectLibrary {
           m.depthWrite = false;
           m.needsUpdate = true;
         }
-        // extras.layer = the source submission ordinal. The GS rasterizes in
-        // fixed point and tests GEQUAL, so a later draw of the same plane
-        // wins its depth tie EXACTLY. GL's equivalent: keep the submission
-        // order (renderOrder) under the default LessEqualDepth, plus a mild
-        // polygonOffset for coplanar decals whose tessellation differs.
-        if (Number.isFinite(m.userData?.layer) && m.userData.layer > 0) {
-          m.polygonOffset = true;
-          m.polygonOffsetFactor = -m.userData.layer;
-          m.polygonOffsetUnits = -2 * m.userData.layer;
-          m.needsUpdate = true;
-        }
         if (m.userData?.blend === 'alpha') {
           // The source hardware's translucent pass: alpha blend with depth
           // writes off (Luigi's Mansion draws its flashlight cone this way).
