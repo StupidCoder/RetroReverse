@@ -454,6 +454,12 @@ type TexturedGroup struct {
 	// MASK cutout — for textures carrying partial alpha (e.g. the 3DO cel
 	// engine's destination-shading pixels baked as translucent black).
 	Blend bool
+	// Opaque states that the image has no transparent texel, so the cutout is
+	// not merely unnecessary but harmful: alphaMode MASK makes a fragment's
+	// survival depend on its texture read, which on a tiling GPU switches off
+	// the early depth rejection for the whole draw. A wall that never has a
+	// hole in it should say so. Ignored when Blend or Additive is set.
+	Opaque bool
 	// Additive marks the material extras {"blend":"additive"} (and BLEND):
 	// glTF has no additive mode, so the Retro-X viewer applies it from the
 	// extras. Sheen marks extras {"sheen":true} — the source material sampled

@@ -322,7 +322,17 @@ func exportAll(ctx *cli.Context, gameDir string, palN int, ceil bool) error {
 		for i := range uvs {
 			uvs[i] = [2]float32{o.UVs[i*2], o.UVs[i*2+1]}
 		}
+		// One primitive per MATERIAL, not per material change. The groups
+		// arrive split by run: level.go sorts its quads by material, but the
+		// baked objects (doors, pillars, bridges) are emitted in placement
+		// order and findGroup only ever extends the trailing group, so a
+		// level came out as 492 primitives drawing 63 distinct textures — 357
+		// of them a single quad. A primitive is a draw call, and on a headset
+		// the draw calls were the whole cost of the scene. Nothing about the
+		// geometry changes here: the triangles are the same triangles, just
+		// gathered under the material they already shared.
 		var groups []glb.TexturedGroup
+		byMat := map[int]int{} // material -> index in groups
 		for _, g := range o.Groups {
 			if g.Material < 0 || g.Material >= len(o.Textures) {
 				continue
@@ -333,11 +343,24 @@ func exportAll(ctx *cli.Context, gameDir string, palN int, ceil bool) error {
 			for v := g.Start; v+2 < g.Start+g.Count; v += 3 {
 				tris = append(tris, [3]uint32{uint32(v), uint32(v + 1), uint32(v + 2)})
 			}
+			if gi, ok := byMat[g.Material]; ok {
+				groups[gi].Tris = append(groups[gi].Tris, tris...)
+				continue
+			}
+			// Decoded ONCE per material: glb dedupes textures by image
+			// pointer, so a fresh decode per group was also 492 copies of 63
+			// images in the BIN chunk and 492 live textures on the GPU.
+			im := decodeSpriteTex(o.Textures[g.Material].PNG)
+			byMat[g.Material] = len(groups)
 			groups = append(groups, glb.TexturedGroup{
 				Tris:        tris,
-				Image:       decodeSpriteTex(o.Textures[g.Material].PNG),
+				Image:       im,
 				SingleSided: o.Textures[g.Material].Ceiling,
-				WrapS:       10497, WrapT: 10497,
+				// A wall with no transparent texel is opaque, and saying so
+				// keeps the GPU's early depth rejection on for it — under
+				// MASK every fragment's survival depends on its texture read.
+				Opaque: !hasAlpha(im),
+				WrapS:  10497, WrapT: 10497,
 			})
 		}
 		glbFile := fmt.Sprintf("level%d.glb", n+1)
@@ -594,6 +617,19 @@ func decodeSpriteTex(uri string) *image.RGBA {
 	r := image.NewRGBA(im.Bounds())
 	draw.Draw(r, r.Bounds(), im, im.Bounds().Min, draw.Src)
 	return r
+}
+
+// hasAlpha reports whether any texel is not fully opaque — the question
+// "does this texture need a cutout at all?". The wall and floor art comes
+// from W64.TR/F32.TR, which are solid; the transparency in the dungeon mesh
+// belongs to the baked objects' GR frames.
+func hasAlpha(im *image.RGBA) bool {
+	for i := 3; i < len(im.Pix); i += 4 {
+		if im.Pix[i] != 255 {
+			return true
+		}
+	}
+	return false
 }
 
 // writeSpritePNG writes a SpriteTex data URI straight to a PNG file (byte-exact

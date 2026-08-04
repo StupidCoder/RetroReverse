@@ -130,6 +130,12 @@ func appendTextured(b *builder, st *sharedTex, matBase int,
 			"alphaCutoff": 0.5,
 			"doubleSided": !g.SingleSided,
 		}
+		// Opaque first: a group that also asks for BLEND is translucent, and
+		// translucency is not a claim about texels that "no holes" can overrule.
+		if g.Opaque {
+			mat["alphaMode"] = "OPAQUE"
+			delete(mat, "alphaCutoff")
+		}
 		if g.Blend || g.Additive {
 			mat["alphaMode"] = "BLEND"
 			delete(mat, "alphaCutoff")
