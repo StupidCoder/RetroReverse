@@ -7,7 +7,7 @@
 import { THREE, Stage, FlyCam, ObjectLibrary, loadGLB, applyWireframe, applyTexFilter, applyTransform, flyHint, disposeScene } from './engine3d.js';
 import { CutscenePlayer } from './cutscene.js';
 import { PanInput } from './pancam.js';
-import { ARSession, arSupported, PerfMeter } from './xr.js';
+import { arSupported, PerfMeter } from './xr.js';
 import { BillboardBatch } from './billboards.js';
 
 export async function mount(ctx, doc) {
@@ -583,8 +583,11 @@ export async function mount(ctx, doc) {
   }
 
   // Everything a session needs to place this level, in one object. When the XR
-  // shell owns the stage it takes this and drives its own long-lived session;
-  // the per-view ARSession below is the standalone path.
+  // shell owns the session, and this is everything it needs to place the level.
+  //
+  // Ortho stages used to be refused a session here, but that was a fact about
+  // the DESKTOP camera rather than about the level: the shell's stage is always
+  // perspective, so a pan2d level reaches AR through this like any other.
   const arContent = {
     contentBox,
     frontDir: establishingDir(),
@@ -592,20 +595,6 @@ export async function mount(ctx, doc) {
     fit: { targetSize: num(param('xrsize'), 1.0), distance: num(param('xrdist'), 1.5) },
   };
 
-  // Ortho stages (the pan2d levels) have no place in a headset — but that is a
-  // fact about the DESKTOP camera, not about the level: the shell's stage is
-  // always perspective, so a pan2d level reaches AR through arContent above.
-  const ar = ownStage && stage.camera.isPerspectiveCamera
-    ? new ARSession({
-      stage,
-      contentBox,
-      targetSize: num(param('xrsize'), 1.0),
-      distance: num(param('xrdist'), 1.5),
-      frontDir: establishingDir(),
-      onStatus: setStatus,
-      onScene: setARScene,
-    })
-    : null;
   // ?xrdebug=1 answers "why is there no XR button?" without a console.
   if (param('xrdebug')) {
     arSupported.then((ok) => setStatus(
@@ -613,11 +602,10 @@ export async function mount(ctx, doc) {
     ));
   }
 
-  window.__rx3 = { stage, placementById, layerNodes, doc, ar, contentBox, get billboards() { return billboards; }, get player() { return player; } }; // debug
+  window.__rx3 = { stage, placementById, layerNodes, doc, arContent, contentBox, get billboards() { return billboards; }, get player() { return player; } }; // debug
 
   return {
     unmount() {
-      ar?.exit();
       billboards?.dispose();
       player?.dispose();
       fly?.dispose();
@@ -643,7 +631,6 @@ export async function mount(ctx, doc) {
       xrStatus.remove();
       el.querySelector('.side-list')?.remove();
     },
-    xr: ar,
     arContent,
     sources: () => [stage.canvas],
     setWireframe(on) { for (const r of roots) applyWireframe(r, on); },

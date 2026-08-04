@@ -300,7 +300,7 @@ export async function mount(ctx, doc) {
   // ---- AR: the whole map, drawn from the same source art ------------------------
   // Dynamic import: this pulls in three.js, and a 2-D level should not pay for
   // that on load — nothing is built until the button is pressed.
-  const { MapAR } = await import('./xrmap.js');
+  const { TileContent } = await import('./xrmap.js');
   const xrStatus = document.createElement('div');
   xrStatus.className = 'hud xr-status';
   xrStatus.hidden = true;
@@ -309,10 +309,8 @@ export async function mount(ctx, doc) {
     for (let n = node; n && n !== world; n = n.parent) if (n.visible === false) return false;
     return true;
   };
-  const ar = new MapAR({
-    el: stage,
+  const tiles = new TileContent({
     params,
-    onStatus: (t) => { xrStatus.hidden = false; xrStatus.textContent = t; },
     // Everything the AR renderer needs, and nothing PixiJS-shaped: the document,
     // the decoded atlas, and read-only handles on the live SpriteInstances.
     model: () => ({
@@ -335,21 +333,31 @@ export async function mount(ctx, doc) {
   });
 
   ctx.displayPanel?.section('AR');
-  ctx.displayPanel?.toggle('Key out the backdrop', ar.keying, (on) => ar.setKeying(on));
+  ctx.displayPanel?.toggle('Key out the backdrop', tiles.keying, (on) => tiles.setKeying(on));
 
-  window.__rx = { app, world, objLayer, pickables, cam, map, ar, doc, tm, atlasImg, anims, fxAnims, cellAnimRecs }; // debug handle
+  window.__rx = { app, world, objLayer, pickables, cam, map, tiles, doc, tm, atlasImg, anims, fxAnims, cellAnimRecs }; // debug handle
 
   return {
     unmount() {
       input.dispose();
-      ar.dispose();
+      tiles.dispose();
       app.destroy(true, { children: true });
       closeCard();
       hud.remove();
       xrStatus.remove();
       stage.classList.remove('render2d');
     },
-    xr: ar,
+    // The map is not in a three.js scene until somebody asks for it: build()
+    // makes it, and the shell calls that against its own long-lived stage.
+    arContent: {
+      build: (st) => tiles.build(st),
+      update: (dt) => tiles.advance(dt),
+      dispose: () => tiles.dispose(),
+      contentBox: () => tiles.contentBox(),
+      frontDir: tiles.frontDir,
+      fit: tiles.fit,
+      note: () => tiles.note,
+    },
     sources: () => [app.canvas],
     // { cell, ox, oy, ref } — one game pixel in viewer px + the grid origin
     // (the shape screenfx._pixelCell consumes; it phase-locks the filter's

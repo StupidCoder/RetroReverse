@@ -133,29 +133,42 @@ async function mount2D(ctx, doc) {
   stage.appendChild(hud);
 
   // ---- AR: the sprite hangs in the room ---------------------------------------
-  const { PanelAR } = await import('./xr2d.js');
+  const { PanelContent } = await import('./xr2d.js');
   const xrStatus = document.createElement('div');
   xrStatus.className = 'hud xr-status';
   xrStatus.hidden = true;
   stage.appendChild(xrStatus);
-  const ar = new PanelAR({
-    el: stage,
+  const panel = new PanelContent({
     canvas: () => app.canvas,
     params: ctx.params,
-    onStatus: (t) => { xrStatus.hidden = false; xrStatus.textContent = t; },
+    // While presenting, the pixi ticker is not serviced, so the session has to
+    // advance the animation AND repaint — the panel is that canvas, and an
+    // unrepainted canvas is a still.
+    tick: (dt) => {
+      if (playing) inst.tick(dt * tickHz);
+      app.render();
+    },
   });
 
-  window.__rxo2 = { app, world, inst, obj, ar }; // debug handle
+  window.__rxo2 = { app, world, inst, obj, panel }; // debug handle
 
   return {
     unmount() {
       removeEventListener('resize', onResize);
-      ar.dispose();
+      panel.dispose();
       app.destroy(true, { children: true });
       list.remove(); hud.remove(); tp?.remove(); xrStatus.remove();
       stage.classList.remove('render2d');
     },
-    xr: ar,
+    arContent: {
+      build: (st) => panel.build(st),
+      update: (dt) => panel.advance(dt),
+      dispose: () => panel.dispose(),
+      contentBox: () => panel.contentBox(),
+      frontDir: panel.frontDir,
+      fit: panel.fit,
+      note: () => panel.note,
+    },
     sources: () => [app.canvas],
     pixelGrid: () => ({
       cell: world.scale.x, ox: world.position.x, oy: world.position.y,
@@ -227,7 +240,6 @@ function loadImg(url) {
 async function mount3D(ctx, doc) {
   const { stage: el, game, asset, params } = ctx;
   const { THREE, Stage, ObjectLibrary, wireMaterial, disposeScene } = await import('./engine3d.js');
-  const { ARSession } = await import('./xr.js');
 
   // ctx.stage3d is the XR shell's own stage, kept alive across content swaps so
   // the session survives them (see level3d.js for the same handover). With it,
@@ -595,8 +607,12 @@ async function mount3D(ctx, doc) {
     return box;
   };
 
-  // The AR fitting policy for an object, in one object so the XR shell can take
-  // it and drive its own long-lived session instead of this per-view one.
+  // The AR fitting policy for an object. A play area is far taller than it is
+  // wide, so fit the FOOTPRINT to a metre square and allow up to 1.8 m of
+  // height rather than squeezing the longest axis — a tall model should use the
+  // headroom, not shrink to fit the box a wide one gets. It stands on the floor
+  // rather than hanging at eye level (local-floor already puts y = 0 there, so
+  // it costs nothing); ?xranchor=eye hangs it instead.
   const arContent = {
     contentBox,
     fit: {
@@ -613,51 +629,11 @@ async function mount3D(ctx, doc) {
     setPresenting: () => {},
   };
 
-  let arSpin = false;
-  const ar = ownStage && stage.camera.isPerspectiveCamera
-    ? new ARSession({
-      stage,
-      contentBox,
-      // A play area is far taller than it is wide, so fit the FOOTPRINT to a
-      // metre square and allow up to 1.8 m of height rather than squeezing the
-      // longest axis — a tall model should use the headroom, not shrink to fit
-      // it into the same box a wide one gets.
-      fitScale: (size) => Math.min(
-        xrNum('xrsize', 1.0) / (size.x || 1),
-        xrNum('xrsize', 1.0) / (size.z || 1),
-        xrNum('xrheight', 1.8) / (size.y || 1),
-      ),
-      // Standing on the floor rather than hanging at eye level: a model reads
-      // as an object in the room that way, and WebXR's local-floor reference
-      // space already puts y = 0 on the real floor, so it costs nothing.
-      // ?xranchor=eye hangs it at eye height instead.
-      anchor: (params?.get?.('xranchor') ?? params?.xranchor) === 'eye' ? 'eye' : 'floor',
-      // Far enough back to look down at something on the floor; arm's length
-      // would put it under your chin.
-      distance: xrNum('xrdist', 1.2),
-      // Present whichever side you had orbited to.
-      frontDir: () => {
-        const d = stage.controls.target.clone().sub(stage.camera.position);
-        d.y = 0;
-        return d.lengthSq() > 1e-9 ? d.normalize() : new THREE.Vector3(0, 0, 1);
-      },
-      onStatus: (t) => { xrStatus.hidden = false; xrStatus.textContent = t; },
-      onScene: (on) => {
-        // Autorotate would spin the model where it hangs (the session skips
-        // controls.update, but leaving the flag set would resume the spin the
-        // moment you exit, from a pose you never chose).
-        if (on) { arSpin = stage.controls.autoRotate; stage.controls.autoRotate = false; }
-        else stage.controls.autoRotate = arSpin;
-        hud.hidden = on;
-      },
-    })
-    : null;
 
-  window.__rxo = { stage, inst, bones, ar, contentBox }; // debug handle
+  window.__rxo = { stage, inst, bones, arContent, contentBox }; // debug handle
 
   return {
     unmount() {
-      ar?.exit();
       if (ownStage) {
         window.removeEventListener('keydown', onKey);
         for (const [n, f] of isoEvents) el.removeEventListener(n, f);
@@ -671,7 +647,6 @@ async function mount3D(ctx, doc) {
       lib.dispose();
       list.remove(); hud.remove(); tp?.remove(); xrStatus.remove();
     },
-    xr: ar,
     arContent,
     // The clip list is built as DOM buttons rather than through displayPanel,
     // so the in-headset Controls tab needs its own way in.

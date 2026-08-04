@@ -27,17 +27,12 @@
 
 import { THREE } from './engine3d.js';
 
-// One probe per page load, awaited by whoever needs it. `navigator.xr` is
-// undefined outside a secure context, which is the usual reason the button
-// never appears.
-export const arSupported = (async () => {
-  try {
-    if (!navigator.xr?.isSessionSupported) return false;
-    return await navigator.xr.isSessionSupported('immersive-ar');
-  } catch {
-    return false;
-  }
-})();
+// Re-exported for the callers that already have three.js loaded; it lives in
+// its own dependency-free module so a 2-D page can ask without importing any
+// of this. See xrsupport.js.
+import { arSupported } from './xrsupport.js';
+
+export { arSupported };
 
 // PerfMeter turns the frame clock and the renderer's own counters into one
 // readout line, averaged over a window of frames. A headset has no devtools

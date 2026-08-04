@@ -5,6 +5,9 @@
 
 import { loadIndex, CATEGORY_LABELS } from './data.js';
 import { ScreenFilter } from './screenfx.js';
+// Dependency-free on purpose: the answer gates a button on every page, and
+// asking xr.js would pull three.js onto the landing page and the 2-D views.
+import { arSupported } from './xrsupport.js';
 
 const $ = (id) => document.getElementById(id);
 const landing = $('landing'), stage = $('stage');
@@ -357,20 +360,15 @@ function wireViewButtons(game, view) {
   // The session belongs to the XR shell, not to this view: it has to survive
   // the teardown that switching assets performs. The view only has to be able
   // to be REBUILT against the shell's stage, which is what arContent says.
-  // Two AR paths, for now. A 3-D view offers arContent and goes through the XR
-  // shell, whose session survives switching asset. The 2-D map and sprite panel
-  // still own their session (MapAR / PanelAR) and behave exactly as before —
-  // moving them onto the shell is a later step, and until then their button
-  // must keep working.
+  // One AR path for every view type: whatever offers arContent can be shown by
+  // the XR shell, whose session survives switching from one to the next. A 3-D
+  // view has already built itself into the shell's stage; a 2-D one builds its
+  // three.js form on demand. The probe imports nothing (see xrsupport.js), so
+  // asking costs a tilemap page no three.js it would not otherwise load.
   const xb = $('xrBtn');
   const fake = param(current?.params, 'xrfake') === '1';
   if (view.arContent) {
-    // view.xr carries the probe so the landing page never imports xr.js (and
-    // with it three.js); a pan2d level has no per-view session at all, and by
-    // then this module is loaded anyway, so a dynamic import costs nothing.
-    const probe = fake ? Promise.resolve(true)
-      : (view.xr?.supported ?? import('./xr.js').then((m) => m.arSupported));
-    probe.then((ok) => {
+    (fake ? Promise.resolve(true) : arSupported).then((ok) => {
       if (!ok || current?.view !== view) return;
       const asset = current.asset;
       xb.hidden = false;
@@ -378,23 +376,6 @@ function wireViewButtons(game, view) {
       xb.onclick = () => {
         if (xrShell?.active) return xrShell.exit();
         enterXR(game, asset, fake).catch((e) => toast(`AR: ${e.message || e.name}`));
-      };
-    });
-  } else if (view.xr) {
-    view.xr.supported.then((ok) => {
-      if (!ok || current?.view !== view) return;
-      xb.hidden = false;
-      requestAnimationFrame(updateTopbarFades);
-      xb.onclick = () => {
-        if (view.xr.active) view.xr.exit();
-        else view.xr.enter().catch((e) => toast(`AR: ${e.message || e.name}`));
-      };
-      view.xr.onChange = (on) => {
-        xb.classList.toggle('on', on);
-        $('filterBtn').disabled = on;
-        if (!screenFx || !filterOn) return;
-        screenFx.setEnabled(!on);
-        view.setNative?.(on ? null : game.display.native);
       };
     });
   }

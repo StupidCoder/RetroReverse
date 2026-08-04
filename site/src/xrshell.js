@@ -120,6 +120,10 @@ export class XRShell {
       // drawn at raw world scale — a mansion the size of a street — so the
       // curtain is held down every frame, not just once after the mount.
       if (!this._shown) this._setContentVisible(false);
+      // 2-D content has a clock of its own that nothing else will turn: the
+      // pixi ticker is stopped for the session's duration, because window rAF
+      // is not reliably serviced while presenting.
+      try { this._current?.view?.arContent?.update?.(dt); } catch (e) { console.error('xr content update', e); }
       const note = this.meter.sample(dt, stage);
       if (note) { this._perf = note; this._status(); }
     };
@@ -239,6 +243,24 @@ export class XRShell {
     }
     if (seq !== this._seq) { view?.unmount?.(); return; } // superseded mid-load
 
+    // A 3-D view has already built itself into this stage — it was handed
+    // ctx.stage3d. A 2-D one has not: it is a PixiJS view, and its three.js
+    // form (a tilemap in one draw call, or its canvas on a quad) is made here,
+    // on demand, against the stage the session is presenting from.
+    const built = view.arContent;
+    if (built?.build) {
+      try {
+        await built.build(this.stage);
+      } catch (e) {
+        this._busy = false;
+        this.browser.busy = false;
+        this._say(`cannot show ${asset.id} in AR: ${e.message || e}`);
+        this._redraw();
+        return;
+      }
+      if (seq !== this._seq) { view.unmount?.(); return; }
+    }
+
     this._current = { gameId, assetId, view, abort };
     this._busy = false;
     this.browser.busy = false;
@@ -264,8 +286,15 @@ export class XRShell {
     const rec = this._rec;
     let section = null;
     const push = (o) => { if (section) { rec.push({ kind: 'section', label: section }); section = null; } rec.push(o); };
+    // visibility:hidden rather than display:none — a laid-out box still has a
+    // clientWidth for pixi to size against, and WebGL renders into a hidden
+    // canvas just the same, which is what the panel quad samples.
+    const el = document.createElement('div');
+    el.style.cssText = 'position:absolute;left:0;top:0;width:960px;height:720px;visibility:hidden';
+    this.host.appendChild(el);
+    this._viewEl = el;
     return {
-      stage: this.host,
+      stage: el,
       stage3d: this.stage,
       game,
       asset,
@@ -335,8 +364,14 @@ export class XRShell {
     if (cur) {
       cur.abort.abort();
       cur.view?.arContent?.setPresenting?.(false);
+      try { cur.view?.arContent?.dispose?.(); } catch (e) { console.error('xr content dispose', e); }
       try { cur.view?.unmount?.(); } catch (e) { console.error('xr unmount', e); }
     }
+    // Each mount gets its own element and it goes with the mount. A 2-D view
+    // needs a real size to lay out against (pixi's resizeTo reads clientWidth),
+    // which the host itself does not have — it is a 0x0 clip in a session.
+    this._viewEl?.remove();
+    this._viewEl = null;
     // Detach the menu FIRST. resetContent disposes everything the old scene can
     // reach, and the panel is in that scene — dropping a level would otherwise
     // take the menu's own textures with it.
