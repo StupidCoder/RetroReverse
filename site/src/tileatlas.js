@@ -94,6 +94,9 @@ export function buildTileModel(opts) {
   // frame a tile animation can swap in.
   const shown = new Set(use.keys());
   for (const ta of tm.tileAnims || []) for (const fr of ta.frames) for (const t of fr) shown.add(t);
+  // Cell-animation strips draw from the same tile art, so their tiles need
+  // slots too — including any the map itself never uses.
+  for (const ca of tm.cellAnims || []) for (const ph of ca.phases) for (const t of ph.tiles) shown.add(t);
 
   // variantPixels applies the same transform the bake does, so "is this blank?"
   // and "what is baked here?" are answered by one piece of code.
@@ -330,8 +333,38 @@ export function buildTileModel(opts) {
     }
   }
 
+  // ---- cell-animation strips ---------------------------------------------------------
+  // A strip is a tw x th patch of TILES drawn over the map, cycling through
+  // phases. All phases go into one index texture side by side, so switching
+  // phase is a uniform offset — no texture traffic, and the strip resolves
+  // through exactly the same slot table and tile array as the map.
+  const cellAnims = (tm.cellAnims || []).map((ca) => {
+    const n = ca.phases.length;
+    const data = new Uint8Array(ca.tw * n * ca.th * 4);
+    ca.phases.forEach((ph, p) => {
+      for (let i = 0; i < ca.tw * ca.th; i++) {
+        const t = ph.tiles[i] || 0;
+        // The SLOT, not the tile id. A strip's phases are baked once from the
+        // atlas in the flat view and never repainted, so they must not follow
+        // the tile-animation indirection — Marble's Ultimate strip shares tile
+        // ids with an animation and would otherwise flicker with it.
+        const sl = slotOf.get(slotKey(t, 0, 0)) ?? blankSlot;
+        const x = p * ca.tw + (i % ca.tw), y = Math.floor(i / ca.tw);
+        const o = (y * ca.tw * n + x) * 4;
+        data[o] = sl & 255;
+        data[o + 1] = (sl >> 8) & 255;
+      }
+    });
+    return {
+      x: ca.tx * ts, y: ca.ty * ts, w: ca.tw * ts, h: ca.th * ts,
+      tw: ca.tw, th: ca.th, phases: n,
+      holds: ca.phases.map((ph) => ph.frames || 1),
+      index: { data, w: ca.tw * n, h: ca.th },
+    };
+  });
+
   return {
-    tm, initialOverrides,
+    tm, initialOverrides, cellAnims,
     ts, sub, P, layers, lw,
     grid: { w: W, h: H },
     mapPx: { w: W * cellPx, h: H * cellPx },

@@ -42,6 +42,7 @@ uniform float uSub;     // tiles per cell axis (blocks.size, else 1)
 uniform float uTs;      // tile size in texels
 uniform float uP;       // tiles packed per array-layer axis
 uniform float uLodMax;  // log2(tile size): one texel per tile
+uniform vec2 uCellOffset; // shifts the INDEX lookup only (cell-anim phases)
 out vec4 fragColor;
 
 int u16(vec4 t) { return int(t.r * 255.0 + 0.5) + 256 * int(t.g * 255.0 + 0.5); }
@@ -50,7 +51,10 @@ void main() {
   vec2 c = clamp(floor(vCell), vec2(0.0), uGrid - 1.0);
   vec2 f = vCell - c;
 
-  vec4 ix = texelFetch(uIndex, ivec2(c), 0);
+  // The offset moves which cell is LOOKED UP, not where the quad is: a
+  // cell-animation strip keeps its place on the map while its phases sit side
+  // by side in the index texture.
+  vec4 ix = texelFetch(uIndex, ivec2(c + uCellOffset), 0);
   float flags = ix.a * 255.0;
   if (flags >= 128.0) discard;              // cell is entirely backdrop
   int id = u16(ix);
@@ -64,7 +68,11 @@ void main() {
   id = u16(texelFetch(uBlocks, ivec2(int(sub.x + uSub * sub.y), id), 0));
 #endif
 
+#ifdef DIRECT_SLOT
+  int slot = id;              // a cell-anim strip stores slots, not tile ids
+#else
   int slot = u16(texelFetch(uSlot, ivec2(id, variant), 0));
+#endif
   float lay = floor(float(slot) / (uP * uP));
   float k = float(slot) - lay * uP * uP;
   vec2 tuv = (vec2(mod(k, uP), floor(k / uP)) + clamp(f, 0.0, 1.0)) / uP;
@@ -143,6 +151,7 @@ export class TileMapMesh {
         uGrid: { value: new THREE.Vector2(m.grid.w, m.grid.h) },
         uSub: { value: m.sub }, uTs: { value: m.ts }, uP: { value: m.P },
         uLodMax: { value: Math.log2(m.ts) },
+        uCellOffset: { value: new THREE.Vector2(0, 0) },
       },
       vertexShader: VERT,
       fragmentShader: FRAG,
@@ -174,6 +183,39 @@ export class TileMapMesh {
     this.mesh.frustumCulled = false;
     this.group = new THREE.Group();
     this.group.add(this.mesh);
+
+    // ---- cell-animation strips ---------------------------------------------
+    // Their own tiny index texture and material (no block indirection: a strip
+    // names TILES directly), sharing the slot table and the tile array. A
+    // phase change is one uniform.
+    this.strips = (m.cellAnims || []).map((ca) => {
+      const idx = dataTex(THREE, ca.index.data, ca.index.w, ca.index.h);
+      const mat = this.material.clone();
+      mat.defines = { DIRECT_SLOT: 1, ...(blend ? { BLEND_PASS: 1 } : {}) }; // never BLOCKS
+      mat.uniforms = {
+        ...THREE.UniformsUtils.clone(this.material.uniforms),
+        uTiles: { value: tiles }, uIndex: { value: idx }, uSlot: { value: slot },
+        uFar: { value: far }, uBlocks: { value: null },
+        uGrid: { value: new THREE.Vector2(ca.index.w, ca.index.h) },
+        uSub: { value: 1 }, uTs: { value: m.ts }, uP: { value: m.P },
+        uLodMax: { value: Math.log2(m.ts) },
+        uCellOffset: { value: new THREE.Vector2(0, 0) },
+      };
+      mat.needsUpdate = true;
+      const g = new THREE.BufferGeometry();
+      const X0 = ca.x - m.mapPx.w / 2, X1 = ca.x + ca.w - m.mapPx.w / 2;
+      const Y0 = m.mapPx.h / 2 - ca.y, Y1 = m.mapPx.h / 2 - ca.y - ca.h;
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
+        X0, Y0, 0, X1, Y0, 0, X1, Y1, 0, X0, Y0, 0, X1, Y1, 0, X0, Y1, 0]), 3));
+      g.setAttribute('aCell', new THREE.BufferAttribute(new Float32Array([
+        0, 0, ca.tw, 0, ca.tw, ca.th, 0, 0, ca.tw, ca.th, 0, ca.th]), 2));
+      const mesh = new THREE.Mesh(g, mat);
+      mesh.frustumCulled = false;
+      mesh.renderOrder = 1;      // over the map
+      mesh.position.z = 0.25;    // and clear of it, since both write depth
+      this.group.add(mesh);
+      return { ca, mesh, idx, acc: 0, phase: 0 };
+    });
 
     // ---- animation state: everything writes the slot LUT, nothing repaints ----
     this._tileAnims = (m.tm?.tileAnims || []).map(() => ({ acc: 0, step: 0 }));
@@ -219,9 +261,20 @@ export class TileMapMesh {
       this.textures.slot.needsUpdate = true;
       this._dirty = false;
     }
+    for (const st of this.strips) {
+      st.acc += df;
+      let moved = false;
+      while (st.acc >= (st.ca.holds[st.phase] || 1)) {
+        st.acc -= st.ca.holds[st.phase] || 1;
+        st.phase = (st.phase + 1) % st.ca.phases;
+        moved = true;
+      }
+      if (moved) st.mesh.material.uniforms.uCellOffset.value.x = st.phase * st.ca.tw;
+    }
   }
 
   dispose() {
+    for (const st of this.strips || []) { st.mesh.geometry.dispose(); st.mesh.material.dispose(); st.idx.dispose(); }
     this.geometry.dispose();
     this.material.dispose();
     for (const t of Object.values(this.textures)) t?.dispose();
