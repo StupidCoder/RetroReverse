@@ -44,6 +44,24 @@ export class Stage {
     this.controls = new OrbitControls(this.camera, renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
+    // Every knob a mounted view is allowed to turn, as it came out of the box.
+    // A stage that outlives one view (the XR shell) has to be handed to the
+    // next one clean, and restoring from a snapshot beats re-listing OrbitControls'
+    // defaults here where they would rot the next time three changes one.
+    this._ctrlDefaults = {
+      enabled: this.controls.enabled,
+      autoRotate: this.controls.autoRotate,
+      autoRotateSpeed: this.controls.autoRotateSpeed,
+      enableRotate: this.controls.enableRotate,
+      screenSpacePanning: this.controls.screenSpacePanning,
+      zoomToCursor: this.controls.zoomToCursor,
+      minDistance: this.controls.minDistance,
+      maxDistance: this.controls.maxDistance,
+      minZoom: this.controls.minZoom,
+      maxZoom: this.controls.maxZoom,
+      mouseButtons: { ...this.controls.mouseButtons },
+      touches: { ...this.controls.touches },
+    };
     if (cam.target) this.controls.target.fromArray(cam.target);
     this.controls.update();
 
@@ -164,8 +182,13 @@ export class Stage {
 
   // frame fits the camera to an object (used when the document has no pose).
   frame(obj) {
-    const box = new THREE.Box3().setFromObject(obj);
-    if (box.isEmpty()) return;
+    this.frameBox(new THREE.Box3().setFromObject(obj));
+  }
+
+  // frameBox is the same, for callers that already measured — the XR shell
+  // takes the view's own contentBox, which knows to leave the skybox out.
+  frameBox(box) {
+    if (!box || box.isEmpty()) return;
     const s = box.getBoundingSphere(new THREE.Sphere());
     const ortho = this.camera.isOrthographicCamera;
     const dist = ortho ? s.radius * 4 : (s.radius * 1.7) / Math.sin((this.camera.fov * Math.PI) / 360);
@@ -211,6 +234,29 @@ export class Stage {
     this.controls.enabled = s.controlsEnabled;
     this._resize();          // the XR manager restored the buffer size, not the aspect
     this.controls.update();
+  }
+
+  // resetContent hands a LIVING stage to a new mount. The desktop shell throws
+  // the whole stage away between views, so nothing ever needed this; the XR
+  // shell keeps one renderer across many contents, and everything a view is
+  // allowed to leave behind has to go: the scene, the per-frame updaters, a
+  // cutscene's render override, and any control settings it changed.
+  //
+  // `keep` is the shell's own updaters — the menu and the perf meter, which
+  // belong to the stage rather than to whatever is currently in it.
+  resetContent(keep = null) {
+    disposeScene(this.scene);
+    this.scene = new THREE.Scene();
+    this.updaters.clear();
+    if (keep) for (const u of keep) this.updaters.add(u);
+    this.overrideRender = null;
+    this.onXRFrame = null;
+    Object.assign(this.controls, this._ctrlDefaults, {
+      mouseButtons: { ...this._ctrlDefaults.mouseButtons },
+      touches: { ...this._ctrlDefaults.touches },
+    });
+    this.controls.target.set(0, 0, 0);
+    return this.scene;
   }
 
   dispose() {
@@ -484,6 +530,48 @@ export function billboardCell(doc, dx, dz, t) {
   return { row, col: (anim.col || 0) + frame };
 }
 
+// disposeScene frees the GPU resources reachable from a subtree.
+//
+// Nothing used to call anything like this: every 3-D view owned its whole
+// renderer, and Stage.dispose() -> renderer.dispose() dropped the context with
+// everything in it. A stage that OUTLIVES its content has no such backstop, so
+// each swap has to give the memory back itself or a long session climbs until
+// it dies.
+//
+// Two things it has to get right. Geometries and materials are SHARED between a
+// proto and every clone of it (SkeletonUtils.clone and Object3D.clone(true) copy
+// references, not data), so each must be disposed exactly once — hence the sets.
+// And a material owns more textures than `map`: envMap, alphaMap, emissiveMap
+// and friends are all real uploads, so anything on the material that looks like
+// a texture goes too.
+export function disposeScene(root) {
+  if (!root) return { geometries: 0, materials: 0, textures: 0 };
+  const geo = new Set(), mat = new Set(), tex = new Set(), skel = new Set();
+  root.traverse((o) => {
+    if (o.geometry) geo.add(o.geometry);
+    for (const m of o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []) mat.add(m);
+    // A skeleton owns a boneTexture — a real GPU upload that NOTHING else here
+    // can see: it hangs off the mesh, not off a material. SkeletonUtils.clone
+    // gives every clone its own skeleton (that is the point of it), so an
+    // animated cast leaks one bone texture per skinned mesh per load. Luigi's
+    // Mansion's opening, twenty skinned actors, leaked 258 textures a time
+    // while its static rooms leaked none.
+    if (o.isSkinnedMesh && o.skeleton) skel.add(o.skeleton);
+  });
+  for (const m of mat) {
+    for (const v of Object.values(m)) if (v && v.isTexture) tex.add(v);
+  }
+  for (const g of geo) g.dispose();
+  for (const m of mat) m.dispose();
+  for (const t of tex) t.dispose();
+  for (const s of skel) s.dispose();
+  // Detach so a stale reference cannot resurrect a disposed subtree into a
+  // live scene — three would silently re-upload it and the leak would be back.
+  root.removeFromParent?.();
+  root.clear?.();
+  return { geometries: geo.size, materials: mat.size, textures: tex.size, skeletons: skel.size };
+}
+
 // ObjectLibrary caches loaded object documents + payloads per game and
 // instantiates them for placements.
 export class ObjectLibrary {
@@ -499,6 +587,22 @@ export class ObjectLibrary {
   proto(id) {
     if (!this.cache.has(id)) this.cache.set(id, this._load(id));
     return this.cache.get(id);
+  }
+
+  // dispose frees every proto this library loaded. The scene walk cannot do it:
+  // a proto's glTF scenes are not in anybody's scene graph, and the flip-book
+  // frames and env cubes it holds are only reachable through here — at most one
+  // flip-book frame is ever assigned to a material at a time, so the other
+  // frames would be invisible to any amount of traversal.
+  async dispose() {
+    const protos = await Promise.all([...this.cache.values()].map((p) => p.catch(() => null)));
+    this.cache.clear();
+    for (const p of protos) {
+      if (!p) continue;
+      for (const sc of p.gltf?.scenes?.length ? p.gltf.scenes : [p.gltf?.scene]) disposeScene(sc);
+      for (const frames of Object.values(p.flipTex || {})) for (const t of frames) t.dispose();
+      p.tex?.dispose();
+    }
   }
 
   async _load(id) {
