@@ -20,13 +20,16 @@
 package main
 
 import (
+	"bytes"
 	"crypto/md5"
+	"encoding/hex"
 	"math"
 	"flag"
 	"fmt"
 	"os"
 	"runtime/pprof"
 	"strconv"
+	"sort"
 	"strings"
 
 	"retroreverse.com/tools/platform/xbox"
@@ -230,6 +233,8 @@ func main() {
 	ramhash := flag.Bool("ramhash", false, "after the run, print an md5 of guest RAM + the CPU position (divergence comparator)")
 	flipshots := flag.String("flipshots", "", "write flip-aligned frames: START:STEP:COUNT[:PREFIX] -> PREFIX-fN.png at those flips, then stop")
 	carvtx := flag.String("carvtx", "", "LO:HI (hex): print each distinct vertex declaration whose attribute-0 array lies in [LO,HI)")
+	vtxdecl := flag.Bool("vtxdecl", false, "census every draw's full 16-slot vertex declaration; print each distinct signature once with its draw count")
+	find := flag.String("find", "", "hex byte string: search guest RAM for it after the run, print every hit address")
 	cpuprofile := flag.String("cpuprofile", "", "write a host pprof CPU profile of the run to this file")
 	profile := flag.Bool("profile", false, "report where the last presented frame's time goes, by NV2A subsystem (the companion to -cpuprofile: the machine's own per-bucket timing)")
 	var bps multiFlag
@@ -470,6 +475,78 @@ func main() {
 		}
 	}
 
+	// -vtxdecl — a whole-frame vertex-declaration census. Shadows the same
+	// SET_VERTEX_DATA_ARRAY_FORMAT words -carvtx does, but dedupes on the full
+	// 16-slot signature and prints each distinct declaration ONCE, with its
+	// draw count, attr-0 address range and per-attribute offset deltas (the
+	// intra-vertex byte layout), at the end of the run. The format word per
+	// attribute is the NV2A's own encoding: bits 0-3 type (0=UB_D3D, 1=S1,
+	// 2=F32, 4=UB_OGL, 5=S32K, 6=CMP), bits 4-7 component count, bits 8-15
+	// stride. Attribute names are the vertex-program input slots (0=pos,
+	// 3=diffuse, 9..12=tex0..3 by XDK convention) — printed raw here; naming
+	// them is the reader's derivation, not this probe's.
+	if *vtxdecl {
+		type declStat struct {
+			draws  int
+			fmts   [16]uint32
+			offs   [16]uint32 // attrN offset - attr0 offset at first draw: the intra-vertex byte layout
+			lo, hi uint32     // attr0 address range seen across draws
+		}
+		var attrFmt, attrOff [16]uint32
+		decls := map[[16]uint32]*declStat{}
+		prevNV := m.OnNVMethod
+		m.OnNVMethod = func(mm *xbox.Machine, subchan, method, arg uint32) {
+			if prevNV != nil {
+				prevNV(mm, subchan, method, arg)
+			}
+			switch {
+			case method >= 0x1720 && method < 0x1760:
+				attrOff[(method-0x1720)/4] = arg
+			case method >= 0x1760 && method < 0x17A0:
+				attrFmt[(method-0x1760)/4] = arg
+			case method == 0x17FC && arg != 0:
+				st := decls[attrFmt]
+				if st == nil {
+					st = &declStat{fmts: attrFmt, lo: ^uint32(0)}
+					base := attrOff[0] &^ 0x80000000
+					for a := 0; a < 16; a++ {
+						st.offs[a] = (attrOff[a] &^ 0x80000000) - base
+					}
+					decls[attrFmt] = st
+				}
+				st.draws++
+				a0 := attrOff[0] &^ 0x80000000
+				if a0 < st.lo {
+					st.lo = a0
+				}
+				if a0 > st.hi {
+					st.hi = a0
+				}
+			}
+		}
+		defer func() {
+			keys := make([][16]uint32, 0, len(decls))
+			for k := range decls {
+				keys = append(keys, k)
+			}
+			sort.Slice(keys, func(i, j int) bool { return decls[keys[i]].draws > decls[keys[j]].draws })
+			fmt.Printf("\nvtxdecl: %d distinct declarations\n", len(keys))
+			for _, k := range keys {
+				st := decls[k]
+				var cols []string
+				for a := 0; a < 16; a++ {
+					f := st.fmts[a]
+					typ, n, stride := f&0xF, f>>4&0xF, f>>8&0xFF
+					if n == 0 && typ == 2 { // disabled slot idiom: F32 x0
+						continue
+					}
+					cols = append(cols, fmt.Sprintf("a%d=t%d n%d s%d @%d", a, typ, n, stride, st.offs[a]))
+				}
+				fmt.Printf("  %6d draws  attr0 %08X..%08X: %s\n", st.draws, st.lo, st.hi, strings.Join(cols, "  "))
+			}
+		}()
+	}
+
 	if *stopflip > 0 {
 		n := *stopflip
 		prev := m.OnFlip
@@ -565,6 +642,27 @@ func main() {
 			fmt.Printf("call site (around return %08X):\n", ret)
 			for _, line := range m.DisasmForward(ret-40, 20) {
 				fmt.Println(line)
+			}
+		}
+	}
+
+	if *find != "" {
+		needle, err := hex.DecodeString(strings.ReplaceAll(*find, " ", ""))
+		if err != nil || len(needle) == 0 {
+			fmt.Fprintf(os.Stderr, "bootoracle: bad -find %q\n", *find)
+		} else {
+			hits := 0
+			for off := 0; hits < 20; {
+				i := bytes.Index(m.RAM[off:], needle)
+				if i < 0 {
+					break
+				}
+				fmt.Printf("find: %08X\n", off+i)
+				off += i + 1
+				hits++
+			}
+			if hits == 0 {
+				fmt.Println("find: no hits")
 			}
 		}
 	}

@@ -257,6 +257,24 @@ type bufPair struct {
 	vbOff   uint32 // section-B offset of the vertex data (from the w2 descriptor)
 	vbBytes uint32
 	stride  uint32
+	// fmtWord is the pair table's +0x20 vertex-format code, a bitfield the
+	// stage files exercise fully (cars only ever carry 0x012/0x112/0x212):
+	// low bits 0x12 = {pos f32x3 @0, normal packed-11:11:10 @12}; bit 0x40 =
+	// a D3DCOLOR at 16; bits 0x300 = UV-set count, f32x2 each, after the
+	// colour. fmtWord 0 with stride 44 is the course-geometry special:
+	// {pos, normal, uv0 @16, uv1 @24, f32x3 @32 on the tex2 slot} — every
+	// layout read live off SET_VERTEX_DATA_ARRAY_FORMAT/_OFFSET (-vtxdecl
+	// on the beach race).
+	fmtWord uint32
+}
+
+// hasColor / uvSets decode fmtWord (see above).
+func (bp bufPair) hasColor() bool { return bp.fmtWord&0x40 != 0 }
+func (bp bufPair) uvSets() int {
+	if bp.fmtWord == 0 && bp.stride == 44 {
+		return 2
+	}
+	return int(bp.fmtWord >> 8 & 3)
 }
 
 type batch struct {
@@ -317,7 +335,12 @@ func (p *pmt) parsePart(pi int) (*part, error) {
 	for i := range e {
 		e[i] = u32(p.a, ent+4*i)
 	}
-	nPairs, nBatch, nMat48 := int(e[9]), int(e[10]), int(e[12])
+	// Entry counts: e[9]=pairs, e[10]=batches, e[11]=0x58 materials,
+	// e[12]=0x48 colour materials. The material count used to be read as
+	// nBatch — the cars never had more batches than materials, so the
+	// over-read stayed inside section A; the stage files (229 batches, 17
+	// materials) put the real count field beyond doubt.
+	nPairs, nBatch, nMat58, nMat48 := int(e[9]), int(e[10]), int(e[11]), int(e[12])
 
 	pt := &part{}
 	// Stream pairs: sizes+stride from the w12 table (0x2C stride), index-slice
@@ -328,14 +351,24 @@ func (p *pmt) parsePart(pi int) (*part, error) {
 		bp := bufPair{
 			ibBytes: u32(p.a, t+0x18),
 			vbBytes: u32(p.a, t+0x1C),
+			fmtWord: u32(p.a, t+0x20),
 			stride:  u32(p.a, t+0x24),
 		}
 		ibDesc := u32(p.a, int(w[1])+4*k)
 		bp.ibOff = u32(p.a, int(ibDesc)+4)
 		vbDesc := u32(p.a, int(w[2])+4*(4*k))
 		bp.vbOff = u32(p.a, int(vbDesc)+4)
-		if bp.stride != 16 && bp.stride != 24 && bp.stride != 32 {
-			return nil, fmt.Errorf("part %d pair %d: unexpected stride %d", pi, k, bp.stride)
+		// The stride the format promises must be the stride the table carries.
+		want := uint32(16 + 8*bp.uvSets())
+		if bp.hasColor() {
+			want += 4
+		}
+		if bp.fmtWord == 0 && bp.stride == 44 {
+			want = 44 // the course-geometry special: uv0, uv1, f32x3 @32
+		}
+		if bp.stride != want {
+			return nil, fmt.Errorf("part %d pair %d: fmt %#x promises stride %d, table says %d",
+				pi, k, bp.fmtWord, want, bp.stride)
 		}
 		if int(bp.vbOff)+int(bp.vbBytes) > len(p.b) {
 			return nil, fmt.Errorf("part %d pair %d: VB out of section B", pi, k)
@@ -348,7 +381,7 @@ func (p *pmt) parsePart(pi int) (*part, error) {
 
 	// Materials: 0x58 entries {id -> 0x48 colour material, stateKey, 4 stages
 	// of {state, ?, ?, ?, texIdx}}.
-	for mi := 0; mi < nBatch; mi++ {
+	for mi := 0; mi < nMat58; mi++ {
 		m := int(w[13]) + mi*0x58
 		id := int(u32(p.a, m))
 		mat := material{texIdx: -1, diffuse: [3]float32{1, 1, 1}, alpha: 1}
@@ -377,40 +410,147 @@ func (p *pmt) parsePart(pi int) (*part, error) {
 		pt.mats = append(pt.mats, mat)
 	}
 
-	// Batches: the 32-byte descriptors give {baseVertex, matIdx, drawIdx};
-	// drawIdx names the 16-byte draw entry {prim, firstIndex, primCount, nv}.
-	// firstIndex is relative to the pair's index slice; the pair advances when
-	// the walk has consumed the slice exactly (validated below).
-	pair, consumed := 0, uint32(0)
+	// Batches: the 32-byte descriptors give {baseVertex, matIdx,
+	// firstDrawIdx, drawCount, sphere×4}; each of the drawCount
+	// consecutive 16-byte draw entries {prim, firstIndex, primCount, nv}
+	// is one strip, all sharing the batch's material and base vertex (the
+	// cars kept drawCount at 1, which let the old reader treat word3 as
+	// padding). firstIndex is relative to the pair's index slice, and each
+	// pair's draws tile its slice in file order — but the stream
+	// interleaves the pairs freely (the beach course's part 1 weaves four
+	// pairs through 125 batches; the cars kept it monotonic, which is why
+	// a simple pair-advance walk used to pass). The stream structure is a
+	// set of cursors: a draw extends the cursor sitting exactly at its
+	// firstIndex, and firstIndex 0 opens a new cursor. Which cursor is
+	// which pair is decided at the end, where each cursor must have
+	// consumed some pair's slice exactly — that bijection is the
+	// invariant, and index-bounds checks break size ties.
 	for bi := 0; bi < nBatch; bi++ {
 		d := int(w[10]) + bi*32
-		baseVtx, matIdx, drawIdx := u32(p.a, d), u32(p.a, d+4), u32(p.a, d+8)
-		if int(drawIdx) >= nBatch {
-			return nil, fmt.Errorf("part %d batch %d: drawIdx %d out of range", pi, bi, drawIdx)
+		baseVtx, matIdx := u32(p.a, d), u32(p.a, d+4)
+		drawIdx, drawCount := u32(p.a, d+8), u32(p.a, d+12)
+		if drawCount == 0 || drawCount > 64 {
+			return nil, fmt.Errorf("part %d batch %d: draw count %d out of range", pi, bi, drawCount)
 		}
-		dr := int(w[11]) + int(drawIdx)*16
-		b := batch{
-			prim: u32(p.a, dr), first: u32(p.a, dr+4), prims: u32(p.a, dr+8),
-			baseVtx: baseVtx, matIdx: matIdx,
+		if int(matIdx) >= nMat58 {
+			return nil, fmt.Errorf("part %d batch %d: matIdx %d out of range (%d materials)", pi, bi, matIdx, nMat58)
 		}
-		idxCount, ok := indexCount(b.prim, b.prims)
-		if !ok {
-			return nil, fmt.Errorf("part %d batch %d: unhandled primitive %d", pi, bi, b.prim)
+		for di := uint32(0); di < drawCount; di++ {
+			dr := int(w[11]) + int(drawIdx+di)*16
+			b := batch{
+				prim: u32(p.a, dr), first: u32(p.a, dr+4), prims: u32(p.a, dr+8),
+				baseVtx: baseVtx, matIdx: matIdx, pair: -1,
+			}
+			if _, ok := indexCount(b.prim, b.prims); !ok {
+				return nil, fmt.Errorf("part %d batch %d: unhandled primitive %d", pi, bi, b.prim)
+			}
+			pt.batches = append(pt.batches, b)
 		}
-		if b.first < consumed && pair+1 < len(pt.pairs) {
-			// firstIndex went backwards: the walk crossed into the next slice.
-			pair++
-			consumed = 0
-		}
-		if (b.first+idxCount)*2 > pt.pairs[pair].ibBytes+2 {
-			return nil, fmt.Errorf("part %d batch %d: indices overrun slice %d (%#x+%d idx > %#x bytes)",
-				pi, bi, pair, b.first*2, idxCount, pt.pairs[pair].ibBytes)
-		}
-		consumed = b.first + idxCount
-		b.pair = pair
-		pt.batches = append(pt.batches, b)
+	}
+	if err := p.assignPairs(pt, pi); err != nil {
+		return nil, err
 	}
 	return pt, nil
+}
+
+// assignPairs resolves which pair each draw reads. A draw extends the
+// cursor sitting exactly at its firstIndex, and firstIndex 0 opens a new
+// cursor; at the end each cursor must have consumed some pair's slice
+// exactly (±1 index of tail padding), one cursor per pair, every index in
+// bounds. Two cursors can collide on the same value (two pairs both paused
+// 11 indices in — obj_rc_512bb part 23 does it), so collisions are search
+// branches: the bijection at the end is what makes the assignment right,
+// and it is unique in every file on the disc.
+func (p *pmt) assignPairs(pt *part, pi int) error {
+	n := len(pt.batches)
+	assign := make([]int, n)
+	var cursors []uint32
+	streamBatches := func(si int) []int {
+		var out []int
+		for i := 0; i < n; i++ {
+			if assign[i] == si {
+				out = append(out, i)
+			}
+		}
+		return out
+	}
+	fits := func(si, k int) bool {
+		bp := pt.pairs[k]
+		nVerts := bp.vbBytes / bp.stride
+		for _, bi := range streamBatches(si) {
+			b := pt.batches[bi]
+			idxCount, _ := indexCount(b.prim, b.prims)
+			for i := uint32(0); i < idxCount; i++ {
+				if uint32(u16(p.a, int(bp.ibOff)+int(b.first+i)*2))+b.baseVtx >= nVerts {
+					return false
+				}
+			}
+		}
+		return true
+	}
+	sizeOK := func(c uint32, ibBytes uint32) bool {
+		return c*2 == ibBytes || c*2 == ibBytes-2
+	}
+	var finalize func() bool
+	finalize = func() bool {
+		taken := make([]bool, len(pt.pairs))
+		var match func(si int) bool
+		match = func(si int) bool {
+			if si == len(cursors) {
+				for k, bp := range pt.pairs {
+					if !taken[k] && bp.ibBytes > 2 {
+						return false
+					}
+				}
+				return true
+			}
+			for k := range pt.pairs {
+				if !taken[k] && sizeOK(cursors[si], pt.pairs[k].ibBytes) && fits(si, k) {
+					taken[k] = true
+					for _, bi := range streamBatches(si) {
+						pt.batches[bi].pair = k
+					}
+					if match(si + 1) {
+						return true
+					}
+					taken[k] = false
+				}
+			}
+			return false
+		}
+		return match(0)
+	}
+	var dfs func(i int) bool
+	dfs = func(i int) bool {
+		if i == n {
+			return finalize()
+		}
+		b := pt.batches[i]
+		idxCount, _ := indexCount(b.prim, b.prims)
+		for si, c := range cursors {
+			if c == b.first {
+				cursors[si] = b.first + idxCount
+				assign[i] = si
+				if dfs(i + 1) {
+					return true
+				}
+				cursors[si] = c
+			}
+		}
+		if b.first == 0 && len(cursors) < len(pt.pairs) {
+			cursors = append(cursors, idxCount)
+			assign[i] = len(cursors) - 1
+			if dfs(i + 1) {
+				return true
+			}
+			cursors = cursors[:len(cursors)-1]
+		}
+		return false
+	}
+	if !dfs(0) {
+		return fmt.Errorf("part %d: no draw-to-pair assignment satisfies the slice invariants", pi)
+	}
+	return nil
 }
 
 // indexCount mirrors the game's own primitive table at VA 0x248758:
@@ -469,19 +609,25 @@ func triangulate(prim uint32, raw []uint32) [][3]uint32 {
 }
 
 // decodeVerts expands one pair's vertex buffer into positions, normals and
-// UVs. Every stride carries the NV2A's packed 11:11:10 normal at +12 (the
-// -carvtx census: attr2 normal packed-11:11:10 @12 in both declarations).
+// UVs. Every layout carries the NV2A's packed 11:11:10 normal at +12; the
+// D3DCOLOR (when fmtWord has it) sits at +16 and pushes the UV sets to +20
+// (-vtxdecl census on the beach race). Only UV set 0 is returned here; the
+// second set and the course special's trailing f32x3 await a consumer.
 func (p *pmt) decodeVerts(bp bufPair) (pos, nrm [][3]float32, uv [][2]float32) {
 	n := int(bp.vbBytes / bp.stride)
 	pos = make([][3]float32, n)
 	nrm = make([][3]float32, n)
 	uv = make([][2]float32, n)
+	uvOff := 16
+	if bp.hasColor() {
+		uvOff = 20
+	}
 	for i := 0; i < n; i++ {
 		v := int(bp.vbOff) + i*int(bp.stride)
 		pos[i] = [3]float32{f32(p.b, v), f32(p.b, v+4), f32(p.b, v+8)}
 		nrm[i] = unpackNormal(u32(p.b, v+12))
-		if bp.stride >= 24 {
-			uv[i] = [2]float32{f32(p.b, v+16), f32(p.b, v+20)}
+		if bp.uvSets() > 0 {
+			uv[i] = [2]float32{f32(p.b, v+uvOff), f32(p.b, v+uvOff+4)}
 		}
 	}
 	return pos, nrm, uv

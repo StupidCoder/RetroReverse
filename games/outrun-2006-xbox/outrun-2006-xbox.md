@@ -136,6 +136,13 @@ roadmap.)
   (0xE), its 24-record assembly table decoded into twelve vehicles with placed wheels,
   casters and glows — all twelve join the Studio, with complete baked semi-trailer rigs
   surfacing in the trucks' extras. *(this document)*
+* **Part XXVI** — **the stage files open**: all 276 `/Stage` models carry the `/Cars`
+  container; the pair table's format word names eight vertex layouts (colour at +16,
+  up to three UV sets, the course's own stride-44 special), pinned live by the new
+  `-vtxdecl` census; the batch stream turns out to interleave its pairs (cursor streams,
+  end-state bijection), the descriptor grows a draw count and a culling sphere, the real
+  material count surfaces — and the beach course exports as a coherent textured island.
+  *(this document)*
 
 ---
 
@@ -3127,3 +3134,103 @@ traffic — so the table's own self-consistency carries the derivation: 24 recor
 cleanly into 12, ranges tiling the file, wheel positions plausible per silhouette, and
 every vehicle rendering as exactly the road car its parts promise.
 
+
+## Part XXVI — the stage files open: the course format is the car format, read harder
+
+The `/Cars` chain (Parts XIX–XXV) ends at the cars. This part turns to the world they
+drive through: `/Stage`, 66 course folders — one per course and one per `_R` reverse
+variant, plus the beach and palm `_T`/`_BR`/`_BT` specials — each holding one family of
+files:
+
+| file | role |
+|---|---|
+| `cs_CS_<name>_pmt.sz` | the course geometry itself (3–5 MB, the big one) |
+| `cs_ENV_<name>_pmt.sz` | environment model (env cube geometry?) — open |
+| `obj_course_obj_*_pmt.sz` | course objects and the sky dome |
+| `coli_CS_<name>_bin.sz` | collision, presumably — open |
+| `cs_CS/ENV_<name>_bin.sz`, `oso_*`, `scn_env_fog/sun_*` | placements/params — open |
+| `maya_spl_<name>_bin.sz` | 18 bytes in most stages; the name says spline |
+
+All 276 `/Stage/**_pmt.sz` files carry the Part XIX container unchanged — 16-byte header,
+`0x10+szA+szB == file size` exact in every file, same part records, same fix-up
+discipline. What the stage files exercise that the cars never did is the rest of the
+format's vocabulary, and reading it forced three corrections to the car-era reader — each
+one a field the cars kept constant and the stages vary.
+
+### The vertex-format word, and the census that named it
+
+The cars used three vertex strides (16/24/32) and the reader keyed the layout off the
+stride. The stages use eight (16/20/24/28/32/36/40/44) — and two of them are used with
+*different layouts per file family*, so stride stopped being a name. A new instrument
+pinned the layouts live: `bootoracle -vtxdecl` shadows every draw's 16-slot
+`SET_VERTEX_DATA_ARRAY_FORMAT`/`_OFFSET` declaration and prints each distinct signature
+once, with the intra-vertex offset deltas. Three frames of the beach race gave the whole
+vocabulary:
+
+- every layout is `{pos f32x3 @0, normal packed-11:11:10 @12}` first;
+- a `D3DCOLOR` (attr 3, `UB_D3D`) sits at +16 when present — the stage geometry's baked
+  lighting — and pushes the UV sets after it;
+- UV sets are f32x2, up to three;
+- the course files' own stride-44 layout is `{pos, normal, uv0 @16, uv1 @24, f32x3 @32
+  on the tex2 slot}` — the trailing three floats' meaning is open;
+- the *other* stride-28/36 declarations in the frame (`a1` as one or three floats — skin
+  weights) belong to `/Chr`, the driver characters, not the stage.
+
+The file side matches: the pair table's word at +0x20 is a format bitfield — `0x12` =
+pos+normal, bit `0x40` = colour present, bits `0x300` = UV-set count — and
+`stride = 16 + 4·colour + 8·uv` lands exactly on the table's stride word in all 276
+files. The course special is `fmtWord 0`, stride 44, marked `3` in the +0x28 word.
+Draws were tied back to files by byte needles: a vertex row read out of live RAM at a
+draw's attr-0 address, searched across every decompressed `.sz` on the disc —
+`cs_CS_BEAC` is the track, `obj_course_obj_sky_beac` the sky (with twins in `/Common`),
+`/Chr` the drivers, and one stride-28-with-colour buffer that matches *no* file: built
+at runtime (the animated sea is the suspect).
+
+### The batch stream interleaves — and the cars had hidden it
+
+Part XIX read the 32-byte batch descriptor as `{baseVtx, matIdx, drawIdx, pad…}` and
+assigned batches to stream pairs by walking forward, advancing on a backwards
+`firstIndex`. Three things were wrong, all invisible in `/Cars`:
+
+- the descriptor is `{baseVtx, matIdx, firstDrawIdx, drawCount, sphere x,y,z,r}` — a
+  batch owns `drawCount` *consecutive* 16-byte draw entries (one strip each, shared
+  material and base vertex), and the trailing four words are a culling sphere. The cars
+  kept `drawCount` at 1.
+- the 0x34 entry's `e[11]` is the 0x58-material count. The car reader used `nBatch`
+  (they are equal in every `/Cars` part); the beach course's part 0 has 229 batches and
+  17 materials, and the over-read walked into unrelated heap.
+- each pair's draws tile its index slice in file order, but the batch stream interleaves
+  the pairs freely. The course's part 1 weaves four pairs through 125 batches, opening a
+  new cursor at `firstIndex 0` and resuming old ones mid-stream. The structure is a set
+  of cursors; which cursor is which pair is decided by the *end state* — each cursor
+  must have consumed some pair's slice exactly, a bijection checked with index-bounds
+  tests. Cursor collisions (two pairs paused at the same index — `obj_rc_512bb` part 23
+  does it) are search branches; the bijection is unique in every file on the disc.
+
+`carex` now implements all three. Every `/Cars` export re-derives with byte-count-identical
+summaries — including four files (`obj_rc_512bb`, `obj_rc_f40_t`, `obj_rc_all`,
+`obj_othcar`) whose old exports had crossed interleaved streams under the weaker checks
+and deserve a re-ship. All 276 stage files parse with every invariant green.
+
+### ★ The beach course comes off the disc
+
+`carex -file /Stage/BEAC/cs_CS_BEAC_pmt.sz` writes an 8.6 MB GLB — 6 parts, 71k verts,
+48k tris, 151 textures — and it renders as the whole beach island: terrain, sea-side
+cliffs, the start-line town, the hotel towers, all textured and coherent. The parts'
+coordinates are already world-space (their bounding spheres sit kilometres apart).
+
+### Where it stands / next
+
+The vertex colours (the course's baked lighting) and the second UV set decode but are
+not yet exported; the stride-44 trailing `f32x3` is unread; `cs_ENV`, the `obj_course`
+objects, collision, the spline and the fog/sun params are unopened; and the export ships
+one origin node instead of a curated per-part tree. The verification standard for the
+course is the same as the cars': against the game's own render of the same scene.
+
+### Tooling
+
+- `games/outrun-2006-xbox/extract/cmd/stagesurvey` — the permissive census: per-file
+  strides/format-words/part-kinds over every `/Stage/**_pmt.sz`, and `-pairs FILE` dumps
+  a file's raw pair tables, 0x34 entries and batch descriptors.
+- `bootoracle -vtxdecl` — the declaration census (above); `-find HEX` searches guest RAM
+  for a byte string, the other half of the draw-to-file attribution.
