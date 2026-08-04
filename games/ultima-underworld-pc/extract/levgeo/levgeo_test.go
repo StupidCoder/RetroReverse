@@ -32,11 +32,15 @@ func TestBuildSlopeFlushNoWall(t *testing.T) {
 	}
 }
 
-// Wall textures use a uniform texel scale: one copy per tile width horizontally
-// (U in 0..1) and per WallTexUnitsPerCopy vertically, so a full-height wall tiles
-// the texture instead of stretching one copy over floor-to-ceiling. V starts at
-// 0 at the foot (upright, not upside-down).
-func TestBuildWallUVUniform(t *testing.T) {
+// Wall textures are STRETCHED corner to corner: one copy clothes the wall
+// whatever its height, U and V both spanning 0..1, with V=1 at the FOOT — V
+// runs down the image (glTF's origin is the top-left texel), so the image's
+// last row is the one that belongs on the floor.
+// They do NOT tile — W64.TR holds wall panels (arched doors, banners, gratings)
+// that have a top and a bottom, and the renderer's textured-quad ops carry
+// implicit corner UVs. Walls tiled here until 2026-08, showing a four-tile-high
+// wall's texture four times over.
+func TestBuildWallUVStretched(t *testing.T) {
 	g := &lev.Grid{W: 3, H: 3, Tiles: make([]lev.Tile, 9)}
 	for i := range g.Tiles {
 		g.Tiles[i] = lev.Tile{Type: lev.TileSolid}
@@ -45,30 +49,58 @@ func TestBuildWallUVUniform(t *testing.T) {
 	tm := &lev.TexMap{Wall: make([]uint16, 48), Floor: make([]uint16, 10)}
 
 	m := Build(g, tm, false)
-	wantTop := float32(ceilingZ / WallTexUnitsPerCopy)
+	walls := 0
 	for _, q := range m.Quads {
 		if !q.Wall {
 			continue
 		}
-		var minV, maxV float32 = 1e9, -1e9
+		walls++
+		var minU, maxU, minV, maxV float32 = 1e9, -1e9, 1e9, -1e9
 		for _, uv := range q.UV {
-			if uv[0] < 0 || uv[0] > 1 {
-				t.Errorf("wall U outside 0..1: %v", uv)
-			}
-			if uv[1] < minV {
-				minV = uv[1]
-			}
-			if uv[1] > maxV {
-				maxV = uv[1]
-			}
+			minU, maxU = min32(minU, uv[0]), max32(maxU, uv[0])
+			minV, maxV = min32(minV, uv[1]), max32(maxV, uv[1])
+		}
+		if minU != 0 || maxU != 1 {
+			t.Errorf("wall U span = %v..%v, want 0..1 (one copy across)", minU, maxU)
+		}
+		if maxV != 1 {
+			t.Errorf("wall V span = %v..%v, want 1 at the foot (upright)", minV, maxV)
 		}
 		if minV != 0 {
-			t.Errorf("wall V foot = %v, want 0 (upright, non-stretched)", minV)
+			t.Errorf("wall V top = %v, want 0 (stretched, not tiled)", minV)
 		}
-		if maxV != wantTop {
-			t.Errorf("wall V top = %v, want %v (uniform tiling to the ceiling)", maxV, wantTop)
+		// The foot corners are the ones at the wall's lowest Z, and they are
+		// the ones that must carry V=1; a span of 0..1 alone would pass just
+		// as happily upside down.
+		lowZ := q.P[0][2]
+		for _, p := range q.P {
+			if p[2] < lowZ {
+				lowZ = p[2]
+			}
+		}
+		for i, p := range q.P {
+			if p[2] == lowZ && q.UV[i][1] != 1 {
+				t.Errorf("wall foot corner %d (z=%v) has V=%v, want 1", i, p[2], q.UV[i][1])
+			}
 		}
 	}
+	if walls == 0 {
+		t.Fatal("no wall quads emitted — the test proves nothing")
+	}
+}
+
+func min32(a, b float32) float32 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max32(a, b float32) float32 {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // A 2x2 grid: one open tile ringed by solid should get a floor and four walls.

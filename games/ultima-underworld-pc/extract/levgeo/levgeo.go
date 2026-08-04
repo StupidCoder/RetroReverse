@@ -48,12 +48,20 @@ const ceilingZ = Ceiling * HeightScale
 // matches the game's rendered ceiling.
 var CeilingTex uint16 = 15
 
-// WallTexUnitsPerCopy is the world height (in tile-widths) that one wall-texture
-// copy spans. Wall textures have a UNIFORM scale — a fixed texel size regardless
-// of floor-to-ceiling height — so tall walls tile the texture vertically rather
-// than stretch one copy. Square texels: one copy per tile width horizontally and
-// per this many tile-widths vertically (1 = square).
-const WallTexUnitsPerCopy = 1.0
+// Wall textures are STRETCHED over the wall they clothe — one copy, corner to
+// corner — not tiled at a fixed texel scale. The art says so plainly: W64.TR
+// holds wall PANELS, several of which are a single arched door with a floor
+// line beneath it, a hanging banner, or a grating standing on the floor. Those
+// have a top and a bottom; tiled up a four-tile-high wall they would read as
+// four stacked doors. The game's own frame agrees — its stone blocks have
+// visibly non-square texels, taller than they are wide, which is what a 64x64
+// texture stretched over a four-tile wall looks like. It also matches how the
+// renderer's VM draws a textured quad: the polygon ops carry "implicit corner
+// UVs" (disasm/uw-render.annotations.txt §10d, opcodes 0xA0/A2/A4/A6), i.e.
+// the four texture corners land on the four polygon corners whatever its shape.
+//
+// This was wrong until 2026-08: walls tiled, and tall ones showed the texture
+// up to four times over.
 
 // Quad is one textured polygon. For a triangle, Tri is set and P[3]/UV[3] are
 // unused. P holds the corners (CCW seen from the front); UV the texture coords.
@@ -226,26 +234,18 @@ func buildDiagonal(m *Mesh, g *lev.Grid, x, y int, t lev.Tile, ftex, wtex uint16
 		})
 	}
 
-	// Diagonal wall along the hypotenuse, floor up to the ceiling. Same uniform
-	// texel scale as straight walls: U spans the hypotenuse length, V the world
-	// height, tiling rather than stretching.
+	// Diagonal wall along the hypotenuse, floor up to the ceiling. Same mapping
+	// as a straight wall: one texture copy corner to corner, however long the
+	// hypotenuse and however tall the wall.
 	a, b := d.hyp[0], d.hyp[1]
 	za, zb := z(a[0], a[1]), z(b[0], b[1])
 	pa := [3]float32{fx + float32(a[0]), fy + float32(a[1]), za}
 	pb := [3]float32{fx + float32(b[0]), fy + float32(b[1]), zb}
-	const s = 1.0 / WallTexUnitsPerCopy
-	uw := hypotXY(pb[0]-pa[0], pb[1]-pa[1])
-	base := za
-	if zb < base {
-		base = zb
-	}
 	m.Quads = append(m.Quads, Quad{
 		P: [4][3]float32{
 			{pa[0], pa[1], za}, {pb[0], pb[1], zb}, {pb[0], pb[1], ceilingZ}, {pa[0], pa[1], ceilingZ},
 		},
-		UV: [4][2]float32{
-			{uw, (za - base) * s}, {0, (zb - base) * s}, {0, (ceilingZ - base) * s}, {uw, (ceilingZ - base) * s},
-		},
+		UV:   [4][2]float32{{1, 1}, {0, 1}, {0, 0}, {1, 0}},
 		Tex:  wtex,
 		Wall: true,
 	})
@@ -309,22 +309,20 @@ func addWall(m *Mesh, g *lev.Grid, x, y int, t lev.Tile, e edge, wtex uint16) {
 	}
 	fx0, fy0 := float32(x+e.c0x), float32(y+e.c0y)
 	fx1, fy1 := float32(x+e.c1x), float32(y+e.c1y)
-	base := z0
-	if z1 < base {
-		base = z1
-	}
 	// U: 0 at the c1 corner, 1 at c0 — the edges are wound so this reads the
 	// texture left-to-right (un-mirrored) for a viewer on the tile's open side.
-	// V: 0 at the wall foot rising by world height, so the texture is upright and
-	// tiles at a uniform scale (WallTexUnitsPerCopy) instead of stretching.
-	const s = 1.0 / WallTexUnitsPerCopy
+	// V: 1 along the FOOT, 0 along the top, because V runs DOWN the image — the
+	// glTF texture origin is the top-left texel, so the image's last row is the
+	// one that belongs on the floor. With the foot at V=0 the dungeon's
+	// ceremonial door hung upside down, its threshold against the ceiling.
+	// One copy clothes the wall whatever its height, and a sloped foot or top
+	// carries its corner's V with it, so the texture shears with the wall
+	// rather than being cut off by it.
 	m.Quads = append(m.Quads, Quad{
 		P: [4][3]float32{
 			{fx0, fy0, z0}, {fx1, fy1, z1}, {fx1, fy1, top1}, {fx0, fy0, top0},
 		},
-		UV: [4][2]float32{
-			{1, (z0 - base) * s}, {0, (z1 - base) * s}, {0, (top1 - base) * s}, {1, (top0 - base) * s},
-		},
+		UV:   [4][2]float32{{1, 1}, {0, 1}, {0, 0}, {1, 0}},
 		Tex:  wtex,
 		Wall: true,
 	})

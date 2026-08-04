@@ -689,9 +689,11 @@ rebuilt as a **textured 3D mesh** — reimplemented in Go and hooked into the St
   the texture list. The wall's top is sampled at **both shared corners** of the edge (not one), so a
   ramp meets a flush neighbour with no wall and produces a *triangular* side wall instead of a
   spurious vertical segment. Wall textures are **stretched corner to corner** — one copy
-  clothes a wall whatever its height — and the UVs are oriented upright and un-mirrored (V=0 at the
-  foot, U reading left-to-right for a viewer on the open side), verified with `levrender -uvtest`
-  (colour-by-UV) and a first-person textured render of the game's arched door.
+  clothes a wall whatever its height — and the UVs are oriented upright and un-mirrored (**V=1 at the
+  foot**, since V runs *down* the image — glTF's texture origin is the top-left texel — and U reads
+  left-to-right for a viewer on the open side), verified with `levrender -uvtest` (colour-by-UV) and
+  a first-person render of the dungeon's ceremonial door, which is the level's own test card: it
+  hung upside down, threshold against the ceiling, while the foot was at V=0.
 
   *This was wrong until 2026-08.* The exporter tiled the texture at a fixed texel scale
   (`WallTexUnitsPerCopy`, one copy per tile width vertically), so a full-height wall showed its
