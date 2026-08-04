@@ -91,6 +91,23 @@ export class MapAR {
       this._startPump();
       while (!this._ready) this._step();
     }
+    // Capability probe for the tilemap renderer that will replace the
+    // snapshot: it needs GLSL3, a mip-complete DataArrayTexture, texelFetch
+    // and textureGrad to behave on the headset's driver, and none of that can
+    // be established from a desktop. Short-circuits the snapshot entirely.
+    if (this._param('xrspike') === '1') {
+      const { buildSpike } = await import('./xrspike.js');
+      const { w, h } = this.opts.size();
+      this._W = w; this._H = h;
+      this._spike = buildSpike(this.THREE, this._ar.stage.renderer, w, h);
+      this._ar.stage.scene.add(this._spike.group);
+      this._note = this._spike.note;
+      this._ready = true;
+      this._ar.distance = this._num('xrdist', Math.max(1.2, 0.62 * this._maxW));
+      await this._ar.enter();
+      this.status('spike');
+      return;
+    }
     await this._ar.enter();
     if (!this._ready) {
       this._startPump();
@@ -110,6 +127,11 @@ export class MapAR {
 
   dispose() {
     this._ar?.exit();
+    if (this._spike) {
+      this._ar?.stage.scene.remove(this._spike.group);
+      this._spike.dispose();
+      this._spike = null;
+    }
     this._abortPump();
     this._liveEnd();
     this._dropChunks();
