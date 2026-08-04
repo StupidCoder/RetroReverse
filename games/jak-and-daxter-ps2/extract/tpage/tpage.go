@@ -106,24 +106,28 @@ func Load(obj []byte) (*Page, error) {
 	// mip-consistency (the game's mip chain is an exact 2x2 box filter)
 	// validates any placement without the oracle, and FitTiers below
 	// searches with it.
-	pg.vram = make([]byte, pg.Words*4)
-	pg.raw = make([]byte, 0, pg.Words*4)
-	for _, s := range segs {
-		if int64(s.ptr)+int64(s.words)*4 <= int64(len(obj)) {
-			pg.raw = append(pg.raw, obj[s.ptr:s.ptr+s.words*4]...)
-		}
+	// The page image is the object's WHOLE data tail — seg0.ptr to the end
+	// of the object — as one linear 128-px-wide CT32 raster. On every page
+	// on the disc that tail is a whole number of 8 KB GS pages, while the
+	// header's per-segment size words UNDERCOUNT it: tpage-62's last CLUT
+	// patch (pants, entries with CSM1 x>=8) lives past seg0's declared end,
+	// and the boot upload demonstrably moves it (the bytes sit in live VRAM
+	// at their raster position; verified byte-exact against a title
+	// savestate for the full 64-row rectangle, runtime-rewritten CLUT
+	// blocks aside). The size words are the streaming allocator's content
+	// accounting, not the upload extent.
+	start := segs[0].ptr
+	if start == 0 || int64(start) >= int64(len(obj)) {
+		return nil, fmt.Errorf("tpage %s: segment base 0x%x outside object", pg.Name, start)
 	}
-	w := uint32(0)
-	for _, s := range segs {
-		if int64(s.ptr)+int64(s.words)*4 > int64(len(obj)) {
-			return nil, fmt.Errorf("tpage %s: segment [0x%x +0x%x words] outside object", pg.Name, s.ptr, s.words)
-		}
-		for i := uint32(0); i < s.words; i++ {
-			a := ps2.TexAddrPSMCT32(0, 2, w%128, w/128)
-			if int64(a)+4 <= int64(len(pg.vram)) {
-				binary.LittleEndian.PutUint32(pg.vram[a:], u32at(obj, s.ptr+i*4))
-			}
-			w++
+	total := (uint32(len(obj)) - start) / 4
+	pg.Words = total
+	pg.vram = make([]byte, total*4)
+	pg.raw = append([]byte(nil), obj[start:start+total*4]...)
+	for w := uint32(0); w < total; w++ {
+		a := ps2.TexAddrPSMCT32(0, 2, w%128, w/128)
+		if int64(a)+4 <= int64(len(pg.vram)) {
+			binary.LittleEndian.PutUint32(pg.vram[a:], u32at(obj, start+w*4))
 		}
 	}
 
@@ -168,6 +172,9 @@ func goalString(obj []byte, p uint32) string {
 	}
 	return string(obj[p+4 : p+4+uint32(n)])
 }
+
+// VRAMByte exposes the reconstructed page image for probes.
+func (pg *Page) VRAMByte(a uint32) byte { return pg.vramByte(a) }
 
 func (pg *Page) vramByte(a uint32) byte {
 	if int64(a) >= int64(len(pg.vram)) {
@@ -521,6 +528,9 @@ func (pg *Page) decodeAtAtlas(t *Texture, m int, off uint32) *image.RGBA {
 }
 
 // clutFor returns the texture's CLUT (from the verified tier-0 region).
+// ClutFor exposes the CLUT reader for probes.
+func (pg *Page) ClutFor(t *Texture) []uint32 { return pg.clutFor(t) }
+
 func (pg *Page) clutFor(t *Texture) []uint32 {
 	n := uint32(256)
 	if t.PSM == PSMT4 || t.PSM == PSMT4HL || t.PSM == PSMT4HH {

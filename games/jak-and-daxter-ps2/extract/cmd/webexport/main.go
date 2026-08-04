@@ -54,55 +54,35 @@ func (l *level) resolve(s merc.ShaderRef) merc.Material {
 	}
 	img, err := pg.Decode(&pg.Textures[idx], 0)
 	check(err)
-	out, blend := gsAlphaPolicy(img)
-	l.cache[id] = texEntry{out, blend}
-	return merc.Material{Image: out, Blend: blend}
+	out := gsAlphaCutout(img)
+	l.cache[id] = texEntry{out, false}
+	return merc.Material{Image: out}
 }
 
-// gsAlphaPolicy converts a texture's GS alpha channel (0x80 = 1.0) to GLB
-// semantics. The standard merc path draws with ABE off (the chain's GIF
-// tag PRIM field is 0x3C — blending disabled), so most alpha channels are
-// masks/data, not coverage: a channel that is all-opaque-ish, or that
-// would erase nearly the whole texture, exports opaque. Channels with a
-// real transparent population export as cutout (MASK) or, when they carry
-// a genuine gradient, as BLEND (the alpha-bucket effects: banners, soft
-// wisps).
-func gsAlphaPolicy(src image.Image) (image.Image, bool) {
+// gsAlphaCutout applies the measured merc draw semantics to a texture's
+// GS alpha channel. The character base pass draws with PRIM ABE=0 and
+// TEST {ATE=1, ATST=GEQUAL, AREF=0x26, AFAIL=KEEP} — read from the game's
+// own bucket-init packets and strip tags by replaying a captured title
+// frame (cmd/gsaudit; the state was matched to the models through their
+// logged-in TEX0 words). No blending exists on this path: a texel either
+// passes the alpha test (GS alpha >= 0x26 of 0x80) and renders exactly as
+// if opaque, or is discarded. The faithful GLB is therefore a MASK cutout
+// with binarized alpha at the hardware threshold; a texture whose texels
+// all pass is simply opaque.
+func gsAlphaCutout(src image.Image) image.Image {
 	b := src.Bounds()
 	out := image.NewRGBA(b)
-	total, zeros, mids := 0, 0, 0
 	for y := b.Min.Y; y < b.Max.Y; y++ {
 		for x := b.Min.X; x < b.Max.X; x++ {
 			r, g, bl, a := src.At(x, y).RGBA()
-			a8 := int(a >> 8)
-			a2 := a8 * 2 // GS 0x80 = 1.0
-			if a2 > 255 {
-				a2 = 255
+			a8 := uint8(255)
+			if a>>8 < 0x26 { // GS units: CLUT alpha 0x80 = 1.0
+				a8 = 0
 			}
-			total++
-			if a2 < 16 {
-				zeros++
-			} else if a2 < 240 {
-				mids++
-			}
-			out.SetRGBA(x, y, color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(bl >> 8), uint8(a2)})
+			out.SetRGBA(x, y, color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(bl >> 8), a8})
 		}
 	}
-	zf := float64(zeros) / float64(total)
-	mf := float64(mids) / float64(total)
-	if zf < 0.01 || zf > 0.9 {
-		// no real transparent population (or the channel would erase the
-		// texture — it is data, not coverage): opaque
-		for y := b.Min.Y; y < b.Max.Y; y++ {
-			for x := b.Min.X; x < b.Max.X; x++ {
-				c := out.RGBAAt(x, y)
-				c.A = 255
-				out.SetRGBA(x, y, c)
-			}
-		}
-		return out, false
-	}
-	return out, mf > 0.05 // gradient -> BLEND, hard cutout -> MASK
+	return out
 }
 
 // dgoEntry returns the named v4 (data) entry — archives may also carry a v3

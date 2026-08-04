@@ -34,6 +34,11 @@ type Replayer struct {
 	RefLo, RefHi uint32 // count ref tags into this range
 	RefHits      int
 	Refs         []uint32
+
+	// Direct, when set, receives every DIRECT/DIRECTHL payload (PATH2 GIF
+	// data — the bucket-init register packets live here).
+	Direct    func(qws []byte)
+	LastEntry uint32 // byte address of the last MSCAL entry
 }
 
 func NewReplayer(ram []byte) *Replayer {
@@ -173,6 +178,7 @@ func (r *Replayer) vif(w []uint32) error {
 				r.tops = uint16((r.base + r.offset) & 0x3FF)
 			}
 			r.V.Top = vuTop
+			r.LastEntry = imm * 8 & 0x3FFF
 			if !r.SkipRun {
 				if _, ok := r.V.Run(imm*8&0x3FFF, 600000); !ok {
 					e := imm * 8 & 0x3FFF
@@ -229,10 +235,17 @@ func (r *Replayer) vif(w []uint32) error {
 				}
 				addr += 8
 			}
-		case cmd == 0x50, cmd == 0x51: // DIRECT/HL: imm qwords to GIF — skip
+		case cmd == 0x50, cmd == 0x51: // DIRECT/HL: imm qwords to GIF (PATH2)
 			n := int(imm)
 			if n == 0 {
 				n = 65536
+			}
+			if r.Direct != nil && i+n*4 <= len(w) {
+				buf := make([]byte, n*16)
+				for k := 0; k < n*4; k++ {
+					binary.LittleEndian.PutUint32(buf[k*4:], w[i+k])
+				}
+				r.Direct(buf)
 			}
 			i += n * 4
 		case cmd >= 0x60: // UNPACK
