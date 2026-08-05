@@ -5,9 +5,33 @@
  "name": "Kuriking model",
  "animations": [
   {
-   "id": "kuriking_anger",
+   "id": "kuriking_wait",
    "loop": "loop",
-   "clip": "kuriking_anger",
+   "clip": "kuriking_wait",
+   "fps": 30
+  },
+  {
+   "id": "kuriking_serch_wait",
+   "loop": "loop",
+   "clip": "kuriking_serch_wait",
+   "fps": 30
+  },
+  {
+   "id": "kuriking_walk",
+   "loop": "loop",
+   "clip": "kuriking_walk",
+   "fps": 30
+  },
+  {
+   "id": "kuriking_down",
+   "loop": "loop",
+   "clip": "kuriking_down",
+   "fps": 30
+  },
+  {
+   "id": "kuriking_spawn",
+   "loop": "loop",
+   "clip": "kuriking_spawn",
    "fps": 30
   },
   {
@@ -23,51 +47,27 @@
    "fps": 30
   },
   {
-   "id": "kuriking_down",
-   "loop": "loop",
-   "clip": "kuriking_down",
-   "fps": 30
-  },
-  {
-   "id": "kuriking_down_start",
-   "loop": "loop",
-   "clip": "kuriking_down_start",
-   "fps": 30
-  },
-  {
-   "id": "kuriking_serch_wait",
-   "loop": "loop",
-   "clip": "kuriking_serch_wait",
-   "fps": 30
-  },
-  {
-   "id": "kuriking_spawn",
-   "loop": "loop",
-   "clip": "kuriking_spawn",
-   "fps": 30
-  },
-  {
    "id": "kuriking_turn",
    "loop": "loop",
    "clip": "kuriking_turn",
    "fps": 30
   },
   {
-   "id": "kuriking_wait",
+   "id": "kuriking_anger",
    "loop": "loop",
-   "clip": "kuriking_wait",
-   "fps": 30
-  },
-  {
-   "id": "kuriking_walk",
-   "loop": "loop",
-   "clip": "kuriking_walk",
+   "clip": "kuriking_anger",
    "fps": 30
   },
   {
    "id": "kuriking_walk_end",
    "loop": "loop",
    "clip": "kuriking_walk_end",
+   "fps": 30
+  },
+  {
+   "id": "kuriking_down_start",
+   "loop": "loop",
+   "clip": "kuriking_down_start",
    "fps": 30
   },
   {

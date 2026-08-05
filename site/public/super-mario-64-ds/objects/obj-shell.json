@@ -5,15 +5,15 @@
  "name": "Obj shell",
  "animations": [
   {
-   "id": "obj_shell_close",
-   "loop": "loop",
-   "clip": "obj_shell_close",
-   "fps": 30
-  },
-  {
    "id": "obj_shell_open",
    "loop": "loop",
    "clip": "obj_shell_open",
+   "fps": 30
+  },
+  {
+   "id": "obj_shell_close",
+   "loop": "loop",
+   "clip": "obj_shell_close",
    "fps": 30
   }
  ],

@@ -5,15 +5,15 @@
  "name": "Horuhei",
  "animations": [
   {
-   "id": "horuhei_lift",
+   "id": "horuhei_walk",
    "loop": "loop",
-   "clip": "horuhei_lift",
+   "clip": "horuhei_walk",
    "fps": 30
   },
   {
-   "id": "horuhei_lift_loop",
+   "id": "horuhei_lift",
    "loop": "loop",
-   "clip": "horuhei_lift_loop",
+   "clip": "horuhei_lift",
    "fps": 30
   },
   {
@@ -23,15 +23,15 @@
    "fps": 30
   },
   {
-   "id": "horuhei_throw",
+   "id": "horuhei_lift_loop",
    "loop": "loop",
-   "clip": "horuhei_throw",
+   "clip": "horuhei_lift_loop",
    "fps": 30
   },
   {
-   "id": "horuhei_walk",
+   "id": "horuhei_throw",
    "loop": "loop",
-   "clip": "horuhei_walk",
+   "clip": "horuhei_throw",
    "fps": 30
   }
  ],

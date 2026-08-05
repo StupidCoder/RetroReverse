@@ -5,9 +5,9 @@
  "name": "Face demo yoshi",
  "animations": [
   {
-   "id": "face_demo_blend_yoshi",
+   "id": "face_demo_yoshi",
    "loop": "loop",
-   "clip": "face_demo_blend_yoshi",
+   "clip": "face_demo_yoshi",
    "fps": 30
   },
   {
@@ -17,9 +17,9 @@
    "fps": 30
   },
   {
-   "id": "face_demo_yoshi",
+   "id": "face_demo_blend_yoshi",
    "loop": "loop",
-   "clip": "face_demo_yoshi",
+   "clip": "face_demo_blend_yoshi",
    "fps": 30
   }
  ],

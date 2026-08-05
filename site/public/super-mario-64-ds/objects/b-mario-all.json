@@ -5,15 +5,15 @@
  "name": "B mario all",
  "animations": [
   {
-   "id": "Y_egg_run",
-   "loop": "loop",
-   "clip": "Y_egg_run",
-   "fps": 30
-  },
-  {
    "id": "Y_egg_wait",
    "loop": "loop",
    "clip": "Y_egg_wait",
+   "fps": 30
+  },
+  {
+   "id": "Y_egg_run",
+   "loop": "loop",
+   "clip": "Y_egg_run",
    "fps": 30
   },
   {

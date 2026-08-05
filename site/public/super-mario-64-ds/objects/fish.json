@@ -5,9 +5,9 @@
  "name": "Fish",
  "animations": [
   {
-   "id": "fish_ab_swim",
+   "id": "fish_wait",
    "loop": "loop",
-   "clip": "fish_ab_swim",
+   "clip": "fish_wait",
    "fps": 30
   },
   {
@@ -17,9 +17,9 @@
    "fps": 30
   },
   {
-   "id": "fish_wait",
+   "id": "fish_ab_swim",
    "loop": "loop",
-   "clip": "fish_wait",
+   "clip": "fish_ab_swim",
    "fps": 30
   }
  ],

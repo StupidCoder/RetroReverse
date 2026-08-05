@@ -5,27 +5,27 @@
  "name": "Koopa key",
  "animations": [
   {
-   "id": "koopa_key_W_get",
-   "loop": "loop",
-   "clip": "koopa_key_W_get",
-   "fps": 30
-  },
-  {
    "id": "koopa_key_get",
    "loop": "loop",
    "clip": "koopa_key_get",
    "fps": 30
   },
   {
-   "id": "koopa_key_get_demo",
-   "loop": "loop",
-   "clip": "koopa_key_get_demo",
-   "fps": 30
-  },
-  {
    "id": "koopa_key_open",
    "loop": "loop",
    "clip": "koopa_key_open",
+   "fps": 30
+  },
+  {
+   "id": "koopa_key_W_get",
+   "loop": "loop",
+   "clip": "koopa_key_W_get",
+   "fps": 30
+  },
+  {
+   "id": "koopa_key_get_demo",
+   "loop": "loop",
+   "clip": "koopa_key_get_demo",
    "fps": 30
   }
  ],

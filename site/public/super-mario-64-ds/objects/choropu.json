@@ -5,15 +5,15 @@
  "name": "Choropu",
  "animations": [
   {
-   "id": "choropu_end",
-   "loop": "loop",
-   "clip": "choropu_end",
-   "fps": 30
-  },
-  {
    "id": "choropu_search",
    "loop": "loop",
    "clip": "choropu_search",
+   "fps": 30
+  },
+  {
+   "id": "choropu_end",
+   "loop": "loop",
+   "clip": "choropu_end",
    "fps": 30
   },
   {

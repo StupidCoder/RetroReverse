@@ -5,27 +5,9 @@
  "name": "Pakkun model",
  "animations": [
   {
-   "id": "pakkun_attack",
-   "loop": "loop",
-   "clip": "pakkun_attack",
-   "fps": 30
-  },
-  {
-   "id": "pakkun_dead",
-   "loop": "loop",
-   "clip": "pakkun_dead",
-   "fps": 30
-  },
-  {
    "id": "pakkun_fire",
    "loop": "loop",
    "clip": "pakkun_fire",
-   "fps": 30
-  },
-  {
-   "id": "pakkun_fire_ed",
-   "loop": "loop",
-   "clip": "pakkun_fire_ed",
    "fps": 30
   },
   {
@@ -35,9 +17,27 @@
    "fps": 30
   },
   {
+   "id": "pakkun_fire_ed",
+   "loop": "loop",
+   "clip": "pakkun_fire_ed",
+   "fps": 30
+  },
+  {
    "id": "pakkun_sleep_loop",
    "loop": "loop",
    "clip": "pakkun_sleep_loop",
+   "fps": 30
+  },
+  {
+   "id": "pakkun_dead",
+   "loop": "loop",
+   "clip": "pakkun_dead",
+   "fps": 30
+  },
+  {
+   "id": "pakkun_attack",
+   "loop": "loop",
+   "clip": "pakkun_attack",
    "fps": 30
   }
  ],

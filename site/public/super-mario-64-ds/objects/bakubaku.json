@@ -5,15 +5,15 @@
  "name": "Bakubaku",
  "animations": [
   {
-   "id": "bakubaku_attack",
-   "loop": "loop",
-   "clip": "bakubaku_attack",
-   "fps": 30
-  },
-  {
    "id": "bakubaku_swim",
    "loop": "loop",
    "clip": "bakubaku_swim",
+   "fps": 30
+  },
+  {
+   "id": "bakubaku_attack",
+   "loop": "loop",
+   "clip": "bakubaku_attack",
    "fps": 30
   }
  ],

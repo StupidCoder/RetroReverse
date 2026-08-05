@@ -5,9 +5,9 @@
  "name": "Bombhei",
  "animations": [
   {
-   "id": "bombhei_carry",
+   "id": "red_wait",
    "loop": "loop",
-   "clip": "bombhei_carry",
+   "clip": "red_wait",
    "fps": 30
   },
   {
@@ -17,9 +17,9 @@
    "fps": 30
   },
   {
-   "id": "red_wait",
+   "id": "bombhei_carry",
    "loop": "loop",
-   "clip": "red_wait",
+   "clip": "bombhei_carry",
    "fps": 30
   }
  ],

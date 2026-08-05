@@ -11,15 +11,15 @@
    "fps": 30
   },
   {
-   "id": "su_walk",
-   "loop": "loop",
-   "clip": "su_walk",
-   "fps": 30
-  },
-  {
    "id": "su_run",
    "loop": "loop",
    "clip": "su_run",
+   "fps": 30
+  },
+  {
+   "id": "su_walk",
+   "loop": "loop",
+   "clip": "su_walk",
    "fps": 30
   }
  ],

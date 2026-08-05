@@ -5,15 +5,15 @@
  "name": "Jugem",
  "animations": [
   {
-   "id": "jugem_throw",
-   "loop": "loop",
-   "clip": "jugem_throw",
-   "fps": 30
-  },
-  {
    "id": "jugem_wait",
    "loop": "loop",
    "clip": "jugem_wait",
+   "fps": 30
+  },
+  {
+   "id": "jugem_throw",
+   "loop": "loop",
+   "clip": "jugem_throw",
    "fps": 30
   }
  ],

@@ -5,9 +5,123 @@
  "name": "Koopa model",
  "animations": [
   {
-   "id": "koopa_damage",
+   "id": "koopa_wait1",
    "loop": "loop",
-   "clip": "koopa_damage",
+   "clip": "koopa_wait1",
+   "fps": 30
+  },
+  {
+   "id": "koopa_walk",
+   "loop": "loop",
+   "clip": "koopa_walk",
+   "fps": 30
+  },
+  {
+   "id": "koopa_dush",
+   "loop": "loop",
+   "clip": "koopa_dush",
+   "fps": 30
+  },
+  {
+   "id": "koopa_fire",
+   "loop": "loop",
+   "clip": "koopa_fire",
+   "fps": 30
+  },
+  {
+   "id": "koopa_hold",
+   "loop": "loop",
+   "clip": "koopa_hold",
+   "fps": 30
+  },
+  {
+   "id": "koopa_fire2",
+   "loop": "loop",
+   "clip": "koopa_fire2",
+   "fps": 30
+  },
+  {
+   "id": "koopa_fire3",
+   "loop": "loop",
+   "clip": "koopa_fire3",
+   "fps": 30
+  },
+  {
+   "id": "koopa_vexing",
+   "loop": "loop",
+   "clip": "koopa_vexing",
+   "fps": 30
+  },
+  {
+   "id": "koopa_dead_ed",
+   "loop": "loop",
+   "clip": "koopa_dead_ed",
+   "fps": 30
+  },
+  {
+   "id": "koopa_dead_st",
+   "loop": "loop",
+   "clip": "koopa_dead_st",
+   "fps": 30
+  },
+  {
+   "id": "koopa_dush_ed",
+   "loop": "loop",
+   "clip": "koopa_dush_ed",
+   "fps": 30
+  },
+  {
+   "id": "koopa_dush_st",
+   "loop": "loop",
+   "clip": "koopa_dush_st",
+   "fps": 30
+  },
+  {
+   "id": "koopa_fire_ed",
+   "loop": "loop",
+   "clip": "koopa_fire_ed",
+   "fps": 30
+  },
+  {
+   "id": "koopa_fire_st",
+   "loop": "loop",
+   "clip": "koopa_fire_st",
+   "fps": 30
+  },
+  {
+   "id": "koopa_hold_st",
+   "loop": "loop",
+   "clip": "koopa_hold_st",
+   "fps": 30
+  },
+  {
+   "id": "koopa_walk_ed",
+   "loop": "loop",
+   "clip": "koopa_walk_ed",
+   "fps": 30
+  },
+  {
+   "id": "koopa_walk_st",
+   "loop": "loop",
+   "clip": "koopa_walk_st",
+   "fps": 30
+  },
+  {
+   "id": "koopa_fire3_ed",
+   "loop": "loop",
+   "clip": "koopa_fire3_ed",
+   "fps": 30
+  },
+  {
+   "id": "koopa_fire3_st",
+   "loop": "loop",
+   "clip": "koopa_fire3_st",
+   "fps": 30
+  },
+  {
+   "id": "koopa_stand_up",
+   "loop": "loop",
+   "clip": "koopa_stand_up",
    "fps": 30
   },
   {
@@ -29,90 +143,6 @@
    "fps": 30
   },
   {
-   "id": "koopa_dead_ed",
-   "loop": "loop",
-   "clip": "koopa_dead_ed",
-   "fps": 30
-  },
-  {
-   "id": "koopa_dead_st",
-   "loop": "loop",
-   "clip": "koopa_dead_st",
-   "fps": 30
-  },
-  {
-   "id": "koopa_dush",
-   "loop": "loop",
-   "clip": "koopa_dush",
-   "fps": 30
-  },
-  {
-   "id": "koopa_dush_ed",
-   "loop": "loop",
-   "clip": "koopa_dush_ed",
-   "fps": 30
-  },
-  {
-   "id": "koopa_dush_st",
-   "loop": "loop",
-   "clip": "koopa_dush_st",
-   "fps": 30
-  },
-  {
-   "id": "koopa_fire",
-   "loop": "loop",
-   "clip": "koopa_fire",
-   "fps": 30
-  },
-  {
-   "id": "koopa_fire2",
-   "loop": "loop",
-   "clip": "koopa_fire2",
-   "fps": 30
-  },
-  {
-   "id": "koopa_fire3",
-   "loop": "loop",
-   "clip": "koopa_fire3",
-   "fps": 30
-  },
-  {
-   "id": "koopa_fire3_ed",
-   "loop": "loop",
-   "clip": "koopa_fire3_ed",
-   "fps": 30
-  },
-  {
-   "id": "koopa_fire3_st",
-   "loop": "loop",
-   "clip": "koopa_fire3_st",
-   "fps": 30
-  },
-  {
-   "id": "koopa_fire_ed",
-   "loop": "loop",
-   "clip": "koopa_fire_ed",
-   "fps": 30
-  },
-  {
-   "id": "koopa_fire_st",
-   "loop": "loop",
-   "clip": "koopa_fire_st",
-   "fps": 30
-  },
-  {
-   "id": "koopa_hold",
-   "loop": "loop",
-   "clip": "koopa_hold",
-   "fps": 30
-  },
-  {
-   "id": "koopa_hold_st",
-   "loop": "loop",
-   "clip": "koopa_hold_st",
-   "fps": 30
-  },
-  {
    "id": "koopa_jump1",
    "loop": "loop",
    "clip": "koopa_jump1",
@@ -125,51 +155,21 @@
    "fps": 30
   },
   {
-   "id": "koopa_stand_up",
-   "loop": "loop",
-   "clip": "koopa_stand_up",
-   "fps": 30
-  },
-  {
-   "id": "koopa_stretch",
-   "loop": "loop",
-   "clip": "koopa_stretch",
-   "fps": 30
-  },
-  {
    "id": "koopa_throw",
    "loop": "loop",
    "clip": "koopa_throw",
    "fps": 30
   },
   {
-   "id": "koopa_vexing",
+   "id": "koopa_damage",
    "loop": "loop",
-   "clip": "koopa_vexing",
+   "clip": "koopa_damage",
    "fps": 30
   },
   {
-   "id": "koopa_wait1",
+   "id": "koopa_stretch",
    "loop": "loop",
-   "clip": "koopa_wait1",
-   "fps": 30
-  },
-  {
-   "id": "koopa_walk",
-   "loop": "loop",
-   "clip": "koopa_walk",
-   "fps": 30
-  },
-  {
-   "id": "koopa_walk_ed",
-   "loop": "loop",
-   "clip": "koopa_walk_ed",
-   "fps": 30
-  },
-  {
-   "id": "koopa_walk_st",
-   "loop": "loop",
-   "clip": "koopa_walk_st",
+   "clip": "koopa_stretch",
    "fps": 30
   }
  ],

@@ -5,39 +5,33 @@
  "name": "Wario metal model",
  "animations": [
   {
-   "id": "L_ed_amazed",
+   "id": "ed_wait",
    "loop": "loop",
-   "clip": "L_ed_amazed",
+   "clip": "ed_wait",
    "fps": 30
   },
   {
-   "id": "L_ed_cap_off",
+   "id": "op_wait",
    "loop": "loop",
-   "clip": "L_ed_cap_off",
+   "clip": "op_wait",
    "fps": 30
   },
   {
-   "id": "L_ed_cap_off_wait",
+   "id": "su_wait",
    "loop": "loop",
-   "clip": "L_ed_cap_off_wait",
+   "clip": "su_wait",
    "fps": 30
   },
   {
-   "id": "L_ed_look_m_wait",
+   "id": "gas_wait",
    "loop": "loop",
-   "clip": "L_ed_look_m_wait",
+   "clip": "gas_wait",
    "fps": 30
   },
   {
-   "id": "L_ed_look_mario",
+   "id": "lie_wait",
    "loop": "loop",
-   "clip": "L_ed_look_mario",
-   "fps": 30
-  },
-  {
-   "id": "L_ed_lookup_wait",
-   "loop": "loop",
-   "clip": "L_ed_lookup_wait",
+   "clip": "lie_wait",
    "fps": 30
   },
   {
@@ -47,27 +41,27 @@
    "fps": 30
   },
   {
-   "id": "L_entry_wait",
+   "id": "W_ed_wait",
    "loop": "loop",
-   "clip": "L_entry_wait",
+   "clip": "W_ed_wait",
    "fps": 30
   },
   {
-   "id": "L_entry_wait_end",
+   "id": "Y_ed_wait",
    "loop": "loop",
-   "clip": "L_entry_wait_end",
+   "clip": "Y_ed_wait",
    "fps": 30
   },
   {
-   "id": "L_first_change",
+   "id": "cold_wait",
    "loop": "loop",
-   "clip": "L_first_change",
+   "clip": "cold_wait",
    "fps": 30
   },
   {
-   "id": "L_lie_end",
+   "id": "swim_wait",
    "loop": "loop",
-   "clip": "L_lie_end",
+   "clip": "swim_wait",
    "fps": 30
   },
   {
@@ -77,39 +71,39 @@
    "fps": 30
   },
   {
-   "id": "L_op_look_wario",
+   "id": "W_lie_wait",
    "loop": "loop",
-   "clip": "L_op_look_wario",
+   "clip": "W_lie_wait",
    "fps": 30
   },
   {
-   "id": "L_op_nod",
+   "id": "Y_lie_wait",
    "loop": "loop",
-   "clip": "L_op_nod",
+   "clip": "Y_lie_wait",
    "fps": 30
   },
   {
-   "id": "L_op_turn",
+   "id": "sdrop_wait",
    "loop": "loop",
-   "clip": "L_op_turn",
+   "clip": "sdrop_wait",
    "fps": 30
   },
   {
-   "id": "L_sleep_end",
+   "id": "sleep_wait",
    "loop": "loop",
-   "clip": "L_sleep_end",
+   "clip": "sleep_wait",
    "fps": 30
   },
   {
-   "id": "L_sleep_start",
+   "id": "damage_wait",
    "loop": "loop",
-   "clip": "L_sleep_start",
+   "clip": "damage_wait",
    "fps": 30
   },
   {
-   "id": "L_sleep_to_lie",
+   "id": "L_entry_wait",
    "loop": "loop",
-   "clip": "L_sleep_to_lie",
+   "clip": "L_entry_wait",
    "fps": 30
   },
   {
@@ -125,123 +119,9 @@
    "fps": 30
   },
   {
-   "id": "M_entry_wait_end",
-   "loop": "loop",
-   "clip": "M_entry_wait_end",
-   "fps": 30
-  },
-  {
-   "id": "W_ed_amazed_wair",
-   "loop": "loop",
-   "clip": "W_ed_amazed_wair",
-   "fps": 30
-  },
-  {
-   "id": "W_ed_cap_off",
-   "loop": "loop",
-   "clip": "W_ed_cap_off",
-   "fps": 30
-  },
-  {
-   "id": "W_ed_cap_off_wait",
-   "loop": "loop",
-   "clip": "W_ed_cap_off_wait",
-   "fps": 30
-  },
-  {
-   "id": "W_ed_lookup_wait",
-   "loop": "loop",
-   "clip": "W_ed_lookup_wait",
-   "fps": 30
-  },
-  {
-   "id": "W_ed_wait",
-   "loop": "loop",
-   "clip": "W_ed_wait",
-   "fps": 30
-  },
-  {
-   "id": "W_ed_wave",
-   "loop": "loop",
-   "clip": "W_ed_wave",
-   "fps": 30
-  },
-  {
    "id": "W_entry_wait",
    "loop": "loop",
    "clip": "W_entry_wait",
-   "fps": 30
-  },
-  {
-   "id": "W_entry_wait_end",
-   "loop": "loop",
-   "clip": "W_entry_wait_end",
-   "fps": 30
-  },
-  {
-   "id": "W_first_change",
-   "loop": "loop",
-   "clip": "W_first_change",
-   "fps": 30
-  },
-  {
-   "id": "W_key_get",
-   "loop": "loop",
-   "clip": "W_key_get",
-   "fps": 30
-  },
-  {
-   "id": "W_lie_end",
-   "loop": "loop",
-   "clip": "W_lie_end",
-   "fps": 30
-  },
-  {
-   "id": "W_lie_wait",
-   "loop": "loop",
-   "clip": "W_lie_wait",
-   "fps": 30
-  },
-  {
-   "id": "W_op_look_luigi",
-   "loop": "loop",
-   "clip": "W_op_look_luigi",
-   "fps": 30
-  },
-  {
-   "id": "W_op_nod",
-   "loop": "loop",
-   "clip": "W_op_nod",
-   "fps": 30
-  },
-  {
-   "id": "W_op_point",
-   "loop": "loop",
-   "clip": "W_op_point",
-   "fps": 30
-  },
-  {
-   "id": "W_op_turn",
-   "loop": "loop",
-   "clip": "W_op_turn",
-   "fps": 30
-  },
-  {
-   "id": "W_sleep_end",
-   "loop": "loop",
-   "clip": "W_sleep_end",
-   "fps": 30
-  },
-  {
-   "id": "W_sleep_start",
-   "loop": "loop",
-   "clip": "W_sleep_start",
-   "fps": 30
-  },
-  {
-   "id": "W_sleep_to_lie",
-   "loop": "loop",
-   "clip": "W_sleep_to_lie",
    "fps": 30
   },
   {
@@ -251,9 +131,99 @@
    "fps": 30
   },
   {
-   "id": "Y_ed_look_cam",
+   "id": "Y_sleep_wait",
    "loop": "loop",
-   "clip": "Y_ed_look_cam",
+   "clip": "Y_sleep_wait",
+   "fps": 30
+  },
+  {
+   "id": "ed_kiss_wait",
+   "loop": "loop",
+   "clip": "ed_kiss_wait",
+   "fps": 30
+  },
+  {
+   "id": "h_carry_wait",
+   "loop": "loop",
+   "clip": "h_carry_wait",
+   "fps": 30
+  },
+  {
+   "id": "n_carry_wait",
+   "loop": "loop",
+   "clip": "n_carry_wait",
+   "fps": 30
+  },
+  {
+   "id": "Y_ed_shy_wait",
+   "loop": "loop",
+   "clip": "Y_ed_shy_wait",
+   "fps": 30
+  },
+  {
+   "id": "Y_op_sit_wait",
+   "loop": "loop",
+   "clip": "Y_op_sit_wait",
+   "fps": 30
+  },
+  {
+   "id": "ed_putup_wait",
+   "loop": "loop",
+   "clip": "ed_putup_wait",
+   "fps": 30
+  },
+  {
+   "id": "p_koopa_h_wait",
+   "loop": "loop",
+   "clip": "p_koopa_h_wait",
+   "fps": 30
+  },
+  {
+   "id": "sdrop_hip_wait",
+   "loop": "loop",
+   "clip": "sdrop_hip_wait",
+   "fps": 30
+  },
+  {
+   "id": "sdrop_leg_wait",
+   "loop": "loop",
+   "clip": "sdrop_leg_wait",
+   "fps": 30
+  },
+  {
+   "id": "Y_op_stand_wait",
+   "loop": "loop",
+   "clip": "Y_op_stand_wait",
+   "fps": 30
+  },
+  {
+   "id": "ed_cap_off_wait",
+   "loop": "loop",
+   "clip": "ed_cap_off_wait",
+   "fps": 30
+  },
+  {
+   "id": "sdrop_head_wait",
+   "loop": "loop",
+   "clip": "sdrop_head_wait",
+   "fps": 30
+  },
+  {
+   "id": "L_ed_look_m_wait",
+   "loop": "loop",
+   "clip": "L_ed_look_m_wait",
+   "fps": 30
+  },
+  {
+   "id": "L_ed_lookup_wait",
+   "loop": "loop",
+   "clip": "L_ed_lookup_wait",
+   "fps": 30
+  },
+  {
+   "id": "W_ed_lookup_wait",
+   "loop": "loop",
+   "clip": "W_ed_lookup_wait",
    "fps": 30
   },
   {
@@ -269,39 +239,15 @@
    "fps": 30
   },
   {
-   "id": "Y_ed_shy_wait",
+   "id": "L_ed_cap_off_wait",
    "loop": "loop",
-   "clip": "Y_ed_shy_wait",
+   "clip": "L_ed_cap_off_wait",
    "fps": 30
   },
   {
-   "id": "Y_ed_turn",
+   "id": "W_ed_cap_off_wait",
    "loop": "loop",
-   "clip": "Y_ed_turn",
-   "fps": 30
-  },
-  {
-   "id": "Y_ed_wait",
-   "loop": "loop",
-   "clip": "Y_ed_wait",
-   "fps": 30
-  },
-  {
-   "id": "Y_lie_end",
-   "loop": "loop",
-   "clip": "Y_lie_end",
-   "fps": 30
-  },
-  {
-   "id": "Y_lie_wait",
-   "loop": "loop",
-   "clip": "Y_lie_wait",
-   "fps": 30
-  },
-  {
-   "id": "Y_op_lie_to_sit",
-   "loop": "loop",
-   "clip": "Y_op_lie_to_sit",
+   "clip": "W_ed_cap_off_wait",
    "fps": 30
   },
   {
@@ -311,105 +257,15 @@
    "fps": 30
   },
   {
-   "id": "Y_op_sit_wait",
+   "id": "ed_look_left_wait",
    "loop": "loop",
-   "clip": "Y_op_sit_wait",
+   "clip": "ed_look_left_wait",
    "fps": 30
   },
   {
-   "id": "Y_op_stand_wait",
+   "id": "swim",
    "loop": "loop",
-   "clip": "Y_op_stand_wait",
-   "fps": 30
-  },
-  {
-   "id": "Y_sleep_end",
-   "loop": "loop",
-   "clip": "Y_sleep_end",
-   "fps": 30
-  },
-  {
-   "id": "Y_sleep_start",
-   "loop": "loop",
-   "clip": "Y_sleep_start",
-   "fps": 30
-  },
-  {
-   "id": "Y_sleep_to_lie",
-   "loop": "loop",
-   "clip": "Y_sleep_to_lie",
-   "fps": 30
-  },
-  {
-   "id": "Y_sleep_wait",
-   "loop": "loop",
-   "clip": "Y_sleep_wait",
-   "fps": 30
-  },
-  {
-   "id": "cold_wait",
-   "loop": "loop",
-   "clip": "cold_wait",
-   "fps": 30
-  },
-  {
-   "id": "cold_wait_end",
-   "loop": "loop",
-   "clip": "cold_wait_end",
-   "fps": 30
-  },
-  {
-   "id": "cold_wait_start",
-   "loop": "loop",
-   "clip": "cold_wait_start",
-   "fps": 30
-  },
-  {
-   "id": "damage_start",
-   "loop": "loop",
-   "clip": "damage_start",
-   "fps": 30
-  },
-  {
-   "id": "damage_wait",
-   "loop": "loop",
-   "clip": "damage_wait",
-   "fps": 30
-  },
-  {
-   "id": "door_pull",
-   "loop": "loop",
-   "clip": "door_pull",
-   "fps": 30
-  },
-  {
-   "id": "door_push",
-   "loop": "loop",
-   "clip": "door_push",
-   "fps": 30
-  },
-  {
-   "id": "drown_die",
-   "loop": "loop",
-   "clip": "drown_die",
-   "fps": 30
-  },
-  {
-   "id": "e_down",
-   "loop": "loop",
-   "clip": "e_down",
-   "fps": 30
-  },
-  {
-   "id": "ed_cap_off",
-   "loop": "loop",
-   "clip": "ed_cap_off",
-   "fps": 30
-  },
-  {
-   "id": "ed_cap_off_wait",
-   "loop": "loop",
-   "clip": "ed_cap_off_wait",
+   "clip": "swim",
    "fps": 30
   },
   {
@@ -419,111 +275,21 @@
    "fps": 30
   },
   {
-   "id": "ed_fly_start",
+   "id": "su_run",
    "loop": "loop",
-   "clip": "ed_fly_start",
+   "clip": "su_run",
    "fps": 30
   },
   {
-   "id": "ed_kiss_to_pose",
+   "id": "su_walk",
    "loop": "loop",
-   "clip": "ed_kiss_to_pose",
+   "clip": "su_walk",
    "fps": 30
   },
   {
-   "id": "ed_kiss_wait",
+   "id": "sdrop_walk",
    "loop": "loop",
-   "clip": "ed_kiss_wait",
-   "fps": 30
-  },
-  {
-   "id": "ed_look_left",
-   "loop": "loop",
-   "clip": "ed_look_left",
-   "fps": 30
-  },
-  {
-   "id": "ed_look_left_end",
-   "loop": "loop",
-   "clip": "ed_look_left_end",
-   "fps": 30
-  },
-  {
-   "id": "ed_look_left_wait",
-   "loop": "loop",
-   "clip": "ed_look_left_wait",
-   "fps": 30
-  },
-  {
-   "id": "ed_nod",
-   "loop": "loop",
-   "clip": "ed_nod",
-   "fps": 30
-  },
-  {
-   "id": "ed_putup_wait",
-   "loop": "loop",
-   "clip": "ed_putup_wait",
-   "fps": 30
-  },
-  {
-   "id": "ed_wait",
-   "loop": "loop",
-   "clip": "ed_wait",
-   "fps": 30
-  },
-  {
-   "id": "ed_wave",
-   "loop": "loop",
-   "clip": "ed_wave",
-   "fps": 30
-  },
-  {
-   "id": "fall_die",
-   "loop": "loop",
-   "clip": "fall_die",
-   "fps": 30
-  },
-  {
-   "id": "fall_sand",
-   "loop": "loop",
-   "clip": "fall_sand",
-   "fps": 30
-  },
-  {
-   "id": "first_change",
-   "loop": "loop",
-   "clip": "first_change",
-   "fps": 30
-  },
-  {
-   "id": "gas_die",
-   "loop": "loop",
-   "clip": "gas_die",
-   "fps": 30
-  },
-  {
-   "id": "gas_wait",
-   "loop": "loop",
-   "clip": "gas_wait",
-   "fps": 30
-  },
-  {
-   "id": "h_carry_start",
-   "loop": "loop",
-   "clip": "h_carry_start",
-   "fps": 30
-  },
-  {
-   "id": "h_carry_throw",
-   "loop": "loop",
-   "clip": "h_carry_throw",
-   "fps": 30
-  },
-  {
-   "id": "h_carry_wait",
-   "loop": "loop",
-   "clip": "h_carry_wait",
+   "clip": "sdrop_walk",
    "fps": 30
   },
   {
@@ -533,63 +299,15 @@
    "fps": 30
   },
   {
-   "id": "key_get",
-   "loop": "loop",
-   "clip": "key_get",
-   "fps": 30
-  },
-  {
-   "id": "key_open",
-   "loop": "loop",
-   "clip": "key_open",
-   "fps": 30
-  },
-  {
-   "id": "lie_end",
-   "loop": "loop",
-   "clip": "lie_end",
-   "fps": 30
-  },
-  {
-   "id": "lie_wait",
-   "loop": "loop",
-   "clip": "lie_wait",
-   "fps": 30
-  },
-  {
-   "id": "n_carry_lost",
-   "loop": "loop",
-   "clip": "n_carry_lost",
-   "fps": 30
-  },
-  {
-   "id": "n_carry_pose",
-   "loop": "loop",
-   "clip": "n_carry_pose",
-   "fps": 30
-  },
-  {
-   "id": "n_carry_put",
-   "loop": "loop",
-   "clip": "n_carry_put",
-   "fps": 30
-  },
-  {
-   "id": "n_carry_start",
-   "loop": "loop",
-   "clip": "n_carry_start",
-   "fps": 30
-  },
-  {
-   "id": "n_carry_wait",
-   "loop": "loop",
-   "clip": "n_carry_wait",
-   "fps": 30
-  },
-  {
    "id": "n_carry_walk",
    "loop": "loop",
    "clip": "n_carry_walk",
+   "fps": 30
+  },
+  {
+   "id": "shoot_to_fly",
+   "loop": "loop",
+   "clip": "shoot_to_fly",
    "fps": 30
   },
   {
@@ -599,27 +317,81 @@
    "fps": 30
   },
   {
-   "id": "op_wait",
+   "id": "s_die",
    "loop": "loop",
-   "clip": "op_wait",
+   "clip": "s_die",
    "fps": 30
   },
   {
-   "id": "p_koopa_h_wait",
+   "id": "shoot",
    "loop": "loop",
-   "clip": "p_koopa_h_wait",
+   "clip": "shoot",
    "fps": 30
   },
   {
-   "id": "p_koopa_hold",
+   "id": "e_down",
    "loop": "loop",
-   "clip": "p_koopa_hold",
+   "clip": "e_down",
    "fps": 30
   },
   {
-   "id": "p_koopa_throw",
+   "id": "ed_nod",
    "loop": "loop",
-   "clip": "p_koopa_throw",
+   "clip": "ed_nod",
+   "fps": 30
+  },
+  {
+   "id": "ed_wave",
+   "loop": "loop",
+   "clip": "ed_wave",
+   "fps": 30
+  },
+  {
+   "id": "gas_die",
+   "loop": "loop",
+   "clip": "gas_die",
+   "fps": 30
+  },
+  {
+   "id": "key_get",
+   "loop": "loop",
+   "clip": "key_get",
+   "fps": 30
+  },
+  {
+   "id": "shf_die",
+   "loop": "loop",
+   "clip": "shf_die",
+   "fps": 30
+  },
+  {
+   "id": "swim_in",
+   "loop": "loop",
+   "clip": "swim_in",
+   "fps": 30
+  },
+  {
+   "id": "L_op_nod",
+   "loop": "loop",
+   "clip": "L_op_nod",
+   "fps": 30
+  },
+  {
+   "id": "W_op_nod",
+   "loop": "loop",
+   "clip": "W_op_nod",
+   "fps": 30
+  },
+  {
+   "id": "fall_die",
+   "loop": "loop",
+   "clip": "fall_die",
+   "fps": 30
+  },
+  {
+   "id": "key_open",
+   "loop": "loop",
+   "clip": "key_open",
    "fps": 30
   },
   {
@@ -635,165 +407,9 @@
    "fps": 30
   },
   {
-   "id": "paddle_carry",
-   "loop": "loop",
-   "clip": "paddle_carry",
-   "fps": 30
-  },
-  {
-   "id": "paddle_end",
-   "loop": "loop",
-   "clip": "paddle_end",
-   "fps": 30
-  },
-  {
-   "id": "puton_t_cap",
-   "loop": "loop",
-   "clip": "puton_t_cap",
-   "fps": 30
-  },
-  {
-   "id": "return_down",
-   "loop": "loop",
-   "clip": "return_down",
-   "fps": 30
-  },
-  {
-   "id": "return_nocap",
-   "loop": "loop",
-   "clip": "return_nocap",
-   "fps": 30
-  },
-  {
-   "id": "return_star",
-   "loop": "loop",
-   "clip": "return_star",
-   "fps": 30
-  },
-  {
-   "id": "s_die",
-   "loop": "loop",
-   "clip": "s_die",
-   "fps": 30
-  },
-  {
    "id": "scale_up",
    "loop": "loop",
    "clip": "scale_up",
-   "fps": 30
-  },
-  {
-   "id": "sdrop_head",
-   "loop": "loop",
-   "clip": "sdrop_head",
-   "fps": 30
-  },
-  {
-   "id": "sdrop_head_end",
-   "loop": "loop",
-   "clip": "sdrop_head_end",
-   "fps": 30
-  },
-  {
-   "id": "sdrop_head_wait",
-   "loop": "loop",
-   "clip": "sdrop_head_wait",
-   "fps": 30
-  },
-  {
-   "id": "sdrop_hip",
-   "loop": "loop",
-   "clip": "sdrop_hip",
-   "fps": 30
-  },
-  {
-   "id": "sdrop_hip_end",
-   "loop": "loop",
-   "clip": "sdrop_hip_end",
-   "fps": 30
-  },
-  {
-   "id": "sdrop_hip_wait",
-   "loop": "loop",
-   "clip": "sdrop_hip_wait",
-   "fps": 30
-  },
-  {
-   "id": "sdrop_leg",
-   "loop": "loop",
-   "clip": "sdrop_leg",
-   "fps": 30
-  },
-  {
-   "id": "sdrop_leg_end",
-   "loop": "loop",
-   "clip": "sdrop_leg_end",
-   "fps": 30
-  },
-  {
-   "id": "sdrop_leg_wait",
-   "loop": "loop",
-   "clip": "sdrop_leg_wait",
-   "fps": 30
-  },
-  {
-   "id": "sdrop_wait",
-   "loop": "loop",
-   "clip": "sdrop_wait",
-   "fps": 30
-  },
-  {
-   "id": "sdrop_walk",
-   "loop": "loop",
-   "clip": "sdrop_walk",
-   "fps": 30
-  },
-  {
-   "id": "shf_die",
-   "loop": "loop",
-   "clip": "shf_die",
-   "fps": 30
-  },
-  {
-   "id": "shoot",
-   "loop": "loop",
-   "clip": "shoot",
-   "fps": 30
-  },
-  {
-   "id": "shoot_to_fly",
-   "loop": "loop",
-   "clip": "shoot_to_fly",
-   "fps": 30
-  },
-  {
-   "id": "sleep_end",
-   "loop": "loop",
-   "clip": "sleep_end",
-   "fps": 30
-  },
-  {
-   "id": "sleep_start",
-   "loop": "loop",
-   "clip": "sleep_start",
-   "fps": 30
-  },
-  {
-   "id": "sleep_to_lie",
-   "loop": "loop",
-   "clip": "sleep_to_lie",
-   "fps": 30
-  },
-  {
-   "id": "sleep_wait",
-   "loop": "loop",
-   "clip": "sleep_wait",
-   "fps": 30
-  },
-  {
-   "id": "star_open",
-   "loop": "loop",
-   "clip": "star_open",
    "fps": 30
   },
   {
@@ -815,57 +431,81 @@
    "fps": 30
   },
   {
-   "id": "su_jump",
+   "id": "swim_die",
    "loop": "loop",
-   "clip": "su_jump",
+   "clip": "swim_die",
    "fps": 30
   },
   {
-   "id": "su_jump_end",
+   "id": "W_ed_wave",
    "loop": "loop",
-   "clip": "su_jump_end",
+   "clip": "W_ed_wave",
    "fps": 30
   },
   {
-   "id": "su_run",
+   "id": "W_key_get",
    "loop": "loop",
-   "clip": "su_run",
+   "clip": "W_key_get",
    "fps": 30
   },
   {
-   "id": "su_wait",
+   "id": "door_pull",
    "loop": "loop",
-   "clip": "su_wait",
+   "clip": "door_pull",
    "fps": 30
   },
   {
-   "id": "su_walk",
+   "id": "door_push",
    "loop": "loop",
-   "clip": "su_walk",
+   "clip": "door_push",
    "fps": 30
   },
   {
-   "id": "su_walk_end",
+   "id": "drown_die",
    "loop": "loop",
-   "clip": "su_walk_end",
+   "clip": "drown_die",
    "fps": 30
   },
   {
-   "id": "su_walk_start",
+   "id": "fall_sand",
    "loop": "loop",
-   "clip": "su_walk_start",
+   "clip": "fall_sand",
    "fps": 30
   },
   {
-   "id": "swim",
+   "id": "sdrop_hip",
    "loop": "loop",
-   "clip": "swim",
+   "clip": "sdrop_hip",
    "fps": 30
   },
   {
-   "id": "swim_attack",
+   "id": "sdrop_leg",
    "loop": "loop",
-   "clip": "swim_attack",
+   "clip": "sdrop_leg",
+   "fps": 30
+  },
+  {
+   "id": "star_open",
+   "loop": "loop",
+   "clip": "star_open",
+   "fps": 30
+  },
+  {
+   "id": "W_op_point",
+   "loop": "loop",
+   "clip": "W_op_point",
+   "fps": 30
+  },
+  {
+   "id": "ed_cap_off",
+   "loop": "loop",
+   "clip": "ed_cap_off",
+   "fps": 30
+  },
+  {
+   "id": "sdrop_head",
+   "loop": "loop",
+   "clip": "sdrop_head",
    "fps": 30
   },
   {
@@ -875,21 +515,99 @@
    "fps": 30
   },
   {
-   "id": "swim_damage",
+   "id": "L_ed_amazed",
    "loop": "loop",
-   "clip": "swim_damage",
+   "clip": "L_ed_amazed",
    "fps": 30
   },
   {
-   "id": "swim_die",
+   "id": "n_carry_put",
    "loop": "loop",
-   "clip": "swim_die",
+   "clip": "n_carry_put",
    "fps": 30
   },
   {
-   "id": "swim_in",
+   "id": "puton_t_cap",
    "loop": "loop",
-   "clip": "swim_in",
+   "clip": "puton_t_cap",
+   "fps": 30
+  },
+  {
+   "id": "return_down",
+   "loop": "loop",
+   "clip": "return_down",
+   "fps": 30
+  },
+  {
+   "id": "return_star",
+   "loop": "loop",
+   "clip": "return_star",
+   "fps": 30
+  },
+  {
+   "id": "L_ed_cap_off",
+   "loop": "loop",
+   "clip": "L_ed_cap_off",
+   "fps": 30
+  },
+  {
+   "id": "W_ed_cap_off",
+   "loop": "loop",
+   "clip": "W_ed_cap_off",
+   "fps": 30
+  },
+  {
+   "id": "ed_look_left",
+   "loop": "loop",
+   "clip": "ed_look_left",
+   "fps": 30
+  },
+  {
+   "id": "first_change",
+   "loop": "loop",
+   "clip": "first_change",
+   "fps": 30
+  },
+  {
+   "id": "n_carry_lost",
+   "loop": "loop",
+   "clip": "n_carry_lost",
+   "fps": 30
+  },
+  {
+   "id": "n_carry_pose",
+   "loop": "loop",
+   "clip": "n_carry_pose",
+   "fps": 30
+  },
+  {
+   "id": "p_koopa_hold",
+   "loop": "loop",
+   "clip": "p_koopa_hold",
+   "fps": 30
+  },
+  {
+   "id": "paddle_carry",
+   "loop": "loop",
+   "clip": "paddle_carry",
+   "fps": 30
+  },
+  {
+   "id": "return_nocap",
+   "loop": "loop",
+   "clip": "return_nocap",
+   "fps": 30
+  },
+  {
+   "id": "sleep_to_lie",
+   "loop": "loop",
+   "clip": "sleep_to_lie",
+   "fps": 30
+  },
+  {
+   "id": "Y_ed_look_cam",
+   "loop": "loop",
+   "clip": "Y_ed_look_cam",
    "fps": 30
   },
   {
@@ -899,15 +617,297 @@
    "fps": 30
   },
   {
+   "id": "L_first_change",
+   "loop": "loop",
+   "clip": "L_first_change",
+   "fps": 30
+  },
+  {
+   "id": "L_sleep_to_lie",
+   "loop": "loop",
+   "clip": "L_sleep_to_lie",
+   "fps": 30
+  },
+  {
+   "id": "W_first_change",
+   "loop": "loop",
+   "clip": "W_first_change",
+   "fps": 30
+  },
+  {
+   "id": "W_sleep_to_lie",
+   "loop": "loop",
+   "clip": "W_sleep_to_lie",
+   "fps": 30
+  },
+  {
+   "id": "Y_sleep_to_lie",
+   "loop": "loop",
+   "clip": "Y_sleep_to_lie",
+   "fps": 30
+  },
+  {
+   "id": "L_ed_look_mario",
+   "loop": "loop",
+   "clip": "L_ed_look_mario",
+   "fps": 30
+  },
+  {
+   "id": "L_op_look_wario",
+   "loop": "loop",
+   "clip": "L_op_look_wario",
+   "fps": 30
+  },
+  {
+   "id": "W_op_look_luigi",
+   "loop": "loop",
+   "clip": "W_op_look_luigi",
+   "fps": 30
+  },
+  {
+   "id": "Y_op_lie_to_sit",
+   "loop": "loop",
+   "clip": "Y_op_lie_to_sit",
+   "fps": 30
+  },
+  {
+   "id": "ed_kiss_to_pose",
+   "loop": "loop",
+   "clip": "ed_kiss_to_pose",
+   "fps": 30
+  },
+  {
+   "id": "W_ed_amazed_wair",
+   "loop": "loop",
+   "clip": "W_ed_amazed_wair",
+   "fps": 30
+  },
+  {
+   "id": "lie_end",
+   "loop": "loop",
+   "clip": "lie_end",
+   "fps": 30
+  },
+  {
+   "id": "su_jump",
+   "loop": "loop",
+   "clip": "su_jump",
+   "fps": 30
+  },
+  {
+   "id": "L_lie_end",
+   "loop": "loop",
+   "clip": "L_lie_end",
+   "fps": 30
+  },
+  {
+   "id": "L_op_turn",
+   "loop": "loop",
+   "clip": "L_op_turn",
+   "fps": 30
+  },
+  {
+   "id": "W_lie_end",
+   "loop": "loop",
+   "clip": "W_lie_end",
+   "fps": 30
+  },
+  {
+   "id": "W_op_turn",
+   "loop": "loop",
+   "clip": "W_op_turn",
+   "fps": 30
+  },
+  {
+   "id": "Y_ed_turn",
+   "loop": "loop",
+   "clip": "Y_ed_turn",
+   "fps": 30
+  },
+  {
+   "id": "Y_lie_end",
+   "loop": "loop",
+   "clip": "Y_lie_end",
+   "fps": 30
+  },
+  {
+   "id": "sleep_end",
+   "loop": "loop",
+   "clip": "sleep_end",
+   "fps": 30
+  },
+  {
+   "id": "paddle_end",
+   "loop": "loop",
+   "clip": "paddle_end",
+   "fps": 30
+  },
+  {
    "id": "swim_throw",
    "loop": "loop",
    "clip": "swim_throw",
    "fps": 30
   },
   {
-   "id": "swim_wait",
+   "id": "L_sleep_end",
    "loop": "loop",
-   "clip": "swim_wait",
+   "clip": "L_sleep_end",
+   "fps": 30
+  },
+  {
+   "id": "W_sleep_end",
+   "loop": "loop",
+   "clip": "W_sleep_end",
+   "fps": 30
+  },
+  {
+   "id": "Y_sleep_end",
+   "loop": "loop",
+   "clip": "Y_sleep_end",
+   "fps": 30
+  },
+  {
+   "id": "sleep_start",
+   "loop": "loop",
+   "clip": "sleep_start",
+   "fps": 30
+  },
+  {
+   "id": "su_jump_end",
+   "loop": "loop",
+   "clip": "su_jump_end",
+   "fps": 30
+  },
+  {
+   "id": "su_walk_end",
+   "loop": "loop",
+   "clip": "su_walk_end",
+   "fps": 30
+  },
+  {
+   "id": "swim_attack",
+   "loop": "loop",
+   "clip": "swim_attack",
+   "fps": 30
+  },
+  {
+   "id": "swim_damage",
+   "loop": "loop",
+   "clip": "swim_damage",
+   "fps": 30
+  },
+  {
+   "id": "damage_start",
+   "loop": "loop",
+   "clip": "damage_start",
+   "fps": 30
+  },
+  {
+   "id": "ed_fly_start",
+   "loop": "loop",
+   "clip": "ed_fly_start",
+   "fps": 30
+  },
+  {
+   "id": "L_sleep_start",
+   "loop": "loop",
+   "clip": "L_sleep_start",
+   "fps": 30
+  },
+  {
+   "id": "W_sleep_start",
+   "loop": "loop",
+   "clip": "W_sleep_start",
+   "fps": 30
+  },
+  {
+   "id": "Y_sleep_start",
+   "loop": "loop",
+   "clip": "Y_sleep_start",
+   "fps": 30
+  },
+  {
+   "id": "cold_wait_end",
+   "loop": "loop",
+   "clip": "cold_wait_end",
+   "fps": 30
+  },
+  {
+   "id": "h_carry_start",
+   "loop": "loop",
+   "clip": "h_carry_start",
+   "fps": 30
+  },
+  {
+   "id": "h_carry_throw",
+   "loop": "loop",
+   "clip": "h_carry_throw",
+   "fps": 30
+  },
+  {
+   "id": "n_carry_start",
+   "loop": "loop",
+   "clip": "n_carry_start",
+   "fps": 30
+  },
+  {
+   "id": "p_koopa_throw",
+   "loop": "loop",
+   "clip": "p_koopa_throw",
+   "fps": 30
+  },
+  {
+   "id": "sdrop_hip_end",
+   "loop": "loop",
+   "clip": "sdrop_hip_end",
+   "fps": 30
+  },
+  {
+   "id": "sdrop_leg_end",
+   "loop": "loop",
+   "clip": "sdrop_leg_end",
+   "fps": 30
+  },
+  {
+   "id": "su_walk_start",
+   "loop": "loop",
+   "clip": "su_walk_start",
+   "fps": 30
+  },
+  {
+   "id": "sdrop_head_end",
+   "loop": "loop",
+   "clip": "sdrop_head_end",
+   "fps": 30
+  },
+  {
+   "id": "cold_wait_start",
+   "loop": "loop",
+   "clip": "cold_wait_start",
+   "fps": 30
+  },
+  {
+   "id": "L_entry_wait_end",
+   "loop": "loop",
+   "clip": "L_entry_wait_end",
+   "fps": 30
+  },
+  {
+   "id": "M_entry_wait_end",
+   "loop": "loop",
+   "clip": "M_entry_wait_end",
+   "fps": 30
+  },
+  {
+   "id": "W_entry_wait_end",
+   "loop": "loop",
+   "clip": "W_entry_wait_end",
+   "fps": 30
+  },
+  {
+   "id": "ed_look_left_end",
+   "loop": "loop",
+   "clip": "ed_look_left_end",
    "fps": 30
   }
  ],

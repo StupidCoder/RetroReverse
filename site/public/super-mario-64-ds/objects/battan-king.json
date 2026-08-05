@@ -5,15 +5,9 @@
  "name": "Battan king",
  "animations": [
   {
-   "id": "battan_king_attack01",
+   "id": "battan_king_walk",
    "loop": "loop",
-   "clip": "battan_king_attack01",
-   "fps": 30
-  },
-  {
-   "id": "battan_king_attack02",
-   "loop": "loop",
-   "clip": "battan_king_attack02",
+   "clip": "battan_king_walk",
    "fps": 30
   },
   {
@@ -29,9 +23,15 @@
    "fps": 30
   },
   {
-   "id": "battan_king_walk",
+   "id": "battan_king_attack01",
    "loop": "loop",
-   "clip": "battan_king_walk",
+   "clip": "battan_king_attack01",
+   "fps": 30
+  },
+  {
+   "id": "battan_king_attack02",
+   "loop": "loop",
+   "clip": "battan_king_attack02",
    "fps": 30
   },
   {

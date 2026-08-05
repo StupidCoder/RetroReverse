@@ -5,6 +5,12 @@
  "name": "Jango",
  "animations": [
   {
+   "id": "jango_fly",
+   "loop": "loop",
+   "clip": "jango_fly",
+   "fps": 30
+  },
+  {
    "id": "jango_attack",
    "loop": "loop",
    "clip": "jango_attack",
@@ -14,12 +20,6 @@
    "id": "jango_damage",
    "loop": "loop",
    "clip": "jango_damage",
-   "fps": 30
-  },
-  {
-   "id": "jango_fly",
-   "loop": "loop",
-   "clip": "jango_fly",
    "fps": 30
   }
  ],

@@ -5,54 +5,6 @@
  "name": "Bomb king",
  "animations": [
   {
-   "id": "bombking_damage",
-   "loop": "loop",
-   "clip": "bombking_damage",
-   "fps": 30
-  },
-  {
-   "id": "bombking_getup",
-   "loop": "loop",
-   "clip": "bombking_getup",
-   "fps": 30
-  },
-  {
-   "id": "bombking_jump",
-   "loop": "loop",
-   "clip": "bombking_jump",
-   "fps": 30
-  },
-  {
-   "id": "bombking_jumped",
-   "loop": "loop",
-   "clip": "bombking_jumped",
-   "fps": 30
-  },
-  {
-   "id": "bombking_lift",
-   "loop": "loop",
-   "clip": "bombking_lift",
-   "fps": 30
-  },
-  {
-   "id": "bombking_start",
-   "loop": "loop",
-   "clip": "bombking_start",
-   "fps": 30
-  },
-  {
-   "id": "bombking_struggle",
-   "loop": "loop",
-   "clip": "bombking_struggle",
-   "fps": 30
-  },
-  {
-   "id": "bombking_throw",
-   "loop": "loop",
-   "clip": "bombking_throw",
-   "fps": 30
-  },
-  {
    "id": "bombking_wait1",
    "loop": "loop",
    "clip": "bombking_wait1",
@@ -74,6 +26,54 @@
    "id": "bombking_walk2",
    "loop": "loop",
    "clip": "bombking_walk2",
+   "fps": 30
+  },
+  {
+   "id": "bombking_lift",
+   "loop": "loop",
+   "clip": "bombking_lift",
+   "fps": 30
+  },
+  {
+   "id": "bombking_getup",
+   "loop": "loop",
+   "clip": "bombking_getup",
+   "fps": 30
+  },
+  {
+   "id": "bombking_jumped",
+   "loop": "loop",
+   "clip": "bombking_jumped",
+   "fps": 30
+  },
+  {
+   "id": "bombking_struggle",
+   "loop": "loop",
+   "clip": "bombking_struggle",
+   "fps": 30
+  },
+  {
+   "id": "bombking_jump",
+   "loop": "loop",
+   "clip": "bombking_jump",
+   "fps": 30
+  },
+  {
+   "id": "bombking_start",
+   "loop": "loop",
+   "clip": "bombking_start",
+   "fps": 30
+  },
+  {
+   "id": "bombking_throw",
+   "loop": "loop",
+   "clip": "bombking_throw",
+   "fps": 30
+  },
+  {
+   "id": "bombking_damage",
+   "loop": "loop",
+   "clip": "bombking_damage",
    "fps": 30
   }
  ],

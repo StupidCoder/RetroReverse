@@ -5,18 +5,6 @@
  "name": "Face demo mariostar",
  "animations": [
   {
-   "id": "face_demo_mariostar",
-   "loop": "loop",
-   "clip": "face_demo_mariostar",
-   "fps": 30
-  },
-  {
-   "id": "face_demo_small_yoshistar",
-   "loop": "loop",
-   "clip": "face_demo_small_yoshistar",
-   "fps": 30
-  },
-  {
    "id": "opening_star",
    "loop": "loop",
    "clip": "opening_star",
@@ -26,6 +14,18 @@
    "id": "opening_star_short",
    "loop": "loop",
    "clip": "opening_star_short",
+   "fps": 30
+  },
+  {
+   "id": "face_demo_mariostar",
+   "loop": "loop",
+   "clip": "face_demo_mariostar",
+   "fps": 30
+  },
+  {
+   "id": "face_demo_small_yoshistar",
+   "loop": "loop",
+   "clip": "face_demo_small_yoshistar",
    "fps": 30
   }
  ],

@@ -5,6 +5,12 @@
  "name": "Propeller heyho",
  "animations": [
   {
+   "id": "propeller_heyho_wait",
+   "loop": "loop",
+   "clip": "propeller_heyho_wait",
+   "fps": 30
+  },
+  {
    "id": "propeller_heyho_attack01",
    "loop": "loop",
    "clip": "propeller_heyho_attack01",
@@ -32,12 +38,6 @@
    "id": "propeller_heyho_fire_attack",
    "loop": "loop",
    "clip": "propeller_heyho_fire_attack",
-   "fps": 30
-  },
-  {
-   "id": "propeller_heyho_wait",
-   "loop": "loop",
-   "clip": "propeller_heyho_wait",
    "fps": 30
   }
  ],

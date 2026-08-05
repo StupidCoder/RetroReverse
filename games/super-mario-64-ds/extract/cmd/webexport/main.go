@@ -384,6 +384,10 @@ func sweep(ls *sm64ds.LevelSet, o *sm64ds.Oracle) map[int][]Binding {
 var (
 	levelStems = map[string]string{}
 	refs       = map[string]string{}
+	// modelFloor[stem] is the model's lowest vertex in model units. Most SM64DS
+	// models are authored standing on y = 0, so this is 0 and nothing needs it;
+	// the chain chomp's body is a ball centred on its origin, so it is not.
+	modelFloor = map[string]float64{}
 	usedObjIDs = map[string]bool{}
 )
 
@@ -411,12 +415,127 @@ func slugify(s string) string {
 	return strings.Trim(string(out), "-")
 }
 
-// clipAnims turns .bca clip names into animation metadata (30 fps loops).
+// idleFirst reorders clips so a model's RESTING animation comes first.
+//
+// It matters because the first clip is the one a viewer autoplays: level3d
+// starts the first looping animation on every placement, and the exporter used
+// to hand it whatever sorted first alphabetically. For a goomba that is
+// kuribo_recover — the get-up-after-being-stomped animation — so a battlefield
+// of goombas all played being hit, forever. Bob-ombs got bombhei_carry, King
+// Bob-omb got kuriking_anger, Hanachan got its damage clip.
+//
+// The cartridge labels its own idles: `wait` is the commonest suffix in the
+// whole game (114 clips of 91 animated models), and Mario's is su_wait, the
+// goomba's kuribo_wait, the bob-omb's red_wait. So this reads the game's naming
+// rather than guessing at the animation data — but it IS the naming and not a
+// trace of which clip each actor's init selects, which the oracle does not
+// record. Where a model has no wait clip the second tier prefers steady motion
+// (a moray eel's idle really is moray_swim) and the third merely avoids the
+// obvious one-shots.
+func idleRank(name string) int {
+	n := strings.ToLower(name)
+	base := strings.TrimRight(n, "0123456789")
+	switch {
+	case strings.HasSuffix(base, "wait"), strings.HasSuffix(base, "stay"),
+		strings.HasSuffix(base, "idle"), strings.HasSuffix(base, "stand"):
+		return 0
+	}
+	for _, w := range []string{"swim", "fly", "walk", "run", "move", "spin", "roll"} {
+		if strings.HasSuffix(base, w) {
+			return 1
+		}
+	}
+	// Reactions and transitions: never a resting pose, and the reason this
+	// function exists.
+	for _, w := range []string{"dead", "damage", "hit", "recover", "attack", "anger",
+		"throw", "jump", "land", "start", "end", "appear", "unbalance", "stretch", "turn"} {
+		if strings.HasSuffix(base, w) {
+			return 3
+		}
+	}
+	return 2
+}
+
+// addChomp reconstructs a chain chomp: the stake where the game spawns it, the
+// body out on its chain, and the chain drawn between them.
+//
+// Placed flat, all three of those coincide and the result is wrong three ways.
+// The placement records the chomp's ANCHOR — its stake — and the chomp's init
+// spawns a pile (actor 27) there, which is traced. But the BODY is a ball whose
+// origin is its own centre, so at the anchor's ground-level y it is buried to
+// the eyeballs; and the chain is not an actor at all, it is strung by the
+// chomp's own draw function ($021437D4), so nothing places it and the level
+// shipped without one.
+//
+// What is traced: the stake at the anchor, and the chain's body-space anchor
+// vector (0, 0, -250). What is NOT: where the AI happens to have left the chomp,
+// which is a live handler this exporter cannot run. So the body is placed at
+// rest on the far side of its chain and the links strung evenly to it — a
+// reconstruction, chosen to look like the game rather than derived from it, and
+// the only part of this file that is.
+//
+// The lift is measured, not chosen: modelFloor is the model's own lowest vertex,
+// so the ball stands on the point the level data gives rather than through it.
+// It is applied to the chomps ALONE and not as a rule. Eleven of the thirty-five
+// models this level places have geometry below their origin, and most of them
+// belong there — a star hovers, a lift has a lip — so lifting everything would
+// raise things that are already right. The chomp is the outlier at 2.12 m.
+func addChomp(o sm64ds.LevelObject,
+	addObjOff func(sm64ds.LevelObject, int, [3]int, bool, [3]float64),
+	addModelAt func(string, [3]float64, string)) {
+	const chainLinks = 6 // reconstructed: enough to read as a chain across the gap
+	// The stake, where the trace puts it.
+	addObjOff(o, 27, [3]int{65535, 0, 0}, false, [3]float64{})
+
+	// Out along the placement's own heading, so the chomp at least faces the way
+	// the level data says it does.
+	yaw := o.RotY * math.Pi / 180
+	dx, dz := math.Sin(yaw), math.Cos(yaw)
+
+	// Both measured off the models rather than picked: the ball's radius (it is
+	// a sphere centred on its origin, so its lowest vertex IS its radius) and a
+	// link's own width, stepped at 80% so consecutive links overlap into a chain
+	// instead of a dotted line.
+	radius := -modelFloor["ar1_2"] * objScale
+	step := -modelFloor["ar1_1"] * 2 * objScale * 0.8
+	gap := chainLinks * step
+	span := radius + gap // stake to BALL CENTRE, so the gap is clear of the ball
+
+	addObjOff(o, o.Actor, o.Params, true, [3]float64{dx * span, radius, dz * span})
+
+	// The links fill the gap only — spanning to the centre instead put the last
+	// two inside the ball, where a chain is of no use to anybody. They rise from
+	// the stake's collar to the height the chain meets the ball.
+	const collar = 0.06
+	for i := 0; i < chainLinks; i++ {
+		d := step * (float64(i) + 0.5)
+		t := d / gap
+		addModelAt("ar1_1", [3]float64{
+			o.X*toStage + dx*d,
+			o.Y*toStage + collar + (radius-collar)*t,
+			o.Z*toStage + dz*d,
+		}, "Chain link")
+	}
+}
+
+// clipAnims turns .bca clip names into animation metadata (30 fps loops), the
+// resting one first.
 func clipAnims(clips []sm64ds.NamedBCA) []schema.Animation {
 	var out []schema.Animation
 	for _, c := range clips {
 		out = append(out, schema.Animation{ID: c.Name, Clip: c.Name, FPS: 30, Loop: "loop"})
 	}
+	// Stable, so clips of equal rank keep the alphabetical order they arrived in
+	// — except that among equals the SHORTER name wins, because the extra words
+	// are qualifiers: King Bob-omb has both kuriking_wait and
+	// kuriking_serch_wait, and the plain one is the idle.
+	sort.SliceStable(out, func(i, j int) bool {
+		ri, rj := idleRank(out[i].ID), idleRank(out[j].ID)
+		if ri != rj {
+			return ri < rj
+		}
+		return len(out[i].ID) < len(out[j].ID)
+	})
 	return out
 }
 
@@ -570,6 +689,17 @@ func exportArchiveGLBs(ctx *cli.Context, ls *sm64ds.LevelSet, bindings map[int][
 		if err := os.WriteFile(gp, glbData, 0o644); err != nil {
 			return err
 		}
+		lo := 0.0
+		for _, tris := range m.ByMat {
+			for _, t := range tris {
+				for _, v := range t.V {
+					if v.Y < lo {
+						lo = v.Y
+					}
+				}
+			}
+		}
+		modelFloor[stem] = lo
 		id := objectID(stem)
 		b.AddObject(schema.Asset{ID: id, Name: title(stem), Group: "Archive members"}, &schema.Object{
 			Type: schema.ObjectModel3D, Name: title(stem), Model: stem + ".glb",
@@ -1095,7 +1225,7 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		// Placed actors, oracle-bound.
 		seen := map[string]bool{}
 		pid := 1
-		addObj := func(o sm64ds.LevelObject, actor int, par [3]int, rot bool) {
+		addObjOff := func(o sm64ds.LevelObject, actor int, par [3]int, rot bool, off [3]float64) {
 			m := modelFor(actor, par)
 			asset, ok := refs[m]
 			if m == "" || !ok {
@@ -1104,7 +1234,7 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			pl := schema.Placement{
 				ID:     pid,
 				Object: asset,
-				Pos:    []float64{r3(o.X * toStage), r3(o.Y * toStage), r3(o.Z * toStage)},
+				Pos:    []float64{r3(o.X*toStage + off[0]), r3(o.Y*toStage + off[1]), r3(o.Z*toStage + off[2])},
 				Scale:  schema.Scale{objScale},
 				Props:  map[string]any{"actor": actor},
 			}
@@ -1126,16 +1256,38 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			doc.Placements = append(doc.Placements, pl)
 			pid++
 		}
+		addObj := func(o sm64ds.LevelObject, actor int, par [3]int, rot bool) {
+			addObjOff(o, actor, par, rot, [3]float64{})
+		}
+		// addModelAt places a bare archive model — no actor, no binding. Only the
+		// chain chomp's chain needs it: the links are drawn by the chomp's own
+		// draw function rather than spawned as actors, so nothing places them.
+		addModelAt := func(stem string, pos [3]float64, name string) {
+			asset, ok := refs[stem]
+			if !ok {
+				return
+			}
+			doc.Placements = append(doc.Placements, schema.Placement{
+				ID: pid, Object: asset, Name: name,
+				Pos:   []float64{r3(pos[0]), r3(pos[1]), r3(pos[2])},
+				Scale: schema.Scale{objScale},
+			})
+			pid++
+		}
 		for _, o := range lv.Objects {
 			key := fmt.Sprintf("%d/%.3f/%.3f/%.3f", o.Actor, o.X, o.Y, o.Z)
 			if seen[key] {
 				continue
 			}
 			seen[key] = true
-			addObj(o, o.Actor, o.Params, true)
-			// the chain chomp's spawned stake pile (traced child)
-			if o.Actor == 219 {
-				addObj(o, 27, [3]int{65535, 0, 0}, false)
+			switch o.Actor {
+			case 219: // daWanwan_c — chained to a stake
+				addChomp(o, addObjOff, addModelAt)
+			case 337: // daWanwan2_c — the free-roaming one; no stake, same ball
+				addObjOff(o, o.Actor, o.Params, true,
+					[3]float64{0, -modelFloor["ar1_2"] * objScale, 0})
+			default:
+				addObj(o, o.Actor, o.Params, true)
 			}
 		}
 

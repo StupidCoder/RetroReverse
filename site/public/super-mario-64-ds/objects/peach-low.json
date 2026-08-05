@@ -5,9 +5,51 @@
  "name": "Peach low",
  "animations": [
   {
+   "id": "peach_wait",
+   "loop": "loop",
+   "clip": "peach_wait",
+   "fps": 30
+  },
+  {
+   "id": "peach_ed_wait",
+   "loop": "loop",
+   "clip": "peach_ed_wait",
+   "fps": 30
+  },
+  {
+   "id": "peach_op_wait",
+   "loop": "loop",
+   "clip": "peach_op_wait",
+   "fps": 30
+  },
+  {
    "id": "peach_ed_enter_wait",
    "loop": "loop",
    "clip": "peach_ed_enter_wait",
+   "fps": 30
+  },
+  {
+   "id": "peach_ed_lookup_to_wait",
+   "loop": "loop",
+   "clip": "peach_ed_lookup_to_wait",
+   "fps": 30
+  },
+  {
+   "id": "peach_run",
+   "loop": "loop",
+   "clip": "peach_run",
+   "fps": 30
+  },
+  {
+   "id": "peach_walk",
+   "loop": "loop",
+   "clip": "peach_walk",
+   "fps": 30
+  },
+  {
+   "id": "peach_ed_walk",
+   "loop": "loop",
+   "clip": "peach_ed_walk",
    "fps": 30
   },
   {
@@ -17,15 +59,9 @@
    "fps": 30
   },
   {
-   "id": "peach_ed_landing",
+   "id": "peach_ed_wave",
    "loop": "loop",
-   "clip": "peach_ed_landing",
-   "fps": 30
-  },
-  {
-   "id": "peach_ed_look_about",
-   "loop": "loop",
-   "clip": "peach_ed_look_about",
+   "clip": "peach_ed_wave",
    "fps": 30
   },
   {
@@ -35,9 +71,27 @@
    "fps": 30
   },
   {
-   "id": "peach_ed_lookup_to_wait",
+   "id": "peach_jump_loop",
    "loop": "loop",
-   "clip": "peach_ed_lookup_to_wait",
+   "clip": "peach_jump_loop",
+   "fps": 30
+  },
+  {
+   "id": "peach_ed_landing",
+   "loop": "loop",
+   "clip": "peach_ed_landing",
+   "fps": 30
+  },
+  {
+   "id": "peach_ed_step_up",
+   "loop": "loop",
+   "clip": "peach_ed_step_up",
+   "fps": 30
+  },
+  {
+   "id": "peach_ed_look_about",
+   "loop": "loop",
+   "clip": "peach_ed_look_about",
    "fps": 30
   },
   {
@@ -53,9 +107,9 @@
    "fps": 30
   },
   {
-   "id": "peach_ed_step_up",
+   "id": "peach_jump",
    "loop": "loop",
-   "clip": "peach_ed_step_up",
+   "clip": "peach_jump",
    "fps": 30
   },
   {
@@ -65,63 +119,9 @@
    "fps": 30
   },
   {
-   "id": "peach_ed_wait",
-   "loop": "loop",
-   "clip": "peach_ed_wait",
-   "fps": 30
-  },
-  {
-   "id": "peach_ed_walk",
-   "loop": "loop",
-   "clip": "peach_ed_walk",
-   "fps": 30
-  },
-  {
-   "id": "peach_ed_wave",
-   "loop": "loop",
-   "clip": "peach_ed_wave",
-   "fps": 30
-  },
-  {
-   "id": "peach_jump",
-   "loop": "loop",
-   "clip": "peach_jump",
-   "fps": 30
-  },
-  {
    "id": "peach_jump_end",
    "loop": "loop",
    "clip": "peach_jump_end",
-   "fps": 30
-  },
-  {
-   "id": "peach_jump_loop",
-   "loop": "loop",
-   "clip": "peach_jump_loop",
-   "fps": 30
-  },
-  {
-   "id": "peach_op_wait",
-   "loop": "loop",
-   "clip": "peach_op_wait",
-   "fps": 30
-  },
-  {
-   "id": "peach_run",
-   "loop": "loop",
-   "clip": "peach_run",
-   "fps": 30
-  },
-  {
-   "id": "peach_wait",
-   "loop": "loop",
-   "clip": "peach_wait",
-   "fps": 30
-  },
-  {
-   "id": "peach_walk",
-   "loop": "loop",
-   "clip": "peach_walk",
    "fps": 30
   }
  ],

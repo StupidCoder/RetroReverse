@@ -5,42 +5,6 @@
  "name": "Penguin",
  "animations": [
   {
-   "id": "penguin_back",
-   "loop": "loop",
-   "clip": "penguin_back",
-   "fps": 30
-  },
-  {
-   "id": "penguin_dive",
-   "loop": "loop",
-   "clip": "penguin_dive",
-   "fps": 30
-  },
-  {
-   "id": "penguin_jump_ed",
-   "loop": "loop",
-   "clip": "penguin_jump_ed",
-   "fps": 30
-  },
-  {
-   "id": "penguin_jump_st",
-   "loop": "loop",
-   "clip": "penguin_jump_st",
-   "fps": 30
-  },
-  {
-   "id": "penguin_slider",
-   "loop": "loop",
-   "clip": "penguin_slider",
-   "fps": 30
-  },
-  {
-   "id": "penguin_stand_up",
-   "loop": "loop",
-   "clip": "penguin_stand_up",
-   "fps": 30
-  },
-  {
    "id": "penguin_wait1",
    "loop": "loop",
    "clip": "penguin_wait1",
@@ -56,6 +20,42 @@
    "id": "penguin_walk2",
    "loop": "loop",
    "clip": "penguin_walk2",
+   "fps": 30
+  },
+  {
+   "id": "penguin_back",
+   "loop": "loop",
+   "clip": "penguin_back",
+   "fps": 30
+  },
+  {
+   "id": "penguin_dive",
+   "loop": "loop",
+   "clip": "penguin_dive",
+   "fps": 30
+  },
+  {
+   "id": "penguin_slider",
+   "loop": "loop",
+   "clip": "penguin_slider",
+   "fps": 30
+  },
+  {
+   "id": "penguin_jump_ed",
+   "loop": "loop",
+   "clip": "penguin_jump_ed",
+   "fps": 30
+  },
+  {
+   "id": "penguin_jump_st",
+   "loop": "loop",
+   "clip": "penguin_jump_st",
+   "fps": 30
+  },
+  {
+   "id": "penguin_stand_up",
+   "loop": "loop",
+   "clip": "penguin_stand_up",
    "fps": 30
   }
  ],

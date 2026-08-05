@@ -5,6 +5,12 @@
  "name": "Gamaguchi",
  "animations": [
   {
+   "id": "gamaguchi_walk",
+   "loop": "loop",
+   "clip": "gamaguchi_walk",
+   "fps": 30
+  },
+  {
    "id": "gamaguchi_jump",
    "loop": "loop",
    "clip": "gamaguchi_jump",
@@ -14,12 +20,6 @@
    "id": "gamaguchi_jump_end",
    "loop": "loop",
    "clip": "gamaguchi_jump_end",
-   "fps": 30
-  },
-  {
-   "id": "gamaguchi_walk",
-   "loop": "loop",
-   "clip": "gamaguchi_walk",
    "fps": 30
   },
   {

@@ -5,15 +5,21 @@
  "name": "Mip",
  "animations": [
   {
-   "id": "mip_hold",
+   "id": "mip_wait",
    "loop": "loop",
-   "clip": "mip_hold",
+   "clip": "mip_wait",
    "fps": 30
   },
   {
    "id": "mip_run",
    "loop": "loop",
    "clip": "mip_run",
+   "fps": 30
+  },
+  {
+   "id": "mip_hold",
+   "loop": "loop",
+   "clip": "mip_hold",
    "fps": 30
   },
   {
@@ -26,12 +32,6 @@
    "id": "mip_run_st",
    "loop": "loop",
    "clip": "mip_run_st",
-   "fps": 30
-  },
-  {
-   "id": "mip_wait",
-   "loop": "loop",
-   "clip": "mip_wait",
    "fps": 30
   }
  ],

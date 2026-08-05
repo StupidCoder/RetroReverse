@@ -5,18 +5,6 @@
  "name": "Iwante rhand",
  "animations": [
   {
-   "id": "iwante_damage_l",
-   "loop": "loop",
-   "clip": "iwante_damage_l",
-   "fps": 30
-  },
-  {
-   "id": "iwante_damage_r",
-   "loop": "loop",
-   "clip": "iwante_damage_r",
-   "fps": 30
-  },
-  {
    "id": "iwante_dead_l",
    "loop": "loop",
    "clip": "iwante_dead_l",
@@ -26,18 +14,6 @@
    "id": "iwante_dead_r",
    "loop": "loop",
    "clip": "iwante_dead_r",
-   "fps": 30
-  },
-  {
-   "id": "iwante_wait_end_l",
-   "loop": "loop",
-   "clip": "iwante_wait_end_l",
-   "fps": 30
-  },
-  {
-   "id": "iwante_wait_end_r",
-   "loop": "loop",
-   "clip": "iwante_wait_end_r",
    "fps": 30
   },
   {
@@ -53,6 +29,18 @@
    "fps": 30
   },
   {
+   "id": "iwante_damage_l",
+   "loop": "loop",
+   "clip": "iwante_damage_l",
+   "fps": 30
+  },
+  {
+   "id": "iwante_damage_r",
+   "loop": "loop",
+   "clip": "iwante_damage_r",
+   "fps": 30
+  },
+  {
    "id": "iwante_wake_up_l",
    "loop": "loop",
    "clip": "iwante_wake_up_l",
@@ -62,6 +50,18 @@
    "id": "iwante_wake_up_r",
    "loop": "loop",
    "clip": "iwante_wake_up_r",
+   "fps": 30
+  },
+  {
+   "id": "iwante_wait_end_l",
+   "loop": "loop",
+   "clip": "iwante_wait_end_l",
+   "fps": 30
+  },
+  {
+   "id": "iwante_wait_end_r",
+   "loop": "loop",
+   "clip": "iwante_wait_end_r",
    "fps": 30
   }
  ],

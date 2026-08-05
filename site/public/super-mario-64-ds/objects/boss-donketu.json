@@ -5,9 +5,15 @@
  "name": "Boss donketu",
  "animations": [
   {
-   "id": "donketu_dead",
+   "id": "donketu_walk",
    "loop": "loop",
-   "clip": "donketu_dead",
+   "clip": "donketu_walk",
+   "fps": 30
+  },
+  {
+   "id": "ice_donketu_walk",
+   "loop": "loop",
+   "clip": "ice_donketu_walk",
    "fps": 30
   },
   {
@@ -17,21 +23,15 @@
    "fps": 30
   },
   {
+   "id": "donketu_dead",
+   "loop": "loop",
+   "clip": "donketu_dead",
+   "fps": 30
+  },
+  {
    "id": "donketu_turn",
    "loop": "loop",
    "clip": "donketu_turn",
-   "fps": 30
-  },
-  {
-   "id": "donketu_walk",
-   "loop": "loop",
-   "clip": "donketu_walk",
-   "fps": 30
-  },
-  {
-   "id": "ice_donketu_dead",
-   "loop": "loop",
-   "clip": "ice_donketu_dead",
    "fps": 30
   },
   {
@@ -41,15 +41,15 @@
    "fps": 30
   },
   {
-   "id": "ice_donketu_turn",
+   "id": "ice_donketu_dead",
    "loop": "loop",
-   "clip": "ice_donketu_turn",
+   "clip": "ice_donketu_dead",
    "fps": 30
   },
   {
-   "id": "ice_donketu_walk",
+   "id": "ice_donketu_turn",
    "loop": "loop",
-   "clip": "ice_donketu_walk",
+   "clip": "ice_donketu_turn",
    "fps": 30
   }
  ],

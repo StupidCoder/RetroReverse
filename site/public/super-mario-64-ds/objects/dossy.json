@@ -5,9 +5,9 @@
  "name": "Dossy",
  "animations": [
   {
-   "id": "dossy_head_down",
+   "id": "dossy_swim",
    "loop": "loop",
-   "clip": "dossy_head_down",
+   "clip": "dossy_swim",
    "fps": 30
   },
   {
@@ -17,9 +17,9 @@
    "fps": 30
   },
   {
-   "id": "dossy_swim",
+   "id": "dossy_head_down",
    "loop": "loop",
-   "clip": "dossy_swim",
+   "clip": "dossy_head_down",
    "fps": 30
   }
  ],

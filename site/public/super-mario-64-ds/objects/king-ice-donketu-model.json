@@ -5,21 +5,15 @@
  "name": "King ice donketu model",
  "animations": [
   {
-   "id": "king_ice_donketu_damage",
+   "id": "king_ice_donketu_wait",
    "loop": "loop",
-   "clip": "king_ice_donketu_damage",
+   "clip": "king_ice_donketu_wait",
    "fps": 30
   },
   {
-   "id": "king_ice_donketu_dead",
+   "id": "king_ice_donketu_walk",
    "loop": "loop",
-   "clip": "king_ice_donketu_dead",
-   "fps": 30
-  },
-  {
-   "id": "king_ice_donketu_hit",
-   "loop": "loop",
-   "clip": "king_ice_donketu_hit",
+   "clip": "king_ice_donketu_walk",
    "fps": 30
   },
   {
@@ -35,15 +29,21 @@
    "fps": 30
   },
   {
-   "id": "king_ice_donketu_wait",
+   "id": "king_ice_donketu_hit",
    "loop": "loop",
-   "clip": "king_ice_donketu_wait",
+   "clip": "king_ice_donketu_hit",
    "fps": 30
   },
   {
-   "id": "king_ice_donketu_walk",
+   "id": "king_ice_donketu_dead",
    "loop": "loop",
-   "clip": "king_ice_donketu_walk",
+   "clip": "king_ice_donketu_dead",
+   "fps": 30
+  },
+  {
+   "id": "king_ice_donketu_damage",
+   "loop": "loop",
+   "clip": "king_ice_donketu_damage",
    "fps": 30
   }
  ],

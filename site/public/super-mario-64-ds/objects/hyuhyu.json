@@ -5,15 +5,15 @@
  "name": "Hyuhyu",
  "animations": [
   {
-   "id": "hyuhyu_attack",
-   "loop": "loop",
-   "clip": "hyuhyu_attack",
-   "fps": 30
-  },
-  {
    "id": "hyuhyu_wait",
    "loop": "loop",
    "clip": "hyuhyu_wait",
+   "fps": 30
+  },
+  {
+   "id": "hyuhyu_attack",
+   "loop": "loop",
+   "clip": "hyuhyu_attack",
    "fps": 30
   }
  ],

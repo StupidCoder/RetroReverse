@@ -5,27 +5,27 @@
  "name": "Moray",
  "animations": [
   {
-   "id": "moray_search",
-   "loop": "loop",
-   "clip": "moray_search",
-   "fps": 30
-  },
-  {
    "id": "moray_swim",
    "loop": "loop",
    "clip": "moray_swim",
    "fps": 30
   },
   {
-   "id": "moray_swim_start",
+   "id": "moray_search",
    "loop": "loop",
-   "clip": "moray_swim_start",
+   "clip": "moray_search",
    "fps": 30
   },
   {
    "id": "moray_turn",
    "loop": "loop",
    "clip": "moray_turn",
+   "fps": 30
+  },
+  {
+   "id": "moray_swim_start",
+   "loop": "loop",
+   "clip": "moray_swim_start",
    "fps": 30
   }
  ],
