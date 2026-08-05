@@ -1641,17 +1641,58 @@ func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, s
 	}
 
 	finish := func(na *nodeAcc) glb.VariantNode {
+		// Group order is output order: sort the map keys so an export is
+		// byte-stable run to run (map iteration used to decide it, and every
+		// re-export rewrote every GLB in the site).
+		tkeys := make([]texKey, 0, len(na.texTris))
+		for k := range na.texTris {
+			tkeys = append(tkeys, k)
+		}
+		sort.Slice(tkeys, func(i, j int) bool {
+			a, b := tkeys[i], tkeys[j]
+			if a.tex != b.tex {
+				return a.tex < b.tex
+			}
+			if a.wrapS != b.wrapS {
+				return a.wrapS < b.wrapS
+			}
+			if a.wrapT != b.wrapT {
+				return a.wrapT < b.wrapT
+			}
+			if a.additive != b.additive {
+				return !a.additive
+			}
+			return !a.sheen && b.sheen
+		})
 		var texGroups []glb.TexturedGroup
-		for k, tris := range na.texTris {
+		for _, k := range tkeys {
 			texGroups = append(texGroups, glb.TexturedGroup{
-				Tris: tris, Image: texs[k.tex].img, WrapS: k.wrapS, WrapT: k.wrapT,
+				Tris: na.texTris[k], Image: texs[k.tex].img, WrapS: k.wrapS, WrapT: k.wrapT,
 				Additive: k.additive, Sheen: k.sheen,
 			})
 		}
+		ckeys := make([]colKey, 0, len(na.colorTris))
+		for k := range na.colorTris {
+			ckeys = append(ckeys, k)
+		}
+		sort.Slice(ckeys, func(i, j int) bool {
+			a, b := ckeys[i], ckeys[j]
+			if a.rgba != b.rgba {
+				for c := 0; c < 4; c++ {
+					if a.rgba[c] != b.rgba[c] {
+						return a.rgba[c] < b.rgba[c]
+					}
+				}
+			}
+			if a.additive != b.additive {
+				return !a.additive
+			}
+			return !a.sheen && b.sheen
+		})
 		var colorGroups []glb.TriGroup
-		for k, tris := range na.colorTris {
+		for _, k := range ckeys {
 			colorGroups = append(colorGroups, glb.TriGroup{
-				Tris:     tris,
+				Tris:     na.colorTris[k],
 				Color:    [3]float32{float32(k.rgba[0]) / 255, float32(k.rgba[1]) / 255, float32(k.rgba[2]) / 255},
 				Alpha:    float32(k.rgba[3]) / 255,
 				Additive: k.additive,
@@ -1948,6 +1989,12 @@ func exportSite(imagePath, siteDir string) {
 	// shared ground-shadow model the table references is not part of this
 	// file and is left out.
 	exportTraffic(disc, b)
+
+	// The first /Stage resident (Part XXVI): the beach course geometry,
+	// world-space as the file carries it. Baked vertex colours and the
+	// second UV set decode but are not exported yet; the rest of the stage
+	// family (objects, env, collision, spline) is still closed.
+	doOne("/Stage/BEAC/cs_CS_BEAC_pmt.sz", "stage-beac.glb", "Beach (course)", "Courses")
 
 	if err := b.Write(); err != nil {
 		fatal("%v", err)
