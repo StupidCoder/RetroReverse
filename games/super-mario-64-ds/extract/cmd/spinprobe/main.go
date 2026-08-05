@@ -38,6 +38,11 @@ import (
 	"retroreverse.com/tools/platform/nds"
 )
 
+// arm9Base: the ARM9 static loads at $02004000 (header), NOT at the start of
+// main RAM — the low 16 KB stay free. Every file offset in extracted/arm9_dec.bin
+// is that much below its address.
+const arm9Base = 0x02004000
+
 var le = binary.LittleEndian
 
 type src struct {
@@ -95,7 +100,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	a9 := src{"arm9", 0x02000000, a9b}
+	a9 := src{"arm9", arm9Base, a9b}
 	srcs := []src{a9}
 	for _, o := range rom.ARM9Overlays() {
 		d, err := os.ReadFile(filepath.Join(*ext, fmt.Sprintf("ovl9_%03d_dec.bin", o.ID)))

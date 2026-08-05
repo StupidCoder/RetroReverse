@@ -447,6 +447,65 @@ The chain chomp is the object that proves it. It is one placement in six of seve
 
 Two verifications, both against the emitted files rather than the exporter's structs. `cmd/varcheck` re-decodes the cartridge and asserts every shipped placement's variant list equals the star-layer set its level's object table lists that (actor, position) under — 4,045 matched, 0 mismatches, with the chomp's spawned stake and links counted as synthesised. It was mutation-tested in both directions: reintroducing the keep-the-first-record bug in a copy of the shipped JSON, and deleting one coin's spin, both fail it. And in the Studio: picking *Big Bob-omb on the Summit* leaves one King on the summit and no flagpole, *Footrace with Koopa the Quick* leaves the flagpole and no King, *Big Bob-omb's Revenge* brings back the King and adds the breakable blocks — and world mode inherits all of it, so you can walk Bob-omb Battlefield one mission at a time.
 
+## 8. The other gate: the save's star bits
+
+The mission picker of §7 is not the whole story, and Whomp's Fortress is where
+that shows. Its summit should hold **either** the Whomp King **or** the tower you
+climb — the tower is built once you beat him — and the Studio showed both. Both
+are **layer 0** in the object table, so the mission layer does not separate them:
+there is a second mechanism, and it is not in the level data at all.
+
+It is in the save. Three ARM9 functions:
+
+```
+$020137E0(course, star)  =  saveStars[$0209CAB4 + course] & (1 << star)
+$020136F8(level, star)   =  $020137E0(Course(level), star)         ; via $02013558
+$0202A6C8(star)          =  $020136F8(currentLevel @ $0209F2F8, star)
+```
+
+— one byte of star bits per course, and a wrapper that asks it about the level
+you are standing in. The Whomp King's init (`$02126164`, actor 165, overlay 79)
+ends with:
+
+```
+LDRB  r0, [r4, #0x414]      ; set earlier: this is the KING (165), not a Whomp (164)
+LDRSB r0, [$0209F2F8]  / CMP r0, #7      ; …in level 7, Whomp's Fortress
+LDRB  r0, [$0209F220]  / CMP r0, #1      ; the CURRENT STAR — the same global the
+                                         ;   layer walker $020FE33C compares against
+BEQ   keep                               ; playing star 1 → the King stays
+MOV   r0, #1 / BL $0202A6C8 / CMP r0, #0
+BEQ   keep                               ; star 1 not collected → the King stays
+BL    $02043824                          ; otherwise DESTROY, and return 0 from init
+```
+
+and the tower's class (`$02148C94`, actor 49, overlay 102) carries the exact
+complement, guarded by `CMP r0, #0x31` — the same level test, the same current-star
+test, the same `$0202A6C8(1)` — and refuses to create when the object sits at
+`y >= $00DAC000` (3500.0, the summit). One is destroyed exactly when the other is
+kept.
+
+So the condition is `playing star 1 OR star 1 not collected` → King, else tower.
+It reads the **current star**, so it *is* on the mission axis and could be folded
+into the variant picker — but it also reads the **save**, which the exporter does
+not model, and the two are not the same thing: once the tower is built it stays
+for a replay of star 1.
+
+`cmd/gateprobe -sweep` measures how far this reaches. It resolves every placed
+actor through the engine's own profile array at `$02090864` (inside the overlay
+the actor oracle recorded for it), walks its vtable methods and one call deep, and
+looks for any of the three functions above: **50 of 301 placed actors query the
+save's star bits, and 40 of the 49 stages place at least one of them** (287 of the
+301 resolve to a vtable, so the negative has a denominator). Doors, switch stars,
+`hatena` boxes, the castle's star-count gates and both Bob-omb kings are all in
+that set.
+
+This is an **open frontier**, deliberately not guessed at: fifty bespoke conditions
+is not something to pattern-match. The right instrument is the one this project
+already owns — the **actor oracle** runs each actor's real create/init, so seeding
+`$0209F2F8` (level), `$0209F220` (star) and `$0209CAB4` (the star bits) and
+recording which inits destroy themselves would answer all fifty by *running* them,
+for whatever save state the Studio chooses to depict.
+
 The `(actor, position)` key is load-bearing on the checking side too: a first version of `varcheck` keyed on position alone and reported fifteen failures, because the race flagpole (star 2) and the second King Bob-omb (star 4) **stand on the same point**. The exporter was right and the instrument was wrong.
 
 # Part VI — Collision: the `.kcl` mesh, the octree walk and the `CLPS` surface table
@@ -653,6 +712,13 @@ go run ./extract/cmd/spinprobe -in "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).
 # Part V §7 — verify the SHIPPED level documents' mission membership against a
 # fresh decode of the cartridge (-v prints the per-mission placement census)
 go run ./extract/cmd/varcheck -in "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds" -v
+
+# Part V §8 — which placed actors gate themselves on the save's star bits
+go run ./extract/cmd/gateprobe -in "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds" -sweep
+# and the inspection modes behind that answer
+go run ./extract/cmd/gateprobe -in "..." -actor 165        # profile / vtable / init
+go run ./extract/cmd/gateprobe -in "..." -pars 8           # a level's placements + params
+go run ./extract/cmd/gateprobe -in "..." -tables 8         # every object-table entry, all types
 
 # Part III §6 — the dual-core oracle: both CPUs on shared RAM + IPC, clearing the
 # rendezvous the single core stops at (into the post-sync PXI FIFO exchange)
