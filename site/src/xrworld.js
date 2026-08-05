@@ -33,6 +33,7 @@ import { makeWorldPlacer } from './xrplacer.js';
 import { buildFloor } from './xrfloor.js';
 import { Torch } from './xrtorch.js';
 import { Teleporter } from './xrteleport.js';
+import { WorldAudio } from './xraudio.js';
 
 const BUILD_DELAY_FRAMES = 3;
 
@@ -96,9 +97,28 @@ export class WorldMode {
       .catch((e) => { console.error('xr object colliders', e); })
       .finally(() => { this._objColReady = true; });
 
+    this.audio = new WorldAudio({
+      session: this.ar.session,
+      onStatus: (m) => { if (m) this._audioNote = m; this.onStatus?.(); },
+    });
+    this._startMusic(opts.asset).catch((e) => console.error('xr music', e));
+
     this._frames = 0;
     this._step = () => this._tick();
     this.stage.updaters.add(this._step);
+  }
+
+  // _startMusic loops the level's background track. The preset names it; failing
+  // that, the level document's own `music` field, which a few games do carry.
+  async _startMusic(asset) {
+    const want = this.cfg.music?.asset || (asset && (await this.game.assetDoc(asset))?.music);
+    if (!want) return;
+    const a = this.game.asset(want);
+    if (!a) { this.onStatus?.(`music: no asset "${want}" in this game`); return; }
+    await this.audio.playMusic(this.game.url('', a.file), {
+      gain: this.cfg.music?.gain ?? 0.7,
+      name: a.name || a.id,
+    });
   }
 
   // _loadObjColliders reads every distinct placement collider once and keeps it
@@ -365,11 +385,12 @@ export class WorldMode {
   }
 
   get note() {
-    return [this.torch.note, this._skyNote, this._note].filter(Boolean).join(' · ');
+    return [this.torch.note, this._skyNote, this._note, this.audio?.note].filter(Boolean).join(' · ');
   }
 
   dispose() {
     this.stage.updaters.delete(this._step);
+    this.audio?.dispose();
     for (const o of this._skyHooked || []) o.onBeforeRender = () => {};
     this._skyHooked = null;
     this.teleporter.dispose();

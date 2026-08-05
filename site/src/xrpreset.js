@@ -46,6 +46,11 @@ export const DEFAULTS = {
     steps: 24,
     flightTime: 2.0,   // s of arc integrated
   },
+  // The level's background music, as a Retro-X music asset id. `null` means
+  // "whatever the level document itself declares", which is nothing for most of
+  // them — the level -> BGM binding is rarely in the exported data, and naming
+  // it is exactly the sort of thing a hand-authored preset is for.
+  music: null,
   props: [],
   sounds: [],
 };
@@ -117,6 +122,7 @@ export function normalise(raw, params, where = 'preset') {
       absolute: !!(raw.spawn?.absolute),
     },
     sky: sky(raw.sky),
+    music: music(raw.music),
     background: raw.background ?? DEFAULTS.background,
     torch: { ...DEFAULTS.torch, ...(raw.torch || {}) },
     floor: { ...DEFAULTS.floor, ...(raw.floor || {}) },
@@ -150,6 +156,9 @@ export function normalise(raw, params, where = 'preset') {
   // steady lamp into a torch also turns on the thing that can carry it.
   if (cfg.torch.radial == null) cfg.torch.radial = cfg.torch.flicker > 0;
   if (p('vrradial') != null) cfg.torch.radial = p('vrradial') !== '0';
+  if (p('vrmusic') != null) {
+    cfg.music = p('vrmusic') === '0' ? null : { ...(cfg.music || { gain: 0.7 }), asset: p('vrmusic') };
+  }
   if (p('vrsky') != null) cfg.sky.show = p('vrsky') !== '0';
   if (p('vrskyscale') != null) cfg.sky.scale = num(p('vrskyscale'), cfg.sky.scale);
   if (p('vrtorch') === '0') { cfg.torch.flicker = 0; cfg.torch.radial = false; }
@@ -174,6 +183,14 @@ function sky(v) {
     scale: v.scale === 'auto' || v.scale == null ? 'auto' : Number(v.scale),
     fog: v.fog === true,
   };
+}
+
+// music accepts a bare asset id as well as the object form.
+function music(v) {
+  if (!v) return null;
+  if (typeof v === 'string') return { asset: v, gain: 0.7 };
+  if (!v.asset) throw new Error('music: needs an "asset" (a music asset id in this game)');
+  return { asset: v.asset, gain: Number.isFinite(v.gain) ? v.gain : 0.7 };
 }
 
 function vec3(v, fallback, where) {

@@ -91,6 +91,14 @@
     "in the level document carries; su_wait is his idle clip, which the object",
     "document lists and the model's shared data/player skeleton animates."
   ],
+  "_music": [
+    "chijou — the overworld theme, which is what plays in this course. The level",
+    "document does not name it (the level -> BGM binding is not in the exported",
+    "data), so the preset does. It loops sample-exactly for as long as you stand",
+    "in the level; ?vrmusic=0 silences it and ?vrmusic=<id> swaps the track."
+  ],
+  "music": { "asset": "bgm-chijou", "gain": 0.6 },
+
   "props": [
     { "object": "mario-model-mg", "pos": [-6.088, 0, 6.216], "rotY": 135, "scale": 0.008, "anim": "su_wait" }
   ],
