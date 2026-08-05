@@ -3250,18 +3250,54 @@ on stage 3** at alpha 0.6. The data agrees too (`cmd/tanprobe`): dot(normal, f32
 clustered at small values — an unnormalised UV-derivative-style tangent. fmtWord 0 /
 stride 44 is not "the course special": it is the reflective-water layout.
 
+### The rest of the family, surveyed
+
+`cmd/stagebin` (`-survey` for the whole disc, `-dir`/`-file` to dump) walks every
+non-container `/Stage` file. The shapes, each invariant across the whole disc:
+
+- **`obj_course_obj_*` and `cs_ENV_*_pmt` need no new reader** — they are Part XIX
+  containers and export today: `obj_..._sky_beac` is the sky dome (cloud-textured
+  gradient capsule), `obj_..._bk_beac` the "BayArea" route-fork gantry sign,
+  `obj_..._cs_beac` a handful of small course props, and `cs_ENV_BEAC` the distant
+  scenery ring — mountain range, far road ribbon, city skyline (all render-verified).
+  Their world placements presumably live in the `cs_*_bin` tables, still closed.
+- **`coli_CS_*_bin`** self-describes: `{size, "COLI0200", counts, section offsets}` —
+  66 files, plus 6 old-format `COLI0105` leftovers; it even carries the string
+  "NEW COLL FMT". Sections unopened.
+- **`cs_CS/ENV_*_bin`** (138 files): `{size, 0, 0, hdrSize}` then `hdrSize/4 − 3`
+  section offsets and a table of growing offsets to many small variable-size records.
+  Unopened — the suspected placement/culling side of the course.
+- **`oso_*`** (152 files): a size word, then 40-byte records `{pos f32x3, f32x3
+  (rot?), 2, 2, 1, type}`, a `−99999.9`×6 terminator and a count trailer. The beach's
+  ten sit ~17 m apart at sea level in the bay — moored boats or buoys, unconfirmed.
+- **`scn_env_fog/sun_*_bin`** (136 files): `{size, 0xc, offA, offB}` — three sections
+  of float params and packed RGBA colours. Field meanings await the reader's code.
+- **`maya_spl_*`**: 44-byte records `{f32x4 (0.3,0.3,0.3,1), pos f32x3, 8.0, 0, 0,
+  0.02}` under a size word; a lone terminator record everywhere except CLOU/CLOU_R,
+  whose ~170 records march down the course in left/right ±8 pairs — gate positions
+  for that stage's special, not the hoped-for track centreline.
+- **Dev leftovers**: `cs_CS_BEAC_pmt_old.sz` (a whole older beach course),
+  `cs_CS_BEAC_xmt.sz` (3.9 MB, unopened), and three `*.sz.log` plain-text export
+  logs from `Z:\OR2PLUSImages\XBOXImage\...` whose section names — "Objects",
+  "Textures", "Vertex Buffers" — are the developers' own words for the container's
+  A-tables / texture bank / B-section split.
+
 ### Where it stands / next
 
 The RGBA-vs-BGRA colour order and the modulate scale still want a pin against the
-game's own frame; `cs_ENV`, the `obj_course` objects, collision, the spline and the
-fog/sun params are unopened; the part kinds (0x2, 0x41, 0x842…) are unnamed. The
-verification standard for the course is the same as the cars': against the game's own
-render of the same scene.
+game's own frame; the `coli` sections, the `cs_*_bin` placement tables and the
+fog/sun field meanings are unopened; the part kinds (0x2, 0x41, 0x842…) are unnamed.
+The verification standard for the course is the same as the cars': against the game's
+own render of the same scene.
 
 ### Tooling
 
 - `games/outrun-2006-xbox/extract/cmd/stagesurvey` — the permissive census: per-file
   strides/format-words/part-kinds over every `/Stage/**_pmt.sz`, and `-pairs FILE` dumps
   a file's raw pair tables, 0x34 entries and batch descriptors.
-- `bootoracle -vtxdecl` — the declaration census (above); `-find HEX` searches guest RAM
+- `games/outrun-2006-xbox/extract/cmd/stagebin` — the non-container side: `-survey`
+  aggregates every `/Stage` `_bin`/`oso`/`spl`/`scn_env` file's structural invariants
+  disc-wide; `-dir`/`-file` hexdump one folder or file.
+- `bootoracle -vtxdecl` — the declaration census (above); `-vshdump N` — the transform
+  program bound at draws declaring attribute N; `-find HEX` searches guest RAM
   for a byte string, the other half of the draw-to-file attribution.
