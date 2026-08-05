@@ -228,6 +228,29 @@ export class ARSession {
         + ` · eye ${fmt(this._eye ?? 0)} m`
         + (this._spawnNote ? ` · ${this._spawnNote}` : '');
     }
+    this._reachFar(k);
+  }
+
+  // The far plane is in METRES, and how many metres of content there are is
+  // whatever the viewer last scaled it to. 100 m was ample for a diorama on the
+  // floor; scaled up to stand inside, a course is tens of metres across and the
+  // far half of it would simply stop being drawn.
+  //
+  // Driven by the content's own fitted diagonal rather than pinned high,
+  // because near/far is also the depth buffer's precision budget: a level on a
+  // table keeps the tight range it deserves.
+  _reachFar(k) {
+    const cam = this.stage.camera;
+    if (!this._size || !cam) return;
+    const reach = this._size.length() * k;
+    const far = Math.min(1000, Math.max(100, reach * 1.5));
+    if (Math.abs(cam.far - far) < 1) return;
+    cam.far = far;
+    cam.updateProjectionMatrix();
+    // No need to push it: three calls xr.updateCamera() from render() on every
+    // presenting frame, and forwards depthNear/depthFar to the session only
+    // when they actually changed. The exit path restores the desktop camera
+    // from its own snapshot, so this does not leak out of the session.
   }
 
   // setUserAnchor remembers where the viewer dragged the content to, so the

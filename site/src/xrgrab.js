@@ -26,11 +26,16 @@ const UP = new THREE.Vector3(0, 1, 0);
 // a twist this small is noise rather than intent. Subtracted rather than
 // thresholded, or rotation would jump by the dead zone the moment it engaged.
 const YAW_DEADZONE = 0.07; // ~4°
-// How far from the fitted size the viewer may go. Wide enough to put a level on
-// a table or stand inside a room of it, tight enough that a fumbled two-hand
-// pinch cannot flick a mansion out of existence.
+// How far from the fitted size the viewer may go. The fit puts a level's
+// footprint at about a metre, so 32x is roughly life size — enough to stand in
+// an Ultima Underworld corridor or on a Crazy Taxi street rather than look down
+// at them. The lower bound only has to reach "on a table".
+//
+// A single two-handed pull cannot span this, and does not need to: each grab
+// re-bases, so spreading, letting go and spreading again multiplies. Two or
+// three ratchets is the whole range.
 const SCALE_MIN = 1 / 8;
-const SCALE_MAX = 8;
+const SCALE_MAX = 32;
 
 export class Grabber {
   // { ar, pickables: () => Object3D[], onChange(active) }
