@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/hex"
-	"math"
 	"flag"
 	"fmt"
 	"os"
@@ -227,6 +226,8 @@ func main() {
 	rwatch := flag.String("rwatch", "", "read watch on ADDR[:LEN] (hex): log each read with its PC")
 	bpstack := flag.String("bpstack", "", "ADDR[:N] (hex addr, dec count): print registers + a stack window each time PC reaches ADDR (default 8 hits), without stopping")
 	watchn := flag.Int("watchn", 40, "limit -watch/-rwatch to this many reported accesses")
+	watchregs := flag.Bool("watchregs", false, "with -watch: print the full register file and a stack window at each reported write (the climb from a write to its caller)")
+	watchstop := flag.Bool("watchstop", false, "with -watch: request a stop once -watchn writes have been reported (bounds a discovery run at the event)")
 	poke := flag.String("poke", "", "write ADDR:VALUE (hex) after loading, before running — a probe, not a model")
 	keys := flag.String("keys", "", "pad-1 input script: NAME@FRAME[:HOLD][,...] — holds pad control NAME from that frame (the title's flip) for HOLD frames (default: forever). Names: see xbox.PadControlNames. e.g. -keys start@120,a@300:10,stickleft@400:8")
 	stopflip := flag.Int("stopflip", 0, "stop the run at the Nth FLIP_STALL — the hook fires while the completed frame is still the bound colour surface, so -surfpng captures a whole presented frame instead of a mid-frame slice")
@@ -337,7 +338,19 @@ func main() {
 		m.SetWriteWatch(lo, hi, func(addr, val, pc uint32) {
 			if seen < *watchn {
 				fmt.Printf("  write %08X = %08X (pc %08X)\n", addr, val, pc)
+				if *watchregs {
+					r := m.CPU.Regs
+					fmt.Printf("    EAX=%08X ECX=%08X EDX=%08X EBX=%08X ESP=%08X EBP=%08X ESI=%08X EDI=%08X\n",
+						r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7])
+					for i := uint32(0); i < 12; i++ {
+						a := r[4] + i*4
+						fmt.Printf("    [ESP+%02X] %08X = %08X\n", i*4, a, m.MemRead32(a))
+					}
+				}
 				seen++
+				if seen == *watchn && *watchstop {
+					m.StopRequested = true
+				}
 			}
 		})
 	}
@@ -422,6 +435,7 @@ func main() {
 		var attrOff, attrFmt, factors [16]uint32
 		var texOff [4]uint32
 		var blendEn, sfac, dfac uint32
+		var atEn, atFunc, atRef uint32
 		var vshConst [192][4]uint32
 		constLoad := uint32(0)
 		seen := map[string]bool{}
@@ -439,6 +453,12 @@ func main() {
 				factors[(method-0x0A60)/4] = arg
 			case method == 0x1B00 || method == 0x1B40 || method == 0x1B80 || method == 0x1BC0:
 				texOff[(method-0x1B00)/0x40] = arg
+			case method == 0x0300:
+				atEn = arg
+			case method == 0x033C:
+				atFunc = arg
+			case method == 0x0340:
+				atRef = arg
 			case method == 0x0304:
 				blendEn = arg
 			case method == 0x0344:
@@ -463,14 +483,14 @@ func main() {
 				}
 				seen[fmt.Sprintf("%d", len(seen))] = true
 				row := func(c int) string {
-					v := vshConst[c]
-					return fmt.Sprintf("%g %g %g %g",
-						math.Float32frombits(v[0]), math.Float32frombits(v[1]),
-						math.Float32frombits(v[2]), math.Float32frombits(v[3]))
+					// The machine's own constant file, not the shadow: partial
+					// uploads and address-style load pointers make the shadow lie.
+					v := mm.VshConst(c)
+					return fmt.Sprintf("%g %g %g %g", v[0], v[1], v[2], v[3])
 				}
-				fmt.Printf("carvtx: DRAW attr0=%08X fmt0=%08X tex=%08X,%08X,%08X,%08X blend=%d:%03X:%03X | %s | %s | %s | %s\n",
+				fmt.Printf("carvtx: DRAW attr0=%08X fmt0=%08X tex=%08X,%08X,%08X,%08X blend=%d:%03X:%03X at=%d:%03X:%02X | %s | %s | %s | %s\n",
 					attrOff[0], attrFmt[0], texOff[0], texOff[1], texOff[2], texOff[3],
-					blendEn, sfac, dfac,
+					blendEn, sfac, dfac, atEn, atFunc, atRef,
 					row(160), row(161), row(162), row(163))
 			}
 		}

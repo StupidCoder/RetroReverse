@@ -150,6 +150,14 @@ roadmap.)
   frame almost exactly, except for the road: pixel provenance shows the game builds
   its road at load, in segment-local strips the disc never stores as a mesh.
   *(this document)*
+* **Part XXVIII** — **the road was in the file all along**: the write-watch on the
+  "runtime road buffer" catches zlib's own window copy — the buffer is section B of
+  `cs_CS_BEAC_pmt.sz` streaming into place, the road is ordinary tail batches the
+  export already carried, and the thing deleting it was our exporter's default MASK
+  cutoff of 0.5 against the game's own alpha-test ref of 1/255. One cutoff and the
+  shipped GLB renders the asphalt bar-for-bar. The prop placements fall out too: w4
+  is a table of scaled placement matrices, and `cs_CS_*_bin` is the per-segment
+  visibility database. *(this document)*
 
 ---
 
@@ -3370,3 +3378,98 @@ road (above) plus the object placements are still missing from every one of them
 bulk ship now means a second 600 MB re-ship in git history when those land. The beach
 stays the Studio's representative course until the export is complete; scaling then is
 one `carex` loop.
+
+## Part XXVIII — the road was in the file all along
+
+Part XXVII ended on a confident wrong note: "the road is built at course load, in
+segment-local strips the disc never stores as a mesh." This part catches the builder
+red-handed — and it turns out to be `inflate`.
+
+### The two-pass trap, and what it caught
+
+`main-menu.state` turns out to be parked on the soundtrack-select screen — the last
+menu before the race — so the whole "deterministic race load" is one A press
+(`-keys a@30:10`). The allocator is deterministic in the strongest sense: a fresh
+load from the menu builds the road vertex buffer at exactly `03E421F8` with the same
+bytes `race-driving.state` carries.
+
+Two new bootoracle switches close the loop: `-watchregs` prints the full register
+file and a stack window at each watched write, `-watchstop` ends the run at the
+event. The first write to `03E421F8` on the fresh load is:
+
+```
+write 03E421F8 = 00000000 (pc 001BF708)      REP MOVSD
+  ESI=006C99C8  EDI=03E421F8  ECX=00000662  EAX=00004000
+  [ESP+18] = 001BEF3F                        return into the zlib cluster
+  [ESP+0C] = 03E3FB80                        the z_stream's next_out block
+```
+
+`0x1BF708` is a `REP MOVSD` inside the statically-linked zlib (the `0x1BD79B`
+inflate of Part XIX); the "copy" is inflate materialising an LZ77 back-reference,
+and the 16 KB `next_out` block `03E3FB80..03E43B80` contains the road. The file
+being inflated at that moment is `cs_CS_BEAC_pmt.sz` itself. Three addresses pin
+the geometry of the load with no slack:
+
+- road VB `03E421F8` − section-B needle offset `0x4A6678` = `0399BB80`;
+- the road draw's texture 0 lives at `0399BB80` — the first texture in the bank,
+  i.e. byte 0 of section B's pixel region;
+- so **section B streams into RAM in one piece at `0399BB80`**, textures first,
+  vertex buffers after, exactly as the container lays them out. The "runtime heap
+  matching no disc file" of Part XXVII — `03E4xxxx`, `03E8xxxx`, `03EFxxxx`, all of
+  it — is section B of the course file, in place.
+
+The Part XXVI needle search that "proved" the road matched no disc file was a
+zero-hit without a control: the same 24-byte vertex row searched today hits the
+decompressed `cs_CS_BEAC_pmt.sz` at `0x5127A8` — inside part 0 pair 0's vertex
+buffer, vertex 17077 of 17511.
+
+### The road is ordinary batches — and our cutoff was deleting it
+
+Part 0's batches 222–228 cover exactly the tail vertices 17077..17510: the road is
+plain batch geometry, world-space like everything else (the start straight really
+is straight, z marching 0, −8, −16 … −207 with the vertical curve in y), and it has
+been in the shipped GLB since the course first exported. `stageverify` renders of
+the shipped file showed a white speckled trench instead because of an **alpha
+semantics mismatch**: the game runs its alpha test with **ref 0x01** (carvtx now
+prints `at=enable:func:ref` per draw — every opaque stage draw says `at=1:…:01`,
+the blended pass `08`), so only fully transparent texels are cut, while the
+asphalt's alpha ≈ 0.25 rides along as a combiner input for the lane-marking second
+texture. Our GLB writer's MASK default of 0.5 read that 0.25 as "hole" and cut the
+entire road surface.
+
+The fix is one honest number: `TexturedGroup.AlphaCutoff` (new in `lib/glb`),
+set by carex to the game's own `1/255`, honoured by `stageverify`. The shipped
+`stage-beac.glb` now renders the road — asphalt, lane markings, kerbs — through the
+game's captured MVP, matching the game's frame where before there was a hole. And
+because the road is ordinary batches, **every one of the 66 course exports already
+contains its road**; the bulk ship needs only a re-export with the cutoff fix.
+
+### The placements fall out of the same picture
+
+The palms and grandstands the overlay still lacks are also file data: pixel
+provenance puts the palm fronds at `03E81908` = part 2 pair 0, the grandstands at
+part 3's pairs, all drawn as index sub-ranges under **per-draw scaled matrices**
+(`progStart=21`, a second transform program). Recovering those matrices from the
+draw constants (S = VP⁻¹·M, using a plain-VP world draw of the same frame) gives
+uniform scales 1.6/1.4 and translations marching down the roadside 20–25 m apart —
+the trees. Searching those translations as floats finds them **in the course file**:
+part 0's `w4` — which the car-era field map had down as "the 16-bit index pool" —
+points at a table of 0x40-byte row-vector placement matrices (scale in the rotation
+rows, translation in row 3; recovered draws match entries 6, 8, 10, 11 exactly).
+
+`cs_CS_BEAC_bin` opens along the way: `{size, 0, 0, 0x20}`, six table offsets at
+payload+8 (the first, 0x20, immediately follows the header), each table 603
+offsets → 603 variable-size records of 0xFFFF-terminated uint16 ID lists — **the
+per-segment visibility database**, six blocks for the six parts, 603 8-metre
+segments ≈ the 4.8 km course. The per-frame consumer is the Part XXVII walker:
+`0x90A72` fetches `table[segment]` per part and hands each record to the draw call
+at `0x13B60` with `(modelId<<16)|partIndex`. Two static course tables sit next to
+it (`0x2A6C98`, `0x2A72D8` — 20 bytes per course).
+
+Still open on this thread: the binding tables that turn a visibility ID into
+"batch × placement matrix" (the part's `e0` group records `{kind, sphere, …}`,
+`e2` `{first, count}` pairs and `e3` triples carex never reads — the part-kind
+census of old is `e0`'s kind field), and which pair the billboard quads' corner
+expansion actually uses. The `at=` columns, `-watchregs`/`-watchstop`, and carvtx
+reading the machine's own `VshConst` (its private shadow of the constant file lied
+under partial uploads) are the session's instrument dividend.

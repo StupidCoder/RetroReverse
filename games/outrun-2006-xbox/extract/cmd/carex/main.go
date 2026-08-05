@@ -1719,6 +1719,11 @@ func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, s
 			texGroups = append(texGroups, glb.TexturedGroup{
 				Tris: na.texTris[k], Image: texs[k.tex].img, WrapS: k.wrapS, WrapT: k.wrapT,
 				Additive: k.additive, Sheen: k.sheen,
+				// The game's own alpha test: enabled with ref 0x01 at every
+				// opaque stage/car draw (bootoracle -carvtx at=1:…:01) — only
+				// fully transparent texels are cut. The road's asphalt alpha
+				// (~0.25, a lane-marking combiner input) must survive.
+				AlphaCutoff: 1.0 / 255,
 			})
 		}
 		ckeys := make([]colKey, 0, len(na.colorTris))

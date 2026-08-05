@@ -466,6 +466,11 @@ type TexturedGroup struct {
 	// an environment cube, and a viewer with the model's envMap applies it.
 	Additive bool
 	Sheen    bool
+	// AlphaCutoff overrides the MASK cutoff (glTF default 0.5) when > 0.
+	// A guest whose alpha test passes everything above ref R wants R/255
+	// here: OutRun's road asphalt carries alpha ≈ 0.25 as a combiner input,
+	// and a 0.5 cutout deletes the road surface. Ignored for OPAQUE/BLEND.
+	AlphaCutoff float64
 }
 
 // addVec3 writes a tightly packed VEC3 float32 accessor without bounds (glTF

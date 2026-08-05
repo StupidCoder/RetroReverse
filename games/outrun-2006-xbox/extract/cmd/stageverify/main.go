@@ -45,8 +45,9 @@ type gltf struct {
 			} `json:"baseColorTexture"`
 			BaseColorFactor []float64 `json:"baseColorFactor"`
 		} `json:"pbrMetallicRoughness"`
-		AlphaMode string         `json:"alphaMode"`
-		Extras    map[string]any `json:"extras"`
+		AlphaMode   string         `json:"alphaMode"`
+		AlphaCutoff *float64       `json:"alphaCutoff"`
+		Extras      map[string]any `json:"extras"`
 	} `json:"materials"`
 	Textures []struct {
 		Source int `json:"source"`
@@ -122,10 +123,10 @@ func accI(ai int) []int {
 }
 
 type vtx struct {
-	sx, sy float64 // screen
-	iw     float64 // 1/clip.w
-	z      float64 // clip.z/clip.w
-	u, v   float64 // uv * iw (perspective-corrected numerators)
+	sx, sy     float64 // screen
+	iw         float64 // 1/clip.w
+	z          float64 // clip.z/clip.w
+	u, v       float64 // uv * iw (perspective-corrected numerators)
 	r, g, b, a float64 // color * iw
 }
 
@@ -135,6 +136,7 @@ type tri struct {
 	blend    bool
 	additive bool
 	mask     bool
+	cutoff   float64
 	zc       float64
 }
 
@@ -215,10 +217,14 @@ func main() {
 			}
 			tex := getTex(pr.Material)
 			blend, additive, mask := false, false, false
+			cutoff := 0.5
 			if pr.Material != nil {
 				m := g.Materials[*pr.Material]
 				blend = m.AlphaMode == "BLEND"
 				mask = m.AlphaMode == "MASK"
+				if m.AlphaCutoff != nil {
+					cutoff = *m.AlphaCutoff
+				}
 				if b, ok := m.Extras["blend"].(string); ok && b == "additive" {
 					additive = true
 				}
@@ -258,7 +264,7 @@ func main() {
 				if !okv[a] || !okv[b] || !okv[c] {
 					continue
 				}
-				t := tri{v: [3]vtx{vt[a], vt[b], vt[c]}, tex: tex, blend: blend, additive: additive, mask: mask}
+				t := tri{v: [3]vtx{vt[a], vt[b], vt[c]}, tex: tex, blend: blend, additive: additive, mask: mask, cutoff: cutoff}
 				t.zc = (vt[a].z + vt[b].z + vt[c].z) / 3
 				if blend || additive {
 					blended = append(blended, t)
@@ -330,7 +336,7 @@ func main() {
 				va := (w0*t.v[0].a + w1*t.v[1].a + w2*t.v[2].a) / iw
 				cr, cg, cb = cr*vr, cg*vg, cb*vb
 				ca *= va
-				if t.mask && ca < 0.5 {
+				if t.mask && ca < t.cutoff {
 					continue
 				}
 				o := pi * 4
