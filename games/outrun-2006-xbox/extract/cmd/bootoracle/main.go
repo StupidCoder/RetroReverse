@@ -379,7 +379,19 @@ func main() {
 		m.SetReadWatch(lo, hi, func(addr, val, pc uint32) {
 			if seen < *watchn {
 				fmt.Printf("  read %08X = %08X (pc %08X)\n", addr, val, pc)
+				if *watchregs {
+					r := m.CPU.Regs
+					fmt.Printf("    EAX=%08X ECX=%08X EDX=%08X EBX=%08X ESP=%08X EBP=%08X ESI=%08X EDI=%08X\n",
+						r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7])
+					for i := uint32(0); i < 24; i++ {
+						a := r[4] + i*4
+						fmt.Printf("    [ESP+%02X] %08X = %08X\n", i*4, a, m.MemRead32(a))
+					}
+				}
 				seen++
+				if seen == *watchn && *watchstop {
+					m.StopRequested = true
+				}
 			}
 		})
 	}
