@@ -23,9 +23,28 @@
   "sky": false,
   "background": "#000000",
 
-  "_fog": "The torch. 11 m of reach in a 2.46 m corridor is about three rooms.",
+  "_fog": "The reach. 11 m in a 2.46 m corridor is about three rooms ahead.",
   "fog": { "color": "#000000", "near": 1.5, "far": 11 },
-  "torch": { "flicker": 0.18, "flickerHz": 6.5, "radial": false },
+
+  "_torch": [
+    "Brightness, not reach. Modulating the fog alone animates how far you can",
+    "see and never makes anything brighter, which is why the first version read",
+    "as the room breathing rather than as a flame. radial:true puts the flicker",
+    "on a fragment patch that can actually dim a wall; the fog keeps 30% of the",
+    "modulation so the reach still wavers (xrflame.js REACH_SHARE).",
+    "",
+    "The signal is 1/f — five octaves, 0.7 to 19.6 Hz, amplitude falling with",
+    "frequency — because that is what flame luminance measures as. Plus a fast",
+    "attack and slow release (fire flares quicker than it fades) and a slow gust",
+    "channel. Dimmer is redder: warm at full, cool at the bottom."
+  ],
+  "torch": {
+    "radial": true,
+    "flicker": 0.35,
+    "gusts": 0.5,
+    "warm": "#ffd9a0",
+    "cool": "#ff6a1e"
+  },
 
   "floor": { "source": "visible", "maxSlope": 45 },
   "teleport": {

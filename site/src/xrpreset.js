@@ -25,11 +25,17 @@ export const PRESET_ROOT = 'vr/';
 export const DEFAULTS = {
   metresPerUnit: 1,
   spawn: { pos: [0, 0, 0], dir: [0, 0, -1], absolute: false },
-  sky: true,
+  // sky: true | false | { show, scale, fog }. `scale: "auto"` is the one that
+  // matters — see the note in xrworld.js on why a unit-radius horizon is fine on
+  // a monitor and a wall in your face in stereo.
+  sky: { show: true, scale: 'auto', fog: false },
   background: null,
   fog: null,
-  torch: { flicker: 0, flickerHz: 6, radial: false, colour: null },
-  floor: { source: 'visible', maxSlope: 45 },
+  // radial defaults to "on if it flickers": brightness is only reachable through
+  // the fragment patch, and a torch whose brightness never moves is fog being
+  // animated. warm/cool are the tint at full and at lowest intensity.
+  torch: { flicker: 0, gusts: 0, radial: null, warm: '#ffd9a0', cool: '#ff6a1e', seed: 1 },
+  floor: { source: 'visible', maxSlope: 45, twoSided: false },
   teleport: {
     speed: 7,          // m/s, thrown from the hand
     maxRange: 25,      // m; beyond this the arc is drawn but will not commit
@@ -110,7 +116,7 @@ export function normalise(raw, params, where = 'preset') {
       dir: vec3(raw.spawn?.dir, DEFAULTS.spawn.dir, `${where}: spawn.dir`),
       absolute: !!(raw.spawn?.absolute),
     },
-    sky: raw.sky !== false,
+    sky: sky(raw.sky),
     background: raw.background ?? DEFAULTS.background,
     torch: { ...DEFAULTS.torch, ...(raw.torch || {}) },
     floor: { ...DEFAULTS.floor, ...(raw.floor || {}) },
@@ -140,6 +146,12 @@ export function normalise(raw, params, where = 'preset') {
 
   cfg.teleport.speed = num(p('vrspeed'), cfg.teleport.speed);
   cfg.torch.flicker = num(p('vrflicker'), cfg.torch.flicker);
+  // "on if it flickers" — resolved after the override, so ?vrflicker= turning a
+  // steady lamp into a torch also turns on the thing that can carry it.
+  if (cfg.torch.radial == null) cfg.torch.radial = cfg.torch.flicker > 0;
+  if (p('vrradial') != null) cfg.torch.radial = p('vrradial') !== '0';
+  if (p('vrsky') != null) cfg.sky.show = p('vrsky') !== '0';
+  if (p('vrskyscale') != null) cfg.sky.scale = num(p('vrskyscale'), cfg.sky.scale);
   if (p('vrtorch') === '0') { cfg.torch.flicker = 0; cfg.torch.radial = false; }
 
   if (!(cfg.metresPerUnit > 0)) throw new Error(`${where}: metresPerUnit must be positive, got ${cfg.metresPerUnit}`);
@@ -148,6 +160,20 @@ export function normalise(raw, params, where = 'preset') {
   }
   if (!(cfg.teleport.speed > 0)) throw new Error(`${where}: teleport.speed must be positive`);
   return cfg;
+}
+
+// sky accepts the boolean it used to be as well as the object it now is, so a
+// preset written before the horizon was ever looked at in stereo still loads.
+function sky(v) {
+  const d = DEFAULTS.sky;
+  if (v == null) return { ...d };
+  if (v === false) return { ...d, show: false };
+  if (v === true) return { ...d };
+  return {
+    show: v.show !== false,
+    scale: v.scale === 'auto' || v.scale == null ? 'auto' : Number(v.scale),
+    fog: v.fog === true,
+  };
 }
 
 function vec3(v, fallback, where) {

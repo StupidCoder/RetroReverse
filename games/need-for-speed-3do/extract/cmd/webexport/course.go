@@ -138,6 +138,21 @@ func exportCourse(a *assets, out string) (string, error) {
 		positions[i] = gl(nfs.Vec3{X: k.x, Y: k.y, Z: k.z})
 		uvs[i] = [2]float32{k.u, k.v}
 	}
+	// The cel engine painted these quads back to front and never culled a face,
+	// so the corner order in the game's own face list was free to be anything —
+	// and is: before this call, 48% of the near-horizontal triangles in a course
+	// come out facing DOWN, with the flip landing exactly on the road's centre
+	// line, because the slice cross-section is walked outward from the middle in
+	// both directions. The disc does not say which way a face points; glTF
+	// requires an answer; so the answer is derived here rather than inherited
+	// from a field that never meant anything. See tools/lib/glb/orient.go.
+	//
+	// This cannot change the render: every course material is double-sided.
+	flipped, faces := 0, 0
+	for _, img := range b.order {
+		flipped += glb.OrientUp(positions, b.byTex[img], 0.707)
+		faces += len(b.byTex[img])
+	}
 	var groups []glb.TexturedGroup
 	for _, img := range b.order {
 		groups = append(groups, glb.TexturedGroup{Tris: b.byTex[img], Image: img, Blend: hasPartialAlpha(img)})
@@ -148,5 +163,11 @@ func exportCourse(a *assets, out string) (string, error) {
 	}
 	fmt.Fprintf(os.Stderr, "[course] %d segments, %d verts, %d textures -> %s\n",
 		used, len(positions), len(groups), file)
+	// Only the count that means something here. How many faces end up facing
+	// which way is a question about the FILE, and WriteTextured filters faces
+	// after this point — so it is asked of the artefact instead
+	// (site/test/xrfloor.test.mjs), not guessed at from the builder.
+	fmt.Fprintf(os.Stderr, "[course] winding: %d of %d faces reoriented (derived — see glb.OrientUp)\n",
+		flipped, faces)
 	return file, nil
 }

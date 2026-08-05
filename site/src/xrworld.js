@@ -71,6 +71,65 @@ export class WorldMode {
     this.stage.updaters.add(this._step);
   }
 
+  // _fitSky pushes camera-attached layers out to where stereo stops noticing
+  // them, and takes them out of the fog.
+  //
+  // Need for Speed's horizon is a UNIT-RADIUS cylinder — bounding box
+  // -1,-0.5,-1 .. 1,1.2,1 — centred on the mid-eye and following it. At one
+  // metre per unit that is a cylinder one metre around your head, so each eye
+  // sits about 32 mm off its centre and the horizon carries 6.4% parallax: your
+  // eyes converge on it and it reads as a painted wall you could touch. On a
+  // monitor there is no second eye and nothing looks wrong, and the diorama
+  // hides these layers outright, so world mode is the first thing that could
+  // ever have seen it.
+  //
+  // Scaling is the whole fix: parallax goes as IPD/radius, so a horizon at 0.45
+  // of the far plane (283 m here) drops to 0.011%. It stays inside the frustum,
+  // it still follows the head, and renderOrder/depthTest still hold the paint
+  // order — scaling a group does not move its origin.
+  _fitSky() {
+    const sky = this.cfg.sky;
+    const scene = this.stage.scene;
+    for (const root of scene.children) {
+      const ly = root.userData?.layer;
+      if (!ly) continue;
+      const camAttached = ly.attach === 'camera' || ly.attach === 'cameraYaw';
+      if (!camAttached && ly.role !== 'sky') continue;
+      if (!sky.show) { root.visible = false; continue; }
+
+      let k = sky.scale;
+      if (k === 'auto') {
+        // Unscaled first: this runs again on every re-place, and measuring a
+        // root that already carries a previous fit would square it.
+        root.scale.setScalar(1);
+        root.updateMatrixWorld(true);
+        // Measure the layer's own radius rather than assume one: Need for Speed
+        // ships a unit cylinder, other games ship domes of tens of thousands of
+        // units, and both want to end up in the same place.
+        const box = new THREE.Box3().setFromObject(root);
+        const size = box.getSize(new THREE.Vector3());
+        const radius = Math.max(size.x, size.z) / 2;
+        const farUnits = (this.stage.camera.far || 100) / this.cfg.metresPerUnit;
+        k = radius > 1e-6 ? (farUnits * 0.45) / radius : 1;
+        // Only ever push a horizon OUT. A dome already comfortably beyond the
+        // eyes has nothing to gain and would be dragged inside the far plane.
+        if (k < 1) k = 1;
+      }
+      root.scale.setScalar(k);
+      this._skyNote = `sky x${k < 10 ? k.toFixed(2) : k.toFixed(0)}`;
+
+      if (!sky.fog) {
+        root.traverse((o) => {
+          for (const m of o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []) {
+            if (m.fog === false) continue;
+            m.fog = false;
+            m.needsUpdate = true;
+          }
+        });
+      }
+    }
+  }
+
   // The interactor the shell talks to IS the teleporter; world mode has no
   // grabber, because dragging a room you are standing in would undo the one
   // thing life scale is for.
@@ -94,7 +153,11 @@ export class WorldMode {
   _build() {
     const meshes = this._contentMeshes();
     const t0 = performance.now();
-    this._floor = buildFloor(meshes, { mode: 'up', maxSlope: this.cfg.floor.maxSlope });
+    this._floor = buildFloor(meshes, {
+      mode: 'up',
+      maxSlope: this.cfg.floor.maxSlope,
+      twoSided: this.cfg.floor.twoSided,
+    });
     if (this.cfg.teleport.blockers) {
       this._walls = buildFloor(meshes, { mode: 'side', minSlope: 70 });
     }
@@ -170,10 +233,17 @@ export class WorldMode {
 
   // Re-run over whatever is in the scene now. Cheap, and the safety net for a
   // level that streams rooms in after the mount resolves.
-  rescan() { this.torch.scan(this.stage.scene); }
+  //
+  // The sky is fitted from here rather than from the constructor because it is
+  // sized against the FAR PLANE, and the far plane is set by farFor when a
+  // placement lands — which has not happened yet when the mode is built.
+  rescan() {
+    this.torch.scan(this.stage.scene);
+    this._fitSky();
+  }
 
   get note() {
-    return [this.torch.note, this._note].filter(Boolean).join(' · ');
+    return [this.torch.note, this._skyNote, this._note].filter(Boolean).join(' · ');
   }
 
   dispose() {

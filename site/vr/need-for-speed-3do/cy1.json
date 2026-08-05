@@ -15,9 +15,23 @@
   ],
 
   "metresPerUnit": 1.0,
-  "spawn": { "pos": [-2.902, 0, -96], "dir": [0, 0, -1] },
 
-  "sky": true,
+  "_spawn": [
+    "On the centre line, 8 m behind the grid, so both cars are ahead of you.",
+    "The calibrated grid camera is at [-2.902, 0.94, -96] — segment 16, 2.9 m",
+    "right of the centreline, driver's eye height — but that is where the",
+    "PLAYER'S OWN CAR is, so standing there puts you inside the Ferrari."
+  ],
+  "spawn": { "pos": [0, 0, -88], "dir": [0, 0, -1] },
+
+  "_sky": [
+    "sky-cy1.glb is a UNIT-RADIUS cylinder, camera-attached. On a monitor that",
+    "is invisible; in stereo it is a horizon one metre from your face, with",
+    "about 6.4% parallax between the eyes. scale:auto pushes it to 0.45 of the",
+    "far plane, where the parallax is 0.011%. fog:false because a horizon that",
+    "fogs out is not a horizon — the terrain is what blends into it."
+  ],
+  "sky": { "scale": "auto", "fog": false },
   "fog": { "color": "#9fb6c8", "near": 60, "far": 420 },
   "torch": { "flicker": 0 },
 
@@ -32,18 +46,20 @@
   },
 
   "_props": [
-    "A 512 TR and a Diablo, one lane either side of where you stand.",
-    "The road is 8 lanes of 5 m spanning -20..+20, so lane centres are at",
-    "5*lane - 17.5: the grid camera's -2.902 sits in the lane at -2.5, and the",
-    "cars take the ones at -7.5 and +2.5.",
+    "The two lanes, measured off the geometry rather than off the docs. Probing",
+    "the cross-section at z = -96 gives the carriageway as material 0 spanning",
+    "x -5.00 .. +5.00 — two 5 m lanes with the centre line at 0 — flanked by",
+    "shoulders out to -15.25 and +11.00 and then embankments. The docs' 'eight",
+    "lanes of 5 m spanning +-20' is the road model, not this segment: at -7.5",
+    "the Ferrari was standing on the hard strip.",
     "",
-    "rotY 0 = the model's own -Z, which is the direction the course runs and the",
-    "way the grid camera looks. Both models are 4.4-4.6 long on Z and sit on",
-    "y = 0, so they need no height offset. CHECK IN THE HEADSET: if they face",
-    "you rather than the horizon, both rotY become 180."
+    "+-2.5 is also where the game's own traced grid puts the two cars.",
+    "",
+    "rotY 0 = the model's own -Z, the direction the course runs. Both models are",
+    "4.4-4.6 long on Z and sit on y = 0, so they need no height offset."
   ],
   "props": [
-    { "object": "car-f512tr",  "pos": [-7.5, 0, -96], "rotY": 0 },
+    { "object": "car-f512tr",  "pos": [-2.5, 0, -96], "rotY": 0 },
     { "object": "car-ldiablo", "pos": [2.5, 0, -96],  "rotY": 0 }
   ],
 

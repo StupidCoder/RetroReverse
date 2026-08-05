@@ -45,7 +45,7 @@ const EPS = 1e-9;
 //           positions: flat xyz triples. matrix: 16 numbers in COLUMN-major
 //           order — Object3D.matrixWorld.elements, straight off three.
 //   opts    { mode: 'up' | 'side', maxSlope: degrees (up), minSlope: degrees
-//             (side), targetPerCell, maxCells }
+//             (side), twoSided, targetPerCell, maxCells }
 //
 // 'up' keeps surfaces you could stand on; 'side' keeps near-vertical ones, which
 // is the same code answering "is there a wall in the way".
@@ -54,6 +54,7 @@ export function buildFloor(meshes, opts = {}) {
   // cos of the steepest floor still walkable; for walls, the largest |ny| still
   // counted as vertical.
   const upMin = Math.cos(((opts.maxSlope ?? 45) * Math.PI) / 180);
+  const twoSided = !!opts.twoSided;
   const sideMax = Math.cos(((opts.minSlope ?? 70) * Math.PI) / 180);
 
   const tri = [];      // 9 floats per kept triangle
@@ -87,7 +88,15 @@ export function buildFloor(meshes, opts = {}) {
       nx /= len; ny /= len; nz /= len;
 
       if (mode === 'up') {
-        if (ny < upMin) continue;
+        // twoSided judges by |ny|, for content whose winding carries no
+        // information — a renderer that never culled had no reason to make it
+        // consistent, and Crazy Taxi (83% of horizontal faces pointing down) and
+        // Ridge Racer (94%) are both in that state. It is OFF by default and a
+        // stopgap: the fix belongs in the exporter, where Need for Speed's now
+        // is (tools/lib/glb OrientUp). Turning it on where the winding IS
+        // meaningful makes every ceiling a floor.
+        if (twoSided ? Math.abs(ny) < upMin : ny < upMin) continue;
+        if (twoSided && ny < 0) { nx = -nx; ny = -ny; nz = -nz; }
       } else if (Math.abs(ny) > sideMax) continue;
 
       tri.push(ax, ay, az, bx, by, bz, cx, cy, cz);

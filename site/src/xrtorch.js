@@ -4,7 +4,16 @@
 // declares KHR_materials_unlit, so they load as MeshBasicMaterial. A PointLight
 // at the head would do literally nothing. That single fact decides the design.
 //
-// FOG IS THE TORCH. THREE.Fog blends every fragment toward a colour by distance,
+// FOG ALONE IS NOT THE TORCH — that was the first version's mistake, and it is
+// worth naming because it survived a headset test before anyone could say why it
+// looked wrong. Modulating scene.fog animates how FAR YOU CAN SEE. Nothing ever
+// gets brighter or dimmer, so the room appears to breathe, which is the least
+// flame-like thing light can do. The signal being two sines made it worse, but
+// the signal was the second problem. Brightness needs the radial patch below,
+// which is why `torch.radial` is now the default for anything that flickers, and
+// why reach is given only a third of the modulation (see xrflame.js REACH_SHARE).
+//
+// FOG IS STILL THE REACH. THREE.Fog blends every fragment toward a colour by distance,
 // MeshBasicMaterial honours it by default, GLTFLoader's unlit materials keep it,
 // and — the part that settles the argument — the billboard batch in
 // billboards.js gets it for free. One assignment dims walls, sprites, props and
@@ -28,6 +37,7 @@
 // patching twice cannot emit a duplicate uniform and fail to compile.
 
 import { THREE } from './engine3d.js';
+import { Flame, mixHex } from './xrflame.js';
 
 export class Torch {
   // { stage, cfg } — cfg is a normalised preset (xrpreset.js)
@@ -37,7 +47,13 @@ export class Torch {
     this.on = true;
     this._patched = new WeakSet();
     this._materials = 0;
-    this._t = 0;
+    // The signal itself lives in its own module, imports nothing, and is tested
+    // in node against the four properties two sines failed. See xrflame.js.
+    this.flame = new Flame({
+      flicker: cfg.torch.flicker,
+      gusts: cfg.torch.gusts,
+      seed: cfg.torch.seed ?? 1,
+    });
 
     const f = cfg.fog;
     this._base = f ? { near: f.near, far: f.far } : null;
@@ -93,20 +109,27 @@ export class Torch {
   }
 
   _tick(dt) {
-    const f = this.stage.scene.fog;
     const t = this.cfg.torch;
-    if (!f || !this._base || !this.on || !t.flicker) return;
-    this._t += dt;
-    // Two incommensurable rates, so the flame never finds a loop: a fast
-    // guttering and a slow breath. Amplitude is a FRACTION of the reach, so a
-    // torch that lights ten metres wavers by a metre at flicker 0.1 and never
-    // goes dark.
-    const a = Math.sin(this._t * t.flickerHz * 2 * Math.PI);
-    const b = Math.sin(this._t * t.flickerHz * 0.61 * 2 * Math.PI + 1.7);
-    const k = 1 + t.flicker * (a * 0.6 + b * 0.4);
-    f.far = this._base.far * k;
-    f.near = this._base.near * k;
-    if (this.uniforms) this.uniforms.rxTorchRange.value = f.far;
+    if (!this.on || !t.flicker) return;
+    this.flame.step(dt);
+
+    // Reach: the junior partner, so the room does not pulse.
+    const f = this.stage.scene.fog;
+    if (f && this._base) {
+      f.far = this._base.far * this.flame.reach;
+      f.near = this._base.near * this.flame.reach;
+    }
+
+    // Brightness and colour: the senior partner, and only reachable through the
+    // fragment patch — fog can move the falloff distance and nothing else.
+    if (this.uniforms) {
+      this.uniforms.rxTorchRange.value = f && this._base ? f.far : this.uniforms.rxTorchRange.value;
+      this.uniforms.rxTorchGain.value = this.flame.intensity;
+      // Dimmer fire is redder. Interpolating in the same place as the intensity
+      // keeps the two from ever disagreeing about how bright the flame is.
+      this._tint.set(mixHex(t.cool, t.warm, this.flame.warmth));
+      this.uniforms.rxTorchTint.value.copy(this._tint);
+    }
   }
 
   // ---- the optional radial falloff ---------------------------------------------
@@ -116,9 +139,12 @@ export class Torch {
     this._patched.add(m);
     this._materials++;
     if (!this.uniforms) {
+      this._tint = new THREE.Color(this.cfg.torch.warm);
       this.uniforms = {
         rxTorchRange: { value: this.cfg.fog?.far ?? 20 },
-        rxTorchInner: { value: (this.cfg.fog?.near ?? 1) },
+        rxTorchInner: { value: this.cfg.fog?.near ?? 1 },
+        rxTorchGain: { value: 1 },
+        rxTorchTint: { value: this._tint.clone() },
       };
     }
     const uniforms = this.uniforms;
@@ -141,10 +167,15 @@ export class Torch {
         .replace('#include <common>', `#include <common>
 varying float vRxDist;
 uniform float rxTorchRange;
-uniform float rxTorchInner;`)
+uniform float rxTorchInner;
+uniform float rxTorchGain;
+uniform vec3 rxTorchTint;`)
         // Last thing before tone mapping, so it dims the finished colour rather
-        // than one term of it.
-        .replace('#include <tonemapping_fragment>', `gl_FragColor.rgb *= smoothstep(rxTorchRange, rxTorchInner, vRxDist);
+        // than one term of it. Three things at once, and they are the three a
+        // torch does: fall off with distance, vary in brightness, and redden as
+        // it dims.
+        .replace('#include <tonemapping_fragment>', `gl_FragColor.rgb *= rxTorchTint
+    * (rxTorchGain * smoothstep(rxTorchRange, rxTorchInner, vRxDist));
 #include <tonemapping_fragment>`);
     };
     m.customProgramCacheKey = function () {
@@ -158,9 +189,11 @@ uniform float rxTorchInner;`)
 
   get note() {
     const f = this.stage.scene.fog;
-    if (!f) return 'torch: off (no fog in preset)';
-    return `torch: ${this.on ? `${f.far.toFixed(1)} m` : 'off'}`
-      + (this.cfg.torch.radial ? ` · radial (${this._materials} mat)` : '');
+    if (!f && !this.cfg.torch.radial) return 'torch: off (no fog in preset)';
+    return `torch: ${this.on ? `${f ? `${f.far.toFixed(1)} m` : 'no fog'}` : 'off'}`
+      + (this.cfg.torch.radial
+        ? ` · radial ${(this.flame.intensity * 100).toFixed(0)}% (${this._materials} mat)`
+        : ' · reach only');
   }
 
   dispose() {

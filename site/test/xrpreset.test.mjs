@@ -28,16 +28,24 @@ test('the shipped presets load, and say what the plan said they would', () => {
   assert.ok(Math.abs(doorTiles * uw.metresPerUnit - 2.0) < 0.005, 'the door is no longer 2 m');
   // The start room: ceiling 4.0 tiles, floor 3.0, so a tile of head-room.
   assert.ok(Math.abs((4.0 - uw.spawn.pos[1]) * uw.metresPerUnit - 2.4615) < 0.01);
-  assert.equal(uw.sky, false);
+  assert.equal(uw.sky.show, false);
   assert.equal(uw.fog.far, 11);
 
   const nfs = normalise(read('need-for-speed-3do/cy1.json'), params({}), 'nfs');
   assert.equal(nfs.metresPerUnit, 1);
-  assert.equal(nfs.sky, true);
+  assert.equal(nfs.sky.show, true);
+  assert.equal(nfs.sky.scale, 'auto', 'a unit-radius horizon must be pushed out');
+  assert.equal(nfs.sky.fog, false);
   assert.equal(nfs.props.length, 2);
-  // Lane centres are 5*lane - 17.5; the player stands in the -2.5 lane.
-  for (const p of nfs.props) assert.ok(Math.abs(((p.pos[0] + 17.5) / 5) % 1) < 1e-6, `${p.object} is not in a lane`);
-  assert.ok(nfs.props.every((p) => p.pos[0] !== nfs.spawn.pos[0]), 'a car is parked on the player');
+  // The carriageway measured off the geometry is material 0 over x -5..+5: two
+  // 5 m lanes centred on 0, so the lane centres are exactly -2.5 and +2.5.
+  assert.deepEqual(nfs.props.map((p) => p.pos[0]).sort((a, b) => a - b), [-2.5, 2.5]);
+  for (const p of nfs.props) assert.ok(Math.abs(p.pos[0]) < 5, `${p.object} is off the carriageway`);
+  // And you must not be standing inside one of them.
+  for (const p of nfs.props) {
+    const d = Math.hypot(p.pos[0] - nfs.spawn.pos[0], p.pos[2] - nfs.spawn.pos[2]);
+    assert.ok(d > 4, `${p.object} is ${d.toFixed(1)} m from the spawn — you are in the car`);
+  }
 });
 
 test('every preset named in the index exists and parses', () => {
@@ -55,6 +63,8 @@ test('a preset with only a scale and a spawn is a complete preset', () => {
   assert.deepEqual(cfg.spawn.pos, [1, 2, 3]);
   assert.deepEqual(cfg.spawn.dir, DEFAULTS.spawn.dir);
   assert.equal(cfg.fog, null);            // no fog is a choice, not an omission
+  assert.equal(cfg.sky.show, true);       // the old boolean form still loads
+  assert.equal(normalise({ sky: false, metresPerUnit: 1 }, params({})).sky.show, false);
   assert.equal(cfg.teleport.speed, DEFAULTS.teleport.speed);
   assert.deepEqual(cfg.props, []);
 });
@@ -71,6 +81,14 @@ test('the ?vr knobs override the file, because a headset has no console', () => 
   const off = normalise(raw, params({ vrtorch: '0' }));
   assert.equal(off.torch.flicker, 0);
   assert.equal(off.torch.radial, false);
+
+  // radial is "on if it flickers", resolved AFTER the override — so a knob that
+  // turns a steady lamp into a torch also turns on the only thing that can
+  // carry brightness.
+  const lit = normalise({ metresPerUnit: 1 }, params({ vrflicker: '0.4' }));
+  assert.equal(lit.torch.radial, true);
+  assert.equal(normalise({ metresPerUnit: 1 }, params({})).torch.radial, false);
+  assert.equal(normalise(raw, params({ vrradial: '0' })).torch.radial, false);
 
   // A knob with rubbish in it must not silently become NaN and scale the world
   // to nothing — it falls back to the file.
