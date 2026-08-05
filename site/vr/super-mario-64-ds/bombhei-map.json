@@ -1,0 +1,92 @@
+{
+  "_": [
+    "Bob-omb Battlefield, at Mario's own scale.",
+    "",
+    "SCALE. Mario is the one character whose real height Nintendo states: 155 cm,",
+    "so he is the ruler. mario_model_mg.glb, at the scale 0.008 that every actor",
+    "placement in this level document carries, is 0.150510 level units tall in its",
+    "BIND pose — but the pose you would stand next to is su_wait, his idle, and",
+    "skinned models are measured POSED here for exactly that reason (the same rule",
+    "the XR fitting code follows: a bind pose can park limbs where the character",
+    "never puts them). Idle Mario is about 0.1415 units, a 5% slouch off the bind",
+    "pose, which gives",
+    "",
+    "    1.55 / 0.1415 = 10.95 metres per unit",
+    "",
+    "and measured back through the viewer he stands 1.556 m. The last centimetre",
+    "is animation phase, not arithmetic; the bind pose comes out 1.65 m if you",
+    "ever want to compare against a still model.",
+    "",
+    "It cross-checks twice. A Bob-omb (bombhei.glb, 13.30 model units) comes out",
+    "1.16 m — chest height on Mario, which is what it looks like in game. And the",
+    "course measures 175 x 50 x 175 m, so the mountain is a sixteen-storey climb.",
+    "Both are the right kind of number.",
+    "",
+    "SPAWN. Not chosen: the game's own. Level object type 1 is an entrance record",
+    "and the level's FIRST one is where the player spawns (writeup Part V section",
+    "2, handler $020FE6C8); cmd/exportlevelobjs already emits it, and for this",
+    "level it reads [-6.225, 1.7, 6.353] with yaw 135.",
+    "",
+    "The 1.7 is deliberately not used. That is the height Mario is dropped from —",
+    "you fall into a course in SM64 — while this preset wants the floor, which",
+    "both the collision mesh and the visible mesh put at y = 0 under that exact",
+    "x/z.",
+    "",
+    "FACING. rotY is degrees (webexport main.go:994 multiplies by pi/180), and 135",
+    "under dir = (sin, 0, cos) is (0.707, 0, -0.707): from the corner the entrance",
+    "sits in, toward the middle of the course and up the rising ground. The other",
+    "convention would face you off the edge of the map."
+  ],
+
+  "metresPerUnit": 10.95,
+  "spawn": { "pos": [-6.225, 0, 6.353], "dir": [0.7071, 0, -0.7071] },
+
+  "_sky": [
+    "vr01.glb is 59,000 units across — a 645 km dome at this scale, which is to",
+    "say outside any far plane worth having and therefore not drawn at all.",
+    "scale:auto brings it to 0.45 of the far plane and forces painter's order,",
+    "because a dome pulled in to a couple of hundred metres would otherwise be",
+    "depth-tested against a 175 m course and sliced open by its own hills."
+  ],
+  "sky": { "scale": "auto", "fog": false },
+
+  "_fog": [
+    "Daylight, so this is aerial perspective and not a torch: distance haze only,",
+    "no flicker. The colour is sampled from the game's own sky — the lightest band",
+    "of vr01's 256x256 gradient, which is its horizon."
+  ],
+  "fog": { "color": "#60baf2", "near": 40, "far": 380 },
+  "torch": { "flicker": 0 },
+
+  "_floor": [
+    "The game's own walkable surface (the level's .kcl, exported as the hidden",
+    "col_bombhei_map layer) rather than the art. Checked against the visible mesh",
+    "over a 0.25-unit lattice: 3,955 sample points have floor under both, 132",
+    "under the art only, none under collision only, and 98.7% of the shared points",
+    "agree on height to within half a metre. maxSlope 50 because Mario's hills are",
+    "steep."
+  ],
+  "floor": { "source": "collision", "maxSlope": 50 },
+
+  "teleport": {
+    "speed": 9,
+    "maxRange": 40,
+    "maxRise": 2.5,
+    "markerRadius": 0.6,
+    "snapTurn": 30,
+    "blockers": true
+  },
+
+  "_props": [
+    "Mario, two metres ahead and facing the way you are, because he is the ruler",
+    "this whole preset is measured with — if he does not come up to your eyes,",
+    "metresPerUnit is wrong. scale 0.008 is the same factor every actor placement",
+    "in the level document carries; su_wait is his idle clip, which the object",
+    "document lists and the model's shared data/player skeleton animates."
+  ],
+  "props": [
+    { "object": "mario-model-mg", "pos": [-6.088, 0, 6.216], "rotY": 135, "scale": 0.008, "anim": "su_wait" }
+  ],
+
+  "sounds": []
+}

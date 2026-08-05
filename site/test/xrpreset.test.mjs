@@ -48,6 +48,33 @@ test('the shipped presets load, and say what the plan said they would', () => {
   }
 });
 
+test('Bob-omb Battlefield is measured against Mario, not guessed', () => {
+  const bob = normalise(read('super-mario-64-ds/bombhei-map.json'), params({}), 'bob');
+  // Mario's idle height is 0.1415 level units; the whole scale hangs off it.
+  assert.ok(Math.abs(0.1415 * bob.metresPerUnit - 1.55) < 0.02,
+    `Mario would stand ${(0.1415 * bob.metresPerUnit).toFixed(3)} m`);
+  // A Bob-omb (13.30 model units at the 0.008 placement scale) is chest height.
+  const bomb = 13.30 * 0.008 * bob.metresPerUnit;
+  assert.ok(bomb > 0.9 && bomb < 1.4, `a Bob-omb would be ${bomb.toFixed(2)} m`);
+  // The course is 16 units square.
+  const course = 16 * bob.metresPerUnit;
+  assert.ok(course > 120 && course < 250, `the course would be ${course.toFixed(0)} m across`);
+
+  // The spawn is the game's own entrance, at the FLOOR rather than the drop-in
+  // height the record carries.
+  assert.deepEqual(bob.spawn.pos, [-6.225, 0, 6.353]);
+  assert.equal(bob.spawn.pos[1], 0, 'the entrance record y (1.7) is where Mario falls FROM');
+  // yaw 135 as a direction, pointing into the course rather than off the map.
+  assert.ok(bob.spawn.dir[0] > 0 && bob.spawn.dir[2] < 0, 'facing away from the course');
+
+  // Daylight: haze, no torch. And the sky must be refitted or it is not drawn.
+  assert.equal(bob.torch.flicker, 0);
+  assert.equal(bob.torch.radial, false, 'nothing flickers, so nothing needs the patch');
+  assert.equal(bob.sky.scale, 'auto');
+  assert.equal(bob.floor.source, 'collision');
+  assert.equal(bob.props[0].anim, 'su_wait');
+});
+
 test('every preset named in the index exists and parses', () => {
   const idx = read('index.json');
   assert.ok(idx.presets.length > 0);

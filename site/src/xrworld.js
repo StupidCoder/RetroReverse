@@ -111,12 +111,34 @@ export class WorldMode {
         const radius = Math.max(size.x, size.z) / 2;
         const farUnits = (this.stage.camera.far || 100) / this.cfg.metresPerUnit;
         k = radius > 1e-6 ? (farUnits * 0.45) / radius : 1;
-        // Only ever push a horizon OUT. A dome already comfortably beyond the
-        // eyes has nothing to gain and would be dragged inside the far plane.
-        if (k < 1) k = 1;
       }
       root.scale.setScalar(k);
-      this._skyNote = `sky x${k < 10 ? k.toFixed(2) : k.toFixed(0)}`;
+      this._skyNote = `sky x${k < 0.01 ? k.toExponential(1) : k < 10 ? k.toFixed(2) : k.toFixed(0)}`;
+
+      // Both directions, and this is the correction that matters: an earlier
+      // version only ever pushed a horizon OUT, on the reasoning that a dome
+      // already far away had nothing to gain. It has everything to lose —
+      // Super Mario 64 DS's vr01 is 59,000 units across, which at 10.3 m per
+      // unit is a 607 km dome, i.e. entirely outside any far plane worth having
+      // and therefore not drawn at all. A horizon belongs at one distance: just
+      // inside the far plane, wherever it started.
+      //
+      // Pulling one IN is only safe with painter's-order treatment, so that is
+      // asserted here rather than assumed of the document. Need for Speed's sky
+      // layer declares renderOrder/depthTest itself; SM64DS's declares neither,
+      // and a 160 m dome depth-tested against a 165 m course would be sliced
+      // open by its own hills. A camera-attached horizon is by definition
+      // infinitely far, so it must never take part in depth at all.
+      root.renderOrder = -1000;
+      root.traverse((o) => {
+        o.renderOrder = -1000;
+        for (const m of o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []) {
+          if (!m.depthTest && !m.depthWrite) continue;
+          m.depthTest = false;
+          m.depthWrite = false;
+          m.needsUpdate = true;
+        }
+      });
 
       if (!sky.fog) {
         root.traverse((o) => {
@@ -219,8 +241,14 @@ export class WorldMode {
         });
         this.stage.scene.add(inst.node);
         (this._props ||= []).push(inst);
-        if (p.anim && inst.actions?.[p.anim]) inst.actions[p.anim].play();
-        if (inst.update) this.stage.updaters.add((dt, cam, t) => inst.update(dt, cam, t));
+        // playAnim, not actions[] — ObjectLibrary exposes the former and has no
+        // such field as the latter, so `anim` in a preset had never once played.
+        if (p.anim && inst.playAnim) inst.playAnim(p.anim);
+        if (inst.update) {
+          const u = (dt, cam, t) => inst.update(dt, cam, t);
+          (this._propUpdaters ||= []).push(u);
+          this.stage.updaters.add(u);
+        }
       } catch (e) {
         // One bad prop id must not cost the whole session — say so and carry on.
         console.error(`xr prop ${p.object}`, e);
@@ -250,6 +278,8 @@ export class WorldMode {
     this.stage.updaters.delete(this._step);
     this.teleporter.dispose();
     this.torch.dispose();
+    for (const u of this._propUpdaters || []) this.stage.updaters.delete(u);
+    this._propUpdaters = null;
     for (const inst of this._props || []) { inst.node.removeFromParent(); disposeScene(inst.node); }
     this._props = null;
     this.lib?.dispose();

@@ -544,8 +544,28 @@ export class XRShell {
   // must not be measured as part of what is being fitted.
   _isContent(o) { return o !== this.ui && !o.userData?.xrChrome; }
 
+  // The curtain, and it must RESTORE rather than reveal. Writing `visible = on`
+  // here turns on everything it touches — including a level's collision layer,
+  // which level3d builds hidden (mode:"toggle", visible:false) and which 88 of
+  // the 370 shipped level documents carry. Underworld and Need for Speed have
+  // none, so for two games this looked like a curtain; Bob-omb Battlefield came
+  // up under a red wireframe shell and said otherwise.
+  //
+  // Symmetric and idempotent, because _contentBox lifts the curtain and drops it
+  // again just to measure.
   _setContentVisible(on) {
-    for (const o of this.stage.scene.children) if (this._isContent(o)) o.visible = on;
+    for (const o of this.stage.scene.children) {
+      if (!this._isContent(o)) continue;
+      if (on) {
+        if (o.userData.rxCurtain !== undefined) {
+          o.visible = o.userData.rxCurtain;
+          delete o.userData.rxCurtain;
+        }
+      } else {
+        if (o.userData.rxCurtain === undefined) o.userData.rxCurtain = o.visible;
+        o.visible = false;
+      }
+    }
   }
 
   _contentVisible(on) {

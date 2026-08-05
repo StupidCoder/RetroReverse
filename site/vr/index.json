@@ -2,7 +2,8 @@
   "format": "retro-x-vr",
   "version": 1,
   "presets": [
-    "ultima-underworld-pc/level-1",
-    "need-for-speed-3do/cy1"
+    "need-for-speed-3do/cy1",
+    "super-mario-64-ds/bombhei-map",
+    "ultima-underworld-pc/level-1"
   ]
 }
