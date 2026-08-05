@@ -3576,3 +3576,23 @@ every car GLB, whose shipped copies still carried MASK 0.5.
 Still open for the 66-course ship: texture dedup across `fwd`/`_R` variants,
 clean-room display names, the `_BR`-style upper-case bin filenames, and the
 billboard yaw convention in the viewer.
+
+### The course is a level, not an object
+
+The first ship presented the course as a `model3d` object with the sky as a
+world node — wrong presentation: the racing courses of the other games (Crazy
+Taxi is the closest template, SM64DS the same shape) ship as **levels**, and a
+sky dome belongs to the camera. `stage-beac` is now a `scene3d` level:
+`levels/stage-beac.glb` (course + placed instances + `cs_ENV` ring) as the base
+layer, `levels/stage-beac-sky.glb` as a sky layer with `attach:"camera"`,
+`renderOrder:-1`, `depthTest:false`, `role:"sky"` — the viewer re-centres the
+dome on the camera every frame, which *is* the game's zero-parallax draw. The
+fly camera starts on the start straight in front of the CHECK POINT gantry,
+range and speed derived from the assembled world's own bounds. Level layers
+also learned the Retro-X material extras model3d objects already had
+(`applyLayerMaterialExtras` in `level3d.js`): additive/alpha blending,
+submission-order draw layers, and env-cube sheen from a new `Layer.EnvMap`
+field — the sea's cube reflection survives the move (it used to ride on the
+object document's `envMap`). Verified in the viewer itself: level loads with
+no console errors, START-line view matches the game's framing, the sea shows
+the cube gradient against the dome's horizon.

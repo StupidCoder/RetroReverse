@@ -467,7 +467,7 @@ export const flyHint = COARSE ? 'sticks: left move Â· right look' : 'WASD move Â
 
 const gltfLoader = new GLTFLoader();
 
-function loadImage(url) {
+export function loadImage(url) {
   return new Promise((res, rej) => {
     const i = new Image();
     i.onload = () => res(i);

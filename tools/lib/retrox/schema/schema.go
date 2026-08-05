@@ -286,17 +286,18 @@ const (
 )
 
 type Layer struct {
-	ID            string  `json:"id"`
-	Name          string  `json:"name,omitempty"`
-	File          string  `json:"file"`
-	Mode          string  `json:"mode,omitempty"` // default "base"
-	Visible       *bool   `json:"visible,omitempty"`
-	Attach        string  `json:"attach,omitempty"` // "" == "world" | "camera" | "cameraYaw"
-	RenderOrder   float64 `json:"renderOrder,omitempty"`
-	Transparent   bool    `json:"transparent,omitempty"`
-	DepthTest     *bool   `json:"depthTest,omitempty"`
-	PolygonOffset float64 `json:"polygonOffset,omitempty"`
-	Role          string  `json:"role,omitempty"` // "collision" | "sky" | "water"
+	ID            string   `json:"id"`
+	Name          string   `json:"name,omitempty"`
+	File          string   `json:"file"`
+	Mode          string   `json:"mode,omitempty"` // default "base"
+	Visible       *bool    `json:"visible,omitempty"`
+	Attach        string   `json:"attach,omitempty"` // "" == "world" | "camera" | "cameraYaw"
+	RenderOrder   float64  `json:"renderOrder,omitempty"`
+	Transparent   bool     `json:"transparent,omitempty"`
+	DepthTest     *bool    `json:"depthTest,omitempty"`
+	PolygonOffset float64  `json:"polygonOffset,omitempty"`
+	Role          string   `json:"role,omitempty"`   // "collision" | "sky" | "water"
+	EnvMap        []string `json:"envMap,omitempty"` // 6 cube faces (+x,-x,+y,-y,+z,-z) for sheen-marked materials
 }
 
 // IsVisible resolves the initial-visibility default (true).

@@ -4,7 +4,7 @@
 // onClick interactions, and the cutscene scripts. All of it from the level
 // document; no per-game code.
 
-import { THREE, Stage, FlyCam, ObjectLibrary, loadGLB, applyWireframe, applyTexFilter, applyTransform, flyHint, disposeScene } from './engine3d.js';
+import { THREE, Stage, FlyCam, ObjectLibrary, loadGLB, loadImage, applyWireframe, applyTexFilter, applyTransform, flyHint, disposeScene } from './engine3d.js';
 import { CutscenePlayer } from './cutscene.js';
 import { PanInput } from './pancam.js';
 import { arSupported, PerfMeter } from './xr.js';
@@ -131,6 +131,7 @@ export async function mount(ctx, doc) {
       group.visible = ly.visible !== false;
       group.userData.layer = ly; // role/attach/mode — read by contentBox() and AR mode
       applyLayerLook(gltf.scene, ly);
+      await applyLayerMaterialExtras(gltf.scene, ly, game, docPath);
       stage.scene.add(group);
       roots.push(group);
       layerNodes.set(ly.id, { group, def: ly });
@@ -676,6 +677,47 @@ export async function mount(ctx, doc) {
       };
     },
   };
+}
+
+// applyLayerMaterialExtras applies the Retro-X material extras a layer's GLB
+// carries — additive/alpha blending, submission-order draw layers, and
+// env-cube sheen fed by the layer's own cube faces (ly.envMap, six images in
+// +x,-x,+y,-y,+z,-z order) — the same semantics ObjectLibrary gives model3d
+// objects, which layer GLBs used to lose (OutRun's sea sheen was the tell).
+async function applyLayerMaterialExtras(root, ly, game, docPath) {
+  let cube = null;
+  if (ly.envMap?.length === 6) {
+    const imgs = await Promise.all(ly.envMap.map((f) => loadImage(game.url(docPath, f))));
+    cube = new THREE.CubeTexture(imgs);
+    cube.colorSpace = THREE.SRGBColorSpace;
+    cube.needsUpdate = true;
+  }
+  const mats = new Set();
+  root.traverse((o) => {
+    for (const m of o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []) {
+      mats.add(m);
+      if (!ly.renderOrder && Number.isFinite(m.userData?.layer)) o.renderOrder = m.userData.layer;
+    }
+  });
+  for (const m of mats) {
+    if (m.userData?.blend === 'additive') {
+      m.transparent = true;
+      m.blending = THREE.AdditiveBlending;
+      m.depthWrite = false;
+      m.needsUpdate = true;
+    }
+    if (m.userData?.blend === 'alpha') {
+      m.transparent = true;
+      m.depthWrite = false;
+      m.needsUpdate = true;
+    }
+    if (cube && m.userData?.sheen) {
+      m.envMap = cube;
+      m.combine = THREE.AddOperation;
+      m.reflectivity = 0.3;
+      m.needsUpdate = true;
+    }
+  }
 }
 
 function applyLayerLook(root, ly) {

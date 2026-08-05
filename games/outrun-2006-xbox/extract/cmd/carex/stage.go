@@ -30,6 +30,7 @@ import (
 	"compress/zlib"
 	"fmt"
 	"io"
+	"math"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -70,13 +71,45 @@ func readStagePMT(disc *xbox.Image, discPath string) (*pmt, []texInfo, error) {
 	return p, texs, nil
 }
 
-// exportBeachStage writes the Studio's beach course: the course pmt assembled
-// through its visibility database (world geometry + placed instances), plus
-// the sky dome and the distant scenery ring the game draws around it, as
-// named extra nodes in the same GLB. The sky node carries extras
-// {"role": "sky"} — in the game it is drawn around the camera (zero
-// parallax); the export leaves it at the world origin and lets the viewer
-// decide.
+// nodesBounds accumulates the world-space bounding box of a node list,
+// applying each node's placement matrix (row-vector) to its positions.
+func nodesBounds(nodes []glb.VariantNode) (mn, mx [3]float32) {
+	first := true
+	for _, n := range nodes {
+		for _, p := range n.Positions {
+			w := p
+			if m := n.Matrix; m != nil {
+				w = [3]float32{
+					m[0]*p[0] + m[4]*p[1] + m[8]*p[2] + m[12],
+					m[1]*p[0] + m[5]*p[1] + m[9]*p[2] + m[13],
+					m[2]*p[0] + m[6]*p[1] + m[10]*p[2] + m[14],
+				}
+			}
+			if first {
+				mn, mx = w, w
+				first = false
+				continue
+			}
+			for k := 0; k < 3; k++ {
+				if w[k] < mn[k] {
+					mn[k] = w[k]
+				}
+				if w[k] > mx[k] {
+					mx[k] = w[k]
+				}
+			}
+		}
+	}
+	return
+}
+
+// exportBeachStage writes the Studio's beach course as a LEVEL, the way the
+// racing courses of the other games ship (Crazy Taxi is the template): the
+// course pmt assembled through its visibility database (world geometry +
+// placed instances) plus the distant cs_ENV scenery ring in one layer GLB,
+// and the sky dome as its own GLB in a camera-attached sky layer — the game
+// draws the dome around the camera (zero parallax), and the viewer's
+// attach:"camera" + renderOrder -1 + depthTest:false is exactly that.
 func exportBeachStage(disc *xbox.Image, b *build.Builder) {
 	const discPath = "/Stage/BEAC/cs_CS_BEAC_pmt.sz"
 	course, courseTexs, err := readStagePMT(disc, discPath)
@@ -101,6 +134,14 @@ func exportBeachStage(disc *xbox.Image, b *build.Builder) {
 	}
 	nodes = append(nodes, envNodes...)
 
+	out, err := b.Path("levels", "stage-beac.glb")
+	if err != nil {
+		fatal("%v", err)
+	}
+	if err := glb.WriteVariantScenes(out, []glb.ModelVariant{{Name: "course", Nodes: nodes}}); err != nil {
+		fatal("stage-beac: %v", err)
+	}
+
 	sky, skyTexs, err := readStagePMT(disc, "/Stage/BEAC/obj_course_obj_sky_beac_pmt.sz")
 	if err != nil {
 		fatal("%v", err)
@@ -113,42 +154,54 @@ func exportBeachStage(disc *xbox.Image, b *build.Builder) {
 	if err != nil {
 		fatal("sky: %v", err)
 	}
-	skyNodes := skyV.Nodes
-	if len(skyNodes) == 0 {
-		skyNodes = []glb.VariantNode{{Positions: skyV.Positions, Normals: skyV.Normals,
-			UVs: skyV.UVs, UV2: skyV.UV2, Colors: skyV.Colors,
-			TexGroups: skyV.TexGroups, ColorGroups: skyV.ColorGroups}}
-	}
-	for i := range skyNodes {
-		skyNodes[i].Name = strings.TrimSpace("sky " + skyNodes[i].Name)
-		skyNodes[i].Extras = map[string]any{"role": "sky"}
-	}
-	nodes = append(nodes, skyNodes...)
-
-	out, err := b.Path("objects", "stage-beac.glb")
+	skyV.Name = "sky"
+	skyOut, err := b.Path("levels", "stage-beac-sky.glb")
 	if err != nil {
 		fatal("%v", err)
 	}
-	if err := glb.WriteVariantScenes(out, []glb.ModelVariant{{Name: "car", Nodes: nodes}}); err != nil {
-		fatal("stage-beac: %v", err)
+	if err := glb.WriteVariantScenes(skyOut, []glb.ModelVariant{skyV}); err != nil {
+		fatal("stage-beac-sky: %v", err)
 	}
-	obj := &schema.Object{
-		Type: schema.ObjectModel3D, Name: "Beach (course)", Model: "stage-beac.glb",
-		Props: map[string]any{"source": discPath},
-	}
+
+	// The course's environment cube feeds the sheen-marked materials (the
+	// sea's per-pixel reflection), exactly as the object export shipped it.
+	var envMap []string
 	if faces := envFaces(course, courseTexs); faces != nil {
 		for fi, img := range faces {
 			fn := fmt.Sprintf("stage-beac-env-%s.png", [6]string{"px", "nx", "py", "ny", "pz", "nz"}[fi])
-			path, err := b.Path("objects", fn)
+			path, err := b.Path("levels", fn)
 			if err != nil {
 				fatal("%v", err)
 			}
 			writePNG(path, img)
-			obj.EnvMap = append(obj.EnvMap, fn)
+			envMap = append(envMap, fn)
 		}
 	}
-	b.AddObject(schema.Asset{ID: "stage-beac", Name: "Beach (course)", Group: "Courses"}, obj)
-	fmt.Printf("%-34s -> %s (%s; env %s; sky %d nodes)\n", discPath, out, summary, envSummary, len(skyNodes))
+
+	// Camera: on the start straight, looking down the course (the road runs
+	// -z from the start line); range from the assembled world's own bounds.
+	mn, mx := nodesBounds(nodes)
+	dx, dy, dz := float64(mx[0]-mn[0]), float64(mx[1]-mn[1]), float64(mx[2]-mn[2])
+	diag := math.Sqrt(dx*dx + dy*dy + dz*dz)
+	depthOff := false
+	b.AddLevel(schema.Asset{ID: "stage-beac", Name: "Beach (course)", Group: "Courses"}, &schema.Level{
+		Type: schema.LevelScene3D,
+		Camera: &schema.Camera{
+			Mode:   "fly",
+			Pos:    []float64{0, 5, -6},
+			Target: []float64{0, 3, -120},
+			FOV:    55,
+			Near:   0.5,
+			Far:    1.3 * diag,
+			Fly:    &schema.Fly{Speed: diag / 60},
+		},
+		Scene: &schema.Scene{Layers: []schema.Layer{
+			{ID: "course", File: "stage-beac.glb", EnvMap: envMap},
+			{ID: "sky", Name: "Sky", File: "stage-beac-sky.glb", Mode: "toggle",
+				Attach: "camera", RenderOrder: -1, DepthTest: &depthOff, Role: "sky"},
+		}},
+	})
+	fmt.Printf("%-34s -> %s (%s; env %s; sky %s)\n", discPath, out, summary, envSummary, skyOut)
 }
 
 // loadVisBin attaches a course's cs_*_bin visibility database when the disc

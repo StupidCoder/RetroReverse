@@ -334,10 +334,10 @@
   },
   {
    "id": "stage-beac",
-   "category": "object",
+   "category": "level",
    "name": "Beach (course)",
    "group": "Courses",
-   "file": "objects/stage-beac.json"
+   "file": "levels/stage-beac.json"
   }
  ]
 }
