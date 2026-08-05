@@ -544,7 +544,7 @@ func writeTextured(path string, positions [][3]float32, uvs [][2]float32,
 	normals [][3]float32, colors [][4]uint8, texGroups []TexturedGroup, colorGroups []TriGroup) error {
 	b := &builder{}
 	st := &sharedTex{samplerIndex: map[[2]int]int{}, imageIndex: map[image.Image]int{}}
-	prims, materials, err := appendTextured(b, st, 0, positions, uvs, normals, colors, texGroups, colorGroups)
+	prims, materials, err := appendTextured(b, st, 0, positions, uvs, nil, normals, colors, texGroups, colorGroups)
 	if err != nil {
 		return err
 	}

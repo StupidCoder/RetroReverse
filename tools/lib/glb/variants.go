@@ -28,6 +28,8 @@ type ModelVariant struct {
 	Positions   [][3]float32
 	Normals     [][3]float32 // optional (nil = no NORMAL accessor)
 	UVs         [][2]float32
+	UV2         [][2]float32 // optional second UV set (nil = no TEXCOORD_1)
+	Colors      [][4]uint8   // optional per-vertex COLOR_0 (nil = none)
 	TexGroups   []TexturedGroup
 	ColorGroups []TriGroup
 
@@ -40,6 +42,8 @@ type VariantNode struct {
 	Positions   [][3]float32
 	Normals     [][3]float32
 	UVs         [][2]float32
+	UV2         [][2]float32
+	Colors      [][4]uint8
 	TexGroups   []TexturedGroup
 	ColorGroups []TriGroup
 }
@@ -57,11 +61,15 @@ type sharedTex struct {
 // appending accessors to b and textures to st. It is the shared body of
 // writeTextured (single-scene) and WriteVariantScenes.
 func appendTextured(b *builder, st *sharedTex, matBase int,
-	positions [][3]float32, uvs [][2]float32, normals [][3]float32, colors [][4]uint8,
+	positions [][3]float32, uvs, uv2 [][2]float32, normals [][3]float32, colors [][4]uint8,
 	texGroups []TexturedGroup, colorGroups []TriGroup) (prims, materials []map[string]any, err error) {
 
 	posAcc := b.addPositions(positions)
 	uvAcc := b.addUVs(uvs)
+	uv2Acc := -1
+	if len(uv2) > 0 {
+		uv2Acc = b.addUVs(uv2)
+	}
 	nrmAcc := -1
 	if len(normals) > 0 {
 		nrmAcc = b.addVec3(normals)
@@ -109,6 +117,9 @@ func appendTextured(b *builder, st *sharedTex, matBase int,
 		idxAcc := b.addIndices(idx)
 		prim := primitive(posAcc, idxAcc, 4, matBase+len(materials))
 		attrs := map[string]int{"POSITION": posAcc, "TEXCOORD_0": uvAcc}
+		if uv2Acc >= 0 {
+			attrs["TEXCOORD_1"] = uv2Acc
+		}
 		if nrmAcc >= 0 {
 			attrs["NORMAL"] = nrmAcc
 		}
@@ -158,6 +169,9 @@ func appendTextured(b *builder, st *sharedTex, matBase int,
 		if nrmAcc >= 0 {
 			prim["attributes"].(map[string]int)["NORMAL"] = nrmAcc
 		}
+		if colAcc >= 0 {
+			prim["attributes"].(map[string]int)["COLOR_0"] = colAcc
+		}
 		prims = append(prims, prim)
 		mat := unlitMaterial(g.Color, g.alphaOr1(), !g.SingleSided)
 		if g.Additive {
@@ -198,9 +212,9 @@ func WriteVariantScenes(path string, variants []ModelVariant) error {
 	st := &sharedTex{samplerIndex: map[[2]int]int{}, imageIndex: map[image.Image]int{}}
 	var meshes, nodes, scenes []map[string]any
 	var materials []map[string]any
-	addNode := func(name string, positions [][3]float32, uvs [][2]float32, normals [][3]float32,
-		texGroups []TexturedGroup, colorGroups []TriGroup) (int, error) {
-		prims, mats, err := appendTextured(b, st, len(materials), positions, uvs, normals, nil, texGroups, colorGroups)
+	addNode := func(name string, positions [][3]float32, uvs, uv2 [][2]float32, normals [][3]float32,
+		colors [][4]uint8, texGroups []TexturedGroup, colorGroups []TriGroup) (int, error) {
+		prims, mats, err := appendTextured(b, st, len(materials), positions, uvs, uv2, normals, colors, texGroups, colorGroups)
 		if err != nil {
 			return -1, err
 		}
@@ -217,7 +231,7 @@ func WriteVariantScenes(path string, variants []ModelVariant) error {
 		var sceneNodes []int
 		if len(v.Nodes) > 0 {
 			for _, n := range v.Nodes {
-				ni, err := addNode(n.Name, n.Positions, n.UVs, n.Normals, n.TexGroups, n.ColorGroups)
+				ni, err := addNode(n.Name, n.Positions, n.UVs, n.UV2, n.Normals, n.Colors, n.TexGroups, n.ColorGroups)
 				if err != nil {
 					return err
 				}
@@ -226,7 +240,7 @@ func WriteVariantScenes(path string, variants []ModelVariant) error {
 				}
 			}
 		} else {
-			ni, err := addNode(v.Name, v.Positions, v.UVs, v.Normals, v.TexGroups, v.ColorGroups)
+			ni, err := addNode(v.Name, v.Positions, v.UVs, v.UV2, v.Normals, v.Colors, v.TexGroups, v.ColorGroups)
 			if err != nil {
 				return err
 			}

@@ -608,12 +608,14 @@ func triangulate(prim uint32, raw []uint32) [][3]uint32 {
 	return tris
 }
 
-// decodeVerts expands one pair's vertex buffer into positions, normals and
-// UVs. Every layout carries the NV2A's packed 11:11:10 normal at +12; the
-// D3DCOLOR (when fmtWord has it) sits at +16 and pushes the UV sets to +20
-// (-vtxdecl census on the beach race). Only UV set 0 is returned here; the
-// second set and the course special's trailing f32x3 await a consumer.
-func (p *pmt) decodeVerts(bp bufPair) (pos, nrm [][3]float32, uv [][2]float32) {
+// decodeVerts expands one pair's vertex buffer into positions, normals, UVs,
+// the baked D3DCOLOR and the second UV set. Every layout carries the NV2A's
+// packed 11:11:10 normal at +12; the D3DCOLOR (when fmtWord has it) sits at
+// +16 — stored BGRA in memory, presented RGBA by the UB_D3D attribute type —
+// and pushes the UV sets to +20 (-vtxdecl census on the beach race). col and
+// uv2 are nil when the layout lacks them; the course special's trailing f32x3
+// still awaits a consumer.
+func (p *pmt) decodeVerts(bp bufPair) (pos, nrm [][3]float32, uv, uv2 [][2]float32, col [][4]uint8) {
 	n := int(bp.vbBytes / bp.stride)
 	pos = make([][3]float32, n)
 	nrm = make([][3]float32, n)
@@ -621,16 +623,26 @@ func (p *pmt) decodeVerts(bp bufPair) (pos, nrm [][3]float32, uv [][2]float32) {
 	uvOff := 16
 	if bp.hasColor() {
 		uvOff = 20
+		col = make([][4]uint8, n)
+	}
+	if bp.uvSets() > 1 {
+		uv2 = make([][2]float32, n)
 	}
 	for i := 0; i < n; i++ {
 		v := int(bp.vbOff) + i*int(bp.stride)
 		pos[i] = [3]float32{f32(p.b, v), f32(p.b, v+4), f32(p.b, v+8)}
 		nrm[i] = unpackNormal(u32(p.b, v+12))
+		if col != nil {
+			col[i] = [4]uint8{p.b[v+18], p.b[v+17], p.b[v+16], p.b[v+19]}
+		}
 		if bp.uvSets() > 0 {
 			uv[i] = [2]float32{f32(p.b, v+uvOff), f32(p.b, v+uvOff+4)}
 		}
+		if uv2 != nil {
+			uv2[i] = [2]float32{f32(p.b, v+uvOff+8), f32(p.b, v+uvOff+12)}
+		}
 	}
-	return pos, nrm, uv
+	return pos, nrm, uv, uv2, col
 }
 
 // unpackNormal decodes the NV2A CMP (11:11:10 signed) vertex normal: x in bits
@@ -1313,6 +1325,16 @@ func (p *pmt) plan() ([]placement, error) {
 	if spec, ok := plcars[p.name]; ok && onlyParts == nil {
 		return plcarCarPlan(p, spec), nil
 	}
+	// Stage geometry (cs_*): one named node per part, so the viewer can pick
+	// them apart — and so the export takes the node path, which carries the
+	// baked COLOR_0 and TEXCOORD_1 the stage layouts declare.
+	if strings.HasPrefix(p.name, "cs_") && onlyParts == nil {
+		var out []placement
+		for pi := 0; pi < p.nParts; pi++ {
+			out = append(out, placement{part: pi, label: fmt.Sprintf("part %d", pi)})
+		}
+		return out, nil
+	}
 	var out []placement
 	for pi := 0; pi < p.nParts; pi++ {
 		out = append(out, placement{part: pi})
@@ -1556,6 +1578,10 @@ func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, s
 		positions [][3]float32
 		normals   [][3]float32
 		uvs       [][2]float32
+		uv2s      [][2]float32
+		colors    [][4]uint8
+		hasUV2    bool // any pair actually carried a second UV set
+		hasColor  bool // any pair actually carried a baked colour
 		texTris   map[texKey][][3]uint32
 		colorTris map[colKey][][3]uint32
 	}
@@ -1589,7 +1615,7 @@ func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, s
 		vbase := make([]uint32, len(pt.pairs))
 		for k, bp := range pt.pairs {
 			vbase[k] = uint32(len(na.positions))
-			pos, nrm, uv := p.decodeVerts(bp)
+			pos, nrm, uv, uv2, col := p.decodeVerts(bp)
 			sn, c := float32(math.Sin(pl.tiltX)), float32(math.Cos(pl.tiltX))
 			for i := range pos {
 				if pl.mirrorX {
@@ -1609,6 +1635,26 @@ func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, s
 			na.positions = append(na.positions, pos...)
 			na.normals = append(na.normals, nrm...)
 			na.uvs = append(na.uvs, uv...)
+			// The node's colour/uv2 arrays run parallel to positions across all
+			// pairs, so pairs lacking the attribute contribute the neutral value
+			// (white multiplies to identity; uv2 zero). If no pair ever carries
+			// the attribute the array is dropped at finish, keeping the /Cars
+			// exports (which never carry either) byte-identical.
+			if uv2 == nil {
+				uv2 = make([][2]float32, len(pos))
+			} else {
+				na.hasUV2 = true
+			}
+			if col == nil {
+				col = make([][4]uint8, len(pos))
+				for i := range col {
+					col[i] = [4]uint8{255, 255, 255, 255}
+				}
+			} else {
+				na.hasColor = true
+			}
+			na.uv2s = append(na.uv2s, uv2...)
+			na.colors = append(na.colors, col...)
 		}
 		for _, b := range pt.batches {
 			bp := pt.pairs[b.pair]
@@ -1700,15 +1746,22 @@ func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, s
 			})
 		}
 		totalVerts += len(na.positions)
-		return glb.VariantNode{Name: na.name, Positions: na.positions, Normals: na.normals,
+		n := glb.VariantNode{Name: na.name, Positions: na.positions, Normals: na.normals,
 			UVs: na.uvs, TexGroups: texGroups, ColorGroups: colorGroups}
+		if na.hasUV2 {
+			n.UV2 = na.uv2s
+		}
+		if na.hasColor {
+			n.Colors = na.colors
+		}
+		return n
 	}
 
 	var v glb.ModelVariant
 	if len(order) == 1 && order[0].name == "" {
 		n := finish(order[0])
 		v = glb.ModelVariant{Positions: n.Positions, Normals: n.Normals, UVs: n.UVs,
-			TexGroups: n.TexGroups, ColorGroups: n.ColorGroups}
+			UV2: n.UV2, Colors: n.Colors, TexGroups: n.TexGroups, ColorGroups: n.ColorGroups}
 	} else {
 		for _, na := range order {
 			v.Nodes = append(v.Nodes, finish(na))
@@ -1991,9 +2044,10 @@ func exportSite(imagePath, siteDir string) {
 	exportTraffic(disc, b)
 
 	// The first /Stage resident (Part XXVI): the beach course geometry,
-	// world-space as the file carries it. Baked vertex colours and the
-	// second UV set decode but are not exported yet; the rest of the stage
-	// family (objects, env, collision, spline) is still closed.
+	// world-space as the file carries it, one named node per part, with the
+	// baked vertex colours (COLOR_0) and second UV set (TEXCOORD_1) the
+	// stage layouts declare. The rest of the stage family (objects, env,
+	// collision, spline) is still closed.
 	doOne("/Stage/BEAC/cs_CS_BEAC_pmt.sz", "stage-beac.glb", "Beach (course)", "Courses")
 
 	if err := b.Write(); err != nil {

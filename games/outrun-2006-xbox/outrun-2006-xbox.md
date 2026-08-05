@@ -3219,13 +3219,26 @@ and deserve a re-ship. All 276 stage files parse with every invariant green.
 cliffs, the start-line town, the hotel towers, all textured and coherent. The parts'
 coordinates are already world-space (their bounding spheres sit kilometres apart).
 
+### The baked light and the second UV set ship
+
+The GLB writer grew `COLOR_0` and `TEXCOORD_1` on the variant-node path, and the
+stage export now carries both: the D3DCOLOR at +16 (stored BGRA, presented RGBA by
+the `UB_D3D` attribute type) becomes `COLOR_0` — part 3's green/earth tints, part 4's
+deep sea blue — and the second UV set becomes `TEXCOORD_1`. Stage files (`cs_*`) now
+export one named node per part instead of a single origin node. Pairs of a node that
+lack an attribute contribute the neutral value (white / zero UV); nodes where no pair
+carries it drop the accessor, so `/Cars` exports without `0x212` pairs stay
+byte-identical — and the cars that *do* carry `0x212` (two UV sets — rc/plcar f430,
+550b, 575sa, 360sp, f50, gto, testa, f355sp) now honestly ship their second set too,
+their only delta.
+
 ### Where it stands / next
 
-The vertex colours (the course's baked lighting) and the second UV set decode but are
-not yet exported; the stride-44 trailing `f32x3` is unread; `cs_ENV`, the `obj_course`
-objects, collision, the spline and the fog/sun params are unopened; and the export ships
-one origin node instead of a curated per-part tree. The verification standard for the
-course is the same as the cars': against the game's own render of the same scene.
+The stride-44 trailing `f32x3` is unread; the RGBA-vs-BGRA colour order and the
+modulate scale still want a pin against the game's own frame; `cs_ENV`, the
+`obj_course` objects, collision, the spline and the fog/sun params are unopened; the
+part kinds (0x2, 0x41, 0x842…) are unnamed. The verification standard for the course
+is the same as the cars': against the game's own render of the same scene.
 
 ### Tooling
 
