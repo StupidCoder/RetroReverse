@@ -112,6 +112,10 @@
    "pos": [-3.45, -0.2, 4.2],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_ll.glb",
+    "matrix": [0.707, 0, 0.707, -3.45, 0, 1, 0, -0.2, -0.707, 0, 0.707, 4.2]
+   },
    "props": {
     "actor": 17,
     "collider": "broken_block_ll"
@@ -123,6 +127,10 @@
    "pos": [-3.24, -0.2, 3.99],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_ll.glb",
+    "matrix": [0.707, 0, 0.707, -3.24, 0, 1, 0, -0.2, -0.707, 0, 0.707, 3.99]
+   },
    "props": {
     "actor": 17,
     "collider": "broken_block_ll"
@@ -133,6 +141,10 @@
    "object": "obj-tatefuda",
    "pos": [1.875, -0.2, 2.83],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, 1.875, 0, 0.1, 0, -0.2, 0, 0, 0.1, 2.83]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -148,6 +160,10 @@
    "object": "obj-tatefuda",
    "pos": [0.319, -0.2, 2.898],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, 0.319, 0, 0.1, 0, -0.2, 0, 0, 0.1, 2.898]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -163,6 +179,10 @@
    "object": "obj-tatefuda",
    "pos": [-0.548, -0.2, 2.793],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, -0.548, 0, 0.1, 0, -0.2, 0, 0, 0.1, 2.793]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -179,6 +199,10 @@
    "pos": [-1.483, -0.2, 4.626],
    "rot": [0, 2.2863024905443052, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [-0.066, 0, 0.075, -1.483, 0, 0.1, 0, -0.2, -0.075, 0, -0.066, 4.626]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -276,6 +300,10 @@
    "object": "casket",
    "pos": [2.6, 0.8, -1.2],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_casket.glb",
+    "matrix": [0.1, 0, 0, 2.6, 0, 0.1, 0, 0.8, 0, 0, 0.1, -1]
+   },
    "props": {
     "actor": 64,
     "collider": "casket"
@@ -286,6 +314,10 @@
    "object": "casket",
    "pos": [2.9, 0.8, -1.2],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_casket.glb",
+    "matrix": [0.1, 0, 0, 2.9, 0, 0.1, 0, 0.8, 0, 0, 0.1, -1]
+   },
    "props": {
     "actor": 64,
     "collider": "casket"
@@ -296,6 +328,10 @@
    "object": "casket",
    "pos": [3.2, 0.8, -1.2],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_casket.glb",
+    "matrix": [0.1, 0, 0, 3.2, 0, 0.1, 0, 0.8, 0, 0, 0.1, -1]
+   },
    "props": {
     "actor": 64,
     "collider": "casket"
@@ -307,6 +343,10 @@
    "pos": [2.6, 0.8, -0.5],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_casket.glb",
+    "matrix": [-0.1, 0, 0, 2.6, 0, 0.1, 0, 0.8, 0, 0, -0.1, -0.7]
+   },
    "props": {
     "actor": 64,
     "collider": "casket"
@@ -318,6 +358,10 @@
    "pos": [2.9, 0.8, -0.5],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_casket.glb",
+    "matrix": [-0.1, 0, 0, 2.9, 0, 0.1, 0, 0.8, 0, 0, -0.1, -0.7]
+   },
    "props": {
     "actor": 64,
     "collider": "casket"
@@ -329,6 +373,10 @@
    "pos": [3.2, 0.8, -0.5],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_casket.glb",
+    "matrix": [-0.1, 0, 0, 3.2, 0, 0.1, 0, 0.8, 0, 0, -0.1, -0.7]
+   },
    "props": {
     "actor": 64,
     "collider": "casket"
@@ -393,6 +441,10 @@
    "object": "th-kaidan",
    "pos": [0.95, 0, 0.9],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_th_kaidan.glb",
+    "matrix": [0.1, 0, 0, 0.95, 0, 0.1, 0, -0.6, 0, 0, 0.1, 0.9]
+   },
    "props": {
     "actLayer": 1,
     "actor": 65,
@@ -425,6 +477,10 @@
    "object": "th-mery-go",
    "pos": [-0.19, -2.45, 0.19],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_th_mery_go.glb",
+    "matrix": [1, 0, 0, -0.19, 0, 1, 0, -2.45, 0, 0, 1, 0.19]
+   },
    "props": {
     "actor": 159,
     "collider": "th_mery_go"
@@ -435,6 +491,10 @@
    "object": "th-trap",
    "pos": [2.8, 0.8, 1.85],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_th_trap.glb",
+    "matrix": [0.1, 0, 0, 2.8, 0, 0.1, 0, 0.8, 0, 0, 0.1, 1.85]
+   },
    "props": {
     "actor": 160,
     "collider": "th_trap"
@@ -446,6 +506,10 @@
    "pos": [-2.918, -0.2, 5.286],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_th_lift.glb",
+    "matrix": [0.071, 0, -0.071, -2.918, 0, 0.1, 0, -0.2, 0.071, 0, 0.071, 5.286]
+   },
    "props": {
     "actor": 32,
     "collider": "th_lift"
@@ -495,6 +559,10 @@
    "object": "obj-star-switch",
    "pos": [-2.55, -2.4, 1.65],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_star_switch.glb",
+    "matrix": [0.1, 0, 0, -2.55, 0, 0.1, 0, -2.443, 0, 0, 0.1, 1.65]
+   },
    "props": {
     "actor": 12,
     "collider": "obj_star_switch"
@@ -524,6 +592,10 @@
    "object": "broken-block-ll",
    "pos": [-2.55, -2.4, 1.65],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_ll.glb",
+    "matrix": [1, 0, 0, -2.55, 0, 1, 0, -2.4, 0, 0, 1, 1.65]
+   },
    "props": {
     "actor": 17,
     "collider": "broken_block_ll"
@@ -633,6 +705,10 @@
    "object": "th-hondana",
    "pos": [-1.95, 0.8, 0.2],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_th_hondana.glb",
+    "matrix": [0.1, 0, 0, -1.95, 0, 0.1, 0, 0.8, 0, 0, 0.1, 0.2]
+   },
    "props": {
     "actor": 158,
     "collider": "th_hondana"
@@ -644,6 +720,10 @@
    "pos": [-1.3, 0, 2.1],
    "rot": [0, -0.6108119749762138, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_piano.glb",
+    "matrix": [0.082, 0, -0.057, -1.3, 0, 0.1, 0, 0, 0.057, 0, 0.082, 2.1]
+   },
    "props": {
     "actor": 249,
     "collider": "piano"
@@ -722,6 +802,10 @@
    "object": "b-coin-switch",
    "pos": [0.7, 1.7, 0.8],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_b_coin_switch.glb",
+    "matrix": [0.1, 0, 0, 0.7, 0, 0.1, 0, 1.7, 0, 0, 0.1, 0.8]
+   },
    "props": {
     "actor": 10,
     "collider": "b_coin_switch"

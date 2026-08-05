@@ -46,6 +46,10 @@
    "object": "obj-tatefuda",
    "pos": [-0.4, 0, -3.5],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, -0.4, 0, 0.1, 0, 0, 0, 0, 0.1, -3.5]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -61,6 +65,10 @@
    "object": "obj-tatefuda",
    "pos": [0.4, 0, -3.5],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, 0.4, 0, 0.1, 0, 0, 0, 0, 0.1, -3.5]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -77,6 +85,10 @@
    "pos": [3.02, 0.02, 0.22],
    "rot": [0, -2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [-0.071, 0, -0.071, 3.02, 0, 0.1, 0, 0.02, 0.071, 0, -0.071, 0.22]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -93,6 +105,10 @@
    "pos": [-3.02, 0.02, 0.22],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [-0.071, 0, 0.071, -3.02, 0, 0.1, 0, 0.02, -0.071, 0, -0.071, 0.22]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -145,6 +161,10 @@
    "object": "broken-block-l",
    "pos": [3.2, 0, -2.5],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, 3.2, 0, 1, 0, 0, 0, 0, 1, -2.5]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -155,6 +175,10 @@
    "object": "broken-block-l",
    "pos": [3.25, 0, -2.7],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, 3.25, 0, 1, 0, 0, 0, 0, 1, -2.7]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -165,6 +189,10 @@
    "object": "broken-block-l",
    "pos": [3.4, 0, -2.5],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, 3.4, 0, 1, 0, 0, 0, 0, 1, -2.5]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"

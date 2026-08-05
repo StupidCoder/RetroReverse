@@ -37,6 +37,10 @@
    "object": "th-mery-go",
    "pos": [0, -0.018, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_th_mery_go.glb",
+    "matrix": [1, 0, 0, 0, 0, 1, 0, -0.018, 0, 0, 1, 0]
+   },
    "props": {
     "actor": 159,
     "collider": "th_mery_go"
@@ -47,6 +51,10 @@
    "object": "obj-tatefuda",
    "pos": [0, 0, 0.3],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0.1, 0.3]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -145,6 +153,10 @@
    "object": "th-trap",
    "pos": [3.5, 0, -3.5],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_th_trap.glb",
+    "matrix": [0.1, 0, 0, 3.5, 0, 0.1, 0, 0, 0, 0, 0.1, -3.5]
+   },
    "props": {
     "actor": 160,
     "collider": "th_trap"
@@ -479,6 +491,10 @@
    "object": "broken-block-ll",
    "pos": [7.75, 0, -5.6],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_ll.glb",
+    "matrix": [1, 0, 0, 7.75, 0, 1, 0, 0, 0, 0, 1, -5.6]
+   },
    "props": {
     "actor": 17,
     "collider": "broken_block_ll"

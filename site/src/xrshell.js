@@ -392,6 +392,8 @@ export class XRShell {
       stage: this.stage,
       cfg,
       game,
+      asset,
+      signal,
       view: this._current?.view,
       ui: this.ui,
       onStatus: () => this._status(),

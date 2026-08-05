@@ -114,6 +114,10 @@
    "pos": [6.9, -1.15, -0.8],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_c0_switch.glb",
+    "matrix": [0, 0, -0.1, 6.9, 0, 0.1, 0, -1.15, 0.1, 0, 0, -0.8]
+   },
    "props": {
     "actor": 34,
     "collider": "c0_switch"
@@ -125,6 +129,10 @@
    "pos": [6.9, -1.15, -0.2],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_c0_switch.glb",
+    "matrix": [0, 0, -0.1, 6.9, 0, 0.1, 0, -1.15, 0.1, 0, 0, -0.2]
+   },
    "props": {
     "actor": 34,
     "collider": "c0_switch"
@@ -135,6 +143,10 @@
    "object": "c0-water",
    "pos": [4.4, -1.2, -0.45],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_c0_water.glb",
+    "matrix": [1, 0, 0, 4.4, 0, 1, 0, -1.2, 0, 0, 1, -0.45]
+   },
    "props": {
     "actor": 35,
     "collider": "c0_water"

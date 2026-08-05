@@ -55,6 +55,10 @@
    "object": "obj-dokan",
    "pos": [-1.74, -0.6, -1.78],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_dokan.glb",
+    "matrix": [0.1, 0, 0, -1.74, 0, 0.1, 0, -0.6, 0, 0, 0.1, -1.78]
+   },
    "props": {
     "actor": 298,
     "collider": "obj_dokan"
@@ -66,6 +70,10 @@
    "pos": [-0.992, 0.125, -1.165],
    "rot": [0, 0.39269908169872414, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_dokan.glb",
+    "matrix": [0.092, 0, 0.038, -0.992, 0, 0.1, 0, 0.125, -0.038, 0, 0.092, -1.165]
+   },
    "props": {
     "actor": 298,
     "collider": "obj_dokan"
@@ -76,6 +84,10 @@
    "object": "obj-dokan",
    "pos": [1.9, -0.45, -1.7],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_dokan.glb",
+    "matrix": [0.1, 0, 0, 1.9, 0, 0.1, 0, -0.45, 0, 0, 0.1, -1.7]
+   },
    "props": {
     "actor": 298,
     "collider": "obj_dokan"
@@ -115,6 +127,10 @@
    "pos": [-1.38, -0.75, -1.7],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_box_switch.glb",
+    "matrix": [0, 0, -0.1, -1.38, 0, 0.1, 0, -0.745, 0.1, 0, 0, -1.7]
+   },
    "props": {
     "actor": 11,
     "collider": "obj_box_switch"
@@ -126,6 +142,10 @@
    "pos": [0, 1.155, -0.448],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_tt_obj_futa.glb",
+    "matrix": [0, 0, 0.1, 0, 0, 0.1, 0, 1.155, -0.1, 0, 0, -0.448]
+   },
    "props": {
     "actor": 104,
     "collider": "tt_obj_futa"
@@ -136,6 +156,10 @@
    "object": "tt-obj-water",
    "pos": [0, 0, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_tt_obj_water.glb",
+    "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]
+   },
    "props": {
     "actor": 105,
     "collider": "tt_obj_water"

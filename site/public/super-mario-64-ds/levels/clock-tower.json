@@ -38,6 +38,10 @@
    "pos": [-1.827, 2.02, 0.272],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj01.glb",
+    "matrix": [0, 0, 1, -1.827, 0, 1, 0, 2.02, -1, 0, 0, 0.272]
+   },
    "props": {
     "actor": 108,
     "collider": "ct_mecha_obj01"
@@ -49,6 +53,10 @@
    "pos": [-0.73, -4.1, -0.73],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj01.glb",
+    "matrix": [0.707, 0, 0.707, -0.73, 0, 1, 0, -4.1, -0.707, 0, 0.707, -0.73]
+   },
    "props": {
     "actor": 108,
     "collider": "ct_mecha_obj01"
@@ -60,6 +68,10 @@
    "pos": [-1.282, -3.605, 0.767],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj01.glb",
+    "matrix": [0.707, 0, -0.707, -1.282, 0, 1, 0, -3.605, 0.707, 0, 0.707, 0.767]
+   },
    "props": {
     "actor": 108,
     "collider": "ct_mecha_obj01"
@@ -71,6 +83,10 @@
    "pos": [-1.006, -3.215, 1.043],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj01.glb",
+    "matrix": [0.707, 0, 0.707, -1.006, 0, 1, 0, -3.215, -0.707, 0, 0.707, 1.043]
+   },
    "props": {
     "actor": 108,
     "collider": "ct_mecha_obj01"
@@ -82,6 +98,10 @@
    "pos": [-1.282, -2.825, 1.318],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj01.glb",
+    "matrix": [0.707, 0, -0.707, -1.282, 0, 1, 0, -2.825, 0.707, 0, 0.707, 1.318]
+   },
    "props": {
     "actor": 108,
     "collider": "ct_mecha_obj01"
@@ -93,6 +113,10 @@
    "pos": [-1.837, 1.725, -0.436],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj01.glb",
+    "matrix": [0, 0, 1, -1.837, 0, 1, 0, 1.725, -1, 0, 0, -0.436]
+   },
    "props": {
     "actor": 108,
     "collider": "ct_mecha_obj01"
@@ -104,6 +128,10 @@
    "pos": [0.76, 5.62, -1],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj01.glb",
+    "matrix": [0.707, 0, 0.707, 0.76, 0, 1, 0, 5.62, -0.707, 0, 0.707, -1]
+   },
    "props": {
     "actor": 108,
     "collider": "ct_mecha_obj01"
@@ -115,6 +143,10 @@
    "pos": [1.037, 5.225, -0.727],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj01.glb",
+    "matrix": [0.707, 0, 0.707, 1.037, 0, 1, 0, 5.225, -0.707, 0, 0.707, -0.727]
+   },
    "props": {
     "actor": 108,
     "collider": "ct_mecha_obj01"
@@ -126,6 +158,10 @@
    "pos": [-0.88, 0.88, -1.1],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj03.glb",
+    "matrix": [-0.575, 0.412, 0.707, -0.88, 0.582, 0.813, 0, 0.88, -0.575, 0.412, -0.707, -1.1]
+   },
    "props": {
     "actor": 110,
     "collider": "ct_mecha_obj03"
@@ -137,6 +173,10 @@
    "pos": [1.06, -3.8, -0.32],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj03.glb",
+    "matrix": [0.575, -0.412, 0.707, 1.06, 0.582, 0.813, 0, -3.8, -0.575, 0.412, 0.707, -0.32]
+   },
    "props": {
     "actor": 110,
     "collider": "ct_mecha_obj03"
@@ -148,6 +188,10 @@
    "pos": [-1.357, -2.96, -1.004],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj03.glb",
+    "matrix": [0.575, -0.412, 0.707, -1.357, 0.582, 0.813, 0, -2.96, -0.575, 0.412, 0.707, -1.004]
+   },
    "props": {
     "actor": 110,
     "collider": "ct_mecha_obj03"
@@ -159,6 +203,10 @@
    "pos": [-1.213, 0.88, -0.725],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj03.glb",
+    "matrix": [0.575, -0.412, -0.707, -1.213, 0.582, 0.813, 0, 0.88, 0.575, -0.412, 0.707, -0.725]
+   },
    "props": {
     "actor": 110,
     "collider": "ct_mecha_obj03"
@@ -170,6 +218,10 @@
    "pos": [0.843, 3.57, 0.25],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj04l.glb",
+    "matrix": [0, 0, -0.1, 0.843, 0, 0.1, 0, 3.57, 0.1, 0, 0, 0.25]
+   },
    "props": {
     "actor": 111,
     "collider": "ct_mecha_obj04l"
@@ -180,6 +232,10 @@
    "object": "ct-mecha-obj04s",
    "pos": [1.807, -2.43, -0.096],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj04s.glb",
+    "matrix": [0.1, 0, 0, 1.807, 0, 0.1, 0, -2.43, 0, 0, 0.1, -0.096]
+   },
    "props": {
     "actor": 112,
     "collider": "ct_mecha_obj04s"
@@ -191,6 +247,10 @@
    "pos": [1.22, 3.22, 0.693],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj04l.glb",
+    "matrix": [0, 0, -0.1, 1.22, 0, 0.1, 0, 3.22, 0.1, 0, 0, 0.693]
+   },
    "props": {
     "actor": 111,
     "collider": "ct_mecha_obj04l"
@@ -202,6 +262,10 @@
    "pos": [-1.2, 1.924, -1.6],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj05.glb",
+    "matrix": [0.071, 0, 0.071, -1.2, 0, 0.1, 0, 1.924, -0.071, 0, 0.071, -1.6]
+   },
    "props": {
     "actor": 113,
     "collider": "ct_mecha_obj05"
@@ -213,6 +277,10 @@
    "pos": [-0.504, -2.53, 1.992],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj05.glb",
+    "matrix": [-0.1, 0, 0, -0.504, 0, 0.1, 0, -2.53, 0, 0, -0.1, 1.992]
+   },
    "props": {
     "actor": 113,
     "collider": "ct_mecha_obj05"
@@ -223,6 +291,10 @@
    "object": "ct-mecha-obj05",
    "pos": [-0.171, -1.32, -1.992],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj05.glb",
+    "matrix": [0.1, 0, 0, -0.171, 0, 0.1, 0, -1.32, 0, 0, 0.1, -1.992]
+   },
    "props": {
     "actor": 113,
     "collider": "ct_mecha_obj05"
@@ -234,6 +306,10 @@
    "pos": [-0.504, 1.219, 1.992],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj05.glb",
+    "matrix": [-0.1, 0, 0, -0.504, 0, 0.1, 0, 1.219, 0, 0, -0.1, 1.992]
+   },
    "props": {
     "actor": 113,
     "collider": "ct_mecha_obj05"
@@ -245,6 +321,10 @@
    "pos": [-0.167, 1.219, 1.992],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj05.glb",
+    "matrix": [-0.1, 0, 0, -0.167, 0, 0.1, 0, 1.219, 0, 0, -0.1, 1.992]
+   },
    "props": {
     "actor": 113,
     "collider": "ct_mecha_obj05"
@@ -256,6 +336,10 @@
    "pos": [0.169, 1.219, 1.992],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj05.glb",
+    "matrix": [-0.1, 0, 0, 0.169, 0, 0.1, 0, 1.219, 0, 0, -0.1, 1.992]
+   },
    "props": {
     "actor": 113,
     "collider": "ct_mecha_obj05"
@@ -267,6 +351,10 @@
    "pos": [-0.505, 3.1, 1.992],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj05.glb",
+    "matrix": [-0.1, 0, 0, -0.505, 0, 0.1, 0, 3.1, 0, 0, -0.1, 1.992]
+   },
    "props": {
     "actor": 113,
     "collider": "ct_mecha_obj05"
@@ -278,6 +366,10 @@
    "pos": [-0.167, 3.1, 1.992],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj05.glb",
+    "matrix": [-0.1, 0, 0, -0.167, 0, 0.1, 0, 3.1, 0, 0, -0.1, 1.992]
+   },
    "props": {
     "actor": 113,
     "collider": "ct_mecha_obj05"
@@ -289,6 +381,10 @@
    "pos": [0.169, 3.1, 1.992],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj05.glb",
+    "matrix": [-0.1, 0, 0, 0.169, 0, 0.1, 0, 3.1, 0, 0, -0.1, 1.992]
+   },
    "props": {
     "actor": 113,
     "collider": "ct_mecha_obj05"
@@ -300,6 +396,10 @@
    "pos": [0.506, 3.1, 1.992],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj05.glb",
+    "matrix": [-0.1, 0, 0, 0.506, 0, 0.1, 0, 3.1, 0, 0, -0.1, 1.992]
+   },
    "props": {
     "actor": 113,
     "collider": "ct_mecha_obj05"
@@ -311,6 +411,10 @@
    "pos": [-1, 1.629, -1.8],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj05.glb",
+    "matrix": [0.071, 0, 0.071, -1, 0, 0.1, 0, 1.629, -0.071, 0, 0.071, -1.8]
+   },
    "props": {
     "actor": 113,
     "collider": "ct_mecha_obj05"
@@ -358,6 +462,10 @@
    "pos": [-1.33, 0.6, 1.18],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj09.glb",
+    "matrix": [0.707, 0, 0.707, -1.33, 0, 1, 0, 0.606, -0.707, 0, 0.707, 1.18]
+   },
    "props": {
     "actor": 118,
     "collider": "ct_mecha_obj09"
@@ -368,6 +476,10 @@
    "object": "ct-mecha-obj06",
    "pos": [1.455, -2.04, -0.853],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj06.glb",
+    "matrix": [0.1, 0, 0.002, 1.455, 0, 0.1, 0, -2.04, -0.002, 0, 0.1, -0.853]
+   },
    "props": {
     "actor": 114,
     "collider": "ct_mecha_obj06"
@@ -378,6 +490,10 @@
    "object": "ct-mecha-obj06",
    "pos": [1.027, -1.89, -0.752],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj06.glb",
+    "matrix": [0.1, 0, 0.002, 1.027, 0, 0.1, 0, -1.89, -0.002, 0, 0.1, -0.752]
+   },
    "props": {
     "actor": 114,
     "collider": "ct_mecha_obj06"
@@ -388,6 +504,10 @@
    "object": "ct-mecha-obj06",
    "pos": [1.186, -1.74, -1.187],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj06.glb",
+    "matrix": [0.1, 0, 0.002, 1.186, 0, 0.1, 0, -1.74, -0.002, 0, 0.1, -1.187]
+   },
    "props": {
     "actor": 114,
     "collider": "ct_mecha_obj06"
@@ -398,6 +518,10 @@
    "object": "ct-mecha-obj06",
    "pos": [0.931, -1.59, -1.415],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj06.glb",
+    "matrix": [0.1, 0, 0.002, 0.931, 0, 0.1, 0, -1.59, -0.002, 0, 0.1, -1.415]
+   },
    "props": {
     "actor": 114,
     "collider": "ct_mecha_obj06"
@@ -408,6 +532,10 @@
    "object": "ct-mecha-obj06",
    "pos": [1.025, -0.02, -1.013],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj06.glb",
+    "matrix": [0.1, 0, 0.002, 1.025, 0, 0.1, 0, -0.02, -0.002, 0, 0.1, -1.013]
+   },
    "props": {
     "actor": 114,
     "collider": "ct_mecha_obj06"
@@ -419,6 +547,10 @@
    "pos": [-1.14, 0.28, 1.38],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj09.glb",
+    "matrix": [0.707, 0, 0.707, -1.14, 0, 1, 0, 0.286, -0.707, 0, 0.707, 1.38]
+   },
    "props": {
     "actor": 118,
     "collider": "ct_mecha_obj09"
@@ -430,6 +562,10 @@
    "pos": [-1.6, -1.42, 0.9],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj09.glb",
+    "matrix": [0.707, 0, 0.707, -1.6, 0, 1, 0, -1.414, -0.707, 0, 0.707, 0.9]
+   },
    "props": {
     "actor": 118,
     "collider": "ct_mecha_obj09"
@@ -441,6 +577,10 @@
    "pos": [0, 5.87, 0],
    "rot": [0, -2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj10.glb",
+    "matrix": [-0.707, 0, -0.707, 0, 0, 1, 0, 5.87, 0.707, 0, -0.707, 0]
+   },
    "props": {
     "actor": 119,
     "collider": "ct_mecha_obj10"
@@ -452,6 +592,10 @@
    "pos": [0, -2.43, 0],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj10.glb",
+    "matrix": [0.707, 0, 0.707, 0, 0, 1, 0, -2.43, -0.707, 0, 0.707, 0]
+   },
    "props": {
     "actor": 119,
     "collider": "ct_mecha_obj10"
@@ -463,6 +607,10 @@
    "pos": [-1.014, 4.145, 0.753],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj11.glb",
+    "matrix": [0.707, -0.013, -0.707, -1.014, 0, 1, -0.018, 4.145, 0.707, 0.013, 0.707, 0.753]
+   },
    "props": {
     "actor": 120,
     "collider": "ct_mecha_obj11"
@@ -474,6 +622,10 @@
    "pos": [0.413, -4.435, 1.912],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj11.glb",
+    "matrix": [0, 0.018, 1, 0.413, 0, 1, -0.018, -4.435, -1, 0, 0, 1.912]
+   },
    "props": {
     "actor": 120,
     "collider": "ct_mecha_obj11"
@@ -485,6 +637,10 @@
    "pos": [1.061, -4.135, 1.657],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj11.glb",
+    "matrix": [-0.707, 0.013, 0.707, 1.061, 0, 1, -0.018, -4.135, -0.707, -0.013, -0.707, 1.657]
+   },
    "props": {
     "actor": 120,
     "collider": "ct_mecha_obj11"
@@ -496,6 +652,10 @@
    "pos": [0.413, -3.835, 1.912],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj11.glb",
+    "matrix": [0, 0.018, 1, 0.413, 0, 1, -0.018, -3.835, -1, 0, 0, 1.912]
+   },
    "props": {
     "actor": 120,
     "collider": "ct_mecha_obj11"
@@ -507,6 +667,10 @@
    "pos": [1.061, -3.535, 1.657],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj11.glb",
+    "matrix": [-0.707, 0.013, 0.707, 1.061, 0, 1, -0.018, -3.535, -0.707, -0.013, -0.707, 1.657]
+   },
    "props": {
     "actor": 120,
     "collider": "ct_mecha_obj11"
@@ -518,6 +682,10 @@
    "pos": [1.544, -3.535, 1.174],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj11.glb",
+    "matrix": [-0.707, 0.013, 0.707, 1.544, 0, 1, -0.018, -3.535, -0.707, -0.013, -0.707, 1.174]
+   },
    "props": {
     "actor": 120,
     "collider": "ct_mecha_obj11"
@@ -529,6 +697,10 @@
    "pos": [0.413, -3.235, 1.912],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj11.glb",
+    "matrix": [0, 0.018, 1, 0.413, 0, 1, -0.018, -3.235, -1, 0, 0, 1.912]
+   },
    "props": {
     "actor": 120,
     "collider": "ct_mecha_obj11"
@@ -540,6 +712,10 @@
    "pos": [1.061, -2.935, 1.657],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj11.glb",
+    "matrix": [-0.707, 0.013, 0.707, 1.061, 0, 1, -0.018, -2.935, -0.707, -0.013, -0.707, 1.657]
+   },
    "props": {
     "actor": 120,
     "collider": "ct_mecha_obj11"
@@ -551,6 +727,10 @@
    "pos": [1.544, -2.635, 1.174],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj11.glb",
+    "matrix": [-0.707, 0.013, 0.707, 1.544, 0, 1, -0.018, -2.635, -0.707, -0.013, -0.707, 1.174]
+   },
    "props": {
     "actor": 120,
     "collider": "ct_mecha_obj11"
@@ -561,6 +741,10 @@
    "object": "ct-mecha-obj11",
    "pos": [1.785, 3.745, -0.05],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj11.glb",
+    "matrix": [1, 0, 0, 1.785, 0, 1, -0.018, 3.745, 0, 0.018, 1, -0.05]
+   },
    "props": {
     "actor": 120,
     "collider": "ct_mecha_obj11"
@@ -571,6 +755,10 @@
    "object": "ct-mecha-obj11",
    "pos": [1.425, 3.745, -0.35],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj11.glb",
+    "matrix": [1, 0, 0, 1.425, 0, 1, -0.018, 3.745, 0, 0.018, 1, -0.35]
+   },
    "props": {
     "actor": 120,
     "collider": "ct_mecha_obj11"
@@ -581,6 +769,10 @@
    "object": "ct-mecha-obj11",
    "pos": [1.065, 3.745, -0.65],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj11.glb",
+    "matrix": [1, 0, 0, 1.065, 0, 1, -0.018, 3.745, 0, 0.018, 1, -0.65]
+   },
    "props": {
     "actor": 120,
     "collider": "ct_mecha_obj11"
@@ -592,6 +784,10 @@
    "pos": [-0.745, 4.245, 1.022],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj11.glb",
+    "matrix": [-0.707, 0.013, 0.707, -0.745, 0, 1, -0.018, 4.245, -0.707, -0.013, -0.707, 1.022]
+   },
    "props": {
     "actor": 120,
     "collider": "ct_mecha_obj11"
@@ -711,6 +907,10 @@
    "pos": [2.015, 5.86, 2.015],
    "rot": [0, -2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_dosune.glb",
+    "matrix": [-0.071, 0, -0.071, 2.015, 0, 0.1, 0, 5.86, 0.071, 0, -0.071, 2.015]
+   },
    "props": {
     "actor": 161,
     "collider": "dosune"
@@ -766,6 +966,10 @@
    "object": "b-coin-switch",
    "pos": [1.7, -0.02, -0.3],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_b_coin_switch.glb",
+    "matrix": [0.1, 0, 0, 1.7, 0, 0.1, 0, -0.02, 0, 0, 0.1, -0.3]
+   },
    "props": {
     "actor": 10,
     "collider": "b_coin_switch"
@@ -841,6 +1045,10 @@
    "pos": [-1.33, 2.064, -1.38],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_ll.glb",
+    "matrix": [0.707, 0, 0.707, -1.33, 0, 1, 0, 2.064, -0.707, 0, 0.707, -1.38]
+   },
    "props": {
     "actor": 17,
     "collider": "broken_block_ll"
@@ -852,6 +1060,10 @@
    "pos": [0.5, 0, 1.8],
    "rot": [0, -2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_star_switch.glb",
+    "matrix": [-0.071, 0, -0.071, 0.5, 0, 0.1, 0, -0.043, 0.071, 0, -0.071, 1.8]
+   },
    "props": {
     "actor": 12,
     "collider": "obj_star_switch"
@@ -873,6 +1085,10 @@
    "pos": [1.6, -4.71, -0.2],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.071, 0, -0.071, 1.6, 0, 0.1, 0, -4.71, 0.071, 0, 0.071, -0.2]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -889,6 +1105,10 @@
    "pos": [1.48, 5.9, 1.48],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ct_mecha_obj04l.glb",
+    "matrix": [0.071, 0, 0.071, 1.48, 0, 0.1, 0, 5.9, -0.071, 0, 0.071, 1.48]
+   },
    "props": {
     "actor": 111,
     "collider": "ct_mecha_obj04l"

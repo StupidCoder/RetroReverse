@@ -46,6 +46,10 @@
    "object": "fm-battan",
    "pos": [-0.469, 1.175, 2.868],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fm_battan.glb",
+    "matrix": [1, 0, 0, -0.469, 0, 1, 0, 1.175, 0, 0, 1, 2.868]
+   },
    "props": {
     "actor": 84,
     "collider": "fm_battan"

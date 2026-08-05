@@ -55,6 +55,10 @@
    "object": "hatena-switch",
    "pos": [0, -2, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_hatena_switch_start.glb",
+    "matrix": [0.1, 0, 0, 0, 0, 0.1, 0, -2, 0, 0, 0.1, 0]
+   },
    "props": {
     "actor": 26,
     "collider": "hatena_switch_start"

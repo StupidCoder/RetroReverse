@@ -46,6 +46,10 @@
    "object": "obj-dokan",
    "pos": [-5.7, -2, -5.8],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_dokan.glb",
+    "matrix": [0.1, 0, 0, -5.7, 0, 0.1, 0, -2, 0, 0, 0.1, -5.8]
+   },
    "props": {
     "actor": 298,
     "collider": "obj_dokan"
@@ -56,6 +60,10 @@
    "object": "obj-dokan",
    "pos": [-3.1, 0.5, -3.7],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_dokan.glb",
+    "matrix": [0.1, 0, 0, -3.1, 0, 0.1, 0, 0.5, 0, 0, 0.1, -3.7]
+   },
    "props": {
     "actor": 298,
     "collider": "obj_dokan"
@@ -66,6 +74,10 @@
    "object": "obj-dokan",
    "pos": [6.4, -1.5, -5.7],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_dokan.glb",
+    "matrix": [0.1, 0, 0, 6.4, 0, 0.1, 0, -1.5, 0, 0, 0.1, -5.7]
+   },
    "props": {
     "actor": 298,
     "collider": "obj_dokan"
@@ -177,6 +189,10 @@
    "object": "pile",
    "pos": [-0.5, -2.5, 6.5],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_pile.glb",
+    "matrix": [0.1, 0, 0, -0.5, 0, 0.1, 0, -2.5, 0, 0, 0.1, 6.5]
+   },
    "props": {
     "actor": 27,
     "collider": "pile"
@@ -187,6 +203,10 @@
    "object": "pile",
    "pos": [-5.265, -2.9, 5.261],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_pile.glb",
+    "matrix": [0.1, 0, 0, -5.265, 0, 0.1, 0, -2.9, 0, 0, 0.1, 5.261]
+   },
    "props": {
     "actor": 27,
     "collider": "pile"
@@ -207,6 +227,10 @@
    "pos": [-0.79, -2.5, 6.53],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0, 0, 0.1, -0.79, 0, 0.1, 0, -2.5, -0.1, 0, 0, 6.53]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -222,6 +246,10 @@
    "object": "obj-tatefuda",
    "pos": [-2.25, -0.5, 2],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, -2.25, 0, 0.1, 0, -0.5, 0, 0, 0.1, 2]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -238,6 +266,10 @@
    "pos": [6.645, -2.5, 1.894],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0, 0, 0.1, 6.645, 0, 0.1, 0, -2.5, -0.1, 0, 0, 1.894]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -253,6 +285,10 @@
    "object": "td-obj-futa",
    "pos": [0, 3.82, -1.5],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_td_obj_futa.glb",
+    "matrix": [0.1, 0, 0, 0, 0, 0.1, 0, 3.82, 0, 0, 0.1, -1.5]
+   },
    "props": {
     "actor": 106,
     "collider": "td_obj_futa"
@@ -263,6 +299,10 @@
    "object": "td-obj-water",
    "pos": [0, 0, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_td_obj_water.glb",
+    "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]
+   },
    "props": {
     "actor": 107,
     "collider": "td_obj_water"
@@ -372,6 +412,10 @@
    "object": "cannon-shutter",
    "pos": [6.5, -2.768, 6.8],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_cannon_shutter.glb",
+    "matrix": [0.1, 0, 0, 6.5, 0, 0.1, 0, -2.768, 0, 0, 0.1, 6.8]
+   },
    "props": {
     "actor": 14,
     "collider": "cannon_shutter"
@@ -456,6 +500,10 @@
    "object": "pile",
    "pos": [-5.25, -2, -3.2],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_pile.glb",
+    "matrix": [0.1, 0, 0, -5.25, 0, 0.1, 0, -2, 0, 0, 0.1, -3.2]
+   },
    "props": {
     "actor": 27,
     "collider": "pile"
@@ -466,6 +514,10 @@
    "object": "pile",
    "pos": [-6.4, -2, -4.85],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_pile.glb",
+    "matrix": [0.1, 0, 0, -6.4, 0, 0.1, 0, -2, 0, 0, 0.1, -4.85]
+   },
    "props": {
     "actor": 27,
     "collider": "pile"
@@ -476,6 +528,10 @@
    "object": "pile",
    "pos": [-6.8, -2, -3.2],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_pile.glb",
+    "matrix": [0.1, 0, 0, -6.8, 0, 0.1, 0, -2, 0, 0, 0.1, -3.2]
+   },
    "props": {
     "actor": 27,
     "collider": "pile"
@@ -487,6 +543,10 @@
    "pos": [2.7, -0.5, 3.2],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0, 0, 0.1, 2.7, 0, 0.1, 0, -0.5, -0.1, 0, 0, 3.2]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",

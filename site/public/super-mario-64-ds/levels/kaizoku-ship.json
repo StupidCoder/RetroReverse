@@ -55,6 +55,10 @@
    "object": "ks-mizu",
    "pos": [0, 2.057, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ks_mizu.glb",
+    "matrix": [1, 0, 0, 0, 0, 1, 0, 2.057, 0, 0, 1, 0]
+   },
    "props": {
     "actor": 62,
     "collider": "ks_mizu"

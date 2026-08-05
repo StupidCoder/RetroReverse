@@ -38,6 +38,10 @@
    "pos": [-5.893, 2, 5.846],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.071, 0, -0.071, -5.893, 0, 0.1, 0, 2, 0.071, 0, 0.071, 5.846]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -53,6 +57,10 @@
    "object": "obj-tatefuda",
    "pos": [-6.575, 1.81, 4.527],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, -6.575, 0, 0.1, 0, 1.81, 0, 0, 0.1, 4.527]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -98,6 +106,10 @@
    "pos": [-6.825, 2.11, 6.96],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.071, 0, -0.071, -6.825, 0, 0.1, 0, 2.11, 0.071, 0, 0.071, 6.96]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -114,6 +126,10 @@
    "pos": [-6.109, 2, 5.621],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_s.glb",
+    "matrix": [0.071, 0, -0.071, -6.109, 0, 0.1, 0, 1.998, 0.071, 0, 0.071, 5.621]
+   },
    "props": {
     "actor": 194,
     "collider": "broken_block_s"
@@ -180,6 +196,10 @@
    "pos": [-3.167, 1.4, 1.358],
    "rot": [0, 0.463645693138435, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_cv_ud_lift.glb",
+    "matrix": [0.089, 0, 0.045, -3.167, 0, 0.1, 0, 1.4, -0.045, 0, 0.089, 1.358]
+   },
    "props": {
     "actor": 33,
     "collider": "cv_ud_lift"
@@ -190,6 +210,10 @@
    "object": "cv-news-lift",
    "pos": [1.1, 0.95, 6.2],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_cv_news_lift.glb",
+    "matrix": [0.1, 0, 0, 1.1, 0, 0.1, 0, 0.95, 0, 0, 0.1, 6.2]
+   },
    "props": {
     "actor": 68,
     "collider": "cv_news_lift"
@@ -201,6 +225,10 @@
    "pos": [0.821, 2, 3.545],
    "rot": [0, -1.5532514215334543, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.002, 0, -0.1, 0.821, 0, 0.1, 0, 2, 0.1, 0, 0.002, 3.545]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -216,6 +244,10 @@
    "object": "obj-tatefuda",
    "pos": [2.284, 0, 2.657],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, 2.284, 0, 0.1, 0, 0, 0, 0, 0.1, 2.657]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -231,6 +263,10 @@
    "object": "obj-tatefuda",
    "pos": [5.253, 0, 2.644],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, 5.253, 0, 0.1, 0, 0, 0, 0, 0.1, 2.644]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -247,6 +283,10 @@
    "pos": [0.442, 0, 5.264],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0, 0, 0.1, 0.442, 0, 0.1, 0, 0, -0.1, 0, 0, 5.264]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -263,6 +303,10 @@
    "pos": [1.916, 0, 6.624],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [-0.1, 0, 0, 1.916, 0, 0.1, 0, 0, 0, 0, -0.1, 6.624]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -278,6 +322,10 @@
    "object": "obj-tatefuda",
    "pos": [-3, 0, 0.61],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, -3, 0, 0.1, 0, 0, 0, 0, 0.1, 0.61]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -311,6 +359,10 @@
    "object": "broken-block-l",
    "pos": [2.95, 1, 4.95],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, 2.95, 0, 1, 0, 1, 0, 0, 1, 4.95]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -321,6 +373,10 @@
    "object": "broken-block-l",
    "pos": [4.15, 1, 5.5],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, 4.15, 0, 1, 0, 1, 0, 0, 1, 5.5]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -331,6 +387,10 @@
    "object": "broken-block-l",
    "pos": [6.05, 1, 4.75],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, 6.05, 0, 1, 0, 1, 0, 0, 1, 4.75]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -350,6 +410,10 @@
    "object": "broken-block-l",
    "pos": [1, 1.8, 5],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, 1, 0, 1, 0, 1.8, 0, 0, 1, 5]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -370,6 +434,10 @@
    "object": "broken-block-l",
    "pos": [3.1, 2, 3],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, 3.1, 0, 1, 0, 2, 0, 0, 1, 3]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -390,6 +458,10 @@
    "pos": [6.249, 0.001, 7.35],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_star_switch.glb",
+    "matrix": [0, 0, -0.1, 6.249, 0, 0.1, 0, -0.042, 0.1, 0, 0, 7.35]
+   },
    "props": {
     "actor": 12,
     "collider": "obj_star_switch"
@@ -400,6 +472,10 @@
    "object": "broken-block-ll",
    "pos": [6.249, 0, 7.35],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_ll.glb",
+    "matrix": [1, 0, 0, 6.249, 0, 1, 0, 0, 0, 0, 1, 7.35]
+   },
    "props": {
     "actor": 17,
     "collider": "broken_block_ll"
@@ -439,6 +515,10 @@
    "object": "obj-tatefuda",
    "pos": [0.447, 0, 4.539],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, 0.447, 0, 0.1, 0, 0, 0, 0, 0.1, 4.539]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -455,6 +535,10 @@
    "pos": [6.249, 0.001, 7],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [-0.1, 0, 0, 6.249, 0, 0.1, 0, 0.001, 0, 0, -0.1, 7]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -571,6 +655,10 @@
    "object": "obj-tatefuda",
    "pos": [2.45, 0.2, -0.05],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, 2.45, 0, 0.1, 0, 0.2, 0, 0, 0.1, -0.05]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -586,6 +674,10 @@
    "object": "obj-tatefuda",
    "pos": [2.9, 0.2, -0.05],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, 2.9, 0, 0.1, 0, 0.2, 0, 0, 0.1, -0.05]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -655,6 +747,10 @@
    "object": "b-coin-switch",
    "pos": [5, -0.75, -2.85],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_b_coin_switch.glb",
+    "matrix": [0.1, 0, 0, 5, 0, 0.1, 0, -0.75, 0, 0, 0.1, -2.85]
+   },
    "props": {
     "actor": 10,
     "collider": "b_coin_switch"
@@ -747,6 +843,10 @@
    "pos": [4.221, -1, -1.729],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [0.707, 0, 0.707, 4.221, 0, 1, 0, -1, -0.707, 0, 0.707, -1.729]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -884,6 +984,10 @@
    "pos": [-3.228, 1.5, 0.262],
    "rot": [0, -1.1518278241036308, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.041, 0, -0.091, -3.228, 0, 0.1, 0, 1.5, 0.091, 0, 0.041, 0.262]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -900,6 +1004,10 @@
    "pos": [-4.029, 2.3, -2.013],
    "rot": [0, 2.5132357733521373, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [-0.081, 0, 0.059, -4.029, 0, 0.1, 0, 2.3, -0.059, 0, -0.081, -2.013]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -952,6 +1060,10 @@
    "pos": [-7.404, 1.299, -0.449],
    "rot": [0, 0.2617354719329875, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_ll.glb",
+    "matrix": [0.966, 0, 0.259, -7.404, 0, 1, 0, 1.299, -0.259, 0, 0.966, -0.449]
+   },
    "props": {
     "actor": 17,
     "collider": "broken_block_ll"
@@ -1088,6 +1200,10 @@
    "object": "cv-ud-lift",
    "pos": [-2.75, 2.199, -2.45],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_cv_ud_lift.glb",
+    "matrix": [0.1, 0, 0, -2.75, 0, 0.1, 0, 2.199, 0, 0, 0.1, -2.45]
+   },
    "props": {
     "actor": 33,
     "collider": "cv_ud_lift"
@@ -1099,6 +1215,10 @@
    "pos": [-0.32, -4.88, 2.46],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_box_switch.glb",
+    "matrix": [0, 0, -0.1, -0.32, 0, 0.1, 0, -4.875, 0.1, 0, 0, 2.46]
+   },
    "props": {
     "actor": 11,
     "collider": "obj_box_switch"
@@ -1110,6 +1230,10 @@
    "pos": [0.6, -4.58, 1.875],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_cv_shutter.glb",
+    "matrix": [0, 0, -1, 0.6, 0, 1, 0, -4.58, 1, 0, 0, 1.875]
+   },
    "props": {
     "actor": 67,
     "collider": "cv_shutter"
@@ -1121,6 +1245,10 @@
    "pos": [0.6, -4.58, 2.675],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_cv_shutter.glb",
+    "matrix": [0, 0, 1, 0.6, 0, 1, 0, -4.58, -1, 0, 0, 2.675]
+   },
    "props": {
     "actor": 67,
     "collider": "cv_shutter"
@@ -1131,6 +1259,10 @@
    "object": "cv-ud-lift",
    "pos": [-3.449, 1.699, -6.875],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_cv_ud_lift.glb",
+    "matrix": [0.1, 0, 0, -3.449, 0, 0.1, 0, 1.699, 0, 0, 0.1, -6.875]
+   },
    "props": {
     "actor": 33,
     "collider": "cv_ud_lift"
@@ -1141,6 +1273,10 @@
    "object": "cv-ud-lift",
    "pos": [-0.95, 1.699, -7.175],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_cv_ud_lift.glb",
+    "matrix": [0.1, 0, 0, -0.95, 0, 0.1, 0, 1.699, 0, 0, 0.1, -7.175]
+   },
    "props": {
     "actor": 33,
     "collider": "cv_ud_lift"
@@ -1151,6 +1287,10 @@
    "object": "obj-tatefuda",
    "pos": [-3.056, 1.769, -7.517],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, -3.056, 0, 0.1, 0, 1.769, 0, 0, 0.1, -7.517]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -1167,6 +1307,10 @@
    "pos": [0.362, -4.58, 3.324],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0, 0, -0.1, 0.362, 0, 0.1, 0, -4.58, 0.1, 0, 0, 3.324]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -1462,6 +1606,10 @@
    "object": "dossy",
    "pos": [-3.45, -4.7, 3.5],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_dossy_body.glb",
+    "matrix": [1, 0, 0, -1.45, 0, 1, 0, -4.7, 0, 0, 1, 3.5]
+   },
    "props": {
     "actLayer": 1,
     "actor": 168,

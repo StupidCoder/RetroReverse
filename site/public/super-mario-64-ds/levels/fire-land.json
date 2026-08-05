@@ -46,6 +46,10 @@
    "object": "fl-ring",
    "pos": [0, 0, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_ring.glb",
+    "matrix": [0.1, 0, -0.003, 0, 0, 0.1, 0, 0, 0.002, 0, 0.1, 0]
+   },
    "props": {
     "actor": 71,
     "collider": "fl_ring"
@@ -56,6 +60,10 @@
    "object": "fl-amilift",
    "pos": [1.25, 0, -4.5],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_amilift.glb",
+    "matrix": [0.1, 0, 0, 1.25, 0, 0.1, 0, 0.002, 0, 0, 0.1, -4.5]
+   },
    "props": {
     "actor": 69,
     "collider": "fl_amilift"
@@ -66,6 +74,10 @@
    "object": "fl-amilift",
    "pos": [7, 0, 2.55],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_amilift.glb",
+    "matrix": [0.1, 0, 0, 7, 0, 0.1, 0, 0.002, 0, 0, 0.1, 2.55]
+   },
    "props": {
     "actor": 69,
     "collider": "fl_amilift"
@@ -94,6 +106,10 @@
    "object": "obj-tatefuda",
    "pos": [-3.85, 0.15, 5.9],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, -3.85, 0, 0.1, 0, 0.15, 0, 0, 0.1, 5.9]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -109,6 +125,10 @@
    "object": "obj-tatefuda",
    "pos": [-3.65, 0.15, 5.9],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, -3.65, 0, 0.1, 0, 0.15, 0, 0, 0.1, 5.9]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -124,6 +144,10 @@
    "object": "obj-tatefuda",
    "pos": [1.05, 0.15, 5.7],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, 1.05, 0, 0.1, 0, 0.15, 0, 0, 0.1, 5.7]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -256,6 +280,10 @@
    "object": "fl-gura",
    "pos": [0.9, -0.15, 2.1],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_gura.glb",
+    "matrix": [1, 0, 0, 0.9, 0, 1, 0, -0.15, 0, 0, 1, 2.1]
+   },
    "props": {
     "actor": 72,
     "collider": "fl_gura"
@@ -266,6 +294,10 @@
    "object": "fl-gura",
    "pos": [1.7, -0.15, 1.7],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_gura.glb",
+    "matrix": [1, 0, 0, 1.7, 0, 1, 0, -0.15, 0, 0, 1, 1.7]
+   },
    "props": {
     "actor": 72,
     "collider": "fl_gura"
@@ -276,6 +308,10 @@
    "object": "fl-gura",
    "pos": [1.7, -0.15, 2.5],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_gura.glb",
+    "matrix": [1, 0, 0, 1.7, 0, 1, 0, -0.15, 0, 0, 1, 2.5]
+   },
    "props": {
     "actor": 72,
     "collider": "fl_gura"
@@ -286,6 +322,10 @@
    "object": "fl-gura",
    "pos": [2.05, -0.15, -0.3],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_gura.glb",
+    "matrix": [1, 0, 0, 2.05, 0, 1, 0, -0.15, 0, 0, 1, -0.3]
+   },
    "props": {
     "actor": 72,
     "collider": "fl_gura"
@@ -296,6 +336,10 @@
    "object": "fl-london",
    "pos": [-1.25, 0.3, 3.562],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_london.glb",
+    "matrix": [1, 0, 0, -1.25, 0, 1, 0, 0.3, 0, 0, 1, 3.562]
+   },
    "props": {
     "actor": 73,
     "collider": "fl_london"
@@ -307,6 +351,10 @@
    "pos": [-2.5, 0.3, 3.562],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_london.glb",
+    "matrix": [-1, 0, 0, -2.5, 0, 1, 0, 0.3, 0, 0, -1, 3.562]
+   },
    "props": {
     "actor": 73,
     "collider": "fl_london"
@@ -317,6 +365,10 @@
    "object": "fl-block",
    "pos": [7, 0, 7.125],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_block.glb",
+    "matrix": [0.1, 0, 0, 7, 0, 0.1, 0, 0, 0, 0, 0.1, 7.125]
+   },
    "props": {
     "actor": 74,
     "collider": "fl_block"
@@ -327,6 +379,10 @@
    "object": "fl-uki-yuka",
    "pos": [3.752, 0, -3.125],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_uki_yuka.glb",
+    "matrix": [1, 0, 0, 3.752, 0, 1, 0, 0, 0, 0, 1, -3.125]
+   },
    "props": {
     "actor": 75,
     "collider": "fl_uki_yuka"
@@ -337,6 +393,10 @@
    "object": "fl-shiso",
    "pos": [-5.625, 0, 3],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_shiso.glb",
+    "matrix": [1, 0, 0, -5.625, 0, 1, 0.001, 0, 0, -0.001, 1, 3]
+   },
    "props": {
     "actor": 77,
     "collider": "fl_shiso"
@@ -348,6 +408,10 @@
    "pos": [2.75, 0, 0.5],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_shiso.glb",
+    "matrix": [0, 0, 1, 2.75, 0, 1, 0, 0, -1, 0, 0, 0.5]
+   },
    "props": {
     "actor": 76,
     "collider": "fl_shiso"
@@ -359,6 +423,10 @@
    "pos": [3.875, 0, 1.375],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_shiso.glb",
+    "matrix": [0, 0, 1, 3.875, 0, 1, 0, 0, -1, 0, 0, 1.375]
+   },
    "props": {
     "actor": 76,
     "collider": "fl_shiso"
@@ -370,6 +438,10 @@
    "pos": [-1.75, 0, -4],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_shiso.glb",
+    "matrix": [0, 0, 1, -1.75, 0, 1, 0, 0, -1, 0, 0, -4]
+   },
    "props": {
     "actor": 76,
     "collider": "fl_shiso"
@@ -380,6 +452,10 @@
    "object": "fl-14-00",
    "pos": [-5.24, 0.1, 0.28],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_14_00.glb",
+    "matrix": [1, 0, 0, -5.24, 0, 1, 0, 0.1, 0, 0, 1, 0.28]
+   },
    "props": {
     "actor": 78,
     "collider": "fl_14_00"
@@ -390,6 +466,10 @@
    "object": "fl-14-01",
    "pos": [-4.76, 0.1, 0.28],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_14_00.glb",
+    "matrix": [1, 0, 0, -4.76, 0, 1, 0, 0.1, 0, 0, 1, 0.28]
+   },
    "props": {
     "actor": 78,
     "collider": "fl_14_00"
@@ -400,6 +480,10 @@
    "object": "fl-14-02",
    "pos": [-5.72, 0.1, 0.76],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_14_00.glb",
+    "matrix": [1, 0, 0, -5.72, 0, 1, 0, 0.1, 0, 0, 1, 0.76]
+   },
    "props": {
     "actor": 78,
     "collider": "fl_14_00"
@@ -410,6 +494,10 @@
    "object": "fl-14-03",
    "pos": [-5.24, 0.1, 0.76],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_14_00.glb",
+    "matrix": [1, 0, 0, -5.24, 0, 1, 0, 0.1, 0, 0, 1, 0.76]
+   },
    "props": {
     "actor": 78,
     "collider": "fl_14_00"
@@ -420,6 +508,10 @@
    "object": "fl-14-04",
    "pos": [-4.76, 0.1, 0.76],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_14_00.glb",
+    "matrix": [1, 0, 0, -4.76, 0, 1, 0, 0.1, 0, 0, 1, 0.76]
+   },
    "props": {
     "actor": 78,
     "collider": "fl_14_00"
@@ -430,6 +522,10 @@
    "object": "fl-14-05",
    "pos": [-4.28, 0.1, 0.76],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_14_00.glb",
+    "matrix": [1, 0, 0, -4.28, 0, 1, 0, 0.1, 0, 0, 1, 0.76]
+   },
    "props": {
     "actor": 78,
     "collider": "fl_14_00"
@@ -440,6 +536,10 @@
    "object": "fl-14-06",
    "pos": [-5.72, 0.1, 1.24],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_14_00.glb",
+    "matrix": [1, 0, 0, -5.72, 0, 1, 0, 0.1, 0, 0, 1, 1.24]
+   },
    "props": {
     "actor": 78,
     "collider": "fl_14_00"
@@ -450,6 +550,10 @@
    "object": "fl-14-07",
    "pos": [-5.24, 0.1, 1.24],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_14_00.glb",
+    "matrix": [1, 0, 0, -5.24, 0, 1, 0, 0.1, 0, 0, 1, 1.24]
+   },
    "props": {
     "actor": 78,
     "collider": "fl_14_00"
@@ -460,6 +564,10 @@
    "object": "fl-14-08",
    "pos": [-4.76, 0.1, 1.24],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_14_00.glb",
+    "matrix": [1, 0, 0, -4.76, 0, 1, 0, 0.1, 0, 0, 1, 1.24]
+   },
    "props": {
     "actor": 78,
     "collider": "fl_14_00"
@@ -470,6 +578,10 @@
    "object": "fl-14-09",
    "pos": [-4.28, 0.1, 1.24],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_14_00.glb",
+    "matrix": [1, 0, 0, -4.28, 0, 1, 0, 0.1, 0, 0, 1, 1.24]
+   },
    "props": {
     "actor": 78,
     "collider": "fl_14_00"
@@ -480,6 +592,10 @@
    "object": "fl-14-10",
    "pos": [-5.72, 0.1, 1.72],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_14_00.glb",
+    "matrix": [1, 0, 0, -5.72, 0, 1, 0, 0.1, 0, 0, 1, 1.72]
+   },
    "props": {
     "actor": 78,
     "collider": "fl_14_00"
@@ -490,6 +606,10 @@
    "object": "fl-14-11",
    "pos": [-5.24, 0.1, 1.72],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_14_00.glb",
+    "matrix": [1, 0, 0, -5.24, 0, 1, 0, 0.1, 0, 0, 1, 1.72]
+   },
    "props": {
     "actor": 78,
     "collider": "fl_14_00"
@@ -500,6 +620,10 @@
    "object": "fl-14-12",
    "pos": [-4.76, 0.1, 1.72],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_14_00.glb",
+    "matrix": [1, 0, 0, -4.76, 0, 1, 0, 0.1, 0, 0, 1, 1.72]
+   },
    "props": {
     "actor": 78,
     "collider": "fl_14_00"
@@ -510,6 +634,10 @@
    "object": "fl-14-13",
    "pos": [-4.28, 0.1, 1.72],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_14_00.glb",
+    "matrix": [1, 0, 0, -4.28, 0, 1, 0, 0.1, 0, 0, 1, 1.72]
+   },
    "props": {
     "actor": 78,
     "collider": "fl_14_00"
@@ -520,6 +648,10 @@
    "object": "fl-koma-d",
    "pos": [-5, 0, -4],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_koma_d.glb",
+    "matrix": [0.1, 0, 0.002, -5, 0, 0.1, 0, 0, -0.003, 0, 0.1, -4]
+   },
    "props": {
     "actor": 80,
     "collider": "fl_koma_d"
@@ -539,6 +671,10 @@
    "object": "fl-koma-u",
    "pos": [-5, 0.3, -4],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_koma_u.glb",
+    "matrix": [0.1, 0, -0.003, -5, 0, 0.1, 0, 0.3, 0.002, 0, 0.1, -4]
+   },
    "props": {
     "actor": 81,
     "collider": "fl_koma_u"
@@ -559,6 +695,10 @@
    "object": "fl-uki-ki",
    "pos": [-3.5, 0, -4],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_uki_ki.glb",
+    "matrix": [1, 0, 0, -3.5, 0, 1, 0, 0, 0, 0, 1, -4]
+   },
    "props": {
     "actor": 82,
     "collider": "fl_uki_ki"
@@ -569,6 +709,10 @@
    "object": "fl-uki-ki",
    "pos": [-3.2, 0, -4],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_uki_ki.glb",
+    "matrix": [1, 0, 0, -3.2, 0, 1, 0, 0, 0, 0, 1, -4]
+   },
    "props": {
     "actor": 82,
     "collider": "fl_uki_ki"
@@ -579,6 +723,10 @@
    "object": "fl-uki-ki",
    "pos": [-2.9, 0, -4],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_fl_uki_ki.glb",
+    "matrix": [1, 0, 0, -2.9, 0, 1, 0, 0, 0, 0, 1, -4]
+   },
    "props": {
     "actor": 82,
     "collider": "fl_uki_ki"
@@ -647,6 +795,10 @@
    "object": "broken-block-ll",
    "pos": [1.3, 0.15, 6.05],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_ll.glb",
+    "matrix": [1, 0, 0, 1.3, 0, 1, 0, 0.15, 0, 0, 1, 6.05]
+   },
    "props": {
     "actor": 17,
     "collider": "broken_block_ll"
@@ -676,6 +828,10 @@
    "object": "b-coin-switch",
    "pos": [1.3, 0.15, 6.05],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_b_coin_switch.glb",
+    "matrix": [0.1, 0, 0, 1.3, 0, 0.1, 0, 0.15, 0, 0, 0.1, 6.05]
+   },
    "props": {
     "actor": 10,
     "collider": "b_coin_switch"

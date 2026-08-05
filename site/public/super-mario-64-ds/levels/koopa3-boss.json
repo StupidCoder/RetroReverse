@@ -55,6 +55,10 @@
    "object": "kb3-a",
    "pos": [0, 0, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_kb3_a.glb",
+    "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]
+   },
    "props": {
     "actor": 167,
     "collider": "kb3_a"

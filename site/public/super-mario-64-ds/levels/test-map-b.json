@@ -46,6 +46,10 @@
    "object": "onimasu",
    "pos": [-1.75, 0, -0.75],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_onimasu.glb",
+    "matrix": [1, 0, 0, -1.75, 0, 1, 0, 0.25, 0, 0, 1, -0.75]
+   },
    "props": {
     "actor": 309,
     "collider": "onimasu"
@@ -56,6 +60,10 @@
    "object": "onimasu",
    "pos": [-0.75, 0, -0.75],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_onimasu.glb",
+    "matrix": [1, 0, 0, -0.75, 0, 1, 0, 0.25, 0, 0, 1, -0.75]
+   },
    "props": {
     "actor": 309,
     "collider": "onimasu"
@@ -66,6 +74,10 @@
    "object": "onimasu",
    "pos": [0.25, 0, -0.75],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_onimasu.glb",
+    "matrix": [1, 0, 0, 0.25, 0, 1, 0, 0.25, 0, 0, 1, -0.75]
+   },
    "props": {
     "actor": 309,
     "collider": "onimasu"
@@ -76,6 +88,10 @@
    "object": "onimasu",
    "pos": [1.25, 0, -0.75],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_onimasu.glb",
+    "matrix": [1, 0, 0, 1.25, 0, 1, 0, 0.25, 0, 0, 1, -0.75]
+   },
    "props": {
     "actor": 309,
     "collider": "onimasu"
@@ -86,6 +102,10 @@
    "object": "onimasu",
    "pos": [2.25, 0, -0.75],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_onimasu.glb",
+    "matrix": [1, 0, 0, 2.25, 0, 1, 0, 0.25, 0, 0, 1, -0.75]
+   },
    "props": {
     "actor": 309,
     "collider": "onimasu"
@@ -96,6 +116,10 @@
    "object": "onimasu",
    "pos": [-1.75, 0, 0.75],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_onimasu.glb",
+    "matrix": [1, 0, 0, -1.75, 0, 1, 0, 0.25, 0, 0, 1, 0.75]
+   },
    "props": {
     "actor": 309,
     "collider": "onimasu"
@@ -106,6 +130,10 @@
    "object": "onimasu",
    "pos": [-0.75, 0, 0.75],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_onimasu.glb",
+    "matrix": [1, 0, 0, -0.75, 0, 1, 0, 0.25, 0, 0, 1, 0.75]
+   },
    "props": {
     "actor": 309,
     "collider": "onimasu"
@@ -116,6 +144,10 @@
    "object": "onimasu",
    "pos": [0.25, 0, 0.75],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_onimasu.glb",
+    "matrix": [1, 0, 0, 0.25, 0, 1, 0, 0.25, 0, 0, 1, 0.75]
+   },
    "props": {
     "actor": 309,
     "collider": "onimasu"
@@ -126,6 +158,10 @@
    "object": "onimasu",
    "pos": [1.25, 0, 0.75],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_onimasu.glb",
+    "matrix": [1, 0, 0, 1.25, 0, 1, 0, 0.25, 0, 0, 1, 0.75]
+   },
    "props": {
     "actor": 309,
     "collider": "onimasu"
@@ -136,6 +172,10 @@
    "object": "onimasu",
    "pos": [2.25, 0, 0.75],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_onimasu.glb",
+    "matrix": [1, 0, 0, 2.25, 0, 1, 0, 0.25, 0, 0, 1, 0.75]
+   },
    "props": {
     "actor": 309,
     "collider": "onimasu"

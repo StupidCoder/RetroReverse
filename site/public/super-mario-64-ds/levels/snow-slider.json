@@ -37,6 +37,10 @@
    "object": "obj-tatefuda",
    "pos": [-5.3, 6.5, -6.4],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, -5.3, 0, 0.1, 0, 6.5, 0, 0, 0.1, -6.4]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",

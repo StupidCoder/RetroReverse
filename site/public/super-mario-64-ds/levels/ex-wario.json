@@ -46,6 +46,10 @@
    "object": "ewb-ice-a",
    "pos": [0, 0.75, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ewb_ice_a.glb",
+    "matrix": [1, 0, 0, 0, 0, 1, 0, 0.75, 0, 0, 1, 0]
+   },
    "props": {
     "actor": 170,
     "collider": "ewb_ice_a"
@@ -56,6 +60,10 @@
    "object": "ewb-ice-b",
    "pos": [0, 0.75, 1.942],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ewb_ice_b.glb",
+    "matrix": [1, 0, 0, 0, 0, 1, 0, 0.75, 0, 0, 1, 1.942]
+   },
    "props": {
     "actor": 171,
     "collider": "ewb_ice_b"
@@ -66,6 +74,10 @@
    "object": "ewb-ice-c",
    "pos": [0, 0.75, 2.54],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ewb_ice_c.glb",
+    "matrix": [1, 0, 0, 0, 0, 1, 0, 0.75, 0, 0, 1, 2.54]
+   },
    "props": {
     "actor": 172,
     "collider": "ewb_ice_c"
@@ -77,6 +89,10 @@
    "pos": [1.373, 0.75, 1.373],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ewb_ice_b.glb",
+    "matrix": [0.707, 0, 0.707, 1.373, 0, 1, 0, 0.75, -0.707, 0, 0.707, 1.373]
+   },
    "props": {
     "actor": 171,
     "collider": "ewb_ice_b"
@@ -88,6 +104,10 @@
    "pos": [1.942, 0.75, 0],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ewb_ice_b.glb",
+    "matrix": [0, 0, 1, 1.942, 0, 1, 0, 0.75, -1, 0, 0, 0]
+   },
    "props": {
     "actor": 171,
     "collider": "ewb_ice_b"
@@ -99,6 +119,10 @@
    "pos": [1.373, 0.75, -1.373],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ewb_ice_b.glb",
+    "matrix": [-0.707, 0, 0.707, 1.373, 0, 1, 0, 0.75, -0.707, 0, -0.707, -1.373]
+   },
    "props": {
     "actor": 171,
     "collider": "ewb_ice_b"
@@ -110,6 +134,10 @@
    "pos": [0, 0.75, -1.942],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ewb_ice_b.glb",
+    "matrix": [-1, 0, 0, 0, 0, 1, 0, 0.75, 0, 0, -1, -1.942]
+   },
    "props": {
     "actor": 171,
     "collider": "ewb_ice_b"
@@ -121,6 +149,10 @@
    "pos": [-1.373, 0.75, -1.373],
    "rot": [0, -2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ewb_ice_b.glb",
+    "matrix": [-0.707, 0, -0.707, -1.373, 0, 1, 0, 0.75, 0.707, 0, -0.707, -1.373]
+   },
    "props": {
     "actor": 171,
     "collider": "ewb_ice_b"
@@ -132,6 +164,10 @@
    "pos": [-1.942, 0.75, 0],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ewb_ice_b.glb",
+    "matrix": [0, 0, -1, -1.942, 0, 1, 0, 0.75, 1, 0, 0, 0]
+   },
    "props": {
     "actor": 171,
     "collider": "ewb_ice_b"
@@ -143,6 +179,10 @@
    "pos": [-1.373, 0.75, 1.373],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ewb_ice_b.glb",
+    "matrix": [0.707, 0, -0.707, -1.373, 0, 1, 0, 0.75, 0.707, 0, 0.707, 1.373]
+   },
    "props": {
     "actor": 171,
     "collider": "ewb_ice_b"
@@ -154,6 +194,10 @@
    "pos": [1.796, 0.75, 1.796],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ewb_ice_c.glb",
+    "matrix": [0.707, 0, 0.707, 1.796, 0, 1, 0, 0.75, -0.707, 0, 0.707, 1.796]
+   },
    "props": {
     "actor": 172,
     "collider": "ewb_ice_c"
@@ -165,6 +209,10 @@
    "pos": [2.54, 0.75, 0],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ewb_ice_c.glb",
+    "matrix": [0, 0, 1, 2.54, 0, 1, 0, 0.75, -1, 0, 0, 0]
+   },
    "props": {
     "actor": 172,
     "collider": "ewb_ice_c"
@@ -176,6 +224,10 @@
    "pos": [1.796, 0.75, -1.796],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ewb_ice_c.glb",
+    "matrix": [-0.707, 0, 0.707, 1.796, 0, 1, 0, 0.75, -0.707, 0, -0.707, -1.796]
+   },
    "props": {
     "actor": 172,
     "collider": "ewb_ice_c"
@@ -187,6 +239,10 @@
    "pos": [0, 0.75, -2.54],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ewb_ice_c.glb",
+    "matrix": [-1, 0, 0, 0, 0, 1, 0, 0.75, 0, 0, -1, -2.54]
+   },
    "props": {
     "actor": 172,
     "collider": "ewb_ice_c"
@@ -198,6 +254,10 @@
    "pos": [-1.796, 0.75, -1.796],
    "rot": [0, -2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ewb_ice_c.glb",
+    "matrix": [-0.707, 0, -0.707, -1.796, 0, 1, 0, 0.75, 0.707, 0, -0.707, -1.796]
+   },
    "props": {
     "actor": 172,
     "collider": "ewb_ice_c"
@@ -209,6 +269,10 @@
    "pos": [-2.54, 0.75, 0],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ewb_ice_c.glb",
+    "matrix": [0, 0, -1, -2.54, 0, 1, 0, 0.75, 1, 0, 0, 0]
+   },
    "props": {
     "actor": 172,
     "collider": "ewb_ice_c"
@@ -220,6 +284,10 @@
    "pos": [-1.796, 0.75, 1.796],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ewb_ice_c.glb",
+    "matrix": [0.707, 0, -0.707, -1.796, 0, 1, 0, 0.75, 0.707, 0, 0.707, 1.796]
+   },
    "props": {
     "actor": 172,
     "collider": "ewb_ice_c"

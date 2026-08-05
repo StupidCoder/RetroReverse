@@ -38,6 +38,10 @@
    "pos": [-0.1, 0.019, 0.8],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0, 0, -0.1, -0.1, 0, 0.1, 0, 0.019, 0.1, 0, 0, 0.8]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",

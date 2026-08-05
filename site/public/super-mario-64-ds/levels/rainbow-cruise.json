@@ -46,6 +46,10 @@
    "object": "rc-dorifu0",
    "pos": [5.724, -1.315, 6.41],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_dorifu4.glb",
+    "matrix": [1, 0, 0, 5.724, 0, 1, 0, -1.315, 0, 0, 1, 6.41]
+   },
    "props": {
     "actor": 123,
     "collider": "rc_dorifu4"
@@ -56,6 +60,10 @@
    "object": "rc-rift01",
    "pos": [-2.621, -1.39, -0.035],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_rift01.glb",
+    "matrix": [0.1, 0, 0, -2.611, 0, 0.1, 0, -1.39, 0, 0, 0.1, -0.035]
+   },
    "props": {
     "actor": 124,
     "collider": "rc_rift01"
@@ -66,6 +74,10 @@
    "object": "rc-rift01",
    "pos": [-3.174, -1.99, 6.41],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_rift01.glb",
+    "matrix": [0.1, 0, 0, -3.164, 0, 0.1, 0, -1.99, 0, 0, 0.1, 6.41]
+   },
    "props": {
     "actor": 124,
     "collider": "rc_rift01"
@@ -76,6 +88,10 @@
    "object": "rc-rift02",
    "pos": [-2.621, 1.509, -0.035],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_rift02.glb",
+    "matrix": [0.1, 0, 0, -2.621, 0, 0.1, 0, 1.509, 0, 0, 0.1, -0.035]
+   },
    "props": {
     "actor": 131,
     "collider": "rc_rift02"
@@ -140,6 +156,10 @@
    "object": "rc-tikuwa",
    "pos": [-2.106, 2.159, -0.085],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, -2.106, 0, 1, 0, 2.159, 0, 0, 1, -0.085]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -150,6 +170,10 @@
    "object": "rc-tikuwa",
    "pos": [1.651, 2.461, -0.032],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, 1.651, 0, 1, 0, 2.461, 0, 0, 1, -0.032]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -160,6 +184,10 @@
    "object": "rc-tikuwa",
    "pos": [1.451, 2.461, -0.032],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, 1.451, 0, 1, 0, 2.461, 0, 0, 1, -0.032]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -170,6 +198,10 @@
    "object": "rc-tikuwa",
    "pos": [1.251, 2.461, -0.032],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, 1.251, 0, 1, 0, 2.461, 0, 0, 1, -0.032]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -180,6 +212,10 @@
    "object": "rc-tikuwa",
    "pos": [2.824, -2.04, 6.41],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, 2.824, 0, 1, 0, -2.04, 0, 0, 1, 6.41]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -190,6 +226,10 @@
    "object": "rc-tikuwa",
    "pos": [2.624, -2.04, 6.41],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, 2.624, 0, 1, 0, -2.04, 0, 0, 1, 6.41]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -200,6 +240,10 @@
    "object": "rc-tikuwa",
    "pos": [2.424, -2.04, 6.41],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, 2.424, 0, 1, 0, -2.04, 0, 0, 1, 6.41]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -210,6 +254,10 @@
    "object": "rc-tikuwa",
    "pos": [1.724, -2.04, 6.41],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, 1.724, 0, 1, 0, -2.04, 0, 0, 1, 6.41]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -220,6 +268,10 @@
    "object": "rc-tikuwa",
    "pos": [1.524, -2.04, 6.41],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, 1.524, 0, 1, 0, -2.04, 0, 0, 1, 6.41]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -230,6 +282,10 @@
    "object": "rc-tikuwa",
    "pos": [1.324, -2.04, 6.41],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, 1.324, 0, 1, 0, -2.04, 0, 0, 1, 6.41]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -240,6 +296,10 @@
    "object": "rc-tikuwa",
    "pos": [0.224, -2.04, 6.41],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, 0.224, 0, 1, 0, -2.04, 0, 0, 1, 6.41]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -250,6 +310,10 @@
    "object": "rc-tikuwa",
    "pos": [0.024, -2.04, 6.41],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, 0.024, 0, 1, 0, -2.04, 0, 0, 1, 6.41]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -260,6 +324,10 @@
    "object": "rc-tikuwa",
    "pos": [-0.175, -2.04, 6.41],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, -0.175, 0, 1, 0, -2.04, 0, 0, 1, 6.41]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -270,6 +338,10 @@
    "object": "rc-tikuwa",
    "pos": [-3.874, -2.04, 6.41],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, -3.874, 0, 1, 0, -2.04, 0, 0, 1, 6.41]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -280,6 +352,10 @@
    "object": "rc-tikuwa",
    "pos": [-4.074, -2.04, 6.41],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, -4.074, 0, 1, 0, -2.04, 0, 0, 1, 6.41]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -290,6 +366,10 @@
    "object": "rc-tikuwa",
    "pos": [-4.274, -2.04, 6.41],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, -4.274, 0, 1, 0, -2.04, 0, 0, 1, 6.41]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -300,6 +380,10 @@
    "object": "rc-tikuwa",
    "pos": [-6.173, -2.04, 6.369],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, -6.173, 0, 1, 0, -2.04, 0, 0, 1, 6.369]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -310,6 +394,10 @@
    "object": "rc-tikuwa",
    "pos": [-6.373, -2.04, 6.369],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, -6.373, 0, 1, 0, -2.04, 0, 0, 1, 6.369]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -320,6 +408,10 @@
    "object": "rc-tikuwa",
    "pos": [-6.573, -2.04, 6.369],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, -6.573, 0, 1, 0, -2.04, 0, 0, 1, 6.369]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -330,6 +422,10 @@
    "object": "rc-tikuwa",
    "pos": [-7.173, -2.39, 6.369],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, -7.173, 0, 1, 0, -2.39, 0, 0, 1, 6.369]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -340,6 +436,10 @@
    "object": "rc-tikuwa",
    "pos": [-6.973, -2.39, 6.369],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, -6.973, 0, 1, 0, -2.39, 0, 0, 1, 6.369]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -350,6 +450,10 @@
    "object": "rc-tikuwa",
    "pos": [-6.773, -2.39, 6.369],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, -6.773, 0, 1, 0, -2.39, 0, 0, 1, 6.369]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -360,6 +464,10 @@
    "object": "rc-tikuwa",
    "pos": [-4.773, -2.84, 6.41],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, -4.773, 0, 1, 0, -2.84, 0, 0, 1, 6.41]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -370,6 +478,10 @@
    "object": "rc-tikuwa",
    "pos": [-4.573, -2.84, 6.41],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, -4.573, 0, 1, 0, -2.84, 0, 0, 1, 6.41]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -380,6 +492,10 @@
    "object": "rc-tikuwa",
    "pos": [-4.373, -2.84, 6.41],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, -4.373, 0, 1, 0, -2.84, 0, 0, 1, 6.41]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -390,6 +506,10 @@
    "object": "rc-tikuwa",
    "pos": [0.283, 1.25, -0.17],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, 0.283, 0, 1, 0, 1.25, 0, 0, 1, -0.17]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -400,6 +520,10 @@
    "object": "rc-tikuwa",
    "pos": [0.083, 1.25, -0.17],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, 0.083, 0, 1, 0, 1.25, 0, 0, 1, -0.17]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -410,6 +534,10 @@
    "object": "rc-tikuwa",
    "pos": [-0.116, 1.25, -0.17],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, -0.116, 0, 1, 0, 1.25, 0, 0, 1, -0.17]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -420,6 +548,10 @@
    "object": "rc-tikuwa",
    "pos": [-1.138, 2.6, -0.183],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, -1.138, 0, 1, 0, 2.6, 0, 0, 1, -0.183]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -430,6 +562,10 @@
    "object": "rc-tikuwa",
    "pos": [-0.938, 2.6, -0.183],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, -0.938, 0, 1, 0, 2.6, 0, 0, 1, -0.183]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -440,6 +576,10 @@
    "object": "rc-tikuwa",
    "pos": [-0.738, 2.6, -0.183],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_tikuwa.glb",
+    "matrix": [1, 0, 0, -0.738, 0, 1, 0, 2.6, 0, 0, 1, -0.183]
+   },
    "props": {
     "actor": 126,
     "collider": "rc_tikuwa"
@@ -450,6 +590,10 @@
    "object": "obj-box-switch",
    "pos": [4.4, -1.89, 6.4],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_box_switch.glb",
+    "matrix": [0.1, 0, 0, 4.4, 0, 0.1, 0, -1.885, 0, 0, 0.1, 6.4]
+   },
    "props": {
     "actor": 11,
     "collider": "obj_box_switch"
@@ -460,6 +604,10 @@
    "object": "rc-kaiten",
    "pos": [0.629, -1.29, -1.261],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_kaiten.glb",
+    "matrix": [0.1, 0, 0.003, 0.629, 0, 0.1, 0, -1.29, -0.003, 0, 0.1, -1.261]
+   },
    "props": {
     "actor": 129,
     "collider": "rc_kaiten"
@@ -470,6 +618,10 @@
    "object": "rc-kaiten",
    "pos": [-0.481, -1.29, -0.051],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_kaiten.glb",
+    "matrix": [0.1, 0, 0.003, -0.481, 0, 0.1, 0, -1.29, -0.003, 0, 0.1, -0.051]
+   },
    "props": {
     "actor": 129,
     "collider": "rc_kaiten"
@@ -480,6 +632,10 @@
    "object": "rc-kaiten",
    "pos": [1.744, -1.29, -0.055],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_kaiten.glb",
+    "matrix": [0.1, 0, 0.003, 1.744, 0, 0.1, 0, -1.29, -0.003, 0, 0.1, -0.055]
+   },
    "props": {
     "actor": 129,
     "collider": "rc_kaiten"
@@ -490,6 +646,10 @@
    "object": "rc-kaiten",
    "pos": [0.634, -1.29, 1.154],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_kaiten.glb",
+    "matrix": [0.1, 0, 0.003, 0.634, 0, 0.1, 0, -1.29, -0.003, 0, 0.1, 1.154]
+   },
    "props": {
     "actor": 129,
     "collider": "rc_kaiten"
@@ -500,6 +660,10 @@
    "object": "rc-buranko",
    "pos": [-3.474, -0.79, 4.51],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_buranko.glb",
+    "matrix": [0.708, -0.706, 0, -3.474, 0.706, 0.708, 0, -0.79, 0, 0, 1, 4.51]
+   },
    "props": {
     "actor": 127,
     "collider": "rc_buranko"
@@ -510,6 +674,10 @@
    "object": "rc-buranko",
    "pos": [-2.161, -2.522, 6.11],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_buranko.glb",
+    "matrix": [0.708, -0.706, 0, -2.161, 0.706, 0.708, 0, -2.522, 0, 0, 1, 6.11]
+   },
    "props": {
     "actor": 127,
     "collider": "rc_buranko"
@@ -521,6 +689,10 @@
    "pos": [-5.873, -2.79, 6.41],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_shiso.glb",
+    "matrix": [0, 0, 1, -5.873, 0, 1, 0, -2.79, -1, 0, 0, 6.41]
+   },
    "props": {
     "actor": 128,
     "collider": "rc_shiso"
@@ -532,6 +704,10 @@
    "pos": [0.599, -3.49, 6.41],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_shiso.glb",
+    "matrix": [0, 0, 1, 0.599, 0, 1, 0, -3.49, -1, 0, 0, 6.41]
+   },
    "props": {
     "actor": 128,
     "collider": "rc_shiso"
@@ -623,6 +799,10 @@
    "object": "broken-block-l",
    "pos": [2.525, 1.009, -1.575],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, 2.525, 0, 1, 0, 1.009, 0, 0, 1, -1.575]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -725,6 +905,10 @@
    "pos": [4.45, -1.75, 2],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_carpet.glb",
+    "matrix": [0, 0, 0.1, 4.45, 0, 0.1, 0, -1.75, -0.1, 0, 0, 2]
+   },
    "props": {
     "actor": 130,
     "collider": "rc_carpet"
@@ -736,6 +920,10 @@
    "pos": [1.375, -1.05, -3.6],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_carpet.glb",
+    "matrix": [0, 0, 0.1, 1.375, 0, 0.1, 0, -1.05, -0.1, 0, 0, -3.6]
+   },
    "props": {
     "actor": 130,
     "collider": "rc_carpet"
@@ -747,6 +935,10 @@
    "pos": [1.55, 0.85, -0.18],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_carpet.glb",
+    "matrix": [0, 0, 0.1, 1.55, 0, 0.1, 0, 0.85, -0.1, 0, 0, -0.18]
+   },
    "props": {
     "actor": 130,
     "collider": "rc_carpet"
@@ -758,6 +950,10 @@
    "pos": [0.63, 0.85, -0.18],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_carpet.glb",
+    "matrix": [0, 0, -0.1, 0.63, 0, 0.1, 0, 0.85, 0.1, 0, 0, -0.18]
+   },
    "props": {
     "actor": 130,
     "collider": "rc_carpet"
@@ -777,6 +973,10 @@
    "object": "rc-guruguru",
    "pos": [4.925, 1.359, 0.292],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_rc_guruguru.glb",
+    "matrix": [1, 0, -0.012, 4.925, 0, 1, 0, 1.359, 0.012, 0, 1, 0.292]
+   },
    "props": {
     "actor": 132,
     "collider": "rc_guruguru"
@@ -832,6 +1032,10 @@
    "object": "b-coin-switch",
    "pos": [-6.7, -1.74, 0.45],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_b_coin_switch.glb",
+    "matrix": [0.1, 0, 0, -6.7, 0, 0.1, 0, -1.74, 0, 0, 0.1, 0.45]
+   },
    "props": {
     "actor": 10,
     "collider": "b_coin_switch"
@@ -843,6 +1047,10 @@
    "pos": [5.413, 3.254, -2.291],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_cannon_shutter.glb",
+    "matrix": [0, 0, 0.1, 5.413, 0, 0.1, 0, 3.254, -0.1, 0, 0, -2.291]
+   },
    "props": {
     "actor": 14,
     "collider": "cannon_shutter"
@@ -890,6 +1098,10 @@
    "pos": [-6.5, 3.05, -2.45],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_star_switch.glb",
+    "matrix": [0, 0, 0.1, -6.5, 0, 0.1, 0, 3.007, -0.1, 0, 0, -2.45]
+   },
    "props": {
     "actor": 12,
     "collider": "obj_star_switch"
@@ -969,6 +1181,10 @@
    "pos": [3.15, -1.79, 1.7],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.071, 0, -0.071, 3.15, 0, 0.1, 0, -1.79, 0.071, 0, 0.071, 1.7]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",

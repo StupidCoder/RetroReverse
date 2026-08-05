@@ -110,6 +110,7 @@ func run(ctx *cli.Context) error {
 			if err := exportLevels(ctx, ls, tmp, bindings); err != nil {
 				return err
 			}
+			logObjColliders(ctx)
 		}
 	}
 	return nil
@@ -720,17 +721,86 @@ func courseTitle(msg string) string {
 // colFile maps a stage KCL stem to its exported levels/col_<stem>.glb.
 var colFile = map[string]string{}
 
-func exportCollision(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string) error {
-	b := ctx.Builder
-	kclPath := map[string]string{}
+// objColFile memoises the OBJECT colliders exported to levels/objcol_<stem>.glb.
+// A level's own .kcl is only half its walkable surface: the see-saw bridge in
+// Bob-omb Battlefield, the lifts, the shutters and the chomp's stake are all
+// placed actors carrying their own collider, and until these were emitted the
+// bridge was scenery you fell through.
+var objColFile = map[string]string{}
+
+// kclPaths maps every .kcl stem in the cartridge to its file, built once.
+var kclPaths map[string]string
+
+func kclIndex(ls *sm64ds.LevelSet) map[string]string {
+	if kclPaths != nil {
+		return kclPaths
+	}
+	kclPaths = map[string]string{}
 	for i := 0; i < 2058; i++ {
 		if n := ls.InternalName(i); strings.HasSuffix(n, ".kcl") {
 			stem := strings.TrimSuffix(filepath.Base(n), ".kcl")
-			if _, dup := kclPath[stem]; !dup {
-				kclPath[stem] = n
+			if _, dup := kclPaths[stem]; !dup {
+				kclPaths[stem] = n
 			}
 		}
 	}
+	return kclPaths
+}
+
+// writeKCL converts one .kcl to a GLB under dir, named file. Shared by the
+// stage meshes and the object colliders, which differ only in where they land.
+func writeKCL(ctx *cli.Context, ls *sm64ds.LevelSet, tmp, stem, dir, file string) error {
+	p, ok := kclIndex(ls)[stem]
+	if !ok {
+		return fmt.Errorf("no .kcl named %q", stem)
+	}
+	data, err := os.ReadFile(filepath.Join(tmp, "files", filepath.FromSlash(strings.TrimPrefix(p, "/"))))
+	if err != nil {
+		return err
+	}
+	if len(data) > 4 && string(data[:4]) == "LZ77" {
+		data = nds.Decompress(data[4:])
+	}
+	k, err := sm64ds.ParseKCL(data)
+	if err != nil {
+		return err
+	}
+	tris, _ := trisOf(k)
+	if len(tris) == 0 {
+		return fmt.Errorf("%s: no prisms", stem)
+	}
+	glbData, err := nitro.ExportTrisGLB(stem+"_col", map[int][]nitro.Tri{0: tris},
+		[]nitro.Material{{Name: "collision", Alpha: 31}}, nil)
+	if err != nil {
+		return err
+	}
+	gp, err := ctx.Builder.Path(dir, file)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(gp, glbData, 0o644)
+}
+
+// objCollider exports a placed actor's collider on demand and returns its
+// document-relative path, or "" if the cartridge has no such .kcl.
+func objCollider(ctx *cli.Context, ls *sm64ds.LevelSet, tmp, stem string) string {
+	if f, done := objColFile[stem]; done {
+		return f
+	}
+	// Beside the level documents, not in a collision/ of their own: a Retro-X
+	// file reference is resolved against the document that carries it and may
+	// not contain "..", so anything a level doc names has to live in levels/.
+	file := "objcol_" + stem + ".glb"
+	if err := writeKCL(ctx, ls, tmp, stem, "levels", file); err != nil {
+		objColFile[stem] = "" // no .kcl of that name; the placement keeps its prop
+		return ""
+	}
+	objColFile[stem] = file
+	return file
+}
+
+func exportCollision(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string) error {
+	kclIndex(ls)
 
 	done := map[string]bool{}
 	levels := 0
@@ -744,43 +814,91 @@ func exportCollision(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string) error {
 			continue
 		}
 		done[stem] = true
-		p, ok := kclPath[stem]
-		if !ok {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(tmp, "files", filepath.FromSlash(strings.TrimPrefix(p, "/"))))
-		if err != nil {
-			continue
-		}
-		if len(data) > 4 && string(data[:4]) == "LZ77" {
-			data = nds.Decompress(data[4:])
-		}
-		k, err := sm64ds.ParseKCL(data)
-		if err != nil {
-			continue
-		}
-		tris, _ := trisOf(k)
-		if len(tris) == 0 {
-			continue
-		}
-		glbData, err := nitro.ExportTrisGLB(stem+"_col", map[int][]nitro.Tri{0: tris},
-			[]nitro.Material{{Name: "collision", Alpha: 31}}, nil)
-		if err != nil {
-			continue
-		}
 		file := "col_" + stem + ".glb"
-		gp, err := b.Path("levels", file)
-		if err != nil {
-			return err
-		}
-		if err := os.WriteFile(gp, glbData, 0o644); err != nil {
-			return err
+		if err := writeKCL(ctx, ls, tmp, stem, "levels", file); err != nil {
+			continue
 		}
 		colFile[stem] = file
 		levels++
 	}
 	ctx.Logf("%d stage collision meshes", levels)
 	return nil
+}
+
+// logObjColliders reports the object colliders exported alongside the stages.
+func logObjColliders(ctx *cli.Context) {
+	n := 0
+	for _, f := range objColFile {
+		if f != "" {
+			n++
+		}
+	}
+	ctx.Logf("%d object colliders (placed actors carry their own walkable surfaces)", n)
+}
+
+// colMatrix is a placement's collider as one 3x4 local->world, row-major, which
+// is what Retro-X asks for (RETROX.md 5.5). Two transforms compose into it:
+//
+//	the PLACEMENT's own position and yaw, and
+//	the collider's captured MtxFx43 (oracle, actor +$134) for the Mbg classes.
+//
+// The second is not decoration. b_si_so — the see-saw bridge — carries identity,
+// but pile and obj_tatefuda carry a uniform 0.0999, without which a stake comes
+// out 22 m tall instead of 2.2.
+//
+// The DS stores a MtxFx43 as four 3-vectors: three basis ROWS (it does v*M) then
+// the translation. three.js multiplies the other way round, so the basis is
+// transposed into columns here. Every collider this cartridge places is diagonal
+// — verified across all eleven Bob-omb Battlefield uses — so the transpose is
+// untested by anything that would notice; a rotated collider would be the first.
+func colMatrix(pl schema.Placement, c *sm64ds.Collider) []float64 {
+	// The collider's own basis (fx12) and offset (fx12, then into stage units).
+	var m [3][3]float64
+	for r := 0; r < 3; r++ {
+		for k := 0; k < 3; k++ {
+			m[r][k] = float64(c.Mtx[k*3+r]) / 4096 // transposed: rows -> columns
+		}
+	}
+	t := [3]float64{
+		float64(c.Mtx[9]) / 4096 * toStage,
+		float64(c.Mtx[10]) / 4096 * toStage,
+		float64(c.Mtx[11]) / 4096 * toStage,
+	}
+	if c.Class == "Kc" {
+		// Plain colliders have no transform of their own: they sit wherever the
+		// actor does.
+		m = [3][3]float64{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}
+		t = [3]float64{}
+	}
+	if c.ScaleY != 0 && c.ScaleY != 0x1000 {
+		sy := float64(c.ScaleY) / 4096
+		for r := 0; r < 3; r++ {
+			m[r][1] *= sy
+		}
+	}
+	// Then the placement's yaw and position, applied on the left.
+	yaw := 0.0
+	if len(pl.Rot) == 3 {
+		yaw = pl.Rot[1]
+	}
+	cs, sn := math.Cos(yaw), math.Sin(yaw)
+	ry := [3][3]float64{{cs, 0, sn}, {0, 1, 0}, {-sn, 0, cs}}
+	out := make([]float64, 12)
+	for r := 0; r < 3; r++ {
+		for k := 0; k < 3; k++ {
+			v := 0.0
+			for i := 0; i < 3; i++ {
+				v += ry[r][i] * m[i][k]
+			}
+			out[r*4+k] = r3(v)
+		}
+		v := 0.0
+		for i := 0; i < 3; i++ {
+			v += ry[r][i] * t[i]
+		}
+		out[r*4+3] = r3(v + pl.Pos[r])
+	}
+	return out
 }
 
 func trisOf(k *sm64ds.KCL) (tris []nitro.Tri, skipped int) {
@@ -1001,6 +1119,9 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			}
 			if c := colFor(actor, par); c != nil {
 				pl.Props["collider"] = c.KCL
+				if f := objCollider(ctx, ls, tmp, c.KCL); f != "" {
+					pl.Collision = &schema.ObjCollision{File: f, Matrix: colMatrix(pl, c)}
+				}
 			}
 			doc.Placements = append(doc.Placements, pl)
 			pid++

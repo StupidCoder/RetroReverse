@@ -15,18 +15,34 @@
 // role:"collision" layer, which is the game's own walkable surface and usually
 // cleaner than the art.
 //
+// PLUS THE PLACEMENTS' OWN COLLIDERS. A level's .kcl is only half its walkable
+// surface. In Bob-omb Battlefield the see-saw bridge past the chain chomp is a
+// placed actor (b_si_so) carrying its own collider, and so are the lifts, the
+// shutters and the chomp's stake — none of them in the stage mesh, all of them
+// things you walk on. Retro-X has carried a per-placement `collision`
+// {file, matrix} for exactly this (RETROX.md 5.5); it is read here and merged
+// into the same index, so nothing downstream knows the difference.
+//
 // WHEN THE INDEX IS BUILT. A few frames AFTER the placement lands, not during
 // it. Building costs single-digit to low-tens of milliseconds, which is nothing
 // at load and a visible hitch at 90 Hz — and the frames right after entry are
 // the ones where the viewer is looking around rather than teleporting.
 
-import { THREE, ObjectLibrary, applyTransform, disposeScene } from './engine3d.js';
+import { THREE, ObjectLibrary, applyTransform, disposeScene, loadGLB } from './engine3d.js';
 import { makeWorldPlacer } from './xrplacer.js';
 import { buildFloor } from './xrfloor.js';
 import { Torch } from './xrtorch.js';
 import { Teleporter } from './xrteleport.js';
 
 const BUILD_DELAY_FRAMES = 3;
+
+// matrixOf turns Retro-X's 3x4 row-major local->world (RETROX.md 5.5) into the
+// column-major 16 three.js wants. A missing matrix means the identity.
+function matrixOf(m) {
+  const out = new THREE.Matrix4();
+  if (Array.isArray(m) && m.length === 12) out.set(...m, 0, 0, 0, 1); // Matrix4.set IS row-major
+  return out;
+}
 
 // The horizontal radius of a subtree, in its own units.
 function radiusOf(root) {
@@ -72,9 +88,60 @@ export class WorldMode {
       onChange: () => this.onStatus?.(),
     });
 
+    // Placement colliders are files, so they arrive asynchronously; the index
+    // waits for them rather than being built twice.
+    this._objCol = [];
+    this._objColReady = false;
+    this._loadObjColliders(opts.asset, opts.signal)
+      .catch((e) => { console.error('xr object colliders', e); })
+      .finally(() => { this._objColReady = true; });
+
     this._frames = 0;
     this._step = () => this._tick();
     this.stage.updaters.add(this._step);
+  }
+
+  // _loadObjColliders reads every distinct placement collider once and keeps it
+  // as plain arrays with its own local->world, ready for buildFloor.
+  async _loadObjColliders(asset, signal) {
+    if (!asset || !this.game) return;
+    const doc = await this.game.assetDoc(asset);
+    const placements = (doc?.placements || []).filter((p) => p.collision?.file);
+    if (!placements.length) return;
+
+    const byFile = new Map();
+    for (const p of placements) {
+      if (!byFile.has(p.collision.file)) byFile.set(p.collision.file, []);
+      byFile.get(p.collision.file).push(p);
+    }
+    for (const [file, uses] of byFile) {
+      let gltf;
+      try {
+        gltf = await loadGLB(this.game.url(asset.file, file), signal);
+      } catch (e) {
+        console.error(`xr collider ${file}`, e);
+        continue;
+      }
+      if (signal?.aborted) return;
+      // The collider's own geometry, in its own space, gathered once.
+      const parts = [];
+      gltf.scene.updateMatrixWorld(true);
+      gltf.scene.traverse((o) => {
+        const g = o.isMesh && o.geometry?.attributes?.position;
+        if (g) parts.push({ positions: g.array, indices: o.geometry.index?.array || null, local: o.matrixWorld.clone() });
+      });
+      for (const p of uses) {
+        const world = matrixOf(p.collision.matrix);
+        for (const part of parts) {
+          this._objCol.push({
+            positions: part.positions,
+            indices: part.indices,
+            matrix: new THREE.Matrix4().multiplyMatrices(world, part.local).elements,
+          });
+        }
+      }
+    }
+    this._objColNote = `${this._objCol.length} collider meshes from ${placements.length} placements`;
   }
 
   // _fitSky makes a camera-attached layer behave like a horizon: infinitely far,
@@ -187,7 +254,7 @@ export class WorldMode {
     if (this._floor || this._failed) return;
     // Not until the placement has landed: the index is built in content units,
     // and before a fit there is no telling whether the content is even loaded.
-    if (!this.ar.placement) return;
+    if (!this.ar.placement || !this._objColReady) return;
     if (++this._frames < BUILD_DELAY_FRAMES) return;
     try {
       this._build();
@@ -199,7 +266,7 @@ export class WorldMode {
   }
 
   _build() {
-    const meshes = this._contentMeshes();
+    const meshes = this._contentMeshes().concat(this._objCol);
     const t0 = performance.now();
     this._floor = buildFloor(meshes, {
       mode: 'up',
@@ -209,7 +276,8 @@ export class WorldMode {
     if (this.cfg.teleport.blockers) {
       this._walls = buildFloor(meshes, { mode: 'side', minSlope: 70 });
     }
-    this._note = `floor ${this._floor.note} in ${Math.round(performance.now() - t0)} ms`;
+    this._note = `floor ${this._floor.note} in ${Math.round(performance.now() - t0)} ms`
+      + (this._objColNote ? ` · +${this._objColNote}` : '');
     if (!this._floor.n) this._note = 'floor index: NOTHING walkable found — teleport will not work';
     this.onStatus?.();
   }

@@ -47,6 +47,10 @@
    "pos": [2.202, 1.5, 6.653],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_box_switch.glb",
+    "matrix": [0.071, 0, 0.071, 2.202, 0, 0.1, 0, 1.505, -0.071, 0, 0.071, 6.653]
+   },
    "props": {
     "actor": 11,
     "collider": "obj_box_switch"
@@ -104,6 +108,10 @@
    "pos": [-1.371, -2.897, -4.586],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_hasira.glb",
+    "matrix": [0, 0, 0.1, -1.371, 0, 0.1, 0, -2.897, -0.1, 0, 0, -4.586]
+   },
    "props": {
     "actor": 58,
     "collider": "ki_hasira"
@@ -115,6 +123,10 @@
    "pos": [-1.071, -2.897, -3.186],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_hasira.glb",
+    "matrix": [0, 0, 0.1, -1.071, 0, 0.1, 0, -2.897, -0.1, 0, 0, -3.186]
+   },
    "props": {
     "actor": 58,
     "collider": "ki_hasira"
@@ -126,6 +138,10 @@
    "pos": [0.328, -2.897, -4.986],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_hasira.glb",
+    "matrix": [0, 0, 0.1, 0.328, 0, 0.1, 0, -2.897, -0.1, 0, 0, -4.986]
+   },
    "props": {
     "actor": 58,
     "collider": "ki_hasira"
@@ -137,6 +153,10 @@
    "pos": [2.028, -2.897, -6.086],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_hasira.glb",
+    "matrix": [0, 0, 0.1, 2.028, 0, 0.1, 0, -2.897, -0.1, 0, 0, -6.086]
+   },
    "props": {
     "actor": 58,
     "collider": "ki_hasira"
@@ -148,6 +168,10 @@
    "pos": [2.028, -2.897, -4.586],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_hasira.glb",
+    "matrix": [0, 0, 0.1, 2.028, 0, 0.1, 0, -2.897, -0.1, 0, 0, -4.586]
+   },
    "props": {
     "actor": 58,
     "collider": "ki_hasira"
@@ -159,6 +183,10 @@
    "pos": [4.228, -2.897, -5.486],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_hasira.glb",
+    "matrix": [0, 0, 0.1, 4.228, 0, 0.1, 0, -2.897, -0.1, 0, 0, -5.486]
+   },
    "props": {
     "actor": 58,
     "collider": "ki_hasira"
@@ -170,6 +198,10 @@
    "pos": [-1.035, 1, 6.905],
    "rot": [0, -1.9547708927625211, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_ita.glb",
+    "matrix": [-0.037, 0, -0.093, -1.035, 0, 0.1, 0, 1, 0.093, 0, -0.037, 6.905]
+   },
    "props": {
     "actor": 60,
     "collider": "ki_ita"
@@ -181,6 +213,10 @@
    "pos": [-1.959, -2.497, -3.424],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [-0.707, 0, 0.707, -1.959, 0, 1, 0, -2.497, -0.707, 0, -0.707, -3.424]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -192,6 +228,10 @@
    "pos": [1.54, -2.497, -5.424],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [0, 0, 1, 1.54, 0, 1, 0, -2.497, -1, 0, 0, -5.424]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -203,6 +243,10 @@
    "pos": [0.04, -2.497, -6.424],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [-0.707, 0, 0.707, 0.04, 0, 1, 0, -2.497, -0.707, 0, -0.707, -6.424]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -214,6 +258,10 @@
    "pos": [-0.959, -2.497, -5.174],
    "rot": [0, -1.832627672527127, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [-0.259, 0, -0.966, -0.959, 0, 1, 0, -2.497, 0.966, 0, -0.259, -5.174]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -225,6 +273,10 @@
    "pos": [1.79, -2.497, -6.924],
    "rot": [0, -2.7926120243458095, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [-0.94, 0, -0.342, 1.79, 0, 1, 0, -2.497, 0.342, 0, -0.94, -6.924]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -236,6 +288,10 @@
    "pos": [1.29, -2.497, -3.424],
    "rot": [0, 2.967006465168559, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [-0.985, 0, 0.174, 1.29, 0, 1, 0, -2.497, -0.174, 0, -0.985, -3.424]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -247,6 +303,10 @@
    "pos": [6.29, -2.497, -6.174],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [-0.707, 0, 0.707, 6.29, 0, 1, 0, -2.497, -0.707, 0, -0.707, -6.174]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -257,6 +317,10 @@
    "object": "ki-iwa",
    "pos": [3.79, -2.497, -4.924],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [1, 0, 0, 3.79, 0, 1, 0, -2.497, 0, 0, 1, -4.924]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -268,6 +332,10 @@
    "pos": [1.461, 1.7, 7.626],
    "rot": [0, 0.17449031462199166, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [0.985, 0, 0.174, 1.461, 0, 1, 0, 1.7, -0.174, 0, 0.985, 7.626]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -279,6 +347,10 @@
    "pos": [-6.396, 1.5, 4.24],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [0, 0, 1, -6.396, 0, 1, 0, 1.5, -1, 0, 0, 4.24]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -290,6 +362,10 @@
    "pos": [-5.106, 1.201, 2.056],
    "rot": [0, -0.872739194507687, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [0.643, 0, -0.766, -5.106, 0, 1, 0, 1.201, 0.766, 0, 0.643, 2.056]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -301,6 +377,10 @@
    "pos": [-7.306, 1.5, 0.18],
    "rot": [0, 2.6179299621253325, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [-0.866, 0, 0.5, -7.306, 0, 1, 0, 1.5, -0.5, 0, -0.866, 0.18]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -312,6 +392,10 @@
    "pos": [-5.615, 1.5, -1.087],
    "rot": [0, -1.919872829838123, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [-0.342, 0, -0.94, -5.615, 0, 1, 0, 1.5, 0.94, 0, -0.342, -1.087]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -323,6 +407,10 @@
    "pos": [-5.208, 1.4, 0.999],
    "rot": [0, -0.6981530060864524, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [0.766, 0, -0.643, -5.208, 0, 1, 0, 1.4, 0.643, 0, 0.766, 0.999]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -333,6 +421,10 @@
    "object": "ki-iwa",
    "pos": [-3.885, 1.5, -0.083],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [1, 0, 0, -3.885, 0, 1, 0, 1.5, 0, 0, 1, -0.083]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -344,6 +436,10 @@
    "pos": [-3.349, 0.8, 4.831],
    "rot": [0, -1.3090608548619092, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [0.259, 0, -0.966, -3.349, 0, 1, 0, 0.8, 0.966, 0, 0.259, 4.831]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -355,6 +451,10 @@
    "pos": [-1.895, 0.4, 2.321],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [-1, 0, 0, -1.895, 0, 1, 0, 0.4, 0, 0, -1, 2.321]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -365,6 +465,10 @@
    "object": "ki-iwa",
    "pos": [-1.756, -0.7, 4.228],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [1, 0, 0, -1.756, 0, 1, 0, -0.7, 0, 0, 1, 4.228]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -376,6 +480,10 @@
    "pos": [-0.826, 0.9, 7.487],
    "rot": [0, -1.0472295091296786, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [0.5, 0, -0.866, -0.826, 0, 1, 0, 0.9, 0.866, 0, 0.5, 7.487]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -387,6 +495,10 @@
    "pos": [-0.797, -0.6, 3.472],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [0.707, 0, -0.707, -0.797, 0, 1, 0, -0.6, 0.707, 0, 0.707, 3.472]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -398,6 +510,10 @@
    "pos": [0.249, -0.1, 4.608],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [0.707, 0, 0.707, 0.249, 0, 1, 0, -0.1, -0.707, 0, 0.707, 4.608]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -409,6 +525,10 @@
    "pos": [1.745, -0.3, 5.012],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [0.707, 0, -0.707, 1.745, 0, 1, 0, -0.3, 0.707, 0, 0.707, 5.012]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -420,6 +540,10 @@
    "pos": [1.053, -0.6, 2.245],
    "rot": [0, 1.4834552956846578, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [0.087, 0, 0.996, 1.053, 0, 1, 0, -0.6, -0.996, 0, 0.087, 2.245]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -431,6 +555,10 @@
    "pos": [2.784, -1.658, 0.95],
    "rot": [0, -1.0472295091296786, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [0.5, 0, -0.866, 2.784, 0, 1, 0, -1.658, 0.866, 0, 0.5, 0.95]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -442,6 +570,10 @@
    "pos": [6.731, -2.819, 3.388],
    "rot": [0, 0.2617354719329875, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [0.966, 0, 0.259, 6.731, 0, 1, 0, -2.819, -0.259, 0, 0.966, 3.388]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -453,6 +585,10 @@
    "pos": [4.122, -1.1, 6.917],
    "rot": [0, 1.7452866414168884, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [-0.174, 0, 0.985, 4.122, 0, 1, 0, -1.1, -0.985, 0, -0.174, 6.917]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -464,6 +600,10 @@
    "pos": [6.496, -0.6, 4.845],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [0.707, 0, -0.707, 6.496, 0, 1, 0, -0.6, 0.707, 0, 0.707, 4.845]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -475,6 +615,10 @@
    "pos": [5.7, -4.6, 4.35],
    "rot": [0, -1.3963060121729047, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [0.174, 0, -0.985, 5.7, 0, 1, 0, -4.6, 0.985, 0, 0.174, 4.35]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -486,6 +630,10 @@
    "pos": [3.614, -4.6, 0.783],
    "rot": [0, 1.7452866414168884, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [-0.174, 0, 0.985, 3.614, 0, 1, 0, -4.6, -0.985, 0, -0.174, 0.783]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -497,6 +645,10 @@
    "pos": [2.964, -4.6, 3.932],
    "rot": [0, 1.047133635330436, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [0.5, 0, 0.866, 2.964, 0, 1, 0, -4.6, -0.866, 0, 0.5, 3.932]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -508,6 +660,10 @@
    "pos": [2.849, -2.975, 4.705],
    "rot": [0, -2.356194490192345, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [-0.707, 0, -0.707, 2.849, 0, 1, 0, -2.975, 0.707, 0, -0.707, 4.705]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -519,6 +675,10 @@
    "pos": [5.758, -0.384, -0.121],
    "rot": [0, -1.3963060121729047, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [0.174, 0, -0.985, 5.758, 0, 1, 0, -0.384, 0.985, 0, 0.174, -0.121]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -530,6 +690,10 @@
    "pos": [7.794, 0.4, 2.64],
    "rot": [0, 2.967006465168559, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_iwa.glb",
+    "matrix": [-0.985, 0, 0.174, 7.794, 0, 1, 0, 0.4, -0.174, 0, -0.985, 2.64]
+   },
    "props": {
     "actor": 61,
     "collider": "ki_iwa"
@@ -541,6 +705,10 @@
    "pos": [-5.55, 1.1, 0.4],
    "rot": [0, -2.094459018259357, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [-0.05, 0, -0.086, -5.55, 0, 0.1, 0, 1.1, 0.086, 0, -0.05, 0.4]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -557,6 +725,10 @@
    "pos": [-6.4, 1.1, 2.8],
    "rot": [0, -2.7926120243458095, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [-0.094, 0, -0.034, -6.4, 0, 0.1, 0, 1.1, 0.034, 0, -0.094, 2.8]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -620,6 +792,10 @@
    "object": "obj-tatefuda",
    "pos": [5.2, -2.897, -4.95],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, 5.2, 0, 0.1, 0, -2.897, 0, 0, 0.1, -4.95]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -636,6 +812,10 @@
    "pos": [-0.9, -2.897, -1.95],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [-0.1, 0, 0, -0.9, 0, 0.1, 0, -2.897, 0, 0, -0.1, -1.95]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -741,6 +921,10 @@
    "pos": [-2.4, 1.3, 6.35],
    "rot": [0, 1.2217198237516704, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.034, 0, 0.094, -2.4, 0, 0.1, 0, 1.3, -0.094, 0, 0.034, 6.35]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -835,6 +1019,10 @@
    "object": "cannon-shutter",
    "pos": [-4.137, 1.22, 2.086],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_cannon_shutter.glb",
+    "matrix": [0.1, 0, 0, -4.137, 0, 0.1, 0, 1.22, 0, 0, 0.1, 2.086]
+   },
    "props": {
     "actor": 14,
     "collider": "cannon_shutter"
@@ -846,6 +1034,10 @@
    "pos": [-5.75, 1.1, 0.75],
    "rot": [0, 0.8726433207084442, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_b_coin_switch.glb",
+    "matrix": [0.064, 0, 0.076, -5.75, 0, 0.1, 0, 1.1, -0.076, 0, 0.064, 0.75]
+   },
    "props": {
     "actor": 10,
     "collider": "b_coin_switch"
@@ -907,6 +1099,10 @@
    "pos": [0, -2.897, -6.95],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_star_switch.glb",
+    "matrix": [0, 0, 0.1, 0, 0, 0.1, 0, -2.94, -0.1, 0, 0, -6.95]
+   },
    "props": {
     "actor": 12,
     "collider": "obj_star_switch"
@@ -927,6 +1123,10 @@
    "pos": [-4.3, 1.1, -0.15],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0, 0, -0.1, -4.3, 0, 0.1, 0, 1.1, 0.1, 0, 0, -0.15]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -1050,6 +1250,10 @@
    "pos": [5.25, -5.4, 2.3],
    "rot": [0, -0.17449031462199166, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_fune_down_a.glb",
+    "matrix": [0.985, 0, -0.174, 5.25, 0, 1, 0, -5.4, 0.174, 0, 0.985, 2.3]
+   },
    "props": {
     "actor": 56,
     "collider": "ki_fune_down_a"
@@ -1060,6 +1264,10 @@
    "object": "ki-fune-up",
    "pos": [4.85, 0.8, 2.25],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_fune_up.glb",
+    "matrix": [1, 0, 0, 4.85, 0, 1, 0, 0.8, 0, 0, 1, 2.25]
+   },
    "props": {
     "actor": 57,
     "collider": "ki_fune_up"
@@ -1070,6 +1278,10 @@
    "object": "ki-slide-box",
    "pos": [4.65, 1.5, 3.25],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ki_slide_box.glb",
+    "matrix": [0.1, 0, 0, 4.65, 0, 0.1, 0, 1.5, 0, 0, 0.1, 3.25]
+   },
    "props": {
     "actor": 313,
     "collider": "ki_slide_box"
@@ -1100,6 +1312,10 @@
    "pos": [-6.75, 1.1, 0.3],
    "rot": [0, 0.8726433207084442, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [0.643, 0, 0.766, -6.75, 0, 1, 0, 1.1, -0.766, 0, 0.643, 0.3]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -1111,6 +1327,10 @@
    "pos": [2.75, 1.5, 7.1],
    "rot": [0, -2.0943631444601145, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [-0.05, 0, -0.086, 2.75, 0, 0.1, 0, 1.5, 0.086, 0, -0.05, 7.1]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -1127,6 +1347,10 @@
    "pos": [-6.621, 1.1, 0.146],
    "rot": [0, 0.8726433207084442, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [0.643, 0, 0.766, -6.621, 0, 1, 0, 1.1, -0.766, 0, 0.643, 0.146]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -1148,6 +1372,10 @@
    "pos": [0.2, -2.897, -7.2],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0, 0, 0.1, 0.2, 0, 0.1, 0, -2.897, -0.1, 0, 0, -7.2]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",

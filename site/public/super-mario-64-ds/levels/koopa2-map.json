@@ -46,6 +46,10 @@
    "object": "km2-agaru",
    "pos": [2.8, -1.25, 0.3],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km2_agaru.glb",
+    "matrix": [0.1, 0, 0, 2.8, 0, 0.1, 0, -1.25, 0, 0, 0.1, 0.3]
+   },
    "props": {
     "actor": 140,
     "collider": "km2_agaru"
@@ -56,6 +60,10 @@
    "object": "km2-ami-bou",
    "pos": [6.449, -3, 0.26],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km2_ami_bou.glb",
+    "matrix": [0.1, 0, 0, 6.449, 0, 0.1, 0, -3, 0, 0, 0.1, 0.26]
+   },
    "props": {
     "actor": 142,
     "collider": "km2_ami_bou"
@@ -66,6 +74,10 @@
    "object": "km2-ami-bou",
    "pos": [1.8, 3.5, 0.093],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km2_ami_bou.glb",
+    "matrix": [0.1, 0, 0, 1.8, 0, 0.1, 0, 3.2, 0, 0, 0.1, 0.093]
+   },
    "props": {
     "actor": 142,
     "collider": "km2_ami_bou"
@@ -76,6 +88,10 @@
    "object": "km2-ami-bou",
    "pos": [0.6, 3.5, 0.093],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km2_ami_bou.glb",
+    "matrix": [0.1, 0, 0, 0.6, 0, 0.1, 0, 3.2, 0, 0, 0.1, 0.093]
+   },
    "props": {
     "actor": 142,
     "collider": "km2_ami_bou"
@@ -86,6 +102,10 @@
    "object": "km2-ami-bou",
    "pos": [3, 3.5, 0.093],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km2_ami_bou.glb",
+    "matrix": [0.1, 0, 0, 3, 0, 0.1, 0, 3.2, 0, 0, 0.1, 0.093]
+   },
    "props": {
     "actor": 142,
     "collider": "km2_ami_bou"
@@ -96,6 +116,10 @@
    "object": "km2-gura",
    "pos": [-1.9, -3.2, -0.675],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km2_gura.glb",
+    "matrix": [1, 0, 0, -1.9, 0, 1, 0, -3.2, 0, 0, 1, -0.675]
+   },
    "props": {
     "actor": 141,
     "collider": "km2_gura"
@@ -106,6 +130,10 @@
    "object": "km2-gura",
    "pos": [-2.8, -3.2, -0.675],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km2_gura.glb",
+    "matrix": [1, 0, 0, -2.8, 0, 1, 0, -3.2, 0, 0, 1, -0.675]
+   },
    "props": {
     "actor": 141,
     "collider": "km2_gura"
@@ -116,6 +144,10 @@
    "object": "km2-nobiru",
    "pos": [-5.699, 0.4, 0.193],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km2_nobiru.glb",
+    "matrix": [1, 0, 0, -5.699, 0, 1, 0, 0.4, 0, 0, 1, 0.193]
+   },
    "props": {
     "actor": 148,
     "collider": "km2_nobiru"
@@ -126,6 +158,10 @@
    "object": "km2-rift01",
    "pos": [-3.8, 0.1, 0.602],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km2_rift01.glb",
+    "matrix": [0.1, 0, 0, -3.8, 0, 0.1, 0, 0.1, 0, 0, 0.1, 0.612]
+   },
    "props": {
     "actor": 147,
     "collider": "km2_rift01"
@@ -136,6 +172,10 @@
    "object": "km2-rift01",
    "pos": [-3.199, 0.1, 0.002],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km2_rift01.glb",
+    "matrix": [0.1, 0, 0, -3.199, 0, 0.1, 0, 0.1, 0, 0, 0.1, 0.012]
+   },
    "props": {
     "actor": 147,
     "collider": "km2_rift01"
@@ -146,6 +186,10 @@
    "object": "km2-rift02",
    "pos": [2.053, 0.193, 0.305],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km2_rift02.glb",
+    "matrix": [0.1, 0, 0, 2.043, 0, 0.1, 0, 0.193, 0, 0, 0.1, 0.305]
+   },
    "props": {
     "actor": 146,
     "collider": "km2_rift02"
@@ -156,6 +200,10 @@
    "object": "km2-susumu",
    "pos": [-5.6, -3, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km2_susumu.glb",
+    "matrix": [0.1, 0, 0, -5.6, 0, 0.1, 0, -3, 0, 0, 0.1, 0]
+   },
    "props": {
     "actor": 144,
     "collider": "km2_susumu"
@@ -166,6 +214,10 @@
    "object": "km2-ukishima",
    "pos": [1.1, -3, 0.3],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km2_ukishima.glb",
+    "matrix": [1, 0, 0, 1.1, 0, 1, 0, -3, 0, 0, 1, 0.3]
+   },
    "props": {
     "actor": 145,
     "collider": "km2_ukishima"
@@ -176,6 +228,10 @@
    "object": "km2-ukishima",
    "pos": [-3.15, 3.4, 0.093],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km2_ukishima.glb",
+    "matrix": [1, 0, 0, -3.15, 0, 1, 0, 3.4, 0, 0, 1, 0.093]
+   },
    "props": {
     "actor": 145,
     "collider": "km2_ukishima"
@@ -186,6 +242,10 @@
    "object": "km2-ukishima",
    "pos": [-1.349, 3.4, 0.093],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km2_ukishima.glb",
+    "matrix": [1, 0, 0, -1.349, 0, 1, 0, 3.4, 0, 0, 1, 0.093]
+   },
    "props": {
     "actor": 145,
     "collider": "km2_ukishima"
@@ -196,6 +256,10 @@
    "object": "km2-yokoshiso",
    "pos": [4.349, -2.175, 0.26],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km2_yokoshiso.glb",
+    "matrix": [1, 0, 0, 4.349, 0, 1, 0, -2.175, 0, 0, 1, 0.26]
+   },
    "props": {
     "actor": 143,
     "collider": "km2_yokoshiso"
@@ -206,6 +270,10 @@
    "object": "km2-yokoshiso",
    "pos": [5.649, -2.325, 0.26],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km2_yokoshiso.glb",
+    "matrix": [1, 0, 0, 5.649, 0, 1, 0, -2.325, 0, 0, 1, 0.26]
+   },
    "props": {
     "actor": 143,
     "collider": "km2_yokoshiso"
@@ -406,6 +474,10 @@
    "object": "obj-star-switch",
    "pos": [2.4, 5.125, 0.2],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_star_switch.glb",
+    "matrix": [0.1, 0, 0, 2.4, 0, 0.1, 0, 5.082, 0, 0, 0.1, 0.2]
+   },
    "props": {
     "actor": 12,
     "collider": "obj_star_switch"

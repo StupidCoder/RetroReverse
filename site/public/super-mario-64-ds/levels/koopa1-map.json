@@ -47,6 +47,10 @@
    "pos": [1.455, 1.243, 0.5],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km1_shiso.glb",
+    "matrix": [0, 0, 1, 1.455, 0, 1, 0, 1.243, -1, 0, 0, 0.5]
+   },
    "props": {
     "actor": 133,
     "collider": "km1_shiso"
@@ -58,6 +62,10 @@
    "pos": [-0.144, 0.873, 0.5],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km1_shiso.glb",
+    "matrix": [0, 0, 1, -0.144, 0, 1, 0, 0.873, -1, 0, 0, 0.5]
+   },
    "props": {
     "actor": 133,
     "collider": "km1_shiso"
@@ -68,6 +76,10 @@
    "object": "km1-dorifu0",
    "pos": [5.155, 1.7, -0.006],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km1_dorifu4.glb",
+    "matrix": [1, 0, 0, 5.155, 0, 1, 0, 1.7, 0, 0, 1, -0.006]
+   },
    "props": {
     "actor": 134,
     "collider": "km1_dorifu4"
@@ -78,6 +90,10 @@
    "object": "km1-ukishima",
    "pos": [-2.894, 0.993, -2.406],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km1_ukishima.glb",
+    "matrix": [0.1, 0, 0, -2.894, 0, 0.1, 0, 0.993, 0, 0, 0.1, -2.396]
+   },
    "props": {
     "actor": 135,
     "collider": "km1_ukishima"
@@ -89,6 +105,10 @@
    "pos": [-2.294, 0.993, -1.806],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km1_ukishima.glb",
+    "matrix": [-0.1, 0, 0, -2.294, 0, 0.1, 0, 0.993, 0, 0, -0.1, -1.816]
+   },
    "props": {
     "actor": 135,
     "collider": "km1_ukishima"
@@ -99,6 +119,10 @@
    "object": "km1-ukishima",
    "pos": [-2.304, 0.993, -1.206],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km1_ukishima.glb",
+    "matrix": [0.1, 0, 0, -2.304, 0, 0.1, 0, 0.993, 0, 0, 0.1, -1.196]
+   },
    "props": {
     "actor": 135,
     "collider": "km1_ukishima"
@@ -109,6 +133,10 @@
    "object": "km1-kurumajiku",
    "pos": [-0.2, -1.88, 3.302],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km1_kurumajiku.glb",
+    "matrix": [0.1, -0.003, 0, -0.2, 0.002, 0.1, 0, -1.88, 0, 0, 0.1, 3.302]
+   },
    "props": {
     "actor": 137,
     "collider": "km1_kurumajiku"
@@ -119,6 +147,10 @@
    "object": "km1-deru",
    "pos": [-5.594, 0.8, -2.101],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km1_deru.glb",
+    "matrix": [0.1, 0, 0, -5.584, 0, 0.1, 0, 0.8, 0, 0, 0.1, -2.101]
+   },
    "props": {
     "actor": 138,
     "collider": "km1_deru"
@@ -130,6 +162,10 @@
    "pos": [-1.704, 0.993, -0.606],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km1_ukishima.glb",
+    "matrix": [-0.1, 0, 0, -1.704, 0, 0.1, 0, 0.993, 0, 0, -0.1, -0.616]
+   },
    "props": {
     "actor": 135,
     "collider": "km1_ukishima"
@@ -140,6 +176,10 @@
    "object": "km1-ukishima",
    "pos": [-1.92, -3.08, 3.502],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km1_ukishima.glb",
+    "matrix": [0.1, 0, 0, -1.92, 0, 0.1, 0, -3.08, 0, 0, 0.1, 3.512]
+   },
    "props": {
     "actor": 135,
     "collider": "km1_ukishima"
@@ -151,6 +191,10 @@
    "pos": [-1.32, -3.08, 4.102],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_km1_ukishima.glb",
+    "matrix": [-0.1, 0, 0, -1.32, 0, 0.1, 0, -3.08, 0, 0, -0.1, 4.092]
+   },
    "props": {
     "actor": 135,
     "collider": "km1_ukishima"
@@ -161,6 +205,10 @@
    "object": "obj-box-switch",
    "pos": [3.855, 1.7, -0.006],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_box_switch.glb",
+    "matrix": [0.1, 0, 0, 3.855, 0, 0.1, 0, 1.705, 0, 0, 0.1, -0.006]
+   },
    "props": {
     "actor": 11,
     "collider": "obj_box_switch"
@@ -171,6 +219,10 @@
    "object": "obj-box-switch",
    "pos": [-3.02, -2.878, 3.5],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_box_switch.glb",
+    "matrix": [0.1, 0, 0, -3.02, 0, 0.1, 0, -2.873, 0, 0, 0.1, 3.5]
+   },
    "props": {
     "actor": 11,
     "collider": "obj_box_switch"
@@ -190,6 +242,10 @@
    "object": "obj-dokan",
    "pos": [6.655, 2.8, -0.006],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_dokan.glb",
+    "matrix": [0.1, 0, 0, 6.655, 0, 0.1, 0, 2.8, 0, 0, 0.1, -0.006]
+   },
    "props": {
     "actor": 298,
     "collider": "obj_dokan"
@@ -272,6 +328,10 @@
    "object": "obj-tatefuda",
    "pos": [5.75, 2.7, -0.25],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, 5.75, 0, 0.1, 0, 2.7, 0, 0, 0.1, -0.25]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -416,6 +476,10 @@
    "object": "obj-star-switch",
    "pos": [6.65, 2.799, -0.35],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_star_switch.glb",
+    "matrix": [0.1, 0, 0, 6.65, 0, 0.1, 0, 2.756, 0, 0, 0.1, -0.35]
+   },
    "props": {
     "actor": 12,
     "collider": "obj_star_switch"

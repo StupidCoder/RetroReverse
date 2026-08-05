@@ -46,6 +46,10 @@
    "object": "broken-block-l",
    "pos": [-0.9, 0, 2.3],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, -0.9, 0, 1, 0, 0, 0, 0, 1, 2.3]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -56,6 +60,10 @@
    "object": "broken-block-l",
    "pos": [-0.5, 0, 2.3],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, -0.5, 0, 1, 0, 0, 0, 0, 1, 2.3]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -66,6 +74,10 @@
    "object": "broken-block-l",
    "pos": [-0.7, 0, 2.3],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, -0.7, 0, 1, 0, 0, 0, 0, 1, 2.3]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -76,6 +88,10 @@
    "object": "obj-pushblock",
    "pos": [-1, 0, 2.8],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_pushblock.glb",
+    "matrix": [1, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1, 2.8]
+   },
    "props": {
     "actor": 192,
     "collider": "obj_pushblock"
@@ -86,6 +102,10 @@
    "object": "obj-pushblock",
    "pos": [-0.4, 0, 2.8],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_pushblock.glb",
+    "matrix": [1, 0, 0, -0.4, 0, 1, 0, 0, 0, 0, 1, 2.8]
+   },
    "props": {
     "actor": 192,
     "collider": "obj_pushblock"
@@ -96,6 +116,10 @@
    "object": "obj-pushblock",
    "pos": [-0.7, 0, 2.8],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_pushblock.glb",
+    "matrix": [1, 0, 0, -0.7, 0, 1, 0, 0, 0, 0, 1, 2.8]
+   },
    "props": {
     "actor": 192,
     "collider": "obj_pushblock"
@@ -106,6 +130,10 @@
    "object": "obj-tatefuda",
    "pos": [-0.8, 0, 4.3],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0.1, 0, 0, -0.8, 0, 0.1, 0, 0, 0, 0, 0.1, 4.3]
+   },
    "onClick": {
     "action": "text",
     "title": "Signpost",
@@ -220,6 +248,10 @@
    "object": "hatena-switch",
    "pos": [1.45, 0, 4.05],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_hatena_switch_start.glb",
+    "matrix": [0.1, 0, 0, 1.45, 0, 0.1, 0, 0, 0, 0, 0.1, 4.05]
+   },
    "props": {
     "actor": 26,
     "collider": "hatena_switch_start"
@@ -230,6 +262,10 @@
    "object": "obj-star-switch",
    "pos": [0, 0, 4.312],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_star_switch.glb",
+    "matrix": [0.1, 0, 0, 0, 0, 0.1, 0, -0.043, 0, 0, 0.1, 4.312]
+   },
    "props": {
     "actor": 12,
     "collider": "obj_star_switch"
@@ -249,6 +285,10 @@
    "object": "broken-block-s",
    "pos": [1.2, 0, 0.05],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_s.glb",
+    "matrix": [0.1, 0, 0, 1.2, 0, 0.1, 0, -0.002, 0, 0, 0.1, 0.05]
+   },
    "props": {
     "actor": 194,
     "collider": "broken_block_s"
@@ -259,6 +299,10 @@
    "object": "broken-block-s",
    "pos": [1.2, 0, -0.6],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_s.glb",
+    "matrix": [0.1, 0, 0, 1.2, 0, 0.1, 0, -0.002, 0, 0, 0.1, -0.6]
+   },
    "props": {
     "actor": 194,
     "collider": "broken_block_s"
@@ -269,6 +313,10 @@
    "object": "broken-block-l",
    "pos": [1.65, 0, 0.05],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, 1.65, 0, 1, 0, 0, 0, 0, 1, 0.05]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -279,6 +327,10 @@
    "object": "broken-block-l",
    "pos": [1.65, 0, -0.6],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, 1.65, 0, 1, 0, 0, 0, 0, 1, -0.6]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -289,6 +341,10 @@
    "object": "broken-block-ll",
    "pos": [2.1, 0, 0.05],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_ll.glb",
+    "matrix": [1, 0, 0, 2.1, 0, 1, 0, 0, 0, 0, 1, 0.05]
+   },
    "props": {
     "actor": 17,
     "collider": "broken_block_ll"
@@ -299,6 +355,10 @@
    "object": "broken-block-ll",
    "pos": [2.1, 0.3, -0.6],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_ll.glb",
+    "matrix": [1, 0, 0, 2.1, 0, 1, 0, 0.3, 0, 0, 1, -0.6]
+   },
    "props": {
     "actor": 17,
     "collider": "broken_block_ll"
@@ -309,6 +369,10 @@
    "object": "ice-block-ll",
    "pos": [2.5, 0, 0.05],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ice_block_ll.glb",
+    "matrix": [1, 0, 0, 2.5, 0, 1, 0, 0, 0, 0, 1, 0.05]
+   },
    "props": {
     "actor": 18,
     "collider": "ice_block_ll"
@@ -319,6 +383,10 @@
    "object": "ice-block-ll",
    "pos": [2.5, 0, -0.6],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ice_block_ll.glb",
+    "matrix": [1, 0, 0, 2.5, 0, 1, 0, 0, 0, 0, 1, -0.6]
+   },
    "props": {
     "actor": 18,
     "collider": "ice_block_ll"
@@ -329,6 +397,10 @@
    "object": "broken-block-ll",
    "pos": [2.1, 0, -0.6],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_ll.glb",
+    "matrix": [1, 0, 0, 2.1, 0, 1, 0, 0, 0, 0, 1, -0.6]
+   },
    "props": {
     "actor": 17,
     "collider": "broken_block_ll"
@@ -339,6 +411,10 @@
    "object": "broken-block-l",
    "pos": [1.65, 0.2, -0.6],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, 1.65, 0, 1, 0, 0.2, 0, 0, 1, -0.6]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -349,6 +425,10 @@
    "object": "ice-block-ll",
    "pos": [2.5, 0.3, -0.6],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_ice_block_ll.glb",
+    "matrix": [1, 0, 0, 2.5, 0, 1, 0, 0.3, 0, 0, 1, -0.6]
+   },
    "props": {
     "actor": 18,
     "collider": "ice_block_ll"
@@ -443,6 +523,10 @@
    "object": "broken-block-l",
    "pos": [2.6, 0, 4],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, 2.6, 0, 1, 0, 0, 0, 0, 1, 4]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -453,6 +537,10 @@
    "object": "broken-block-l",
    "pos": [2.9, 0, 4],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, 2.9, 0, 1, 0, 0, 0, 0, 1, 4]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -463,6 +551,10 @@
    "object": "broken-block-l",
    "pos": [3.2, 0, 4],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, 3.2, 0, 1, 0, 0, 0, 0, 1, 4]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -473,6 +565,10 @@
    "object": "broken-block-l",
    "pos": [3.5, 0, 4],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_broken_block_l.glb",
+    "matrix": [1, 0, 0, 3.5, 0, 1, 0, 0, 0, 0, 1, 4]
+   },
    "props": {
     "actor": 15,
     "collider": "broken_block_l"
@@ -549,6 +645,10 @@
    "pos": [-0.8, 0, 5.55],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "collision": {
+    "file": "objcol_obj_tatefuda.glb",
+    "matrix": [0, 0, 0.1, -0.8, 0, 0.1, 0, 0, -0.1, 0, 0, 5.55]
+   },
    "props": {
     "actLayer": 1,
     "actor": 184,
