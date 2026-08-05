@@ -44,9 +44,16 @@
   "_sky": [
     "vr01.glb is 59,000 units across — a 645 km dome at this scale, which is to",
     "say outside any far plane worth having and therefore not drawn at all.",
-    "scale:auto brings it to 0.45 of the far plane and forces painter's order,",
-    "because a dome pulled in to a couple of hundred metres would otherwise be",
-    "depth-tested against a 175 m course and sliced open by its own hills."
+    "scale:auto brings it inside the frustum and forces painter's order, because",
+    "a dome pulled in to a few hundred metres would otherwise be depth-tested",
+    "against a 175 m course and sliced open by its own hills.",
+    "",
+    "The radius is not what makes it read as sky: the viewer centres the dome on",
+    "the EYE being drawn rather than on the head, so both eyes get the identical",
+    "image and the binocular disparity is exactly zero. Head-centred at this same",
+    "radius, the nearest part of this dome subtends 338 arcseconds — an order of",
+    "magnitude above the 20-30 arcsecond stereoacuity threshold, which is why it",
+    "still read as close after merely being scaled up."
   ],
   "sky": { "scale": "auto", "fog": false },
 

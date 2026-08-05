@@ -25,11 +25,16 @@
   "spawn": { "pos": [0, 0, -88], "dir": [0, 0, -1] },
 
   "_sky": [
-    "sky-cy1.glb is a UNIT-RADIUS cylinder, camera-attached. On a monitor that",
-    "is invisible; in stereo it is a horizon one metre from your face, with",
-    "about 6.4% parallax between the eyes. scale:auto pushes it to 0.45 of the",
-    "far plane, where the parallax is 0.011%. fog:false because a horizon that",
-    "fogs out is not a horizon — the terrain is what blends into it."
+    "sky-cy1.glb is a UNIT-RADIUS cylinder, camera-attached. On a monitor that is",
+    "invisible; in stereo it is a horizon one metre from your face.",
+    "",
+    "Pushing it away is not the fix, and that took two goes to learn: even at 283",
+    "m a 64 mm IPD still subtends ~26 arcseconds of disparity, and stereoacuity",
+    "runs to 20-30. scale:auto now only keeps the dome inside the far plane; what",
+    "makes it infinite is that the viewer centres it on the EYE being drawn",
+    "rather than on the head, so both eyes get the identical image and the",
+    "disparity is exactly zero. fog:false because a horizon that fogs out is not",
+    "a horizon — the terrain is what blends into it."
   ],
   "sky": { "scale": "auto", "fog": false },
   "fog": { "color": "#9fb6c8", "near": 60, "far": 420 },

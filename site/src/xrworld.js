@@ -28,6 +28,12 @@ import { Teleporter } from './xrteleport.js';
 
 const BUILD_DELAY_FRAMES = 3;
 
+// The horizontal radius of a subtree, in its own units.
+function radiusOf(root) {
+  const size = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3());
+  return Math.max(size.x, size.z) / 2;
+}
+
 export class WorldMode {
   // { ar, stage, cfg, game, view, signal, onStatus }
   constructor(opts) {
@@ -71,25 +77,34 @@ export class WorldMode {
     this.stage.updaters.add(this._step);
   }
 
-  // _fitSky pushes camera-attached layers out to where stereo stops noticing
-  // them, and takes them out of the fog.
+  // _fitSky makes a camera-attached layer behave like a horizon: infinitely far,
+  // never in the depth buffer, never in the fog.
   //
-  // Need for Speed's horizon is a UNIT-RADIUS cylinder — bounding box
-  // -1,-0.5,-1 .. 1,1.2,1 — centred on the mid-eye and following it. At one
-  // metre per unit that is a cylinder one metre around your head, so each eye
-  // sits about 32 mm off its centre and the horizon carries 6.4% parallax: your
-  // eyes converge on it and it reads as a painted wall you could touch. On a
-  // monitor there is no second eye and nothing looks wrong, and the diorama
-  // hides these layers outright, so world mode is the first thing that could
-  // ever have seen it.
+  // THE CUE IS DISPARITY, NOT DISTANCE, and getting that wrong cost two rounds.
+  // Need for Speed's horizon is a UNIT-RADIUS cylinder centred on the mid-eye,
+  // so each eye sits 32 mm off its centre: 6.4% parallax, and it reads as a
+  // painted wall you could touch. Scaling it to 0.45 of the far plane — 283 m —
+  // sounds like plenty and is not. A 64 mm IPD at 283 m still subtends about 47
+  // arcseconds of binocular disparity, and human stereoacuity runs to 20-30
+  // arcseconds, so the horizon remains measurably nearer than infinity. Pushing
+  // it further only fights the far plane; you would need a kilometre or two.
   //
-  // Scaling is the whole fix: parallax goes as IPD/radius, so a horizon at 0.45
-  // of the far plane (283 m here) drops to 0.011%. It stays inside the frustum,
-  // it still follows the head, and renderOrder/depthTest still hold the paint
-  // order — scaling a group does not move its origin.
+  // So the dome is not pushed away, it is centred on the EYE BEING DRAWN rather
+  // than on the head. Both eyes then receive the identical image, disparity is
+  // exactly zero, and the sky is at infinity by construction at whatever radius
+  // is convenient. three calls onBeforeRender once per sub-camera of an
+  // ArrayCamera and honours a matrixWorld written inside it (verified: two
+  // calls, L then R, and the per-eye transform reaches modelViewMatrix), which
+  // is the whole mechanism.
+  //
+  // Scale then only has to satisfy two much weaker constraints: inside the far
+  // plane, so it is drawn at all — SM64DS's vr01 is 59,000 units, a 645 km dome
+  // that was being clipped away entirely — and beyond the terrain.
   _fitSky() {
     const sky = this.cfg.sky;
     const scene = this.stage.scene;
+    for (const o of this._skyHooked || []) o.onBeforeRender = () => {};
+    this._skyHooked = [];
     for (const root of scene.children) {
       const ly = root.userData?.layer;
       if (!ly) continue;
@@ -106,14 +121,13 @@ export class WorldMode {
         // Measure the layer's own radius rather than assume one: Need for Speed
         // ships a unit cylinder, other games ship domes of tens of thousands of
         // units, and both want to end up in the same place.
-        const box = new THREE.Box3().setFromObject(root);
-        const size = box.getSize(new THREE.Vector3());
-        const radius = Math.max(size.x, size.z) / 2;
+        const radius = radiusOf(root);
         const farUnits = (this.stage.camera.far || 100) / this.cfg.metresPerUnit;
-        k = radius > 1e-6 ? (farUnits * 0.45) / radius : 1;
+        k = radius > 1e-6 ? (farUnits * 0.75) / radius : 1;
       }
       root.scale.setScalar(k);
-      this._skyNote = `sky x${k < 0.01 ? k.toExponential(1) : k < 10 ? k.toFixed(2) : k.toFixed(0)}`;
+      const r = radiusOf(root) * this.cfg.metresPerUnit;
+      this._skyNote = `sky ${r > 1000 ? `${(r / 1000).toFixed(1)} km` : `${r.toFixed(0)} m`} · per-eye`;
 
       // Both directions, and this is the correction that matters: an earlier
       // version only ever pushed a horizon OUT, on the reasoning that a dome
@@ -130,8 +144,20 @@ export class WorldMode {
       // open by its own hills. A camera-attached horizon is by definition
       // infinitely far, so it must never take part in depth at all.
       root.renderOrder = -1000;
+      const eye = new THREE.Vector3();
+      // Re-centred per eye, immediately before that eye draws it. Assigned to
+      // every mesh rather than to the group, because onBeforeRender is a
+      // per-object hook and there is no guarantee the sky's meshes are drawn
+      // consecutively; each one re-solves the group and is then correct.
+      const perEye = (renderer, scene, cam) => {
+        cam.getWorldPosition(eye);
+        root.parent?.worldToLocal(eye);
+        root.position.copy(eye);
+        root.updateMatrixWorld(true);
+      };
       root.traverse((o) => {
         o.renderOrder = -1000;
+        if (o.isMesh) { o.onBeforeRender = perEye; this._skyHooked.push(o); }
         for (const m of o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []) {
           if (!m.depthTest && !m.depthWrite) continue;
           m.depthTest = false;
@@ -276,6 +302,8 @@ export class WorldMode {
 
   dispose() {
     this.stage.updaters.delete(this._step);
+    for (const o of this._skyHooked || []) o.onBeforeRender = () => {};
+    this._skyHooked = null;
     this.teleporter.dispose();
     this.torch.dispose();
     for (const u of this._propUpdaters || []) this.stage.updaters.delete(u);
