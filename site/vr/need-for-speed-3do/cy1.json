@@ -1,0 +1,51 @@
+{
+  "_": [
+    "City 1, standing on the grid.",
+    "",
+    "Need for Speed's track geometry is already metres — the disc stores 16.16",
+    "fixed point and nfs.Float divides by 65536, road segments 6 m apart — so",
+    "metresPerUnit is 1 and there is nothing to derive.",
+    "",
+    "The spawn is the exported grid camera (webexport/main.go startCamera, itself",
+    "calibrated against the running game's camObj to 4 mm) with the driver's eye",
+    "height taken back off: segment 16, 96 m in, 2.9 m right of the centreline,",
+    "road surface at y = 0.",
+    "",
+    "The two cars sit where a race starts, a lane either side of you."
+  ],
+
+  "metresPerUnit": 1.0,
+  "spawn": { "pos": [-2.902, 0, -96], "dir": [0, 0, -1] },
+
+  "sky": true,
+  "fog": { "color": "#9fb6c8", "near": 60, "far": 420 },
+  "torch": { "flicker": 0 },
+
+  "floor": { "source": "visible", "maxSlope": 40 },
+  "teleport": {
+    "speed": 9,
+    "maxRange": 40,
+    "maxRise": 1.0,
+    "markerRadius": 0.5,
+    "snapTurn": 30,
+    "blockers": false
+  },
+
+  "_props": [
+    "A 512 TR and a Diablo, one lane either side of where you stand.",
+    "The road is 8 lanes of 5 m spanning -20..+20, so lane centres are at",
+    "5*lane - 17.5: the grid camera's -2.902 sits in the lane at -2.5, and the",
+    "cars take the ones at -7.5 and +2.5.",
+    "",
+    "rotY 0 = the model's own -Z, which is the direction the course runs and the",
+    "way the grid camera looks. Both models are 4.4-4.6 long on Z and sit on",
+    "y = 0, so they need no height offset. CHECK IN THE HEADSET: if they face",
+    "you rather than the horizon, both rotY become 180."
+  ],
+  "props": [
+    { "object": "car-f512tr",  "pos": [-7.5, 0, -96], "rotY": 0 },
+    { "object": "car-ldiablo", "pos": [2.5, 0, -96],  "rotY": 0 }
+  ],
+
+  "sounds": []
+}

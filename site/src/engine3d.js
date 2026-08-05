@@ -15,7 +15,15 @@ export { THREE };
 export class Stage {
   constructor(el, cam = {}) {
     this.el = el;
-    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    // preserveDrawingBuffer is what lets screenfx.js capture this canvas from
+    // its own rAF; without it the capture races three's and comes back blank.
+    // It costs a resolve per frame, which on a tiled mobile GPU is real money —
+    // so the XR shell's stage, which nothing ever captures (app.js points the
+    // filter at the DESKTOP view's canvas), opts out.
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      preserveDrawingBuffer: cam.capture !== false,
+    });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.domElement.classList.add('fill');
     el.appendChild(renderer.domElement);
@@ -75,7 +83,8 @@ export class Stage {
     renderer.xr.enabled = true;
     this.updaters = new Set();  // fn(dt, camPosWorld, elapsed)
     this.overrideRender = null; // cutscene player takes the frame over
-    this.onXRFrame = null;      // ARSession reads the head pose from the XRFrame
+    this.onXRFrame = null;      // ImmersiveSession reads the head pose from the XRFrame
+    this.frameSource = null;    // emulated sessions supply their own frames (see _frame)
     this.inputEnabled = true;   // false parks FlyCam/PanInput (an XR session drives the camera)
     this._clock = new THREE.Clock();
     // Cumulative CPU milliseconds, split at the one boundary that is actually
@@ -117,7 +126,14 @@ export class Stage {
     // do — so it must not be CALLED in a session: it rewrites camera.position
     // from its own spherical every frame, which both fights the head pose and
     // leaves its internal state poisoned for the desktop view on exit.
+    //
+    // frameSource is how the SAME path runs without a headset: an emulator
+    // (xremulate.js) hands over a synthetic XRFrame and the session cannot tell.
+    // It has to hook here rather than ride in as an updater, because what it
+    // replaces is the controls.update() branch — an emulated head that shared
+    // the frame with OrbitControls would be overwritten every frame.
     if (xr) this.onXRFrame?.(frame);
+    else if (this.frameSource) this.onXRFrame?.(this.frameSource());
     else this.controls.update();
     // World position, not camera.position: under an XR rig the camera is a
     // child and its local position is the head pose in metres. Identical to
@@ -252,7 +268,7 @@ export class Stage {
     this.overrideRender = null;
     // onXRFrame is NOT cleared here, and controls.enabled is NOT restored.
     // Both belong to the SESSION, which outlives the content on this stage —
-    // ARSession installs the frame hook at enter() and drops it at _end().
+    // ImmersiveSession installs the frame hook at enter() and drops it at _end().
     // Clearing it here killed the pointer, the panel's anchoring and the
     // placement solve on the first swap after entering, which reads as "no
     // laser, no content, and a menu buried in the floor".

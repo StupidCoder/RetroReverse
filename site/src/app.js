@@ -7,7 +7,8 @@ import { loadIndex, CATEGORY_LABELS } from './data.js';
 import { ScreenFilter } from './screenfx.js';
 // Dependency-free on purpose: the answer gates a button on every page, and
 // asking xr.js would pull three.js onto the landing page and the 2-D views.
-import { arSupported } from './xrsupport.js';
+import { arSupported, vrSupported } from './xrsupport.js';
+import { loadIndex as loadVRIndex } from './xrpreset.js';
 
 const $ = (id) => document.getElementById(id);
 const landing = $('landing'), stage = $('stage');
@@ -29,6 +30,10 @@ let filterOn = false; // the user's screen-filter choice survives navigation
 // destroys the mounted view's renderer, and an XRSession lives on one of those,
 // which is why switching assets used to mean leaving the headset.
 let xrShell = null;
+// Which (game, asset) pairs can be WALKED INTO. One fetch at startup, so the VR
+// button can be decided synchronously and nothing ever probes for a 404 — see
+// the note in xrpreset.js on why probing is the wrong shape here.
+let vrPresets = new Set();
 
 // mountView is the ctx -> view step, shared by the desktop shell and the XR one
 // so there is a single mount path rather than two that can drift.
@@ -45,7 +50,7 @@ const param = (p, k) => p?.get?.(k) ?? p?.[k];
 //
 // The session is requested inside the click, before anything loads — WebXR
 // wants a user gesture, and a level's download would spend it.
-async function enterXR(game, asset, fake) {
+async function enterXR(game, asset, fake, mode = 'ar', emulate = false) {
   // Read before the teardown below clears `current`: the ?xr* knobs retune size
   // and distance from the headset without a redeploy, and losing them here
   // would quietly ignore every one of them.
@@ -70,7 +75,8 @@ async function enterXR(game, asset, fake) {
       },
     });
     xrShell.onChange = (on) => {
-      $('xrBtn').classList.toggle('on', on);
+      $('xrBtn').classList.toggle('on', on && xrShell.mode !== 'world');
+      $('vrBtn').classList.toggle('on', on && xrShell.mode === 'world');
       $('filterBtn').disabled = on;
       if (screenFx && filterOn) screenFx.setEnabled(!on);
       // Leaving puts the flat site back, on whatever the headset ended on.
@@ -78,8 +84,9 @@ async function enterXR(game, asset, fake) {
     };
   }
   xrShell.params = params;
+  xrShell.presets = vrPresets;
   teardown();
-  await xrShell.enter(game.id, asset.id, { fake });
+  await xrShell.enter(game.id, asset.id, { fake, mode, emulate });
 }
 
 // ---- routing ---------------------------------------------------------------
@@ -126,7 +133,7 @@ function showLanding() {
   landing.hidden = false;
   $('gameTitle').textContent = '';
   for (const id of ['catSelect', 'assetSelect', 'variantSelect']) $(id).hidden = true;
-  for (const id of ['displayBtn', 'wireBtn', 'sunBtn', 'filterBtn', 'xrBtn', 'infoBtn']) $(id).hidden = true;
+  for (const id of ['displayBtn', 'wireBtn', 'sunBtn', 'filterBtn', 'xrBtn', 'vrBtn', 'infoBtn']) $(id).hidden = true;
 
   landing.innerHTML = '';
   const head = document.createElement('div');
@@ -299,6 +306,8 @@ function buildTopbar(game, asset, params) {
   $('displayBtn').hidden = true;
   $('xrBtn').hidden = true;
   $('xrBtn').classList.remove('on');
+  $('vrBtn').hidden = true;
+  $('vrBtn').classList.remove('on');
   requestAnimationFrame(updateTopbarFades);
 }
 
@@ -376,6 +385,27 @@ function wireViewButtons(game, view) {
       xb.onclick = () => {
         if (xrShell?.active) return xrShell.exit();
         enterXR(game, asset, fake).catch((e) => toast(`AR: ${e.message || e.name}`));
+      };
+    });
+
+    // Walking INTO the level, as opposed to looking at it on your carpet. Two
+    // buttons and not one because a session's mode is fixed for its lifetime:
+    // WebXR has no way to turn a diorama into a room, and re-requesting would
+    // need a user gesture that the exit has already spent. The button appears
+    // only where there is a preset to walk into, which makes it its own
+    // documentation.
+    const vb = $('vrBtn');
+    const emulate = param(current?.params, 'vremulate') === '1';
+    (emulate ? Promise.resolve(true) : vrSupported).then((ok) => {
+      if (!ok || current?.view !== view) return;
+      const asset = current.asset;
+      if (!emulate && !vrPresets.has(`${game.id}/${asset.id}`)) return;
+      vb.hidden = false;
+      requestAnimationFrame(updateTopbarFades);
+      vb.onclick = () => {
+        if (xrShell?.active) return xrShell.exit();
+        enterXR(game, asset, false, 'world', emulate)
+          .catch((e) => toast(`VR: ${e.message || e.name}`));
       };
     });
   }
@@ -558,6 +588,9 @@ $('topbar').addEventListener('scroll', updateTopbarFades);
 window.addEventListener('resize', updateTopbarFades);
 
 (async () => {
+  // The VR preset list is optional furniture: a tree with no site/vr/ deployed
+  // simply never shows the button, so this must not be able to fail the boot.
+  loadVRIndex().then((set) => { vrPresets = set; }).catch(() => {});
   try {
     games = await loadIndex();
   } catch (e) {

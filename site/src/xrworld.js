@@ -1,0 +1,193 @@
+// xrworld.js — world mode: the level, at life scale, with you inside it.
+//
+// Everything specific to standing in a level rather than looking at one lives
+// here, and it is deliberately a small amount: the placement is the session's
+// own applyPlacement with different numbers (xrplacer.js), the darkness is fog
+// (xrtorch.js), and getting about is an arc against an index (xrteleport.js /
+// xrfloor.js). What is left is wiring, plus two decisions worth reading.
+//
+// WHAT COUNTS AS FLOOR. The index is built from the level's LAYER groups, not
+// from everything in the scene. That excludes the sprite billboards — Ultima
+// Underworld level 1 has 306 of them, all vertical quads, and a "side-facing
+// triangle" grid built without the exclusion would treat every mushroom in the
+// dungeon as a wall you cannot see past. It also gives `floor.source:
+// "collision"` for free: 88 of the 370 shipped level documents carry a hidden
+// role:"collision" layer, which is the game's own walkable surface and usually
+// cleaner than the art.
+//
+// WHEN THE INDEX IS BUILT. A few frames AFTER the placement lands, not during
+// it. Building costs single-digit to low-tens of milliseconds, which is nothing
+// at load and a visible hitch at 90 Hz — and the frames right after entry are
+// the ones where the viewer is looking around rather than teleporting.
+
+import { THREE, ObjectLibrary, applyTransform, disposeScene } from './engine3d.js';
+import { makeWorldPlacer } from './xrplacer.js';
+import { buildFloor } from './xrfloor.js';
+import { Torch } from './xrtorch.js';
+import { Teleporter } from './xrteleport.js';
+
+const BUILD_DELAY_FRAMES = 3;
+
+export class WorldMode {
+  // { ar, stage, cfg, game, view, signal, onStatus }
+  constructor(opts) {
+    this.ar = opts.ar;
+    this.stage = opts.stage;
+    this.cfg = opts.cfg;
+    this.game = opts.game;
+    this.view = opts.view;
+    this.onStatus = opts.onStatus || null;
+
+    // Chrome rather than content: the shell's curtain and its content box both
+    // skip anything flagged this way, so the teleport marker is neither hidden
+    // while a level streams nor measured as part of it.
+    this.group = new THREE.Group();
+    this.group.name = 'xr-world';
+    this.group.userData.xrChrome = true;
+    this.stage.scene.add(this.group);
+
+    this.ar.placer = makeWorldPlacer(this.cfg);
+    // The far plane follows the FOG, not the content: a Need for Speed course is
+    // 10 km of road and you can see eleven metres of it. This is both the
+    // correct answer and the single biggest performance lever in the mode.
+    this.ar.farFor = (k, size) => (this.cfg.fog
+      ? this.cfg.fog.far * 1.5
+      : (size ? Math.min(4000, Math.max(100, size.length() * k * 1.5)) : null));
+
+    this.torch = new Torch(this.stage, this.cfg);
+    this.torch.exempt(opts.ui);
+
+    this.teleporter = new Teleporter({
+      ar: this.ar,
+      cfg: this.cfg,
+      group: this.group,
+      floor: () => this._floor,
+      blockers: () => this._walls,
+      onChange: () => this.onStatus?.(),
+    });
+
+    this._frames = 0;
+    this._step = () => this._tick();
+    this.stage.updaters.add(this._step);
+  }
+
+  // The interactor the shell talks to IS the teleporter; world mode has no
+  // grabber, because dragging a room you are standing in would undo the one
+  // thing life scale is for.
+  get interactor() { return this.teleporter; }
+
+  _tick() {
+    if (this._floor || this._failed) return;
+    // Not until the placement has landed: the index is built in content units,
+    // and before a fit there is no telling whether the content is even loaded.
+    if (!this.ar.placement) return;
+    if (++this._frames < BUILD_DELAY_FRAMES) return;
+    try {
+      this._build();
+    } catch (e) {
+      this._failed = true;
+      console.error('xr floor index', e);
+      this.onStatus?.(`floor index failed: ${e.message || e}`);
+    }
+  }
+
+  _build() {
+    const meshes = this._contentMeshes();
+    const t0 = performance.now();
+    this._floor = buildFloor(meshes, { mode: 'up', maxSlope: this.cfg.floor.maxSlope });
+    if (this.cfg.teleport.blockers) {
+      this._walls = buildFloor(meshes, { mode: 'side', minSlope: 70 });
+    }
+    this._note = `floor ${this._floor.note} in ${Math.round(performance.now() - t0)} ms`;
+    if (!this._floor.n) this._note = 'floor index: NOTHING walkable found — teleport will not work';
+    this.onStatus?.();
+  }
+
+  // The layer groups that make up the ground, as plain arrays in the content's
+  // own coordinate space. Content space rather than world space so the index
+  // survives a change of scale — `hold` is in content units too, and the arc is
+  // integrated there.
+  _contentMeshes() {
+    const scene = this.stage.scene;
+    scene.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(scene.matrixWorld).invert();
+    const want = this.cfg.floor.source;
+    const out = [];
+    for (const root of scene.children) {
+      const ly = root.userData?.layer;
+      if (!ly) continue;                       // placements, billboards, chrome
+      if (ly.attach === 'camera' || ly.attach === 'cameraYaw') continue;
+      if (want === 'collision' && ly.role !== 'collision') continue;
+      if (want === 'visible' && (ly.role === 'sky' || ly.role === 'collision')) continue;
+      if (want !== 'collision' && want !== 'visible' && ly.id !== want) continue;
+      // A hidden collision layer is exactly what we want to read and exactly
+      // what a visibility check would skip, so there is no visibility check.
+      root.traverse((o) => {
+        const g = o.isMesh && o.geometry?.attributes?.position;
+        if (!g) return;
+        out.push({
+          positions: g.array,
+          indices: o.geometry.index ? o.geometry.index.array : null,
+          matrix: new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld).elements,
+        });
+      });
+    }
+    return out;
+  }
+
+  // ---- props ------------------------------------------------------------------
+
+  // Extra objects the preset puts in the world — the Ferrari and the Diablo on
+  // the start line. Instantiated through the SAME ObjectLibrary the level's own
+  // placements use, so a prop is a placement in every respect except that a
+  // person wrote it rather than the game.
+  async loadProps(signal) {
+    const props = this.cfg.props;
+    if (!props.length) return;
+    this.lib = new ObjectLibrary(this.game, signal);
+    for (const p of props) {
+      try {
+        const inst = await this.lib.instance(p.object, { scene: p.variant || undefined });
+        if (signal?.aborted) return;
+        applyTransform(inst.node, {
+          pos: p.pos,
+          rot: [0, (p.rotY * Math.PI) / 180, 0],
+          scale: p.scale,
+        });
+        this.stage.scene.add(inst.node);
+        (this._props ||= []).push(inst);
+        if (p.anim && inst.actions?.[p.anim]) inst.actions[p.anim].play();
+        if (inst.update) this.stage.updaters.add((dt, cam, t) => inst.update(dt, cam, t));
+      } catch (e) {
+        // One bad prop id must not cost the whole session — say so and carry on.
+        console.error(`xr prop ${p.object}`, e);
+        this.onStatus?.(`prop ${p.object}: ${e.message || e}`);
+      }
+    }
+    // Late arrivals need the torch patch too, if it is in use.
+    for (const inst of this._props || []) this.torch.scan(inst.node);
+  }
+
+  // Re-run over whatever is in the scene now. Cheap, and the safety net for a
+  // level that streams rooms in after the mount resolves.
+  rescan() { this.torch.scan(this.stage.scene); }
+
+  get note() {
+    return [this.torch.note, this._note].filter(Boolean).join(' · ');
+  }
+
+  dispose() {
+    this.stage.updaters.delete(this._step);
+    this.teleporter.dispose();
+    this.torch.dispose();
+    for (const inst of this._props || []) { inst.node.removeFromParent(); disposeScene(inst.node); }
+    this._props = null;
+    this.lib?.dispose();
+    this.group.removeFromParent();
+    this._floor = this._walls = null;
+    // The placer and the far-plane policy go back to the session's defaults; the
+    // session outlives the mode when the browser switches to an asset that has
+    // no preset.
+    this.ar.farFor = null;
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "format": "retro-x-vr",
+  "version": 1,
+  "presets": [
+    "ultima-underworld-pc/level-1",
+    "need-for-speed-3do/cy1"
+  ]
+}

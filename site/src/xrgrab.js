@@ -1,7 +1,7 @@
 // xrgrab.js — moving and resizing the content with your hands.
 //
 // One hand moves it, two hands scale and turn it. Both drive the SAME four
-// numbers the automatic fit does (see ARSession.applyPlacement): a point of the
+// numbers the automatic fit does (see ImmersiveSession.applyPlacement): a point of the
 // content, a point of the room, a scale, and a bearing. There is no separate
 // manipulation transform, and nothing here touches the rig — it hands over the
 // four numbers and lets the one solve do the work.

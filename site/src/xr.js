@@ -1,6 +1,17 @@
-// xr.js — immersive-AR ("diorama") mode for the 3D stages. The level is put
-// into the room as a tabletop model floating in front of the viewer: a metre
-// across by default, whatever the game's own units happen to be.
+// xr.js — the immersive session, in both of the shapes the Studio offers.
+//
+//   DIORAMA (immersive-ar). The level is put into your room as a tabletop
+//   model: a metre across by default, whatever the game's own units happen to
+//   be, moved and resized with your hands.
+//
+//   WORLD (immersive-vr). You are put into the LEVEL instead, at life scale,
+//   standing on its floor, and you get there on a teleport arc.
+//
+// They differ in three numbers and nothing else. Where the diorama solves "make
+// this a metre across, in front of me", world mode solves "put the spawn tile
+// under my feet, this many metres per unit, facing down the corridor" — and both
+// answers go through the same applyPlacement below. Which one is being asked is
+// the `placer`; everything else on this class is common (see xrplacer.js).
 //
 // Two transforms do the work, and WHICH one carries the scale matters:
 //
@@ -26,13 +37,14 @@
 // the page itself: `status` reports what happened and survives session exit.
 
 import { THREE } from './engine3d.js';
+import { dioramaPlace } from './xrplacer.js';
 
 // Re-exported for the callers that already have three.js loaded; it lives in
 // its own dependency-free module so a 2-D page can ask without importing any
 // of this. See xrsupport.js.
-import { arSupported } from './xrsupport.js';
+import { arSupported, vrSupported } from './xrsupport.js';
 
-export { arSupported };
+export { arSupported, vrSupported };
 
 // PerfMeter turns the frame clock and the renderer's own counters into one
 // readout line, averaged over a window of frames. A headset has no devtools
@@ -91,11 +103,28 @@ const UP = new THREE.Vector3(0, 1, 0);
 const POSE_GIVE_UP = 120; // frames (~2 s) to wait for tracking before saying so
 const SPAWN_KEY = 'rx.xr.spawn'; // the chosen floor spot, in bounded-floor coords
 
-export class ARSession {
+// NOT `XRSession` — that is a real DOM interface, and `this.session` below is
+// one of them.
+export class ImmersiveSession {
   // { stage, contentBox: () => THREE.Box3|null, targetSize (m), distance (m),
   //   dropBelowEye (m), onChange(active), onStatus(text) }
   constructor(opts) {
     this.stage = opts.stage;
+    // 'ar' is the diorama over passthrough; 'world' is walking around inside the
+    // level. The mode decides the session type asked for, and whether the
+    // scene's own background and fog are kept — a diorama must not paint over
+    // the room, and world mode has nothing to paint over.
+    this.mode = opts.mode === 'world' ? 'world' : 'ar';
+    // The placer answers "where does the content go", once per placement
+    // request. Swapping it is the whole difference between the two modes.
+    this.placer = opts.placer || dioramaPlace;
+    // How far the far plane reaches, in metres, given the fitted scale. World
+    // mode overrides it: the content diagonal is the wrong quantity when the
+    // content is a ten-kilometre road and the fog stops at eleven metres.
+    this.farFor = opts.farFor || null;
+    // Run the whole thing at a desk, on synthetic frames (xremulate.js). A real
+    // rig, a real solve — just no compositor.
+    this.emulate = !!opts.emulate;
     this.contentBox = opts.contentBox;
     this.targetSize = opts.targetSize || 1.0;
     this.distance = opts.distance ?? 1.5;
@@ -239,12 +268,19 @@ export class ARSession {
   // Driven by the content's own fitted diagonal rather than pinned high,
   // because near/far is also the depth buffer's precision budget: a level on a
   // table keeps the tight range it deserves.
+  //
+  // World mode overrides the policy through `farFor`, because the content
+  // diagonal is the wrong quantity there: a Need for Speed course is ten
+  // kilometres of road and you can see eleven metres of it. Deriving far from
+  // the fog instead is both correct and the largest single performance lever in
+  // the mode — it culls the other 9,989 metres.
   _reachFar(k) {
     const cam = this.stage.camera;
-    if (!this._size || !cam) return;
-    const reach = this._size.length() * k;
-    const far = Math.min(1000, Math.max(100, reach * 1.5));
-    if (Math.abs(cam.far - far) < 1) return;
+    if (!cam) return;
+    const far = this.farFor
+      ? this.farFor(k, this._size)
+      : this._size && Math.min(1000, Math.max(100, this._size.length() * k * 1.5));
+    if (!far || Math.abs(cam.far - far) < 1) return;
     cam.far = far;
     cam.updateProjectionMatrix();
     // No need to push it: three calls xr.updateCamera() from render() on every
@@ -275,14 +311,15 @@ export class ARSession {
   async enter() {
     if (this.session) return;
     const stage = this.stage;
-    this.status('starting AR…');
+    this.status(`starting ${this.label}…`);
     // Before the snapshot: the view's tweaks include stopping a running
     // cutscene, and a cutscene player restores its own camera pose on dispose
     // — which must land before we record the pose to come back to.
     this.onScene?.(true);
+    if (this.emulate) return this._enterEmulated();
     let session;
     try {
-      session = await navigator.xr.requestSession('immersive-ar', {
+      session = await navigator.xr.requestSession(this.mode === 'world' ? 'immersive-vr' : 'immersive-ar', {
         // local-floor must be REQUIRED: renderer.xr.setSession awaits
         // session.requestReferenceSpace() internally, and a rejection there
         // means the animation loop never starts — a black session with no
@@ -295,45 +332,21 @@ export class ARSession {
         // select from a tracked-pointer input source — but asking costs nothing
         // and is what would let a ray start at the fingertip rather than at the
         // runtime's own grip pose.
-        optionalFeatures: ['dom-overlay', 'bounded-floor', 'hand-tracking'],
-        domOverlay: { root: document.body },
+        // dom-overlay is an AR affordance: in world mode the headset shows no
+        // page to overlay onto, and asking for it is noise.
+        optionalFeatures: this.mode === 'world'
+          ? ['bounded-floor', 'hand-tracking']
+          : ['dom-overlay', 'bounded-floor', 'hand-tracking'],
+        ...(this.mode === 'world' ? {} : { domOverlay: { root: document.body } }),
       });
     } catch (e) {
       this.onScene?.(false);
-      this.status(`AR unavailable: ${e.message || e.name}`);
+      this.status(`${this.label} unavailable: ${e.message || e.name}`);
       throw e;
     }
 
     this.session = session;
-    this._snap = stage.cameraSnapshot();
-    // Remember WHICH scene these belong to. A shell that swaps content replaces
-    // stage.scene outright, and restoring the first level's fog onto the last
-    // one's scene at exit would be a haze nobody asked for.
-    this._scene = stage.scene;
-    this._bg = stage.scene.background;
-    this._fog = stage.scene.fog;
-    // A Color background is harmless (three forces a transparent clear for an
-    // alpha-blend environment), but a TEXTURE background draws a real box mesh
-    // that would paint over passthrough, and fog hangs coloured haze in the
-    // room. Both go for the duration.
-    stage.scene.background = null;
-    stage.scene.fog = null;
-    stage.controls.enabled = false;
-    stage.inputEnabled = false;
-
-    this._sceneScale = stage.scene.scale.clone();
-    this.rig = new THREE.Group();
-    this.rig.name = 'xr-rig';
-    this.rig.add(stage.camera); // parentless on purpose — see the note at the top
-    // In a session the near/far planes are read in METRES and pushed to the
-    // compositor as depthNear/depthFar, whatever the world units are.
-    stage.camera.near = 0.02;
-    stage.camera.far = 100;
-    stage.camera.updateProjectionMatrix();
-
-    this._place = true;
-    this._waited = 0;
-    this.reattach();
+    this._takeStage();
     // The controller trigger re-places the diorama in front of wherever you
     // are now looking (and re-measures the content, so a level whose rooms
     // streamed in after entry gets refitted).
@@ -372,10 +385,79 @@ export class ARSession {
       // unwind by hand.
       session.end().catch(() => {});
       this._end();
-      this.status(`AR session failed: ${e.message || e.name}`);
+      this.status(`${this.label} session failed: ${e.message || e.name}`);
       throw e;
     }
-    this.status('in AR — trigger re-places the scene');
+    // A guardian recentre re-establishes the reference space's origin under you.
+    // In a diorama that is a shrug — the model shifts a little. Standing inside
+    // a level at 1:1 it puts you inside a wall, so the placement is re-solved.
+    const ref = this._ref();
+    if (ref?.addEventListener) {
+      this._onReset = () => { this.status(`${this.label}: space reset — re-placing`); this._place = true; this._waited = 0; };
+      ref.addEventListener('reset', this._onReset);
+      this._resetRef = ref;
+    }
+    this.status(this.mode === 'world' ? 'in VR — pinch to teleport' : 'in AR — trigger re-places the scene');
+    this.onChange?.(true);
+  }
+
+  // _takeStage is everything that is true of a session however it arrived: the
+  // camera goes into a rig, the stage stops driving itself, and what the scene
+  // looked like beforehand is remembered so exit can put it back.
+  _takeStage() {
+    const stage = this.stage;
+    this._snap = stage.cameraSnapshot();
+    // Remember WHICH scene these belong to. A shell that swaps content replaces
+    // stage.scene outright, and restoring the first level's fog onto the last
+    // one's scene at exit would be a haze nobody asked for.
+    this._scene = stage.scene;
+    this._bg = stage.scene.background;
+    this._fog = stage.scene.fog;
+    // A Color background is harmless (three forces a transparent clear for an
+    // alpha-blend environment), but a TEXTURE background draws a real box mesh
+    // that would paint over passthrough, and fog hangs coloured haze in the
+    // room. Both go for the duration — in AR. World mode is the opposite case:
+    // there is no room to paint over, and the fog IS the torch.
+    if (this.mode !== 'world') {
+      stage.scene.background = null;
+      stage.scene.fog = null;
+    }
+    stage.controls.enabled = false;
+    stage.inputEnabled = false;
+
+    this._sceneScale = stage.scene.scale.clone();
+    this.rig = new THREE.Group();
+    this.rig.name = 'xr-rig';
+    this.rig.add(stage.camera); // parentless on purpose — see the note at the top
+    // In a session the near/far planes are read in METRES and pushed to the
+    // compositor as depthNear/depthFar, whatever the world units are. World mode
+    // starts at 5 cm rather than 2: you are standing, nothing is two centimetres
+    // from your eye, and the depth range is worth more than the reach.
+    stage.camera.near = this.mode === 'world' ? 0.05 : 0.02;
+    stage.camera.far = 100;
+    stage.camera.updateProjectionMatrix();
+
+    this._place = true;
+    this._waited = 0;
+    this.reattach();
+  }
+
+  // _enterEmulated is the same session with the compositor replaced by a mouse.
+  // It takes the stage exactly as the real path does — same rig, same solve —
+  // and hands the stage a frame source instead of a presenting renderer.
+  async _enterEmulated() {
+    const stage = this.stage;
+    const { Emulator } = await import('./xremulate.js');
+    this._emu = new Emulator(stage);
+    this._emu.onEnd = () => this._end();
+    this.session = this._emu.session;
+    this._bounded = null; // no guardian at a desk; the fallbacks apply, as they must
+    this._takeStage();
+    stage.frameSource = () => this._emu.frame();
+    this.session.addEventListener('select', (e) => this.onSelect?.(e.inputSource));
+    this.session.addEventListener('selectstart', (e) => this.onSelectStart?.(e.inputSource));
+    this.session.addEventListener('selectend', (e) => this.onSelectEnd?.(e.inputSource));
+    this.status(`${this.label} (emulated) — drag right-button to look, WASD to walk, click to pinch`);
     this.onChange?.(true);
   }
 
@@ -394,14 +476,14 @@ export class ARSession {
     // the same physical spot next session. Deferred to a frame because that is
     // where the bounded-space pose lives.
     if (this._storePending && this._userAt && frame) {
-      const ref = this.stage.renderer.xr.getReferenceSpace();
+      const ref = this._ref();
       if (ref) { this._store(frame, ref, this._userAt); this._storePending = false; }
     }
     // The menu aims its pointer here: it needs the frame and the reference
     // space, and this is the one callback that has both. Before the placement
     // work below, so a pointer keeps tracking even while content is streaming.
     if (frame && this.onFrame) {
-      const ref = this.stage.renderer.xr.getReferenceSpace();
+      const ref = this._ref();
       if (ref) { try { this.onFrame(frame, ref); } catch (e) { console.error('xr onFrame', e); } }
     }
     if (!this._place || !frame) return;
@@ -409,82 +491,65 @@ export class ARSession {
     // build would trip POSE_GIVE_UP and report a tracking failure that never
     // happened.
     if (this.ready && !this.ready()) { this._waited = 0; return; }
-    const ref = this.stage.renderer.xr.getReferenceSpace();
+    const ref = this._ref();
     const pose = ref && frame.getViewerPose(ref);
     if (!pose) {
       // Tracking can take a few frames to settle; only complain if it never does.
-      if (++this._waited === POSE_GIVE_UP) this.status('AR: no head pose — tracking not available');
+      if (++this._waited === POSE_GIVE_UP) this.status(`${this.label}: no head pose — tracking not available`);
       return;
     }
-    // Measure unscaled: contentBox reads world matrices, and on a recenter the
-    // scene already carries the previous fit's scale.
-    const scene = this.stage.scene;
-    scene.scale.set(1, 1, 1);
-    scene.updateMatrixWorld(true);
-    const box = this.contentBox?.();
-    if (!box || box.isEmpty()) {
-      scene.scale.copy(this._sceneScale);
-      scene.updateMatrixWorld(true);
+
+    // Everything from here down is common to both modes. The placer answers only
+    // the four numbers; the measuring, the status line, the far plane and the
+    // curtain stay here, because each of them has a consumer that must not care
+    // which mode is running.
+    let out = null;
+    try {
+      out = this.placer(this, { frame, ref, pose });
+    } catch (e) {
+      console.error('xr placer', e);
       this._place = false;
-      this.status('AR: nothing to place (empty content box)');
+      this.status(`${this.label}: placement failed — ${e.message || e}`);
       return;
     }
+    if (!out) { this._place = false; return; } // the placer has said why
 
-    const p = pose.transform.position, o = pose.transform.orientation;
-    const q = new THREE.Quaternion(o.x, o.y, o.z, o.w);
-    // Yaw only: the diorama sits level however the viewer's head is tilted.
-    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(q);
-    fwd.y = 0;
-    if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1); // straight up/down: fall back to −Z
-    fwd.normalize();
-
-    const size = box.getSize(new THREE.Vector3());
-    const centre = box.getCenter(new THREE.Vector3());
-    // Which point of the content is being placed, and where it goes. For a
-    // floor anchor both drop to ground level: the box's bottom-centre, onto
-    // y = 0 ahead of the viewer. fwd is already flattened, so the target stays
-    // on the floor plane.
-    const hold = this.anchor === 'floor'
-      ? new THREE.Vector3(centre.x, box.min.y, centre.z)
-      : centre;
-    const spawn = this._spawnPoint(frame, ref);
-    // A spot the viewer dragged content to is taken WHOLE, height included: if
-    // you lifted the last map to eye level, the next one belongs there too.
-    // Everything else only contributes x/z, and the height comes from the
-    // anchor — so an eye-level diorama hangs ABOVE the place a floor model
-    // would stand on.
-    const at = this._userAt ? this._userAt.clone()
-      : spawn
-        ? new THREE.Vector3(spawn.x, this.anchor === 'floor' ? 0 : p.y - this.dropBelowEye, spawn.z)
-        : this.anchor === 'floor'
-          ? new THREE.Vector3(p.x, 0, p.z).addScaledVector(fwd, this.distance)
-          : new THREE.Vector3(p.x, p.y - this.dropBelowEye, p.z).addScaledVector(fwd, this.distance);
-    if (this._userAt) this._spawnNote = 'spawn: where you put it';
-    const span = this.fitAxis === 'longest'
-      ? Math.max(size.x, size.y, size.z)
-      : Math.max(size.x, size.z) || Math.max(size.y, 1);
-    // metres per world unit
-    const k = this.fitScale ? this.fitScale(size) : this.targetSize / (span || 1);
-
-    // Yaw so that the viewer's forward maps onto the requested establishing
-    // direction: we need R·fwd = frontDir, and for horizontal unit vectors
-    // that is the difference of their bearings. (Rotating BY the head's own
-    // bearing instead of by the difference turns the diorama the wrong way —
-    // it is the inverse rotation that carries fwd onto a fixed axis.)
-    const front = typeof this.frontDir === 'function' ? this.frontDir() : this.frontDir;
-    const yaw = Math.atan2(front.x, front.z) - Math.atan2(fwd.x, fwd.z);
-
-    this._size = size;
-    this._eye = p.y;
-    this._kFit = k;                 // what the grab's scale limits are measured against
-    this.applyPlacement({ hold, at, k, yaw });
+    this._size = out.size || null;
+    this._eye = pose.transform.position.y;
+    this._kFit = out.k;             // what the grab's scale limits are measured against
+    if (out.note) this._spawnNote = out.note;
+    this.applyPlacement(out);
 
     this._place = false;
-    this.status(`in AR · ${this._fit}`);
+    this.status(`in ${this.label} · ${this._fit}`);
     // New content is built hidden and revealed here: until a fit has landed it
     // would be drawn at the PREVIOUS content's scale and rig offset, which for
     // one or two frames looks like the room lurching.
     this.onPlaced?.(this._fit);
+  }
+
+  // The reference space, whoever is providing it. In a session that is three's;
+  // when emulating there is no renderer.xr to ask.
+  _ref() {
+    return this._emu ? this._emu.refSpace : this.stage.renderer.xr.getReferenceSpace();
+  }
+
+  get label() { return this.mode === 'world' ? 'VR' : 'AR'; }
+
+  // playAreaCentre is the bounded-floor centroid and NOTHING else — no saved
+  // anchor, no fallbacks. World mode wants "the middle of the room you can walk
+  // in"; _spawnPoint below would hand it wherever a diorama was last dragged to,
+  // which is a spot chosen for looking at a model on a table.
+  playAreaCentre(frame, ref) {
+    const b = this._bounded;
+    if (!b) return null;
+    const pose = frame.getPose(b, ref);
+    const pts = b.boundsGeometry;
+    if (!pose || !(pts?.length >= 3)) return null;
+    const m = new THREE.Matrix4().fromArray(pose.transform.matrix);
+    let x = 0, z = 0;
+    for (const q of pts) { x += q.x; z += q.z; }
+    return new THREE.Vector3(x / pts.length, 0, z / pts.length).applyMatrix4(m).setY(0);
   }
 
   // _spawnPoint resolves where content should stand, in reference space, in
@@ -538,6 +603,18 @@ export class ARSession {
     if (this._onEnd) {
       stage.renderer.xr.removeEventListener('sessionend', this._onEnd);
       this._onEnd = null;
+    }
+    if (this._resetRef && this._onReset) {
+      this._resetRef.removeEventListener('reset', this._onReset);
+      this._resetRef = this._onReset = null;
+    }
+    if (this._emu) {
+      // Order matters only in that the frame source must stop before the
+      // emulator's listeners go, or one more frame can arrive into a torn-down
+      // rig.
+      stage.frameSource = null;
+      this._emu.dispose();
+      this._emu = null;
     }
     stage.onXRFrame = null;
     if (this.rig) {

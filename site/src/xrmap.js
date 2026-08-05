@@ -38,7 +38,7 @@ export class TileContent {
     };
     // The quads' faces are +Z, so the viewer belongs on the +Z side looking
     // back along −Z. A plain object: this module must not pull in three.js,
-    // and ARSession only ever reads .x and .z off it.
+    // and the session only ever reads .x and .z off it.
     this.frontDir = { x: 0, y: 0, z: -1 };
   }
 

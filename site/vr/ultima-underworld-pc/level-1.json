@@ -1,0 +1,42 @@
+{
+  "_": [
+    "The Abyss, level 1, at life scale.",
+    "",
+    "metresPerUnit is measured, not chosen. Underworld's GLBs are in TILES",
+    "(levgeo.HeightScale = 0.25, one tile = 1.0). The door leaf is 208 model",
+    "units against modelUnitsPerTile = 256 (webexport/objects.go:94,108), so a",
+    "door is 0.8125 tiles and a 2 m door makes a tile 2.4615 m.",
+    "",
+    "It cross-checks against the room the door stands in: the level-wide ceiling",
+    "is Ceiling 16 x HeightScale 0.25 = 4.0 tiles, and the start-room floor is at",
+    "3.0 (the exported camera sits at 3.55, floor plus a 0.55 eye height). One",
+    "tile of head-room over a 0.8125-tile door: 2.46 m of ceiling over a 2 m",
+    "door, which is what a dungeon corridor should be.",
+    "",
+    "spawn.pos is the FLOOR, not the eye — the eye height comes from the",
+    "headset, which knows it better than we do."
+  ],
+
+  "metresPerUnit": 2.4615,
+  "spawn": { "pos": [31.5, 3.0, -2.5], "dir": [0, 0, -1] },
+
+  "sky": false,
+  "background": "#000000",
+
+  "_fog": "The torch. 11 m of reach in a 2.46 m corridor is about three rooms.",
+  "fog": { "color": "#000000", "near": 1.5, "far": 11 },
+  "torch": { "flicker": 0.18, "flickerHz": 6.5, "radial": false },
+
+  "floor": { "source": "visible", "maxSlope": 45 },
+  "teleport": {
+    "speed": 7,
+    "maxRange": 22,
+    "maxRise": 1.2,
+    "markerRadius": 0.35,
+    "snapTurn": 30,
+    "blockers": true
+  },
+
+  "props": [],
+  "sounds": []
+}

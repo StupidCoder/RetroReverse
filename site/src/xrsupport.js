@@ -10,11 +10,20 @@
 // One probe per page load, awaited by whoever needs it. `navigator.xr` is
 // undefined outside a secure context, which is the usual reason the button
 // never appears.
-export const arSupported = (async () => {
+const probe = (mode) => (async () => {
   try {
     if (!navigator.xr?.isSessionSupported) return false;
-    return await navigator.xr.isSessionSupported('immersive-ar');
+    return await navigator.xr.isSessionSupported(mode);
   } catch {
     return false;
   }
 })();
+
+export const arSupported = probe('immersive-ar');
+
+// The other half: walking around inside a level (xrplacer.js worldPlace) needs
+// an OPAQUE session, so it asks for immersive-vr. A headset generally answers
+// yes to both and a phone to neither, but they are separate questions and the
+// two buttons are gated separately — a session's mode cannot be changed without
+// ending it, so the choice is made before there is one.
+export const vrSupported = probe('immersive-vr');

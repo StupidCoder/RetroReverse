@@ -23,7 +23,7 @@ export class PanelContent {
       dropBelowEye: 0,
     };
     // The quad's face is its +Z, so the viewer belongs on the +Z side looking
-    // back along −Z. Plain object: no three.js import here, and ARSession only
+    // back along −Z. Plain object: no three.js import here, and the session only
     // reads .x and .z.
     this.frontDir = { x: 0, y: 0, z: -1 };
     this.note = '';

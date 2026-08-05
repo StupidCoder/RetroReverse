@@ -28,7 +28,7 @@ export async function mount(ctx, doc) {
   // camera input, picking, the AR button — is the shell's business instead.
   const ownStage = !ctx.stage3d;
   const stage = ctx.stage3d || new Stage(el, cam);
-  // The shell's scene carries no background or fog: ARSession clears both for
+  // The shell's scene carries no background or fog: the AR session clears both for
   // the session's duration anyway (they would paint over passthrough), and
   // writing them here would leave the FIRST level's fog to be restored on exit.
   if (ownStage && doc.scene?.background) stage.scene.background = new THREE.Color(doc.scene.background);
@@ -135,7 +135,18 @@ export async function mount(ctx, doc) {
       roots.push(group);
       layerNodes.set(ly.id, { group, def: ly });
       if (ly.attach === 'camera' || ly.attach === 'cameraYaw') {
-        stage.updaters.add((dt, camPos) => group.position.copy(camPos));
+        // camPos is the camera's WORLD position, in metres (engine3d.js), while
+        // group.position is local to a parent that in a session carries the
+        // scene's metres-per-unit scale. Copying one straight into the other
+        // puts the sky at 1/k of where it belongs. It never showed because AR
+        // hides these layers outright — world mode is the first thing to turn
+        // them back on. The billboard batch below already does it this way.
+        const p = new THREE.Vector3();
+        stage.updaters.add((dt, camPos) => {
+          p.copy(camPos);
+          group.parent?.worldToLocal(p);
+          group.position.copy(p);
+        });
       }
     }));
     for (const ly of doc.scene.layers) {
@@ -560,16 +571,22 @@ export async function mount(ctx, doc) {
   }
 
   let arSaved = null;
-  function setARScene(on) {
-    if (on) {
-      // In AR the room is the backdrop; the game's sky belongs to the game's
-      // world. (A future VR mode standing inside the level at 1:1 would want
-      // it back — hence save/restore rather than a one-way hide.)
+  // mode: 'diorama' | 'world' | false. Which one matters, so it is named rather
+  // than passed as a bag of flags — the view has mode-dependent behaviour beyond
+  // the sky, and a boolean had already stopped being the truth.
+  function setARScene(mode) {
+    if (mode) {
+      // In a DIORAMA the room is the backdrop and the game's sky would be a box
+      // hanging around your carpet, so it goes. In WORLD mode you are standing
+      // inside the game's world and the sky is part of it — which is exactly why
+      // this was written as a save/restore and not a one-way hide.
       arSaved = new Map();
-      for (const { group, def } of layerNodes.values()) {
-        if (def.role !== 'sky' && def.attach !== 'camera' && def.attach !== 'cameraYaw') continue;
-        arSaved.set(group, group.visible);
-        group.visible = false;
+      if (mode !== 'world') {
+        for (const { group, def } of layerNodes.values()) {
+          if (def.role !== 'sky' && def.attach !== 'camera' && def.attach !== 'cameraYaw') continue;
+          arSaved.set(group, group.visible);
+          group.visible = false;
+        }
       }
       player?.dispose();
       for (const b of scriptBtns) b.disabled = true;

@@ -13,7 +13,7 @@
 //
 // Three things are less obvious than they look:
 //
-//   SCALE. ARSession fits content by scaling stage.scene, and the menu lives in
+//   SCALE. ImmersiveSession fits content by scaling stage.scene, and the menu lives in
 //   that same scene — so the panel would be scaled by the fit too, differently
 //   for every asset. The UI group carries the inverse (see _layoutUI).
 //
@@ -29,16 +29,32 @@
 //   keeps WebXR's user-activation requirement satisfied.
 
 import { THREE, Stage } from './engine3d.js';
-import { ARSession, arSupported, PerfMeter } from './xr.js';
+import { ImmersiveSession, arSupported, PerfMeter } from './xr.js';
 import { Panel, Pointer } from './xrui.js';
 import { Browser } from './xrbrowser.js';
 import { Grabber } from './xrgrab.js';
+import { loadPreset } from './xrpreset.js';
+import { dioramaPlace } from './xrplacer.js';
 
 // What a session can swap to without ending. Everything else is listed but not
 // selectable — see the note on `disabled` in xrbrowser.js.
 const SHOWABLE = new Set(['level', 'object']);
 const UP = new THREE.Vector3(0, 1, 0);
 const ONE = new THREE.Vector3(1, 1, 1);
+
+// grabInteractor gives the existing Grabber the four-call shape the shell now
+// talks to, without touching xrgrab.js — its own API is a good one and describes
+// grabbing, not "being an interactor".
+function grabInteractor(g) {
+  return {
+    grabber: g,
+    frame(frame, ref, rays) { g.rebaseWith(rays); g.update(rays); },
+    selectStart(src, ray) { g.start(src, ray); },
+    selectEnd(src) { g.end(src); },
+    cancel() { g.cancel(); },
+    get note() { return g.active ? ` · ${g.mode}` : ''; },
+  };
+}
 
 export class XRShell {
   // { games, mountView(ctx) -> view, params, onSwitch(gameId, assetId), onChange(active) }
@@ -62,11 +78,20 @@ export class XRShell {
 
   // ---- lifecycle ---------------------------------------------------------------
 
-  async enter(gameId, assetId, { fake = false } = {}) {
+  // mode: 'ar' (the diorama over passthrough) or 'world' (standing inside the
+  // level). emulate: run the whole thing at a desk on synthetic frames.
+  async enter(gameId, assetId, { fake = false, mode = 'ar', emulate = false } = {}) {
     this.fake = fake;
+    this.mode = mode;
+    this.emulate = emulate;
     if (!this._built) await this._build();
-    this.host.style.display = '';
-    // The AR path reports through ARSession.onChange; the fake one has no
+    // The session is made HERE, not in _build: a session's mode is fixed for its
+    // lifetime (WebXR gives no way to turn a diorama into a room), so entering
+    // in a different mode than last time has to make a new one. Cheap — the
+    // stage, the menu and the host all survive.
+    this._ensureSession();
+    this.host.style.display = this.emulate ? '' : '';
+    // The AR path reports through ImmersiveSession.onChange; the fake one has no
     // session to report for.
     if (this.fake) { this._fakeOn = true; this._fakeAttach(); this._open(true); this.onChange?.(true); } else {
       // Re-anchor every session, and stay INVISIBLE until there is a head pose
@@ -100,7 +125,10 @@ export class XRShell {
     // NOT under #stage: app.js teardown() does stage.innerHTML = '', which would
     // detach the presenting renderer's canvas out from under the session.
     host.className = 'xr-shell-host';
-    host.style.cssText = this.fake
+    // A real session draws through the compositor and the page's own canvas is
+    // never seen, so the host is a 0x0 clip. Both rehearsal modes are looked at
+    // on a monitor and need a real one.
+    host.style.cssText = (this.fake || this.emulate)
       ? 'position:fixed;inset:0;z-index:5'
       : 'position:fixed;left:0;top:0;width:0;height:0;overflow:hidden;pointer-events:none';
     document.body.appendChild(host);
@@ -108,14 +136,20 @@ export class XRShell {
 
     // Always perspective: the fit and the head pose assume it, and it is why a
     // pan2d level can reach AR at all (its desktop camera is orthographic).
-    const stage = new Stage(host, { fov: 50, near: 0.02, far: 200 });
+    // capture:false drops preserveDrawingBuffer: nothing ever reads this canvas
+    // back (app.js points the screen filter at the DESKTOP view's), and the
+    // per-frame resolve it costs is not free on a tiled mobile GPU.
+    const stage = new Stage(host, { fov: 50, near: 0.02, far: 200, capture: false });
     this.stage = stage;
 
     this._buildUI();
 
     this.meter = new PerfMeter();
     this._step = (dt) => {
-      if (!this.fake && !stage.renderer.xr.isPresenting) return;
+      // isPresenting is the real-session test; an EMULATED session is equally
+      // live and has no compositor to ask, so the question is really "is a
+      // session running at all".
+      if (!this.fake && !stage.renderer.xr.isPresenting && !this.ar?.active) return;
       // A level streams its rooms in over seconds, each arriving in the scene
       // the moment it lands. Until a fit has been solved they would all be
       // drawn at raw world scale — a mansion the size of a street — so the
@@ -132,30 +166,49 @@ export class XRShell {
     // The shell's own updaters survive resetContent; a view's do not.
     this._ownUpdaters = new Set(stage.updaters);
 
-    if (!this.fake) {
-      this.ar = new ARSession({
-        stage,
-        contentBox: () => this._contentBox(),
-        ready: () => !!this._current?.view,
-        onStatus: (t) => { this._msg = t; this._status(); },
-        onFrame: (frame, ref) => this._frame(frame, ref),
-        onSelect: (src) => this._select(src),
-        onSelectStart: (src) => this._selectStart(src),
-        onSelectEnd: (src) => this.grab.end(src),
-        onPlaced: () => this._onPlaced(),
-      });
-      this.ar.onChange = (on) => {
-        // Leaving drops the content: the desktop view is about to rebuild the
-        // same asset, and the shell holding on to a whole mansion behind it is
-        // a copy nobody can see.
-        if (!on) { this._teardownFake(); this._drop(); this.pointer.hide(); }
-        this.onChange?.(on);
-      };
-    }
-    // Moving and resizing the content with your hands. Built after the session,
-    // because it drives it — and it never touches the rig itself, it hands
-    // ARSession the same four numbers the automatic fit does.
-    this.grab = new Grabber({
+    this._built = true;
+    window.__xr = this; // debug handle, like __rx3 / __rxo
+  }
+
+  // _ensureSession makes (or re-makes) the session and the interactor that goes
+  // with it. Re-made rather than reconfigured, because `mode` is not a thing a
+  // live XRSession has a setter for.
+  _ensureSession() {
+    const stage = this.stage;
+    if (this.fake) return;
+    if (this.ar && this.ar.mode === this.mode && this.ar.emulate === this.emulate) return;
+    if (this.ar?.active) this.ar.exit();
+    this.interactor?.dispose?.();
+    this.interactor = null;
+    this.ar = new ImmersiveSession({
+      stage,
+      mode: this.mode,
+      emulate: this.emulate,
+      contentBox: () => this._contentBox(),
+      ready: () => !!this._current?.view,
+      onStatus: (t) => { this._msg = t; this._status(); },
+      onFrame: (frame, ref) => this._frame(frame, ref),
+      onSelect: (src) => this._select(src),
+      onSelectStart: (src) => this._selectStart(src),
+      onSelectEnd: (src) => this.interactor?.selectEnd(src),
+      onPlaced: () => this._onPlaced(),
+    });
+    this.ar.onChange = (on) => {
+      // Leaving drops the content: the desktop view is about to rebuild the
+      // same asset, and the shell holding on to a whole mansion behind it is
+      // a copy nobody can see.
+      if (!on) { this._teardownFake(); this._drop(); this.pointer.hide(); }
+      this.onChange?.(on);
+    };
+
+    // What a pinch DOES, which is the one thing the two modes disagree about.
+    // Both implement the same four calls, so the shell's input path below has no
+    // idea which one it is talking to.
+    //
+    // In world mode there is deliberately no Grabber: you are standing inside
+    // the level at life scale, and dragging the room around with your hand would
+    // destroy the very invariant the mode exists for.
+    this._grabI = grabInteractor(new Grabber({
       ar: this.ar,
       // Only the content is grabbable: not the menu (the pointer owns that),
       // and not the camera or the lights, which have nothing to hit but would
@@ -164,10 +217,10 @@ export class XRShell {
         (o) => o !== this.ui && !o.isCamera && !o.isLight,
       ),
       onChange: () => this._status(),
-    });
-
-    this._built = true;
-    window.__xr = this; // debug handle, like __rx3 / __rxo
+    }));
+    // World mode replaces this per asset (see _applyMode); an asset with no
+    // preset falls back to it even inside a VR session, so it is always built.
+    this.interactor = this._grabI;
   }
 
   _buildUI() {
@@ -211,7 +264,7 @@ export class XRShell {
   }
 
   _status() {
-    const bits = [this._msg, this._ptr, this._perf].filter(Boolean);
+    const bits = [this._msg, this.world?.note, this._ptr, this._perf].filter(Boolean);
     this.panel?.setStatus(bits.join(' · '));
   }
 
@@ -285,13 +338,61 @@ export class XRShell {
     this.browser.setControls(this._controls(view));
 
     const c = view.arContent || {};
+    // Before setContent, because setContent asks for a placement and the placer
+    // has to be the right one by the time the next frame solves it.
+    if (!this.fake) await this._applyMode(game, asset, abort.signal);
     if (this.fake) this._fakePlace();
     else this.ar.setContent({ ...c, ready: () => true });
-    c.setPresenting?.(true);
+    c.setPresenting?.(this.world ? 'world' : this.mode === 'world' ? 'world' : 'diorama');
 
     this.opts.onSwitch?.(gameId, assetId);
     this._say(`${game.man.title} — ${asset.name || asset.id}`);
     this._redraw();
+  }
+
+  // _applyMode decides what this asset is, in this session. In an AR session
+  // that is always the diorama. In a VR session it is world mode IF the asset
+  // has a preset — and the diorama otherwise, because the in-headset browser can
+  // reach every asset in the catalogue and most of them have no preset. Falling
+  // back means walking out of the Abyss and looking at a Ferrari on a table
+  // without the session ending, which is the shell's whole point.
+  async _applyMode(game, asset, signal) {
+    this.world?.dispose();
+    this.world = null;
+    this.interactor = this._grabI;
+    this.ar.placer = dioramaPlace;
+    this.ar.farFor = null;
+    if (this.mode !== 'world') return;
+
+    let cfg = null;
+    if (this.presets?.size && !this.presets.has(`${game.id}/${asset.id}`)) {
+      this._say(`${asset.name || asset.id}: no VR preset — shown as a model`);
+      return;
+    }
+    try {
+      cfg = await loadPreset(game.id, asset.id, this.params);
+    } catch (e) {
+      // The panel is the console. A preset with a typo in it must say so rather
+      // than drop you into an unlit room with no explanation.
+      this._say(`VR preset: ${e.message || e}`);
+      return;
+    }
+    if (signal?.aborted) return;
+
+    const { WorldMode } = await import('./xrworld.js');
+    if (signal?.aborted) return;
+    this.world = new WorldMode({
+      ar: this.ar,
+      stage: this.stage,
+      cfg,
+      game,
+      view: this._current?.view,
+      ui: this.ui,
+      onStatus: () => this._status(),
+    });
+    this.interactor = this.world.interactor;
+    // Not awaited: a car on the start line must not hold up the room arriving.
+    this.world.loadProps(signal).catch((e) => console.error('xr props', e));
   }
 
   // The ctx contract the view modules expect (app.js showAsset builds the same
@@ -378,8 +479,11 @@ export class XRShell {
   _drop() {
     const cur = this._current;
     this._current = null;
-    // Whatever was being held is about to stop existing.
-    this.grab?.cancel();
+    // Whatever was being held — or aimed at, or indexed — is about to stop
+    // existing.
+    this.interactor?.cancel();
+    this.world?.dispose();
+    this.world = null;
     if (cur) {
       cur.abort.abort();
       cur.view?.arContent?.setPresenting?.(false);
@@ -422,15 +526,20 @@ export class XRShell {
       const c = this._current?.view?.arContent;
       if (c?.contentBox) return c.contentBox();
       const box = new THREE.Box3();
-      for (const o of this.stage.scene.children) if (o !== this.ui) box.expandByObject(o);
+      for (const o of this.stage.scene.children) if (this._isContent(o)) box.expandByObject(o);
       return box;
     } finally {
       if (hidden) this._setContentVisible(false);
     }
   }
 
+  // Chrome — the menu, and world mode's teleport marker — is not content: it
+  // must not be hidden behind the curtain a streaming level holds down, and it
+  // must not be measured as part of what is being fitted.
+  _isContent(o) { return o !== this.ui && !o.userData?.xrChrome; }
+
   _setContentVisible(on) {
-    for (const o of this.stage.scene.children) if (o !== this.ui) o.visible = on;
+    for (const o of this.stage.scene.children) if (this._isContent(o)) o.visible = on;
   }
 
   _contentVisible(on) {
@@ -441,6 +550,9 @@ export class XRShell {
   _onPlaced() {
     this._contentVisible(true);
     this._layoutUI();
+    // The torch patch, if it is in use, over whatever has arrived since. Free
+    // when radial is off, which is the default.
+    this.world?.rescan();
   }
 
   // ---- the menu in the room --------------------------------------------------------
@@ -453,7 +565,7 @@ export class XRShell {
   // anchor would drag the menu along with the diorama instead of leaving it
   // where you put it.
   //
-  // And ARSession fits by scaling stage.scene, which the menu is in, so the
+  // And ImmersiveSession fits by scaling stage.scene, which the menu is in, so the
   // group carries the inverse or the panel would resize with every asset. The
   // scene's transform is a pure uniform scale — the rig carries position and
   // yaw, and it is not the scene's parent — so world = k * local exactly.
@@ -512,11 +624,11 @@ export class XRShell {
       }
     }
     const rays = this._rays = this._aim(frame, ref, rig);
-    // Grabbing first, THEN the menu: a drag moves the rig, and the menu is
+    // The interactor first, THEN the menu: a drag moves the rig, and the menu is
     // anchored in the room, so it has to be re-placed against the rig the drag
-    // just produced or it swims by a frame.
-    this.grab.rebaseWith(rays);
-    this.grab.update(rays);
+    // just produced or it swims by a frame. A teleport commit does the same
+    // thing more abruptly, for the same reason.
+    try { this.interactor?.frame(frame, ref, rays); } catch (e) { console.error('xr interactor', e); }
     this._layoutUI();
   }
 
@@ -557,8 +669,7 @@ export class XRShell {
     // Say what the pointer can see. With no console on the headset, "is it even
     // getting a ray?" is otherwise unanswerable — and it was the exact question
     // when the frame hook went missing and there was no laser to be seen.
-    const grabbing = this.grab.active ? ` · ${this.grab.mode}` : '';
-    const note = `${sources.length} src/${posed} posed${best?.hit ? ' · on panel' : ''}${grabbing}`;
+    const note = `${sources.length} src/${posed} posed${best?.hit ? ' · on panel' : ''}${this.interactor?.note || ''}`;
     if (note !== this._ptr) { this._ptr = note; this._status(); }
     if (!best) { this.pointer.hide(); return rays; }
     // Into the menu group's space: the pointer lives under it, and it carries
@@ -615,8 +726,7 @@ export class XRShell {
   // gets first refusal, so you can never drag the room by reaching for a row.
   _selectStart(src) {
     if (this._hover) return;              // on the menu: the click handles it
-    const rays = this._rays;
-    this.grab.start(src, rays?.get(src));
+    this.interactor?.selectStart(src, this._rays?.get(src));
   }
 
   _say(t) { this._msg = t; this._status(); }
@@ -625,7 +735,7 @@ export class XRShell {
   //
   // The same shell, the same panel, the same click routing, on a desktop with
   // the mouse for a hand. Everything except the placement maths, which is
-  // ARSession's and unchanged. Without this almost none of the menu could be
+  // ImmersiveSession's and unchanged. Without this almost none of the menu could be
   // looked at before it reached a headset that has no console.
 
   // _fakeAttach puts the menu in front of the camera and wires the mouse to it.
@@ -689,6 +799,8 @@ export class XRShell {
   dispose() {
     this.exit();
     this._drop();
+    this.world?.dispose();
+    this.interactor?.dispose?.();
     this.panel?.dispose();
     this.tab?.dispose();
     this.pointer?.dispose();
