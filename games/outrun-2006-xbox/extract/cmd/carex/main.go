@@ -261,10 +261,12 @@ type bufPair struct {
 	// stage files exercise fully (cars only ever carry 0x012/0x112/0x212):
 	// low bits 0x12 = {pos f32x3 @0, normal packed-11:11:10 @12}; bit 0x40 =
 	// a D3DCOLOR at 16; bits 0x300 = UV-set count, f32x2 each, after the
-	// colour. fmtWord 0 with stride 44 is the course-geometry special:
-	// {pos, normal, uv0 @16, uv1 @24, f32x3 @32 on the tex2 slot} — every
-	// layout read live off SET_VERTEX_DATA_ARRAY_FORMAT/_OFFSET (-vtxdecl
-	// on the beach race).
+	// colour. fmtWord 0 with stride 44 is the reflective-water special:
+	// {pos, normal, uv0 @16, uv1 @24, tangent f32x3 @32 on the tex2 slot} —
+	// the tangent feeds the texm3x3 basis of the sea's per-pixel cube-map
+	// reflection (bootoracle -vshdump 11 + cmd/tanprobe). Every layout read
+	// live off SET_VERTEX_DATA_ARRAY_FORMAT/_OFFSET (-vtxdecl on the beach
+	// race).
 	fmtWord uint32
 }
 
@@ -613,8 +615,10 @@ func triangulate(prim uint32, raw []uint32) [][3]uint32 {
 // packed 11:11:10 normal at +12; the D3DCOLOR (when fmtWord has it) sits at
 // +16 — stored BGRA in memory, presented RGBA by the UB_D3D attribute type —
 // and pushes the UV sets to +20 (-vtxdecl census on the beach race). col and
-// uv2 are nil when the layout lacks them; the course special's trailing f32x3
-// still awaits a consumer.
+// uv2 are nil when the layout lacks them. The stride-44 water layout's
+// trailing f32x3 is a tangent (see bufPair.fmtWord); glTF TANGENT wants a
+// normalised vec4 with handedness and these are neither, so it stays
+// unexported — the viewer has no per-pixel water reflection to feed anyway.
 func (p *pmt) decodeVerts(bp bufPair) (pos, nrm [][3]float32, uv, uv2 [][2]float32, col [][4]uint8) {
 	n := int(bp.vbBytes / bp.stride)
 	pos = make([][3]float32, n)

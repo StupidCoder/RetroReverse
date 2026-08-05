@@ -381,3 +381,37 @@ func decodeRegionTexel(format string, b []byte) (r, g, bl, a byte) {
 	}
 	return 0, 0, 0, 0xFF
 }
+
+// --- the bound transform program, as text ---
+
+// VshProgramDisasm renders the transform program currently bound (from
+// SET_TRANSFORM_PROGRAM_START to its FINAL instruction) one line per slot,
+// through the pipeline's own decoder — what the dump shows is exactly what a
+// draw would execute. Returns nil when the machine is in fixed-function mode
+// (exec-mode bits 1:0 != 2). The bool reports whether a FINAL was found within
+// the program store; a false return carries the full wrapped walk for reading.
+func (m *Machine) VshProgramDisasm() ([]string, bool) {
+	g := m.pgraph
+	if g.Regs[kelvinTransformExecMode>>2]&3 != 2 {
+		return nil, false
+	}
+	pc := int(g.Regs[kelvinProgStart>>2]) % vshProgSlots
+	var out []string
+	for steps := 0; steps < vshProgSlots; steps++ {
+		inst := g.vshDecode(pc)
+		out = append(out, fmt.Sprintf("[%3d] %s", pc, g.vshDisasm(pc)))
+		if inst.final {
+			return out, true
+		}
+		pc = (pc + 1) % vshProgSlots
+	}
+	return out, false
+}
+
+// VshConst reads transform-constant slot c as floats.
+func (m *Machine) VshConst(c int) [4]float32 {
+	if c < 0 || c >= vshConstSlots {
+		return [4]float32{}
+	}
+	return f32vec(&m.pgraph.Const[c])
+}

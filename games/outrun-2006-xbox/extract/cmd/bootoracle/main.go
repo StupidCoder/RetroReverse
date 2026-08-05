@@ -234,6 +234,7 @@ func main() {
 	flipshots := flag.String("flipshots", "", "write flip-aligned frames: START:STEP:COUNT[:PREFIX] -> PREFIX-fN.png at those flips, then stop")
 	carvtx := flag.String("carvtx", "", "LO:HI (hex): print each distinct vertex declaration whose attribute-0 array lies in [LO,HI)")
 	vtxdecl := flag.Bool("vtxdecl", false, "census every draw's full 16-slot vertex declaration; print each distinct signature once with its draw count")
+	vshdump := flag.Int("vshdump", -1, "attribute slot (0-15): at each draw whose declaration enables it, dump the bound transform program (disassembled) once per distinct program")
 	find := flag.String("find", "", "hex byte string: search guest RAM for it after the run, print every hit address")
 	cpuprofile := flag.String("cpuprofile", "", "write a host pprof CPU profile of the run to this file")
 	profile := flag.Bool("profile", false, "report where the last presented frame's time goes, by NV2A subsystem (the companion to -cpuprofile: the machine's own per-bucket timing)")
@@ -545,6 +546,52 @@ func main() {
 				fmt.Printf("  %6d draws  attr0 %08X..%08X: %s\n", st.draws, st.lo, st.hi, strings.Join(cols, "  "))
 			}
 		}()
+	}
+
+	// -vshdump N — dump the transform program bound at draws that declare
+	// attribute N. Shadows the declaration words like -vtxdecl, and on a
+	// matching begin-draw disassembles the program through the platform's
+	// own decoder (VshProgramDisasm), once per distinct program text.
+	if *vshdump >= 0 && *vshdump < 16 {
+		var attrFmt [16]uint32
+		seen := map[string]bool{}
+		prevNV := m.OnNVMethod
+		m.OnNVMethod = func(mm *xbox.Machine, subchan, method, arg uint32) {
+			if prevNV != nil {
+				prevNV(mm, subchan, method, arg)
+			}
+			switch {
+			case method >= 0x1760 && method < 0x17A0:
+				attrFmt[(method-0x1760)/4] = arg
+			case method == 0x17FC && arg != 0:
+				f := attrFmt[*vshdump]
+				if f>>4&0xF == 0 { // disabled slot: component count 0
+					return
+				}
+				lines, final := mm.VshProgramDisasm()
+				if lines == nil {
+					fmt.Printf("vshdump: draw with a%d=%08X in FIXED-FUNCTION mode\n", *vshdump, f)
+					return
+				}
+				key := strings.Join(lines, "\n")
+				if seen[key] {
+					return
+				}
+				seen[key] = true
+				var cols []string
+				for a := 0; a < 16; a++ {
+					af := attrFmt[a]
+					if af>>4&0xF == 0 && af&0xF == 2 {
+						continue
+					}
+					cols = append(cols, fmt.Sprintf("a%d=t%d n%d s%d", a, af&0xF, af>>4&0xF, af>>8&0xFF))
+				}
+				fmt.Printf("\nvshdump: program #%d at draw with %s (final=%v):\n", len(seen), strings.Join(cols, " "), final)
+				for _, l := range lines {
+					fmt.Println("  " + l)
+				}
+			}
+		}
 	}
 
 	if *stopflip > 0 {

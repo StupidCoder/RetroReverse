@@ -3232,13 +3232,31 @@ byte-identical — and the cars that *do* carry `0x212` (two UV sets — rc/plca
 550b, 575sa, 360sp, f50, gto, testa, f355sp) now honestly ship their second set too,
 their only delta.
 
+### The trailing f32x3 is the sea's tangent
+
+The stride-44 layout's last three floats are named by the program that consumes them.
+A new instrument — `bootoracle -vshdump N` dumps the transform program (through the
+platform's own `vshDecode`/`vshDisasm`, newly exported as `VshProgramDisasm`) bound at
+any draw whose declaration enables attribute N — and on the beach race, attribute 11
+(the tex2 slot) fires exactly one program. It reads `v11` twice into cross products:
+`R4 = v11 × normal`, `R5 = R4 × v11` — the construction of a 3-vector basis from a
+**tangent** — then dots the basis `{R4, v11, R5}` with `c168/c169/c170` into
+`oT1–oT3`, with `w = c113 − v0` (the per-vertex eye ray): the NV2A `texm3x3`-family
+setup for a per-pixel reflection lookup. The geometry agrees: the beach file's one
+stride-44 pair (part 5 pair 2) is a flat plane at y ≈ −51.2 spanning the whole bay —
+the sea — and every stride-44 batch draws material 3, `s0=tex146` plus a **cube map
+on stage 3** at alpha 0.6. The data agrees too (`cmd/tanprobe`): dot(normal, f32x3)
+≈ 0 at all 869 vertices (mean 0.007 — the 11:11:10 normal's quantisation), lengths
+clustered at small values — an unnormalised UV-derivative-style tangent. fmtWord 0 /
+stride 44 is not "the course special": it is the reflective-water layout.
+
 ### Where it stands / next
 
-The stride-44 trailing `f32x3` is unread; the RGBA-vs-BGRA colour order and the
-modulate scale still want a pin against the game's own frame; `cs_ENV`, the
-`obj_course` objects, collision, the spline and the fog/sun params are unopened; the
-part kinds (0x2, 0x41, 0x842…) are unnamed. The verification standard for the course
-is the same as the cars': against the game's own render of the same scene.
+The RGBA-vs-BGRA colour order and the modulate scale still want a pin against the
+game's own frame; `cs_ENV`, the `obj_course` objects, collision, the spline and the
+fog/sun params are unopened; the part kinds (0x2, 0x41, 0x842…) are unnamed. The
+verification standard for the course is the same as the cars': against the game's own
+render of the same scene.
 
 ### Tooling
 
