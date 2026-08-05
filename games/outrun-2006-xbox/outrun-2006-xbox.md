@@ -3358,3 +3358,15 @@ for the runtime buffer.
   constants (the game's own camera) for frame-overlay verification.
 - `cmd/roadprov` — per-pixel provenance + full write history of a race frame via the
   debug library's xbox adapter; prints each writer's vertex declaration and textures.
+
+### All 66 courses export — the ship waits for the road
+
+The corrected reader scales: every `cs_CS_*` course on the disc (33 courses and their
+`_R`/`_T`/`_B*` variants) exports with every invariant green — 6.8 M vertices, 4.6 M
+triangles, 594 MB of GLBs — and spot renders (Niagara's canyon rim, the sequoia
+forest, the cloudy hills) come out as coherent textured worlds. They are *not* shipped
+to the Studio yet, deliberately: 594 MB would nearly double the whole site, and the
+road (above) plus the object placements are still missing from every one of them — a
+bulk ship now means a second 600 MB re-ship in git history when those land. The beach
+stays the Studio's representative course until the export is complete; scaling then is
+one `carex` loop.
