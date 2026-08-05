@@ -377,14 +377,19 @@ function wireViewButtons(game, view) {
   const xb = $('xrBtn');
   const fake = param(current?.params, 'xrfake') === '1';
   if (view.arContent) {
-    (fake ? Promise.resolve(true) : arSupported).then((ok) => {
+    const arEmu = param(current?.params, 'xremulate') === '1';
+    (fake || arEmu ? Promise.resolve(true) : arSupported).then((ok) => {
       if (!ok || current?.view !== view) return;
       const asset = current.asset;
       xb.hidden = false;
       requestAnimationFrame(updateTopbarFades);
       xb.onclick = () => {
         if (xrShell?.active) return xrShell.exit();
-        enterXR(game, asset, fake).catch((e) => toast(`AR: ${e.message || e.name}`));
+        // ?xremulate=1 rehearses the DIORAMA at a desk, the same way ?vremulate=1
+        // does world mode: a real session, real rig, real fit, synthetic frames.
+        // It is also the only regression test the AR path has off-headset.
+        enterXR(game, asset, fake, 'ar', param(current?.params, 'xremulate') === '1')
+          .catch((e) => toast(`AR: ${e.message || e.name}`));
       };
     });
 

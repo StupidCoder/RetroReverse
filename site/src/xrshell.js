@@ -100,7 +100,13 @@ export class XRShell {
       // inside the carpet is worse than no panel.
       this._uiRef = null;
       this.ui.visible = false;
-      this._open(true);
+      // A diorama session is a browsing session — you came to look at models, so
+      // the menu is open. World mode is the opposite: you came to be somewhere,
+      // and a panel parked at 1.15 m is both the first thing you see and, worse,
+      // sits exactly where you would aim a teleport arc (the menu gets first
+      // refusal on a pinch, so it eats the throw). The tab stays, so it is one
+      // pinch away.
+      this._open(this.mode !== 'world');
       await this.ar.enter();
     }
     // Enter first, load second: the room comes up with the menu in it and the
