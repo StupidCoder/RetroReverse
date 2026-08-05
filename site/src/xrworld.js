@@ -237,7 +237,19 @@ export class WorldMode {
       // per-object hook and there is no guarantee the sky's meshes are drawn
       // consecutively; each one re-solves the group and is then correct.
       const perEye = (renderer, scene, cam) => {
-        cam.getWorldPosition(eye);
+        // READ the eye's matrixWorld. Do NOT call cam.getWorldPosition(), which
+        // is not an accessor: it runs updateWorldMatrix() and so RECOMPUTES
+        // matrixWorld from the object's local transform and parent chain. That
+        // is right for an ordinary object and catastrophic for an XR sub-camera,
+        // whose matrixWorld is written straight from the view pose by
+        // WebXRManager and whose local position/quaternion three never
+        // maintains — and which has no parent. Recomputing it yields the
+        // identity, so each eye renders from the scene origin while culling
+        // (which uses the ArrayCamera) and the teleport arc (which uses the rig)
+        // both stay correct. In Bob-omb Battlefield that put the viewer in the
+        // middle of the course at ground level, watching the world cull around
+        // a viewpoint they were not at.
+        eye.setFromMatrixPosition(cam.matrixWorld);
         root.parent?.worldToLocal(eye);
         root.position.copy(eye);
         root.updateMatrixWorld(true);
