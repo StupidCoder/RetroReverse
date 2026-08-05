@@ -590,6 +590,13 @@ func main() {
 				for _, l := range lines {
 					fmt.Println("  " + l)
 				}
+				// The constants the epilogue and matrix rows read, at this
+				// draw: c58/c59 = viewport scale/offset, c160-163 = the
+				// composite MVP rows for world-space geometry.
+				for _, c := range []int{58, 59, 96, 113, 128, 133, 160, 161, 162, 163, 168, 169, 170} {
+					v := mm.VshConst(c)
+					fmt.Printf("  c%-3d = %g %g %g %g\n", c, v[0], v[1], v[2], v[3])
+				}
 			}
 		}
 	}

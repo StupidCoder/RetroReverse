@@ -143,6 +143,13 @@ roadmap.)
   end-state bijection), the descriptor grows a draw count and a culling sphere, the real
   material count surfaces — and the beach course exports as a coherent textured island.
   *(this document)*
+* **Part XXVII** — **the game's own camera judges the course**: the export gains the
+  baked colours and second UV set, the stride-44 trailing floats are named (the sea's
+  tangent, by the program that reads it), the stage family's other files are surveyed —
+  and rendering the shipped GLB through the game's captured MVP overlays the game's
+  frame almost exactly, except for the road: pixel provenance shows the game builds
+  its road at load, in segment-local strips the disc never stores as a mesh.
+  *(this document)*
 
 ---
 
@@ -3301,3 +3308,53 @@ own render of the same scene.
 - `bootoracle -vtxdecl` — the declaration census (above); `-vshdump N` — the transform
   program bound at draws declaring attribute N; `-find HEX` searches guest RAM
   for a byte string, the other half of the draw-to-file attribution.
+
+## Part XXVII — the game's own camera judges the course, and the road is not in the file
+
+The cars were verified against the game's own render of the same scene; this part holds
+the course to the same standard, and the comparison itself surfaces the next format.
+
+### stageverify: the shipped GLB through the captured MVP
+
+`bootoracle -vshdump` (Part XXVI's program dump) also prints the transform constants
+live at the dumped draw: `c160–163` are the composite world→clip rows for world-space
+geometry, `c58/c59` the viewport scale/offset (`screen = clip/w · (320, −240) +
+(320.53, 240.53)` — the D3D half-pixel sits right there in the .53125). A new tool,
+`cmd/stageverify`, opens the *shipped* `stage-beac.glb` — the file, not the structs —
+and rasterises it through exactly those constants: perspective-correct, z-buffered,
+MASK/BLEND/additive per material, COLOR_0 multiplied.
+
+Against the captured `race-driving` frame (the start line), the overlay is exact where
+it should be: the START gantry truss lands bar-for-bar, the traffic lights, SEGA
+barriers, kerb wall, the town's buildings and the hotel towers all sit on their own
+pixels. What our render lacks, in order of surprise: the road surface, the palms and
+grandstands (obj_course placements, still unopened), and the sky (a separate file).
+
+### The road is built, not stored
+
+Pixel provenance answers "who draws the road" precisely. `cmd/roadprov` drives the
+frame debugger's per-pixel census (`StepFrame` with overdraw) over the same frame: a
+road pixel's write history is sky-blue backdrop → **the road draw** → a whole-frame
+copy pass → the final filter quad (which, as last writer, owns every pixel — the
+reason plain provenance first pointed at a fullscreen quad).
+
+The road draw reads stride-24 `{pos, normal, uv}` arrays at `03E4xxxx` — the runtime
+heap, matching no disc file (Part XXVI's needle search) — with two road textures and
+an env cube bound. Its vertices are synthesized: exact 8-metre segment strips in
+segment-local coordinates (x at clean lane offsets like −28/−16, z spanning 0..−8),
+drawn under per-segment matrices whose translation marches away from the camera
+(`-carvtx` shows the same four scratch buffers cycling through segments ~20–25 m
+apart). No writes hit these buffers during race frames — the mesh is built once at
+course load. The classic SEGA road renderer, in other words: a cross-section profile
+swept along the course spline. The source data — segment transforms, profile,
+per-segment textures — is what `cs_CS_BEAC_bin` (627 KB of sections over small
+records) almost certainly holds; opening it and reimplementing the sweep is the road
+to a complete course export, and the sea (on disc, stride-44) is off the suspect list
+for the runtime buffer.
+
+### Tooling
+
+- `cmd/stageverify` — render an exported stage GLB through captured `-mvp`/`-vp`
+  constants (the game's own camera) for frame-overlay verification.
+- `cmd/roadprov` — per-pixel provenance + full write history of a race frame via the
+  debug library's xbox adapter; prints each writer's vertex declaration and textures.
