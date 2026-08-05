@@ -132,6 +132,7 @@ export async function mount(ctx, doc) {
       group.userData.layer = ly; // role/attach/mode — read by contentBox() and AR mode
       applyLayerLook(gltf.scene, ly);
       await applyLayerMaterialExtras(gltf.scene, ly, game, docPath);
+      wireBillboardNodes(gltf.scene, stage);
       stage.scene.add(group);
       roots.push(group);
       layerNodes.set(ly.id, { group, def: ly });
@@ -718,6 +719,32 @@ async function applyLayerMaterialExtras(root, ly, game, docPath) {
       m.needsUpdate = true;
     }
   }
+}
+
+// wireBillboardNodes yaws nodes marked extras {"billboard":"y"} about their
+// local Y each frame to face the camera — OutRun's trackside trees and signs
+// ship with only their placement matrix baked (the game composes the yaw at
+// enqueue time from the camera vectors; see the course markdown, Part XXIX).
+function wireBillboardNodes(root, stage) {
+  const bills = [];
+  root.traverse((o) => { if (o.userData?.billboard === 'y') bills.push(o); });
+  if (!bills.length) return;
+  for (const o of bills) {
+    o.userData.baked = o.matrix.clone();
+    o.matrixAutoUpdate = false;
+  }
+  const rot = new THREE.Matrix4();
+  const v = new THREE.Vector3();
+  stage.updaters.add((dt, camPos) => {
+    for (const o of bills) {
+      v.copy(camPos);
+      o.parent.worldToLocal(v);
+      const e = o.userData.baked.elements;
+      rot.makeRotationY(Math.atan2(v.x - e[12], v.z - e[14]));
+      o.matrix.multiplyMatrices(o.userData.baked, rot);
+      o.matrixWorldNeedsUpdate = true;
+    }
+  });
 }
 
 function applyLayerLook(root, ly) {

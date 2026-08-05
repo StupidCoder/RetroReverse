@@ -1,0 +1,35 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "fly",
+  "pos": [0, 5, -6],
+  "target": [0, 3, -120],
+  "fov": 55,
+  "near": 0.5,
+  "far": 8920.886271364037,
+  "fly": {
+   "speed": 114.37033681235945
+  }
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "course",
+    "file": "stage-maya.glb",
+    "envMap": ["stage-maya-env-px.png", "stage-maya-env-nx.png", "stage-maya-env-py.png", "stage-maya-env-ny.png", "stage-maya-env-pz.png", "stage-maya-env-nz.png"]
+   },
+   {
+    "id": "sky",
+    "name": "Sky",
+    "file": "stage-maya-sky.glb",
+    "mode": "toggle",
+    "attach": "camera",
+    "renderOrder": -1,
+    "depthTest": false,
+    "role": "sky"
+   }
+  ]
+ }
+}

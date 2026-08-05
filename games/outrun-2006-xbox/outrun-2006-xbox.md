@@ -3596,3 +3596,36 @@ field — the sea's cube reflection survives the move (it used to ride on the
 object document's `envMap`). Verified in the viewer itself: level loads with
 no console errors, START-line view matches the game's framing, the sea shows
 the cube gradient against the dome's horizon.
+
+### The roster ships — 36 courses, one loop
+
+The bulk ship the road and the placements were blocking is done: `exportStages`
+walks every `/Stage` dir, skips the `_R` reversed re-packs (same world,
+mirrored culling — no new geometry for double the bytes), and writes each of
+the 36 remaining courses as a level: 360 MB, 66 GLBs (30 skies are shared —
+the BEAC/PALM `_BR`/`_BT`/`_T` variants carry no sky of their own and
+reference the base course's by layer path). Display names are the disc's own
+folder codes (the clean-room boundary; friendly names await the UI-sprite
+decode); the beach keeps its established "Beach", suffix-free since the group
+already says Courses. The variant dirs name their `_bin` files in UPPER case —
+the exporter indexes `/Stage` case-insensitively.
+
+Two things the wider corpus taught:
+
+- **The range records' pair field is authoritative.** The stream-cursor pair
+  reconstruction (Part XXVI's bijection) tie-breaks wrong on a handful of
+  descriptors — 104 on NEWY, 2 each on CAPE and YOSE — and the visibility
+  ranges say so directly. The exporter now overrides the cursor assignment
+  with the file's own pair per referenced descriptor (zero out-of-bounds
+  after override: the file agrees with itself).
+- **Billboards are everywhere but the beach** — 5,900 nodes across the roster
+  (SNOW 1104, METR 1130, FORE 971: trees, cacti, lampposts). The viewer's
+  side of the declared convention landed with them: `wireBillboardNodes` in
+  `level3d.js` yaws every extras `{"billboard":"y"}` node about its local Y
+  toward the camera each frame, on top of the baked placement matrix — the
+  forest tunnel of FORE reads as a forest, not a deck of edge-on cards.
+
+Spot-verified in the viewer: FORE (billboards), NEWY (pair overrides), BEAC
+(regression) — all load clean; all 66 shipped GLBs open and parse. Still open:
+friendly course names, the 11 unreachable env descriptors, cross-course
+texture dedup if the 360 MB ever needs shrinking.

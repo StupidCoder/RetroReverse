@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -41,28 +42,46 @@ import (
 	"retroreverse.com/tools/platform/xbox"
 )
 
-// readStagePMT inflates and parses one pmt off the disc, attaching a course's
-// visibility database when one sits next to it.
-func readStagePMT(disc *xbox.Image, discPath string) (*pmt, []texInfo, error) {
+// inflateFile reads and inflates one .sz off the disc.
+func inflateFile(disc *xbox.Image, discPath string) ([]byte, error) {
 	raw, err := disc.ReadFile(discPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("read %s: %w", discPath, err)
+		return nil, fmt.Errorf("read %s: %w", discPath, err)
 	}
 	zr, err := zlib.NewReader(bytes.NewReader(raw))
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s: zlib: %w", discPath, err)
+		return nil, fmt.Errorf("%s: zlib: %w", discPath, err)
 	}
 	data, err := io.ReadAll(zr)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s: inflate: %w", discPath, err)
+		return nil, fmt.Errorf("%s: inflate: %w", discPath, err)
+	}
+	return data, nil
+}
+
+// readStagePMT inflates and parses one pmt off the disc, attaching the
+// visibility database at binPath when one is given (the variant dirs name
+// theirs in upper case, so callers resolve the actual path from a listing).
+func readStagePMT(disc *xbox.Image, discPath, binPath string) (*pmt, []texInfo, error) {
+	data, err := inflateFile(disc, discPath)
+	if err != nil {
+		return nil, nil, err
 	}
 	base := strings.TrimSuffix(filepath.Base(discPath), "_pmt.sz")
 	p, err := parsePMT(base, data)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s: %w", discPath, err)
 	}
-	if err := loadVisBin(disc, discPath, p); err != nil {
-		return nil, nil, err
+	if binPath != "" {
+		bdata, err := inflateFile(disc, binPath)
+		if err != nil {
+			return nil, nil, err
+		}
+		v, err := parseVisBin(bdata, p.nParts)
+		if err != nil {
+			return nil, nil, fmt.Errorf("%s: %w", binPath, err)
+		}
+		p.vis = v
 	}
 	texs, _, err := p.parseTextures()
 	if err != nil {
@@ -103,75 +122,178 @@ func nodesBounds(nodes []glb.VariantNode) (mn, mx [3]float32) {
 	return
 }
 
-// exportBeachStage writes the Studio's beach course as a LEVEL, the way the
-// racing courses of the other games ship (Crazy Taxi is the template): the
-// course pmt assembled through its visibility database (world geometry +
-// placed instances) plus the distant cs_ENV scenery ring in one layer GLB,
-// and the sky dome as its own GLB in a camera-attached sky layer — the game
-// draws the dome around the camera (zero parallax), and the viewer's
-// attach:"camera" + renderOrder -1 + depthTest:false is exactly that.
-func exportBeachStage(disc *xbox.Image, b *build.Builder) {
-	const discPath = "/Stage/BEAC/cs_CS_BEAC_pmt.sz"
-	course, courseTexs, err := readStagePMT(disc, discPath)
+// exportStages writes every non-reverse course on the disc as a LEVEL, the
+// shape the other racing games ship (Crazy Taxi is the template): the course
+// pmt assembled through its visibility database (world geometry + placed
+// instances) plus the distant cs_ENV scenery ring in one layer GLB, and the
+// sky dome as its own GLB in a camera-attached sky layer — the game draws the
+// dome around the camera (zero parallax), and the viewer's attach:"camera" +
+// renderOrder -1 + depthTest:false is exactly that. The _R (reversed) dirs
+// are left out deliberately: they re-pack the same world with mirrored
+// culling, and shipping them would double the tree for no new geometry. The
+// BEAC/PALM _BR/_BT/_T variants carry no sky of their own and borrow the base
+// course's sky GLB by reference (layers resolve in the same levels/ dir).
+//
+// Display names are the disc's own folder codes — the clean-room boundary;
+// only the beach keeps its established English name.
+func exportStages(disc *xbox.Image, b *build.Builder) {
+	// One walk indexes /Stage: dir -> lower-cased file name -> actual path
+	// (the variant dirs name their bins in UPPER case).
+	idx := map[string]map[string]string{}
+	if err := disc.Walk(func(e xbox.Entry) error {
+		if e.IsDir || !strings.HasPrefix(e.Path, "/Stage/") {
+			return nil
+		}
+		rest := strings.TrimPrefix(e.Path, "/Stage/")
+		parts := strings.SplitN(rest, "/", 2)
+		if len(parts) != 2 {
+			return nil
+		}
+		if idx[parts[0]] == nil {
+			idx[parts[0]] = map[string]string{}
+		}
+		idx[parts[0]][strings.ToLower(parts[1])] = e.Path
+		return nil
+	}); err != nil {
+		fatal("walk /Stage: %v", err)
+	}
+	var dirs []string
+	for d := range idx {
+		if strings.HasSuffix(d, "_R") {
+			continue
+		}
+		if idx[d][strings.ToLower("cs_CS_"+d+"_pmt.sz")] == "" {
+			continue
+		}
+		dirs = append(dirs, d)
+	}
+	sort.Strings(dirs)
+	skyWritten := map[string]string{} // sky disc path -> GLB file name in levels/
+	for _, d := range dirs {
+		if err := exportStage(disc, b, d, idx, skyWritten); err != nil {
+			fmt.Fprintf(os.Stderr, "carex: stage %s: %v (skipped)\n", d, err)
+		}
+	}
+}
+
+// stageID is the asset id for a course dir ("BEAC_BR" -> "stage-beac-br").
+func stageID(dir string) string {
+	return "stage-" + strings.ReplaceAll(strings.ToLower(dir), "_", "-")
+}
+
+// exportStage writes one course dir as a level.
+func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]map[string]string, skyWritten map[string]string) error {
+	files := idx[dir]
+	lc := strings.ToLower(dir)
+	id := stageID(dir)
+	csPmt := files["cs_cs_"+lc+"_pmt.sz"]
+	csBin := files["cs_cs_"+lc+"_bin.sz"]
+	if csBin == "" {
+		return fmt.Errorf("no visibility db next to %s", csPmt)
+	}
+	course, courseTexs, err := readStagePMT(disc, csPmt, csBin)
 	if err != nil {
-		fatal("%v", err)
+		return err
 	}
 	nodes, summary, err := course.buildStageNodes(courseTexs)
 	if err != nil {
-		fatal("%s: %v", discPath, err)
+		return err
 	}
 
-	env, envTexs, err := readStagePMT(disc, "/Stage/BEAC/cs_ENV_BEAC_pmt.sz")
-	if err != nil {
-		fatal("%v", err)
+	// The distant scenery ring, when the dir carries one: with its own
+	// visibility db it walks like the course; without, it ships flat.
+	envSummary := "none"
+	if envPmt := files["cs_env_"+lc+"_pmt.sz"]; envPmt != "" {
+		env, envTexs, err := readStagePMT(disc, envPmt, files["cs_env_"+lc+"_bin.sz"])
+		if err != nil {
+			return err
+		}
+		var envNodes []glb.VariantNode
+		if env.vis != nil {
+			envNodes, envSummary, err = env.buildStageNodes(envTexs)
+			if err != nil {
+				return err
+			}
+		} else {
+			plan, err := env.plan()
+			if err != nil {
+				return err
+			}
+			v, s, err := buildVariant(env, envTexs, plan)
+			if err != nil {
+				return err
+			}
+			envSummary = s + " (flat)"
+			envNodes = v.Nodes
+			if len(envNodes) == 0 {
+				envNodes = []glb.VariantNode{{Positions: v.Positions, Normals: v.Normals,
+					UVs: v.UVs, UV2: v.UV2, Colors: v.Colors,
+					TexGroups: v.TexGroups, ColorGroups: v.ColorGroups}}
+			}
+		}
+		for i := range envNodes {
+			envNodes[i].Name = strings.TrimSpace("env " + envNodes[i].Name)
+		}
+		nodes = append(nodes, envNodes...)
 	}
-	envNodes, envSummary, err := env.buildStageNodes(envTexs)
-	if err != nil {
-		fatal("cs_ENV_BEAC: %v", err)
-	}
-	for i := range envNodes {
-		envNodes[i].Name = "env " + envNodes[i].Name
-	}
-	nodes = append(nodes, envNodes...)
 
-	out, err := b.Path("levels", "stage-beac.glb")
+	out, err := b.Path("levels", id+".glb")
 	if err != nil {
-		fatal("%v", err)
+		return err
 	}
 	if err := glb.WriteVariantScenes(out, []glb.ModelVariant{{Name: "course", Nodes: nodes}}); err != nil {
-		fatal("stage-beac: %v", err)
+		return err
 	}
 
-	sky, skyTexs, err := readStagePMT(disc, "/Stage/BEAC/obj_course_obj_sky_beac_pmt.sz")
-	if err != nil {
-		fatal("%v", err)
+	// The sky dome: the dir's own, or the base course's for the _BR/_BT/_T
+	// variants (they ship none of their own). Written once per source file;
+	// variants reference the base's GLB.
+	skyGLB := ""
+	skyPath := files["obj_course_obj_sky_"+lc+"_pmt.sz"]
+	if skyPath == "" {
+		if base, _, ok := strings.Cut(dir, "_"); ok {
+			skyPath = idx[base]["obj_course_obj_sky_"+strings.ToLower(base)+"_pmt.sz"]
+		}
 	}
-	skyPlan, err := sky.plan()
-	if err != nil {
-		fatal("sky: %v", err)
-	}
-	skyV, _, err := buildVariant(sky, skyTexs, skyPlan)
-	if err != nil {
-		fatal("sky: %v", err)
-	}
-	skyV.Name = "sky"
-	skyOut, err := b.Path("levels", "stage-beac-sky.glb")
-	if err != nil {
-		fatal("%v", err)
-	}
-	if err := glb.WriteVariantScenes(skyOut, []glb.ModelVariant{skyV}); err != nil {
-		fatal("stage-beac-sky: %v", err)
+	if skyPath != "" {
+		if have, ok := skyWritten[skyPath]; ok {
+			skyGLB = have
+		} else {
+			sky, skyTexs, err := readStagePMT(disc, skyPath, "")
+			if err != nil {
+				return err
+			}
+			skyPlan, err := sky.plan()
+			if err != nil {
+				return err
+			}
+			skyV, _, err := buildVariant(sky, skyTexs, skyPlan)
+			if err != nil {
+				return err
+			}
+			skyV.Name = "sky"
+			name := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(skyPath), "obj_course_obj_sky_"), "_pmt.sz")
+			skyGLB = "stage-" + strings.ToLower(name) + "-sky.glb"
+			skyOut, err := b.Path("levels", skyGLB)
+			if err != nil {
+				return err
+			}
+			if err := glb.WriteVariantScenes(skyOut, []glb.ModelVariant{skyV}); err != nil {
+				return err
+			}
+			skyWritten[skyPath] = skyGLB
+		}
 	}
 
 	// The course's environment cube feeds the sheen-marked materials (the
-	// sea's per-pixel reflection), exactly as the object export shipped it.
+	// sea's per-pixel reflection).
 	var envMap []string
 	if faces := envFaces(course, courseTexs); faces != nil {
 		for fi, img := range faces {
-			fn := fmt.Sprintf("stage-beac-env-%s.png", [6]string{"px", "nx", "py", "ny", "pz", "nz"}[fi])
+			fn := fmt.Sprintf("%s-env-%s.png", id, [6]string{"px", "nx", "py", "ny", "pz", "nz"}[fi])
 			path, err := b.Path("levels", fn)
 			if err != nil {
-				fatal("%v", err)
+				return err
 			}
 			writePNG(path, img)
 			envMap = append(envMap, fn)
@@ -184,7 +306,16 @@ func exportBeachStage(disc *xbox.Image, b *build.Builder) {
 	dx, dy, dz := float64(mx[0]-mn[0]), float64(mx[1]-mn[1]), float64(mx[2]-mn[2])
 	diag := math.Sqrt(dx*dx + dy*dy + dz*dz)
 	depthOff := false
-	b.AddLevel(schema.Asset{ID: "stage-beac", Name: "Beach (course)", Group: "Courses"}, &schema.Level{
+	layers := []schema.Layer{{ID: "course", File: id + ".glb", EnvMap: envMap}}
+	if skyGLB != "" {
+		layers = append(layers, schema.Layer{ID: "sky", Name: "Sky", File: skyGLB, Mode: "toggle",
+			Attach: "camera", RenderOrder: -1, DepthTest: &depthOff, Role: "sky"})
+	}
+	name := strings.ReplaceAll(dir, "_", " ")
+	if dir == "BEAC" {
+		name = "Beach"
+	}
+	b.AddLevel(schema.Asset{ID: id, Name: name, Group: "Courses"}, &schema.Level{
 		Type: schema.LevelScene3D,
 		Camera: &schema.Camera{
 			Mode:   "fly",
@@ -195,15 +326,11 @@ func exportBeachStage(disc *xbox.Image, b *build.Builder) {
 			Far:    1.3 * diag,
 			Fly:    &schema.Fly{Speed: diag / 60},
 		},
-		Scene: &schema.Scene{Layers: []schema.Layer{
-			{ID: "course", File: "stage-beac.glb", EnvMap: envMap},
-			{ID: "sky", Name: "Sky", File: "stage-beac-sky.glb", Mode: "toggle",
-				Attach: "camera", RenderOrder: -1, DepthTest: &depthOff, Role: "sky"},
-		}},
+		Scene: &schema.Scene{Layers: layers},
 	})
-	fmt.Printf("%-34s -> %s (%s; env %s; sky %s)\n", discPath, out, summary, envSummary, skyOut)
+	fmt.Printf("%-34s -> %s (%s; env %s; sky %s)\n", csPmt, out, summary, envSummary, skyGLB)
+	return nil
 }
-
 // loadVisBin attaches a course's cs_*_bin visibility database when the disc
 // carries one next to its pmt; non-course models are left alone.
 func loadVisBin(disc *xbox.Image, discPath string, p *pmt) error {
@@ -403,7 +530,7 @@ type stageInstance struct {
 // meshes per e2 entry.
 func (p *pmt) buildStageNodes(texs []texInfo) ([]glb.VariantNode, string, error) {
 	var out []glb.VariantNode
-	var nWorldDesc, nInst, nMesh, nBB, nUnref, nPairMismatch int
+	var nWorldDesc, nInst, nMesh, nBB, nUnref, nPairFix int
 	for pi := 0; pi < p.nParts; pi++ {
 		pt, err := p.parsePart(pi)
 		if err != nil {
@@ -412,6 +539,24 @@ func (p *pmt) buildStageNodes(texs []texInfo) ([]glb.VariantNode, string, error)
 		sp, err := p.parsePlacements(pi)
 		if err != nil {
 			return nil, "", err
+		}
+
+		// The range records carry each descriptor's stream pair straight from
+		// the file — authoritative over the stream-cursor reconstruction,
+		// whose tie-breaks go wrong on a handful of descriptors (NEWY: 104
+		// entries). Apply them before any geometry is cut.
+		for _, rec := range sp.ranges {
+			for pass := 0; pass < 2; pass++ {
+				f, c := rec[1+pass], rec[3+pass]
+				for d := f; d < f+c && int(d) < len(pt.descStart); d++ {
+					for k := pt.descStart[d]; k < pt.descStart[d]+pt.descCount[d]; k++ {
+						if pt.batches[k].pair != int(rec[0]) {
+							pt.batches[k].pair = int(rec[0])
+							nPairFix++
+						}
+					}
+				}
+			}
 		}
 
 		// Decode all pairs into one merged vertex pool (as buildVariant does),
@@ -434,11 +579,6 @@ func (p *pmt) buildStageNodes(texs []texInfo) ([]glb.VariantNode, string, error)
 					for d := f; d < f+c; d++ {
 						if int(d) >= len(pt.descStart) {
 							return nil, fmt.Errorf("part %d e2 %d: descriptor %d out of %d", pi, e2i, d, len(pt.descStart))
-						}
-						for k := pt.descStart[d]; k < pt.descStart[d]+pt.descCount[d]; k++ {
-							if pt.batches[k].pair != int(rec[0]) {
-								nPairMismatch++
-							}
 						}
 						descs = append(descs, int(d))
 					}
@@ -591,8 +731,8 @@ func (p *pmt) buildStageNodes(texs []texInfo) ([]glb.VariantNode, string, error)
 	if nUnref > 0 {
 		summary += fmt.Sprintf(", %d descriptors unreferenced", nUnref)
 	}
-	if nPairMismatch > 0 {
-		summary += fmt.Sprintf(", %d PAIR MISMATCHES", nPairMismatch)
+	if nPairFix > 0 {
+		summary += fmt.Sprintf(", %d pair overrides", nPairFix)
 	}
 	return out, summary, nil
 }
@@ -661,8 +801,13 @@ func (sp *stagePool) node(name string, descs []int, texs []texInfo) *glb.Variant
 			bp := pt.pairs[b.pair]
 			idxCount, _ := indexCount(b.prim, b.prims)
 			raw := make([]uint32, idxCount)
+			nVerts := bp.vbBytes / bp.stride
 			for i := range raw {
-				raw[i] = uint32(u16(p.a, int(bp.ibOff)+int(b.first+uint32(i))*2)) + b.baseVtx + sp.vbase[b.pair]
+				ix := uint32(u16(p.a, int(bp.ibOff)+int(b.first+uint32(i))*2)) + b.baseVtx
+				if ix >= nVerts {
+					panic(fmt.Sprintf("stage batch %d: index %d out of pair %d VB (%d verts)", k, ix, b.pair, nVerts))
+				}
+				raw[i] = ix + sp.vbase[b.pair]
 			}
 			tris := triangulate(b.prim, raw)
 			m := pt.mats[b.matIdx]

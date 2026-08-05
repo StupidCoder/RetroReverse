@@ -333,11 +333,256 @@
    "file": "objects/othcar-12.json"
   },
   {
+   "id": "stage-alas",
+   "category": "level",
+   "name": "ALAS",
+   "group": "Courses",
+   "file": "levels/stage-alas.json"
+  },
+  {
+   "id": "stage-alpi",
+   "category": "level",
+   "name": "ALPI",
+   "group": "Courses",
+   "file": "levels/stage-alpi.json"
+  },
+  {
+   "id": "stage-amaz",
+   "category": "level",
+   "name": "AMAZ",
+   "group": "Courses",
+   "file": "levels/stage-amaz.json"
+  },
+  {
    "id": "stage-beac",
    "category": "level",
-   "name": "Beach (course)",
+   "name": "Beach",
    "group": "Courses",
    "file": "levels/stage-beac.json"
+  },
+  {
+   "id": "stage-beac-br",
+   "category": "level",
+   "name": "BEAC BR",
+   "group": "Courses",
+   "file": "levels/stage-beac-br.json"
+  },
+  {
+   "id": "stage-beac-bt",
+   "category": "level",
+   "name": "BEAC BT",
+   "group": "Courses",
+   "file": "levels/stage-beac-bt.json"
+  },
+  {
+   "id": "stage-beac-t",
+   "category": "level",
+   "name": "BEAC T",
+   "group": "Courses",
+   "file": "levels/stage-beac-t.json"
+  },
+  {
+   "id": "stage-cape",
+   "category": "level",
+   "name": "CAPE",
+   "group": "Courses",
+   "file": "levels/stage-cape.json"
+  },
+  {
+   "id": "stage-cast",
+   "category": "level",
+   "name": "CAST",
+   "group": "Courses",
+   "file": "levels/stage-cast.json"
+  },
+  {
+   "id": "stage-clou",
+   "category": "level",
+   "name": "CLOU",
+   "group": "Courses",
+   "file": "levels/stage-clou.json"
+  },
+  {
+   "id": "stage-dese",
+   "category": "level",
+   "name": "DESE",
+   "group": "Courses",
+   "file": "levels/stage-dese.json"
+  },
+  {
+   "id": "stage-east",
+   "category": "level",
+   "name": "EAST",
+   "group": "Courses",
+   "file": "levels/stage-east.json"
+  },
+  {
+   "id": "stage-flor",
+   "category": "level",
+   "name": "FLOR",
+   "group": "Courses",
+   "file": "levels/stage-flor.json"
+  },
+  {
+   "id": "stage-fore",
+   "category": "level",
+   "name": "FORE",
+   "group": "Courses",
+   "file": "levels/stage-fore.json"
+  },
+  {
+   "id": "stage-ghos",
+   "category": "level",
+   "name": "GHOS",
+   "group": "Courses",
+   "file": "levels/stage-ghos.json"
+  },
+  {
+   "id": "stage-gran",
+   "category": "level",
+   "name": "GRAN",
+   "group": "Courses",
+   "file": "levels/stage-gran.json"
+  },
+  {
+   "id": "stage-impe",
+   "category": "level",
+   "name": "IMPE",
+   "group": "Courses",
+   "file": "levels/stage-impe.json"
+  },
+  {
+   "id": "stage-indu",
+   "category": "level",
+   "name": "INDU",
+   "group": "Courses",
+   "file": "levels/stage-indu.json"
+  },
+  {
+   "id": "stage-lake",
+   "category": "level",
+   "name": "LAKE",
+   "group": "Courses",
+   "file": "levels/stage-lake.json"
+  },
+  {
+   "id": "stage-lasv",
+   "category": "level",
+   "name": "LASV",
+   "group": "Courses",
+   "file": "levels/stage-lasv.json"
+  },
+  {
+   "id": "stage-mach",
+   "category": "level",
+   "name": "MACH",
+   "group": "Courses",
+   "file": "levels/stage-mach.json"
+  },
+  {
+   "id": "stage-maya",
+   "category": "level",
+   "name": "MAYA",
+   "group": "Courses",
+   "file": "levels/stage-maya.json"
+  },
+  {
+   "id": "stage-metr",
+   "category": "level",
+   "name": "METR",
+   "group": "Courses",
+   "file": "levels/stage-metr.json"
+  },
+  {
+   "id": "stage-newy",
+   "category": "level",
+   "name": "NEWY",
+   "group": "Courses",
+   "file": "levels/stage-newy.json"
+  },
+  {
+   "id": "stage-niag",
+   "category": "level",
+   "name": "NIAG",
+   "group": "Courses",
+   "file": "levels/stage-niag.json"
+  },
+  {
+   "id": "stage-palm",
+   "category": "level",
+   "name": "PALM",
+   "group": "Courses",
+   "file": "levels/stage-palm.json"
+  },
+  {
+   "id": "stage-palm-br",
+   "category": "level",
+   "name": "PALM BR",
+   "group": "Courses",
+   "file": "levels/stage-palm-br.json"
+  },
+  {
+   "id": "stage-palm-bt",
+   "category": "level",
+   "name": "PALM BT",
+   "group": "Courses",
+   "file": "levels/stage-palm-bt.json"
+  },
+  {
+   "id": "stage-palm-t",
+   "category": "level",
+   "name": "PALM T",
+   "group": "Courses",
+   "file": "levels/stage-palm-t.json"
+  },
+  {
+   "id": "stage-prin",
+   "category": "level",
+   "name": "PRIN",
+   "group": "Courses",
+   "file": "levels/stage-prin.json"
+  },
+  {
+   "id": "stage-ruin",
+   "category": "level",
+   "name": "RUIN",
+   "group": "Courses",
+   "file": "levels/stage-ruin.json"
+  },
+  {
+   "id": "stage-sanf",
+   "category": "level",
+   "name": "SANF",
+   "group": "Courses",
+   "file": "levels/stage-sanf.json"
+  },
+  {
+   "id": "stage-sequ",
+   "category": "level",
+   "name": "SEQU",
+   "group": "Courses",
+   "file": "levels/stage-sequ.json"
+  },
+  {
+   "id": "stage-snow",
+   "category": "level",
+   "name": "SNOW",
+   "group": "Courses",
+   "file": "levels/stage-snow.json"
+  },
+  {
+   "id": "stage-tuli",
+   "category": "level",
+   "name": "TULI",
+   "group": "Courses",
+   "file": "levels/stage-tuli.json"
+  },
+  {
+   "id": "stage-yose",
+   "category": "level",
+   "name": "YOSE",
+   "group": "Courses",
+   "file": "levels/stage-yose.json"
   }
  ]
 }

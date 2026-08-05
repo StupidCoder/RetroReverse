@@ -2083,7 +2083,7 @@ func exportSite(imagePath, siteDir string) {
 	// (palms, gantries, grandstands) under their w4 matrices, the distant
 	// scenery ring, and the sky dome. The rest of the stage family
 	// (collision, spline, fog/sun params) is still closed.
-	exportBeachStage(disc, b)
+	exportStages(disc, b)
 
 	if err := b.Write(); err != nil {
 		fatal("%v", err)
