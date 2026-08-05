@@ -816,19 +816,37 @@ func buildLevelNames(ls *sm64ds.LevelSet, tmp string) error {
 	return nil
 }
 
+// courseTitle title-cases a course name, dropping the leading course number
+// the ROM prints in the pause menu (" 1 BOB-OMB BATTLEFIELD").
 func courseTitle(msg string) string {
 	s := strings.TrimSpace(msg)
 	s = strings.TrimLeft(s, "0123456789")
+	return titleCase(s)
+}
+
+// starTitle title-cases a mission name. Unlike a course name it keeps a
+// leading number, which is part of the title ("5 SILVER STARS!", "8-COIN
+// PUZZLE WITH 15 PIECES"). The ROM SHOUTS every one of these; the raw string
+// is what StarName returns, so the transformation stays reversible.
+func starTitle(msg string) string { return titleCase(msg) }
+
+func titleCase(s string) string {
 	s = strings.TrimSpace(s)
-	small := map[string]bool{"IN": true, "THE": true, "OF": true, "ON": true, "TO": true, "UNDER": true}
+	small := map[string]bool{
+		"IN": true, "THE": true, "OF": true, "ON": true, "TO": true, "UNDER": true,
+		"A": true, "AN": true, "AT": true, "FOR": true, "FROM": true, "WITH": true,
+		"INTO": true, "AND": true, "OVER": true,
+	}
 	words := strings.Fields(s)
 	for i, w := range words {
 		if i > 0 && small[w] {
 			words[i] = strings.ToLower(w)
 			continue
 		}
-		if w == "BOB-OMB" {
-			words[i] = "Bob-omb"
+		// "BOB-OMB", "BOB-OMB'S" — the second half of the name stays lower
+		// case, against the hyphen rule below
+		if strings.HasPrefix(w, "BOB-OMB") {
+			words[i] = "Bob-omb" + strings.ToLower(w[len("BOB-OMB"):])
 			continue
 		}
 		r := []rune(strings.ToLower(w))
@@ -837,7 +855,9 @@ func courseTitle(msg string) string {
 			if up {
 				r[j] = []rune(strings.ToUpper(string(c)))[0]
 			}
-			up = c == '-'
+			// a hyphen opens a new word ("WET-DRY"), and so does a leading
+			// apostrophe ("'SHROOMS")
+			up = c == '-' || (j == 0 && c == '\'')
 		}
 		words[i] = string(r)
 	}
@@ -1223,7 +1243,48 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		doc.Camera = cam
 
 		// Placed actors, oracle-bound.
-		seen := map[string]bool{}
+		//
+		// An object that belongs to several missions is listed once PER STAR
+		// LAYER in the level's object table (the walker $020FE33C skips whole
+		// entries whose layer isn't the star being played), so the records
+		// collapse by (actor, position) into ONE placement carrying the SET of
+		// layers it was listed under — Bob-omb Battlefield's chain chomp sits
+		// in stars 1 and 7, and keeping only the first record would have made
+		// it a star-1 object.
+		type placedObj struct {
+			o      sm64ds.LevelObject
+			layers map[int]bool
+		}
+		byKey := map[string]*placedObj{}
+		var order []*placedObj
+		for _, o := range lv.Objects {
+			key := fmt.Sprintf("%d/%.3f/%.3f/%.3f", o.Actor, o.X, o.Y, o.Z)
+			p := byKey[key]
+			if p == nil {
+				p = &placedObj{o: o, layers: map[int]bool{}}
+				byKey[key] = p
+				order = append(order, p)
+			}
+			p.layers[o.Layer] = true
+		}
+		used := map[int]bool{}
+		for _, p := range order {
+			for l := range p.layers {
+				if l != 0 {
+					used[l] = true
+				}
+			}
+		}
+		doc.Variants = starVariants(msgs, ls.Course(i), used)
+		declared := map[string]bool{}
+		for _, v := range doc.Variants {
+			declared[v.ID] = true
+		}
+		// curVars is the variant membership of the placement being emitted —
+		// nil for a layer-0 object, which is present in every mission. It is a
+		// closure variable so the chain chomp's spawned stake and drawn links
+		// inherit the missions of the chomp that owns them.
+		var curVars []string
 		pid := 1
 		addObjOff := func(o sm64ds.LevelObject, actor int, par [3]int, rot bool, off [3]float64) {
 			m := modelFor(actor, par)
@@ -1241,8 +1302,11 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			if rot && o.RotY != 0 {
 				pl.Rot = []float64{0, o.RotY * math.Pi / 180, 0}
 			}
-			if o.Layer != 0 {
-				pl.Props["actLayer"] = o.Layer
+			pl.Variants = curVars
+			if coinActors[actor] {
+				pl.Behavior = &schema.Behavior{
+					Kind: "spin", Axis: []float64{0, 1, 0}, Rate: r3(coinSpinRate),
+				}
 			}
 			if t := signText(o); t != "" {
 				pl.OnClick = &schema.OnClick{Action: schema.ActionText, Title: "Signpost", Body: t}
@@ -1269,17 +1333,15 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			}
 			doc.Placements = append(doc.Placements, schema.Placement{
 				ID: pid, Object: asset, Name: name,
-				Pos:   []float64{r3(pos[0]), r3(pos[1]), r3(pos[2])},
-				Scale: schema.Scale{objScale},
+				Pos:      []float64{r3(pos[0]), r3(pos[1]), r3(pos[2])},
+				Scale:    schema.Scale{objScale},
+				Variants: curVars,
 			})
 			pid++
 		}
-		for _, o := range lv.Objects {
-			key := fmt.Sprintf("%d/%.3f/%.3f/%.3f", o.Actor, o.X, o.Y, o.Z)
-			if seen[key] {
-				continue
-			}
-			seen[key] = true
+		for _, p := range order {
+			o := p.o
+			curVars = variantIDs(p.layers, declared)
 			switch o.Actor {
 			case 219: // daWanwan_c — chained to a stake
 				addChomp(o, addObjOff, addModelAt)
@@ -1299,6 +1361,88 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 	}
 	return nil
 }
+
+// ---------------------------------------------------------------------------
+// star (mission) variants
+// ---------------------------------------------------------------------------
+
+// starVariants declares one Retro-X variant per mission of a level, from the
+// set of non-zero star layers its object table actually uses.
+//
+// A numbered painting course has StarsPerCourse missions and the ROM names all
+// of them, so every one is declared even when a mission adds no object of its
+// own: picking it then shows the level with only the always-present objects,
+// which is exactly what the game does. Everything else — the castle floors,
+// the boss arenas, the test maps — has layered objects but no star-name block,
+// so only the layers that appear are declared, under their bare layer number.
+//
+// Star 1 is the default: it is the mission the game starts you on.
+func starVariants(msgs []string, course int, used map[int]bool) []schema.Variant {
+	if len(used) == 0 {
+		return nil
+	}
+	stars := make([]int, 0, sm64ds.StarsPerCourse)
+	if course >= 0 && course < sm64ds.StarNameCourses {
+		for s := 1; s <= sm64ds.StarsPerCourse; s++ {
+			stars = append(stars, s)
+		}
+	} else {
+		for s := range used {
+			stars = append(stars, s)
+		}
+		sort.Ints(stars)
+	}
+	if len(stars) < 2 {
+		return nil // a one-entry picker is no picker
+	}
+	out := make([]schema.Variant, 0, len(stars))
+	for _, s := range stars {
+		name := starTitle(sm64ds.StarName(msgs, course, s))
+		if name == "" {
+			name = fmt.Sprintf("Star %d", s)
+		}
+		out = append(out, schema.Variant{ID: starID(s), Name: name, Default: len(out) == 0})
+	}
+	return out
+}
+
+func starID(star int) string { return fmt.Sprintf("star%d", star) }
+
+// variantIDs turns one placement's star-layer set into its variant membership.
+// Layer 0 means "every star", which Retro-X spells as no `variants` field at
+// all, so it returns nil — as it does for a level with no variant list.
+func variantIDs(layers map[int]bool, declared map[string]bool) []string {
+	if len(declared) == 0 || layers[0] {
+		return nil
+	}
+	var stars []int
+	for l := range layers {
+		if declared[starID(l)] {
+			stars = append(stars, l)
+		}
+	}
+	sort.Ints(stars)
+	if len(stars) == 0 || len(stars) == len(declared) {
+		return nil // in every declared mission: same thing as unrestricted
+	}
+	out := make([]string, len(stars))
+	for i, s := range stars {
+		out[i] = starID(s)
+	}
+	return out
+}
+
+// coinActors are the three placed-coin classes. All three profiles
+// ($02108790/AC/C8, actors 288/289/290) install the same vtable $021087EC,
+// whose step slot (+$18) is the coin step $020B2324 — `ADD r1, r1, #0xC00 /
+// STRH r1, [r2]` on the yaw short at +$8E, once per 30 Hz actor tick. A sweep
+// of every placed actor's step for that constant returns these three and
+// nothing else (extract/cmd/starprobe).
+var coinActors = map[int]bool{288: true, 289: true, 290: true}
+
+// coinSpinRate is that $C00-per-tick yaw in rad/s — $10000 angle units is a
+// full turn, the actor tick is 30 Hz: ~1.4 revolutions per second.
+const coinSpinRate = float64(0xC00) / 0x10000 * 30 * 2 * math.Pi
 
 func r3(v float64) float64 { return float64(int(v*1000+0.5*sign(v))) / 1000 }
 func sign(v float64) float64 {

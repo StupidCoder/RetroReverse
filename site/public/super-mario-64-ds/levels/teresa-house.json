@@ -13,6 +13,37 @@
    "speed": 1.5
   }
  },
+ "variants": [
+  {
+   "id": "star1",
+   "name": "Go on a Ghost Hunt",
+   "default": true
+  },
+  {
+   "id": "star2",
+   "name": "Ride Big Boo's Merry-Go-Round"
+  },
+  {
+   "id": "star3",
+   "name": "Secret of the Haunted Books"
+  },
+  {
+   "id": "star4",
+   "name": "Seek the 8 Red Coins"
+  },
+  {
+   "id": "star5",
+   "name": "Big Boo's Balcony"
+  },
+  {
+   "id": "star6",
+   "name": "Eye to Eye in the Secret Room"
+  },
+  {
+   "id": "star7",
+   "name": "Switch Star in the Basement"
+  }
+ ],
  "scene": {
   "layers": [
    {
@@ -264,6 +295,11 @@
    "object": "arc0-5",
    "pos": [0.35, 3.2, 0.3],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -273,6 +309,11 @@
    "object": "arc0-5",
    "pos": [0.55, 3.2, 0.3],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -282,6 +323,11 @@
    "object": "arc0-5",
    "pos": [0.75, 3.2, 0.3],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -291,6 +337,11 @@
    "object": "arc0-5",
    "pos": [0.95, 3.2, 0.3],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -405,6 +456,11 @@
    "object": "arc0-7",
    "pos": [1, 1.3, 1.1],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 289
    }
@@ -414,6 +470,11 @@
    "object": "arc0-7",
    "pos": [2.6, 0.8, -0.5],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 289
    }
@@ -446,7 +507,6 @@
     "matrix": [0.1, 0, 0, 0.95, 0, 0.1, 0, -0.6, 0, 0, 0.1, 0.9]
    },
    "props": {
-    "actLayer": 1,
     "actor": 65,
     "collider": "th_kaidan"
    }
@@ -456,8 +516,8 @@
    "object": "boss-teresa",
    "pos": [0.95, 0.15, 0.9],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 210
    }
   },
@@ -467,8 +527,8 @@
    "pos": [1.55, 0, 1.7],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "variants": ["star2", "star3", "star4", "star5", "star6", "star7"],
    "props": {
-    "actLayer": 2,
     "actor": 181
    }
   },
@@ -606,6 +666,11 @@
    "object": "arc0-7",
    "pos": [2.8, 0, 2.2],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 289
    }
@@ -615,6 +680,11 @@
    "object": "arc0-7",
    "pos": [2.45, 0.8, 2.2],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 289
    }
@@ -642,6 +712,11 @@
    "object": "arc0-5",
    "pos": [-2.55, -2.05, 1.65],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -652,7 +727,6 @@
    "pos": [3, 0.05, 0.4],
    "scale": 0.008,
    "props": {
-    "actLayer": 1,
     "actor": 209
    }
   },
@@ -663,7 +737,6 @@
    "rot": [0, -2.618025835924575, 0],
    "scale": 0.008,
    "props": {
-    "actLayer": 1,
     "actor": 209
    }
   },
@@ -673,8 +746,8 @@
    "pos": [-1.09, -2.4, 1.09],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "variants": ["star2", "star3", "star4", "star5", "star6", "star7"],
    "props": {
-    "actLayer": 2,
     "actor": 210
    }
   },
@@ -684,8 +757,8 @@
    "pos": [-1.09, -2.35, 1.09],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "variants": ["star2", "star3", "star4", "star5", "star6", "star7"],
    "props": {
-    "actLayer": 2,
     "actor": 209
    }
   },
@@ -695,8 +768,8 @@
    "pos": [1.307, 0, -1.287],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "variants": ["star4"],
    "props": {
-    "actLayer": 4,
     "actor": 181
    }
   },
@@ -784,6 +857,11 @@
    "object": "arc0-7",
    "pos": [-1.2, 0, 2.3],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 289
    }
@@ -864,6 +942,11 @@
    "object": "ar1-6",
    "pos": [1.4, 1.7, 1.2],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 290
    }
@@ -873,6 +956,11 @@
    "object": "ar1-6",
    "pos": [1.8, 1.7, 1.2],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 290
    }
@@ -882,6 +970,11 @@
    "object": "ar1-6",
    "pos": [0.1, 1.7, 1.2],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 290
    }
@@ -891,6 +984,11 @@
    "object": "ar1-6",
    "pos": [-0.4, 1.7, 1.2],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 290
    }
@@ -909,6 +1007,11 @@
    "object": "arc0-7",
    "pos": [0.2, 0.8, -1.4],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 289
    }
@@ -919,7 +1022,6 @@
    "pos": [-0.1, 0.05, -0.5],
    "scale": 0.008,
    "props": {
-    "actLayer": 1,
     "actor": 209
    }
   },
@@ -967,6 +1069,11 @@
    "object": "arc0-7",
    "pos": [-0.4, 0.5, 0.05],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 289
    }
@@ -976,6 +1083,11 @@
    "object": "arc0-7",
    "pos": [-1.4, 0.5, 0.95],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 289
    }
@@ -986,7 +1098,6 @@
    "pos": [-1.8, 0.05, -0.8],
    "scale": 0.008,
    "props": {
-    "actLayer": 1,
     "actor": 209
    }
   },
@@ -996,7 +1107,6 @@
    "pos": [-1.52, 0.05, -1.2],
    "scale": 0.008,
    "props": {
-    "actLayer": 1,
     "actor": 209
    }
   }

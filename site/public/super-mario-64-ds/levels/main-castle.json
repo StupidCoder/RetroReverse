@@ -13,6 +13,17 @@
    "speed": 2.9830000000000005
   }
  },
+ "variants": [
+  {
+   "id": "star1",
+   "name": "Star 1",
+   "default": true
+  },
+  {
+   "id": "star2",
+   "name": "Star 2"
+  }
+ ],
  "scene": {
   "layers": [
    {
@@ -303,8 +314,8 @@
    "pos": [2.32, 0.155, 3.92],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 207
    }
   },
@@ -318,7 +329,6 @@
     "matrix": [1, 0, 0, 2.33, 0, 1, 0, 0.14, 0, 0, 1, 3.92]
    },
    "props": {
-    "actLayer": 1,
     "actor": 339,
     "collider": "mc_metalnet"
    }
@@ -333,7 +343,6 @@
     "matrix": [1, 0, 0, -3.3, 0, 1, 0, -0.52, 0, 0, 1, 0.02]
    },
    "props": {
-    "actLayer": 1,
     "actor": 339,
     "collider": "mc_metalnet"
    }
@@ -348,7 +357,6 @@
     "matrix": [1, 0, 0, -3.76, 0, 1, 0, -1.26, 0, 0, 1, -3.378]
    },
    "props": {
-    "actLayer": 1,
     "actor": 339,
     "collider": "mc_metalnet"
    }
@@ -358,6 +366,7 @@
    "object": "obj-tatefuda",
    "pos": [-1.6, 0.254, 5.41],
    "scale": 0.008,
+   "variants": ["star1"],
    "collision": {
     "file": "objcol_obj_tatefuda.glb",
     "matrix": [0.1, 0, 0, -1.6, 0, 0.1, 0, 0.254, 0, 0, 0.1, 5.41]
@@ -368,7 +377,6 @@
     "body": "Princess Toadstool's \nCastle Ahead!\nWe want to extend a \nwarm welcome to Mario\nand his crew! As\nfor Bowser, GO HOME!\nYou'll initially start \nin Standard Mode. You \ncan access all 3 modes\nby pressing SELECT. \nIn Standard Mode, the\nbasic controls are:\n: Jump\nHold  as Yoshi: \nFlutter kick\n: Crouch\n\n\n: Swallow items, \npick up items, or punch\ndepending on which \ncharacter you are. \n\n\nPress  again while \nholding something to \nspit it out or throw it.\n: Hold it down while\nmoving to dash."
    },
    "props": {
-    "actLayer": 1,
     "actor": 184,
     "collider": "obj_tatefuda"
    }
@@ -379,6 +387,7 @@
    "pos": [-4.6, 0.266, 3.2],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "variants": ["star1"],
    "collision": {
     "file": "objcol_obj_tatefuda.glb",
     "matrix": [0, 0, 0.1, -4.6, 0, 0.1, 0, 0.266, -0.1, 0, 0, 3.2]
@@ -389,7 +398,6 @@
     "body": "You can choose which mode\nto play in by pressing \nSELECT.\n\nThe top screen will show \nthe functions of the \ncontrols in each of the\n3 modes.\nChoose whichever mode you\nlike best.\nStandard Mode is ideal \nfor first-timers.\nPick Touch Mode to move \nwith the Touch Screen. The\nthumb pad on the Wrist \nStrap is ideal for this mode.\nTo walk and run with the \nstylus, choose \nDual-Hand Mode."
    },
    "props": {
-    "actLayer": 1,
     "actor": 184,
     "collider": "obj_tatefuda"
    }
@@ -400,6 +408,7 @@
    "pos": [1.812, 0.111, 4.474],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "variants": ["star1"],
    "collision": {
     "file": "objcol_obj_tatefuda.glb",
     "matrix": [0, 0, 0.1, 1.812, 0, 0.1, 0, 0.111, -0.1, 0, 0, 4.474]
@@ -410,7 +419,6 @@
     "body": "Swimming Lessons!\nYou can't breathe under \nthe water! Here's how\nto swim in Standard Mode. \n\nHold  to swim and tap \nit steadily to speed up.\nPress Up on the  \nwhile swimming to dive.\n\nTo head for the surface \nor jump out of the water,\nhold Down on the ,\nthen press .\nPiece of cake, right?"
    },
    "props": {
-    "actLayer": 1,
     "actor": 184,
     "collider": "obj_tatefuda"
    }
@@ -421,6 +429,7 @@
    "pos": [5.3, 0.402, 1.7],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "variants": ["star1"],
    "collision": {
     "file": "objcol_obj_tatefuda.glb",
     "matrix": [0, 0, -0.1, 5.3, 0, 0.1, 0, 0.402, 0.1, 0, 0, 1.7]
@@ -431,7 +440,6 @@
     "body": "Slide down a slope \nby crouching.\nOr, crouch in the air to\npound the ground.\nIf you stop, crouch, \nthen jump, you'll do a\nbackward somersault!\nGot that? There's more.\nCrouch and then jump \nwhile running to do a \nlong jump! \nOr crouch and walk to...\nNever mind. It's a \nsecret."
    },
    "props": {
-    "actLayer": 1,
     "actor": 184,
     "collider": "obj_tatefuda"
    }
@@ -441,12 +449,12 @@
    "object": "mc-water",
    "pos": [0, 0, 0],
    "scale": 0.008,
+   "variants": ["star1"],
    "collision": {
     "file": "objcol_mc_water.glb",
     "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]
    },
    "props": {
-    "actLayer": 1,
     "actor": 338,
     "collider": "mc_water"
    }
@@ -456,8 +464,8 @@
    "object": "hatena-karabox",
    "pos": [0, 3.498, -3.5],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 20
    }
   },
@@ -467,8 +475,8 @@
    "pos": [0, 3.248, -3.3],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 276
    }
   },
@@ -478,8 +486,8 @@
    "pos": [-0.6, 3.248, -3],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 276
    }
   },
@@ -489,8 +497,8 @@
    "pos": [0.5, 3.248, -3],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 276
    }
   },
@@ -499,8 +507,8 @@
    "object": "mip",
    "pos": [0, 0.789, 2.1],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 187
    }
   },
@@ -509,8 +517,8 @@
    "object": "mip",
    "pos": [-4.9, 0.32, 4.7],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 187
    }
   },
@@ -520,8 +528,8 @@
    "pos": [4.2, -0.499, -1.1],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 187
    }
   },
@@ -530,8 +538,8 @@
    "object": "mip",
    "pos": [0, 3.221, -4.2],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 187
    }
   },
@@ -540,8 +548,8 @@
    "object": "c-jugem",
    "pos": [0, 1.088, 2.2],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 235
    }
   },
@@ -550,8 +558,8 @@
    "object": "mip",
    "pos": [-5.2, 0.367, 5],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 187
    }
   },
@@ -560,6 +568,7 @@
    "object": "obj-tatefuda",
    "pos": [-4.6, 0.3, 2.3],
    "scale": 0.008,
+   "variants": ["star1"],
    "collision": {
     "file": "objcol_obj_tatefuda.glb",
     "matrix": [0.1, 0, 0, -4.6, 0, 0.1, 0, 0.3, 0, 0, 0.1, 2.3]
@@ -570,7 +579,6 @@
     "body": "Climbing's easy! When you\njump at trees, poles, or\npillars, you'll grab them\nautomatically. \nIn Standard Mode:\nPress the  Up or \nDown to climb.\nCrouch to stop climbing.\n\n\nTo rotate around the \nobject, press Right or \nLeft on the .\n\n\nLeap toward the\ncharacter's back to jump\noff in that direction.\n\n\nWhen you reach the top,\npress Up on the  to\ndo a handstand! Jump off\nfrom the handstand for a\nhigh, stylin' dismount."
    },
    "props": {
-    "actLayer": 1,
     "actor": 184,
     "collider": "obj_tatefuda"
    }
@@ -580,8 +588,8 @@
    "object": "mip",
    "pos": [-5, 0.53, -1.7],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 187
    }
   },
@@ -590,12 +598,12 @@
    "object": "broken-block-ll",
    "pos": [-3.3, -0.65, 0.02],
    "scale": 0.008,
+   "variants": ["star1"],
    "collision": {
     "file": "objcol_broken_block_ll.glb",
     "matrix": [1, 0, 0, -3.3, 0, 1, 0, -0.65, 0, 0, 1, 0.02]
    },
    "props": {
-    "actLayer": 1,
     "actor": 17,
     "collider": "broken_block_ll"
    }
@@ -605,8 +613,8 @@
    "object": "mip",
    "pos": [-1.2, -0.499, 1.4],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 187
    }
   },
@@ -615,8 +623,8 @@
    "object": "mip",
    "pos": [6.1, 0.8, -3.4],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 187
    }
   },
@@ -625,8 +633,8 @@
    "object": "mip",
    "pos": [-0.3, 0.789, 2.2],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 187
    }
   },
@@ -635,8 +643,8 @@
    "object": "mip",
    "pos": [0.3, 0.789, 2.2],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 187
    }
   },
@@ -646,8 +654,8 @@
    "pos": [6, 0.397, 1.7],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 187
    }
   },
@@ -657,8 +665,8 @@
    "pos": [-6.1, 1.567, 3.2],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 187
    }
   },
@@ -667,8 +675,8 @@
    "object": "fish",
    "pos": [6.056, -1.2, 6.172],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 344
    }
   },
@@ -677,8 +685,8 @@
    "object": "fish",
    "pos": [-3.94, -0.909, -2.556],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 344
    }
   },
@@ -687,8 +695,8 @@
    "object": "butterfly",
    "pos": [5.514, 0.72, -3.16],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
-    "actLayer": 1,
     "actor": 336
    }
   },
@@ -697,12 +705,12 @@
    "object": "mc-water",
    "pos": [8.258, -1.15, 6.969],
    "scale": 0.008,
+   "variants": ["star2"],
    "collision": {
     "file": "objcol_mc_water.glb",
     "matrix": [1, 0, 0, 8.258, 0, 1, 0, -1.15, 0, 0, 1, 6.969]
    },
    "props": {
-    "actLayer": 2,
     "actor": 338,
     "collider": "mc_water"
    }
@@ -713,8 +721,8 @@
    "pos": [2.77, 0.175, 5.292],
    "rot": [0, 1.047133635330436, 0],
    "scale": 0.008,
+   "variants": ["star2"],
    "props": {
-    "actLayer": 2,
     "actor": 31
    }
   },
@@ -724,8 +732,8 @@
    "pos": [-5.167, 1.556, 0.705],
    "rot": [0, 0.24428644047078837, 0],
    "scale": 0.008,
+   "variants": ["star2"],
    "props": {
-    "actLayer": 2,
     "actor": 337
    }
   },
@@ -735,12 +743,12 @@
    "pos": [1.905, 0.067, 4.798],
    "rot": [0, -0.523566817665218, 0],
    "scale": 0.008,
+   "variants": ["star2"],
    "collision": {
     "file": "objcol_mc_dodai.glb",
     "matrix": [0.086, 0, -0.05, 1.905, 0, 0.1, 0, 0.067, 0.05, 0, 0.086, 4.798]
    },
    "props": {
-    "actLayer": 2,
     "actor": 340,
     "collider": "mc_dodai"
    }
@@ -750,12 +758,12 @@
    "object": "mc-hazad",
    "pos": [0, 0.78, -0.97],
    "scale": 0.008,
+   "variants": ["star2"],
    "collision": {
     "file": "objcol_mc_hazad.glb",
     "matrix": [0.1, 0, 0, 0, 0, 0.1, 0, 0.78, 0, 0, 0.1, -0.97]
    },
    "props": {
-    "actLayer": 2,
     "actor": 341,
     "collider": "mc_hazad"
    }
@@ -766,12 +774,12 @@
    "pos": [3.25, -0.51, -0.835],
    "rot": [0, 0.8639188049773445, 0],
    "scale": 0.008,
+   "variants": ["star2"],
    "collision": {
     "file": "objcol_mc_hazad.glb",
     "matrix": [0.065, 0, 0.076, 3.25, 0, 0.1, 0, -0.51, -0.076, 0, 0.065, -0.835]
    },
    "props": {
-    "actLayer": 2,
     "actor": 341,
     "collider": "mc_hazad"
    }
@@ -782,12 +790,12 @@
    "pos": [-9.64, -1.08, -6.079],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "variants": ["star2"],
    "collision": {
     "file": "objcol_mc_water.glb",
     "matrix": [-1, 0, 0, -9.64, 0, 1, 0, -1.08, 0, 0, -1, -6.079]
    },
    "props": {
-    "actLayer": 2,
     "actor": 338,
     "collider": "mc_water"
    }
@@ -797,8 +805,8 @@
    "object": "arc0-20",
    "pos": [6.306, 0.492, 0.15],
    "scale": 0.008,
+   "variants": ["star2"],
    "props": {
-    "actLayer": 2,
     "actor": 269
    }
   },
@@ -807,8 +815,8 @@
    "object": "arc0-17",
    "pos": [5.495, 0.396, 0.825],
    "scale": 0.008,
+   "variants": ["star2"],
    "props": {
-    "actLayer": 2,
     "actor": 269
    }
   },
@@ -817,8 +825,8 @@
    "object": "arc0-16",
    "pos": [2.452, 0.2, 5.114],
    "scale": 0.008,
+   "variants": ["star2"],
    "props": {
-    "actLayer": 2,
     "actor": 269
    }
   },
@@ -827,8 +835,8 @@
    "object": "arc0-20",
    "pos": [-5.581, 0.363, 4.722],
    "scale": 0.008,
+   "variants": ["star2"],
    "props": {
-    "actLayer": 2,
     "actor": 269
    }
   },
@@ -837,8 +845,8 @@
    "object": "arc0-17",
    "pos": [-5.292, 0.298, 2.487],
    "scale": 0.008,
+   "variants": ["star2"],
    "props": {
-    "actLayer": 2,
     "actor": 269
    }
   },
@@ -847,8 +855,8 @@
    "object": "arc0-16",
    "pos": [-6.235, 0.362, -0.199],
    "scale": 0.008,
+   "variants": ["star2"],
    "props": {
-    "actLayer": 2,
     "actor": 269
    }
   },
@@ -857,8 +865,8 @@
    "object": "arc0-14",
    "pos": [6.302, 1.086, -3.44],
    "scale": 0.008,
+   "variants": ["star2"],
    "props": {
-    "actLayer": 2,
     "actor": 22
    }
   },
@@ -867,8 +875,8 @@
    "object": "arc0-28",
    "pos": [3.514, 0.4, 5.721],
    "scale": 0.008,
+   "variants": ["star2"],
    "props": {
-    "actLayer": 2,
     "actor": 180
    }
   },
@@ -877,8 +885,8 @@
    "object": "arc0-21",
    "pos": [3.514, 0.4, 5.721],
    "scale": 0.008,
+   "variants": ["star2"],
    "props": {
-    "actLayer": 2,
     "actor": 178
    }
   },
@@ -887,8 +895,8 @@
    "object": "arc0-28",
    "pos": [-5.741, 0.637, 4.871],
    "scale": 0.008,
+   "variants": ["star2"],
    "props": {
-    "actLayer": 2,
     "actor": 180
    }
   },
@@ -897,8 +905,8 @@
    "object": "arc0-21",
    "pos": [-5.741, 0.637, 4.871],
    "scale": 0.008,
+   "variants": ["star2"],
    "props": {
-    "actLayer": 2,
     "actor": 178
    }
   },
@@ -907,8 +915,8 @@
    "object": "arc0-28",
    "pos": [5.603, 1.3, 0.721],
    "scale": 0.008,
+   "variants": ["star2"],
    "props": {
-    "actLayer": 2,
     "actor": 180
    }
   },
@@ -917,8 +925,8 @@
    "object": "arc0-21",
    "pos": [5.603, 1.3, 0.721],
    "scale": 0.008,
+   "variants": ["star2"],
    "props": {
-    "actLayer": 2,
     "actor": 178
    }
   },
@@ -927,8 +935,8 @@
    "object": "arc0-28",
    "pos": [0, 1.033, 3.1],
    "scale": 0.008,
+   "variants": ["star2"],
    "props": {
-    "actLayer": 2,
     "actor": 180
    }
   },
@@ -937,8 +945,8 @@
    "object": "arc0-21",
    "pos": [0, 1.033, 3.1],
    "scale": 0.008,
+   "variants": ["star2"],
    "props": {
-    "actLayer": 2,
     "actor": 178
    }
   }

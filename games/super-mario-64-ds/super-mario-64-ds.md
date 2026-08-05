@@ -17,7 +17,7 @@ Image: `Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds`, 16 MiB, game code **AS
 * **Part V** — level data and object placements: the level→overlay and settings-block tables, the object-table format and its spawner, the actor system, and the trace from each actor's create function to the model it draws.
 * **Part VI** — collision: the `.kcl` mesh format (vertices, packed normals, prism records and the octree the queries walk), the external `CLPS` surface-attribute table, the ITCM query walkers — all pinned by running the game's own collision code in the oracle and reimplemented bit-exactly in Go.
 * **Part VII** — the music: the `SDAT` sound archive (the same NitroSDK format as Mario Kart DS's, but shipped *with* its symbol block, so every tune carries the game's own name), rendered to MP3 through the shared `tools/platform/nds/sdat` sequencer and synth.
-* **Part VIII** — the message system and the game's own course names: the `BMG` text containers, the font-derived character encoding, the level→course table the save system uses, and the per-level music binding — the cartridge's own course names.
+* **Part VIII** — the message system and the game's own course *and mission* names: the `BMG` text containers, the font-derived character encoding, the level→course table the save system uses, the per-star name run behind the Studio's mission picker, and the per-level music binding.
 * **Part IX** — **the machine**: the DS model grows from two CPUs and a stub into a console — timing, DMA, timers, the maths units, the nine VRAM banks, the cartridge port, the ARM7's SPI bus, and both graphics engines — until the game boots from cold, loads its 2,731 files, and draws its own title screen. Eight bugs, every one of which looked like something else.
 
 Methods: purely static analysis of the `.nds` image. All addresses are 32-bit ARM addresses (`$02000000`-style main-RAM addresses, or the BIOS and I/O regions) unless a *file offset* into the ROM image is explicitly called out; bytes are little-endian.
@@ -372,6 +372,10 @@ Both handlers translate the object ID through the **object → actor table** at 
 
 Across the 52 levels this decodes **4,350 distinct placements** (types 0 and 5, all star layers).
 
+**The layer is a mission filter, and one object can be in several missions.** The 3-bit layer is an *index*, not a mask — 0 for "every star", 1–7 for one of the course's seven numbered missions — so an object that belongs to four missions is listed **once per mission**, in four different table entries, at the same actor and the same position. A first pass at exporting this collapsed the repeats with a `(actor, x, y, z)` key and kept the *first* record, which recorded one arbitrary layer per object and quietly lied about every multi-mission one: Bob-omb Battlefield's chain chomp came out "star 1" when the level data puts it in **six of the seven** (everything except *5 Silver Stars!*, which places its own free-roaming `daWanwan2_c` instead). The repeats have to be accumulated into a **set**. Across the shipped 48 stages that set is what the Studio's mission picker is built from (Part V §7); the census — 4,045 placements matched back to a cartridge record, 0 mismatches — is re-derived from the ROM against the emitted JSON by `cmd/varcheck`.
+
+Twenty-two of the 48 shipped stages use the mechanism: **all fifteen** painting courses (several of which own more than one map), plus two levels that are not courses at all — the castle exterior (`main_castle`, layers 1–2, the castle's own before/after state) and the unused `test_map`, which carries 107 objects on layer 7 alone.
+
 ## 3. The actor system and its model bindings — the actor oracle
 
 The spawn call lands in the factory at `$02043098`: `LDR r0, [[profileTable] + actor*4]; BLX [r0]`. The engine init at `$0201A128` assigns that global its value — the **profile-pointer array at `$02090864`**, 783 entries long (the factory's own `*ERR*` string ends it). A profile begins with its *create function*; `+$04` carries the actor ID. Profiles for the always-loaded engine actors live in overlays 1–2; enemy and level actors' entries point into the banked overlay that carries their code — meaningful only while that overlay is loaded (several banks share each RAM slot). Some profiles carry C++ typeinfo whose mangled name — `daKrb_c`, `daObjMc_Metalnet`, `daWanwan2_c` — is the only object *name* the cartridge contains.
@@ -418,6 +422,8 @@ Two object systems bypass the wrapper path. A **shadow/effect list** at `$0209CE
 Actor behavior is C++ virtual methods, not bytecode scripts: every profile's create function installs a vtable whose slots the engine calls each frame — `+$00` init, `+$18` step, `+$24` draw is the pattern across every actor examined (coin, item, signpost, minimap, goomba). What each actor *does* lives in its step, and three of them are traced:
 
 * **The coin spins by `+$C00` yaw per frame.** The placed-coin step at `$020B2324` (vtable `$021087EC`, actors 288–290) adds `#$C00` to the yaw short at `+$8E` every tick — `$10000` is a full turn, so at the 30 fps actor tick that is ~1.4 revolutions per second — then runs pickup logic (`$020B12EC`/`$020B14D8`) and links its blob-shadow billboard node (`+$178`) into the draw list only when the camera is within 100.0 render units (`$020536E4` distance test against `#$64000`). The item actor's coin subtypes rotate the same field and build their wrapper matrix from it in `$020AF4EC` (`$0203BD6C`: sine-table rotation about Y, then translation `position >> 3`). The spinning-coin look is geometry, not a texture animation — a flat quad model yawing in 3D.
+
+  Which actors that covers was later settled by sweep rather than by the reading above. `cmd/spinprobe` walks **every actor that appears in a level's object table** — 301 of them — from its profile record `{u32 create, u16 actorID, …}` to the create function's literal pool, to the vtable it stores at `[this+0]` (recognised as sixteen consecutive code pointers), to the step slot at `vtable+$18`, and looks in that step for an **accumulating** `ADD rX, rX, #imm` whose value reaches an `STRH`. It reaches a step for 288 of the 301 (13 actors have no recoverable vtable, and the count is printed so a zero result has a denominator). Exactly **three** actors turn on the spot at `#$C00` — 288, 289 and 290, whose three separate profiles (`$02108790`/`AC`/`C8`) install the *same* vtable `$021087EC` — and the `-all` control, which drops the constant filter, returns 74 actors writing halfwords, so the sweep is not merely finding what it was told to look for. The accumulate test matters: one actor's step computes `ADD r0, r4, #0xC00` on its object base, an **address**, and a looser matcher counted it as a spin.
 * **The signpost is a proximity dialog.** Its init (`$020BC240`, actor 184) loads the model wrapper from a file-handle slot, then **snaps to the ground**: a collision ray is cast from `position.y + $64000` downward (`$02037570`/`$0203748C`/`$02038F44`) and the hit height replaces the placement's Y. It registers an interaction cylinder (`$0201490C`) and its step at `$020BBEA4` watches the engine-set interaction flags in `+$B0` (bit `$4000` = player in range) — when the dialog pointer at `+$59C` is live it starts the message through `$020BB060` and parks an "in dialog" bit (`$4000000`). The message text lives in `data/message/msg_data_<lang>.bin` — decoded in Part VIII (all 711 messages, including every signpost).
 * **The goomba is a bank actor.** Overlay 84 is an enemy bank carrying RTTI for `daKrb_c` (Kuribo), `daRedBombhei_c` and the piranha plants; the goomba's profile at `$02130924` (create `$0212BFF8`, actor 202) also carries per-enemy tuning — a 100.0 sight radius and 200.0 active radius. Its model bundle registers `kuribo_model.bmd` (internal file 902), a low-LOD variant (910) **and skeletal animations** — `kuribo_walk.bca` (909) among seven `.bca` files — through an animated-wrapper class (`$02016958`) the static coins never use. The step at `$0212B6EC` gates on the ARM9 enemy base class (`$02005FA0`), tests player interaction (`$0200F70C`) and routes stomp/hit responses through `$020AD838` with a `#$6C000` bounce impulse. Animating a walking goomba in the viewer therefore needs the `.bca` bone-animation format and a skinned exporter — the next format on the list.
 
@@ -430,6 +436,18 @@ The **chain chomp** (`daWanwan2_c`, overlay 100) resolves its previously-unbound
 The **bob-omb** (`daBmb_c`, overlay 102) wanders differently: its heading picker (`$0214BEB4`) aims **at its home point** (`$0203B7AC` toward the anchor at `+$3C4`) **plus a random signed 16-bit offset** — erratic but home-biased — and beyond **1280 units** (`$500000`) it drops the randomness and heads straight back. Each pick sets the forward speed to **`$5000` (5.0 units/frame)** and the walk repicks when the yaw reaches the target heading (`$0214BE8C`) or when a 512-frame fallback timer (`+$3E8`, set at the state entry `$0214C108`) expires; the yaw eases at **`$400` angle-units/frame** (doubled to `$800` when chasing the target at `+$38C`, whose speed goal becomes `$10000` = 16.0 — the lit-fuse sprint). A nice detail: the walk-cycle playback rate at `+$35C` is the forward speed divided by 8, so the feet match the ground speed. The viewer gives bob-ombs (and the red buddies) this profile alongside the goomba's.
 
 The viewer replicates what is traced: coins spin at the engine's `$C00`-per-frame rate, clicking a signpost pops the traced interaction — and, since Part VIII, quotes the sign's own in-game words — skinned enemies play their `.bca` clips, and the goombas **patrol** with the traced wander — 2.0 units/frame, `$200`/frame turning, 100-frame repicks at 75% turn / 25% pause, leashed to their spawn points.
+
+## 7. One level, seven missions
+
+A level document that places every star layer at once is not a place. Bob-omb Battlefield stood there with **two King Bob-ombs** on its summit, Koopa the Quick's race flagpole through the middle of one of them, and both chain chomps at once — an object census, not a course.
+
+The layer field (§2) is the fix, and Retro-X already had the mechanism: **variants**. Each exported level declares one variant per mission and every placement lists the missions it belongs to, *absent meaning all of them* — which is exactly the layer-0 case, so across the 48 shipped stages only 334 of 4,103 placements carry the field at all, in 22 of the 48 documents. The declared set is the whole course when the course has star names (all seven, even for a mission that adds no object of its own — picking it then shows the level with just its always-present objects, which is what the game does), and only the layers actually in use otherwise. **Star 1 is the default**: it is the mission the game starts you on.
+
+The chain chomp is the object that proves it. It is one placement in six of seven missions, and its two *synthesised* companions — the stake its init spawns and the six chain links its own draw function strings (§6) — inherit that membership rather than standing in missions the chomp is absent from.
+
+Two verifications, both against the emitted files rather than the exporter's structs. `cmd/varcheck` re-decodes the cartridge and asserts every shipped placement's variant list equals the star-layer set its level's object table lists that (actor, position) under — 4,045 matched, 0 mismatches, with the chomp's spawned stake and links counted as synthesised. It was mutation-tested in both directions: reintroducing the keep-the-first-record bug in a copy of the shipped JSON, and deleting one coin's spin, both fail it. And in the Studio: picking *Big Bob-omb on the Summit* leaves one King on the summit and no flagpole, *Footrace with Koopa the Quick* leaves the flagpole and no King, *Big Bob-omb's Revenge* brings back the King and adds the breakable blocks — and world mode inherits all of it, so you can walk Bob-omb Battlefield one mission at a time.
+
+The `(actor, position)` key is load-bearing on the checking side too: a first version of `varcheck` keyed on position alone and reported fifteen failures, because the race flagpole (star 2) and the second King Bob-omb (star 4) **stand on the same point**. The exporter was right and the instrument was wrong.
 
 # Part VI — Collision: the `.kcl` mesh, the octree walk and the `CLPS` surface table
 
@@ -567,7 +585,25 @@ The binding from level to course is one table and one accessor. The **`s8` table
 
 One more prize fell out of the same 3-bytes-per-level info table at `$02075768`: its third byte is the level's **background-music sequence** (Part VII §2), read at level start by `$0202D35C` and started by `$0201320C` — negative stops the music, so the `$FF` rows are the deliberately silent levels.
 
-## 4. Which signpost says what
+## 4. The mission names
+
+The **star names** follow the course names as one unbroken run in the same course order, seven per course, starting at message **436**:
+
+```
+ 436  BIG BOB-OMB ON THE SUMMIT        443  CHIP OFF WHOMP'S BLOCK
+ 437  FOOTRACE WITH KOOPA THE QUICK    444  TO THE TOP OF THE FORTRESS
+ 438  5 SILVER STARS!                  445  SHOOT INTO THE WILD BLUE
+ 439  BIG BOB-OMB'S REVENGE            …
+ 440  MARIO WINGS TO THE SKY           540  SWITCH STAR OF THE MANOR
+ 441  FIND THE 8 RED COINS             541  ONE OF THE CASTLE'S SECRET STARS!
+ 442  BEHIND CHAIN-CHOMP'S GATE        542  100-Coins Star
+```
+
+so `starName(course, star) = msgs[436 + course*7 + (star−1)]`, star 1-based — `sm64ds.StarName`, beside `CourseNameMsg`. The run is pinned **at both ends** by dumping the container rather than by extrapolating the stride: it begins immediately after `CASTLE SECRET STARS` (435, the last course name), and the fifteen painting courses take it to exactly 540, with the castle's single collective name and the 100-coin star immediately after. So `course*7` holds for the fifteen numbered courses and for **nothing beyond them** — the Bowser roads, the boss arenas and the secret courses have no per-star block, and the exporter falls back to a bare `Star N` rather than inventing a title. The seventh entry is a mission, not the 100-coin star; that one carries no object layer at all, which is why seven is the right count.
+
+The names are SHOUTED on the cartridge. The Studio title-cases them for its picker, keeping the raw string as what `StarName` returns so the transformation stays reversible, and the same small-word list that gives *Footrace with Koopa the Quick* leaves the leading numbers alone — a course name drops its number (`" 1 BOB-OMB BATTLEFIELD"`), a mission name does not (`5 SILVER STARS!`, `8-COIN PUZZLE WITH 15 PIECES`).
+
+## 5. Which signpost says what
 
 Every readable signpost in the game is the same actor, 184 (`obj_tatefuda`, Part V §6) — so where does each one get its words? From its **placement**: the first object parameter (`par1`) is an **external message ID**. These IDs are not `INF1` indices — they live in their own namespace (the course-story signs count up from `1000 + 50·course`: Bob-omb Battlefield uses 1000–1008, Whomp's Fortress 1050–1054…; shared tutorial signs sit in an 1800 block and recur across levels). The translation is the function the message window runs every ID through: **`$020B8EC0`** walks a `{u16 firstID, u16 firstIndex}` **range table at ARM9 `$0208EEEC`** (half-open ranges, sentinel ID ≥ 8000) and returns `firstIndex + (id − firstID)`.
 
@@ -609,6 +645,14 @@ go run ./cmd/actororacle
 # then decode all 52 levels' object placements into per-stage JSON, bound
 # through the oracle table
 go run ./cmd/exportlevelobjs
+
+# Part V §6 — which placed actors turn on the spot every tick (profile -> create ->
+# vtable -> step -> accumulating ADD); -all is the no-filter control
+go run ./extract/cmd/spinprobe -in "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds"
+
+# Part V §7 — verify the SHIPPED level documents' mission membership against a
+# fresh decode of the cartridge (-v prints the per-mission placement census)
+go run ./extract/cmd/varcheck -in "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds" -v
 
 # Part III §6 — the dual-core oracle: both CPUs on shared RAM + IPC, clearing the
 # rendezvous the single core stops at (into the post-sync PXI FIFO exchange)

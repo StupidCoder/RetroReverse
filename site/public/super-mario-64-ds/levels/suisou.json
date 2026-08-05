@@ -55,6 +55,11 @@
    "object": "arc0-7",
    "pos": [-2.4, -4.5, -2.4],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 289
    }
@@ -64,6 +69,11 @@
    "object": "arc0-7",
    "pos": [-2.4, -4.5, 2.3],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 289
    }
@@ -73,6 +83,11 @@
    "object": "arc0-7",
    "pos": [2.4, -4.5, 2.3],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 289
    }
@@ -82,6 +97,11 @@
    "object": "arc0-7",
    "pos": [2.4, -4.5, -2.4],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 289
    }
@@ -100,6 +120,11 @@
    "object": "arc0-5",
    "pos": [0, -3.603, 0.5],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -109,6 +134,11 @@
    "object": "arc0-5",
    "pos": [0, -3.603, -0.5],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -118,6 +148,11 @@
    "object": "arc0-5",
    "pos": [-0.5, -3.603, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -127,6 +162,11 @@
    "object": "arc0-5",
    "pos": [0.5, -3.603, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -136,6 +176,11 @@
    "object": "arc0-5",
    "pos": [0.35, -3.603, 0.35],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -145,6 +190,11 @@
    "object": "arc0-5",
    "pos": [-0.35, -3.603, 0.35],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -154,6 +204,11 @@
    "object": "arc0-5",
    "pos": [-0.35, -3.603, -0.35],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -163,6 +218,11 @@
    "object": "arc0-5",
    "pos": [0.35, -3.603, -0.35],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -172,6 +232,11 @@
    "object": "arc0-7",
    "pos": [2.3, -2.099, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 289
    }
@@ -181,6 +246,11 @@
    "object": "arc0-7",
    "pos": [-2.3, -2.1, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 289
    }
@@ -190,6 +260,11 @@
    "object": "arc0-7",
    "pos": [0, -2.109, 2.2],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 289
    }
@@ -199,6 +274,11 @@
    "object": "arc0-7",
    "pos": [0, -2.1, -2.3],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 289
    }
@@ -208,6 +288,11 @@
    "object": "arc0-5",
    "pos": [0, -2.33, -2.1],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -217,6 +302,11 @@
    "object": "arc0-5",
    "pos": [0, -2.33, -2.5],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -226,6 +316,11 @@
    "object": "arc0-5",
    "pos": [0, -1.8, -2.3],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -235,6 +330,11 @@
    "object": "arc0-5",
    "pos": [0, -2.4, -2.3],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -244,6 +344,11 @@
    "object": "arc0-5",
    "pos": [0, -2.1, -2],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -253,6 +358,11 @@
    "object": "arc0-5",
    "pos": [0, -1.869, -2.1],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -262,6 +372,11 @@
    "object": "arc0-5",
    "pos": [0, -1.861, -2.5],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -271,6 +386,11 @@
    "object": "arc0-5",
    "pos": [0, -2.1, -2.6],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -280,6 +400,11 @@
    "object": "arc0-5",
    "pos": [0, -2.349, 2.4],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -289,6 +414,11 @@
    "object": "arc0-5",
    "pos": [0, -2.349, 2],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -298,6 +428,11 @@
    "object": "arc0-5",
    "pos": [0, -1.818, 2.2],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -307,6 +442,11 @@
    "object": "arc0-5",
    "pos": [0, -2.418, 2.2],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -316,6 +456,11 @@
    "object": "arc0-5",
    "pos": [0, -2.118, 2.5],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -325,6 +470,11 @@
    "object": "arc0-5",
    "pos": [0, -1.888, 2.4],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -334,6 +484,11 @@
    "object": "arc0-5",
    "pos": [0, -1.88, 2],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -343,6 +498,11 @@
    "object": "arc0-5",
    "pos": [0, -2.118, 1.9],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -352,6 +512,11 @@
    "object": "arc0-5",
    "pos": [-2, -2.1, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -361,6 +526,11 @@
    "object": "arc0-5",
    "pos": [-2.6, -2.1, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -370,6 +540,11 @@
    "object": "arc0-5",
    "pos": [-2.3, -1.8, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -379,6 +554,11 @@
    "object": "arc0-5",
    "pos": [-2.3, -2.4, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -388,6 +568,11 @@
    "object": "arc0-5",
    "pos": [-2.5, -2.333, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -397,6 +582,11 @@
    "object": "arc0-5",
    "pos": [-2.1, -2.338, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -406,6 +596,11 @@
    "object": "arc0-5",
    "pos": [-2.1, -1.866, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -415,6 +610,11 @@
    "object": "arc0-5",
    "pos": [-2.5, -1.875, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -424,6 +624,11 @@
    "object": "arc0-5",
    "pos": [2.6, -2.099, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -433,6 +638,11 @@
    "object": "arc0-5",
    "pos": [2, -2.099, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -442,6 +652,11 @@
    "object": "arc0-5",
    "pos": [2.3, -1.8, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -451,6 +666,11 @@
    "object": "arc0-5",
    "pos": [2.3, -2.399, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -460,6 +680,11 @@
    "object": "arc0-5",
    "pos": [2.1, -2.333, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -469,6 +694,11 @@
    "object": "arc0-5",
    "pos": [2.5, -2.338, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -478,6 +708,11 @@
    "object": "arc0-5",
    "pos": [2.5, -1.866, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }
@@ -487,6 +722,11 @@
    "object": "arc0-5",
    "pos": [2.1, -1.875, 0],
    "scale": 0.008,
+   "behavior": {
+    "kind": "spin",
+    "axis": [0, 1, 0],
+    "rate": 8.836
+   },
    "props": {
     "actor": 288
    }

@@ -81,7 +81,40 @@ const (
 	// u16 table at RAM $020757D0 holds exactly {406..420, 435} — the numbered
 	// courses plus the castle row — in this order.
 	CourseNameMsg = 406
+
+	// StarNameMsg: the mission (star) names follow the course names as one
+	// unbroken run, StarsPerCourse per course in the same course order —
+	// message 436 is "BIG BOB-OMB ON THE SUMMIT", 442 "BEHIND CHAIN-CHOMP'S
+	// GATE" (course 0's seventh) and 443 "CHIP OFF WHOMP'S BLOCK" (course 1's
+	// first). The run is pinned at BOTH ends by dumping the container: it
+	// starts right after "CASTLE SECRET STARS" (435, the last course name) and
+	// the 15 painting courses take it to 540 ("SWITCH STAR OF THE MANOR"),
+	// with 541 "ONE OF THE CASTLE'S SECRET STARS!" and 542 "100-Coins Star"
+	// immediately after — so the course*StarsPerCourse stride holds for the
+	// StarNameCourses numbered courses and for nothing beyond them. The boss
+	// and secret courses have no per-star block; their stars are named by the
+	// single message 541.
+	StarNameMsg = 436
+	// StarsPerCourse is the number of numbered missions in a painting course
+	// (the 100-coin star is not one of them — it carries no object layer).
+	StarsPerCourse = 7
+	// StarNameCourses is how many courses the star-name run covers.
+	StarNameCourses = 15
 )
+
+// StarName returns the display text of course `course`'s star `star` (1-based)
+// from a decoded message container, or "" when the course has no star-name
+// block. See StarNameMsg for how the run is pinned.
+func StarName(msgs []string, course, star int) string {
+	if course < 0 || course >= StarNameCourses || star < 1 || star > StarsPerCourse {
+		return ""
+	}
+	i := StarNameMsg + course*StarsPerCourse + (star - 1)
+	if i >= len(msgs) {
+		return ""
+	}
+	return msgs[i]
+}
 
 // Course returns the level's course index (s8 table $02075298, accessor
 // $02013558), or -1 for the test maps.
