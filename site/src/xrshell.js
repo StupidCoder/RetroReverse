@@ -536,9 +536,13 @@ export class XRShell {
       // is the space that does not move when the content does.
       const rm = new THREE.Matrix4().fromArray(pose.transform.matrix);
       const rq = new THREE.Quaternion().setFromRotationMatrix(rm);
+      // quat as well as dir: a grab holds its anchor in the HAND'S frame, so
+      // that an anchor which is not on the ray still travels with the hand
+      // instead of being snapped onto it.
       rays.set(src, {
         origin: new THREE.Vector3().setFromMatrixPosition(rm),
         dir: new THREE.Vector3(0, 0, -1).applyQuaternion(rq).normalize(),
+        quat: rq.clone(),
       });
 
       const m = rm.clone().premultiply(rig.matrixWorld);

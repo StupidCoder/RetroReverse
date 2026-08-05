@@ -81,7 +81,8 @@ export class Grabber {
   // space. Sources that stopped being tracked simply do not appear, and the
   // grab holds its ground until they come back.
   update(rays) {
-    if (!this.held.size || !this._base) return;
+    // Never act on a baseline that has not been finished against a real ray.
+    if (!this.held.size || !this._base || this._needRays) return;
     const live = [...this.held.keys()].map((s) => rays.get(s)).filter(Boolean);
     if (!live.length) return;
     if (this.mode === 'scale' && live.length >= 2) this._scale(live[0], live[1]);
@@ -90,17 +91,26 @@ export class Grabber {
 
   // ---- the two gestures ------------------------------------------------------
 
-  // One hand: the content point you grabbed stays on your ray, at the distance
-  // you grabbed it. Ray-attached rather than one-to-one with the hand, because
-  // an arm reaches about 0.7 m and a room is bigger than that — this way a
-  // small turn of the wrist walks a diorama across the floor, and drawing your
-  // hand back brings it to you.
+  // One hand: the anchor keeps its position RELATIVE TO THE HAND — the offset
+  // is stored in the hand's own frame and carried by the hand's rotation. When
+  // you grabbed by pointing at something, that offset lies along the ray, so
+  // this is ray-attach: a turn of the wrist walks a diorama across the floor,
+  // and drawing your hand back brings it to you. That is the behaviour worth
+  // having, because an arm reaches about 0.7 m and a room is bigger.
   //
-  // Position only: the wrist's roll and pitch are not applied. Taking them is
-  // what makes distance-grabbing feel like holding a fishing rod in a gale.
+  // It is stored as an offset rather than a distance so that it also works when
+  // the anchor is NOT on the ray. Releasing one hand after a two-handed scale
+  // leaves the anchor between where your hands were, which is off to the side
+  // of whatever the remaining hand is pointing at; forcing it onto the ray
+  // teleported the model by however far off-axis it happened to be.
+  //
+  // The hand's rotation moves the anchor, but is never applied to the content's
+  // own orientation — that is what would make a distance grab feel like holding
+  // a fishing rod in a gale.
   _move(ray) {
     const b = this._base;
-    const at = ray.origin.clone().addScaledVector(ray.dir, b.dist);
+    if (!b.off) return;
+    const at = ray.origin.clone().add(b.off.clone().applyQuaternion(ray.quat));
     this.ar.applyPlacement({ hold: b.hold, at, k: b.k, yaw: b.yaw });
   }
 
@@ -118,7 +128,13 @@ export class Grabber {
     dYaw = Math.abs(dYaw) < YAW_DEADZONE ? 0 : dYaw - Math.sign(dYaw) * YAW_DEADZONE;
 
     const at = r1.origin.clone().add(r2.origin).multiplyScalar(0.5);
-    this.ar.applyPlacement({ hold: b.hold, at, k, yaw: b.yaw + dYaw });
+    // MINUS. The yaw is the rig's, and the rig maps reference space to world
+    // space — so the content's apparent rotation in the room is its inverse.
+    // Working it through for a content point c about the pivot:
+    //   q' − at = Rδ⁻¹ (q − at)
+    // i.e. turning the rig by +δ turns what you see by −δ. Twisting your hands
+    // one way and watching the model go the other is exactly this sign.
+    this.ar.applyPlacement({ hold: b.hold, at, k, yaw: b.yaw - dYaw });
   }
 
   // ---- baselines -------------------------------------------------------------
@@ -130,7 +146,10 @@ export class Grabber {
     const p = this.ar.placement;
     if (!p) return;
     this.mode = this.held.size >= 2 ? 'scale' : 'move';
-    this._base = { hold: p.hold.clone(), at: p.at.clone(), k: p.k, yaw: p.yaw, dist: 0, gap: 0, bearing: 0 };
+    // off/gap stay null until rebaseWith has seen a ray. _move and _scale both
+    // refuse to act without them: acting on a zero offset would snap the
+    // content onto the hand, which is the worst thing a grab can do.
+    this._base = { hold: p.hold.clone(), at: p.at.clone(), k: p.k, yaw: p.yaw, off: null, gap: 0, bearing: 0 };
     // Finished in rebaseWith: a pinch event arrives outside the frame loop, and
     // the ray poses only exist inside it.
     this._needRays = true;
@@ -161,14 +180,16 @@ export class Grabber {
       b.hold = mid.clone().applyMatrix4(M).divideScalar(p.k);
     } else {
       const ray = live[0];
+      // Anchor on the surface you pointed at, if you pointed at one. If not —
+      // the hand left over from a two-handed scale, which is aimed at nothing
+      // in particular — anchor on where the content already is. Either way the
+      // offset is taken in the HAND'S frame, so nothing has to lie on the ray
+      // and nothing moves.
       const hit = this._hitContent(ray);
-      // Grabbed distance along the ray. With a hit that is the surface you
-      // pointed at; without one (a hand that joined mid-gesture) keep the
-      // distance the placement already has, which changes nothing.
       const at = hit ? hit.at : p.at.clone();
-      b.dist = hit ? hit.dist : at.distanceTo(ray.origin);
       b.at = at;
       b.hold = at.clone().applyMatrix4(M).divideScalar(p.k);
+      b.off = at.clone().sub(ray.origin).applyQuaternion(ray.quat.clone().invert());
     }
     this._needRays = false;
     this.onChange?.(true);
@@ -189,8 +210,7 @@ export class Grabber {
     const hits = this._ray.intersectObjects(objs, true);
     if (!hits.length) return null;
     const inv = new THREE.Matrix4().copy(M).invert();
-    const at = hits[0].point.clone().applyMatrix4(inv);
-    return { at, dist: at.distanceTo(ray.origin) };
+    return { at: hits[0].point.clone().applyMatrix4(inv) };
   }
 }
 
