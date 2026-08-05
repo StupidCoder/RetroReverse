@@ -28,8 +28,9 @@ import (
 
 type gltf struct {
 	Nodes []struct {
-		Mesh *int   `json:"mesh"`
-		Name string `json:"name"`
+		Mesh   *int         `json:"mesh"`
+		Name   string       `json:"name"`
+		Matrix *[16]float64 `json:"matrix"`
 	} `json:"nodes"`
 	Meshes []struct {
 		Primitives []struct {
@@ -230,10 +231,19 @@ func main() {
 				}
 			}
 			idx := accI(*pr.Indices)
-			// pre-transform vertices of this primitive
+			// pre-transform vertices of this primitive; a node matrix (glTF
+			// column-major: world = M·[p,1]) applies before the MVP
 			vt := make([]vtx, len(pos))
 			okv := make([]bool, len(pos))
 			for i, p := range pos {
+				if m := n.Matrix; m != nil {
+					x, y, z := p[0], p[1], p[2]
+					p = []float64{
+						m[0]*x + m[4]*y + m[8]*z + m[12],
+						m[1]*x + m[5]*y + m[9]*z + m[13],
+						m[2]*x + m[6]*y + m[10]*z + m[14],
+					}
+				}
 				cx := mvp[0]*p[0] + mvp[1]*p[1] + mvp[2]*p[2] + mvp[3]
 				cy := mvp[4]*p[0] + mvp[5]*p[1] + mvp[6]*p[2] + mvp[7]
 				cz := mvp[8]*p[0] + mvp[9]*p[1] + mvp[10]*p[2] + mvp[11]

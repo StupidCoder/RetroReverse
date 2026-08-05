@@ -158,6 +158,13 @@ roadmap.)
   shipped GLB renders the asphalt bar-for-bar. The prop placements fall out too: w4
   is a table of scaled placement matrices, and `cs_CS_*_bin` is the per-segment
   visibility database. *(this document)*
+* **Part XXIX** — **the placement forest**: e0 is a tree of 0x38-byte nodes
+  {flags, sphere, matrixIdx→w4, child, sibling, e2[4 LODs]}; e2 ranges select
+  descriptor runs per pass; the visibility lists are the forest's root sets; world
+  geometry and placed props are the same structure, split only by matrixIdx.
+  carex reimplements the walk: `stage-beac.glb` ships whole — world + 410 placed
+  instances (gantry, palms, grandstands) + `cs_ENV` ring + sky dome — and the
+  race-driving overlay grows them in the game's own pixels. *(this document)*
 
 ---
 
@@ -3473,3 +3480,99 @@ census of old is `e0`'s kind field), and which pair the billboard quads' corner
 expansion actually uses. The `at=` columns, `-watchregs`/`-watchstop`, and carvtx
 reading the machine's own `VshConst` (its private shadow of the constant file lied
 under partial uploads) are the session's instrument dividend.
+
+## Part XXIX — the placement forest, and the course assembles itself
+
+The "binding tables" Part XXVIII left open turn out to be one structure read by
+one function, and everything the dossier had half-named — e0, e2, the w4
+matrices, the visibility ID lists — snaps into a single picture: **the course is
+a forest of placement nodes, and the per-segment visibility lists are its root
+sets.**
+
+### The walker, read end to end
+
+The registry at `0x5AEF80` (`0x8C430`: entry = base + modelId·0x48) resolves a
+model id to `{sectionA, ?, sectionB, nParts, …, partsPtr@+0x20}`; the race
+loads two models — 14 (`obj_othcar`, 445 parts) and 219 (the course, 6 parts,
+sectionA `0x011272E0`, sectionB `0x0399BB80` — both Part XXVIII anchors). The
+runtime "part objects" are the file's own 15-dword part records, pointer-fixed
+in place; the entry header at `w[5]` is the same table as raw offsets, and its
+spans give every count. The full field map, now closed:
+
+| part rec | entry | table | stride | contents |
+|---|---|---|---|---|
+| +0x04 | — | w1 | 4 | per-pair index-buffer descriptor ptr |
+| +0x08 | — | w2 | 0x10 | per-pair vertex-stream descriptors (4 slots) |
+| +0x0C | — | w3 | 0x14 | texture bindings, one per (pair × material) — consumed by `0x1D240` |
+| +0x10 | e[1] | **w4** | 0x40 | **placement matrices**, row-vector, scale in rows, translation in row 3 |
+| +0x14/+0x18 | — | w5/w6 | — | the entry header itself (13 dwords: 9 offsets + {nPairs, nDesc, nMat58, nMat48}) |
+| +0x1C | e[0] | **e0** | 0x38 | **placement-forest nodes** (below) |
+| +0x20 | e[2] | **e2** | 8 | `{firstRange, rangeCount}` |
+| +0x24 | e[3] | ranges | 0x14 | `{pair, firstDesc[2], descCount[2]}` — opaque/blended pass runs |
+| +0x28 | e[4] | descriptors | 0x20 | the 32-byte batch descriptors carex always read |
+| +0x2C | e[5] | draws | 0x10 | the 16-byte draw entries |
+| +0x30 | e[6] | pairs | 0x2C | the pair table |
+| +0x34/+0x38 | e[7]/e[8] | materials | 0x58/0x48 | as the cars established |
+
+An **e0 node** (0x38 bytes) is `{flags, sphere xyzr, ?, ?, matrixIdx, firstChild,
+nextSibling, e2Idx[4]}` — matrixIdx into the part's w4 (−1 = draw in world
+space), children/siblings as node ids, one e2 slot per LOD (`0x12270` picks;
+slot 0 = nearest). The old "part-kind census" values are these flag words: the
+beach's part 2 has kinds 0x41/0x42/0x3 on its 81 world nodes, **0x45 on twelve
+placed prototypes** (palm/gantry/grandstand variants, matrices 0–11, spheres in
+node-local space) and **0x49 on 140 instances** — nodes whose e2 slot points
+back at a prototype's geometry while carrying their own matrix. The shared
+parts-0–2 w4 table is exactly 152 matrices (`0x2BE10 + 152·0x40 = 0x2E410`,
+part 3's table). Flag bit 11 (0x800) marks billboards: `0x13310` composes a
+camera-facing yaw about Y from the camera vectors at `[0x59CA68]` *at enqueue
+time*, so the "billboard corner expansion" of the old notes is nothing of the
+sort — the quad is ordinary geometry under a per-frame yaw matrix. The beach
+course has none; other stages will.
+
+The consumption chain: `0x90A72` (per part, per segment) → `0x13B60` (build a
+0x44-byte command; the visibility record rides at +0x40) → `0x135A0` (expand
+the record's uint16 ids; for each, zap the e0 node's *sibling* link and call…)
+→ `0x13310` (walk one node: mult-push w4[matrixIdx] on the game's matrix stack
+(`0x16B10`), snapshot the top into the command (`0x121F0` — the Part XXVIII
+"matrix lookup" is this stack, not a table), attach `&e2[slot]` and the e0 node
+as the command's range/flags pointers, queue; recurse into children with their
+sibling chains) → `0x137C0`/`0x12010` (drain: upload the matrix array to
+constant slots 6+ (`0x1D5B0`), then ranges → descriptors → draw entries →
+`0x1A9590`). A node without a matrix draws in world space: **the "plain course
+geometry" and the "placed props" are the same forest**, distinguished only by
+matrixIdx.
+
+`cs_ENV_BEAC_bin` answers its own question: same container, same six tables —
+the scenery ring is all world-space nodes gated per segment, placement
+identity. The sky dome (`obj_course_obj_sky_beac`, r ≈ 1800 m) has no bin; the
+game draws it around the camera.
+
+### carex assembles the course
+
+`cmd/carex/stage.go` reimplements the walker offline: parse e0/e2/ranges from
+the entry spans, parse the bin (payload = file+4; table offsets at +8; each
+table's first record offset ÷ 4 = 603 segments), take the union of every
+segment's roots per part, and walk. Matrix-less reachable nodes merge into the
+per-part world node; placed nodes become glTF instance nodes — mesh shared per
+e2 entry (`glb.VariantNode` gained `Matrix`/`MeshKey`/`Extras`), matrix = the
+w4 sixteen floats verbatim (glTF's column-major node matrix and a row-vector
+engine's row-major storage are the same array). Billboard nodes would carry
+extras `{"billboard":"y"}`. Two free cross-checks came out green: every range
+record's own pair field agrees with the stream-cursor pair assignment (the
+Part XXVI bijection, independently confirmed), and every descriptor in the
+file is reachable from the visibility roots.
+
+The shipped `stage-beac.glb` is the whole scene now: 1191 world descriptors +
+**410 placed instances sharing 18 meshes** (the START gantry, traffic lights,
+141 palms, grandstands, barriers, signs), plus the `cs_ENV` ring (471
+descriptors, 11 unreachable — presumably reverse-course leftovers) as `env part
+N` nodes and the sky dome as a `sky` node with extras `{"role":"sky"}` (world
+origin; zero-parallax placement is the viewer's call). `stageverify` grew node
+matrices, and the race-driving overlay now grows the gantry, palms and
+grandstands in the game's own pixels — the empty-shoulder frame of Part XXVIII
+is gone. The re-export also propagates the honest alpha-test ref (1/255) to
+every car GLB, whose shipped copies still carried MASK 0.5.
+
+Still open for the 66-course ship: texture dedup across `fwd`/`_R` variants,
+clean-room display names, the `_BR`-style upper-case bin filenames, and the
+billboard yaw convention in the viewer.

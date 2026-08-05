@@ -37,6 +37,14 @@ type ModelVariant struct {
 }
 
 // VariantNode is one named part of a variant.
+//
+// Matrix, when non-nil, becomes the glTF node's local transform, in glTF's
+// column-major order — which for a row-vector engine (vertex·M, translation in
+// the fourth row) is the engine matrix's own 16 floats in storage order.
+// MeshKey, when non-nil, lets nodes share one mesh: the first node with a
+// given key contributes the geometry, later nodes with an equal key become
+// pure instances of it (their own arrays are ignored). Extras is attached to
+// the node verbatim.
 type VariantNode struct {
 	Name        string
 	Positions   [][3]float32
@@ -46,6 +54,10 @@ type VariantNode struct {
 	Colors      [][4]uint8
 	TexGroups   []TexturedGroup
 	ColorGroups []TriGroup
+
+	Matrix  *[16]float32
+	MeshKey any
+	Extras  map[string]any
 }
 
 // sharedTex tracks image/sampler dedupe across every primitive of a document.
@@ -215,35 +227,49 @@ func WriteVariantScenes(path string, variants []ModelVariant) error {
 	st := &sharedTex{samplerIndex: map[[2]int]int{}, imageIndex: map[image.Image]int{}}
 	var meshes, nodes, scenes []map[string]any
 	var materials []map[string]any
-	addNode := func(name string, positions [][3]float32, uvs, uv2 [][2]float32, normals [][3]float32,
-		colors [][4]uint8, texGroups []TexturedGroup, colorGroups []TriGroup) (int, error) {
-		prims, mats, err := appendTextured(b, st, len(materials), positions, uvs, uv2, normals, colors, texGroups, colorGroups)
-		if err != nil {
-			return -1, err
+	meshByKey := map[any]int{}
+	addNode := func(n VariantNode) (int, error) {
+		mi := -1
+		if n.MeshKey != nil {
+			if have, ok := meshByKey[n.MeshKey]; ok {
+				mi = have
+			}
 		}
-		materials = append(materials, mats...)
-		if len(prims) == 0 {
-			return -1, nil
+		if mi < 0 {
+			prims, mats, err := appendTextured(b, st, len(materials), n.Positions, n.UVs, n.UV2, n.Normals, n.Colors, n.TexGroups, n.ColorGroups)
+			if err != nil {
+				return -1, err
+			}
+			materials = append(materials, mats...)
+			if len(prims) == 0 {
+				return -1, nil
+			}
+			mi = len(meshes)
+			meshes = append(meshes, map[string]any{"primitives": prims, "name": n.Name})
+			if n.MeshKey != nil {
+				meshByKey[n.MeshKey] = mi
+			}
 		}
-		mi, ni := len(meshes), len(nodes)
-		meshes = append(meshes, map[string]any{"primitives": prims, "name": name})
-		nodes = append(nodes, map[string]any{"mesh": mi, "name": name})
+		ni := len(nodes)
+		node := map[string]any{"mesh": mi, "name": n.Name}
+		if n.Matrix != nil {
+			node["matrix"] = n.Matrix[:]
+		}
+		if len(n.Extras) > 0 {
+			node["extras"] = n.Extras
+		}
+		nodes = append(nodes, node)
 		return ni, nil
 	}
 	for _, v := range variants {
 		var sceneNodes []int
-		if len(v.Nodes) > 0 {
-			for _, n := range v.Nodes {
-				ni, err := addNode(n.Name, n.Positions, n.UVs, n.UV2, n.Normals, n.Colors, n.TexGroups, n.ColorGroups)
-				if err != nil {
-					return err
-				}
-				if ni >= 0 {
-					sceneNodes = append(sceneNodes, ni)
-				}
-			}
-		} else {
-			ni, err := addNode(v.Name, v.Positions, v.UVs, v.UV2, v.Normals, v.Colors, v.TexGroups, v.ColorGroups)
+		vnodes := v.Nodes
+		if len(vnodes) == 0 {
+			vnodes = []VariantNode{{Name: v.Name, Positions: v.Positions, Normals: v.Normals,
+				UVs: v.UVs, UV2: v.UV2, Colors: v.Colors, TexGroups: v.TexGroups, ColorGroups: v.ColorGroups}}
+		}
+		for _, n := range vnodes {
+			ni, err := addNode(n)
 			if err != nil {
 				return err
 			}

@@ -69,6 +69,10 @@ type pmt struct {
 	nTex   int
 	a, b   []byte
 	cube   []bool // per texture-bank entry: cube-map flag (set by parseTextures)
+	// vis, when set, is the course's per-segment visibility database (the
+	// cs_*_bin sibling); export then takes the placement-forest path
+	// (stage.go) instead of the flat all-batches one.
+	vis *visBin
 }
 
 func parsePMT(name string, data []byte) (*pmt, error) {
@@ -322,6 +326,10 @@ type part struct {
 	pairs   []bufPair
 	batches []batch
 	mats    []material
+	// descStart/descCount map a 32-byte batch descriptor index to its run of
+	// expanded entries in batches — the unit the placement forest's e2 ranges
+	// address.
+	descStart, descCount []int
 }
 
 // parsePart reads part record p (15 dwords at A+0x18+p*0x3C) and everything it
@@ -431,6 +439,8 @@ func (p *pmt) parsePart(pi int) (*part, error) {
 		d := int(w[10]) + bi*32
 		baseVtx, matIdx := u32(p.a, d), u32(p.a, d+4)
 		drawIdx, drawCount := u32(p.a, d+8), u32(p.a, d+12)
+		pt.descStart = append(pt.descStart, len(pt.batches))
+		pt.descCount = append(pt.descCount, int(drawCount))
 		if drawCount == 0 || drawCount > 64 {
 			return nil, fmt.Errorf("part %d batch %d: draw count %d out of range", pi, bi, drawCount)
 		}
@@ -1520,6 +1530,15 @@ func export(p *pmt, texs []texInfo, outPath string) (string, error) {
 		}
 		return summary, glb.WriteTexturedLit(outPath, v.Positions, v.UVs, v.Normals, v.TexGroups, v.ColorGroups)
 	}
+	// A course with its visibility database exports as the walker draws it:
+	// world geometry + placed instances (stage.go).
+	if p.vis != nil && onlyParts == nil {
+		nodes, summary, err := p.buildStageNodes(texs)
+		if err != nil {
+			return "", err
+		}
+		return summary, glb.WriteVariantScenes(outPath, []glb.ModelVariant{{Name: "car", Nodes: nodes}})
+	}
 	if onlyParts != nil {
 		plan, err := p.plan()
 		if err != nil {
@@ -1860,6 +1879,10 @@ func main() {
 			fmt.Fprintf(os.Stderr, "carex: %s: %v (skipped)\n", f, err)
 			continue
 		}
+		if err := loadVisBin(disc, f, p); err != nil {
+			fmt.Fprintf(os.Stderr, "carex: %s: %v (skipped)\n", f, err)
+			continue
+		}
 		texs, pixBytes, err := p.parseTextures()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "carex: %s: %v (skipped)\n", f, err)
@@ -1988,6 +2011,9 @@ func exportSite(imagePath, siteDir string) {
 		if err != nil {
 			fatal("%s: %v", discPath, err)
 		}
+		if err := loadVisBin(disc, discPath, p); err != nil {
+			fatal("%s: %v", discPath, err)
+		}
 		texs, _, err := p.parseTextures()
 		if err != nil {
 			fatal("%s: %v", discPath, err)
@@ -2052,12 +2078,12 @@ func exportSite(imagePath, siteDir string) {
 	// file and is left out.
 	exportTraffic(disc, b)
 
-	// The first /Stage resident (Part XXVI): the beach course geometry,
-	// world-space as the file carries it, one named node per part, with the
-	// baked vertex colours (COLOR_0) and second UV set (TEXCOORD_1) the
-	// stage layouts declare. The rest of the stage family (objects, env,
-	// collision, spline) is still closed.
-	doOne("/Stage/BEAC/cs_CS_BEAC_pmt.sz", "stage-beac.glb", "Beach (course)", "Courses")
+	// The first /Stage resident (Parts XXVI-XXIX): the beach course assembled
+	// as the game assembles it — world geometry plus the placed-object forest
+	// (palms, gantries, grandstands) under their w4 matrices, the distant
+	// scenery ring, and the sky dome. The rest of the stage family
+	// (collision, spline, fog/sun params) is still closed.
+	exportBeachStage(disc, b)
 
 	if err := b.Write(); err != nil {
 		fatal("%v", err)
