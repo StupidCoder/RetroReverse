@@ -3964,11 +3964,29 @@ waves the flag when clicked. The chain of discoveries:
   ankle height 0.14 above y=0 ground, character axes ≈ world axes — the
   Studio placement is Pos (−4.38, 0, −21.4).
 - **Shipped.** `carex -site` now writes `objects/flagman.glb` (15 rigid
-  parts as nodes, bind-posed, two baked 20 Hz world-TRS clips: `idle` =
+  parts as a NODE HIERARCHY — hip → thigh → shin → foot, chest → arm
+  chains — with two baked 20 Hz local-TRS clips: `idle` =
   ORT_OZI_OZI_STAND_SP_LP looping — he stands arms crossed, shifts, puts a
   hand on his hip — and `hatafuri` = ORT_OZI_OZI_HATA_SP on click) and
   places him in stage-beac. rendersheet learned to compose node TRS
   transforms (and POSE=clip:frame overrides) for animated-node GLBs.
+- **Two lessons the first bake taught.** A flat world-space bake tears
+  limbs apart between keyframes — every part lerps independently along a
+  straight line, and a fast sweep separates the chain mid-interval — so
+  the bake became hierarchical local TRS, which interpolates in joint
+  space and cannot detach. And the wave clips are authored for elevated
+  anchors: HATA_SP performs on the start-gantry deck ~2 m up for 15 of
+  its 16 seconds (jumping down only at the end), and the arcade
+  HATAFURI_00 is up on the arcade signal platform throughout — played at
+  a road placement they read as levitation, so the exporter grounds the
+  wave with a min-filtered baseline (a ±0.5 s running minimum of the
+  lower foot's height, subtracted per frame: the deck section grounds,
+  hops shorter than the window survive, the dismount eases out). The
+  idle's feet also stopped sinking: leg-chain targets only ride the
+  root's excursion upward — a slouching root leaves the feet planted.
+  IK'd limb frames are placed by rotating each bone's BIND frame onto the
+  current segment direction (minimal rotation) instead of rebuilding
+  axes, which keeps mesh roll consistent at the joints.
 
 Open: the CPU cloth sim for the unfurled flag; the LOD parts (skinned
 merged geometry — the full-detail parts ship); exact hermite semantics of

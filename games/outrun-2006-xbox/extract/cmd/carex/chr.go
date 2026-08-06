@@ -666,7 +666,13 @@ func (rg *chrRig) evalPose(clip *chrClip, frame float32) []mat4 {
 		if chs[5] != nil {
 			tgt[2] = chs[5].eval(frame)
 		}
-		tgt = v3add(tgt, rootDelta)
+		ride := rootDelta
+		if strings.Contains(sk.bones[eff].name, "sune") && ride[1] < 0 {
+			// the feet stay planted when the root slouches; they only ride
+			// the root UP (the wave clips carry the whole body)
+			ride[1] = 0
+		}
+		tgt = v3add(tgt, ride)
 		rg.solveChain(world, ci, joints, eff, tgt)
 		// re-propagate below the solved bones
 		for _, j := range append(append([]int{}, joints...), eff) {
@@ -748,8 +754,13 @@ func (rg *chrRig) solveChain(world []mat4, root int, joints []int, eff int, tgt 
 		}
 		off = v3norm(off)
 		elbow := v3add(v3add(p0, v3scale(dn, a)), v3scale(off, h))
-		world[j1] = frameAt(p0, elbow, world[j1])
-		world[j2] = frameAt(elbow, tgt, world[j2])
+		// orient each limb by rotating its BIND frame onto the current
+		// segment direction (minimal rotation) — keeps the mesh's roll and
+		// secondary axes consistent with the bind instead of rebuilding
+		// frames from scratch
+		bp := effBindProxy(rg.sk, eff)
+		world[j1] = alignBind(p0, v3sub(elbow, p0), v3sub(mPos(b2), mPos(b1)), b1)
+		world[j2] = alignBind(elbow, v3sub(tgt, elbow), v3sub(mPos(rg.desc.bind[bp]), mPos(b2)), b2)
 		m := stripPos(world[j2])
 		m[0][3], m[1][3], m[2][3] = tgt[0], tgt[1], tgt[2]
 		world[eff] = m
@@ -840,6 +851,46 @@ func effBindProxy(sk *chrSkeleton, eff int) int {
 func stripPos(m mat4) mat4 {
 	m[0][3], m[1][3], m[2][3] = 0, 0, 0
 	return m
+}
+
+// alignBind places bind frame B at p, rotated by the minimal rotation that
+// carries the bind-pose segment direction onto the current one.
+func alignBind(p, curDir, bindDir [3]float32, B mat4) mat4 {
+	f := v3norm(bindDir)
+	t := v3norm(curDir)
+	axis := v3cross(f, t)
+	sn := v3len(axis)
+	cs := v3dot(f, t)
+	var R mat4
+	if sn < 1e-6 {
+		R = mIdent()
+		if cs < 0 {
+			// opposite: rotate π about any perpendicular
+			perp := v3cross(f, [3]float32{0, 1, 0})
+			if v3len(perp) < 1e-5 {
+				perp = v3cross(f, [3]float32{1, 0, 0})
+			}
+			R = axisAngle(v3norm(perp), math.Pi)
+		}
+	} else {
+		R = axisAngle(v3scale(axis, 1/sn), math.Atan2(float64(sn), float64(cs)))
+	}
+	m := mMul(R, stripPos(B))
+	m[0][3], m[1][3], m[2][3] = p[0], p[1], p[2]
+	return m
+}
+
+// axisAngle builds a rotation about a unit axis.
+func axisAngle(u [3]float32, ang float64) mat4 {
+	c, sn := float32(math.Cos(ang)), float32(math.Sin(ang))
+	x, y, z := u[0], u[1], u[2]
+	ic := 1 - c
+	return mat4{
+		{c + x*x*ic, x*y*ic - z*sn, x*z*ic + y*sn, 0},
+		{y*x*ic + z*sn, c + y*y*ic, y*z*ic - x*sn, 0},
+		{z*x*ic - y*sn, z*y*ic + x*sn, c + z*z*ic, 0},
+		{0, 0, 0, 1},
+	}
 }
 
 // frameAt builds a frame at p with +x toward q, keeping the reference
@@ -1219,9 +1270,12 @@ func chrPartPrims(model *pmt, texs []texInfo, pi int) ([]glb.Prim, error) {
 	return out, nil
 }
 
-// chrExportGLB writes the animated flagman GLB: one node per rigid attach
-// part, posed at bind, with world-baked TRS clips (idle looping + the flag
-// wave).
+// chrExportGLB writes the animated flagman GLB. The geometry-bone nodes
+// form a HIERARCHY (hip → thigh → shin → foot, chest → arm chain …) and the
+// clips carry per-node LOCAL TRS — interpolating locals keeps every limb
+// attached between keyframes, which a flat world-space bake cannot (parts
+// lerp along straight lines and a fast sweep tears the chain apart
+// mid-interval; the first shipped bake did exactly that).
 func chrExportGLB(disc *xbox.Image, outPath string, conv poseConv) error {
 	cd, err := loadFlagman(disc)
 	if err != nil {
@@ -1229,24 +1283,58 @@ func chrExportGLB(disc *xbox.Image, outPath string, conv poseConv) error {
 	}
 	rg := &chrRig{sk: cd.sk, desc: cd.desc, conv: conv}
 
-	// attach parts sorted for stable node order
+	// geometry bones parented by nearest geometry ancestor
+	byName := map[string]int{}
+	for i, b := range cd.sk.bones {
+		byName[b.name] = i
+	}
+	geomParent := func(bone int) int {
+		p := cd.sk.bones[bone].parent
+		for p >= 0 {
+			if _, ok := cd.desc.bind[p]; ok {
+				if _, isGeom := cd.desc.attach[p]; isGeom {
+					return p
+				}
+			}
+			p = cd.sk.bones[p].parent
+		}
+		return -1
+	}
+
+	// attach parts sorted for stable node order; parents before children
 	type pb struct{ part, bone int }
 	var parts []pb
 	for b, p := range cd.desc.attach {
 		parts = append(parts, pb{p, b})
 	}
 	sort.Slice(parts, func(i, j int) bool { return parts[i].part < parts[j].part })
+	order := make([]pb, 0, len(parts))
+	added := map[int]bool{}
+	for len(order) < len(parts) {
+		for _, x := range parts {
+			if added[x.bone] {
+				continue
+			}
+			if gp := geomParent(x.bone); gp == -1 || added[gp] {
+				order = append(order, x)
+				added[x.bone] = true
+			}
+		}
+	}
 
 	s := glb.NewScene()
 	root := s.AddNode("flagman", -1, [3]float32{}, [4]float32{0, 0, 0, 1}, [3]float32{1, 1, 1})
 	nodes := map[int]int{} // bone -> node
-	for _, x := range parts {
-		bind, ok := cd.desc.bind[x.bone]
-		if !ok {
-			continue
+	for _, x := range order {
+		bind := cd.desc.bind[x.bone]
+		local := bind
+		parentNode := root
+		if gp := geomParent(x.bone); gp >= 0 {
+			local = mMul(mInv(cd.desc.bind[gp]), bind)
+			parentNode = nodes[gp]
 		}
 		name := cd.sk.bones[x.bone].name
-		n := s.AddNode(name, root, mPos(bind), mQuat(bind), [3]float32{1, 1, 1})
+		n := s.AddNode(name, parentNode, mPos(local), mQuat(local), [3]float32{1, 1, 1})
 		prims, err := chrPartPrims(cd.model, cd.texs, x.part)
 		if err != nil {
 			return err
@@ -1258,8 +1346,8 @@ func chrExportGLB(disc *xbox.Image, outPath string, conv poseConv) error {
 	}
 
 	const fps = 60.0
-	const step = 3 // sample every 3 frames (20 Hz)
-	bake := func(clipName, asName string) error {
+	const step = 3 // sample every 3 frames (20 Hz; locals interpolate cleanly)
+	bake := func(clipName, asName string, ground bool) error {
 		clip := cd.clip(clipName)
 		if clip == nil {
 			return fmt.Errorf("clip %s not found", clipName)
@@ -1274,12 +1362,21 @@ func chrExportGLB(disc *xbox.Image, outPath string, conv poseConv) error {
 		// close the loop exactly at the final frame
 		times = append(times, float32(clip.frames-1)/fps)
 		frames = append(frames, float32(clip.frames-1))
+		worlds := make([][]mat4, len(frames))
+		for i, fr := range frames {
+			worlds[i] = rg.evalPose(clip, fr)
+		}
+		if ground {
+			groundBaseline(worlds, cd, byName)
+		}
 		rot := map[int][][4]float32{}
 		trn := map[int][][3]float32{}
-		for _, fr := range frames {
-			world := rg.evalPose(clip, fr)
+		for _, world := range worlds {
 			for b := range nodes {
 				m := world[b]
+				if gp := geomParent(b); gp >= 0 {
+					m = mMul(mInv(world[gp]), world[b])
+				}
 				rot[b] = append(rot[b], mQuat(m))
 				trn[b] = append(trn[b], mPos(m))
 			}
@@ -1300,13 +1397,49 @@ func chrExportGLB(disc *xbox.Image, outPath string, conv poseConv) error {
 		c.Finish()
 		return nil
 	}
-	if err := bake("ORT_OZI_OZI_STAND_SP_LP", "idle"); err != nil {
+	if err := bake("ORT_OZI_OZI_STAND_SP_LP", "idle", false); err != nil {
 		return err
 	}
-	if err := bake("ORT_OZI_OZI_HATA_SP", "hatafuri"); err != nil {
+	if err := bake("ORT_OZI_OZI_HATA_SP", "hatafuri", true); err != nil {
 		return err
 	}
 	return s.Write(outPath, "flagman")
+}
+
+// groundBaseline shifts each frame of a baked clip down by a min-filtered
+// baseline so the lowest foot tracks the ground. HATA_SP is authored for
+// the start-gantry anchor — the old man performs the whole wave on the deck
+// ~2 m up and jumps down at the end. The Studio places him on the road, so
+// the baseline (a ±0.5 s running minimum of the lower foot's height above
+// ankle rest) is removed: hops shorter than the window survive, the deck
+// section grounds, and the final dismount eases out instead of falling two
+// metres. A presentation choice, documented, not part of the decode.
+func groundBaseline(worlds [][]mat4, cd *chrData, byName map[string]int) {
+	al, ar := byName["asi_l"], byName["asi_r"]
+	n := len(worlds)
+	raw := make([]float32, n)
+	for i, w := range worlds {
+		fl, fr := w[al][1][3], w[ar][1][3]
+		if fr < fl {
+			fl = fr
+		}
+		raw[i] = fl - 0.14 // height of the lower ankle above its rest
+	}
+	const win = 10 // ±10 keys at 20 Hz = ±0.5 s
+	for i := range worlds {
+		base := raw[i]
+		for j := i - win; j <= i+win; j++ {
+			if j >= 0 && j < n && raw[j] < base {
+				base = raw[j]
+			}
+		}
+		if base < 0 {
+			base = 0
+		}
+		for b := range worlds[i] {
+			worlds[i][b][1][3] -= base
+		}
+	}
 }
 
 // chrPoseDebug prints key bone world positions of a clip at given frames.
