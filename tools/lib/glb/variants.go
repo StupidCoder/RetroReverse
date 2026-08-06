@@ -189,7 +189,7 @@ func appendTextured(b *builder, st *sharedTex, matBase int,
 		}
 		prims = append(prims, prim)
 		mat := unlitMaterial(g.Color, g.alphaOr1(), !g.SingleSided)
-		if g.Additive {
+		if g.Additive || g.Blend {
 			mat["alphaMode"] = "BLEND"
 		}
 		if extras := groupExtras(g.Additive, g.Sheen); extras != nil {

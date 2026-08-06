@@ -3819,3 +3819,28 @@ gantry, get the card with the object's name and its forest coordinates (part,
 node id, w4 index) and an "Open object" link into the object viewer.
 Billboard instances stay in the course layer, where the per-frame yaw updater
 animates them.
+
+### The blend modes, decoded from the state routine
+
+The opaque shadows were an export gap, and closing it decoded the material
+stateKey for real (state routine `0x15B90`):
+
+- **byte 1's nibbles are the blend factors** — indices into a 16-entry GL
+  enum table at `0x248B54` (low nibble → NV2A SFACTOR method 0x0344, high →
+  DFACTOR 0x0348). `0x54` = SRC_ALPHA / ONE_MINUS_SRC_ALPHA — every stage
+  material carries standard alpha blending, gated by the pass; `0x14` =
+  SRC_ALPHA / ONE (the additive pin, reconfirmed from the other end).
+- **byte 0 is a toggle byte**: bit 1 drives the alpha-state pair 0x900/0x901
+  (the same ids the drain pushes per pass), bit 3 enables a **decal depth
+  bias** — `0x1A80E0((key>>23)&0xF)` loads a negated, scaled level into
+  vertex-shader constants 0x4D–0x4F; the palm shadow uses level 8, which is
+  why it never z-fights the road it lies on.
+- The blend *enable* is not in the material at all — it is the two-pass
+  split the range records already encode: `{first[2], count[2]}` is
+  {opaque pass, blended pass}, and the shadow decals live entirely in
+  pass 1.
+
+The export now carries that split: pass-1 descriptors emit as alpha-BLEND
+material groups (`TriGroup`/`TexturedGroup.Blend`), so the palm and gantry
+shadows finally render as translucent decals over the road instead of
+opaque grey cutouts — across all 30 courses and the placed objects alike.

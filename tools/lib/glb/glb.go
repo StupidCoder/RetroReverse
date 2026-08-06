@@ -113,6 +113,7 @@ type TriGroup struct {
 	Alpha       float32
 	SingleSided bool
 	Additive    bool
+	Blend       bool // alpha blend (the source's translucent pass) even at Alpha 1
 	Sheen       bool
 }
 

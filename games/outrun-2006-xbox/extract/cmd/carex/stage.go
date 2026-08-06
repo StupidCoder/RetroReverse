@@ -743,8 +743,11 @@ func (p *pmt) buildStageNodes(texs []texInfo, extractPlacements bool) ([]glb.Var
 		// of it at the end.
 		pool := newStagePool(p, pt)
 
-		// e2 entry -> descriptor list (both passes), with the range records'
-		// own pair field checked against the assignment the stream walk made.
+		// e2 entry -> descriptor list, each entry encoded desc*2+pass: the
+		// range records split every node's draws into the opaque pass (0) and
+		// the blended pass (1) — the game's alpha-blend enable IS this split
+		// (the shadow decals live entirely in pass 1, stateKey byte 0x54 =
+		// SRC_ALPHA/ONE_MINUS_SRC_ALPHA once the pass enables blending).
 		descsOf := func(e2i int) ([]int, error) {
 			pr := sp.e2[e2i]
 			var descs []int
@@ -759,7 +762,7 @@ func (p *pmt) buildStageNodes(texs []texInfo, extractPlacements bool) ([]glb.Var
 						if int(d) >= len(pt.descStart) {
 							return nil, fmt.Errorf("part %d e2 %d: descriptor %d out of %d", pi, e2i, d, len(pt.descStart))
 						}
-						descs = append(descs, int(d))
+						descs = append(descs, int(d)*2+pass)
 					}
 				}
 			}
@@ -851,11 +854,11 @@ func (p *pmt) buildStageNodes(texs []texInfo, extractPlacements bool) ([]glb.Var
 		sort.Ints(descs)
 		refd := map[int]bool{}
 		for _, d := range descs {
-			refd[d] = true
+			refd[d>>1] = true
 		}
 		for _, il := range instMesh {
 			for _, d := range il {
-				refd[d] = true
+				refd[d>>1] = true
 			}
 		}
 		nUnref += len(pt.descStart) - len(refd)
@@ -977,18 +980,19 @@ func newStagePool(p *pmt, pt *part) *stagePool {
 // Returns nil when the descriptor list is empty.
 func (sp *stagePool) node(name string, descs []int, texs []texInfo) *glb.VariantNode {
 	type texKey struct {
-		tex             int
-		additive, sheen bool
-		wrapS, wrapT    int
+		tex                    int
+		additive, blend, sheen bool
+		wrapS, wrapT           int
 	}
 	type colKey struct {
-		rgba            [4]int
-		additive, sheen bool
+		rgba                   [4]int
+		additive, blend, sheen bool
 	}
 	texTris := map[texKey][][3]uint32{}
 	colorTris := map[colKey][][3]uint32{}
 	p, pt := sp.p, sp.pt
-	for _, d := range descs {
+	for _, enc := range descs {
+		d, blend := enc>>1, enc&1 == 1
 		for k := pt.descStart[d]; k < pt.descStart[d]+pt.descCount[d]; k++ {
 			b := pt.batches[k]
 			bp := pt.pairs[b.pair]
@@ -1005,10 +1009,10 @@ func (sp *stagePool) node(name string, descs []int, texs []texInfo) *glb.Variant
 			tris := triangulate(b.prim, raw)
 			m := pt.mats[b.matIdx]
 			if m.texIdx >= 0 && texs[m.texIdx].img != nil && !texs[m.texIdx].cube {
-				key := texKey{m.texIdx, m.additive, m.sheen, m.wrapS, m.wrapT}
+				key := texKey{m.texIdx, m.additive, blend && !m.additive, m.sheen, m.wrapS, m.wrapT}
 				texTris[key] = append(texTris[key], tris...)
 			} else {
-				key := colKey{[4]int{int(m.diffuse[0] * 255), int(m.diffuse[1] * 255), int(m.diffuse[2] * 255), int(m.alpha * 255)}, m.additive, m.sheen}
+				key := colKey{[4]int{int(m.diffuse[0] * 255), int(m.diffuse[1] * 255), int(m.diffuse[2] * 255), int(m.alpha * 255)}, m.additive, blend && !m.additive, m.sheen}
 				colorTris[key] = append(colorTris[key], tris...)
 			}
 		}
@@ -1055,13 +1059,16 @@ func (sp *stagePool) node(name string, descs []int, texs []texInfo) *glb.Variant
 		if a.additive != b.additive {
 			return !a.additive
 		}
+		if a.blend != b.blend {
+			return !a.blend
+		}
 		return !a.sheen && b.sheen
 	})
 	var texGroups []glb.TexturedGroup
 	for _, k := range tkeys {
 		texGroups = append(texGroups, glb.TexturedGroup{
 			Tris: remapTris(texTris[k]), Image: texs[k.tex].img, WrapS: k.wrapS, WrapT: k.wrapT,
-			Additive: k.additive, Sheen: k.sheen,
+			Additive: k.additive, Blend: k.blend, Sheen: k.sheen,
 			// The game's own alpha test: ref 0x01 (see buildVariant).
 			AlphaCutoff: 1.0 / 255,
 		})
@@ -1082,6 +1089,9 @@ func (sp *stagePool) node(name string, descs []int, texs []texInfo) *glb.Variant
 		if a.additive != b.additive {
 			return !a.additive
 		}
+		if a.blend != b.blend {
+			return !a.blend
+		}
 		return !a.sheen && b.sheen
 	})
 	var colorGroups []glb.TriGroup
@@ -1091,6 +1101,7 @@ func (sp *stagePool) node(name string, descs []int, texs []texInfo) *glb.Variant
 			Color:    [3]float32{float32(k.rgba[0]) / 255, float32(k.rgba[1]) / 255, float32(k.rgba[2]) / 255},
 			Alpha:    float32(k.rgba[3]) / 255,
 			Additive: k.additive,
+			Blend:    k.blend,
 			Sheen:    k.sheen,
 		})
 	}
@@ -1230,7 +1241,7 @@ func (p *pmt) exportNodes(texs []texInfo, spec, outDir string) error {
 			for pass := 0; pass < 2; pass++ {
 				f, c := rec[1+pass], rec[3+pass]
 				for d := f; d < f+c && int(d) < len(pt.descStart); d++ {
-					descs = append(descs, int(d))
+					descs = append(descs, int(d)*2+pass)
 				}
 			}
 		}
