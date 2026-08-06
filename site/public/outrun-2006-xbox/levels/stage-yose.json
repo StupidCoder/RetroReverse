@@ -17,7 +17,9 @@
   "layers": [
    {
     "id": "course",
+    "name": "Course",
     "file": "stage-yose.glb",
+    "mode": "toggle",
     "envMap": ["stage-yose-env-px.png", "stage-yose-env-nx.png", "stage-yose-env-py.png", "stage-yose-env-ny.png", "stage-yose-env-pz.png", "stage-yose-env-nz.png"]
    },
    {
@@ -25,6 +27,7 @@
     "name": "Distant scenery",
     "file": "stage-yose-env.glb",
     "mode": "toggle",
+    "visible": false,
     "renderOrder": -0.5,
     "polygonOffset": 4
    },

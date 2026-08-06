@@ -17,7 +17,9 @@
   "layers": [
    {
     "id": "course",
+    "name": "Course",
     "file": "stage-cast.glb",
+    "mode": "toggle",
     "envMap": ["stage-cast-env-px.png", "stage-cast-env-nx.png", "stage-cast-env-py.png", "stage-cast-env-ny.png", "stage-cast-env-pz.png", "stage-cast-env-nz.png"]
    },
    {
@@ -25,6 +27,7 @@
     "name": "Distant scenery",
     "file": "stage-cast-env.glb",
     "mode": "toggle",
+    "visible": false,
     "renderOrder": -0.5,
     "polygonOffset": 4
    },

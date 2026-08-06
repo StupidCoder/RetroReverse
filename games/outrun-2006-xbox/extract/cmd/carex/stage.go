@@ -371,10 +371,14 @@ func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]
 	dx, dy, dz := float64(mx[0]-mn[0]), float64(mx[1]-mn[1]), float64(mx[2]-mn[2])
 	diag := math.Sqrt(dx*dx + dy*dy + dz*dz)
 	depthOff := false
-	layers := []schema.Layer{{ID: "course", File: id + ".glb", EnvMap: envMap}}
+	// Both scenery layers are toggles: the far-world replica is off by
+	// default (it exists to be covered by the near detail; on its own it
+	// clashes), and the course itself can be switched off to inspect it.
+	envOff := false
+	layers := []schema.Layer{{ID: "course", Name: "Course", File: id + ".glb", Mode: "toggle", EnvMap: envMap}}
 	if envGLB != "" {
 		layers = append(layers, schema.Layer{ID: "env", Name: "Distant scenery", File: envGLB,
-			Mode: "toggle", RenderOrder: -0.5, PolygonOffset: 4})
+			Mode: "toggle", Visible: &envOff, RenderOrder: -0.5, PolygonOffset: 4})
 	}
 	if skyGLB != "" {
 		layers = append(layers, schema.Layer{ID: "sky", Name: "Sky", File: skyGLB, Mode: "toggle",

@@ -17,7 +17,9 @@
   "layers": [
    {
     "id": "course",
+    "name": "Course",
     "file": "stage-metr.glb",
+    "mode": "toggle",
     "envMap": ["stage-metr-env-px.png", "stage-metr-env-nx.png", "stage-metr-env-py.png", "stage-metr-env-ny.png", "stage-metr-env-pz.png", "stage-metr-env-nz.png"]
    },
    {
@@ -25,6 +27,7 @@
     "name": "Distant scenery",
     "file": "stage-metr-env.glb",
     "mode": "toggle",
+    "visible": false,
     "renderOrder": -0.5,
     "polygonOffset": 4
    },

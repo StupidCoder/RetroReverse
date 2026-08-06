@@ -17,7 +17,9 @@
   "layers": [
    {
     "id": "course",
+    "name": "Course",
     "file": "stage-sanf.glb",
+    "mode": "toggle",
     "envMap": ["stage-sanf-env-px.png", "stage-sanf-env-nx.png", "stage-sanf-env-py.png", "stage-sanf-env-ny.png", "stage-sanf-env-pz.png", "stage-sanf-env-nz.png"]
    },
    {
@@ -25,6 +27,7 @@
     "name": "Distant scenery",
     "file": "stage-sanf-env.glb",
     "mode": "toggle",
+    "visible": false,
     "renderOrder": -0.5,
     "polygonOffset": 4
    },

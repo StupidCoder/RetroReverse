@@ -17,7 +17,9 @@
   "layers": [
    {
     "id": "course",
+    "name": "Course",
     "file": "stage-alpi.glb",
+    "mode": "toggle",
     "envMap": ["stage-alpi-env-px.png", "stage-alpi-env-nx.png", "stage-alpi-env-py.png", "stage-alpi-env-ny.png", "stage-alpi-env-pz.png", "stage-alpi-env-nz.png"]
    },
    {
@@ -25,6 +27,7 @@
     "name": "Distant scenery",
     "file": "stage-alpi-env.glb",
     "mode": "toggle",
+    "visible": false,
     "renderOrder": -0.5,
     "polygonOffset": 4
    },

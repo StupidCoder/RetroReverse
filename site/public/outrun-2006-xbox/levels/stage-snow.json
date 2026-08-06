@@ -17,7 +17,9 @@
   "layers": [
    {
     "id": "course",
+    "name": "Course",
     "file": "stage-snow.glb",
+    "mode": "toggle",
     "envMap": ["stage-snow-env-px.png", "stage-snow-env-nx.png", "stage-snow-env-py.png", "stage-snow-env-ny.png", "stage-snow-env-pz.png", "stage-snow-env-nz.png"]
    },
    {
@@ -25,6 +27,7 @@
     "name": "Distant scenery",
     "file": "stage-snow-env.glb",
     "mode": "toggle",
+    "visible": false,
     "renderOrder": -0.5,
     "polygonOffset": 4
    },

@@ -17,7 +17,9 @@
   "layers": [
    {
     "id": "course",
+    "name": "Course",
     "file": "stage-amaz.glb",
+    "mode": "toggle",
     "envMap": ["stage-amaz-env-px.png", "stage-amaz-env-nx.png", "stage-amaz-env-py.png", "stage-amaz-env-ny.png", "stage-amaz-env-pz.png", "stage-amaz-env-nz.png"]
    },
    {
@@ -25,6 +27,7 @@
     "name": "Distant scenery",
     "file": "stage-amaz-env.glb",
     "mode": "toggle",
+    "visible": false,
     "renderOrder": -0.5,
     "polygonOffset": 4
    },

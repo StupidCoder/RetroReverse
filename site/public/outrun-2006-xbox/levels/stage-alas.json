@@ -17,7 +17,9 @@
   "layers": [
    {
     "id": "course",
+    "name": "Course",
     "file": "stage-alas.glb",
+    "mode": "toggle",
     "envMap": ["stage-alas-env-px.png", "stage-alas-env-nx.png", "stage-alas-env-py.png", "stage-alas-env-ny.png", "stage-alas-env-pz.png", "stage-alas-env-nz.png"]
    },
    {
@@ -25,6 +27,7 @@
     "name": "Distant scenery",
     "file": "stage-alas-env.glb",
     "mode": "toggle",
+    "visible": false,
     "renderOrder": -0.5,
     "polygonOffset": 4
    },

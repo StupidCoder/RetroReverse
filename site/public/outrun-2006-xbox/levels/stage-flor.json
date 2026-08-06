@@ -17,7 +17,9 @@
   "layers": [
    {
     "id": "course",
+    "name": "Course",
     "file": "stage-flor.glb",
+    "mode": "toggle",
     "envMap": ["stage-flor-env-px.png", "stage-flor-env-nx.png", "stage-flor-env-py.png", "stage-flor-env-ny.png", "stage-flor-env-pz.png", "stage-flor-env-nz.png"]
    },
    {
@@ -25,6 +27,7 @@
     "name": "Distant scenery",
     "file": "stage-flor-env.glb",
     "mode": "toggle",
+    "visible": false,
     "renderOrder": -0.5,
     "polygonOffset": 4
    },

@@ -17,13 +17,16 @@
   "layers": [
    {
     "id": "course",
-    "file": "stage-fore.glb"
+    "name": "Course",
+    "file": "stage-fore.glb",
+    "mode": "toggle"
    },
    {
     "id": "env",
     "name": "Distant scenery",
     "file": "stage-fore-env.glb",
     "mode": "toggle",
+    "visible": false,
     "renderOrder": -0.5,
     "polygonOffset": 4
    },

@@ -17,7 +17,9 @@
   "layers": [
    {
     "id": "course",
+    "name": "Course",
     "file": "stage-newy.glb",
+    "mode": "toggle",
     "envMap": ["stage-newy-env-px.png", "stage-newy-env-nx.png", "stage-newy-env-py.png", "stage-newy-env-ny.png", "stage-newy-env-pz.png", "stage-newy-env-nz.png"]
    },
    {
@@ -25,6 +27,7 @@
     "name": "Distant scenery",
     "file": "stage-newy-env.glb",
     "mode": "toggle",
+    "visible": false,
     "renderOrder": -0.5,
     "polygonOffset": 4
    },
