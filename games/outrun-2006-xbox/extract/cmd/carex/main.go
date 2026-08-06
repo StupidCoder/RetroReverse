@@ -1807,6 +1807,8 @@ func main() {
 	outDir := flag.String("o", "out", "output directory")
 	dumpTex := flag.Bool("dumptex", false, "also write each decoded texture as PNG")
 	insp := flag.Bool("inspect", false, "print part/batch/material tables instead of exporting")
+	forest := flag.Bool("forest", false, "print a course's placement forest (e0 nodes) instead of exporting")
+	nodesFlag := flag.String("nodes", "", "part:id,... — export each named forest node as its own GLB (diagnostic)")
 	partsFlag := flag.String("parts", "", "comma-separated part indices: export only these parts (diagnostic)")
 	site := flag.String("site", "", "Studio export: write the curated roster + manifest.json under this directory")
 	flag.Parse()
@@ -1886,6 +1888,19 @@ func main() {
 		texs, pixBytes, err := p.parseTextures()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "carex: %s: %v (skipped)\n", f, err)
+			continue
+		}
+		if *forest {
+			fmt.Printf("== %s: %d parts ==\n", f, p.nParts)
+			if err := p.inspectForest(); err != nil {
+				fmt.Fprintf(os.Stderr, "carex: %s: forest: %v\n", f, err)
+			}
+			continue
+		}
+		if *nodesFlag != "" {
+			if err := p.exportNodes(texs, *nodesFlag, *outDir); err != nil {
+				fmt.Fprintf(os.Stderr, "carex: %s: nodes: %v\n", f, err)
+			}
 			continue
 		}
 		if *insp {

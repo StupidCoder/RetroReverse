@@ -418,6 +418,8 @@ func loadVisBin(disc *xbox.Image, discPath string, p *pmt) error {
 type e0Node struct {
 	flags     uint32     // bit0/1 pass-ish kind bits, bit2 has-matrix, bit3 instance, bit6 render-state group, bit11 billboard
 	sphere    [4]float32 // bounding sphere, node-local when placed
+	f14       uint32     // undecoded (+0x14)
+	f18       int32      // undecoded (+0x18)
 	matrixIdx int32      // into the part's w4 table, -1 = none (world space)
 	child     int32      // first child node id, -1 = none
 	sibling   int32      // next sibling node id, -1 = end
@@ -463,6 +465,8 @@ func (p *pmt) parsePlacements(pi int) (*stagePart, error) {
 	for off := e[0]; off < e[2]; off += 0x38 {
 		n := e0Node{
 			flags:     u32(p.a, off),
+			f14:       u32(p.a, off+0x14),
+			f18:       i32(p.a, off+0x18),
 			matrixIdx: i32(p.a, off+0x1C),
 			child:     i32(p.a, off+0x20),
 			sibling:   i32(p.a, off+0x24),
@@ -515,10 +519,13 @@ func mulRowVec(a, b [16]float32) [16]float32 {
 }
 
 // visBin is the decoded cs_*_bin visibility database: per part, the union of
-// node ids any of the course's 8-metre segments lists.
+// node ids any of the course's 8-metre segments lists, and per node the
+// segments that list it — the game's own record of where each version of an
+// object is meant to be seen (the LOD system lives here, not in the nodes).
 type visBin struct {
 	nSeg  int
 	roots [][]int
+	segs  []map[int][]int // per part: node id -> listing segments
 }
 
 // parseVisBin opens the decompressed cs_*_bin: {size, 0, 0} then table
@@ -547,7 +554,7 @@ func parseVisBin(data []byte, nParts int) (*visBin, error) {
 		} else if nSeg != v.nSeg {
 			return nil, fmt.Errorf("bin: table %d has %d segments, table 0 has %d", t, nSeg, v.nSeg)
 		}
-		seen := map[int]bool{}
+		seen := map[int][]int{}
 		for s := 0; s < nSeg; s++ {
 			ro := base + int(u32(pay, base+4*s))
 			for {
@@ -559,7 +566,7 @@ func parseVisBin(data []byte, nParts int) (*visBin, error) {
 				if id == 0xFFFF {
 					break
 				}
-				seen[int(id)] = true
+				seen[int(id)] = append(seen[int(id)], s)
 			}
 		}
 		ids := make([]int, 0, len(seen))
@@ -568,8 +575,94 @@ func parseVisBin(data []byte, nParts int) (*visBin, error) {
 		}
 		sort.Ints(ids)
 		v.roots = append(v.roots, ids)
+		v.segs = append(v.segs, seen)
 	}
 	return v, nil
+}
+
+// worldCentre is a node's bounding-sphere centre in world space (placed
+// nodes carry their sphere in node-local space), with the matrix's scale
+// applied to the radius.
+func (sp *stagePart) worldSphere(p *pmt, n *e0Node) ([3]float32, float32) {
+	c := [3]float32{n.sphere[0], n.sphere[1], n.sphere[2]}
+	r := n.sphere[3]
+	if n.matrixIdx < 0 {
+		return c, r
+	}
+	m, err := sp.matrix(p, int(n.matrixIdx))
+	if err != nil {
+		return c, r
+	}
+	w := [3]float32{
+		c[0]*m[0] + c[1]*m[4] + c[2]*m[8] + m[12],
+		c[0]*m[1] + c[1]*m[5] + c[2]*m[9] + m[13],
+		c[0]*m[2] + c[1]*m[6] + c[2]*m[10] + m[14],
+	}
+	scale := float32(math.Sqrt(float64(m[0]*m[0] + m[1]*m[1] + m[2]*m[2])))
+	if scale > 0 {
+		r *= scale
+	}
+	return w, r
+}
+
+// lodUnit is one drawable root in the dedup pass.
+type lodUnit struct {
+	part, id   int
+	centre     [3]float32
+	r          float32
+	opaqueTris int
+	totalTris  int
+}
+
+// dropLowLOD finds co-located pairs of similar extent where one carries a
+// small fraction of the other's triangle density and drops the sparse one —
+// the coarse backing shells and impostors the game draws UNDER its detailed
+// geometry (the METR city shells share 94-100%% of their segments with the
+// detailed versions, so the per-segment lists cannot separate them; density
+// can). Only opaque-dominant nodes are dropped: translucent overlays (decals,
+// glows) legitimately share space with what they decorate.
+func dropLowLOD(units []lodUnit) map[[2]int]bool {
+	dropped := map[[2]int]bool{}
+	for i := range units {
+		a := &units[i]
+		if a.r < 3 || a.totalTris == 0 || a.opaqueTris*2 < a.totalTris {
+			continue
+		}
+		da := float64(a.totalTris) / float64(a.r*a.r+1)
+		for j := range units {
+			if i == j {
+				continue
+			}
+			b := &units[j]
+			if b.r < 3 || b.totalTris == 0 {
+				continue
+			}
+			ratio := a.r / b.r
+			if ratio < 0.5 || ratio > 2 {
+				continue
+			}
+			dx := float64(a.centre[0] - b.centre[0])
+			dy := float64(a.centre[1] - b.centre[1])
+			dz := float64(a.centre[2] - b.centre[2])
+			d := math.Sqrt(dx*dx + dy*dy + dz*dz)
+			if d >= 0.3*float64(min32(a.r, b.r)) {
+				continue
+			}
+			db := float64(b.totalTris) / float64(b.r*b.r+1)
+			if da*2.5 < db {
+				dropped[[2]int{a.part, a.id}] = true
+				break
+			}
+		}
+	}
+	return dropped
+}
+
+func min32(a, b float32) float32 {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // stageInstance is one placed drawing of an e2 entry.
@@ -585,7 +678,12 @@ type stageInstance struct {
 // meshes per e2 entry.
 func (p *pmt) buildStageNodes(texs []texInfo) ([]glb.VariantNode, string, error) {
 	var out []glb.VariantNode
-	var nWorldDesc, nInst, nMesh, nBB, nUnref, nPairFix int
+	var nWorldDesc, nInst, nMesh, nBB, nUnref, nPairFix, nLODDrop int
+	// Two passes: all parts parse first so the segment-position estimate (and
+	// the LOD filter it feeds) sees the whole course; a caller with its own
+	// estimate (the env ring shares the course's segmentation) passes it in.
+	parts := make([]*part, p.nParts)
+	places := make([]*stagePart, p.nParts)
 	for pi := 0; pi < p.nParts; pi++ {
 		pt, err := p.parsePart(pi)
 		if err != nil {
@@ -595,6 +693,54 @@ func (p *pmt) buildStageNodes(texs []texInfo) ([]glb.VariantNode, string, error)
 		if err != nil {
 			return nil, "", err
 		}
+		parts[pi], places[pi] = pt, sp
+	}
+	// Dedup pre-pass: triangle stats per visibility root, across all parts.
+	var units []lodUnit
+	for pi := 0; pi < p.nParts; pi++ {
+		pt, sp := parts[pi], places[pi]
+		for _, id := range p.vis.roots[pi] {
+			if id >= len(sp.nodes) {
+				continue
+			}
+			n := &sp.nodes[id]
+			e2i := int32(-1)
+			for k := 0; k < 4; k++ {
+				if n.e2[k] >= 0 {
+					e2i = n.e2[k]
+					break
+				}
+			}
+			if e2i < 0 || int(e2i) >= len(sp.e2) {
+				continue
+			}
+			u := lodUnit{part: pi, id: id}
+			u.centre, u.r = sp.worldSphere(p, n)
+			pr := sp.e2[e2i]
+			for ri := pr[0]; ri < pr[0]+pr[1] && int(ri) < len(sp.ranges); ri++ {
+				rec := sp.ranges[ri]
+				for pass := 0; pass < 2; pass++ {
+					f, c := rec[1+pass], rec[3+pass]
+					for d := f; d < f+c && int(d) < len(pt.descStart); d++ {
+						for k := pt.descStart[d]; k < pt.descStart[d]+pt.descCount[d]; k++ {
+							b := pt.batches[k]
+							nIdx, _ := indexCount(b.prim, b.prims)
+							t := int(nIdx) - 2
+							u.totalTris += t
+							if pass == 0 {
+								u.opaqueTris += t
+							}
+						}
+					}
+				}
+			}
+			units = append(units, u)
+		}
+	}
+	dropped := dropLowLOD(units)
+
+	for pi := 0; pi < p.nParts; pi++ {
+		pt, sp := parts[pi], places[pi]
 
 		// The range records carry each descriptor's stream pair straight from
 		// the file — authoritative over the stream-cursor reconstruction,
@@ -713,6 +859,10 @@ func (p *pmt) buildStageNodes(texs []texInfo) ([]glb.VariantNode, string, error)
 			}
 		}
 		for _, id := range p.vis.roots[pi] {
+			if dropped[[2]int{pi, id}] {
+				nLODDrop++
+				continue
+			}
 			walk(id, nil)
 		}
 		if walkErr != nil {
@@ -783,6 +933,9 @@ func (p *pmt) buildStageNodes(texs []texInfo) ([]glb.VariantNode, string, error)
 	}
 	summary := fmt.Sprintf("%d world descriptors, %d instances of %d meshes (%d billboard)",
 		nWorldDesc, nInst, nMesh, nBB)
+	if nLODDrop > 0 {
+		summary += fmt.Sprintf(", %d low-LOD shells dropped", nLODDrop)
+	}
 	if nUnref > 0 {
 		summary += fmt.Sprintf(", %d descriptors unreferenced", nUnref)
 	}
@@ -981,4 +1134,132 @@ func (sp *stagePool) node(name string, descs []int, texs []texInfo) *glb.Variant
 		}
 	}
 	return n
+}
+
+// inspectForest prints a course's placement forest — every e0 node with its
+// flags, LOD e2 slots, matrix translation and the two undecoded fields — the
+// diagnostic that pinned the LOD-slot semantics.
+func (p *pmt) inspectForest() error {
+	for pi := 0; pi < p.nParts; pi++ {
+		sp, err := p.parsePlacements(pi)
+		if err != nil {
+			return err
+		}
+		pt, err := p.parsePart(pi)
+		if err != nil {
+			return err
+		}
+		// tris/textures per e2 entry
+		e2Stat := func(e2i int32) string {
+			if e2i < 0 || int(e2i) >= len(sp.e2) {
+				return ""
+			}
+			tris := 0
+			texs := map[int]bool{}
+			pr := sp.e2[e2i]
+			for r := pr[0]; r < pr[0]+pr[1] && int(r) < len(sp.ranges); r++ {
+				rec := sp.ranges[r]
+				for pass := 0; pass < 2; pass++ {
+					f, c := rec[1+pass], rec[3+pass]
+					for d := f; d < f+c && int(d) < len(pt.descStart); d++ {
+						for k := pt.descStart[d]; k < pt.descStart[d]+pt.descCount[d]; k++ {
+							b := pt.batches[k]
+							n, _ := indexCount(b.prim, b.prims)
+							tris += int(n) - 2
+							if m := pt.mats[b.matIdx]; m.texIdx >= 0 {
+								texs[m.texIdx] = true
+							}
+						}
+					}
+				}
+			}
+			var tl []int
+			for t := range texs {
+				tl = append(tl, t)
+			}
+			sort.Ints(tl)
+			return fmt.Sprintf(" tris=%d tex=%v", tris, tl)
+		}
+		roots := map[int]bool{}
+		if p.vis != nil {
+			for _, id := range p.vis.roots[pi] {
+				roots[id] = true
+			}
+		}
+		fmt.Printf("part %d: %d nodes, %d e2, %d ranges\n", pi, len(sp.nodes), len(sp.e2), len(sp.ranges))
+		for id, n := range sp.nodes {
+			pos := ""
+			if n.matrixIdx >= 0 {
+				if m, err := sp.matrix(p, int(n.matrixIdx)); err == nil {
+					pos = fmt.Sprintf(" T=(%.1f,%.1f,%.1f)", m[12], m[13], m[14])
+				}
+			}
+			r := " "
+			if roots[id] {
+				r = "R"
+			}
+			fmt.Printf("  %s n%-4d f=%#-6x f14=%-3d f18=%-4d m=%-4d c=%-4d s=%-4d e2=%v sph=(%.1f,%.1f,%.1f r%.1f)%s%s\n",
+				r, id, n.flags, n.f14, n.f18, n.matrixIdx, n.child, n.sibling, n.e2,
+				n.sphere[0], n.sphere[1], n.sphere[2], n.sphere[3], pos, e2Stat(n.e2[0]))
+		}
+	}
+	return nil
+}
+
+// exportNodes writes each named forest node (part:id,...) as its own GLB —
+// the isolation instrument for judging what a single node contributes.
+func (p *pmt) exportNodes(texs []texInfo, spec, outDir string) error {
+	for _, tok := range strings.Split(spec, ",") {
+		var pi, id int
+		if _, err := fmt.Sscanf(strings.TrimSpace(tok), "%d:%d", &pi, &id); err != nil {
+			return fmt.Errorf("bad -nodes token %q", tok)
+		}
+		pt, err := p.parsePart(pi)
+		if err != nil {
+			return err
+		}
+		sp, err := p.parsePlacements(pi)
+		if err != nil {
+			return err
+		}
+		if id >= len(sp.nodes) {
+			return fmt.Errorf("part %d has %d nodes", pi, len(sp.nodes))
+		}
+		n := &sp.nodes[id]
+		e2i := int32(-1)
+		for k := 0; k < 4; k++ {
+			if n.e2[k] >= 0 {
+				e2i = n.e2[k]
+				break
+			}
+		}
+		if e2i < 0 {
+			fmt.Printf("part %d n%d: no e2\n", pi, id)
+			continue
+		}
+		var descs []int
+		pr := sp.e2[e2i]
+		for r := pr[0]; r < pr[0]+pr[1] && int(r) < len(sp.ranges); r++ {
+			rec := sp.ranges[r]
+			fmt.Printf("  range %d: pair=%d pass0={%d,%d} pass1={%d,%d}\n", r, rec[0], rec[1], rec[3], rec[2], rec[4])
+			for pass := 0; pass < 2; pass++ {
+				f, c := rec[1+pass], rec[3+pass]
+				for d := f; d < f+c && int(d) < len(pt.descStart); d++ {
+					descs = append(descs, int(d))
+				}
+			}
+		}
+		pool := newStagePool(p, pt)
+		vn := pool.node(fmt.Sprintf("p%d n%d", pi, id), descs, texs)
+		if vn == nil {
+			fmt.Printf("part %d n%d: empty\n", pi, id)
+			continue
+		}
+		out := fmt.Sprintf("%s/node-p%d-n%d.glb", outDir, pi, id)
+		if err := glb.WriteVariantScenes(out, []glb.ModelVariant{{Name: "n", Nodes: []glb.VariantNode{*vn}}}); err != nil {
+			return err
+		}
+		fmt.Printf("part %d n%d -> %s (%d verts)\n", pi, id, out, len(vn.Positions))
+	}
+	return nil
 }

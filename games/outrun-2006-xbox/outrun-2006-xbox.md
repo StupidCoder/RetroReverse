@@ -3693,3 +3693,44 @@ The special variants were subsequently dropped from the ship (and the tree):
 near-identical to their base courses, they cost 56 MB better spent elsewhere.
 `exportStages` now ships exactly the 30 tour courses; the variant analysis
 above stays as the record of what those dirs contain.
+
+### Part XXX — the LOD shells, and what the segment lists actually encode
+
+The doubled objects the level exports carried (a coarse building inside every
+detailed one, the Milky Way shuttle standing in front of a giant baked
+version of itself) took three wrong theories to pin down:
+
+1. **Not the e2 LOD slots.** Every node in every course populates slot 0
+   only; the four per-LOD e2 slots the walker supports go unused on the disc.
+2. **Not the per-segment lists as swaps.** The plan to keep, per node, only
+   the version its nearest segment draws died on measurement: the coarse
+   METR city shells share **94-100% of their listing segments** with their
+   detailed twins — the game genuinely draws shell and detail together, the
+   shell backing the far view where detail chunks end. (Getting that far
+   built two lasting instruments: `carex -forest` prints a course's
+   placement forest with spheres, flags, LOD slots and triangle counts, and
+   `carex -nodes part:id` exports any single node as a GLB. A
+   segment-position estimator — weighted centroid of a segment's listed
+   nodes, small-and-locally-scoped pieces dominating — lands within ~35 m
+   of the track and is worth keeping in mind, though the swap theory it
+   served is dead.)
+3. **What works is density.** A backing shell is the same size as its
+   detailed twin in the same place with a fraction of the triangles.
+   `dropLowLOD` drops any opaque-dominant root whose bounding sphere
+   matches another root's (centre distance < 0.3×min r, radius ratio
+   within 2×) at less than 1/2.5 of its triangle density. ~1,200 shells
+   fall across the 30 courses (CAST 124, FLOR 105, YOSE 104, ALAS 91;
+   env rings included); the beach start-line overlay stays pixel-identical,
+   and CAST/METR/FLOR inspect clean.
+
+The shuttle itself is only half fixed, deliberately: the pad, the modelled
+shuttle, a ~190 m low-poly launched-shuttle-with-plume textured with the
+baked shuttle image, and small altitude cards are all **one node with one e2**
+(part 5 node 0, FLOR) — the launch-sequence tableau the game plays through
+as the race progresses, not LOD. Which sub-ranges show at which time is
+gated somewhere the walker decode hasn't reached (the w3 texture-binding
+records' 2-bit field against the global at `0x3FDFE0` is the suspect);
+separating "shuttle on pad" from "shuttle launching" needs that state
+decode. The flags census also grew: bits 7/8 (0x80/0x100) are per-cluster
+kind bits, not LOD markers — beach part 0's always-drawn ground strips
+carry 0x101/0x102.
