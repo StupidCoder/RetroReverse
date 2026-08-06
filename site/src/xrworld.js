@@ -87,6 +87,7 @@ export class WorldMode {
     // waits for them rather than being built twice.
     this._objCol = [];
     this._objColReady = false;
+    this._variant = null; // the level variant being shown; null = no picker
     this._loadObjColliders(opts.asset, opts.signal)
       .catch((e) => { console.error('xr object colliders', e); })
       .finally(() => { this._objColReady = true; });
@@ -151,11 +152,13 @@ export class WorldMode {
             positions: part.positions,
             indices: part.indices,
             matrix: new THREE.Matrix4().multiplyMatrices(world, part.local).elements,
+            // Which missions this collider belongs to (RETROX.md 5.5), so a
+            // variant switch can drop it — see setVariant.
+            variants: p.variants?.length ? p.variants : null,
           });
         }
       }
     }
-    this._objColNote = `${this._objCol.length} collider meshes from ${placements.length} placements`;
   }
 
   // _fitSky makes a camera-attached layer behave like a horizon: infinitely far,
@@ -277,6 +280,9 @@ export class WorldMode {
   get interactor() { return this.teleporter; }
 
   _tick() {
+    // Read the picker's answer rather than being told: see setVariant.
+    const v = this.view?.activeVariant;
+    if (v !== undefined && v !== this._variant) this.setVariant(v);
     if (this._floor || this._failed) return;
     // Not until the placement has landed: the index is built in content units,
     // and before a fit there is no telling whether the content is even loaded.
@@ -292,7 +298,8 @@ export class WorldMode {
   }
 
   _build() {
-    const meshes = this._contentMeshes().concat(this._objCol);
+    const here = this._objColHere();
+    const meshes = this._contentMeshes().concat(here);
     const t0 = performance.now();
     this._floor = buildFloor(meshes, {
       mode: 'up',
@@ -302,10 +309,47 @@ export class WorldMode {
     if (this.cfg.teleport.blockers) {
       this._walls = buildFloor(meshes, { mode: 'side', minSlope: 70 });
     }
+    // The collider count is reported AFTER the variant filter, so a switch is
+    // visible in the status line rather than having to be taken on trust.
+    const dropped = this._objCol.length - here.length;
     this._note = `floor ${this._floor.note} in ${Math.round(performance.now() - t0)} ms`
-      + (this._objColNote ? ` · +${this._objColNote}` : '');
+      + (this._objCol.length ? ` · +${here.length} collider meshes` : '')
+      + (dropped ? ` (${dropped} not in ${this._variant})` : '');
     if (!this._floor.n) this._note = 'floor index: NOTHING walkable found — teleport will not work';
     this.onStatus?.();
+  }
+
+  // The object colliders that exist in the variant being shown. A placement
+  // with no `variants` is in every one.
+  _objColHere() {
+    if (!this._variant) return this._objCol;
+    return this._objCol.filter((c) => !c.variants || c.variants.includes(this._variant));
+  }
+
+  // setVariant drops the indices so the next tick rebuilds them for the
+  // variant now on show.
+  //
+  // The visible half of a variant switch is level3d's applyVariant(), which
+  // just toggles node.visible — but the floor and blocker indices are BAKED,
+  // built once from every collider the document declares, and a hidden node's
+  // collider stayed in them. Bob-omb Battlefield's "Big Bob-omb's Revenge"
+  // places breakable brick walls across the level; switching away from it left
+  // them invisible and still solid, and you walked into nothing.
+  //
+  // Rebuilding is the honest fix rather than filtering at query time: buildFloor
+  // produces an index, and an index cannot be filtered after the fact. It costs
+  // one rebuild per switch, on an explicit user action.
+  //
+  // Driven by _tick READING view.activeVariant, not by the picker calling in.
+  // The first attempt hooked the XR shell's radio, which left the top-bar
+  // select — the one the ?vremulate=1 rehearsal uses — switching the models and
+  // not the colliders. One funnel, one reader.
+  setVariant(id) {
+    if (id === this._variant) return;
+    this._variant = id || null;
+    this._floor = this._walls = null;
+    this._failed = false;
+    this._frames = 0;
   }
 
   // The layer groups that make up the ground, as plain arrays in the content's

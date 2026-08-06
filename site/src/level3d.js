@@ -346,6 +346,10 @@ export async function mount(ctx, doc) {
   }
 
   // hoisted: the variant setter can fire while placements are still loading
+  // The variant the picker last chose. World mode reads it (xrworld _tick):
+  // both the top-bar select and the XR shell's radio funnel through the same
+  // apply callback below, so one place holds the answer and a mode that needs
+  // to react to it does not have to be wired into every picker.
   function applyVariant() {
     for (const { pl, node } of placementById.values()) {
       node.userData.varOn = !pl.variants?.length || pl.variants.includes(activeVariant);
@@ -633,6 +637,11 @@ export async function mount(ctx, doc) {
   window.__rx3 = { stage, placementById, layerNodes, doc, arContent, contentBox, get billboards() { return billboards; }, get player() { return player; } }; // debug
 
   return {
+    // The variant the picker last chose, or null when the level has none. Read
+    // rather than pushed: the top-bar select and the XR shell's radio both call
+    // the same apply callback, so a mode that must react to a switch reads this
+    // instead of being wired into every picker (xrworld _tick).
+    get activeVariant() { return variants.length ? activeVariant : null; },
     unmount() {
       billboards?.dispose();
       player?.dispose();
