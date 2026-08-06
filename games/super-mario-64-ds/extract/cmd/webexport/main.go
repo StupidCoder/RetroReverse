@@ -1206,7 +1206,7 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		return "", ""
 	}
 
-	stageN := 0
+	stageN, totalDropped := 0, 0
 	seenStage := map[string]bool{}
 	skyCopied := map[string]bool{}
 	// refs must stay inside the doc's directory (no ".." per RETROX.md), so a
@@ -1389,10 +1389,16 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		// sizes its own geometry — see paintingScale.
 		var curScale *schema.Scale
 		pid := 1
+		dropped := map[int]int{} // actor -> placements this level could not emit
 		addObjOff := func(o sm64ds.LevelObject, actor int, par [3]int, rot bool, off [3]float64) {
 			m := modelFor(actor, par)
 			asset, ok := refs[m]
 			if m == "" || !ok {
+				// The actor oracle recorded no model for this actor, so there
+				// is nothing to place. Silently dropping it is how Lethal Lava
+				// Land lost its rolling log (daObjFlMaruta_c, actor 70) without
+				// anyone noticing, so say so.
+				dropped[actor]++
 				return
 			}
 			sc := schema.Scale{objScale}
@@ -1480,7 +1486,22 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			ID: slugify(strings.TrimSuffix(stem, "_all")), Name: name, Group: "Levels",
 		}, doc)
 		stageN++
-		ctx.Progress("levels", stageN, 0, fmt.Sprintf("%-24s %d placements", stem, len(doc.Placements)))
+		msg := fmt.Sprintf("%-24s %d placements", stem, len(doc.Placements))
+		if n := 0; len(dropped) > 0 {
+			var actors []int
+			for a, c := range dropped {
+				actors = append(actors, a)
+				n += c
+			}
+			sort.Ints(actors)
+			msg += fmt.Sprintf("  (%d unmodelled, actors %v)", n, actors)
+			totalDropped += n
+		}
+		ctx.Progress("levels", stageN, 0, msg)
+	}
+	if totalDropped > 0 {
+		ctx.Logf("levels: %d placements had no oracle-bound model and were not emitted "+
+			"(run `gateprobe -dropped` for the actor breakdown)", totalDropped)
 	}
 	return nil
 }

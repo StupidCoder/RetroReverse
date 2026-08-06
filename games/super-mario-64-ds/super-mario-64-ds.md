@@ -448,6 +448,39 @@ The chain chomp is the object that proves it. It is one placement in six of seve
 A placement's mission list is the star layer intersected with §8's gate, which is
 what separates Whomp's Fortress's summit pair.
 
+**The missing rolling log, and the 304 placements nobody was counting.** Lethal
+Lava Land is supposed to have a giant log you ride across the lava. It is in the
+level data — actor **70** at `(6000, 300, 5875)`, class **`daObjFlMaruta_c`**
+(*maruta*, 丸太, is Japanese for log) — and it was not in the Studio.
+
+The exporter drops a placement whose actor has no oracle-bound model, and did so
+without saying a word. Across the shipped stages that is **304 of 4,611
+placements**, not one of them reported: `daObjTh_Fall_Block_c` ×68,
+`daBar_c` ×35, `daObjFlamethrower_c` ×30, `daObjWaterfall_c` ×16,
+`daStarBase_c` ×11 and the rest.
+
+Why the log in particular has no model is a clean failure. Its init calls
+`$02112790(obj, $02114690)`, which installs a state record at `obj+$108` and
+immediately `BLX`es the method in it. `$02114690` is past overlay 22's file
+image — it lives in the overlay's **BSS**, filled by the overlay's static
+initialiser — and in the oracle's environment that record was not valid, so the
+`BLX` jumped into the heap and spun until the 6,000,000-instruction budget ran
+out (`init: budget(6000000)@022916C0`, an all-zero stack at a heap PC). Having
+died there, the init never asked the loader for anything, so the binding table
+records no model and the exporter had nothing to place.
+
+The model is on the cartridge: `data/special_obj/hm_maruta/hm_maruta.bmd`, with
+its own `.kcl`. It is the **only** log model there, and **no actor in the binding
+table references it** — so no log is shipped in any level, Tall, Tall Mountain's
+included. Binding it by name would be exactly the heuristic this project keeps
+paying for; the fix is to make the oracle survive a BSS-initialised state record,
+which is what those 304 placements are waiting on.
+
+What is fixed here is the silence: the level pass now counts what it could not
+emit and prints it per stage — `fire_land_all 185 placements (25 unmodelled,
+actors [70 79 83 177 196 214 318])` — so this cannot hide again. The shipped
+documents are unchanged.
+
 **Every level opens where the game starts you.** Object-table type 1 is an
 entrance record (handler `$020FE6C8`) and the level's FIRST one is the player
 spawn; **all 48 shipped stages have one, with a heading**, and Bob-omb

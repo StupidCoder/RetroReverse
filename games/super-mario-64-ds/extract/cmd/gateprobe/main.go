@@ -5,6 +5,7 @@ package main
 // be read off the game's own code.
 import (
 	"encoding/binary"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -71,6 +72,8 @@ func main() {
 	depth := flag.Int("depth", 1, "how many calls deep the sweeps follow")
 	sweep := flag.Bool("sweep", false, "which placed actors query the save's star bits")
 	msgs := flag.Bool("msgs", false, "which placed actors reach the message system")
+	dropped := flag.Bool("dropped", false, "placements the exporter drops because the oracle bound no model")
+	classOf := flag.String("class", "", "comma-separated actor ids: print each one's C++ class name")
 	callersOf := flag.String("callers", "", "list every BL site targeting this address")
 	actorMsgs := flag.Int("actormsgs", 0, "for this actor, resolve every placement's par1 as a message id")
 	msgid := flag.String("msgid", "", "resolve comma-separated EXTERNAL message ids to their text")
@@ -109,6 +112,44 @@ func main() {
 		sweepCallers(srcs, a9, *in, *ext, map[uint32]string{
 			0x020B8EC0: "msgIndex", 0x020BB060: "openWindow",
 		}, "the message system")
+		return
+	}
+	if *dropped {
+		reportDropped(*in, *ext)
+		return
+	}
+	if *classOf != "" {
+		for _, tok := range strings.Split(*classOf, ",") {
+			var id int
+			fmt.Sscanf(strings.TrimSpace(tok), "%d", &id)
+			found := false
+			for _, s := range srcs {
+				c := ctx{own: s, a9: a9}
+				pp, ok := c.word(0x02090864 + uint32(id)*4)
+				if !ok || !c.isCode(pp) {
+					continue
+				}
+				if w, ok := c.word(pp + 4); !ok || int(w&0xFFFF) != id {
+					continue
+				}
+				ti, _ := c.word(pp + 0x20)
+				nm, _ := c.word(ti + 4)
+				b, ok := c.at(nm)
+				if !ok {
+					continue
+				}
+				n := 0
+				for n < len(b) && b[n] != 0 && n < 64 {
+					n++
+				}
+				fmt.Printf("actor %3d  %-7s profile %08X  class %q\n", id, s.name, pp, string(b[:n]))
+				found = true
+				break
+			}
+			if !found {
+				fmt.Printf("actor %3d  no profile/typeinfo found\n", id)
+			}
+		}
 		return
 	}
 	if *callersOf != "" {
@@ -629,4 +670,67 @@ func actorMsgSurvey(rom, ext string, actor int) {
 		}
 	}
 	fmt.Printf("%d placements, %d resolve to a message\n", n, ok)
+}
+
+// reportDropped counts the placements webexport silently discards: modelFor
+// returns "" when the actor oracle recorded no model for the actor, and
+// addObjOff then returns without emitting anything at all.
+func reportDropped(rom, ext string) {
+	ls, err := sm64ds.OpenLevels(rom, ext)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var table map[string][]struct {
+		Params [3]int   `json:"params"`
+		Models []string `json:"models"`
+	}
+	buf, err := os.ReadFile(filepath.Join(ext, "actorbind.json"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := json.Unmarshal(buf, &table); err != nil {
+		log.Fatal(err)
+	}
+	hasModel := func(actor int) bool {
+		for _, b := range table[fmt.Sprint(actor)] {
+			if len(b.Models) > 0 {
+				return true
+			}
+		}
+		return false
+	}
+	perActor := map[int]int{}
+	total, kept, seen := 0, 0, map[string]bool{}
+	for id := 0; id < sm64ds.NumLevels; id++ {
+		lv, err := ls.Level(id)
+		if err != nil || lv.BMDPath == "" {
+			continue
+		}
+		stem := strings.TrimSuffix(filepath.Base(lv.BMDPath), ".bmd")
+		if seen[stem] {
+			continue
+		}
+		seen[stem] = true
+		for _, o := range lv.Objects {
+			total++
+			if hasModel(o.Actor) {
+				kept++
+			} else {
+				perActor[o.Actor]++
+			}
+		}
+	}
+	type row struct {
+		actor, n int
+	}
+	var rows []row
+	for a, n := range perActor {
+		rows = append(rows, row{a, n})
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].n > rows[j].n })
+	fmt.Printf("%d placements across the shipped stages; %d have a model, %d are dropped\n",
+		total, kept, total-kept)
+	for _, r := range rows {
+		fmt.Printf("  actor %3d  x%-4d\n", r.actor, r.n)
+	}
 }
