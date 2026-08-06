@@ -58,6 +58,18 @@ const (
 	fileTableOff  = 0x13098 // overlay-0 offset: internal file ID -> name pointer
 	fileTableLen  = 2058    // loop bound in overlay 0's initializer ($080A)
 	objActorTable = 0x5F594 // overlay-2 offset of the object->actor u16 table ($0210CBF4)
+
+	// Type-9 records are the DOORS, and they carry an index rather than an
+	// object id. The handler $020FE4F0 walks 12-byte records
+	// {s16 x, s16 y, s16 z, s16 yaw, u16 par, u16 kind} and spawns
+	//   actor = doorActorTable[kind & $1F]          (u16, $0210CB88)
+	//   param = par | doorParamTable[kind & $1F]<<16 (u8,  $0210CB70)
+	// through the usual spawn helper $02010E2C. Most entries name actor $161 =
+	// 353, `daDoor_c`. Overlay-2 offsets, derived from objActorTable: the two
+	// tables sit $84 and $6C below $0210CBF4.
+	doorParamTable = objActorTable - 0x84
+	doorActorTable = objActorTable - 0x6C
+	doorKinds      = 12 // record stride
 	arm9Base      = 0x02004000
 	NumLevels     = 52
 
@@ -154,6 +166,7 @@ type LevelObject struct {
 	RotY    float64 // degrees
 	Params  [3]int  // par1; par2, par3 (standard objects only)
 	Simple  bool    // from an 8-byte "simple" entry
+	Door    bool    // from a 12-byte type-9 entry (the castle doors)
 }
 
 // Level is one decoded level: its stage files and every placed object.
@@ -175,6 +188,7 @@ type LevelSet struct {
 	arm9     []byte
 	intName  []string // internal file ID -> path
 	objActor []uint16 // object ID -> actor ID
+	ovl2     []byte   // the always-resident engine overlay, for its lookup tables
 	ovls     map[int]nds.Overlay
 }
 
@@ -220,6 +234,7 @@ func OpenLevels(romPath, extractedDir string) (*LevelSet, error) {
 	if err != nil {
 		return nil, err
 	}
+	ls.ovl2 = ovl2
 	n := 512 // generous bound; object IDs are 9-bit (the type-5 mask is $1FF)
 	ls.objActor = make([]uint16, n)
 	for i := 0; i < n && objActorTable+i*2+2 <= len(ovl2); i++ {
@@ -344,6 +359,30 @@ func (ls *LevelSet) Level(id int) (*Level, error) {
 						RotY:  float64(int16(le.Uint16(b[q+10:]))) * 360 / 0x10000,
 					})
 				}
+			case 9: // doors, 12-byte stride (handler $020FE4F0)
+				for j := 0; j < cnt; j++ {
+					q := lo + j*doorKinds
+					if q+doorKinds > len(b) {
+						break
+					}
+					kind := int(le.Uint16(b[q+10:]) & 0x1F)
+					actor := int(le.Uint16(ls.ovl2[doorActorTable+kind*2:]))
+					par1 := int(le.Uint16(b[q+8:]))
+					par2 := int(ls.ovl2[doorParamTable+kind])
+					lv.Objects = append(lv.Objects, LevelObject{
+						ID:    kind,
+						Actor: actor,
+						Layer: layer,
+						X:     float64(int16(le.Uint16(b[q:]))),
+						Y:     float64(int16(le.Uint16(b[q+2:]))),
+						Z:     float64(int16(le.Uint16(b[q+4:]))),
+						RotY:  float64(int16(le.Uint16(b[q+6:]))) * 360 / 0x10000,
+						// the spawn helper receives par1 | par2<<16
+						Params: [3]int{par1, par2, 0},
+						Door:   true,
+					})
+				}
+
 			case 5: // simple, 8-byte stride
 				for j := 0; j < cnt; j++ {
 					q := lo + j*8

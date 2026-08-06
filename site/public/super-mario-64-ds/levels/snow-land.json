@@ -748,6 +748,7 @@
    "object": "arc0-21",
    "pos": [3.7, 1.95, 4.7],
    "scale": 0.008,
+   "anim": "ar1_8",
    "layer": "markers",
    "props": {
     "actor": 178
@@ -1041,6 +1042,7 @@
    "object": "arc0-21",
    "pos": [0.7, 4.35, 0.65],
    "scale": 0.008,
+   "anim": "ar1_8",
    "layer": "markers",
    "props": {
     "actor": 178
@@ -1051,6 +1053,7 @@
    "object": "arc0-21",
    "pos": [0.442, 2.34, 1.332],
    "scale": 0.008,
+   "anim": "ar1_8",
    "layer": "markers",
    "props": {
     "actor": 178
@@ -1135,6 +1138,7 @@
    "object": "arc0-21",
    "pos": [4.5, 1.25, -0.2],
    "scale": 0.008,
+   "anim": "ar1_8",
    "layer": "markers",
    "variants": ["star5"],
    "props": {

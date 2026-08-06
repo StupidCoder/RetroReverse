@@ -2265,6 +2265,7 @@
    "object": "arc0-21",
    "pos": [1.529, 1.05, 0.264],
    "scale": 0.008,
+   "anim": "ar1_8",
    "layer": "markers",
    "props": {
     "actor": 178
@@ -2625,6 +2626,7 @@
    "object": "arc0-21",
    "pos": [-4.372, 0.25, 5.505],
    "scale": 0.008,
+   "anim": "ar1_8",
    "layer": "markers",
    "variants": ["star3"],
    "props": {

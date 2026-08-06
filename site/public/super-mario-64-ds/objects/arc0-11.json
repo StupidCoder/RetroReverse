@@ -3,6 +3,33 @@
  "version": 1,
  "type": "model3d",
  "name": "Arc0 11",
+ "animations": [
+  {
+   "id": "arc0_22",
+   "loop": "loop",
+   "clip": "arc0_22",
+   "fps": 30
+  },
+  {
+   "id": "arc0_26",
+   "loop": "loop",
+   "clip": "arc0_26",
+   "fps": 30
+  },
+  {
+   "id": "arc0_27",
+   "loop": "loop",
+   "clip": "arc0_27",
+   "fps": 30
+  },
+  {
+   "id": "arc0_24",
+   "loop": "loop",
+   "clip": "arc0_24",
+   "fps": 30
+  }
+ ],
  "model": "arc0_11.glb",
+ "skinnedClone": true,
  "billboard": "camera"
 }

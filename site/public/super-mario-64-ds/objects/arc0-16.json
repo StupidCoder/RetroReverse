@@ -3,5 +3,20 @@
  "version": 1,
  "type": "model3d",
  "name": "Arc0 16",
- "model": "arc0_16.glb"
+ "animations": [
+  {
+   "id": "arc0_18",
+   "loop": "loop",
+   "clip": "arc0_18",
+   "fps": 30
+  },
+  {
+   "id": "arc0_19",
+   "loop": "loop",
+   "clip": "arc0_19",
+   "fps": 30
+  }
+ ],
+ "model": "arc0_16.glb",
+ "skinnedClone": true
 }

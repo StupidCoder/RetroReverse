@@ -94,6 +94,15 @@ func run(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
+		// Pair each door model with the clip from the SAME binding entry. Actor
+		// 353 resolves to several models across its parameter variants, and
+		// taking any clip from any entry put an anim on objects that do not
+		// have it (155 validator errors, all `anim X does not exist on object Y`).
+		for _, b := range bindings[doorActor] {
+			for _, m := range b.Models {
+				doorModels[m] = true
+			}
+		}
 
 		if ctx.Stage("objects") {
 			if err := exportModels(ctx, ls, tmp); err != nil {
@@ -640,10 +649,19 @@ func exportModels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string) error {
 			name, sec = title(m.Name), "Other models"
 		}
 		id := objectID(m.Name)
+		anims := clipAnims(clips)
+		if doorModels[m.Name] && len(anims) > 0 {
+			// A door's clip is its swing, not an idle: play it once and clamp,
+			// so the castle stands with its doors open (see doorModels).
+			for i := range anims {
+				anims[i].Loop = "hold"
+			}
+			doorAnim[m.Name] = anims[0].ID
+		}
 		doc := &schema.Object{
 			Type: schema.ObjectModel3D, Name: name, Model: file,
 			SkinnedClone: len(clips) > 0,
-			Animations:   clipAnims(clips),
+			Animations:   anims,
 			Billboard:    billboardMode(m),
 		}
 		b.AddObject(schema.Asset{ID: id, Name: name, Group: sec}, doc)
@@ -688,14 +706,27 @@ func exportArchiveGLBs(ctx *cli.Context, ls *sm64ds.LevelSet, bindings map[int][
 	b := ctx.Builder
 	done := map[string]bool{}
 	var stems []string
+	// An archive member's animation is another archive member, so the sibling
+	// .bca glob that pairs filesystem models with their clips finds nothing
+	// here. The ORACLE has the pairing: a binding entry lists the files one
+	// run asked for, so the clips in an entry belong to the models in it. The
+	// castle doors are the case that needs it — ar1_9 with ar1_8's swing.
+	archClips := map[string][]string{}
 	for _, bs := range bindings {
 		for _, bd := range bs {
 			for _, stem := range bd.Models {
-				if strings.LastIndexByte(stem, '_') < 0 || done[stem] {
+				if strings.LastIndexByte(stem, '_') < 0 {
 					continue
 				}
-				done[stem] = true
-				stems = append(stems, stem)
+				if !done[stem] {
+					done[stem] = true
+					stems = append(stems, stem)
+				}
+				for _, c := range bd.Clips {
+					if strings.LastIndexByte(c, '_') >= 0 {
+						archClips[stem] = appendUniq(archClips[stem], c)
+					}
+				}
 			}
 		}
 	}
@@ -717,7 +748,29 @@ func exportArchiveGLBs(ctx *cli.Context, ls *sm64ds.LevelSet, bindings map[int][
 		if err != nil {
 			continue
 		}
+		// Attach whatever clips the oracle paired with this model, keeping only
+		// the ones whose bone count matches — the same test the filesystem
+		// models use, and the thing that stops a mismatched clip being welded on.
+		var clips []sm64ds.NamedBCA
+		for _, cs := range archClips[stem] {
+			cref, ok := archiveRefByStem(ls, cs)
+			if !ok {
+				continue
+			}
+			cd, err := ls.ArchiveMember(cref)
+			if err != nil {
+				continue
+			}
+			a, err := sm64ds.DecodeBCA(cd)
+			if err != nil || a.NumBones != m.NumBones {
+				continue
+			}
+			clips = append(clips, sm64ds.NamedBCA{Name: cs, Anim: a})
+		}
 		glbData, err := m.GLB()
+		if len(clips) > 0 {
+			glbData, err = m.SkinnedGLB(clips)
+		}
 		if err != nil {
 			continue
 		}
@@ -740,9 +793,20 @@ func exportArchiveGLBs(ctx *cli.Context, ls *sm64ds.LevelSet, bindings map[int][
 		}
 		modelFloor[stem] = lo
 		id := objectID(stem)
+		anims := clipAnims(clips)
+		if doorModels[stem] && len(anims) > 0 {
+			// A door's clip is its swing, not an idle: `hold` plays it once and
+			// clamps, so the castle stands with its doors open.
+			for i := range anims {
+				anims[i].Loop = "hold"
+			}
+			doorAnim[stem] = anims[0].ID
+		}
 		b.AddObject(schema.Asset{ID: id, Name: title(stem), Group: "Archive members"}, &schema.Object{
 			Type: schema.ObjectModel3D, Name: title(stem), Model: stem + ".glb",
-			Billboard: billboardMode(m),
+			SkinnedClone: len(clips) > 0,
+			Animations:   anims,
+			Billboard:    billboardMode(m),
 		})
 		refs[stem] = id
 		n++
@@ -1430,6 +1494,9 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 				pl.Rot = []float64{0, o.RotY * math.Pi / 180, 0}
 			}
 			pl.Variants = curVars
+			if a := doorAnim[m]; a != "" {
+				pl.Anim = a
+			}
 			if markerModels[m] {
 				pl.Layer = markerLayerID
 				markerLayer = true
@@ -1564,7 +1631,17 @@ func starVariants(msgs []string, course int, used map[int]bool) []schema.Variant
 	return out
 }
 
+func appendUniq(xs []string, v string) []string {
+	for _, x := range xs {
+		if x == v {
+			return xs
+		}
+	}
+	return append(xs, v)
+}
+
 func starID(star int) string { return fmt.Sprintf("star%d", star) }
+
 
 // variantIDs turns one placement's star-layer set, intersected with whatever
 // its own code decided (the mission gate), into its variant membership. Layer 0
@@ -1715,6 +1792,28 @@ func spawnShot(lv *sm64ds.Level, kcl *sm64ds.KCL, contentFloor float64) (shot, b
 		target: []float64{r3(x), r3(gy + aim), r3(z)},
 	}, true
 }
+
+// doorActor 353 is `daDoor_c`, every door in the castle. Its placements are
+// object-table TYPE 9 (sm64ds/level.go), a record shape the decoder used to
+// skip entirely, which is why the castle had no doors at all — they were never
+// in the level data this exporter read, let alone dropped for want of a model.
+//
+// A door ships as a model plus one .bca: the swing. There is no idle clip, so
+// the viewer's autoplay rule (only looping clips play) would leave it on the
+// bind pose. Marking the clip `hold` plays it once and clamps on the last
+// frame, which is the door standing open.
+const doorActor = 353
+
+// doorModels is the set of model stems actor 353 resolves to, from the binding
+// table. doorAnim is filled later, during the model export, with each door's
+// OWN first clip — a binding entry lists every file the run touched, so its
+// models and clips do not pair up, and pairing them anyway put an anim on
+// objects that do not have it (155 validator errors). The object's own
+// animation list is the only list that is guaranteed right.
+var (
+	doorModels = map[string]bool{}
+	doorAnim   = map[string]string{}
+)
 
 // paintingActor 307 is every framed painting in the castle, and it SIZES ITSELF:
 // the shipped model is a bare 12.5-unit square quad carrying the picture, and

@@ -469,6 +469,46 @@ out (`init: budget(6000000)@022916C0`, an all-zero stack at a heap PC). Having
 died there, the init never asked the loader for anything, so the binding table
 records no model and the exporter had nothing to place.
 
+### The doors were never in the data this exporter read
+
+Peach's castle had no doors at all — not dropped for want of a model, but never
+decoded. `sm64ds/level.go` handled object-table types 0, 1 and 5 and skipped the
+rest, and the doors are **type 9**. Its handler `$020FE4F0` walks 12-byte records
+
+```
++0 s16 x   +2 s16 y   +4 s16 z   +6 s16 yaw   +8 u16 par   +A u16 kind
+```
+
+and spawns, through the usual helper `$02010E2C`,
+
+```
+actor = doorActorTable[kind & $1F]              (u16, $0210CB88)
+param = par | doorParamTable[kind & $1F] << 16  (u8,  $0210CB70)
+```
+
+Most entries name actor `$161` = 353, **`daDoor_c`**. Decoding the type gives
+**95 doors across 11 stages** — 14 on the castle's first floor alone, in the
+pairs the double doorways need.
+
+**Open, not shut.** A door ships as a model plus one `.bca`: the swing. There is
+no idle clip, so the viewer's autoplay rule (only looping clips play) leaves it
+on the bind pose, shut. Marking the clip `hold` plays it once and clamps on the
+last frame — the castle stands with its doors open.
+
+Getting the clip onto the model needed one more thing. An archive member's
+animation is *another archive member*, so the sibling-`.bca` glob that pairs
+filesystem models with their clips finds nothing for `ar1_9`, the castle door.
+The **oracle** has the pairing — a binding entry lists the files one run asked
+for — so `exportArchiveGLBs` now attaches those clips, keeping only the ones
+whose bone count matches the model, the same test the filesystem models use.
+
+Two wrong turns worth recording. Taking `Models[0]` with `Clips[0]` from a
+binding entry looked like the pairing and is not: an entry lists everything a run
+touched, so a clip can belong to a different model in the same entry. That put an
+anim on objects which do not have it — **155 validator errors**, every one
+`anim X does not exist on object Y`. The fix is to take the animation id from the
+object's own animation list, which is the only list guaranteed right.
+
 ### An actor's code is not confined to its own overlay
 
 The BSS was a red herring — overlay 22's static initialiser fills that record

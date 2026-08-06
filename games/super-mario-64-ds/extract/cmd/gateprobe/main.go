@@ -119,7 +119,14 @@ func main() {
 		return
 	}
 	if *classOf != "" {
-		for _, tok := range strings.Split(*classOf, ",") {
+		toks := strings.Split(*classOf, ",")
+		if *classOf == "all" {
+			toks = nil
+			for i := 1; i < 400; i++ {
+				toks = append(toks, fmt.Sprint(i))
+			}
+		}
+		for _, tok := range toks {
 			var id int
 			fmt.Sscanf(strings.TrimSpace(tok), "%d", &id)
 			found := false
@@ -146,7 +153,7 @@ func main() {
 				found = true
 				break
 			}
-			if !found {
+			if !found && *classOf != "all" {
 				fmt.Printf("actor %3d  no profile/typeinfo found\n", id)
 			}
 		}

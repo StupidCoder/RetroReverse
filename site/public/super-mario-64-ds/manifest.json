@@ -3657,6 +3657,20 @@
    "file": "objects/ar1-1.json"
   },
   {
+   "id": "ar1-10",
+   "category": "object",
+   "name": "Ar1 10",
+   "group": "Archive members",
+   "file": "objects/ar1-10.json"
+  },
+  {
+   "id": "ar1-11",
+   "category": "object",
+   "name": "Ar1 11",
+   "group": "Archive members",
+   "file": "objects/ar1-11.json"
+  },
+  {
    "id": "ar1-12",
    "category": "object",
    "name": "Ar1 12",
@@ -3704,6 +3718,13 @@
    "name": "Ar1 7",
    "group": "Archive members",
    "file": "objects/ar1-7.json"
+  },
+  {
+   "id": "ar1-9",
+   "category": "object",
+   "name": "Ar1 9",
+   "group": "Archive members",
+   "file": "objects/ar1-9.json"
   },
   {
    "id": "arc0-11",

@@ -3,5 +3,14 @@
  "version": 1,
  "type": "model3d",
  "name": "Arc0 128",
- "model": "arc0_128.glb"
+ "animations": [
+  {
+   "id": "arc0_41",
+   "loop": "loop",
+   "clip": "arc0_41",
+   "fps": 30
+  }
+ ],
+ "model": "arc0_128.glb",
+ "skinnedClone": true
 }

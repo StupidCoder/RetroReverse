@@ -3,5 +3,20 @@
  "version": 1,
  "type": "model3d",
  "name": "Ar1 2",
- "model": "ar1_2.glb"
+ "animations": [
+  {
+   "id": "ar1_4",
+   "loop": "loop",
+   "clip": "ar1_4",
+   "fps": 30
+  },
+  {
+   "id": "ar1_3",
+   "loop": "loop",
+   "clip": "ar1_3",
+   "fps": 30
+  }
+ ],
+ "model": "ar1_2.glb",
+ "skinnedClone": true
 }

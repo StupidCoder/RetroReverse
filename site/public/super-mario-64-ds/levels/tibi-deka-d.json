@@ -988,6 +988,7 @@
    "object": "arc0-21",
    "pos": [0, 4.1, -1.5],
    "scale": 0.008,
+   "anim": "ar1_8",
    "layer": "markers",
    "props": {
     "actor": 178

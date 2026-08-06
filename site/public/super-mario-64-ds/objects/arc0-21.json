@@ -3,5 +3,38 @@
  "version": 1,
  "type": "model3d",
  "name": "Arc0 21",
- "model": "arc0_21.glb"
+ "animations": [
+  {
+   "id": "ar1_8",
+   "loop": "hold",
+   "clip": "ar1_8",
+   "fps": 30
+  },
+  {
+   "id": "arc0_22",
+   "loop": "hold",
+   "clip": "arc0_22",
+   "fps": 30
+  },
+  {
+   "id": "arc0_26",
+   "loop": "hold",
+   "clip": "arc0_26",
+   "fps": 30
+  },
+  {
+   "id": "arc0_27",
+   "loop": "hold",
+   "clip": "arc0_27",
+   "fps": 30
+  },
+  {
+   "id": "arc0_24",
+   "loop": "hold",
+   "clip": "arc0_24",
+   "fps": 30
+  }
+ ],
+ "model": "arc0_21.glb",
+ "skinnedClone": true
 }

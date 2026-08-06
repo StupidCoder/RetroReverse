@@ -2321,6 +2321,7 @@
    "object": "arc0-21",
    "pos": [1.6, 2.1, 2.25],
    "scale": 0.008,
+   "anim": "ar1_8",
    "layer": "markers",
    "props": {
     "actor": 178
@@ -2407,6 +2408,7 @@
    "object": "arc0-21",
    "pos": [5.65, -4.863, 1.4],
    "scale": 0.008,
+   "anim": "ar1_8",
    "layer": "markers",
    "props": {
     "actor": 178
@@ -2543,6 +2545,7 @@
    "object": "arc0-21",
    "pos": [4.85, -4.85, 2.425],
    "scale": 0.008,
+   "anim": "ar1_8",
    "layer": "markers",
    "props": {
     "actor": 178
