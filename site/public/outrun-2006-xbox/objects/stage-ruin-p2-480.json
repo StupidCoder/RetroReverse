@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Ancient Ruins: object 2.480",
+ "model": "stage-ruin-p2-480.glb",
+ "props": {
+  "source": "/Stage/RUIN/cs_CS_RUIN_pmt.sz"
+ }
+}

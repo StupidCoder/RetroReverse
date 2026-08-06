@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Skyscrapers: object 5.241",
+ "model": "stage-newy-p5-241.glb",
+ "props": {
+  "source": "/Stage/NEWY/cs_CS_NEWY_pmt.sz"
+ }
+}

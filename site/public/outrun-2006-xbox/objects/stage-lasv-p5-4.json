@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Casino Town: object 5.4",
+ "model": "stage-lasv-p5-4.glb",
+ "props": {
+  "source": "/Stage/LASV/cs_CS_LASV_pmt.sz"
+ }
+}

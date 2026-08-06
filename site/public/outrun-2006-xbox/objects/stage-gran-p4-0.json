@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Canyon: object 4.0",
+ "model": "stage-gran-p4-0.glb",
+ "props": {
+  "source": "/Stage/GRAN/cs_CS_GRAN_pmt.sz"
+ }
+}

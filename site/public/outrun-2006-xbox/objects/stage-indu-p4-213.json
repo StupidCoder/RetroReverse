@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Industrial Complex: object 4.213",
+ "model": "stage-indu-p4-213.glb",
+ "props": {
+  "source": "/Stage/INDU/cs_CS_INDU_pmt.sz"
+ }
+}

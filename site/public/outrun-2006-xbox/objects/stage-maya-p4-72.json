@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Legend: object 4.72",
+ "model": "stage-maya-p4-72.glb",
+ "props": {
+  "source": "/Stage/MAYA/cs_CS_MAYA_pmt.sz"
+ }
+}

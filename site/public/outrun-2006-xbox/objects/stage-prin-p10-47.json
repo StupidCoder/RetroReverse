@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Floral Village: object 10.47",
+ "model": "stage-prin-p10-47.glb",
+ "props": {
+  "source": "/Stage/PRIN/cs_CS_PRIN_pmt.sz"
+ }
+}

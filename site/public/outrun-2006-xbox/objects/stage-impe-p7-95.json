@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Imperial Avenue: object 7.95",
+ "model": "stage-impe-p7-95.glb",
+ "props": {
+  "source": "/Stage/IMPE/cs_CS_IMPE_pmt.sz"
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Castle Wall: object 3.121",
+ "model": "stage-cast-p3-121.glb",
+ "props": {
+  "source": "/Stage/CAST/cs_CS_CAST_pmt.sz"
+ }
+}

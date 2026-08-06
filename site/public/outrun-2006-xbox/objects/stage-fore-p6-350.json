@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Coniferous Forest: object 6.350",
+ "model": "stage-fore-p6-350.glb",
+ "props": {
+  "source": "/Stage/FORE/cs_CS_FORE_pmt.sz"
+ }
+}

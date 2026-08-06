@@ -3797,3 +3797,25 @@ lands where the game's red lands). The chase also upgraded the instruments:
 `rtrigger` graduated from raw probe `an7` by moving the speedometer, and
 point-primitive draws (the drift sparks) now skip instead of halting the
 machine.
+
+### Palm shadows, and clickable props
+
+Two reader questions answered from the data. The palm shadows are neither a
+shadow map nor part of the palm objects: the palms are matrix-placed
+instances, and their shadows are **hand-placed flat decal quads in the world
+geometry** — the beach carries 72 of them (part 2, blended-pass kind 0x42,
+3-triangle quads at ground level marching along the roadside), textured with
+a pre-rendered palm-silhouette sprite (texture 40; 41 is a frond, 17 a soft
+blob for round objects). The artists matched each decal to its palm's lean by
+hand, which is why they rotate correctly without any lighting machinery.
+
+And the placed props are now first-class: every non-billboard instance ships
+as a real level **placement** referencing a per-course object asset
+(`objects/stage-<id>-p<part>-<e2>.glb`, ~300 across the roster under "Course
+objects"), with the w4 matrix carried verbatim in the placement (glTF
+column-major = row-vector row-major, the same identity that made the layer
+nodes work). The viewer's standard click handler now works on them: click a
+gantry, get the card with the object's name and its forest coordinates (part,
+node id, w4 index) and an "Open object" link into the object viewer.
+Billboard instances stay in the course layer, where the per-frame yaw updater
+animates them.

@@ -250,7 +250,7 @@ func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]
 	if err != nil {
 		return err
 	}
-	nodes, summary, err := course.buildStageNodes(courseTexs)
+	nodes, objMeshes, placements, summary, err := course.buildStageNodes(courseTexs, true)
 	if err != nil {
 		return err
 	}
@@ -281,7 +281,7 @@ func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]
 		}
 		var envNodes []glb.VariantNode
 		if env.vis != nil {
-			envNodes, envSummary, err = env.buildStageNodes(envTexs)
+			envNodes, _, _, envSummary, err = env.buildStageNodes(envTexs, false)
 			if err != nil {
 				return err
 			}
@@ -365,6 +365,51 @@ func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]
 		}
 	}
 
+	// The placed props become real objects + level placements, so the
+	// viewer's click handler works on them (name card + "Open object").
+	name := strings.ReplaceAll(dir, "_", " ")
+	if n, ok := stageNames[dir]; ok {
+		name = n
+	}
+	var keys []string
+	for k := range objMeshes {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	objAsset := map[string]string{}
+	for _, k := range keys {
+		vn := objMeshes[k]
+		var opi, oe2 int
+		fmt.Sscanf(k, "p%d-e2-%d", &opi, &oe2)
+		objID := fmt.Sprintf("%s-p%d-%d", id, opi, oe2)
+		objName := fmt.Sprintf("%s: object %d.%d", name, opi, oe2)
+		fn := objID + ".glb"
+		path, err := b.Path("objects", fn)
+		if err != nil {
+			return err
+		}
+		mv := glb.ModelVariant{Positions: vn.Positions, Normals: vn.Normals, UVs: vn.UVs,
+			UV2: vn.UV2, Colors: vn.Colors, TexGroups: vn.TexGroups, ColorGroups: vn.ColorGroups}
+		if err := glb.WriteVariantScenes(path, []glb.ModelVariant{mv}); err != nil {
+			return err
+		}
+		b.AddObject(schema.Asset{ID: objID, Name: objName, Group: "Course objects"},
+			&schema.Object{Type: schema.ObjectModel3D, Name: objName, Model: fn,
+				Props: map[string]any{"source": csPmt}})
+		objAsset[k] = objID
+	}
+	var pls []schema.Placement
+	for i, pl := range placements {
+		m := make([]float64, 16)
+		for k, v := range pl.mat {
+			m[k] = float64(v)
+		}
+		pls = append(pls, schema.Placement{
+			ID: i, Object: objAsset[pl.key], Matrix: m,
+			Props: map[string]any{"node": fmt.Sprintf("part %d id %d", pl.part, pl.id), "w4": pl.matrixIdx},
+		})
+	}
+
 	// Camera: on the start straight, looking down the course (the road runs
 	// -z from the start line); range from the assembled world's own bounds.
 	mn, mx := nodesBounds(nodes)
@@ -384,11 +429,7 @@ func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]
 		layers = append(layers, schema.Layer{ID: "sky", Name: "Sky", File: skyGLB, Mode: "toggle",
 			Attach: "camera", RenderOrder: -1, DepthTest: &depthOff, Role: "sky"})
 	}
-	name := strings.ReplaceAll(dir, "_", " ")
 	group := "Courses"
-	if n, ok := stageNames[dir]; ok {
-		name = n
-	}
 	if t, ok := stageTours[dir]; ok {
 		group = t.tour
 		name = "Stage " + t.slot + ": " + name
@@ -404,7 +445,8 @@ func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]
 			Far:    1.3 * diag,
 			Fly:    &schema.Fly{Speed: diag / 60},
 		},
-		Scene: &schema.Scene{Layers: layers},
+		Scene:      &schema.Scene{Layers: layers},
+		Placements: pls,
 	})
 	fmt.Printf("%-34s -> %s (%s; env %s; sky %s)\n", csPmt, out, summary, envSummary, skyGLB)
 	return nil
@@ -628,6 +670,16 @@ func (sp *stagePart) worldSphere(p *pmt, n *e0Node) ([3]float32, float32) {
 	return w, r
 }
 
+// stagePlace is one placed prop extracted for a level placement: the mesh
+// key, the w4 placement matrix (column-major, verbatim), and its forest ids
+// for the info card.
+type stagePlace struct {
+	key       string
+	mat       [16]float32
+	part, id  int
+	matrixIdx int
+}
+
 // stageInstance is one placed drawing of an e2 entry.
 type stageInstance struct {
 	nodeID    int
@@ -639,7 +691,13 @@ type stageInstance struct {
 // per part, one world node holding every batch a matrix-less reachable
 // forest node references, plus one instance node per placed node, sharing
 // meshes per e2 entry.
-func (p *pmt) buildStageNodes(texs []texInfo) ([]glb.VariantNode, string, error) {
+// buildStageNodes assembles the drawable forest. With extractPlacements set,
+// non-billboard placed instances come back as shared meshes + placements
+// (for level placements the viewer can click); billboard instances always
+// stay in the returned nodes, where the layer's yaw updater animates them.
+func (p *pmt) buildStageNodes(texs []texInfo, extractPlacements bool) ([]glb.VariantNode, map[string]*glb.VariantNode, []stagePlace, string, error) {
+	objMeshes := map[string]*glb.VariantNode{}
+	var placements []stagePlace
 	var out []glb.VariantNode
 	var nWorldDesc, nInst, nMesh, nBB, nUnref, nPairFix int
 	// Two passes: all parts parse first so the segment-position estimate (and
@@ -650,11 +708,11 @@ func (p *pmt) buildStageNodes(texs []texInfo) ([]glb.VariantNode, string, error)
 	for pi := 0; pi < p.nParts; pi++ {
 		pt, err := p.parsePart(pi)
 		if err != nil {
-			return nil, "", fmt.Errorf("part %d: %w", pi, err)
+			return nil, nil, nil, "", fmt.Errorf("part %d: %w", pi, err)
 		}
 		sp, err := p.parsePlacements(pi)
 		if err != nil {
-			return nil, "", err
+			return nil, nil, nil, "", err
 		}
 		parts[pi], places[pi] = pt, sp
 	}
@@ -782,7 +840,7 @@ func (p *pmt) buildStageNodes(texs []texInfo) ([]glb.VariantNode, string, error)
 			walk(id, nil)
 		}
 		if walkErr != nil {
-			return nil, "", walkErr
+			return nil, nil, nil, "", walkErr
 		}
 
 		// The world node: every identity-reachable descriptor's batches.
@@ -824,11 +882,25 @@ func (p *pmt) buildStageNodes(texs []texInfo) ([]glb.VariantNode, string, error)
 					break
 				}
 			}
+			key := fmt.Sprintf("p%d-e2-%d", pi, e2i)
+			if extractPlacements && !inst.billboard {
+				if _, ok := objMeshes[key]; !ok {
+					vn := pool.node(fmt.Sprintf("part %d e2 %d", pi, e2i), instMesh[e2i], texs)
+					if vn == nil {
+						continue
+					}
+					objMeshes[key] = vn
+				}
+				placements = append(placements, stagePlace{key: key, mat: inst.mat,
+					part: pi, id: inst.nodeID, matrixIdx: int(n.matrixIdx)})
+				meshDone[key] = true
+				nInst++
+				continue
+			}
 			vn := pool.node(fmt.Sprintf("part %d obj %d", pi, inst.nodeID), instMesh[e2i], texs)
 			if vn == nil {
 				continue
 			}
-			key := fmt.Sprintf("p%d-e2-%d", pi, e2i)
 			if meshDone[key] {
 				// later instances carry no geometry of their own
 				vn.Positions, vn.Normals, vn.UVs, vn.UV2, vn.Colors = nil, nil, nil, nil, nil
@@ -855,7 +927,7 @@ func (p *pmt) buildStageNodes(texs []texInfo) ([]glb.VariantNode, string, error)
 	if nPairFix > 0 {
 		summary += fmt.Sprintf(", %d pair overrides", nPairFix)
 	}
-	return out, summary, nil
+	return out, objMeshes, placements, summary, nil
 }
 
 // stagePool holds a part's decoded pairs merged into one vertex pool and

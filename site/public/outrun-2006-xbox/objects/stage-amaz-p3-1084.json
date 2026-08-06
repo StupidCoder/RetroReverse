@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Jungle: object 3.1084",
+ "model": "stage-amaz-p3-1084.glb",
+ "props": {
+  "source": "/Stage/AMAZ/cs_CS_AMAZ_pmt.sz"
+ }
+}

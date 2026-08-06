@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Desert: object 6.65",
+ "model": "stage-dese-p6-65.glb",
+ "props": {
+  "source": "/Stage/DESE/cs_CS_DESE_pmt.sz"
+ }
+}

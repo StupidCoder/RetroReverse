@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "National Park: object 4.43",
+ "model": "stage-yose-p4-43.glb",
+ "props": {
+  "source": "/Stage/YOSE/cs_CS_YOSE_pmt.sz"
+ }
+}

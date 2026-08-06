@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Giant Statues: object 2.78",
+ "model": "stage-east-p2-78.glb",
+ "props": {
+  "source": "/Stage/EAST/cs_CS_EAST_pmt.sz"
+ }
+}

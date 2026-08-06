@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Metropolis: object 6.12",
+ "model": "stage-metr-p6-12.glb",
+ "props": {
+  "source": "/Stage/METR/cs_CS_METR_pmt.sz"
+ }
+}

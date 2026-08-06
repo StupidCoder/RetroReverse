@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Ghost Forest: object 6.0",
+ "model": "stage-ghos-p6-0.glb",
+ "props": {
+  "source": "/Stage/GHOS/cs_CS_GHOS_pmt.sz"
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Bay Area: object 2.60",
+ "model": "stage-sanf-p2-60.glb",
+ "props": {
+  "source": "/Stage/SANF/cs_CS_SANF_pmt.sz"
+ }
+}

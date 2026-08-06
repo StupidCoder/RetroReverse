@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Snow Mountain: object 7.39",
+ "model": "stage-snow-p7-39.glb",
+ "props": {
+  "source": "/Stage/SNOW/cs_CS_SNOW_pmt.sz"
+ }
+}

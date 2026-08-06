@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Milky Way: object 2.0",
+ "model": "stage-flor-p2-0.glb",
+ "props": {
+  "source": "/Stage/FLOR/cs_CS_FLOR_pmt.sz"
+ }
+}

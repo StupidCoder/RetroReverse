@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Water Falls: object 2.408",
+ "model": "stage-niag-p2-408.glb",
+ "props": {
+  "source": "/Stage/NIAG/cs_CS_NIAG_pmt.sz"
+ }
+}

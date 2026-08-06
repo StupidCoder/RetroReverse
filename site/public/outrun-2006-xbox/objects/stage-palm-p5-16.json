@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Palm Beach: object 5.16",
+ "model": "stage-palm-p5-16.glb",
+ "props": {
+  "source": "/Stage/PALM/cs_CS_PALM_pmt.sz"
+ }
+}

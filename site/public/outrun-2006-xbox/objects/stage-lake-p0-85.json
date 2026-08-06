@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Deep Lake: object 0.85",
+ "model": "stage-lake-p0-85.glb",
+ "props": {
+  "source": "/Stage/LAKE/cs_CS_LAKE_pmt.sz"
+ }
+}

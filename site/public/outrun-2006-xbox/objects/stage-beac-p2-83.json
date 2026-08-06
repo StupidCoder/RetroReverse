@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Sunny Beach: object 2.83",
+ "model": "stage-beac-p2-83.glb",
+ "props": {
+  "source": "/Stage/BEAC/cs_CS_BEAC_pmt.sz"
+ }
+}

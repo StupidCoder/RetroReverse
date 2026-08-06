@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Cape Way: object 10.263",
+ "model": "stage-cape-p10-263.glb",
+ "props": {
+  "source": "/Stage/CAPE/cs_CS_CAPE_pmt.sz"
+ }
+}

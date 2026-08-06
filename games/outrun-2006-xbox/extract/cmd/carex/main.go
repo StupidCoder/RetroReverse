@@ -1533,7 +1533,7 @@ func export(p *pmt, texs []texInfo, outPath string) (string, error) {
 	// A course with its visibility database exports as the walker draws it:
 	// world geometry + placed instances (stage.go).
 	if p.vis != nil && onlyParts == nil {
-		nodes, summary, err := p.buildStageNodes(texs)
+		nodes, _, _, summary, err := p.buildStageNodes(texs, false)
 		if err != nil {
 			return "", err
 		}

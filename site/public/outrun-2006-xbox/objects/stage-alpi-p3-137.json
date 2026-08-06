@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Alpine: object 3.137",
+ "model": "stage-alpi-p3-137.glb",
+ "props": {
+  "source": "/Stage/ALPI/cs_CS_ALPI_pmt.sz"
+ }
+}

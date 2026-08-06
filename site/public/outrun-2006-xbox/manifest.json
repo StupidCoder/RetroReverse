@@ -333,11 +333,137 @@
    "file": "objects/othcar-12.json"
   },
   {
+   "id": "stage-palm-p5-11",
+   "category": "object",
+   "name": "Palm Beach: object 5.11",
+   "group": "Course objects",
+   "file": "objects/stage-palm-p5-11.json"
+  },
+  {
+   "id": "stage-palm-p5-12",
+   "category": "object",
+   "name": "Palm Beach: object 5.12",
+   "group": "Course objects",
+   "file": "objects/stage-palm-p5-12.json"
+  },
+  {
+   "id": "stage-palm-p5-16",
+   "category": "object",
+   "name": "Palm Beach: object 5.16",
+   "group": "Course objects",
+   "file": "objects/stage-palm-p5-16.json"
+  },
+  {
+   "id": "stage-palm-p5-20",
+   "category": "object",
+   "name": "Palm Beach: object 5.20",
+   "group": "Course objects",
+   "file": "objects/stage-palm-p5-20.json"
+  },
+  {
+   "id": "stage-palm-p5-24",
+   "category": "object",
+   "name": "Palm Beach: object 5.24",
+   "group": "Course objects",
+   "file": "objects/stage-palm-p5-24.json"
+  },
+  {
+   "id": "stage-palm-p6-682",
+   "category": "object",
+   "name": "Palm Beach: object 6.682",
+   "group": "Course objects",
+   "file": "objects/stage-palm-p6-682.json"
+  },
+  {
+   "id": "stage-palm-p6-683",
+   "category": "object",
+   "name": "Palm Beach: object 6.683",
+   "group": "Course objects",
+   "file": "objects/stage-palm-p6-683.json"
+  },
+  {
+   "id": "stage-palm-p6-684",
+   "category": "object",
+   "name": "Palm Beach: object 6.684",
+   "group": "Course objects",
+   "file": "objects/stage-palm-p6-684.json"
+  },
+  {
+   "id": "stage-palm-p6-685",
+   "category": "object",
+   "name": "Palm Beach: object 6.685",
+   "group": "Course objects",
+   "file": "objects/stage-palm-p6-685.json"
+  },
+  {
+   "id": "stage-palm-p6-686",
+   "category": "object",
+   "name": "Palm Beach: object 6.686",
+   "group": "Course objects",
+   "file": "objects/stage-palm-p6-686.json"
+  },
+  {
    "id": "stage-palm",
    "category": "level",
    "name": "Stage 1A: Palm Beach",
    "group": "OutRun2",
    "file": "levels/stage-palm.json"
+  },
+  {
+   "id": "stage-lake-p0-85",
+   "category": "object",
+   "name": "Deep Lake: object 0.85",
+   "group": "Course objects",
+   "file": "objects/stage-lake-p0-85.json"
+  },
+  {
+   "id": "stage-lake-p0-87",
+   "category": "object",
+   "name": "Deep Lake: object 0.87",
+   "group": "Course objects",
+   "file": "objects/stage-lake-p0-87.json"
+  },
+  {
+   "id": "stage-lake-p2-286",
+   "category": "object",
+   "name": "Deep Lake: object 2.286",
+   "group": "Course objects",
+   "file": "objects/stage-lake-p2-286.json"
+  },
+  {
+   "id": "stage-lake-p2-287",
+   "category": "object",
+   "name": "Deep Lake: object 2.287",
+   "group": "Course objects",
+   "file": "objects/stage-lake-p2-287.json"
+  },
+  {
+   "id": "stage-lake-p2-288",
+   "category": "object",
+   "name": "Deep Lake: object 2.288",
+   "group": "Course objects",
+   "file": "objects/stage-lake-p2-288.json"
+  },
+  {
+   "id": "stage-lake-p2-289",
+   "category": "object",
+   "name": "Deep Lake: object 2.289",
+   "group": "Course objects",
+   "file": "objects/stage-lake-p2-289.json"
+  },
+  {
+   "id": "stage-lake-p2-290",
+   "category": "object",
+   "name": "Deep Lake: object 2.290",
+   "group": "Course objects",
+   "file": "objects/stage-lake-p2-290.json"
+  },
+  {
+   "id": "stage-lake-p2-291",
+   "category": "object",
+   "name": "Deep Lake: object 2.291",
+   "group": "Course objects",
+   "file": "objects/stage-lake-p2-291.json"
   },
   {
    "id": "stage-lake",
@@ -347,11 +473,179 @@
    "file": "levels/stage-lake.json"
   },
   {
+   "id": "stage-alpi-p3-128",
+   "category": "object",
+   "name": "Alpine: object 3.128",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-128.json"
+  },
+  {
+   "id": "stage-alpi-p3-129",
+   "category": "object",
+   "name": "Alpine: object 3.129",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-129.json"
+  },
+  {
+   "id": "stage-alpi-p3-130",
+   "category": "object",
+   "name": "Alpine: object 3.130",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-130.json"
+  },
+  {
+   "id": "stage-alpi-p3-131",
+   "category": "object",
+   "name": "Alpine: object 3.131",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-131.json"
+  },
+  {
+   "id": "stage-alpi-p3-132",
+   "category": "object",
+   "name": "Alpine: object 3.132",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-132.json"
+  },
+  {
+   "id": "stage-alpi-p3-133",
+   "category": "object",
+   "name": "Alpine: object 3.133",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-133.json"
+  },
+  {
+   "id": "stage-alpi-p3-134",
+   "category": "object",
+   "name": "Alpine: object 3.134",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-134.json"
+  },
+  {
+   "id": "stage-alpi-p3-135",
+   "category": "object",
+   "name": "Alpine: object 3.135",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-135.json"
+  },
+  {
+   "id": "stage-alpi-p3-136",
+   "category": "object",
+   "name": "Alpine: object 3.136",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-136.json"
+  },
+  {
+   "id": "stage-alpi-p3-137",
+   "category": "object",
+   "name": "Alpine: object 3.137",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-137.json"
+  },
+  {
+   "id": "stage-alpi-p3-138",
+   "category": "object",
+   "name": "Alpine: object 3.138",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-138.json"
+  },
+  {
+   "id": "stage-alpi-p3-139",
+   "category": "object",
+   "name": "Alpine: object 3.139",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-139.json"
+  },
+  {
+   "id": "stage-alpi-p3-140",
+   "category": "object",
+   "name": "Alpine: object 3.140",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-140.json"
+  },
+  {
+   "id": "stage-alpi-p3-141",
+   "category": "object",
+   "name": "Alpine: object 3.141",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-141.json"
+  },
+  {
+   "id": "stage-alpi-p3-142",
+   "category": "object",
+   "name": "Alpine: object 3.142",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-142.json"
+  },
+  {
+   "id": "stage-alpi-p3-143",
+   "category": "object",
+   "name": "Alpine: object 3.143",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-143.json"
+  },
+  {
+   "id": "stage-alpi-p3-144",
+   "category": "object",
+   "name": "Alpine: object 3.144",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-144.json"
+  },
+  {
+   "id": "stage-alpi-p3-145",
+   "category": "object",
+   "name": "Alpine: object 3.145",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-145.json"
+  },
+  {
+   "id": "stage-alpi-p3-146",
+   "category": "object",
+   "name": "Alpine: object 3.146",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p3-146.json"
+  },
+  {
+   "id": "stage-alpi-p6-63",
+   "category": "object",
+   "name": "Alpine: object 6.63",
+   "group": "Course objects",
+   "file": "objects/stage-alpi-p6-63.json"
+  },
+  {
    "id": "stage-alpi",
    "category": "level",
    "name": "Stage 2B: Alpine",
    "group": "OutRun2",
    "file": "levels/stage-alpi.json"
+  },
+  {
+   "id": "stage-cast-p3-121",
+   "category": "object",
+   "name": "Castle Wall: object 3.121",
+   "group": "Course objects",
+   "file": "objects/stage-cast-p3-121.json"
+  },
+  {
+   "id": "stage-cast-p3-122",
+   "category": "object",
+   "name": "Castle Wall: object 3.122",
+   "group": "Course objects",
+   "file": "objects/stage-cast-p3-122.json"
+  },
+  {
+   "id": "stage-cast-p3-126",
+   "category": "object",
+   "name": "Castle Wall: object 3.126",
+   "group": "Course objects",
+   "file": "objects/stage-cast-p3-126.json"
+  },
+  {
+   "id": "stage-cast-p3-130",
+   "category": "object",
+   "name": "Castle Wall: object 3.130",
+   "group": "Course objects",
+   "file": "objects/stage-cast-p3-130.json"
   },
   {
    "id": "stage-cast",
@@ -361,11 +655,284 @@
    "file": "levels/stage-cast.json"
   },
   {
+   "id": "stage-fore-p6-350",
+   "category": "object",
+   "name": "Coniferous Forest: object 6.350",
+   "group": "Course objects",
+   "file": "objects/stage-fore-p6-350.json"
+  },
+  {
+   "id": "stage-fore-p6-352",
+   "category": "object",
+   "name": "Coniferous Forest: object 6.352",
+   "group": "Course objects",
+   "file": "objects/stage-fore-p6-352.json"
+  },
+  {
+   "id": "stage-fore-p6-353",
+   "category": "object",
+   "name": "Coniferous Forest: object 6.353",
+   "group": "Course objects",
+   "file": "objects/stage-fore-p6-353.json"
+  },
+  {
+   "id": "stage-fore-p6-354",
+   "category": "object",
+   "name": "Coniferous Forest: object 6.354",
+   "group": "Course objects",
+   "file": "objects/stage-fore-p6-354.json"
+  },
+  {
+   "id": "stage-fore-p6-355",
+   "category": "object",
+   "name": "Coniferous Forest: object 6.355",
+   "group": "Course objects",
+   "file": "objects/stage-fore-p6-355.json"
+  },
+  {
+   "id": "stage-fore-p6-356",
+   "category": "object",
+   "name": "Coniferous Forest: object 6.356",
+   "group": "Course objects",
+   "file": "objects/stage-fore-p6-356.json"
+  },
+  {
+   "id": "stage-fore-p6-357",
+   "category": "object",
+   "name": "Coniferous Forest: object 6.357",
+   "group": "Course objects",
+   "file": "objects/stage-fore-p6-357.json"
+  },
+  {
+   "id": "stage-fore-p6-358",
+   "category": "object",
+   "name": "Coniferous Forest: object 6.358",
+   "group": "Course objects",
+   "file": "objects/stage-fore-p6-358.json"
+  },
+  {
+   "id": "stage-fore-p6-359",
+   "category": "object",
+   "name": "Coniferous Forest: object 6.359",
+   "group": "Course objects",
+   "file": "objects/stage-fore-p6-359.json"
+  },
+  {
+   "id": "stage-fore-p7-0",
+   "category": "object",
+   "name": "Coniferous Forest: object 7.0",
+   "group": "Course objects",
+   "file": "objects/stage-fore-p7-0.json"
+  },
+  {
+   "id": "stage-fore-p7-1",
+   "category": "object",
+   "name": "Coniferous Forest: object 7.1",
+   "group": "Course objects",
+   "file": "objects/stage-fore-p7-1.json"
+  },
+  {
+   "id": "stage-fore-p7-3",
+   "category": "object",
+   "name": "Coniferous Forest: object 7.3",
+   "group": "Course objects",
+   "file": "objects/stage-fore-p7-3.json"
+  },
+  {
    "id": "stage-fore",
    "category": "level",
    "name": "Stage 3B: Coniferous Forest",
    "group": "OutRun2",
    "file": "levels/stage-fore.json"
+  },
+  {
+   "id": "stage-dese-p6-41",
+   "category": "object",
+   "name": "Desert: object 6.41",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-41.json"
+  },
+  {
+   "id": "stage-dese-p6-42",
+   "category": "object",
+   "name": "Desert: object 6.42",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-42.json"
+  },
+  {
+   "id": "stage-dese-p6-43",
+   "category": "object",
+   "name": "Desert: object 6.43",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-43.json"
+  },
+  {
+   "id": "stage-dese-p6-44",
+   "category": "object",
+   "name": "Desert: object 6.44",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-44.json"
+  },
+  {
+   "id": "stage-dese-p6-45",
+   "category": "object",
+   "name": "Desert: object 6.45",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-45.json"
+  },
+  {
+   "id": "stage-dese-p6-46",
+   "category": "object",
+   "name": "Desert: object 6.46",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-46.json"
+  },
+  {
+   "id": "stage-dese-p6-47",
+   "category": "object",
+   "name": "Desert: object 6.47",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-47.json"
+  },
+  {
+   "id": "stage-dese-p6-48",
+   "category": "object",
+   "name": "Desert: object 6.48",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-48.json"
+  },
+  {
+   "id": "stage-dese-p6-49",
+   "category": "object",
+   "name": "Desert: object 6.49",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-49.json"
+  },
+  {
+   "id": "stage-dese-p6-55",
+   "category": "object",
+   "name": "Desert: object 6.55",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-55.json"
+  },
+  {
+   "id": "stage-dese-p6-56",
+   "category": "object",
+   "name": "Desert: object 6.56",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-56.json"
+  },
+  {
+   "id": "stage-dese-p6-57",
+   "category": "object",
+   "name": "Desert: object 6.57",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-57.json"
+  },
+  {
+   "id": "stage-dese-p6-58",
+   "category": "object",
+   "name": "Desert: object 6.58",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-58.json"
+  },
+  {
+   "id": "stage-dese-p6-59",
+   "category": "object",
+   "name": "Desert: object 6.59",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-59.json"
+  },
+  {
+   "id": "stage-dese-p6-60",
+   "category": "object",
+   "name": "Desert: object 6.60",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-60.json"
+  },
+  {
+   "id": "stage-dese-p6-61",
+   "category": "object",
+   "name": "Desert: object 6.61",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-61.json"
+  },
+  {
+   "id": "stage-dese-p6-62",
+   "category": "object",
+   "name": "Desert: object 6.62",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-62.json"
+  },
+  {
+   "id": "stage-dese-p6-63",
+   "category": "object",
+   "name": "Desert: object 6.63",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-63.json"
+  },
+  {
+   "id": "stage-dese-p6-64",
+   "category": "object",
+   "name": "Desert: object 6.64",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-64.json"
+  },
+  {
+   "id": "stage-dese-p6-65",
+   "category": "object",
+   "name": "Desert: object 6.65",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p6-65.json"
+  },
+  {
+   "id": "stage-dese-p7-11",
+   "category": "object",
+   "name": "Desert: object 7.11",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p7-11.json"
+  },
+  {
+   "id": "stage-dese-p7-12",
+   "category": "object",
+   "name": "Desert: object 7.12",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p7-12.json"
+  },
+  {
+   "id": "stage-dese-p7-13",
+   "category": "object",
+   "name": "Desert: object 7.13",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p7-13.json"
+  },
+  {
+   "id": "stage-dese-p7-14",
+   "category": "object",
+   "name": "Desert: object 7.14",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p7-14.json"
+  },
+  {
+   "id": "stage-dese-p7-15",
+   "category": "object",
+   "name": "Desert: object 7.15",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p7-15.json"
+  },
+  {
+   "id": "stage-dese-p7-16",
+   "category": "object",
+   "name": "Desert: object 7.16",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p7-16.json"
+  },
+  {
+   "id": "stage-dese-p7-17",
+   "category": "object",
+   "name": "Desert: object 7.17",
+   "group": "Course objects",
+   "file": "objects/stage-dese-p7-17.json"
   },
   {
    "id": "stage-dese",
@@ -382,6 +949,27 @@
    "file": "levels/stage-clou.json"
   },
   {
+   "id": "stage-indu-p4-213",
+   "category": "object",
+   "name": "Industrial Complex: object 4.213",
+   "group": "Course objects",
+   "file": "objects/stage-indu-p4-213.json"
+  },
+  {
+   "id": "stage-indu-p4-217",
+   "category": "object",
+   "name": "Industrial Complex: object 4.217",
+   "group": "Course objects",
+   "file": "objects/stage-indu-p4-217.json"
+  },
+  {
+   "id": "stage-indu-p4-225",
+   "category": "object",
+   "name": "Industrial Complex: object 4.225",
+   "group": "Course objects",
+   "file": "objects/stage-indu-p4-225.json"
+  },
+  {
    "id": "stage-indu",
    "category": "level",
    "name": "Stage 4B: Industrial Complex",
@@ -389,11 +977,53 @@
    "file": "levels/stage-indu.json"
   },
   {
+   "id": "stage-snow-p7-37",
+   "category": "object",
+   "name": "Snow Mountain: object 7.37",
+   "group": "Course objects",
+   "file": "objects/stage-snow-p7-37.json"
+  },
+  {
+   "id": "stage-snow-p7-38",
+   "category": "object",
+   "name": "Snow Mountain: object 7.38",
+   "group": "Course objects",
+   "file": "objects/stage-snow-p7-38.json"
+  },
+  {
+   "id": "stage-snow-p7-39",
+   "category": "object",
+   "name": "Snow Mountain: object 7.39",
+   "group": "Course objects",
+   "file": "objects/stage-snow-p7-39.json"
+  },
+  {
+   "id": "stage-snow-p7-40",
+   "category": "object",
+   "name": "Snow Mountain: object 7.40",
+   "group": "Course objects",
+   "file": "objects/stage-snow-p7-40.json"
+  },
+  {
+   "id": "stage-snow-p7-41",
+   "category": "object",
+   "name": "Snow Mountain: object 7.41",
+   "group": "Course objects",
+   "file": "objects/stage-snow-p7-41.json"
+  },
+  {
    "id": "stage-snow",
    "category": "level",
    "name": "Stage 4C: Snow Mountain",
    "group": "OutRun2",
    "file": "levels/stage-snow.json"
+  },
+  {
+   "id": "stage-ghos-p6-0",
+   "category": "object",
+   "name": "Ghost Forest: object 6.0",
+   "group": "Course objects",
+   "file": "objects/stage-ghos-p6-0.json"
   },
   {
    "id": "stage-ghos",
@@ -410,11 +1040,298 @@
    "file": "levels/stage-tuli.json"
   },
   {
+   "id": "stage-metr-p4-740",
+   "category": "object",
+   "name": "Metropolis: object 4.740",
+   "group": "Course objects",
+   "file": "objects/stage-metr-p4-740.json"
+  },
+  {
+   "id": "stage-metr-p5-0",
+   "category": "object",
+   "name": "Metropolis: object 5.0",
+   "group": "Course objects",
+   "file": "objects/stage-metr-p5-0.json"
+  },
+  {
+   "id": "stage-metr-p5-1",
+   "category": "object",
+   "name": "Metropolis: object 5.1",
+   "group": "Course objects",
+   "file": "objects/stage-metr-p5-1.json"
+  },
+  {
+   "id": "stage-metr-p5-2",
+   "category": "object",
+   "name": "Metropolis: object 5.2",
+   "group": "Course objects",
+   "file": "objects/stage-metr-p5-2.json"
+  },
+  {
+   "id": "stage-metr-p5-3",
+   "category": "object",
+   "name": "Metropolis: object 5.3",
+   "group": "Course objects",
+   "file": "objects/stage-metr-p5-3.json"
+  },
+  {
+   "id": "stage-metr-p5-4",
+   "category": "object",
+   "name": "Metropolis: object 5.4",
+   "group": "Course objects",
+   "file": "objects/stage-metr-p5-4.json"
+  },
+  {
+   "id": "stage-metr-p6-12",
+   "category": "object",
+   "name": "Metropolis: object 6.12",
+   "group": "Course objects",
+   "file": "objects/stage-metr-p6-12.json"
+  },
+  {
    "id": "stage-metr",
    "category": "level",
    "name": "Stage 5B: Metropolis",
    "group": "OutRun2",
    "file": "levels/stage-metr.json"
+  },
+  {
+   "id": "stage-ruin-p2-477",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.477",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-477.json"
+  },
+  {
+   "id": "stage-ruin-p2-478",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.478",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-478.json"
+  },
+  {
+   "id": "stage-ruin-p2-479",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.479",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-479.json"
+  },
+  {
+   "id": "stage-ruin-p2-480",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.480",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-480.json"
+  },
+  {
+   "id": "stage-ruin-p2-481",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.481",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-481.json"
+  },
+  {
+   "id": "stage-ruin-p2-482",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.482",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-482.json"
+  },
+  {
+   "id": "stage-ruin-p2-483",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.483",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-483.json"
+  },
+  {
+   "id": "stage-ruin-p2-484",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.484",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-484.json"
+  },
+  {
+   "id": "stage-ruin-p2-485",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.485",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-485.json"
+  },
+  {
+   "id": "stage-ruin-p2-486",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.486",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-486.json"
+  },
+  {
+   "id": "stage-ruin-p2-487",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.487",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-487.json"
+  },
+  {
+   "id": "stage-ruin-p2-488",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.488",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-488.json"
+  },
+  {
+   "id": "stage-ruin-p2-489",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.489",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-489.json"
+  },
+  {
+   "id": "stage-ruin-p2-490",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.490",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-490.json"
+  },
+  {
+   "id": "stage-ruin-p2-491",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.491",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-491.json"
+  },
+  {
+   "id": "stage-ruin-p2-492",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.492",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-492.json"
+  },
+  {
+   "id": "stage-ruin-p2-493",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.493",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-493.json"
+  },
+  {
+   "id": "stage-ruin-p2-494",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.494",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-494.json"
+  },
+  {
+   "id": "stage-ruin-p2-495",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.495",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-495.json"
+  },
+  {
+   "id": "stage-ruin-p2-496",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.496",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-496.json"
+  },
+  {
+   "id": "stage-ruin-p2-497",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.497",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-497.json"
+  },
+  {
+   "id": "stage-ruin-p2-498",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.498",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-498.json"
+  },
+  {
+   "id": "stage-ruin-p2-499",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.499",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-499.json"
+  },
+  {
+   "id": "stage-ruin-p2-500",
+   "category": "object",
+   "name": "Ancient Ruins: object 2.500",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p2-500.json"
+  },
+  {
+   "id": "stage-ruin-p4-0",
+   "category": "object",
+   "name": "Ancient Ruins: object 4.0",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p4-0.json"
+  },
+  {
+   "id": "stage-ruin-p4-1",
+   "category": "object",
+   "name": "Ancient Ruins: object 4.1",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p4-1.json"
+  },
+  {
+   "id": "stage-ruin-p5-0",
+   "category": "object",
+   "name": "Ancient Ruins: object 5.0",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p5-0.json"
+  },
+  {
+   "id": "stage-ruin-p5-12",
+   "category": "object",
+   "name": "Ancient Ruins: object 5.12",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p5-12.json"
+  },
+  {
+   "id": "stage-ruin-p5-16",
+   "category": "object",
+   "name": "Ancient Ruins: object 5.16",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p5-16.json"
+  },
+  {
+   "id": "stage-ruin-p5-20",
+   "category": "object",
+   "name": "Ancient Ruins: object 5.20",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p5-20.json"
+  },
+  {
+   "id": "stage-ruin-p5-24",
+   "category": "object",
+   "name": "Ancient Ruins: object 5.24",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p5-24.json"
+  },
+  {
+   "id": "stage-ruin-p5-28",
+   "category": "object",
+   "name": "Ancient Ruins: object 5.28",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p5-28.json"
+  },
+  {
+   "id": "stage-ruin-p5-4",
+   "category": "object",
+   "name": "Ancient Ruins: object 5.4",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p5-4.json"
+  },
+  {
+   "id": "stage-ruin-p5-8",
+   "category": "object",
+   "name": "Ancient Ruins: object 5.8",
+   "group": "Course objects",
+   "file": "objects/stage-ruin-p5-8.json"
   },
   {
    "id": "stage-ruin",
@@ -424,11 +1341,186 @@
    "file": "levels/stage-ruin.json"
   },
   {
+   "id": "stage-impe-p6-53",
+   "category": "object",
+   "name": "Imperial Avenue: object 6.53",
+   "group": "Course objects",
+   "file": "objects/stage-impe-p6-53.json"
+  },
+  {
+   "id": "stage-impe-p7-100",
+   "category": "object",
+   "name": "Imperial Avenue: object 7.100",
+   "group": "Course objects",
+   "file": "objects/stage-impe-p7-100.json"
+  },
+  {
+   "id": "stage-impe-p7-101",
+   "category": "object",
+   "name": "Imperial Avenue: object 7.101",
+   "group": "Course objects",
+   "file": "objects/stage-impe-p7-101.json"
+  },
+  {
+   "id": "stage-impe-p7-89",
+   "category": "object",
+   "name": "Imperial Avenue: object 7.89",
+   "group": "Course objects",
+   "file": "objects/stage-impe-p7-89.json"
+  },
+  {
+   "id": "stage-impe-p7-90",
+   "category": "object",
+   "name": "Imperial Avenue: object 7.90",
+   "group": "Course objects",
+   "file": "objects/stage-impe-p7-90.json"
+  },
+  {
+   "id": "stage-impe-p7-91",
+   "category": "object",
+   "name": "Imperial Avenue: object 7.91",
+   "group": "Course objects",
+   "file": "objects/stage-impe-p7-91.json"
+  },
+  {
+   "id": "stage-impe-p7-92",
+   "category": "object",
+   "name": "Imperial Avenue: object 7.92",
+   "group": "Course objects",
+   "file": "objects/stage-impe-p7-92.json"
+  },
+  {
+   "id": "stage-impe-p7-93",
+   "category": "object",
+   "name": "Imperial Avenue: object 7.93",
+   "group": "Course objects",
+   "file": "objects/stage-impe-p7-93.json"
+  },
+  {
+   "id": "stage-impe-p7-94",
+   "category": "object",
+   "name": "Imperial Avenue: object 7.94",
+   "group": "Course objects",
+   "file": "objects/stage-impe-p7-94.json"
+  },
+  {
+   "id": "stage-impe-p7-95",
+   "category": "object",
+   "name": "Imperial Avenue: object 7.95",
+   "group": "Course objects",
+   "file": "objects/stage-impe-p7-95.json"
+  },
+  {
+   "id": "stage-impe-p7-96",
+   "category": "object",
+   "name": "Imperial Avenue: object 7.96",
+   "group": "Course objects",
+   "file": "objects/stage-impe-p7-96.json"
+  },
+  {
+   "id": "stage-impe-p7-97",
+   "category": "object",
+   "name": "Imperial Avenue: object 7.97",
+   "group": "Course objects",
+   "file": "objects/stage-impe-p7-97.json"
+  },
+  {
+   "id": "stage-impe-p7-98",
+   "category": "object",
+   "name": "Imperial Avenue: object 7.98",
+   "group": "Course objects",
+   "file": "objects/stage-impe-p7-98.json"
+  },
+  {
+   "id": "stage-impe-p7-99",
+   "category": "object",
+   "name": "Imperial Avenue: object 7.99",
+   "group": "Course objects",
+   "file": "objects/stage-impe-p7-99.json"
+  },
+  {
    "id": "stage-impe",
    "category": "level",
    "name": "Stage 5D: Imperial Avenue",
    "group": "OutRun2",
    "file": "levels/stage-impe.json"
+  },
+  {
+   "id": "stage-cape-p10-254",
+   "category": "object",
+   "name": "Cape Way: object 10.254",
+   "group": "Course objects",
+   "file": "objects/stage-cape-p10-254.json"
+  },
+  {
+   "id": "stage-cape-p10-255",
+   "category": "object",
+   "name": "Cape Way: object 10.255",
+   "group": "Course objects",
+   "file": "objects/stage-cape-p10-255.json"
+  },
+  {
+   "id": "stage-cape-p10-256",
+   "category": "object",
+   "name": "Cape Way: object 10.256",
+   "group": "Course objects",
+   "file": "objects/stage-cape-p10-256.json"
+  },
+  {
+   "id": "stage-cape-p10-257",
+   "category": "object",
+   "name": "Cape Way: object 10.257",
+   "group": "Course objects",
+   "file": "objects/stage-cape-p10-257.json"
+  },
+  {
+   "id": "stage-cape-p10-258",
+   "category": "object",
+   "name": "Cape Way: object 10.258",
+   "group": "Course objects",
+   "file": "objects/stage-cape-p10-258.json"
+  },
+  {
+   "id": "stage-cape-p10-259",
+   "category": "object",
+   "name": "Cape Way: object 10.259",
+   "group": "Course objects",
+   "file": "objects/stage-cape-p10-259.json"
+  },
+  {
+   "id": "stage-cape-p10-260",
+   "category": "object",
+   "name": "Cape Way: object 10.260",
+   "group": "Course objects",
+   "file": "objects/stage-cape-p10-260.json"
+  },
+  {
+   "id": "stage-cape-p10-261",
+   "category": "object",
+   "name": "Cape Way: object 10.261",
+   "group": "Course objects",
+   "file": "objects/stage-cape-p10-261.json"
+  },
+  {
+   "id": "stage-cape-p10-262",
+   "category": "object",
+   "name": "Cape Way: object 10.262",
+   "group": "Course objects",
+   "file": "objects/stage-cape-p10-262.json"
+  },
+  {
+   "id": "stage-cape-p10-263",
+   "category": "object",
+   "name": "Cape Way: object 10.263",
+   "group": "Course objects",
+   "file": "objects/stage-cape-p10-263.json"
+  },
+  {
+   "id": "stage-cape-p10-264",
+   "category": "object",
+   "name": "Cape Way: object 10.264",
+   "group": "Course objects",
+   "file": "objects/stage-cape-p10-264.json"
   },
   {
    "id": "stage-cape",
@@ -438,11 +1530,228 @@
    "file": "levels/stage-cape.json"
   },
   {
+   "id": "stage-beac-p2-81",
+   "category": "object",
+   "name": "Sunny Beach: object 2.81",
+   "group": "Course objects",
+   "file": "objects/stage-beac-p2-81.json"
+  },
+  {
+   "id": "stage-beac-p2-82",
+   "category": "object",
+   "name": "Sunny Beach: object 2.82",
+   "group": "Course objects",
+   "file": "objects/stage-beac-p2-82.json"
+  },
+  {
+   "id": "stage-beac-p2-83",
+   "category": "object",
+   "name": "Sunny Beach: object 2.83",
+   "group": "Course objects",
+   "file": "objects/stage-beac-p2-83.json"
+  },
+  {
+   "id": "stage-beac-p2-84",
+   "category": "object",
+   "name": "Sunny Beach: object 2.84",
+   "group": "Course objects",
+   "file": "objects/stage-beac-p2-84.json"
+  },
+  {
+   "id": "stage-beac-p2-85",
+   "category": "object",
+   "name": "Sunny Beach: object 2.85",
+   "group": "Course objects",
+   "file": "objects/stage-beac-p2-85.json"
+  },
+  {
+   "id": "stage-beac-p2-86",
+   "category": "object",
+   "name": "Sunny Beach: object 2.86",
+   "group": "Course objects",
+   "file": "objects/stage-beac-p2-86.json"
+  },
+  {
+   "id": "stage-beac-p2-87",
+   "category": "object",
+   "name": "Sunny Beach: object 2.87",
+   "group": "Course objects",
+   "file": "objects/stage-beac-p2-87.json"
+  },
+  {
+   "id": "stage-beac-p2-88",
+   "category": "object",
+   "name": "Sunny Beach: object 2.88",
+   "group": "Course objects",
+   "file": "objects/stage-beac-p2-88.json"
+  },
+  {
+   "id": "stage-beac-p2-89",
+   "category": "object",
+   "name": "Sunny Beach: object 2.89",
+   "group": "Course objects",
+   "file": "objects/stage-beac-p2-89.json"
+  },
+  {
+   "id": "stage-beac-p2-90",
+   "category": "object",
+   "name": "Sunny Beach: object 2.90",
+   "group": "Course objects",
+   "file": "objects/stage-beac-p2-90.json"
+  },
+  {
+   "id": "stage-beac-p2-91",
+   "category": "object",
+   "name": "Sunny Beach: object 2.91",
+   "group": "Course objects",
+   "file": "objects/stage-beac-p2-91.json"
+  },
+  {
+   "id": "stage-beac-p2-92",
+   "category": "object",
+   "name": "Sunny Beach: object 2.92",
+   "group": "Course objects",
+   "file": "objects/stage-beac-p2-92.json"
+  },
+  {
+   "id": "stage-beac-p3-274",
+   "category": "object",
+   "name": "Sunny Beach: object 3.274",
+   "group": "Course objects",
+   "file": "objects/stage-beac-p3-274.json"
+  },
+  {
+   "id": "stage-beac-p3-275",
+   "category": "object",
+   "name": "Sunny Beach: object 3.275",
+   "group": "Course objects",
+   "file": "objects/stage-beac-p3-275.json"
+  },
+  {
+   "id": "stage-beac-p5-46",
+   "category": "object",
+   "name": "Sunny Beach: object 5.46",
+   "group": "Course objects",
+   "file": "objects/stage-beac-p5-46.json"
+  },
+  {
+   "id": "stage-beac-p5-50",
+   "category": "object",
+   "name": "Sunny Beach: object 5.50",
+   "group": "Course objects",
+   "file": "objects/stage-beac-p5-50.json"
+  },
+  {
+   "id": "stage-beac-p5-54",
+   "category": "object",
+   "name": "Sunny Beach: object 5.54",
+   "group": "Course objects",
+   "file": "objects/stage-beac-p5-54.json"
+  },
+  {
+   "id": "stage-beac-p5-58",
+   "category": "object",
+   "name": "Sunny Beach: object 5.58",
+   "group": "Course objects",
+   "file": "objects/stage-beac-p5-58.json"
+  },
+  {
    "id": "stage-beac",
    "category": "level",
    "name": "Stage 1A: Sunny Beach",
    "group": "OutRun2: SP",
    "file": "levels/stage-beac.json"
+  },
+  {
+   "id": "stage-sanf-p2-58",
+   "category": "object",
+   "name": "Bay Area: object 2.58",
+   "group": "Course objects",
+   "file": "objects/stage-sanf-p2-58.json"
+  },
+  {
+   "id": "stage-sanf-p2-59",
+   "category": "object",
+   "name": "Bay Area: object 2.59",
+   "group": "Course objects",
+   "file": "objects/stage-sanf-p2-59.json"
+  },
+  {
+   "id": "stage-sanf-p2-60",
+   "category": "object",
+   "name": "Bay Area: object 2.60",
+   "group": "Course objects",
+   "file": "objects/stage-sanf-p2-60.json"
+  },
+  {
+   "id": "stage-sanf-p2-61",
+   "category": "object",
+   "name": "Bay Area: object 2.61",
+   "group": "Course objects",
+   "file": "objects/stage-sanf-p2-61.json"
+  },
+  {
+   "id": "stage-sanf-p2-62",
+   "category": "object",
+   "name": "Bay Area: object 2.62",
+   "group": "Course objects",
+   "file": "objects/stage-sanf-p2-62.json"
+  },
+  {
+   "id": "stage-sanf-p2-63",
+   "category": "object",
+   "name": "Bay Area: object 2.63",
+   "group": "Course objects",
+   "file": "objects/stage-sanf-p2-63.json"
+  },
+  {
+   "id": "stage-sanf-p2-64",
+   "category": "object",
+   "name": "Bay Area: object 2.64",
+   "group": "Course objects",
+   "file": "objects/stage-sanf-p2-64.json"
+  },
+  {
+   "id": "stage-sanf-p2-65",
+   "category": "object",
+   "name": "Bay Area: object 2.65",
+   "group": "Course objects",
+   "file": "objects/stage-sanf-p2-65.json"
+  },
+  {
+   "id": "stage-sanf-p2-66",
+   "category": "object",
+   "name": "Bay Area: object 2.66",
+   "group": "Course objects",
+   "file": "objects/stage-sanf-p2-66.json"
+  },
+  {
+   "id": "stage-sanf-p5-13",
+   "category": "object",
+   "name": "Bay Area: object 5.13",
+   "group": "Course objects",
+   "file": "objects/stage-sanf-p5-13.json"
+  },
+  {
+   "id": "stage-sanf-p8-171",
+   "category": "object",
+   "name": "Bay Area: object 8.171",
+   "group": "Course objects",
+   "file": "objects/stage-sanf-p8-171.json"
+  },
+  {
+   "id": "stage-sanf-p8-172",
+   "category": "object",
+   "name": "Bay Area: object 8.172",
+   "group": "Course objects",
+   "file": "objects/stage-sanf-p8-172.json"
+  },
+  {
+   "id": "stage-sanf-p8-173",
+   "category": "object",
+   "name": "Bay Area: object 8.173",
+   "group": "Course objects",
+   "file": "objects/stage-sanf-p8-173.json"
   },
   {
    "id": "stage-sanf",
@@ -452,11 +1761,53 @@
    "file": "levels/stage-sanf.json"
   },
   {
+   "id": "stage-yose-p2-413",
+   "category": "object",
+   "name": "National Park: object 2.413",
+   "group": "Course objects",
+   "file": "objects/stage-yose-p2-413.json"
+  },
+  {
+   "id": "stage-yose-p4-43",
+   "category": "object",
+   "name": "National Park: object 4.43",
+   "group": "Course objects",
+   "file": "objects/stage-yose-p4-43.json"
+  },
+  {
    "id": "stage-yose",
    "category": "level",
    "name": "Stage 2B: National Park",
    "group": "OutRun2: SP",
    "file": "levels/stage-yose.json"
+  },
+  {
+   "id": "stage-niag-p2-408",
+   "category": "object",
+   "name": "Water Falls: object 2.408",
+   "group": "Course objects",
+   "file": "objects/stage-niag-p2-408.json"
+  },
+  {
+   "id": "stage-niag-p2-409",
+   "category": "object",
+   "name": "Water Falls: object 2.409",
+   "group": "Course objects",
+   "file": "objects/stage-niag-p2-409.json"
+  },
+  {
+   "id": "stage-niag-p2-410",
+   "category": "object",
+   "name": "Water Falls: object 2.410",
+   "group": "Course objects",
+   "file": "objects/stage-niag-p2-410.json"
+  },
+  {
+   "id": "stage-niag-p5-8",
+   "category": "object",
+   "name": "Water Falls: object 5.8",
+   "group": "Course objects",
+   "file": "objects/stage-niag-p5-8.json"
   },
   {
    "id": "stage-niag",
@@ -466,11 +1817,109 @@
    "file": "levels/stage-niag.json"
   },
   {
+   "id": "stage-sequ-p2-339",
+   "category": "object",
+   "name": "Big Forest: object 2.339",
+   "group": "Course objects",
+   "file": "objects/stage-sequ-p2-339.json"
+  },
+  {
+   "id": "stage-sequ-p2-340",
+   "category": "object",
+   "name": "Big Forest: object 2.340",
+   "group": "Course objects",
+   "file": "objects/stage-sequ-p2-340.json"
+  },
+  {
    "id": "stage-sequ",
    "category": "level",
    "name": "Stage 3B: Big Forest",
    "group": "OutRun2: SP",
    "file": "levels/stage-sequ.json"
+  },
+  {
+   "id": "stage-gran-p4-0",
+   "category": "object",
+   "name": "Canyon: object 4.0",
+   "group": "Course objects",
+   "file": "objects/stage-gran-p4-0.json"
+  },
+  {
+   "id": "stage-gran-p4-1",
+   "category": "object",
+   "name": "Canyon: object 4.1",
+   "group": "Course objects",
+   "file": "objects/stage-gran-p4-1.json"
+  },
+  {
+   "id": "stage-gran-p4-10",
+   "category": "object",
+   "name": "Canyon: object 4.10",
+   "group": "Course objects",
+   "file": "objects/stage-gran-p4-10.json"
+  },
+  {
+   "id": "stage-gran-p4-11",
+   "category": "object",
+   "name": "Canyon: object 4.11",
+   "group": "Course objects",
+   "file": "objects/stage-gran-p4-11.json"
+  },
+  {
+   "id": "stage-gran-p4-2",
+   "category": "object",
+   "name": "Canyon: object 4.2",
+   "group": "Course objects",
+   "file": "objects/stage-gran-p4-2.json"
+  },
+  {
+   "id": "stage-gran-p4-3",
+   "category": "object",
+   "name": "Canyon: object 4.3",
+   "group": "Course objects",
+   "file": "objects/stage-gran-p4-3.json"
+  },
+  {
+   "id": "stage-gran-p4-4",
+   "category": "object",
+   "name": "Canyon: object 4.4",
+   "group": "Course objects",
+   "file": "objects/stage-gran-p4-4.json"
+  },
+  {
+   "id": "stage-gran-p4-5",
+   "category": "object",
+   "name": "Canyon: object 4.5",
+   "group": "Course objects",
+   "file": "objects/stage-gran-p4-5.json"
+  },
+  {
+   "id": "stage-gran-p4-6",
+   "category": "object",
+   "name": "Canyon: object 4.6",
+   "group": "Course objects",
+   "file": "objects/stage-gran-p4-6.json"
+  },
+  {
+   "id": "stage-gran-p4-7",
+   "category": "object",
+   "name": "Canyon: object 4.7",
+   "group": "Course objects",
+   "file": "objects/stage-gran-p4-7.json"
+  },
+  {
+   "id": "stage-gran-p4-8",
+   "category": "object",
+   "name": "Canyon: object 4.8",
+   "group": "Course objects",
+   "file": "objects/stage-gran-p4-8.json"
+  },
+  {
+   "id": "stage-gran-p4-9",
+   "category": "object",
+   "name": "Canyon: object 4.9",
+   "group": "Course objects",
+   "file": "objects/stage-gran-p4-9.json"
   },
   {
    "id": "stage-gran",
@@ -487,6 +1936,76 @@
    "file": "levels/stage-mach.json"
   },
   {
+   "id": "stage-lasv-p3-1303",
+   "category": "object",
+   "name": "Casino Town: object 3.1303",
+   "group": "Course objects",
+   "file": "objects/stage-lasv-p3-1303.json"
+  },
+  {
+   "id": "stage-lasv-p3-1304",
+   "category": "object",
+   "name": "Casino Town: object 3.1304",
+   "group": "Course objects",
+   "file": "objects/stage-lasv-p3-1304.json"
+  },
+  {
+   "id": "stage-lasv-p3-1305",
+   "category": "object",
+   "name": "Casino Town: object 3.1305",
+   "group": "Course objects",
+   "file": "objects/stage-lasv-p3-1305.json"
+  },
+  {
+   "id": "stage-lasv-p3-1306",
+   "category": "object",
+   "name": "Casino Town: object 3.1306",
+   "group": "Course objects",
+   "file": "objects/stage-lasv-p3-1306.json"
+  },
+  {
+   "id": "stage-lasv-p3-1307",
+   "category": "object",
+   "name": "Casino Town: object 3.1307",
+   "group": "Course objects",
+   "file": "objects/stage-lasv-p3-1307.json"
+  },
+  {
+   "id": "stage-lasv-p3-1308",
+   "category": "object",
+   "name": "Casino Town: object 3.1308",
+   "group": "Course objects",
+   "file": "objects/stage-lasv-p3-1308.json"
+  },
+  {
+   "id": "stage-lasv-p3-1309",
+   "category": "object",
+   "name": "Casino Town: object 3.1309",
+   "group": "Course objects",
+   "file": "objects/stage-lasv-p3-1309.json"
+  },
+  {
+   "id": "stage-lasv-p5-0",
+   "category": "object",
+   "name": "Casino Town: object 5.0",
+   "group": "Course objects",
+   "file": "objects/stage-lasv-p5-0.json"
+  },
+  {
+   "id": "stage-lasv-p5-2",
+   "category": "object",
+   "name": "Casino Town: object 5.2",
+   "group": "Course objects",
+   "file": "objects/stage-lasv-p5-2.json"
+  },
+  {
+   "id": "stage-lasv-p5-4",
+   "category": "object",
+   "name": "Casino Town: object 5.4",
+   "group": "Course objects",
+   "file": "objects/stage-lasv-p5-4.json"
+  },
+  {
    "id": "stage-lasv",
    "category": "level",
    "name": "Stage 4B: Casino Town",
@@ -501,11 +2020,228 @@
    "file": "levels/stage-alas.json"
   },
   {
+   "id": "stage-amaz-p3-1083",
+   "category": "object",
+   "name": "Jungle: object 3.1083",
+   "group": "Course objects",
+   "file": "objects/stage-amaz-p3-1083.json"
+  },
+  {
+   "id": "stage-amaz-p3-1084",
+   "category": "object",
+   "name": "Jungle: object 3.1084",
+   "group": "Course objects",
+   "file": "objects/stage-amaz-p3-1084.json"
+  },
+  {
+   "id": "stage-amaz-p3-1086",
+   "category": "object",
+   "name": "Jungle: object 3.1086",
+   "group": "Course objects",
+   "file": "objects/stage-amaz-p3-1086.json"
+  },
+  {
    "id": "stage-amaz",
    "category": "level",
    "name": "Stage 4D: Jungle",
    "group": "OutRun2: SP",
    "file": "levels/stage-amaz.json"
+  },
+  {
+   "id": "stage-east-p2-76",
+   "category": "object",
+   "name": "Giant Statues: object 2.76",
+   "group": "Course objects",
+   "file": "objects/stage-east-p2-76.json"
+  },
+  {
+   "id": "stage-east-p2-77",
+   "category": "object",
+   "name": "Giant Statues: object 2.77",
+   "group": "Course objects",
+   "file": "objects/stage-east-p2-77.json"
+  },
+  {
+   "id": "stage-east-p2-78",
+   "category": "object",
+   "name": "Giant Statues: object 2.78",
+   "group": "Course objects",
+   "file": "objects/stage-east-p2-78.json"
+  },
+  {
+   "id": "stage-east-p2-79",
+   "category": "object",
+   "name": "Giant Statues: object 2.79",
+   "group": "Course objects",
+   "file": "objects/stage-east-p2-79.json"
+  },
+  {
+   "id": "stage-east-p2-80",
+   "category": "object",
+   "name": "Giant Statues: object 2.80",
+   "group": "Course objects",
+   "file": "objects/stage-east-p2-80.json"
+  },
+  {
+   "id": "stage-east-p2-81",
+   "category": "object",
+   "name": "Giant Statues: object 2.81",
+   "group": "Course objects",
+   "file": "objects/stage-east-p2-81.json"
+  },
+  {
+   "id": "stage-east-p2-82",
+   "category": "object",
+   "name": "Giant Statues: object 2.82",
+   "group": "Course objects",
+   "file": "objects/stage-east-p2-82.json"
+  },
+  {
+   "id": "stage-east-p2-83",
+   "category": "object",
+   "name": "Giant Statues: object 2.83",
+   "group": "Course objects",
+   "file": "objects/stage-east-p2-83.json"
+  },
+  {
+   "id": "stage-east-p2-84",
+   "category": "object",
+   "name": "Giant Statues: object 2.84",
+   "group": "Course objects",
+   "file": "objects/stage-east-p2-84.json"
+  },
+  {
+   "id": "stage-east-p2-85",
+   "category": "object",
+   "name": "Giant Statues: object 2.85",
+   "group": "Course objects",
+   "file": "objects/stage-east-p2-85.json"
+  },
+  {
+   "id": "stage-east-p7-118",
+   "category": "object",
+   "name": "Giant Statues: object 7.118",
+   "group": "Course objects",
+   "file": "objects/stage-east-p7-118.json"
+  },
+  {
+   "id": "stage-east-p7-119",
+   "category": "object",
+   "name": "Giant Statues: object 7.119",
+   "group": "Course objects",
+   "file": "objects/stage-east-p7-119.json"
+  },
+  {
+   "id": "stage-east-p7-120",
+   "category": "object",
+   "name": "Giant Statues: object 7.120",
+   "group": "Course objects",
+   "file": "objects/stage-east-p7-120.json"
+  },
+  {
+   "id": "stage-east-p7-121",
+   "category": "object",
+   "name": "Giant Statues: object 7.121",
+   "group": "Course objects",
+   "file": "objects/stage-east-p7-121.json"
+  },
+  {
+   "id": "stage-east-p7-122",
+   "category": "object",
+   "name": "Giant Statues: object 7.122",
+   "group": "Course objects",
+   "file": "objects/stage-east-p7-122.json"
+  },
+  {
+   "id": "stage-east-p7-123",
+   "category": "object",
+   "name": "Giant Statues: object 7.123",
+   "group": "Course objects",
+   "file": "objects/stage-east-p7-123.json"
+  },
+  {
+   "id": "stage-east-p7-124",
+   "category": "object",
+   "name": "Giant Statues: object 7.124",
+   "group": "Course objects",
+   "file": "objects/stage-east-p7-124.json"
+  },
+  {
+   "id": "stage-east-p7-125",
+   "category": "object",
+   "name": "Giant Statues: object 7.125",
+   "group": "Course objects",
+   "file": "objects/stage-east-p7-125.json"
+  },
+  {
+   "id": "stage-east-p7-126",
+   "category": "object",
+   "name": "Giant Statues: object 7.126",
+   "group": "Course objects",
+   "file": "objects/stage-east-p7-126.json"
+  },
+  {
+   "id": "stage-east-p7-127",
+   "category": "object",
+   "name": "Giant Statues: object 7.127",
+   "group": "Course objects",
+   "file": "objects/stage-east-p7-127.json"
+  },
+  {
+   "id": "stage-east-p7-128",
+   "category": "object",
+   "name": "Giant Statues: object 7.128",
+   "group": "Course objects",
+   "file": "objects/stage-east-p7-128.json"
+  },
+  {
+   "id": "stage-east-p7-129",
+   "category": "object",
+   "name": "Giant Statues: object 7.129",
+   "group": "Course objects",
+   "file": "objects/stage-east-p7-129.json"
+  },
+  {
+   "id": "stage-east-p7-130",
+   "category": "object",
+   "name": "Giant Statues: object 7.130",
+   "group": "Course objects",
+   "file": "objects/stage-east-p7-130.json"
+  },
+  {
+   "id": "stage-east-p7-131",
+   "category": "object",
+   "name": "Giant Statues: object 7.131",
+   "group": "Course objects",
+   "file": "objects/stage-east-p7-131.json"
+  },
+  {
+   "id": "stage-east-p7-132",
+   "category": "object",
+   "name": "Giant Statues: object 7.132",
+   "group": "Course objects",
+   "file": "objects/stage-east-p7-132.json"
+  },
+  {
+   "id": "stage-east-p7-133",
+   "category": "object",
+   "name": "Giant Statues: object 7.133",
+   "group": "Course objects",
+   "file": "objects/stage-east-p7-133.json"
+  },
+  {
+   "id": "stage-east-p7-134",
+   "category": "object",
+   "name": "Giant Statues: object 7.134",
+   "group": "Course objects",
+   "file": "objects/stage-east-p7-134.json"
+  },
+  {
+   "id": "stage-east-p7-135",
+   "category": "object",
+   "name": "Giant Statues: object 7.135",
+   "group": "Course objects",
+   "file": "objects/stage-east-p7-135.json"
   },
   {
    "id": "stage-east",
@@ -515,11 +2251,340 @@
    "file": "levels/stage-east.json"
   },
   {
+   "id": "stage-maya-p11-77",
+   "category": "object",
+   "name": "Legend: object 11.77",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p11-77.json"
+  },
+  {
+   "id": "stage-maya-p11-78",
+   "category": "object",
+   "name": "Legend: object 11.78",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p11-78.json"
+  },
+  {
+   "id": "stage-maya-p12-0",
+   "category": "object",
+   "name": "Legend: object 12.0",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p12-0.json"
+  },
+  {
+   "id": "stage-maya-p12-12",
+   "category": "object",
+   "name": "Legend: object 12.12",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p12-12.json"
+  },
+  {
+   "id": "stage-maya-p12-16",
+   "category": "object",
+   "name": "Legend: object 12.16",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p12-16.json"
+  },
+  {
+   "id": "stage-maya-p12-20",
+   "category": "object",
+   "name": "Legend: object 12.20",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p12-20.json"
+  },
+  {
+   "id": "stage-maya-p12-24",
+   "category": "object",
+   "name": "Legend: object 12.24",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p12-24.json"
+  },
+  {
+   "id": "stage-maya-p12-28",
+   "category": "object",
+   "name": "Legend: object 12.28",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p12-28.json"
+  },
+  {
+   "id": "stage-maya-p12-4",
+   "category": "object",
+   "name": "Legend: object 12.4",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p12-4.json"
+  },
+  {
+   "id": "stage-maya-p12-8",
+   "category": "object",
+   "name": "Legend: object 12.8",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p12-8.json"
+  },
+  {
+   "id": "stage-maya-p4-70",
+   "category": "object",
+   "name": "Legend: object 4.70",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-70.json"
+  },
+  {
+   "id": "stage-maya-p4-71",
+   "category": "object",
+   "name": "Legend: object 4.71",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-71.json"
+  },
+  {
+   "id": "stage-maya-p4-72",
+   "category": "object",
+   "name": "Legend: object 4.72",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-72.json"
+  },
+  {
+   "id": "stage-maya-p4-73",
+   "category": "object",
+   "name": "Legend: object 4.73",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-73.json"
+  },
+  {
+   "id": "stage-maya-p4-74",
+   "category": "object",
+   "name": "Legend: object 4.74",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-74.json"
+  },
+  {
+   "id": "stage-maya-p4-75",
+   "category": "object",
+   "name": "Legend: object 4.75",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-75.json"
+  },
+  {
+   "id": "stage-maya-p4-76",
+   "category": "object",
+   "name": "Legend: object 4.76",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-76.json"
+  },
+  {
+   "id": "stage-maya-p4-77",
+   "category": "object",
+   "name": "Legend: object 4.77",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-77.json"
+  },
+  {
+   "id": "stage-maya-p4-78",
+   "category": "object",
+   "name": "Legend: object 4.78",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-78.json"
+  },
+  {
+   "id": "stage-maya-p4-79",
+   "category": "object",
+   "name": "Legend: object 4.79",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-79.json"
+  },
+  {
+   "id": "stage-maya-p4-80",
+   "category": "object",
+   "name": "Legend: object 4.80",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-80.json"
+  },
+  {
+   "id": "stage-maya-p4-81",
+   "category": "object",
+   "name": "Legend: object 4.81",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-81.json"
+  },
+  {
+   "id": "stage-maya-p4-82",
+   "category": "object",
+   "name": "Legend: object 4.82",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-82.json"
+  },
+  {
+   "id": "stage-maya-p4-83",
+   "category": "object",
+   "name": "Legend: object 4.83",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-83.json"
+  },
+  {
+   "id": "stage-maya-p4-84",
+   "category": "object",
+   "name": "Legend: object 4.84",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-84.json"
+  },
+  {
+   "id": "stage-maya-p4-85",
+   "category": "object",
+   "name": "Legend: object 4.85",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-85.json"
+  },
+  {
+   "id": "stage-maya-p4-86",
+   "category": "object",
+   "name": "Legend: object 4.86",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-86.json"
+  },
+  {
+   "id": "stage-maya-p4-87",
+   "category": "object",
+   "name": "Legend: object 4.87",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-87.json"
+  },
+  {
+   "id": "stage-maya-p4-88",
+   "category": "object",
+   "name": "Legend: object 4.88",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p4-88.json"
+  },
+  {
+   "id": "stage-maya-p5-2",
+   "category": "object",
+   "name": "Legend: object 5.2",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p5-2.json"
+  },
+  {
+   "id": "stage-maya-p5-3",
+   "category": "object",
+   "name": "Legend: object 5.3",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p5-3.json"
+  },
+  {
+   "id": "stage-maya-p5-4",
+   "category": "object",
+   "name": "Legend: object 5.4",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p5-4.json"
+  },
+  {
+   "id": "stage-maya-p5-5",
+   "category": "object",
+   "name": "Legend: object 5.5",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p5-5.json"
+  },
+  {
+   "id": "stage-maya-p5-6",
+   "category": "object",
+   "name": "Legend: object 5.6",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p5-6.json"
+  },
+  {
+   "id": "stage-maya-p5-7",
+   "category": "object",
+   "name": "Legend: object 5.7",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p5-7.json"
+  },
+  {
+   "id": "stage-maya-p9-18",
+   "category": "object",
+   "name": "Legend: object 9.18",
+   "group": "Course objects",
+   "file": "objects/stage-maya-p9-18.json"
+  },
+  {
    "id": "stage-maya",
    "category": "level",
    "name": "Stage 5B: Legend",
    "group": "OutRun2: SP",
    "file": "levels/stage-maya.json"
+  },
+  {
+   "id": "stage-flor-p1-78",
+   "category": "object",
+   "name": "Milky Way: object 1.78",
+   "group": "Course objects",
+   "file": "objects/stage-flor-p1-78.json"
+  },
+  {
+   "id": "stage-flor-p1-79",
+   "category": "object",
+   "name": "Milky Way: object 1.79",
+   "group": "Course objects",
+   "file": "objects/stage-flor-p1-79.json"
+  },
+  {
+   "id": "stage-flor-p1-80",
+   "category": "object",
+   "name": "Milky Way: object 1.80",
+   "group": "Course objects",
+   "file": "objects/stage-flor-p1-80.json"
+  },
+  {
+   "id": "stage-flor-p1-81",
+   "category": "object",
+   "name": "Milky Way: object 1.81",
+   "group": "Course objects",
+   "file": "objects/stage-flor-p1-81.json"
+  },
+  {
+   "id": "stage-flor-p2-0",
+   "category": "object",
+   "name": "Milky Way: object 2.0",
+   "group": "Course objects",
+   "file": "objects/stage-flor-p2-0.json"
+  },
+  {
+   "id": "stage-flor-p3-403",
+   "category": "object",
+   "name": "Milky Way: object 3.403",
+   "group": "Course objects",
+   "file": "objects/stage-flor-p3-403.json"
+  },
+  {
+   "id": "stage-flor-p3-404",
+   "category": "object",
+   "name": "Milky Way: object 3.404",
+   "group": "Course objects",
+   "file": "objects/stage-flor-p3-404.json"
+  },
+  {
+   "id": "stage-flor-p3-405",
+   "category": "object",
+   "name": "Milky Way: object 3.405",
+   "group": "Course objects",
+   "file": "objects/stage-flor-p3-405.json"
+  },
+  {
+   "id": "stage-flor-p3-406",
+   "category": "object",
+   "name": "Milky Way: object 3.406",
+   "group": "Course objects",
+   "file": "objects/stage-flor-p3-406.json"
+  },
+  {
+   "id": "stage-flor-p3-407",
+   "category": "object",
+   "name": "Milky Way: object 3.407",
+   "group": "Course objects",
+   "file": "objects/stage-flor-p3-407.json"
+  },
+  {
+   "id": "stage-flor-p3-408",
+   "category": "object",
+   "name": "Milky Way: object 3.408",
+   "group": "Course objects",
+   "file": "objects/stage-flor-p3-408.json"
   },
   {
    "id": "stage-flor",
@@ -529,11 +2594,95 @@
    "file": "levels/stage-flor.json"
   },
   {
+   "id": "stage-prin-p10-47",
+   "category": "object",
+   "name": "Floral Village: object 10.47",
+   "group": "Course objects",
+   "file": "objects/stage-prin-p10-47.json"
+  },
+  {
+   "id": "stage-prin-p6-12",
+   "category": "object",
+   "name": "Floral Village: object 6.12",
+   "group": "Course objects",
+   "file": "objects/stage-prin-p6-12.json"
+  },
+  {
+   "id": "stage-prin-p8-0",
+   "category": "object",
+   "name": "Floral Village: object 8.0",
+   "group": "Course objects",
+   "file": "objects/stage-prin-p8-0.json"
+  },
+  {
    "id": "stage-prin",
    "category": "level",
    "name": "Stage 5D: Floral Village",
    "group": "OutRun2: SP",
    "file": "levels/stage-prin.json"
+  },
+  {
+   "id": "stage-newy-p4-82",
+   "category": "object",
+   "name": "Skyscrapers: object 4.82",
+   "group": "Course objects",
+   "file": "objects/stage-newy-p4-82.json"
+  },
+  {
+   "id": "stage-newy-p4-83",
+   "category": "object",
+   "name": "Skyscrapers: object 4.83",
+   "group": "Course objects",
+   "file": "objects/stage-newy-p4-83.json"
+  },
+  {
+   "id": "stage-newy-p4-84",
+   "category": "object",
+   "name": "Skyscrapers: object 4.84",
+   "group": "Course objects",
+   "file": "objects/stage-newy-p4-84.json"
+  },
+  {
+   "id": "stage-newy-p4-85",
+   "category": "object",
+   "name": "Skyscrapers: object 4.85",
+   "group": "Course objects",
+   "file": "objects/stage-newy-p4-85.json"
+  },
+  {
+   "id": "stage-newy-p5-240",
+   "category": "object",
+   "name": "Skyscrapers: object 5.240",
+   "group": "Course objects",
+   "file": "objects/stage-newy-p5-240.json"
+  },
+  {
+   "id": "stage-newy-p5-241",
+   "category": "object",
+   "name": "Skyscrapers: object 5.241",
+   "group": "Course objects",
+   "file": "objects/stage-newy-p5-241.json"
+  },
+  {
+   "id": "stage-newy-p5-242",
+   "category": "object",
+   "name": "Skyscrapers: object 5.242",
+   "group": "Course objects",
+   "file": "objects/stage-newy-p5-242.json"
+  },
+  {
+   "id": "stage-newy-p7-7",
+   "category": "object",
+   "name": "Skyscrapers: object 7.7",
+   "group": "Course objects",
+   "file": "objects/stage-newy-p7-7.json"
+  },
+  {
+   "id": "stage-newy-p7-8",
+   "category": "object",
+   "name": "Skyscrapers: object 7.8",
+   "group": "Course objects",
+   "file": "objects/stage-newy-p7-8.json"
   },
   {
    "id": "stage-newy",

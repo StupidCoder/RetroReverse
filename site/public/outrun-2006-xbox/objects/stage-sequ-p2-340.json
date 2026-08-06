@@ -1,0 +1,10 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "Big Forest: object 2.340",
+ "model": "stage-sequ-p2-340.glb",
+ "props": {
+  "source": "/Stage/SEQU/cs_CS_SEQU_pmt.sz"
+ }
+}
