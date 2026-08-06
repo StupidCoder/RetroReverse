@@ -105,10 +105,13 @@ func run(ctx *cli.Context) error {
 		}
 
 		if ctx.Stage("objects") {
-			if err := exportModels(ctx, ls, tmp); err != nil {
+			if err := exportModels(ctx, ls, tmp, bindings); err != nil {
 				return err
 			}
 			if err := exportArchiveGLBs(ctx, ls, bindings); err != nil {
+				return err
+			}
+			if err := exportDoorGLBs(ctx, ls, tmp, bindings); err != nil {
 				return err
 			}
 		}
@@ -587,7 +590,7 @@ func clipAnims(clips []sm64ds.NamedBCA) []schema.Animation {
 	return out
 }
 
-func exportModels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string) error {
+func exportModels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings map[int][]Binding) error {
 	b := ctx.Builder
 	root := filepath.Join(tmp, "files")
 
@@ -617,6 +620,13 @@ func exportModels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string) error {
 					clips = append(clips, sm64ds.NamedBCA{Name: stem, Anim: a})
 				}
 			}
+		}
+		// A door's animation is an ARCHIVE member, so the sibling glob above
+		// finds nothing for the filesystem door models — which is why the
+		// basement doors shipped without their swing while the archive ones had
+		// it. The oracle knows which clip a run asked for; take it from there.
+		if len(clips) == 0 && doorModels[m.Name] {
+			clips = append(clips, archiveClipsFor(ls, bindings, doorActor, m.NumBones)...)
 		}
 		var data []byte
 		if len(clips) > 0 {
@@ -1547,22 +1557,29 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			})
 			pid++
 		}
-		// addPart puts one more model on an object's own transform — the star
-		// plaque on a door, which is authored in door space and so needs the
-		// placement's position, offset and yaw and nothing else.
-		addPart := func(stem string, o sm64ds.LevelObject, off [3]float64, name string) {
+		// addDoor emits a door: a named model (leaf, or leaf+plaque merged) on
+		// the placement's own transform, with the actor binding and the
+		// click-to-open handler the leaf's clip provides.
+		addDoor := func(stem string, o sm64ds.LevelObject, off [3]float64) {
 			asset, ok := refs[stem]
 			if !ok {
 				return
 			}
 			pl := schema.Placement{
-				ID: pid, Object: asset, Name: name,
-				Pos: []float64{r3(o.X*toStage + off[0]), r3(o.Y*toStage + off[1]), r3(o.Z*toStage + off[2])},
+				ID: pid, Object: asset,
+				Pos:      []float64{r3(o.X*toStage + off[0]), r3(o.Y*toStage + off[1]), r3(o.Z*toStage + off[2])},
 				Scale:    schema.Scale{objScale},
+				Props:    map[string]any{"actor": o.Actor},
 				Variants: curVars,
 			}
 			if o.RotY != 0 {
 				pl.Rot = []float64{0, o.RotY * math.Pi / 180, 0}
+			}
+			if a := doorAnim[stem]; a != "" {
+				pl.OnClick = &schema.OnClick{
+					Action: schema.ActionAnimate, Clip: a,
+					HoldAt: r3(doorHold[stem]), Toggle: true,
+				}
 			}
 			doc.Placements = append(doc.Placements, pl)
 			pid++
@@ -1573,17 +1590,23 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			curScale = nil
 			switch o.Actor {
 			case doorActor:
-				// The leaf, shifted back onto its hinge (doorRestX), plus the
-				// plaque that dresses a star door.
-				yaw := o.RotY * math.Pi / 180
-				ux, uz := math.Cos(yaw), -math.Sin(yaw) // local +X in world
-				off := [3]float64{ux * doorRestX, 0, uz * doorRestX}
-				addObjOff(o, o.Actor, o.Params, true, off)
-				// The plaque carries no bone, so it gets NO compensation: it is
-				// authored in the leaf's own space and belongs on the record.
-				for _, part := range doorParts(bindings, o.Actor, o.Params) {
-					addPart(part, o, [3]float64{}, "Star plaque")
+				// One object, not two: a star door's plaque is merged into its
+				// leaf (exportDoorGLBs) so the two swing together. The hinge
+				// compensation applies only to a leaf that carries the clip —
+				// it cancels a bone translation, and a model with no bone
+				// animation has nothing to cancel.
+				stem := modelFor(o.Actor, o.Params)
+				if parts := doorParts(bindings, o.Actor, o.Params); len(parts) > 0 {
+					if c, ok := doorCombo[stem+"|"+parts[0]]; ok {
+						stem = c
+					}
 				}
+				off := [3]float64{}
+				if doorAnim[stem] != "" {
+					yaw := o.RotY * math.Pi / 180
+					off = [3]float64{math.Cos(yaw) * doorRestX, 0, -math.Sin(yaw) * doorRestX}
+				}
+				addDoor(stem, o, off)
 
 			case paintingActor:
 				sc, lift := paintingScale(o.Params[0])
@@ -1864,6 +1887,133 @@ const doorActor = 353
 // that never changes as part of the rest pose rather than as animation, and it
 // would let this constant go.
 const doorRestX = 9.375 * objScale
+
+// doorCombo maps "leaf|plaque" to the stem of the merged object.
+var doorCombo = map[string]string{}
+
+// exportDoorGLBs builds one object per (leaf, plaque) pair a door run asked for.
+// A star door is a leaf plus a plaque authored in the leaf's own space; as two
+// placements they cannot move together, so the plaque hung in the air when the
+// door swung. Merged into one skinned mesh — every door part has exactly one
+// bone, the one the clip drives — they swing as a unit.
+func exportDoorGLBs(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings map[int][]Binding) error {
+	b := ctx.Builder
+	pairs := map[[2]string]bool{}
+	for _, bd := range bindings[doorActor] {
+		if len(bd.Models) < 2 {
+			continue
+		}
+		for _, part := range bd.Models[1:] {
+			if strings.HasPrefix(part, "obj_door0_star") {
+				pairs[[2]string{bd.Models[0], part}] = true
+			}
+		}
+	}
+	var keys [][2]string
+	for k := range pairs {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i][0]+keys[i][1] < keys[j][0]+keys[j][1] })
+
+	n := 0
+	for _, k := range keys {
+		leaf, err := loadPart(ls, tmp, k[0])
+		if err != nil {
+			continue
+		}
+		plaque, err := loadPart(ls, tmp, k[1])
+		if err != nil {
+			continue
+		}
+		m := leaf.MergeParts(plaque)
+		clips := archiveClipsFor(ls, bindings, doorActor, m.NumBones)
+		if len(clips) == 0 {
+			continue
+		}
+		data, err := m.SkinnedGLB(clips)
+		if err != nil {
+			continue
+		}
+		stem := k[0] + "_" + k[1]
+		gp, err := b.Path("objects", stem+".glb")
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(gp, data, 0o644); err != nil {
+			return err
+		}
+		anims := clipAnims(clips)
+		for i := range anims {
+			anims[i].Loop = "hold"
+		}
+		name := title(k[0]) + " with star plaque"
+		id := objectID(stem)
+		b.AddObject(schema.Asset{ID: id, Name: name, Group: "Archive members"},
+			&schema.Object{
+				Type: schema.ObjectModel3D, Name: name, Model: stem + ".glb",
+				SkinnedClone: true, Animations: anims,
+			})
+		refs[stem] = id
+		doorCombo[k[0]+"|"+k[1]] = stem
+		doorAnim[stem] = anims[0].ID
+		doorHold[stem] = doorApex(clips[0].Anim)
+		n++
+	}
+	ctx.Logf("%d door+plaque objects merged", n)
+	return nil
+}
+
+// loadPart decodes a door part, from the archive or the filesystem.
+func loadPart(ls *sm64ds.LevelSet, tmp, stem string) (*sm64ds.Model, error) {
+	if ref, ok := archiveRefByStem(ls, stem); ok {
+		data, err := ls.ArchiveMember(ref)
+		if err != nil {
+			return nil, err
+		}
+		return sm64ds.Decode(data, stem)
+	}
+	matches, _ := filepath.Glob(filepath.Join(tmp, "files/data/*/*", stem+".bmd"))
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("no such model %q", stem)
+	}
+	data, err := os.ReadFile(matches[0])
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > 4 && string(data[:4]) == "LZ77" {
+		data = nds.Decompress(data[4:])
+	}
+	return sm64ds.Decode(data, stem)
+}
+
+// archiveClipsFor loads the archive-member clips an actor's runs asked for,
+// keeping the ones whose bone count matches the model.
+func archiveClipsFor(ls *sm64ds.LevelSet, bindings map[int][]Binding, actor, bones int) []sm64ds.NamedBCA {
+	seen := map[string]bool{}
+	var out []sm64ds.NamedBCA
+	for _, b := range bindings[actor] {
+		for _, cs := range b.Clips {
+			if seen[cs] {
+				continue
+			}
+			seen[cs] = true
+			ref, ok := archiveRefByStem(ls, cs)
+			if !ok {
+				continue
+			}
+			cd, err := ls.ArchiveMember(ref)
+			if err != nil {
+				continue
+			}
+			a, err := sm64ds.DecodeBCA(cd)
+			if err != nil || a.NumBones != bones {
+				continue
+			}
+			out = append(out, sm64ds.NamedBCA{Name: cs, Anim: a})
+		}
+	}
+	return out
+}
 
 // doorParts lists the dressing models a door run loaded besides its leaf: the
 // star plaque `obj_door0_starN`, a flat 13.75-unit panel authored in door space

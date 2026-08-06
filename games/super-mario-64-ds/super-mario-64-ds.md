@@ -528,12 +528,26 @@ works because the viewer applies the clip's bone translation, and it moves only
 the skinned leaf. The deeper fix is for `SkinnedGLB` to treat a channel that
 never changes as part of the rest pose rather than as animation.
 
-**The star plaque.** A door run loads more than its leaf: `obj_door0_starN`, a
-flat 13.75-unit panel authored in door space, and `arc0_21`. The plaque is
-emitted onto the leaf's face — with no compensation, because it carries no bone
-— and the star is not: it is the 3-D Power Star pickup, not anything mounted on
-a door. The plaque is a placement of its own and so does not swing with the leaf
-when the door opens; that is the cost of composing parts this way.
+**The star plaque is part of the door, not a second object.** A door run loads
+more than its leaf: `obj_door0_starN`, a flat 13.75-unit panel authored in the
+leaf's own space, and `arc0_21` — which is not emitted, being the 3-D Power Star
+pickup rather than anything mounted on a door. Emitted as its own placement the
+plaque could not move with the leaf, so it hung in the air the moment a door
+opened. **Every door part has exactly one bone** — leaves and plaques alike — so
+`Model.MergeParts` welds them into a single skinned mesh bound to the one bone
+the clip drives, and `exportDoorGLBs` writes one object per (leaf, plaque) pair:
+four of them. They swing as a unit.
+
+**And the doors that "have no animation" all do.** The basement doors kept their
+bind pose because their models live in the filesystem (`data/normal_obj/door/`)
+while their clip is an ARCHIVE member — the sibling-`.bca` glob that pairs a
+filesystem model with its clips can never find it. The oracle knows which clip
+the run asked for, so the filesystem door models now take it the same way the
+archive ones do. That in turn made them skinned, which means they need the hinge
+compensation too — and the compensation is applied **only** to a leaf that
+actually carries the clip, because it cancels a bone translation and a model
+without one has nothing to cancel. Applying it blindly is what pushed the
+basement doors half a width the other way.
 
 **Click to open.** A door ships as a model plus one `.bca`, and that clip is a
 full ROUND TRIP: `cmd/doorprobe -clip ar1_8 -model ar1_9` reads it as 50 frames,

@@ -3853,6 +3853,34 @@
    "file": "objects/arc0-9.json"
   },
   {
+   "id": "ar1-9-obj-door0-star",
+   "category": "object",
+   "name": "Ar1 9 with star plaque",
+   "group": "Archive members",
+   "file": "objects/ar1-9-obj-door0-star.json"
+  },
+  {
+   "id": "ar1-9-obj-door0-star1",
+   "category": "object",
+   "name": "Ar1 9 with star plaque",
+   "group": "Archive members",
+   "file": "objects/ar1-9-obj-door0-star1.json"
+  },
+  {
+   "id": "ar1-9-obj-door0-star10",
+   "category": "object",
+   "name": "Ar1 9 with star plaque",
+   "group": "Archive members",
+   "file": "objects/ar1-9-obj-door0-star10.json"
+  },
+  {
+   "id": "ar1-9-obj-door0-star3",
+   "category": "object",
+   "name": "Ar1 9 with star plaque",
+   "group": "Archive members",
+   "file": "objects/ar1-9-obj-door0-star3.json"
+  },
+  {
    "id": "test-map",
    "category": "level",
    "name": "Test map",

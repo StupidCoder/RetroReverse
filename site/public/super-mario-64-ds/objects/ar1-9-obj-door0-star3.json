@@ -2,7 +2,7 @@
  "format": "retro-x",
  "version": 1,
  "type": "model3d",
- "name": "Obj door1",
+ "name": "Ar1 9 with star plaque",
  "animations": [
   {
    "id": "ar1_8",
@@ -11,6 +11,6 @@
    "fps": 30
   }
  ],
- "model": "obj_door1.glb",
+ "model": "ar1_9_obj_door0_star3.glb",
  "skinnedClone": true
 }

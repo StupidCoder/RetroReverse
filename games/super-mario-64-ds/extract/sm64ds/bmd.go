@@ -60,6 +60,55 @@ type Model struct {
 	Skel     []SkelJoint // bind-pose skeleton (for skinned export)
 }
 
+// MergeParts returns a model holding this model's geometry plus every part's,
+// sharing this model's skeleton.
+//
+// The castle's star doors are assembled from parts that are separate .bmd files
+// but one object: the leaf carries the swing, the star plaque is authored in the
+// leaf's own space and rides it. Emitted as two placements they cannot move
+// together — the plaque hangs in the air when the door opens. Merged, they are
+// one skinned mesh bound to the one bone the clip drives, and they swing as a
+// unit.
+//
+// Only meaningful for parts that share the skeleton: every door part has exactly
+// one bone, so every vertex is bound to bone 0 either way. A part with a
+// different bone count is skipped rather than welded on wrong.
+func (m *Model) MergeParts(parts ...*Model) *Model {
+	out := &Model{
+		Name:     m.Name,
+		ByMat:    map[int][]nitro.Tri{},
+		Mats:     append([]nitro.Material(nil), m.Mats...),
+		Texs:     map[string]nitro.Texture{},
+		NumBones: m.NumBones,
+		Skel:     m.Skel,
+	}
+	for k, v := range m.ByMat {
+		out.ByMat[k] = append([]nitro.Tri(nil), v...)
+	}
+	for k, v := range m.Texs {
+		out.Texs[k] = v
+	}
+	for _, p := range parts {
+		if p == nil || p.NumBones != m.NumBones {
+			continue
+		}
+		base := len(out.Mats)
+		out.Mats = append(out.Mats, p.Mats...)
+		for k, v := range p.Texs {
+			out.Texs[k] = v
+		}
+		for mi, tris := range p.ByMat {
+			shifted := make([]nitro.Tri, len(tris))
+			for i, t := range tris {
+				t.Mat += base
+				shifted[i] = t
+			}
+			out.ByMat[base+mi] = append(out.ByMat[base+mi], shifted...)
+		}
+	}
+	return out
+}
+
 type bmd struct{ d []byte }
 
 func (b bmd) u32(o int) uint32 {

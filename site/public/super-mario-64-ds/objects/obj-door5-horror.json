@@ -3,5 +3,14 @@
  "version": 1,
  "type": "model3d",
  "name": "Obj door5 horror",
- "model": "obj_door5_horror.glb"
+ "animations": [
+  {
+   "id": "ar1_8",
+   "loop": "hold",
+   "clip": "ar1_8",
+   "fps": 30
+  }
+ ],
+ "model": "obj_door5_horror.glb",
+ "skinnedClone": true
 }

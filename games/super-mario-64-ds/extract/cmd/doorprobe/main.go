@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 
 	"retroreverse.com/games/super-mario-64-ds/extract/sm64ds"
 )
@@ -18,6 +19,7 @@ func main() {
 	cfg := flag.Int("ovl", 100, "overlay carrying the profile")
 	clip := flag.String("clip", "", "dump this clip against -model instead of sweeping")
 	model := flag.String("model", "ar1_9", "model for -clip")
+	models := flag.String("models", "", "comma-separated stems: print bone counts")
 	flag.Parse()
 
 	ls, err := sm64ds.OpenLevels(*rom, *ext)
@@ -32,6 +34,10 @@ func main() {
 		log.Fatal(err)
 	}
 
+	if *models != "" {
+		dumpModel(ls, strings.Split(*models, ","))
+		return
+	}
 	if *clip != "" {
 		dumpClip(ls, *model, *clip)
 		return

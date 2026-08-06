@@ -3,9 +3,12 @@ package main
 import (
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"retroreverse.com/games/super-mario-64-ds/extract/sm64ds"
+	"retroreverse.com/tools/platform/nds"
 )
 
 func archiveRefByStem(ls *sm64ds.LevelSet, stem string) (sm64ds.ArchiveRef, bool) {
@@ -24,6 +27,34 @@ func archiveRefByStem(ls *sm64ds.LevelSet, stem string) (sm64ds.ArchiveRef, bool
 		}
 	}
 	return sm64ds.ArchiveRef{}, false
+}
+
+// dumpModel reports a model's bone count, wherever it lives.
+func dumpModel(ls *sm64ds.LevelSet, stems []string) {
+	for _, stem := range stems {
+		var data []byte
+		if ref, ok := archiveRefByStem(ls, stem); ok {
+			data, _ = ls.ArchiveMember(ref)
+		} else {
+			matches, _ := filepath.Glob("extracted/files/data/*/*/" + stem + ".bmd")
+			if len(matches) > 0 {
+				data, _ = os.ReadFile(matches[0])
+			}
+			if len(data) > 4 && string(data[:4]) == "LZ77" {
+				data = nds.Decompress(data[4:])
+			}
+		}
+		if len(data) == 0 {
+			fmt.Printf("  %-20s not found\n", stem)
+			continue
+		}
+		m, err := sm64ds.Decode(data, stem)
+		if err != nil {
+			fmt.Printf("  %-20s decode: %v\n", stem, err)
+			continue
+		}
+		fmt.Printf("  %-20s bones=%d\n", stem, m.NumBones)
+	}
 }
 
 // dumpClip prints a .bca's per-frame bone rotation, so a clip can be read

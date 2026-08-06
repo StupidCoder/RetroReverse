@@ -53,6 +53,11 @@
    "pos": [0, 0, 0.45],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }

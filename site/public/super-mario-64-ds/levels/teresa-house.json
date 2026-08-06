@@ -83,6 +83,11 @@
    "object": "obj-door5-horror",
    "pos": [0.575, 0, 2.05],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -93,6 +98,11 @@
    "pos": [0.725, 0, 2.05],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -102,6 +112,11 @@
    "object": "obj-door5-horror",
    "pos": [-1.525, 0, -1.55],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -112,6 +127,11 @@
    "pos": [-2.087, -0.2, 4.42],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -122,6 +142,11 @@
    "pos": [2.05, 0, 1.425],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -131,6 +156,11 @@
    "object": "obj-door5-horror",
    "pos": [1.575, 0, -0.05],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -140,6 +170,11 @@
    "object": "obj-door5-horror",
    "pos": [0.425, 0, -0.05],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -150,6 +185,11 @@
    "pos": [-0.05, 0, 0.625],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -160,6 +200,11 @@
    "pos": [-0.05, 0, 1.425],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -170,6 +215,11 @@
    "pos": [2.05, 0.8, 1.775],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -180,6 +230,11 @@
    "pos": [2.05, 0.8, 0.475],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -189,6 +244,11 @@
    "object": "obj-door5-horror",
    "pos": [0.175, 0.8, -0.05],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -199,6 +259,11 @@
    "pos": [-0.75, 0.8, 1.375],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -208,6 +273,11 @@
    "object": "obj-door5-horror",
    "pos": [0.575, 1.876, 1.85],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -218,6 +288,11 @@
    "pos": [0.725, 1.876, 1.85],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -228,6 +303,11 @@
    "pos": [-1.975, 0, 1.05],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -238,6 +318,11 @@
    "pos": [-0.75, 0.8, 0.625],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -248,6 +333,11 @@
    "pos": [2.05, 1.7, 0.475],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -257,6 +347,11 @@
    "object": "obj-door5-horror",
    "pos": [1.575, 0.8, -0.05],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -266,6 +361,11 @@
    "object": "obj-door5-horror",
    "pos": [3.275, 0, 1.05],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -275,6 +375,11 @@
    "object": "obj-door5-horror",
    "pos": [-1.925, 1, 1.05],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -284,6 +389,11 @@
    "object": "obj-door5-horror",
    "pos": [0, -2.4, 4.55],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -293,6 +403,11 @@
    "object": "obj-door5-horror",
    "pos": [0, -2.4, 2.05],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -303,6 +418,11 @@
    "pos": [-1.95, -2.4, 0.2],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -313,6 +433,11 @@
    "pos": [1.55, -2.4, 0.2],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
