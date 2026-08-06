@@ -1224,6 +1224,9 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 				Mode: "toggle", Attach: "camera", Role: "sky", RenderOrder: -1,
 			})
 		}
+		// A placement group for the things the game does not show you while you
+		// play: see markerModels.
+		markerLayer := false
 		if kcl := strings.TrimSuffix(filepath.Base(lv.KCLPath), ".kcl"); lv.KCLPath != "" && colFile[kcl] != "" {
 			off := false
 			doc.Scene.Layers = append(doc.Scene.Layers, schema.Layer{
@@ -1349,6 +1352,10 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 				pl.Rot = []float64{0, o.RotY * math.Pi / 180, 0}
 			}
 			pl.Variants = curVars
+			if markerModels[m] {
+				pl.Layer = markerLayerID
+				markerLayer = true
+			}
 			if coinActors[actor] {
 				pl.Behavior = &schema.Behavior{
 					Kind: "spin", Axis: []float64{0, 1, 0}, Rate: r3(coinSpinRate),
@@ -1399,6 +1406,13 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			}
 		}
 
+		if markerLayer {
+			off := false
+			doc.Scene.Layers = append(doc.Scene.Layers, schema.Layer{
+				ID: markerLayerID, Name: "Stars, markers & cannons",
+				Mode: "toggle", Visible: &off,
+			})
+		}
 		b.AddLevel(schema.Asset{
 			ID: slugify(strings.TrimSuffix(stem, "_all")), Name: name, Group: "Levels",
 		}, doc)
@@ -1489,6 +1503,24 @@ func variantIDs(layers, gated map[int]bool, declared map[string]bool) []string {
 	}
 	return out
 }
+
+// markerModels are the models the game does not show you while you are playing
+// the level, and which read as clutter in a diorama: the Power Star and its
+// spawn marker, the mission-number glyph that goes with them, and the cannons
+// (which sit under a closed lid until you open one). They are in the level
+// data and they stay in the document — the exporter puts them in a placement
+// group the viewer starts with switched off, so the default look is the level
+// as you play it and one checkbox brings them back.
+//
+// Keyed by MODEL, not actor: the model is what a viewer sees and names.
+var markerModels = map[string]bool{
+	"arc0_21":   true, // the Power Star
+	"star_base": true, // the flat star silhouette marking where one spawns
+	"arc0_9":    true, // the mission-number glyph
+	"houdai":    true, // a cannon
+}
+
+const markerLayerID = "markers"
 
 // coinActors are the three placed-coin classes. All three profiles
 // ($02108790/AC/C8, actors 288/289/290) install the same vtable $021087EC,

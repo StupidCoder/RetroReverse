@@ -331,6 +331,24 @@ func TestExclusiveGroupNeedsOneVisible(t *testing.T) {
 	expectError(t, fsys, "exactly one layer of an exclusive group")
 }
 
+// A layer with no file is a placement group: legal when something names it,
+// rejected when nothing does (a typo'd file reference must not pass silently).
+func TestGroupLayerNeedsAPlacement(t *testing.T) {
+	fsys := validGame(t)
+	mutateLevel(t, fsys, "levels/lv2.json", func(l *Level) {
+		l.Scene.Layers = append(l.Scene.Layers, Layer{ID: "markers", Name: "Markers", Mode: "toggle"})
+		l.Placements[1].Layer = "markers"
+	})
+	if errs := errorsOf(ValidateGame(fsys, "demo")); len(errs) > 0 {
+		t.Fatalf("a named group layer must validate, got:\n%s", strings.Join(errs, "\n"))
+	}
+	fsys = validGame(t)
+	mutateLevel(t, fsys, "levels/lv2.json", func(l *Level) {
+		l.Scene.Layers = append(l.Scene.Layers, Layer{ID: "markers", Name: "Markers", Mode: "toggle"})
+	})
+	expectError(t, fsys, `layer "markers" has no file and no placement names it`)
+}
+
 func TestVariantMembershipChecked(t *testing.T) {
 	fsys := validGame(t)
 	mutateLevel(t, fsys, "levels/lv2.json", func(l *Level) {

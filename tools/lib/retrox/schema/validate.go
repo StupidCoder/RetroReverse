@@ -319,6 +319,7 @@ func (c *checker) checkLevel(p string, l *Level, assets map[string]*Asset, objec
 	}
 
 	layers := map[string]bool{}
+	groupLayers := map[string]string{} // file-less scene layers -> where; cleared as placements name them
 	rooms := map[int]bool{}
 	if l.Tilemap != nil {
 		for i := range l.Tilemap.Layers {
@@ -349,7 +350,13 @@ func (c *checker) checkLevel(p string, l *Level, assets map[string]*Asset, objec
 				c.errf(where, "duplicate layer id")
 			}
 			layers[ly.ID] = true
-			c.ref(p, ly.File)
+			// A layer with no file is a placement group (schema.Layer.File):
+			// legal, but only if something actually lands in it.
+			if ly.File != "" {
+				c.ref(p, ly.File)
+			} else {
+				groupLayers[ly.ID] = where
+			}
 			switch {
 			case ly.Mode == "" || ly.Mode == LayerBase || ly.Mode == LayerToggle:
 			case strings.HasPrefix(ly.Mode, "exclusive:"):
@@ -436,6 +443,7 @@ func (c *checker) checkLevel(p string, l *Level, assets map[string]*Asset, objec
 		if pl.Layer != "" && !layers[pl.Layer] {
 			c.errf(where, "layer %q does not exist", pl.Layer)
 		}
+		delete(groupLayers, pl.Layer)
 		if pl.Room != nil && !rooms[*pl.Room] {
 			c.errf(where, "room %d does not exist", *pl.Room)
 		}
@@ -532,6 +540,9 @@ func (c *checker) checkLevel(p string, l *Level, assets map[string]*Asset, objec
 			}
 		}
 		checkVariants(where, po.Variants)
+	}
+	for id, where := range groupLayers {
+		c.errf(where, "layer %q has no file and no placement names it", id)
 	}
 
 	// Camera block.

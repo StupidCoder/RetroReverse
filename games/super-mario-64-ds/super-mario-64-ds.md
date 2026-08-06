@@ -448,6 +448,17 @@ The chain chomp is the object that proves it. It is one placement in six of seve
 A placement's mission list is the star layer intersected with §8's gate, which is
 what separates Whomp's Fortress's summit pair.
 
+**What a mission does not show you.** Four models are in the level data and are not
+part of the level as you play it: the Power Star (`arc0_21`), the flat silhouette
+marking where one spawns (`star_base`), the mission-number glyph beside it
+(`arc0_9`) and the cannons (`houdai`, which sit under a closed lid until you open
+one). 184 placements of them across 38 stages, and as scenery they read as
+clutter. They stay in the document — dropping decoded data would be a lie about
+the cartridge — but land in a Retro-X **placement group**: a layer with no GLB of
+its own, whose only job is to give the placements naming it one toggle, shipped
+`visible: false`. The default look is the level you played; one checkbox brings
+them back. (Retro-X gained file-less layers for this; §5.3.)
+
 Two verifications, both against the emitted files rather than the exporter's structs. `cmd/varcheck` re-decodes the cartridge and asserts every shipped placement's variant list equals the star-layer set its level's object table lists that (actor, position) under, intersected with §8's mission gate — 4,045 matched, 0 mismatches, with the chomp's spawned stake and links counted as synthesised. It was mutation-tested in both directions: reintroducing the keep-the-first-record bug in a copy of the shipped JSON, and deleting one coin's spin, both fail it. And in the Studio: picking *Big Bob-omb on the Summit* leaves one King on the summit and no flagpole, *Footrace with Koopa the Quick* leaves the flagpole and no King, *Big Bob-omb's Revenge* brings back the King and adds the breakable blocks — and world mode inherits all of it, so you can walk Bob-omb Battlefield one mission at a time.
 
 ## 8. The other gate: the save's star bits

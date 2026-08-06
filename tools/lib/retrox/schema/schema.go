@@ -286,9 +286,14 @@ const (
 )
 
 type Layer struct {
-	ID            string   `json:"id"`
-	Name          string   `json:"name,omitempty"`
-	File          string   `json:"file"`
+	ID   string `json:"id"`
+	Name string `json:"name,omitempty"`
+	// File is the layer's GLB payload. It may be omitted, and then the layer is
+	// a pure PLACEMENT GROUP: it carries no geometry of its own and exists to
+	// give the placements naming it a shared toggle (the same idea the tilemap
+	// body's `layers` list has). A file-less layer must be named by at least
+	// one placement.
+	File          string   `json:"file,omitempty"`
 	Mode          string   `json:"mode,omitempty"` // default "base"
 	Visible       *bool    `json:"visible,omitempty"`
 	Attach        string   `json:"attach,omitempty"` // "" == "world" | "camera" | "cameraYaw"

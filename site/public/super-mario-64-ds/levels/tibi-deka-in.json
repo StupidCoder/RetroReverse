@@ -53,6 +53,12 @@
     "mode": "toggle",
     "visible": false,
     "role": "collision"
+   },
+   {
+    "id": "markers",
+    "name": "Stars, markers \u0026 cannons",
+    "mode": "toggle",
+    "visible": false
    }
   ]
  },
@@ -244,6 +250,7 @@
    "object": "star-base",
    "pos": [0, 1.85, 0],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 180
    }
@@ -393,6 +400,7 @@
    "object": "star-base",
    "pos": [-1.8, 0.55, -1.45],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 180
    }
@@ -430,6 +438,7 @@
    "object": "star-base",
    "pos": [-1.865, 1.58, -1.84],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 180
    }

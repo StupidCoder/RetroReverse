@@ -22,6 +22,12 @@
     "mode": "toggle",
     "visible": false,
     "role": "collision"
+   },
+   {
+    "id": "markers",
+    "name": "Stars, markers \u0026 cannons",
+    "mode": "toggle",
+    "visible": false
    }
   ]
  },
@@ -580,6 +586,7 @@
    "object": "arc0-21",
    "pos": [7, 0.28, -11.65],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 178
    }
@@ -603,6 +610,7 @@
    "object": "star-base",
    "pos": [6.3, 0.05, -6.1],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 180
    }

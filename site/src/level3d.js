@@ -124,15 +124,21 @@ export async function mount(ctx, doc) {
   if (doc.scene?.layers?.length) {
     dp.section('Layers');
     await Promise.all(doc.scene.layers.map(async (ly) => {
-      const gltf = await loadGLB(game.url(docPath, ly.file), signal);
-      if (game.display.texFilter) applyTexFilter(gltf.scene, game.display.texFilter);
+      // A layer with no file is a placement GROUP: no geometry of its own, it
+      // exists so the placements naming it share one toggle.
+      const gltf = ly.file ? await loadGLB(game.url(docPath, ly.file), signal) : null;
       const group = new THREE.Group();
-      group.add(gltf.scene);
+      if (gltf) {
+        if (game.display.texFilter) applyTexFilter(gltf.scene, game.display.texFilter);
+        group.add(gltf.scene);
+      }
       group.visible = ly.visible !== false;
       group.userData.layer = ly; // role/attach/mode — read by contentBox() and AR mode
-      applyLayerLook(gltf.scene, ly);
-      await applyLayerMaterialExtras(gltf.scene, ly, game, docPath);
-      wireBillboardNodes(gltf.scene, stage);
+      if (gltf) {
+        applyLayerLook(gltf.scene, ly);
+        await applyLayerMaterialExtras(gltf.scene, ly, game, docPath);
+        wireBillboardNodes(gltf.scene, stage);
+      }
       stage.scene.add(group);
       roots.push(group);
       layerNodes.set(ly.id, { group, def: ly });

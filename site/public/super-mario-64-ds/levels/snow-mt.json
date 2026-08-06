@@ -62,6 +62,12 @@
     "mode": "toggle",
     "visible": false,
     "role": "collision"
+   },
+   {
+    "id": "markers",
+    "name": "Stars, markers \u0026 cannons",
+    "mode": "toggle",
+    "visible": false
    }
   ]
  },
@@ -287,6 +293,7 @@
    "pos": [1.07, -4.5, 5.6],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 207
    }
@@ -296,6 +303,7 @@
    "object": "houdai",
    "pos": [-4.93, -1.7, 4.5],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 207
    }
@@ -372,6 +380,7 @@
    "object": "houdai",
    "pos": [-3.53, -4.5, 4.69],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 207
    }
@@ -1090,6 +1099,7 @@
    "object": "arc0-21",
    "pos": [-2, -2.159, -2.8],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 178
    }
@@ -1248,6 +1258,7 @@
    "object": "star-base",
    "pos": [3.1, -4.4, 5.15],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 180
    }
@@ -1341,6 +1352,7 @@
    "object": "star-base",
    "pos": [4.1, -1.15, 0.4],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 180
    }
@@ -1350,6 +1362,7 @@
    "object": "arc0-21",
    "pos": [-1.1, 2.5, -2.25],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 178
    }
@@ -1373,6 +1386,7 @@
    "object": "star-base",
    "pos": [3.431, -4.8, 4.499],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 180
    }
@@ -1391,6 +1405,7 @@
    "object": "arc0-21",
    "pos": [-0.18, 3.794, -1.442],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 178
    }
@@ -1435,6 +1450,7 @@
    "object": "star-base",
    "pos": [2.45, -4.4, 5.65],
    "scale": 0.008,
+   "layer": "markers",
    "variants": ["star1"],
    "props": {
     "actor": 180
@@ -1499,6 +1515,7 @@
    "object": "star-base",
    "pos": [-4.5, -1.299, 1.65],
    "scale": 0.008,
+   "layer": "markers",
    "variants": ["star5"],
    "props": {
     "actor": 180

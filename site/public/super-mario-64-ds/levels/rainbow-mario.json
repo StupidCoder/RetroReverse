@@ -31,6 +31,12 @@
     "mode": "toggle",
     "visible": false,
     "role": "collision"
+   },
+   {
+    "id": "markers",
+    "name": "Stars, markers \u0026 cannons",
+    "mode": "toggle",
+    "visible": false
    }
   ]
  },
@@ -91,6 +97,7 @@
    "object": "houdai",
    "pos": [-4.349, 0.805, 0.185],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 207
    }
@@ -128,6 +135,7 @@
    "pos": [3.62, -2.67, 5.075],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 207
    }
@@ -375,6 +383,7 @@
    "object": "star-base",
    "pos": [-0.3, 1.68, -0.7],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 180
    }
@@ -729,6 +738,7 @@
    "object": "star-base",
    "pos": [-0.72, -1.31, 4.183],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 180
    }

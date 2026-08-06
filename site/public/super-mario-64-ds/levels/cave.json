@@ -53,6 +53,12 @@
     "mode": "toggle",
     "visible": false,
     "role": "collision"
+   },
+   {
+    "id": "markers",
+    "name": "Stars, markers \u0026 cannons",
+    "mode": "toggle",
+    "visible": false
    }
   ]
  },
@@ -610,6 +616,7 @@
    "object": "star-base",
    "pos": [3.743, 0.05, 4.832],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 180
    }
@@ -731,6 +738,7 @@
    "object": "star-base",
    "pos": [1.146, 1.25, 4.248],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 180
    }
@@ -1239,6 +1247,7 @@
    "object": "arc0-21",
    "pos": [-6.35, 2.6, -1.6],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 178
    }
@@ -1397,6 +1406,7 @@
    "object": "star-base",
    "pos": [-5.838, 1.85, -6.748],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 180
    }
@@ -1707,6 +1717,7 @@
    "object": "arc0-21",
    "pos": [-2.15, 2, -7.5],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 178
    }
@@ -1898,6 +1909,7 @@
    "object": "star-base",
    "pos": [-3.462, -4.5, 3.487],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 180
    }
@@ -1950,6 +1962,7 @@
    "object": "arc0-21",
    "pos": [6.15, -4.35, 2.25],
    "scale": 0.008,
+   "layer": "markers",
    "props": {
     "actor": 178
    }

@@ -295,7 +295,10 @@ the first is the default).
                                             //   THE general composition mechanism
     { "id": "terrain",                      // ✱
       "name": "Terrain",                    //   label for the layer-toggle UI
-      "file": "ghz1/geo/terrain.glb",       // ✱ GLB payload
+      "file": "ghz1/geo/terrain.glb",       //   GLB payload; OMIT IT and the layer is a
+                                            //   pure placement group (§5.5 "layer"), with no
+                                            //   geometry of its own — at least one placement
+                                            //   must then name it
       "mode": "base",                       //   "base" (always on, no UI) |
                                             //   "toggle" (checkbox) |
                                             //   "exclusive:<group>" (radio among same group)
@@ -325,6 +328,11 @@ the first is the default).
   }
 }
 ```
+
+A layer with no `file` carries no geometry: it exists so the placements naming it share one
+toggle — object sets a viewer should be able to switch off (spawn markers, editor helpers,
+pickups) without splitting them into their own GLB. The tilemap body's `layers` list is the
+same idea.
 
 Everything that used to be a special case is a layer: a camera-locked skybox is
 `attach:"camera", renderOrder:-1000`; a streamed-vs-static environment swap is two layers
