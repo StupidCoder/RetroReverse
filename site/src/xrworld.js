@@ -28,7 +28,7 @@
 // at load and a visible hitch at 90 Hz — and the frames right after entry are
 // the ones where the viewer is looking around rather than teleporting.
 
-import { THREE, ObjectLibrary, applyTransform, disposeScene, loadGLB } from './engine3d.js';
+import { THREE, ObjectLibrary, applyTransform, disposeScene, loadGLB, radiusOf } from './engine3d.js';
 import { makeWorldPlacer } from './xrplacer.js';
 import { buildFloor } from './xrfloor.js';
 import { Torch } from './xrtorch.js';
@@ -43,12 +43,6 @@ function matrixOf(m) {
   const out = new THREE.Matrix4();
   if (Array.isArray(m) && m.length === 12) out.set(...m, 0, 0, 0, 1); // Matrix4.set IS row-major
   return out;
-}
-
-// The horizontal radius of a subtree, in its own units.
-function radiusOf(root) {
-  const size = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3());
-  return Math.max(size.x, size.z) / 2;
 }
 
 export class WorldMode {

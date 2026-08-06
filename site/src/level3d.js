@@ -4,7 +4,7 @@
 // onClick interactions, and the cutscene scripts. All of it from the level
 // document; no per-game code.
 
-import { THREE, Stage, FlyCam, ObjectLibrary, loadGLB, loadImage, applyWireframe, applyTexFilter, applyTransform, flyHint, disposeScene } from './engine3d.js';
+import { THREE, Stage, FlyCam, ObjectLibrary, loadGLB, loadImage, applyWireframe, applyTexFilter, applyTransform, flyHint, disposeScene, fitSkyLayer } from './engine3d.js';
 import { CutscenePlayer } from './cutscene.js';
 import { PanInput } from './pancam.js';
 import { arSupported, PerfMeter } from './xr.js';
@@ -143,6 +143,9 @@ export async function mount(ctx, doc) {
       roots.push(group);
       layerNodes.set(ly.id, { group, def: ly });
       if (ly.attach === 'camera' || ly.attach === 'cameraYaw') {
+        // A horizon has to be brought inside the far plane before it can be
+        // seen at all — see fitSkyLayer, which also takes it out of depth.
+        fitSkyLayer(group, stage.camera.far);
         // camPos is the camera's WORLD position, in metres (engine3d.js), while
         // group.position is local to a parent that in a session carries the
         // scene's metres-per-unit scale. Copying one straight into the other

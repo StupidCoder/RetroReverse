@@ -303,7 +303,10 @@ the first is the default).
                                             //   "toggle" (checkbox) |
                                             //   "exclusive:<group>" (radio among same group)
       "visible": true,                      //   initial state for toggle/exclusive (default true)
-      "attach": "world",                    //   "world" | "camera" (follows the eye — skyboxes) |
+      "attach": "world",                    //   "world" | "camera" (follows the eye — skyboxes;
+                                            //   a viewer fits these to its own far plane and
+                                            //   draws them without depth, so author the dome at
+                                            //   whatever radius the game used) |
                                             //   "cameraYaw" (follows position, not pitch/roll)
       "renderOrder": 0,                     //   explicit paint order (skyboxes negative,
                                             //   overlays positive)

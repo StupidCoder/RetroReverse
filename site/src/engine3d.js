@@ -552,6 +552,45 @@ export function billboardCell(doc, dx, dz, t) {
   return { row, col: (anim.col || 0) + frame };
 }
 
+// The horizontal radius of a subtree, in its own units.
+export function radiusOf(root) {
+  const size = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3());
+  return Math.max(size.x, size.z) / 2;
+}
+
+// fitSkyLayer puts a camera-attached horizon just inside the far plane and
+// takes it out of the depth buffer.
+//
+// A camera-centred layer has ZERO parallax, so a uniform scale about the eye is
+// invisible — but its authored radius is not. Super Mario 64 DS ships vrbox
+// domes 59,000 units across around a 16-unit level whose document sets far=500:
+// every triangle of the sky sat beyond the far plane, so 31 of its 48 levels
+// loaded a skybox, ticked its checkbox, and drew nothing. Need for Speed ships
+// a unit cylinder at the other extreme. A horizon belongs at ONE distance, just
+// inside the far plane, wherever it started — so this scales in both
+// directions.
+//
+// Pulling one IN is only safe with painter's-order treatment: a 225-unit dome
+// depth-tested against a level whose hills reach 200 would be sliced open by
+// them. A camera-attached horizon is by definition infinitely far away, so it
+// must never take part in depth at all. World mode reaches the same conclusion
+// from the same evidence (xrworld.js _fitSky); this is the desktop half.
+export function fitSkyLayer(root, far) {
+  root.scale.setScalar(1);
+  root.updateMatrixWorld(true);
+  const r = radiusOf(root);
+  if (r > 1e-6 && Number.isFinite(far) && far > 0) root.scale.setScalar((far * 0.75) / r);
+  root.traverse((o) => {
+    o.renderOrder = -1000;
+    for (const m of o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []) {
+      if (!m.depthTest && !m.depthWrite) continue;
+      m.depthTest = false;
+      m.depthWrite = false;
+      m.needsUpdate = true;
+    }
+  });
+}
+
 // disposeScene frees the GPU resources reachable from a subtree.
 //
 // Nothing used to call anything like this: every 3-D view owned its whole
