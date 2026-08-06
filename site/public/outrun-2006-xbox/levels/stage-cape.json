@@ -21,6 +21,14 @@
     "envMap": ["stage-cape-env-px.png", "stage-cape-env-nx.png", "stage-cape-env-py.png", "stage-cape-env-ny.png", "stage-cape-env-pz.png", "stage-cape-env-nz.png"]
    },
    {
+    "id": "env",
+    "name": "Distant scenery",
+    "file": "stage-cape-env.glb",
+    "mode": "toggle",
+    "renderOrder": -0.5,
+    "polygonOffset": 4
+   },
+   {
     "id": "sky",
     "name": "Sky",
     "file": "stage-cape-sky.glb",

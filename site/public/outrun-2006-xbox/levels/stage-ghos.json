@@ -8,9 +8,9 @@
   "target": [0, 3, -120],
   "fov": 55,
   "near": 0.5,
-  "far": 3883.896682112372,
+  "far": 4023.3200251942044,
   "fly": {
-   "speed": 49.793547206568874
+   "speed": 51.581025964028264
   }
  },
  "scene": {
@@ -18,6 +18,14 @@
    {
     "id": "course",
     "file": "stage-ghos.glb"
+   },
+   {
+    "id": "env",
+    "name": "Distant scenery",
+    "file": "stage-ghos-env.glb",
+    "mode": "toggle",
+    "renderOrder": -0.5,
+    "polygonOffset": 4
    },
    {
     "id": "sky",

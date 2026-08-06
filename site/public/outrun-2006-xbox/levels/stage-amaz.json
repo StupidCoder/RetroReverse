@@ -21,6 +21,14 @@
     "envMap": ["stage-amaz-env-px.png", "stage-amaz-env-nx.png", "stage-amaz-env-py.png", "stage-amaz-env-ny.png", "stage-amaz-env-pz.png", "stage-amaz-env-nz.png"]
    },
    {
+    "id": "env",
+    "name": "Distant scenery",
+    "file": "stage-amaz-env.glb",
+    "mode": "toggle",
+    "renderOrder": -0.5,
+    "polygonOffset": 4
+   },
+   {
     "id": "sky",
     "name": "Sky",
     "file": "stage-amaz-sky.glb",

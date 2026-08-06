@@ -21,6 +21,14 @@
     "envMap": ["stage-niag-env-px.png", "stage-niag-env-nx.png", "stage-niag-env-py.png", "stage-niag-env-ny.png", "stage-niag-env-pz.png", "stage-niag-env-nz.png"]
    },
    {
+    "id": "env",
+    "name": "Distant scenery",
+    "file": "stage-niag-env.glb",
+    "mode": "toggle",
+    "renderOrder": -0.5,
+    "polygonOffset": 4
+   },
+   {
     "id": "sky",
     "name": "Sky",
     "file": "stage-niag-sky.glb",

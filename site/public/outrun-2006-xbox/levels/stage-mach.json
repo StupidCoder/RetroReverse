@@ -21,6 +21,14 @@
     "envMap": ["stage-mach-env-px.png", "stage-mach-env-nx.png", "stage-mach-env-py.png", "stage-mach-env-ny.png", "stage-mach-env-pz.png", "stage-mach-env-nz.png"]
    },
    {
+    "id": "env",
+    "name": "Distant scenery",
+    "file": "stage-mach-env.glb",
+    "mode": "toggle",
+    "renderOrder": -0.5,
+    "polygonOffset": 4
+   },
+   {
     "id": "sky",
     "name": "Sky",
     "file": "stage-mach-sky.glb",

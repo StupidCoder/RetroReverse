@@ -8,9 +8,9 @@
   "target": [0, 3, -120],
   "fov": 55,
   "near": 0.5,
-  "far": 5846.050480387638,
+  "far": 5756.6373792105105,
   "fly": {
-   "speed": 74.94936513317484
+   "speed": 73.80304332321167
   }
  },
  "scene": {
@@ -19,6 +19,14 @@
     "id": "course",
     "file": "stage-metr.glb",
     "envMap": ["stage-metr-env-px.png", "stage-metr-env-nx.png", "stage-metr-env-py.png", "stage-metr-env-ny.png", "stage-metr-env-pz.png", "stage-metr-env-nz.png"]
+   },
+   {
+    "id": "env",
+    "name": "Distant scenery",
+    "file": "stage-metr-env.glb",
+    "mode": "toggle",
+    "renderOrder": -0.5,
+    "polygonOffset": 4
    },
    {
     "id": "sky",

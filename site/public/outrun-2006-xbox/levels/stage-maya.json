@@ -8,9 +8,9 @@
   "target": [0, 3, -120],
   "fov": 55,
   "near": 0.5,
-  "far": 8920.886271364037,
+  "far": 7603.313218659922,
   "fly": {
-   "speed": 114.37033681235945
+   "speed": 97.47837459820413
   }
  },
  "scene": {
@@ -19,6 +19,14 @@
     "id": "course",
     "file": "stage-maya.glb",
     "envMap": ["stage-maya-env-px.png", "stage-maya-env-nx.png", "stage-maya-env-py.png", "stage-maya-env-ny.png", "stage-maya-env-pz.png", "stage-maya-env-nz.png"]
+   },
+   {
+    "id": "env",
+    "name": "Distant scenery",
+    "file": "stage-maya-env.glb",
+    "mode": "toggle",
+    "renderOrder": -0.5,
+    "polygonOffset": 4
    },
    {
     "id": "sky",

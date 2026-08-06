@@ -20,6 +20,14 @@
     "file": "stage-ruin.glb"
    },
    {
+    "id": "env",
+    "name": "Distant scenery",
+    "file": "stage-ruin-env.glb",
+    "mode": "toggle",
+    "renderOrder": -0.5,
+    "polygonOffset": 4
+   },
+   {
     "id": "sky",
     "name": "Sky",
     "file": "stage-ruin-sky.glb",

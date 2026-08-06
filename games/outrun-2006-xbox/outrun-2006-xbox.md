@@ -3734,3 +3734,44 @@ separating "shuttle on pad" from "shuttle launching" needs that state
 decode. The flags census also grew: bits 7/8 (0x80/0x100) are per-cluster
 kind bits, not LOD markers — beach part 0's always-drawn ground strips
 carry 0x101/0x102.
+
+### Part XXXI — cs_ENV is the far world, and the heuristic comes back out
+
+The density heuristic of Part XXX made its owner uneasy, rightly: it was
+guessing. This part replaces it with the measured mechanism, and the road to
+it ruled out four wrong theories with instruments rather than plausibility:
+
+- the visibility IDs carry no flag bits (every table's values stay under its
+  node count);
+- the walker draws **exactly the current segment's list** — a one-frame
+  oracle capture at the per-node entry (`-bpstack 0x13326`) matched segment
+  1's lists 173/173 across all six beach parts, nothing extra, nothing
+  missing — so there is no hidden runtime subselection to find;
+- the "hi/lo road pairs" of Desert (identical tri counts, same centres, tex
+  1 vs tex 3) are not duplicates at all: their triangle footprints overlap
+  by 1% — the ground **tiles** into distance bands of three texture
+  treatments, sharing seam vertices;
+- record order is not a selector either (every record lists ids ascending).
+
+What the fourth wrong theory left standing is the real answer: **cs_ENV is a
+low-poly replica of the entire course** — Desert's env is six nodes, five of
+them course-sized meshes whose bounding sphere matches course part 0's bit
+for bit at ~1,300 tris each — **and its visibility db lists every node from
+every segment**. The game paints the far world first, every frame, and draws
+the current segment's detailed chunks over it; depth and draw order let the
+near geometry win where both exist. Merging env into the course GLB is what
+made the replica z-fight the real road, and the "blurry building inside the
+crisp one" is the replica's building.
+
+The export now mirrors the game's layering instead of dropping anything:
+`cs_ENV` ships as its own layer (`stage-<id>-env.glb`, `renderOrder -0.5`,
+`polygonOffset 4`, toggleable as "Distant scenery"), drawn first and pushed
+behind the course layer exactly as the game's painter order does. The
+Part XXX density dedup is reverted — every node ships again.
+
+Real LOD machinery found on the way, for the record: `0x12270` computes
+−log2(projected sphere size) from the float exponent; nodes smaller on
+screen than the `[0x3DBEE8]` cutoff are culled (flag bit 6 widens the cutoff
+to 2^-7 for a subtree, stack-scoped); nodes with **flag bit 4** turn the
+size into an e2 slot index biased by the **f14** field — the four-slot LOD
+ladder is real and in use (LAKE, CAST), just not the cause of the doubles.

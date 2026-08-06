@@ -8,9 +8,9 @@
   "target": [0, 3, -120],
   "fov": 55,
   "near": 0.5,
-  "far": 7378.409124364576,
+  "far": 7647.764116539199,
   "fly": {
-   "speed": 94.59498877390482
+   "speed": 98.0482579043487
   }
  },
  "scene": {
@@ -18,6 +18,14 @@
    {
     "id": "course",
     "file": "stage-lasv.glb"
+   },
+   {
+    "id": "env",
+    "name": "Distant scenery",
+    "file": "stage-lasv-env.glb",
+    "mode": "toggle",
+    "renderOrder": -0.5,
+    "polygonOffset": 4
    },
    {
     "id": "sky",

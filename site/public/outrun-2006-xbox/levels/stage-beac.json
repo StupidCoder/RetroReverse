@@ -21,6 +21,14 @@
     "envMap": ["stage-beac-env-px.png", "stage-beac-env-nx.png", "stage-beac-env-py.png", "stage-beac-env-ny.png", "stage-beac-env-pz.png", "stage-beac-env-nz.png"]
    },
    {
+    "id": "env",
+    "name": "Distant scenery",
+    "file": "stage-beac-env.glb",
+    "mode": "toggle",
+    "renderOrder": -0.5,
+    "polygonOffset": 4
+   },
+   {
     "id": "sky",
     "name": "Sky",
     "file": "stage-beac-sky.glb",

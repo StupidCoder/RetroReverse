@@ -255,8 +255,24 @@ func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]
 		return err
 	}
 
-	// The distant scenery ring, when the dir carries one: with its own
-	// visibility db it walks like the course; without, it ships flat.
+	out, err := b.Path("levels", id+".glb")
+	if err != nil {
+		return err
+	}
+	if err := glb.WriteVariantScenes(out, []glb.ModelVariant{{Name: "course", Nodes: nodes}}); err != nil {
+		return err
+	}
+
+	// The distant scenery model, in its own layer: cs_ENV is the far-LOD
+	// WORLD — a low-poly replica of the whole course (Desert's five
+	// course-sized meshes share course part 0's bounding sphere bit for bit)
+	// plus the beyond-the-track scenery, and its visibility db lists every
+	// node from every segment: the game draws it under the detailed course
+	// as a permanent backdrop, letting the near geometry cover it. The
+	// viewer reproduces that with a depth-offset layer (polygonOffset pushes
+	// it behind; renderOrder draws it first), which is what stops the
+	// replica z-fighting the real road — no geometry is dropped.
+	envGLB := ""
 	envSummary := "none"
 	if envPmt := files["cs_env_"+lc+"_pmt.sz"]; envPmt != "" {
 		env, envTexs, err := readStagePMT(disc, envPmt, files["cs_env_"+lc+"_bin.sz"])
@@ -289,15 +305,14 @@ func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]
 		for i := range envNodes {
 			envNodes[i].Name = strings.TrimSpace("env " + envNodes[i].Name)
 		}
-		nodes = append(nodes, envNodes...)
-	}
-
-	out, err := b.Path("levels", id+".glb")
-	if err != nil {
-		return err
-	}
-	if err := glb.WriteVariantScenes(out, []glb.ModelVariant{{Name: "course", Nodes: nodes}}); err != nil {
-		return err
+		envGLB = id + "-env.glb"
+		envOut, err := b.Path("levels", envGLB)
+		if err != nil {
+			return err
+		}
+		if err := glb.WriteVariantScenes(envOut, []glb.ModelVariant{{Name: "env", Nodes: envNodes}}); err != nil {
+			return err
+		}
 	}
 
 	// The sky dome: the dir's own, or the base course's for the _BR/_BT/_T
@@ -357,6 +372,10 @@ func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]
 	diag := math.Sqrt(dx*dx + dy*dy + dz*dz)
 	depthOff := false
 	layers := []schema.Layer{{ID: "course", File: id + ".glb", EnvMap: envMap}}
+	if envGLB != "" {
+		layers = append(layers, schema.Layer{ID: "env", Name: "Distant scenery", File: envGLB,
+			Mode: "toggle", RenderOrder: -0.5, PolygonOffset: 4})
+	}
 	if skyGLB != "" {
 		layers = append(layers, schema.Layer{ID: "sky", Name: "Sky", File: skyGLB, Mode: "toggle",
 			Attach: "camera", RenderOrder: -1, DepthTest: &depthOff, Role: "sky"})
@@ -605,66 +624,6 @@ func (sp *stagePart) worldSphere(p *pmt, n *e0Node) ([3]float32, float32) {
 	return w, r
 }
 
-// lodUnit is one drawable root in the dedup pass.
-type lodUnit struct {
-	part, id   int
-	centre     [3]float32
-	r          float32
-	opaqueTris int
-	totalTris  int
-}
-
-// dropLowLOD finds co-located pairs of similar extent where one carries a
-// small fraction of the other's triangle density and drops the sparse one —
-// the coarse backing shells and impostors the game draws UNDER its detailed
-// geometry (the METR city shells share 94-100%% of their segments with the
-// detailed versions, so the per-segment lists cannot separate them; density
-// can). Only opaque-dominant nodes are dropped: translucent overlays (decals,
-// glows) legitimately share space with what they decorate.
-func dropLowLOD(units []lodUnit) map[[2]int]bool {
-	dropped := map[[2]int]bool{}
-	for i := range units {
-		a := &units[i]
-		if a.r < 3 || a.totalTris == 0 || a.opaqueTris*2 < a.totalTris {
-			continue
-		}
-		da := float64(a.totalTris) / float64(a.r*a.r+1)
-		for j := range units {
-			if i == j {
-				continue
-			}
-			b := &units[j]
-			if b.r < 3 || b.totalTris == 0 {
-				continue
-			}
-			ratio := a.r / b.r
-			if ratio < 0.5 || ratio > 2 {
-				continue
-			}
-			dx := float64(a.centre[0] - b.centre[0])
-			dy := float64(a.centre[1] - b.centre[1])
-			dz := float64(a.centre[2] - b.centre[2])
-			d := math.Sqrt(dx*dx + dy*dy + dz*dz)
-			if d >= 0.3*float64(min32(a.r, b.r)) {
-				continue
-			}
-			db := float64(b.totalTris) / float64(b.r*b.r+1)
-			if da*2.5 < db {
-				dropped[[2]int{a.part, a.id}] = true
-				break
-			}
-		}
-	}
-	return dropped
-}
-
-func min32(a, b float32) float32 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // stageInstance is one placed drawing of an e2 entry.
 type stageInstance struct {
 	nodeID    int
@@ -678,7 +637,7 @@ type stageInstance struct {
 // meshes per e2 entry.
 func (p *pmt) buildStageNodes(texs []texInfo) ([]glb.VariantNode, string, error) {
 	var out []glb.VariantNode
-	var nWorldDesc, nInst, nMesh, nBB, nUnref, nPairFix, nLODDrop int
+	var nWorldDesc, nInst, nMesh, nBB, nUnref, nPairFix int
 	// Two passes: all parts parse first so the segment-position estimate (and
 	// the LOD filter it feeds) sees the whole course; a caller with its own
 	// estimate (the env ring shares the course's segmentation) passes it in.
@@ -695,49 +654,6 @@ func (p *pmt) buildStageNodes(texs []texInfo) ([]glb.VariantNode, string, error)
 		}
 		parts[pi], places[pi] = pt, sp
 	}
-	// Dedup pre-pass: triangle stats per visibility root, across all parts.
-	var units []lodUnit
-	for pi := 0; pi < p.nParts; pi++ {
-		pt, sp := parts[pi], places[pi]
-		for _, id := range p.vis.roots[pi] {
-			if id >= len(sp.nodes) {
-				continue
-			}
-			n := &sp.nodes[id]
-			e2i := int32(-1)
-			for k := 0; k < 4; k++ {
-				if n.e2[k] >= 0 {
-					e2i = n.e2[k]
-					break
-				}
-			}
-			if e2i < 0 || int(e2i) >= len(sp.e2) {
-				continue
-			}
-			u := lodUnit{part: pi, id: id}
-			u.centre, u.r = sp.worldSphere(p, n)
-			pr := sp.e2[e2i]
-			for ri := pr[0]; ri < pr[0]+pr[1] && int(ri) < len(sp.ranges); ri++ {
-				rec := sp.ranges[ri]
-				for pass := 0; pass < 2; pass++ {
-					f, c := rec[1+pass], rec[3+pass]
-					for d := f; d < f+c && int(d) < len(pt.descStart); d++ {
-						for k := pt.descStart[d]; k < pt.descStart[d]+pt.descCount[d]; k++ {
-							b := pt.batches[k]
-							nIdx, _ := indexCount(b.prim, b.prims)
-							t := int(nIdx) - 2
-							u.totalTris += t
-							if pass == 0 {
-								u.opaqueTris += t
-							}
-						}
-					}
-				}
-			}
-			units = append(units, u)
-		}
-	}
-	dropped := dropLowLOD(units)
 
 	for pi := 0; pi < p.nParts; pi++ {
 		pt, sp := parts[pi], places[pi]
@@ -859,10 +775,6 @@ func (p *pmt) buildStageNodes(texs []texInfo) ([]glb.VariantNode, string, error)
 			}
 		}
 		for _, id := range p.vis.roots[pi] {
-			if dropped[[2]int{pi, id}] {
-				nLODDrop++
-				continue
-			}
 			walk(id, nil)
 		}
 		if walkErr != nil {
@@ -933,9 +845,6 @@ func (p *pmt) buildStageNodes(texs []texInfo) ([]glb.VariantNode, string, error)
 	}
 	summary := fmt.Sprintf("%d world descriptors, %d instances of %d meshes (%d billboard)",
 		nWorldDesc, nInst, nMesh, nBB)
-	if nLODDrop > 0 {
-		summary += fmt.Sprintf(", %d low-LOD shells dropped", nLODDrop)
-	}
 	if nUnref > 0 {
 		summary += fmt.Sprintf(", %d descriptors unreferenced", nUnref)
 	}
