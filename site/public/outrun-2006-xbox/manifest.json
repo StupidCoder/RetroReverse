@@ -2690,6 +2690,13 @@
    "name": "Stage 15: Skyscrapers",
    "group": "OutRun2: SP",
    "file": "levels/stage-newy.json"
+  },
+  {
+   "id": "flagman",
+   "category": "object",
+   "name": "The flagman",
+   "group": "Characters",
+   "file": "objects/flagman.json"
   }
  ]
 }

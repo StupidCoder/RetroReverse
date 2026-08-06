@@ -198,11 +198,14 @@ func main() {
 		fmt.Sscanf(v, "%d", &only)
 	}
 	flatMode = os.Getenv("FLAT") != ""
-	// optional: apply an animation frame through the skin (POSE=clipname:frame)
+	// Node world transforms are always composed and applied to non-skinned
+	// meshes (the character exports animate plain node TRS, no skin);
+	// POSE=clipname:frame overrides the locals from a clip first. Skinned
+	// meshes ignore their node transform per glTF and pose via jointMats.
 	jointMats := map[int][]mat4{} // skin index -> per-joint vertex matrices
-	if pv := os.Getenv("POSE"); pv != "" && len(g.Skins) > 0 {
-		var clip string
-		var frame int
+	var clip string
+	frame := 0
+	if pv := os.Getenv("POSE"); pv != "" {
 		fmt.Sscanf(pv, "%s", &clip)
 		if i := len(clip) - 1; i > 0 {
 			for k := range clip {
@@ -213,26 +216,28 @@ func main() {
 				}
 			}
 		}
-		// node local TRS (possibly overridden by the clip at the frame)
-		type trs struct {
-			t [3]float64
-			q [4]float64
-			s [3]float64
+	}
+	// node local TRS (possibly overridden by the clip at the frame)
+	type trs struct {
+		t [3]float64
+		q [4]float64
+		s [3]float64
+	}
+	locals := make([]trs, len(g.Nodes))
+	for ni, n := range g.Nodes {
+		l := trs{q: [4]float64{0, 0, 0, 1}, s: [3]float64{1, 1, 1}}
+		if len(n.Translation) == 3 {
+			copy(l.t[:], n.Translation)
 		}
-		locals := make([]trs, len(g.Nodes))
-		for ni, n := range g.Nodes {
-			l := trs{q: [4]float64{0, 0, 0, 1}, s: [3]float64{1, 1, 1}}
-			if len(n.Translation) == 3 {
-				copy(l.t[:], n.Translation)
-			}
-			if len(n.Rotation) == 4 {
-				copy(l.q[:], n.Rotation)
-			}
-			if len(n.Scale) == 3 {
-				copy(l.s[:], n.Scale)
-			}
-			locals[ni] = l
+		if len(n.Rotation) == 4 {
+			copy(l.q[:], n.Rotation)
 		}
+		if len(n.Scale) == 3 {
+			copy(l.s[:], n.Scale)
+		}
+		locals[ni] = l
+	}
+	if clip != "" {
 		for _, an := range g.Animations {
 			if clip == "BIND" || an.Name != clip {
 				continue
@@ -256,44 +261,44 @@ func main() {
 				}
 			}
 		}
-		// compose world matrices (column-major, parent * local)
-		world := make([]mat4, len(g.Nodes))
-		haveW := make([]bool, len(g.Nodes))
-		parent := make([]int, len(g.Nodes))
-		for i := range parent {
-			parent[i] = -1
+	}
+	// compose world matrices (column-major, parent * local)
+	nodeWorld := make([]mat4, len(g.Nodes))
+	haveW := make([]bool, len(g.Nodes))
+	parent := make([]int, len(g.Nodes))
+	for i := range parent {
+		parent[i] = -1
+	}
+	for ni, n := range g.Nodes {
+		for _, c := range n.Children {
+			parent[c] = ni
 		}
-		for ni, n := range g.Nodes {
-			for _, c := range n.Children {
-				parent[c] = ni
+	}
+	var compose func(ni int) mat4
+	compose = func(ni int) mat4 {
+		if haveW[ni] {
+			return nodeWorld[ni]
+		}
+		m := trsMat(locals[ni].t, locals[ni].q, locals[ni].s)
+		if parent[ni] >= 0 {
+			m = matMul(compose(parent[ni]), m)
+		}
+		nodeWorld[ni] = m
+		haveW[ni] = true
+		return m
+	}
+	for si, sk := range g.Skins {
+		ib := accVec(sk.InverseBindMatrices, 16)
+		jm := make([]mat4, len(sk.Joints))
+		for k, jn := range sk.Joints {
+			var ibm mat4
+			copy(ibm[:], ib[k])
+			jm[k] = matMul(compose(jn), ibm)
+			if os.Getenv("DBGJM") != "" && (k == 3 || k == 10 || k == 30) {
+				fmt.Printf("jm[%d] = %.3f\n", k, jm[k])
 			}
 		}
-		var compose func(ni int) mat4
-		compose = func(ni int) mat4 {
-			if haveW[ni] {
-				return world[ni]
-			}
-			m := trsMat(locals[ni].t, locals[ni].q, locals[ni].s)
-			if parent[ni] >= 0 {
-				m = matMul(compose(parent[ni]), m)
-			}
-			world[ni] = m
-			haveW[ni] = true
-			return m
-		}
-		for si, sk := range g.Skins {
-			ib := accVec(sk.InverseBindMatrices, 16)
-			jm := make([]mat4, len(sk.Joints))
-			for k, jn := range sk.Joints {
-				var ibm mat4
-				copy(ibm[:], ib[k])
-				jm[k] = matMul(compose(jn), ibm)
-				if os.Getenv("DBGJM") != "" && (k == 3 || k == 10 || k == 30) {
-					fmt.Printf("jm[%d] = %.3f\n", k, jm[k])
-				}
-			}
-			jointMats[si] = jm
-		}
+		jointMats[si] = jm
 	}
 
 	var tris []tri
@@ -308,6 +313,12 @@ func main() {
 				continue
 			}
 			pos := accVec(pr.Attributes["POSITION"], 3)
+			if n.Skin == nil {
+				w := compose(ni)
+				for vi := range pos {
+					pos[vi] = matApply(w, pos[vi])
+				}
+			}
 			if n.Skin != nil {
 				if jm, ok := jointMats[*n.Skin]; ok {
 					if ji, ok2 := pr.Attributes["JOINTS_0"]; ok2 {

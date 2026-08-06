@@ -3869,36 +3869,109 @@ object) for whenever the runtime tables need walking.
 ## Part XXXII — the flagman, opened (reconstruction pending)
 
 The start-line flagman — red shirt, waves the flag at the start, waves at an
-idle player — is located and his formats are mostly open, though the
-reconstruction itself is future work:
+idle player — was located and his formats surveyed. Two corrections landed
+in Part XXXIII: the model surveyed here (`obj_chr_fal`, 109 parts) turned
+out to be the *start girl* — FAL is the female character on the JEN
+skeleton, and the flagman's real model is `/Chr/obj_chr_aut04_pmt.sz` — and
+the "canonical ~79-slot bone numbering" dissolved entirely: every table
+simply uses per-skeleton bone indices. The rest of the survey held: the
+nine-skeleton `/Common/bone.bin` library (JEN MAN ONN OTK OZI RIC SAR USI
+WMN, Japanese rig names, the flagman = OZI, 39 bones, his left hand carrying
+a bone literally named `bo`, the flag pole), the CHR_*.bin descriptor
+family, and the mot_*.sz clip containers with their {bone, mask} track
+descriptors.
 
-- **Model**: `/Chr/obj_chr_fal_pmt.sz` — the same pmt container, 109 parts of
-  tiny body pieces (a rigid-piece character: per-bone parts posed by
-  matrices, no vertex skinning), 24 textures, plus a new vertex format word
-  0x116 (stride 28) the car/stage reader doesn't handle yet.
-- **Skeleton**: `/Common/bone.bin` is a nine-skeleton library with the
-  developers' own names — the characters are JEN, MAN, ONN, OTK, OZI, RIC,
-  SAR, USI, WMN, with full Japanese rig bone names (`hara`, `mune`, `kata`,
-  `hiji`, `te_l/r`, `kosi`, `momo`, `sune`, `asi`). The flagman is **OZI**
-  (39 bones) — his left hand carries a bone literally named `bo`, the flag
-  pole. Bone records are 0x38 bytes {nameOff, parentInfo, local
-  translate/rotate, child list}.
-- **Character descriptor**: `/Chr/CHR_FAL.bin` — header counts {23, 56, 38},
-  a 23-entry bone→part attachment table, a 38-entry visible-part list, 56
-  LOD records of 20 bytes ({2-3 part-id variants, a canonical bone slot}),
-  and 45 bind matrices at +0x5A0. Attachments and LOD records address a
-  shared **canonical bone numbering** (~79 slots) that the motion files use
-  too — the cross-character bone id space; its map to each skeleton's bones
-  is the main open decode.
-- **Motions**: `/Anims/mot_OR2SP_FAL_bin.sz` — a directory of **18 clips**
-  (0x18-byte entries {id, 2, frames, 54, offset, size}; 27-260 frames), each
-  clip's data opening with per-track descriptors {canonical bone id, format
-  bits} (7 ≈ rotation channels, 56 ≈ translation, 63 = both) followed by
-  compressed curves. The start flag wave and the idle wave are two of the
-  eighteen; `motdata_table.bin` ({hash, offset, count} records) looks like
-  the clip registry that names them.
+## Part XXXIII — the flagman reconstructed (idle + flag wave in the Studio)
 
-Still to do: the curve compression, the canonical-id→skeleton map, bind-pose
-composition (verify the standing pose against the oracle's start-line frame,
-where he is visible live), a skinned/animated GLB export (the glb library's
-Jak-era rigged support), and the beach-level placement with both clips.
+The whole character pipeline is now decoded and reimplemented; the flagman
+stands at the Sunny Beach start line in the Studio, idling on a loop, and
+waves the flag when clicked. The chain of discoveries:
+
+- **The registry names everyone.** `/Common/motdata_table.bin` is
+  {nameOff, listOff, count} records mapping each `mot_*.gz` (the dev-time
+  names of the `/Anims/mot_*.sz` files) to its ordered clip-name list. Clip
+  names read `ORT_<character>_<skeleton>_<action>`: MAN_OTK (男 man),
+  WMN_ONN (女 woman), MAL_RIC, FAL_JEN (the start girl — obj_chr_fal's
+  textures are a blonde in a pink dress holding a stopwatch), and
+  **OZI_OZI, the old man** (おじさん). His clips live in `mot_ETC_bin.sz`
+  (SUI, STAND_LP, RUNAWAY, MWDA, **HATAFURI_00** — 旗振り, flag-waving —
+  RADIO) and `mot_OR2SP_ETC_bin.sz` (DANCE2_SP, STAND_SP_LP, RUNAWAY2_SP,
+  RUNAWAY_SP, TAISOU_SP, HATA_SP, DANCE_SP). His model is
+  `/Chr/obj_chr_aut04_pmt.sz` (36 parts, 6 textures — checkered flag, red
+  shirt, the moustached face) with descriptor `/Chr/CHR_AUT04.bin`.
+- **The motion curve format.** Directory entries are {id, characterSlot,
+  frames, descBytes, dataOff, sizeWords}; clip data at dataOff+4 holds
+  descBytes of {boneIdx u8, mask u8} descriptors (mask bits 0-5 = rx ry rz
+  tx ty tz), then per enabled channel a key list of {frame u8, flags u8}
+  tokens: flag high bits give the payload — 0x00 none (the value is zero),
+  0x20 value + end-of-list, 0x40 value, 0x80 value + slope, 0xC0 value +
+  two slopes — the low 5 bits extend the frame to 13 bits (clips reach
+  2422 frames), and a list also ends at frame == frames-1. Values are IEEE
+  **half floats**: radians, or metres for translations. All 63 mot files on
+  the disc parse cleanly.
+- **No canonical bone space.** Motion channel ids, CHR attach records and
+  LOD bone lists are all plain bone indices into the skeleton named by the
+  CHR header's first u16 (FAL=0 JEN, AUT04=4 OZI — also the mot directory's
+  characterSlot). Bone records (0x38 B) are {nameOff, kind u16 (0 plain /
+  2 chain root / 3 IK joint / 4 effector), chainLen u16, FFFF, 0, eight
+  floats {ty, tz, rx, ry, rz, sx, sy, sz}, childCount, childListOff} — the
+  rest translation is 2-D in the parent frame's (y, z), the rest rotation
+  is euler radians, order **ZYX**, composed T·R. All of that was pinned by
+  the CHR bind matrices themselves: the bind-relative locals
+  B_parent⁻¹·B_child reproduce the rest slots exactly (momo under kosi =
+  (0, −0.19, −0.09) = its rest slots; the euler-order test leaves ZYX with
+  1/100 the residual of the alternatives on the kao and ude chains).
+- **CHR_*.bin.** Header {skeletonIdx, nAttach, nLOD, nMat} + offsets
+  {attachOff, lodOff, 0x38, 0, matOff, extraOff}. Attach records bind one
+  rigid full-detail part to one bone; LOD records are merged distance
+  parts skinned across 2-4 listed bones; the matrices are **inverse binds**
+  (row-vector) for the union of LOD-referenced bones, ordered
+  alphabetically by bone base name (asi_l … ude_r). Their bind origins
+  read a Y-up ~1.7 m T-pose: ankles 0.14, knees 0.58, hips 0.97, waist
+  1.16, chest 1.35, shoulders ±0.22 @ 1.47, elbows ±0.49, hands ±0.76,
+  head 1.60.
+- **Palette skinning in the vertex format.** The unexplained fmt words are
+  blend weights: 0x116/28, 0x118/32, 0x11A/36 carry 1/2/3 f32 weights
+  between position and packed normal (weight count = (stride−24)/4); the
+  weights blend across the LOD record's bone list. Rigid attach parts are
+  bone-local; LOD parts are modeled in world bind pose. carex accepts the
+  weight formats now.
+- **The rig is Sega AM2's IK skeleton.** Clips animate plain bones and
+  chain roots with rotations and the *_eff effectors with target
+  positions; the *_jnt bones between (which carry the limb geometry) are
+  IK-solved. The exporter runs a two-segment law-of-cosines solve for arms
+  and legs (segment lengths from the bind origins, bend plane hinted by
+  the FK pose) and lifts the one-segment spine/head chains along the
+  spine (their lengths exist only in the binds; their orientations are
+  already animated on mune_chn/kao_chn). Effector targets ride the root's
+  animated excursion — HATA_SP walks the root up ~2 m because the clip
+  itself climbs the start-gantry tower, and in the Studio he indeed steps
+  to the gantry's signal post, which stands exactly where the clip
+  expects it.
+- **The flag is CPU cloth.** Part 31 (te_l) carries the hand, and 16
+  furled verts at the pole tip with parameter UVs and axis-flag normals;
+  the game rewrites them every frame (RAM ≠ file, no ARL/indexed
+  constants in any captured vertex program — the sim runs on the CPU).
+  At idle the flag stays furled, matching the live frame; the unfurled
+  wave cloth is an open item.
+- **Verification.** The T-pose render from pure binds is pixel-plausible
+  against the model sheets; pose conventions were cross-checked against a
+  live capture (bootoracle `-carvtx` over the model's VB range reads each
+  part draw's c160-163; S = VP·M column-vector, and inv(S_j)·S_i cancels
+  VP for relative-transform comparison). His world spot is a measured
+  fact: recovering VP as the modal matrix of the frame's world draws and
+  applying VP⁻¹ to his part draws puts his feet at (−4.4, 0.15, −21.4),
+  ankle height 0.14 above y=0 ground, character axes ≈ world axes — the
+  Studio placement is Pos (−4.38, 0, −21.4).
+- **Shipped.** `carex -site` now writes `objects/flagman.glb` (15 rigid
+  parts as nodes, bind-posed, two baked 20 Hz world-TRS clips: `idle` =
+  ORT_OZI_OZI_STAND_SP_LP looping — he stands arms crossed, shifts, puts a
+  hand on his hip — and `hatafuri` = ORT_OZI_OZI_HATA_SP on click) and
+  places him in stage-beac. rendersheet learned to compose node TRS
+  transforms (and POSE=clip:frame overrides) for animated-node GLBs.
+
+Open: the CPU cloth sim for the unfurled flag; the LOD parts (skinned
+merged geometry — the full-detail parts ship); exact hermite semantics of
+the 0x80/0xC0 key slopes (linear sampling at 20 Hz ships); the other
+characters (the start girl FAL/JEN with her 113-bone skeleton, MAN/WMN
+driver-passenger pairs, and the aut04_cvt convertible variant).

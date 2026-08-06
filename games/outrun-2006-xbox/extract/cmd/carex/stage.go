@@ -419,6 +419,19 @@ func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]
 			Props: map[string]any{"node": fmt.Sprintf("part %d id %d", pl.part, pl.id), "w4": pl.matrixIdx},
 		})
 	}
+	if id == "stage-beac" {
+		// The start-line flagman. His spot is measured off the live game
+		// (bootoracle race-driving frame, feet mid-point via VP recovered
+		// from the frame's world draws); the idle loop autoplays, clicking
+		// him waves the flag.
+		pls = append(pls, schema.Placement{
+			ID: len(pls), Object: "flagman",
+			Pos:     []float64{-4.38, 0, -21.4},
+			Name:    "The flagman",
+			OnClick: &schema.OnClick{Action: "animate", Clip: "hatafuri"},
+			Props:   map[string]any{"measured": "live frame; feet mid (-4.38, 0, -21.4)"},
+		})
+	}
 
 	// Camera: on the start straight, looking down the course (the road runs
 	// -z from the start line); range from the assembled world's own bounds.

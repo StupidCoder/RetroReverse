@@ -274,8 +274,23 @@ type bufPair struct {
 	fmtWord uint32
 }
 
-// hasColor / uvSets decode fmtWord (see above).
+// hasColor / uvSets / weights decode fmtWord (see above).
 func (bp bufPair) hasColor() bool { return bp.fmtWord&0x40 != 0 }
+
+// weights is the count of f32 blend weights between the position and the
+// packed normal — the character models' palette-skinned LOD parts carry 1-3
+// (fmt 0x116/0x118/0x11A, strides 28/32/36; obj_chr_aut04 raw-vertex dumps).
+// Derived from the stride so each new bit pattern doesn't need decoding.
+func (bp bufPair) weights() int {
+	base := uint32(16 + 8*bp.uvSets())
+	if bp.hasColor() {
+		base += 4
+	}
+	if bp.stride > base && bp.fmtWord&0x0C != 0 {
+		return int(bp.stride-base) / 4
+	}
+	return 0
+}
 func (bp bufPair) uvSets() int {
 	if bp.fmtWord == 0 && bp.stride == 44 {
 		return 2
@@ -372,6 +387,9 @@ func (p *pmt) parsePart(pi int) (*part, error) {
 		want := uint32(16 + 8*bp.uvSets())
 		if bp.hasColor() {
 			want += 4
+		}
+		if bp.fmtWord&0x0C != 0 {
+			want += 4 * uint32(bp.weights()) // character blend weights
 		}
 		if bp.fmtWord == 0 && bp.stride == 44 {
 			want = 44 // the course-geometry special: uv0, uv1, f32x3 @32
@@ -634,9 +652,10 @@ func (p *pmt) decodeVerts(bp bufPair) (pos, nrm [][3]float32, uv, uv2 [][2]float
 	pos = make([][3]float32, n)
 	nrm = make([][3]float32, n)
 	uv = make([][2]float32, n)
-	uvOff := 16
+	nw := bp.weights() // blend weights sit between position and normal
+	uvOff := 16 + 4*nw
 	if bp.hasColor() {
-		uvOff = 20
+		uvOff += 4
 		col = make([][4]uint8, n)
 	}
 	if bp.uvSets() > 1 {
@@ -645,9 +664,10 @@ func (p *pmt) decodeVerts(bp bufPair) (pos, nrm [][3]float32, uv, uv2 [][2]float
 	for i := 0; i < n; i++ {
 		v := int(bp.vbOff) + i*int(bp.stride)
 		pos[i] = [3]float32{f32(p.b, v), f32(p.b, v+4), f32(p.b, v+8)}
-		nrm[i] = unpackNormal(u32(p.b, v+12))
+		nrm[i] = unpackNormal(u32(p.b, v+12+4*nw))
 		if col != nil {
-			col[i] = [4]uint8{p.b[v+18], p.b[v+17], p.b[v+16], p.b[v+19]}
+			cb := v + 16 + 4*nw
+			col[i] = [4]uint8{p.b[cb+2], p.b[cb+1], p.b[cb], p.b[cb+3]}
 		}
 		if bp.uvSets() > 0 {
 			uv[i] = [2]float32{f32(p.b, v+uvOff), f32(p.b, v+uvOff+4)}
@@ -1811,7 +1831,43 @@ func main() {
 	nodesFlag := flag.String("nodes", "", "part:id,... — export each named forest node as its own GLB (diagnostic)")
 	partsFlag := flag.String("parts", "", "comma-separated part indices: export only these parts (diagnostic)")
 	site := flag.String("site", "", "Studio export: write the curated roster + manifest.json under this directory")
+	chrfit := flag.String("chrfit", "", "fit flagman pose conventions against a bootoracle -carvtx dump file")
+	chrglb := flag.String("chrglb", "", "export the animated flagman GLB to this path")
+	chrpose := flag.String("chrpose", "", "debug: CLIP:frame[:frame...] — print key bone world positions")
+	chrOrder := flag.Int("chrorder", 0, "flagman euler order (debug)")
+	chrRT := flag.Bool("chrrt", true, "flagman R·T local composition (debug)")
 	flag.Parse()
+
+	if *chrpose != "" {
+		disc, err := xbox.Open(*imagePath)
+		if err != nil {
+			fatal("open image: %v", err)
+		}
+		defer disc.Close()
+		chrPoseDebug(disc, *chrpose, poseConv{*chrOrder, *chrRT})
+		return
+	}
+	if *chrglb != "" {
+		disc, err := xbox.Open(*imagePath)
+		if err != nil {
+			fatal("open image: %v", err)
+		}
+		defer disc.Close()
+		if err := chrExportGLB(disc, *chrglb, poseConv{*chrOrder, *chrRT}); err != nil {
+			fatal("chrglb: %v", err)
+		}
+		return
+	}
+
+	if *chrfit != "" {
+		disc, err := xbox.Open(*imagePath)
+		if err != nil {
+			fatal("open image: %v", err)
+		}
+		defer disc.Close()
+		chrFit(disc, *chrfit)
+		return
+	}
 
 	if *site != "" {
 		if *imagePath == "" {
@@ -2099,6 +2155,12 @@ func exportSite(imagePath, siteDir string) {
 	// scenery ring, and the sky dome. The rest of the stage family
 	// (collision, spline, fog/sun params) is still closed.
 	exportStages(disc, b)
+
+	// The start-line flagman (Part XXXII): obj_chr_aut04 on the OZI
+	// skeleton, idle + flag-wave clips baked from mot_OR2SP_ETC.
+	if err := exportFlagman(disc, b); err != nil {
+		fatal("flagman: %v", err)
+	}
 
 	if err := b.Write(); err != nil {
 		fatal("%v", err)
