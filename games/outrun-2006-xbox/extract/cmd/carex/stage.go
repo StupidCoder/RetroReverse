@@ -128,14 +128,11 @@ func nodesBounds(nodes []glb.VariantNode) (mn, mx [3]float32) {
 // instances) plus the distant cs_ENV scenery ring in one layer GLB, and the
 // sky dome as its own GLB in a camera-attached sky layer — the game draws the
 // dome around the camera (zero parallax), and the viewer's attach:"camera" +
-// renderOrder -1 + depthTest:false is exactly that. The _R (reversed) dirs
-// are left out deliberately: they re-pack the same world with mirrored
-// culling, and shipping them would double the tree for no new geometry. The
-// BEAC/PALM _BR/_BT/_T variants carry no sky of their own and borrow the base
-// course's sky GLB by reference (layers resolve in the same levels/ dir).
-//
-// Display names are the disc's own folder codes — the clean-room boundary;
-// only the beach keeps its established English name.
+// renderOrder -1 + depthTest:false is exactly that. Only the 30 tour courses
+// ship: the _R (reversed) dirs re-pack the same worlds with mirrored culling,
+// and the openers' _BR/_BT/_T dirs are near-identical start-area re-dressings
+// — neither earns its bytes. Display names come from the courses' own fork
+// signboards (stageNames), grouped and ordered by route pyramid (stageTours).
 func exportStages(disc *xbox.Image, b *build.Builder) {
 	// One walk indexes /Stage: dir -> lower-cased file name -> actual path
 	// (the variant dirs name their bins in UPPER case).
@@ -159,7 +156,11 @@ func exportStages(disc *xbox.Image, b *build.Builder) {
 	}
 	var dirs []string
 	for d := range idx {
-		if strings.HasSuffix(d, "_R") {
+		// Only the 30 tour courses ship: the _R dirs re-pack the same worlds
+		// reversed, and the openers' _BR/_BT/_T dirs are near-identical
+		// start-area re-dressings (see the markdown) — neither earns its
+		// bytes in the tree.
+		if strings.Contains(d, "_") {
 			continue
 		}
 		if idx[d][strings.ToLower("cs_CS_"+d+"_pmt.sz")] == "" {
@@ -217,19 +218,15 @@ var stageTours = map[string]struct{ tour, slot string }{
 }
 
 // stageSortKey orders the manifest: the OutRun2 pyramid in stage order, then
-// the SP pyramid, then the openers' special variants.
+// the SP pyramid.
 func stageSortKey(dir string) string {
-	base, suffix, isVariant := strings.Cut(dir, "_")
-	t, ok := stageTours[base]
+	t, ok := stageTours[dir]
 	if !ok {
 		return "9" + dir
 	}
 	tourOrd := "0"
 	if t.tour != "OutRun2" {
 		tourOrd = "1"
-	}
-	if isVariant {
-		return "2" + tourOrd + t.slot + suffix
 	}
 	return tourOrd + t.slot
 }
@@ -308,11 +305,6 @@ func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]
 	// variants reference the base's GLB.
 	skyGLB := ""
 	skyPath := files["obj_course_obj_sky_"+lc+"_pmt.sz"]
-	if skyPath == "" {
-		if base, _, ok := strings.Cut(dir, "_"); ok {
-			skyPath = idx[base]["obj_course_obj_sky_"+strings.ToLower(base)+"_pmt.sz"]
-		}
-	}
 	if skyPath != "" {
 		if have, ok := skyWritten[skyPath]; ok {
 			skyGLB = have
@@ -370,25 +362,15 @@ func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]
 			Attach: "camera", RenderOrder: -1, DepthTest: &depthOff, Role: "sky"})
 	}
 	name := strings.ReplaceAll(dir, "_", " ")
-	group, desc := "Courses", ""
-	base, suffix, isVariant := strings.Cut(dir, "_")
-	if n, ok := stageNames[base]; ok {
+	group := "Courses"
+	if n, ok := stageNames[dir]; ok {
 		name = n
-		if isVariant {
-			name += " " + suffix
-		}
 	}
-	if t, ok := stageTours[base]; ok {
-		if isVariant {
-			group = "Special variants"
-			desc = fmt.Sprintf("The same layout as %s (%s stage %s) with different start-line and roadside dressing — the version the game's special modes load; which mode uses which variant is still unmapped.",
-				stageNames[base], t.tour, t.slot)
-		} else {
-			group = t.tour
-			name = "Stage " + t.slot + ": " + name
-		}
+	if t, ok := stageTours[dir]; ok {
+		group = t.tour
+		name = "Stage " + t.slot + ": " + name
 	}
-	b.AddLevel(schema.Asset{ID: id, Name: name, Group: group, Description: desc}, &schema.Level{
+	b.AddLevel(schema.Asset{ID: id, Name: name, Group: group}, &schema.Level{
 		Type: schema.LevelScene3D,
 		Camera: &schema.Camera{
 			Mode:   "fly",

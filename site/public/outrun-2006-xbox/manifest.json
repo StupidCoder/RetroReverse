@@ -541,54 +541,6 @@
    "name": "Stage 5E: Skyscrapers",
    "group": "OutRun2: SP",
    "file": "levels/stage-newy.json"
-  },
-  {
-   "id": "stage-palm-br",
-   "category": "level",
-   "name": "Palm Beach BR",
-   "group": "Special variants",
-   "description": "The same layout as Palm Beach (OutRun2 stage 1A) with different start-line and roadside dressing — the version the game's special modes load; which mode uses which variant is still unmapped.",
-   "file": "levels/stage-palm-br.json"
-  },
-  {
-   "id": "stage-palm-bt",
-   "category": "level",
-   "name": "Palm Beach BT",
-   "group": "Special variants",
-   "description": "The same layout as Palm Beach (OutRun2 stage 1A) with different start-line and roadside dressing — the version the game's special modes load; which mode uses which variant is still unmapped.",
-   "file": "levels/stage-palm-bt.json"
-  },
-  {
-   "id": "stage-palm-t",
-   "category": "level",
-   "name": "Palm Beach T",
-   "group": "Special variants",
-   "description": "The same layout as Palm Beach (OutRun2 stage 1A) with different start-line and roadside dressing — the version the game's special modes load; which mode uses which variant is still unmapped.",
-   "file": "levels/stage-palm-t.json"
-  },
-  {
-   "id": "stage-beac-br",
-   "category": "level",
-   "name": "Sunny Beach BR",
-   "group": "Special variants",
-   "description": "The same layout as Sunny Beach (OutRun2: SP stage 1A) with different start-line and roadside dressing — the version the game's special modes load; which mode uses which variant is still unmapped.",
-   "file": "levels/stage-beac-br.json"
-  },
-  {
-   "id": "stage-beac-bt",
-   "category": "level",
-   "name": "Sunny Beach BT",
-   "group": "Special variants",
-   "description": "The same layout as Sunny Beach (OutRun2: SP stage 1A) with different start-line and roadside dressing — the version the game's special modes load; which mode uses which variant is still unmapped.",
-   "file": "levels/stage-beac-bt.json"
-  },
-  {
-   "id": "stage-beac-t",
-   "category": "level",
-   "name": "Sunny Beach T",
-   "group": "Special variants",
-   "description": "The same layout as Sunny Beach (OutRun2: SP stage 1A) with different start-line and roadside dressing — the version the game's special modes load; which mode uses which variant is still unmapped.",
-   "file": "levels/stage-beac-t.json"
   }
  ]
 }

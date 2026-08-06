@@ -3688,3 +3688,8 @@ removes the start structure entirely and swaps the roadside advertising;
 doesn't place). They have no co-driver voice packs and sit outside both
 tours — the openers' alternate dressings for the game's special modes
 (time-attack/versus-style starts); which mode loads which is still unmapped.
+
+The special variants were subsequently dropped from the ship (and the tree):
+near-identical to their base courses, they cost 56 MB better spent elsewhere.
+`exportStages` now ships exactly the 30 tour courses; the variant analysis
+above stays as the record of what those dirs contain.
