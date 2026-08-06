@@ -58,7 +58,8 @@ func dumpClip(ls *sm64ds.LevelSet, model, clip string) {
 		fmt.Printf("  bone %d:", b)
 		for f := 0; f < a.NumFrames; f += max(1, a.NumFrames/8) {
 			t := a.BoneTRS(b, f)
-			fmt.Printf("  f%-3d rot(%.0f,%.0f,%.0f)", f, deg(t[3]), deg(t[4]), deg(t[5]))
+			fmt.Printf("\n    f%-3d rot(%.1f,%.1f,%.1f) trans(%.2f,%.2f,%.2f) scale(%.2f,%.2f,%.2f)",
+				f, deg(t[3]), deg(t[4]), deg(t[5]), t[6], t[7], t[8], t[0], t[1], t[2])
 		}
 		peak, at := 0.0, 0
 		for f := 0; f < a.NumFrames; f++ {

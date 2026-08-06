@@ -1547,11 +1547,44 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			})
 			pid++
 		}
+		// addPart puts one more model on an object's own transform — the star
+		// plaque on a door, which is authored in door space and so needs the
+		// placement's position, offset and yaw and nothing else.
+		addPart := func(stem string, o sm64ds.LevelObject, off [3]float64, name string) {
+			asset, ok := refs[stem]
+			if !ok {
+				return
+			}
+			pl := schema.Placement{
+				ID: pid, Object: asset, Name: name,
+				Pos: []float64{r3(o.X*toStage + off[0]), r3(o.Y*toStage + off[1]), r3(o.Z*toStage + off[2])},
+				Scale:    schema.Scale{objScale},
+				Variants: curVars,
+			}
+			if o.RotY != 0 {
+				pl.Rot = []float64{0, o.RotY * math.Pi / 180, 0}
+			}
+			doc.Placements = append(doc.Placements, pl)
+			pid++
+		}
 		for _, p := range order {
 			o := p.o
 			curVars = variantIDs(p.layers, p.gated, declared)
 			curScale = nil
 			switch o.Actor {
+			case doorActor:
+				// The leaf, shifted back onto its hinge (doorRestX), plus the
+				// plaque that dresses a star door.
+				yaw := o.RotY * math.Pi / 180
+				ux, uz := math.Cos(yaw), -math.Sin(yaw) // local +X in world
+				off := [3]float64{ux * doorRestX, 0, uz * doorRestX}
+				addObjOff(o, o.Actor, o.Params, true, off)
+				// The plaque carries no bone, so it gets NO compensation: it is
+				// authored in the leaf's own space and belongs on the record.
+				for _, part := range doorParts(bindings, o.Actor, o.Params) {
+					addPart(part, o, [3]float64{}, "Star plaque")
+				}
+
 			case paintingActor:
 				sc, lift := paintingScale(o.Params[0])
 				curScale = &sc
@@ -1813,6 +1846,48 @@ func spawnShot(lv *sm64ds.Level, kcl *sm64ds.KCL, contentFloor float64) (shot, b
 // bind pose. Marking the clip `hold` plays it once and clamps on the last
 // frame, which is the door standing open.
 const doorActor = 353
+
+// doorRestX cancels a rest offset the door's clip carries and its model does
+// not. Every door plays ar1_8, whose single bone holds a CONSTANT translation of
+// -9.375 on all 50 frames — exactly half the 18.75-unit leaf. The .bmd's own
+// bind pose has no such translation and its vertices already span [0, 18.75]
+// with the hinge at 0, which is where the doorway is: measuring the castle's
+// walls, the opening runs local X 0.000..0.150 stage units from the placement,
+// one leaf wide. So the constant channel is a rest pose the mesh already
+// embodies, and a renderer that applies it on top slides every leaf half a
+// width — putting its CENTRE where the hinge belongs, which is exactly what was
+// reported.
+//
+// This compensates at the PLACEMENT, which is honest about being a compensation:
+// it works because the viewer applies the clip's bone translation, and it moves
+// only the skinned leaf. The deeper fix is for SkinnedGLB to treat a channel
+// that never changes as part of the rest pose rather than as animation, and it
+// would let this constant go.
+const doorRestX = 9.375 * objScale
+
+// doorParts lists the dressing models a door run loaded besides its leaf: the
+// star plaque `obj_door0_starN`, a flat 13.75-unit panel authored in door space
+// so it lands on the leaf's face with the door's own transform. `arc0_21` also
+// turns up in those runs and is NOT emitted — it is the 3-D Power Star pickup,
+// not anything mounted on the door.
+//
+// The plaque is a placement of its own, so it does not swing with the leaf when
+// the door opens. That is the cost of composing parts this way, and it is worth
+// saying rather than leaving to be found.
+func doorParts(bindings map[int][]Binding, actor int, par [3]int) []string {
+	var out []string
+	for _, b := range bindings[actor] {
+		if b.Params != par {
+			continue
+		}
+		for _, m := range b.Models {
+			if strings.HasPrefix(m, "obj_door0_star") {
+				out = append(out, m)
+			}
+		}
+	}
+	return out
+}
 
 // doorHold is the normalised time in a door's clip at which it stands open,
 // measured from the clip itself during the model export — see doorApex. A

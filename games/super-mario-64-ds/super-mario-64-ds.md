@@ -512,6 +512,29 @@ Most entries name actor `$161` = 353, **`daDoor_c`**. Decoding the type gives
 **95 doors across 11 stages** — 14 on the castle's first floor alone, in the
 pairs the double doorways need.
 
+**The leaf sat half a width out of its frame**, its centre where the hinge
+belongs. The cause is a constant channel: `ar1_8`'s single bone holds a
+translation of **−9.375 on all fifty frames** — exactly half the 18.75-unit leaf
+— while the `.bmd`'s own bind pose has none and its vertices already span
+`[0, 18.75]` with the hinge at 0. Which is where the doorway is: measuring the
+castle's walls the way the paintings were measured, the opening runs local X
+**0.000..0.150** stage units from the placement, one leaf wide, for every single
+door, and a pair of records 0.300 apart brackets a double doorway exactly. So the
+channel is a rest pose the mesh already embodies, and applying it on top slides
+the leaf. A constant channel is not motion.
+
+The placement compensates it, which is honest about being a compensation — it
+works because the viewer applies the clip's bone translation, and it moves only
+the skinned leaf. The deeper fix is for `SkinnedGLB` to treat a channel that
+never changes as part of the rest pose rather than as animation.
+
+**The star plaque.** A door run loads more than its leaf: `obj_door0_starN`, a
+flat 13.75-unit panel authored in door space, and `arc0_21`. The plaque is
+emitted onto the leaf's face — with no compensation, because it carries no bone
+— and the star is not: it is the 3-D Power Star pickup, not anything mounted on
+a door. The plaque is a placement of its own and so does not swing with the leaf
+when the door opens; that is the cost of composing parts this way.
+
 **Click to open.** A door ships as a model plus one `.bca`, and that clip is a
 full ROUND TRIP: `cmd/doorprobe -clip ar1_8 -model ar1_9` reads it as 50 frames,
 0° → **79.189°** at frame 22, held to frame 36, back to 0° by the last. Both ends
