@@ -32,7 +32,9 @@ package sm64ds
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"retroreverse.com/tools/cpu/arm"
@@ -370,10 +372,15 @@ type Oracle struct {
 	callSP  uint32
 	served  []servedFile // buffer intervals handed out by the traps
 
+	codeRanges [][2]uint32 // RAM ranges backed by real code (ARM9 + banked overlays)
+	escFrom    uint32      // last PC before execution left them, and where it went
+	escTo      uint32
+
 	engineSnap []byte  // full RAM after engine init
 	engineCPU  arm.CPU // CPU state ditto
 	engScratch uint32  // scratch cursor at the engine snapshot
 	engServedN int
+	baseLoaded int // len(loaded) at the engine snapshot: ARM9 + the resident overlays
 	cfgServedN int
 	cfgPages   map[uint32][]byte
 	cfgScratch uint32
@@ -776,10 +783,35 @@ func (o *Oracle) call(fn uint32, a0, a1, a2, a3 uint32, budget int) (uint32, str
 	c.R[14] = oRetAddr
 	c.R[15] = fn &^ 1
 	c.Thumb = fn&1 != 0
+	// A budget blow-up says WHERE it ended, which is never where it went wrong.
+	// SM64DS_ORACLE_TRACE=1 keeps the last few thousand distinct call/branch
+	// targets so the note can show the road in.
+	var ring []uint32
+	const ringN = 4096
+	var lastCode, escapedFrom, escapedTo, prevPC uint32
+	trace := os.Getenv("SM64DS_ORACLE_TRACE") != ""
 	for i := 0; i < budget; i++ {
 		pc := c.R[15]
 		if pc == oRetAddr {
 			return c.R[0], ""
+		}
+		// Where did it LEAVE code? A runaway slides through zeroed memory, and
+		// a zero word is a no-op the CPU happily executes. The last instruction
+		// that was not zero is the last real one, and the PC after it is where
+		// the jump landed.
+		if trace {
+			if o.bus.r32(pc) != 0 {
+				lastCode = pc
+			} else if lastCode != 0 && escapedFrom == 0 {
+				escapedFrom, escapedTo = lastCode, pc
+			}
+		}
+		if trace && (len(ring) == 0 || ring[len(ring)-1] != pc) {
+			if len(ring) == ringN {
+				copy(ring, ring[1:])
+				ring = ring[:ringN-1]
+			}
+			ring = append(ring, pc)
 		}
 		if t, ok := o.traps[pc]; ok {
 			t(o)
@@ -788,6 +820,16 @@ func (o *Oracle) call(fn uint32, a0, a1, a2, a3 uint32, budget int) (uint32, str
 		if w, ok := o.watch[pc]; ok {
 			w(o)
 		}
+		// EXECUTION LEFT THE CODE WE LOADED. An actor's code reaches helpers in
+		// other banks through linker veneers (`LDR r12,[pc]; BX r12`), and with
+		// only its own overlay resident the veneer lands in memory nobody
+		// filled: the CPU slides through zeros — a zero word is a legal no-op —
+		// until the budget runs out, having asked the loader for nothing. Record
+		// the first such departure so the caller can bank what was missing.
+		if o.escTo == 0 && !o.inCode(pc) {
+			o.escFrom, o.escTo = prevPC, pc
+		}
+		prevPC = pc
 		c.Step()
 		if c.Halted {
 			reason := c.HaltReason
@@ -799,8 +841,29 @@ func (o *Oracle) call(fn uint32, a0, a1, a2, a3 uint32, budget int) (uint32, str
 	for i := uint32(0); i < 12; i++ {
 		stack = append(stack, fmt.Sprintf("%08X", o.bus.r32(c.R[13]+i*4)))
 	}
-	return c.R[0], fmt.Sprintf("budget(%d)@%08X lr=%08X sp=%08X [%s]",
+	note := fmt.Sprintf("budget(%d)@%08X lr=%08X sp=%08X [%s]",
 		budget, c.R[15], c.R[14], c.R[13], strings.Join(stack, " "))
+	if trace {
+		if escapedFrom != 0 {
+			note += fmt.Sprintf("\n      LEFT CODE at %08X -> %08X", escapedFrom, escapedTo)
+		}
+		// The last handful of DISTINCT regions, oldest first: a spin shows as a
+		// short cycle, a runaway as the last real code before the wilderness.
+		var seq []string
+		last := uint32(0)
+		for _, p := range ring {
+			if p>>8 == last>>8 {
+				continue
+			}
+			last = p
+			seq = append(seq, fmt.Sprintf("%08X", p))
+		}
+		if n := len(seq); n > 40 {
+			seq = seq[n-40:]
+		}
+		note += "\n      via " + strings.Join(seq, " -> ")
+	}
+	return c.R[0], note
 }
 
 // LoadOverlay copies a decompressed overlay to its table address, zeroes its
@@ -816,6 +879,7 @@ func (o *Oracle) LoadOverlay(id int) error {
 		return err
 	}
 	o.phase = fmt.Sprintf("ovl%d-init", id)
+	o.codeRanges = append(o.codeRanges, [2]uint32{ov.RAMAddr, ov.RAMAddr + uint32(len(data)) + ov.BSSSize})
 	for i, v := range data {
 		o.bus.Write(ov.RAMAddr+uint32(i), v)
 	}
@@ -897,6 +961,10 @@ func (o *Oracle) InitEngine() error {
 	o.engineCPU = *o.cpu
 	o.engScratch = o.scratch
 	o.engServedN = len(o.served)
+	// The ARM9 static plus whatever overlays the engine init left resident.
+	// Everything after this is a config overlay and is dropped per config.
+	o.codeRanges = append([][2]uint32{{arm9Base, arm9Base + uint32(len(o.ls.arm9))}}, o.codeRanges...)
+	o.baseLoaded = len(o.codeRanges)
 	o.bus.track = true
 	o.clearDirty()
 	return nil
@@ -911,6 +979,73 @@ func (o *Oracle) clearDirty() {
 
 // LoadConfig restores the engine state and loads one extra overlay (a level or
 // enemy bank; -1 for none), then marks the config baseline for actor runs.
+// inCode reports whether an address lies in memory some overlay or the ARM9
+// static actually put code in.
+func (o *Oracle) inCode(p uint32) bool {
+	for _, r := range o.codeRanges {
+		if p >= r[0] && p < r[1] {
+			return true
+		}
+	}
+	// ITCM, where the collision walkers live.
+	return p >= 0x01FF8000 && p < 0x02000000
+}
+
+// Escape reports where execution first left loaded code during the last run,
+// or 0. See the note in call().
+func (o *Oracle) Escape() (from, to uint32) { return o.escFrom, o.escTo }
+
+// OverlaysCovering lists the overlays whose RAM range contains an address —
+// the candidates for whatever a veneer was trying to reach.
+func (o *Oracle) OverlaysCovering(addr uint32) []int {
+	var out []int
+	for id, ov := range o.ls.ovls {
+		if addr >= ov.RAMAddr && addr < ov.RAMAddr+ov.RAMSize {
+			out = append(out, id)
+		}
+	}
+	sort.Ints(out)
+	return out
+}
+
+// LoadConfigMulti loads several overlays into one config.
+//
+// An actor's code is not always confined to its own bank. Overlay 22's log
+// actor reaches a shared helper through a linker veneer —
+// `LDR r12,[pc]; BX r12` to $021274AC — and that address belongs to a DIFFERENT
+// overlay, one of the several that share the $02123740 slot. With only the
+// actor's own overlay resident the veneer jumps into unloaded memory, the CPU
+// slides through zeros, and the run dies on the instruction budget having asked
+// the loader for nothing (Part V §3). Banking the companion overlay as well is
+// what makes those actors run.
+func (o *Oracle) LoadConfigMulti(ovls []int) error {
+	copy(o.bus.mem, o.engineSnap)
+	*o.cpu = o.engineCPU
+	o.clearDirty()
+	o.scratch = o.engScratch
+	o.served = o.served[:o.engServedN]
+	o.asyncQ = nil
+	o.codeRanges = o.codeRanges[:o.baseLoaded]
+	for _, ovl := range ovls {
+		if ovl < 0 {
+			continue
+		}
+		if err := o.LoadOverlay(ovl); err != nil {
+			return err
+		}
+	}
+	o.cfgPages = map[uint32][]byte{}
+	for _, p := range o.bus.touched {
+		pg := make([]byte, 1<<pageBits)
+		copy(pg, o.bus.mem[p<<pageBits:])
+		o.cfgPages[p] = pg
+	}
+	o.clearDirty()
+	o.cfgScratch = o.scratch
+	o.cfgServedN = len(o.served)
+	return nil
+}
+
 func (o *Oracle) LoadConfig(ovl int) error {
 	// restore full engine state
 	copy(o.bus.mem, o.engineSnap)
@@ -919,6 +1054,7 @@ func (o *Oracle) LoadConfig(ovl int) error {
 	o.scratch = o.engScratch
 	o.served = o.served[:o.engServedN]
 	o.asyncQ = nil
+	o.codeRanges = o.codeRanges[:o.baseLoaded]
 	if ovl >= 0 {
 		if err := o.LoadOverlay(ovl); err != nil {
 			return err
@@ -999,6 +1135,7 @@ func (o *Oracle) loaded(p uint32, cfg int) bool {
 // load queue like the pump at $02072F44. State is rolled back afterwards.
 func (o *Oracle) RunActor(actor, cfg int, par [3]int) *ActorRun {
 	run := &ActorRun{Actor: actor, Config: cfg, Params: par}
+	o.escFrom, o.escTo = 0, 0
 	create, ok := o.Profile(actor, cfg)
 	if !ok {
 		run.Notes = append(run.Notes, "no profile under this config")
@@ -1051,6 +1188,53 @@ func (o *Oracle) RunActor(actor, cfg int, par [3]int) *ActorRun {
 	if len(run.Colliders) == 0 && len(o.KCLs(run)) > 0 {
 		o.StepActor(run)
 	}
+	return run
+}
+
+// RunActorBanked runs an actor and, if its code left the overlays we loaded,
+// banks the missing one and runs it again.
+//
+// An actor's code is not confined to its own overlay: it reaches shared helpers
+// through linker veneers (`LDR r12,[pc]; BX r12`) into a bank the game has
+// resident at the time. With only the actor's own overlay loaded the veneer
+// lands in memory nobody filled, the CPU slides through zeros, and the run dies
+// on the instruction budget having asked the loader for nothing — which is how
+// Lethal Lava Land's rideable log (actor 70, daObjFlMaruta_c) reached the
+// Studio as nothing at all.
+//
+// The overlay to bank is not guessed: the run reports WHERE it left, several
+// overlays share that address, and each is tried. The winner is the one that
+// both stops escaping AND asks the loader for something — for the log, overlay
+// 80, which yields fl_log and its .kcl while overlays 77/79/81 escape again and
+// overlay 6 completes but loads nothing. If no candidate wins, the original run
+// is returned unchanged.
+//
+// reload restores a config; the caller owns that, because only it knows what
+// the base config was.
+func (o *Oracle) RunActorBanked(actor, cfg int, par [3]int, reload func(extra int) error) *ActorRun {
+	run := o.RunActor(actor, cfg, par)
+	if len(run.Files) > 0 {
+		return run
+	}
+	_, to := o.Escape()
+	if to == 0 {
+		return run
+	}
+	for _, id := range o.OverlaysCovering(to) {
+		if id == cfg {
+			continue
+		}
+		if err := reload(id); err != nil {
+			continue
+		}
+		alt := o.RunActor(actor, cfg, par)
+		if _, esc := o.Escape(); esc == 0 && len(alt.Files) > 0 {
+			alt.Notes = append(alt.Notes,
+				fmt.Sprintf("banked overlay %d: its code left ours at %08X", id, to))
+			return alt
+		}
+	}
+	_ = reload(-1)
 	return run
 }
 

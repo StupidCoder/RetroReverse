@@ -369,7 +369,15 @@ func sweep(ls *sm64ds.LevelSet, o *sm64ds.Oracle) map[int][]Binding {
 				unresolved[c] = true
 				continue
 			}
-			addRun(o.RunActor(c.actor, ov, [3]int{c.p1, c.p2, c.p3}))
+			// An actor may reach helpers in a bank the game had resident
+			// alongside this overlay; RunActorBanked finds which and retries.
+			addRun(o.RunActorBanked(c.actor, ov, [3]int{c.p1, c.p2, c.p3},
+				func(extra int) error {
+					if extra < 0 {
+						return o.LoadConfig(ov)
+					}
+					return o.LoadConfigMulti([]int{ov, extra})
+				}))
 		}
 	}
 
@@ -394,7 +402,13 @@ func sweep(ls *sm64ds.LevelSet, o *sm64ds.Oracle) map[int][]Binding {
 				continue
 			}
 			bankRuns[key] = true
-			addRun(o.RunActor(c.actor, bank, [3]int{c.p1, c.p2, c.p3}))
+			addRun(o.RunActorBanked(c.actor, bank, [3]int{c.p1, c.p2, c.p3},
+				func(extra int) error {
+					if extra < 0 {
+						return o.LoadConfig(bank)
+					}
+					return o.LoadConfigMulti([]int{bank, extra})
+				}))
 		}
 	}
 	return table
