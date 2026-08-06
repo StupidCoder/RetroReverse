@@ -3865,3 +3865,40 @@ Floral Village and 14 Milky Way corrected; the OutRun2 pyramid keeps its
 slot names. The transition table also hands over each course's internal
 index (OutRun2 tour: 0-14, SP: 15-29 — BEAC = 15, matching the live course
 object) for whenever the runtime tables need walking.
+
+## Part XXXII — the flagman, opened (reconstruction pending)
+
+The start-line flagman — red shirt, waves the flag at the start, waves at an
+idle player — is located and his formats are mostly open, though the
+reconstruction itself is future work:
+
+- **Model**: `/Chr/obj_chr_fal_pmt.sz` — the same pmt container, 109 parts of
+  tiny body pieces (a rigid-piece character: per-bone parts posed by
+  matrices, no vertex skinning), 24 textures, plus a new vertex format word
+  0x116 (stride 28) the car/stage reader doesn't handle yet.
+- **Skeleton**: `/Common/bone.bin` is a nine-skeleton library with the
+  developers' own names — the characters are JEN, MAN, ONN, OTK, OZI, RIC,
+  SAR, USI, WMN, with full Japanese rig bone names (`hara`, `mune`, `kata`,
+  `hiji`, `te_l/r`, `kosi`, `momo`, `sune`, `asi`). The flagman is **OZI**
+  (39 bones) — his left hand carries a bone literally named `bo`, the flag
+  pole. Bone records are 0x38 bytes {nameOff, parentInfo, local
+  translate/rotate, child list}.
+- **Character descriptor**: `/Chr/CHR_FAL.bin` — header counts {23, 56, 38},
+  a 23-entry bone→part attachment table, a 38-entry visible-part list, 56
+  LOD records of 20 bytes ({2-3 part-id variants, a canonical bone slot}),
+  and 45 bind matrices at +0x5A0. Attachments and LOD records address a
+  shared **canonical bone numbering** (~79 slots) that the motion files use
+  too — the cross-character bone id space; its map to each skeleton's bones
+  is the main open decode.
+- **Motions**: `/Anims/mot_OR2SP_FAL_bin.sz` — a directory of **18 clips**
+  (0x18-byte entries {id, 2, frames, 54, offset, size}; 27-260 frames), each
+  clip's data opening with per-track descriptors {canonical bone id, format
+  bits} (7 ≈ rotation channels, 56 ≈ translation, 63 = both) followed by
+  compressed curves. The start flag wave and the idle wave are two of the
+  eighteen; `motdata_table.bin` ({hash, offset, count} records) looks like
+  the clip registry that names them.
+
+Still to do: the curve compression, the canonical-id→skeleton map, bind-pose
+composition (verify the standing pose against the oracle's start-line frame,
+where he is visible live), a skinned/animated GLB export (the glb library's
+Jak-era rigged support), and the beach-level placement with both clips.
