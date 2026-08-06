@@ -469,6 +469,28 @@ out (`init: budget(6000000)@022916C0`, an all-zero stack at a heap PC). Having
 died there, the init never asked the loader for anything, so the binding table
 records no model and the exporter had nothing to place.
 
+### A postscript: correct locally, absent on the deployed site
+
+The doors worked in the working tree and were missing from the hosted build, and
+the fault was not the host's. Every export commit in this series used
+
+```sh
+git commit -- site/public/super-mario-64-ds
+```
+
+which commits **changes to tracked files** and does not add untracked ones. The
+level documents already existed, so their edits went in and the commit read as
+success; the NEW assets the export wrote never did. The deployed tree carried
+level documents referencing objects it did not contain — 12 files, including
+`ar1_9`/`ar1_10`/`ar1_11`, the castle door leaves. `obj_door2_boro` was an older
+tracked file and did ship, which is why the only doors visible on the live site
+were the ones with no clip at all.
+
+`retroxlint` passes on the working tree either way: it checks files on **disk**.
+The test that catches this is linting the tree as git has it, which is what
+`tools/lintdeployed.sh` does — `git archive HEAD site/public` into a temp dir and
+lint that.
+
 ### The doors were never in the data this exporter read
 
 Peach's castle had no doors at all — not dropped for want of a model, but never
