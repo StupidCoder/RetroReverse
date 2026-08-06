@@ -3666,3 +3666,25 @@ their dir code: "Sunny Beach BR"). The sprite side of the hunt opened the
 standard `XPR0` resource bank — 20-byte texture records `{0x00040001, data
 offset, 0, format dword}` with the D3D format byte at bits 8-15 and log2
 dimensions at bits 20-27.
+
+### The pyramid in the manifest, and what _BR/_BT/_T look like
+
+The Studio manifest now mirrors the game's own structure: the courses sit in
+"OutRun2" and "OutRun2: SP" groups, each in route-pyramid order and named by
+slot — "Stage 1A: Palm Beach" … "Stage 5E: Cape Way"; "Stage 1A: Sunny Beach"
+… "Stage 5E: Skyscrapers". The slot map comes from the co-driver voice packs
+(`HAM_<slot>` / `HAM_CVT_<slot>`, each header labelling its course); the lone
+ambiguous label, 3B "Carnif", is the developers' own spelling of the
+coniferous forest and forced by elimination regardless.
+
+The six `_BR`/`_BT`/`_T` dirs land in a "Special variants" group. What the
+data says about them: identical track layouts (their visibility DBs carry
+exactly the base course's segment count — 603 for Sunny Beach, 591 for Palm
+Beach), same sky, but re-dressed scenery. Rendering all four beach versions
+through the same captured MVP shows the differences concentrated at the start
+area: `_T` and `_BT` move the start gantry and drop the grandstands, `_BR`
+removes the start structure entirely and swaps the roadside advertising;
+`PALM_BR` also re-dresses heavily (300+ billboard trees the base course
+doesn't place). They have no co-driver voice packs and sit outside both
+tours — the openers' alternate dressings for the game's special modes
+(time-attack/versus-style starts); which mode loads which is still unmapped.

@@ -333,256 +333,262 @@
    "file": "objects/othcar-12.json"
   },
   {
-   "id": "stage-alas",
+   "id": "stage-palm",
    "category": "level",
-   "name": "Ice Scape",
-   "group": "Courses",
-   "file": "levels/stage-alas.json"
-  },
-  {
-   "id": "stage-alpi",
-   "category": "level",
-   "name": "Alpine",
-   "group": "Courses",
-   "file": "levels/stage-alpi.json"
-  },
-  {
-   "id": "stage-amaz",
-   "category": "level",
-   "name": "Jungle",
-   "group": "Courses",
-   "file": "levels/stage-amaz.json"
-  },
-  {
-   "id": "stage-beac",
-   "category": "level",
-   "name": "Sunny Beach",
-   "group": "Courses",
-   "file": "levels/stage-beac.json"
-  },
-  {
-   "id": "stage-beac-br",
-   "category": "level",
-   "name": "Sunny Beach BR",
-   "group": "Courses",
-   "file": "levels/stage-beac-br.json"
-  },
-  {
-   "id": "stage-beac-bt",
-   "category": "level",
-   "name": "Sunny Beach BT",
-   "group": "Courses",
-   "file": "levels/stage-beac-bt.json"
-  },
-  {
-   "id": "stage-beac-t",
-   "category": "level",
-   "name": "Sunny Beach T",
-   "group": "Courses",
-   "file": "levels/stage-beac-t.json"
-  },
-  {
-   "id": "stage-cape",
-   "category": "level",
-   "name": "Cape Way",
-   "group": "Courses",
-   "file": "levels/stage-cape.json"
-  },
-  {
-   "id": "stage-cast",
-   "category": "level",
-   "name": "Castle Wall",
-   "group": "Courses",
-   "file": "levels/stage-cast.json"
-  },
-  {
-   "id": "stage-clou",
-   "category": "level",
-   "name": "Cloudy Highland",
-   "group": "Courses",
-   "file": "levels/stage-clou.json"
-  },
-  {
-   "id": "stage-dese",
-   "category": "level",
-   "name": "Desert",
-   "group": "Courses",
-   "file": "levels/stage-dese.json"
-  },
-  {
-   "id": "stage-east",
-   "category": "level",
-   "name": "Giant Statues",
-   "group": "Courses",
-   "file": "levels/stage-east.json"
-  },
-  {
-   "id": "stage-flor",
-   "category": "level",
-   "name": "Milky Way",
-   "group": "Courses",
-   "file": "levels/stage-flor.json"
-  },
-  {
-   "id": "stage-fore",
-   "category": "level",
-   "name": "Coniferous Forest",
-   "group": "Courses",
-   "file": "levels/stage-fore.json"
-  },
-  {
-   "id": "stage-ghos",
-   "category": "level",
-   "name": "Ghost Forest",
-   "group": "Courses",
-   "file": "levels/stage-ghos.json"
-  },
-  {
-   "id": "stage-gran",
-   "category": "level",
-   "name": "Canyon",
-   "group": "Courses",
-   "file": "levels/stage-gran.json"
-  },
-  {
-   "id": "stage-impe",
-   "category": "level",
-   "name": "Imperial Avenue",
-   "group": "Courses",
-   "file": "levels/stage-impe.json"
-  },
-  {
-   "id": "stage-indu",
-   "category": "level",
-   "name": "Industrial Complex",
-   "group": "Courses",
-   "file": "levels/stage-indu.json"
+   "name": "Stage 1A: Palm Beach",
+   "group": "OutRun2",
+   "file": "levels/stage-palm.json"
   },
   {
    "id": "stage-lake",
    "category": "level",
-   "name": "Deep Lake",
-   "group": "Courses",
+   "name": "Stage 2A: Deep Lake",
+   "group": "OutRun2",
    "file": "levels/stage-lake.json"
   },
   {
-   "id": "stage-lasv",
+   "id": "stage-alpi",
    "category": "level",
-   "name": "Casino Town",
-   "group": "Courses",
-   "file": "levels/stage-lasv.json"
+   "name": "Stage 2B: Alpine",
+   "group": "OutRun2",
+   "file": "levels/stage-alpi.json"
   },
   {
-   "id": "stage-mach",
+   "id": "stage-cast",
    "category": "level",
-   "name": "Lost City",
-   "group": "Courses",
-   "file": "levels/stage-mach.json"
+   "name": "Stage 3A: Castle Wall",
+   "group": "OutRun2",
+   "file": "levels/stage-cast.json"
   },
   {
-   "id": "stage-maya",
+   "id": "stage-fore",
    "category": "level",
-   "name": "Legend",
-   "group": "Courses",
-   "file": "levels/stage-maya.json"
+   "name": "Stage 3B: Coniferous Forest",
+   "group": "OutRun2",
+   "file": "levels/stage-fore.json"
+  },
+  {
+   "id": "stage-dese",
+   "category": "level",
+   "name": "Stage 3C: Desert",
+   "group": "OutRun2",
+   "file": "levels/stage-dese.json"
+  },
+  {
+   "id": "stage-clou",
+   "category": "level",
+   "name": "Stage 4A: Cloudy Highland",
+   "group": "OutRun2",
+   "file": "levels/stage-clou.json"
+  },
+  {
+   "id": "stage-indu",
+   "category": "level",
+   "name": "Stage 4B: Industrial Complex",
+   "group": "OutRun2",
+   "file": "levels/stage-indu.json"
+  },
+  {
+   "id": "stage-snow",
+   "category": "level",
+   "name": "Stage 4C: Snow Mountain",
+   "group": "OutRun2",
+   "file": "levels/stage-snow.json"
+  },
+  {
+   "id": "stage-ghos",
+   "category": "level",
+   "name": "Stage 4D: Ghost Forest",
+   "group": "OutRun2",
+   "file": "levels/stage-ghos.json"
+  },
+  {
+   "id": "stage-tuli",
+   "category": "level",
+   "name": "Stage 5A: Tulip Garden",
+   "group": "OutRun2",
+   "file": "levels/stage-tuli.json"
   },
   {
    "id": "stage-metr",
    "category": "level",
-   "name": "Metropolis",
-   "group": "Courses",
+   "name": "Stage 5B: Metropolis",
+   "group": "OutRun2",
    "file": "levels/stage-metr.json"
   },
   {
-   "id": "stage-newy",
+   "id": "stage-ruin",
    "category": "level",
-   "name": "Skyscrapers",
-   "group": "Courses",
-   "file": "levels/stage-newy.json"
+   "name": "Stage 5C: Ancient Ruins",
+   "group": "OutRun2",
+   "file": "levels/stage-ruin.json"
+  },
+  {
+   "id": "stage-impe",
+   "category": "level",
+   "name": "Stage 5D: Imperial Avenue",
+   "group": "OutRun2",
+   "file": "levels/stage-impe.json"
+  },
+  {
+   "id": "stage-cape",
+   "category": "level",
+   "name": "Stage 5E: Cape Way",
+   "group": "OutRun2",
+   "file": "levels/stage-cape.json"
+  },
+  {
+   "id": "stage-beac",
+   "category": "level",
+   "name": "Stage 1A: Sunny Beach",
+   "group": "OutRun2: SP",
+   "file": "levels/stage-beac.json"
+  },
+  {
+   "id": "stage-sanf",
+   "category": "level",
+   "name": "Stage 2A: Bay Area",
+   "group": "OutRun2: SP",
+   "file": "levels/stage-sanf.json"
+  },
+  {
+   "id": "stage-yose",
+   "category": "level",
+   "name": "Stage 2B: National Park",
+   "group": "OutRun2: SP",
+   "file": "levels/stage-yose.json"
   },
   {
    "id": "stage-niag",
    "category": "level",
-   "name": "Water Falls",
-   "group": "Courses",
+   "name": "Stage 3A: Water Falls",
+   "group": "OutRun2: SP",
    "file": "levels/stage-niag.json"
   },
   {
-   "id": "stage-palm",
+   "id": "stage-sequ",
    "category": "level",
-   "name": "Palm Beach",
-   "group": "Courses",
-   "file": "levels/stage-palm.json"
+   "name": "Stage 3B: Big Forest",
+   "group": "OutRun2: SP",
+   "file": "levels/stage-sequ.json"
+  },
+  {
+   "id": "stage-gran",
+   "category": "level",
+   "name": "Stage 3C: Canyon",
+   "group": "OutRun2: SP",
+   "file": "levels/stage-gran.json"
+  },
+  {
+   "id": "stage-mach",
+   "category": "level",
+   "name": "Stage 4A: Lost City",
+   "group": "OutRun2: SP",
+   "file": "levels/stage-mach.json"
+  },
+  {
+   "id": "stage-lasv",
+   "category": "level",
+   "name": "Stage 4B: Casino Town",
+   "group": "OutRun2: SP",
+   "file": "levels/stage-lasv.json"
+  },
+  {
+   "id": "stage-alas",
+   "category": "level",
+   "name": "Stage 4C: Ice Scape",
+   "group": "OutRun2: SP",
+   "file": "levels/stage-alas.json"
+  },
+  {
+   "id": "stage-amaz",
+   "category": "level",
+   "name": "Stage 4D: Jungle",
+   "group": "OutRun2: SP",
+   "file": "levels/stage-amaz.json"
+  },
+  {
+   "id": "stage-east",
+   "category": "level",
+   "name": "Stage 5A: Giant Statues",
+   "group": "OutRun2: SP",
+   "file": "levels/stage-east.json"
+  },
+  {
+   "id": "stage-maya",
+   "category": "level",
+   "name": "Stage 5B: Legend",
+   "group": "OutRun2: SP",
+   "file": "levels/stage-maya.json"
+  },
+  {
+   "id": "stage-flor",
+   "category": "level",
+   "name": "Stage 5C: Milky Way",
+   "group": "OutRun2: SP",
+   "file": "levels/stage-flor.json"
+  },
+  {
+   "id": "stage-prin",
+   "category": "level",
+   "name": "Stage 5D: Floral Village",
+   "group": "OutRun2: SP",
+   "file": "levels/stage-prin.json"
+  },
+  {
+   "id": "stage-newy",
+   "category": "level",
+   "name": "Stage 5E: Skyscrapers",
+   "group": "OutRun2: SP",
+   "file": "levels/stage-newy.json"
   },
   {
    "id": "stage-palm-br",
    "category": "level",
    "name": "Palm Beach BR",
-   "group": "Courses",
+   "group": "Special variants",
+   "description": "The same layout as Palm Beach (OutRun2 stage 1A) with different start-line and roadside dressing — the version the game's special modes load; which mode uses which variant is still unmapped.",
    "file": "levels/stage-palm-br.json"
   },
   {
    "id": "stage-palm-bt",
    "category": "level",
    "name": "Palm Beach BT",
-   "group": "Courses",
+   "group": "Special variants",
+   "description": "The same layout as Palm Beach (OutRun2 stage 1A) with different start-line and roadside dressing — the version the game's special modes load; which mode uses which variant is still unmapped.",
    "file": "levels/stage-palm-bt.json"
   },
   {
    "id": "stage-palm-t",
    "category": "level",
    "name": "Palm Beach T",
-   "group": "Courses",
+   "group": "Special variants",
+   "description": "The same layout as Palm Beach (OutRun2 stage 1A) with different start-line and roadside dressing — the version the game's special modes load; which mode uses which variant is still unmapped.",
    "file": "levels/stage-palm-t.json"
   },
   {
-   "id": "stage-prin",
+   "id": "stage-beac-br",
    "category": "level",
-   "name": "Floral Village",
-   "group": "Courses",
-   "file": "levels/stage-prin.json"
+   "name": "Sunny Beach BR",
+   "group": "Special variants",
+   "description": "The same layout as Sunny Beach (OutRun2: SP stage 1A) with different start-line and roadside dressing — the version the game's special modes load; which mode uses which variant is still unmapped.",
+   "file": "levels/stage-beac-br.json"
   },
   {
-   "id": "stage-ruin",
+   "id": "stage-beac-bt",
    "category": "level",
-   "name": "Ancient Ruins",
-   "group": "Courses",
-   "file": "levels/stage-ruin.json"
+   "name": "Sunny Beach BT",
+   "group": "Special variants",
+   "description": "The same layout as Sunny Beach (OutRun2: SP stage 1A) with different start-line and roadside dressing — the version the game's special modes load; which mode uses which variant is still unmapped.",
+   "file": "levels/stage-beac-bt.json"
   },
   {
-   "id": "stage-sanf",
+   "id": "stage-beac-t",
    "category": "level",
-   "name": "Bay Area",
-   "group": "Courses",
-   "file": "levels/stage-sanf.json"
-  },
-  {
-   "id": "stage-sequ",
-   "category": "level",
-   "name": "Big Forest",
-   "group": "Courses",
-   "file": "levels/stage-sequ.json"
-  },
-  {
-   "id": "stage-snow",
-   "category": "level",
-   "name": "Snow Mountain",
-   "group": "Courses",
-   "file": "levels/stage-snow.json"
-  },
-  {
-   "id": "stage-tuli",
-   "category": "level",
-   "name": "Tulip Garden",
-   "group": "Courses",
-   "file": "levels/stage-tuli.json"
-  },
-  {
-   "id": "stage-yose",
-   "category": "level",
-   "name": "National Park",
-   "group": "Courses",
-   "file": "levels/stage-yose.json"
+   "name": "Sunny Beach T",
+   "group": "Special variants",
+   "description": "The same layout as Sunny Beach (OutRun2: SP stage 1A) with different start-line and roadside dressing — the version the game's special modes load; which mode uses which variant is still unmapped.",
+   "file": "levels/stage-beac-t.json"
   }
  ]
 }

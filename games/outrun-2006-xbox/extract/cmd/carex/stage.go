@@ -167,7 +167,7 @@ func exportStages(disc *xbox.Image, b *build.Builder) {
 		}
 		dirs = append(dirs, d)
 	}
-	sort.Strings(dirs)
+	sort.Slice(dirs, func(i, j int) bool { return stageSortKey(dirs[i]) < stageSortKey(dirs[j]) })
 	skyWritten := map[string]string{} // sky disc path -> GLB file name in levels/
 	for _, d := range dirs {
 		if err := exportStage(disc, b, d, idx, skyWritten); err != nil {
@@ -193,6 +193,45 @@ var stageNames = map[string]string{
 	"NIAG": "Water Falls", "PALM": "Palm Beach", "PRIN": "Floral Village",
 	"RUIN": "Ancient Ruins", "SANF": "Bay Area", "SEQU": "Big Forest",
 	"SNOW": "Snow Mountain", "TULI": "Tulip Garden", "YOSE": "National Park",
+}
+
+// stageTours places each course in its route pyramid: tour and stage slot
+// (round 1-5, column A-E), from the co-driver voice packs — the disc names
+// them /Sound/*_HAM_<slot>.PAK for the OutRun2 tour and *_HAM_CVT_<slot>.PAK
+// for the OutRun2 SP tour, and each pack's WBND header labels its course
+// ("HAM Req: Tulip"), matching the signboard names (3B's label "Carnif" is
+// the developers' own spelling of the coniferous forest, forced anyway by
+// elimination).
+var stageTours = map[string]struct{ tour, slot string }{
+	"PALM": {"OutRun2", "1A"}, "LAKE": {"OutRun2", "2A"}, "ALPI": {"OutRun2", "2B"},
+	"CAST": {"OutRun2", "3A"}, "FORE": {"OutRun2", "3B"}, "DESE": {"OutRun2", "3C"},
+	"CLOU": {"OutRun2", "4A"}, "INDU": {"OutRun2", "4B"}, "SNOW": {"OutRun2", "4C"},
+	"GHOS": {"OutRun2", "4D"}, "TULI": {"OutRun2", "5A"}, "METR": {"OutRun2", "5B"},
+	"RUIN": {"OutRun2", "5C"}, "IMPE": {"OutRun2", "5D"}, "CAPE": {"OutRun2", "5E"},
+
+	"BEAC": {"OutRun2: SP", "1A"}, "SANF": {"OutRun2: SP", "2A"}, "YOSE": {"OutRun2: SP", "2B"},
+	"NIAG": {"OutRun2: SP", "3A"}, "SEQU": {"OutRun2: SP", "3B"}, "GRAN": {"OutRun2: SP", "3C"},
+	"MACH": {"OutRun2: SP", "4A"}, "LASV": {"OutRun2: SP", "4B"}, "ALAS": {"OutRun2: SP", "4C"},
+	"AMAZ": {"OutRun2: SP", "4D"}, "EAST": {"OutRun2: SP", "5A"}, "MAYA": {"OutRun2: SP", "5B"},
+	"FLOR": {"OutRun2: SP", "5C"}, "PRIN": {"OutRun2: SP", "5D"}, "NEWY": {"OutRun2: SP", "5E"},
+}
+
+// stageSortKey orders the manifest: the OutRun2 pyramid in stage order, then
+// the SP pyramid, then the openers' special variants.
+func stageSortKey(dir string) string {
+	base, suffix, isVariant := strings.Cut(dir, "_")
+	t, ok := stageTours[base]
+	if !ok {
+		return "9" + dir
+	}
+	tourOrd := "0"
+	if t.tour != "OutRun2" {
+		tourOrd = "1"
+	}
+	if isVariant {
+		return "2" + tourOrd + t.slot + suffix
+	}
+	return tourOrd + t.slot
 }
 
 // stageID is the asset id for a course dir ("BEAC_BR" -> "stage-beac-br").
@@ -331,6 +370,7 @@ func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]
 			Attach: "camera", RenderOrder: -1, DepthTest: &depthOff, Role: "sky"})
 	}
 	name := strings.ReplaceAll(dir, "_", " ")
+	group, desc := "Courses", ""
 	base, suffix, isVariant := strings.Cut(dir, "_")
 	if n, ok := stageNames[base]; ok {
 		name = n
@@ -338,7 +378,17 @@ func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]
 			name += " " + suffix
 		}
 	}
-	b.AddLevel(schema.Asset{ID: id, Name: name, Group: "Courses"}, &schema.Level{
+	if t, ok := stageTours[base]; ok {
+		if isVariant {
+			group = "Special variants"
+			desc = fmt.Sprintf("The same layout as %s (%s stage %s) with different start-line and roadside dressing — the version the game's special modes load; which mode uses which variant is still unmapped.",
+				stageNames[base], t.tour, t.slot)
+		} else {
+			group = t.tour
+			name = "Stage " + t.slot + ": " + name
+		}
+	}
+	b.AddLevel(schema.Asset{ID: id, Name: name, Group: group, Description: desc}, &schema.Level{
 		Type: schema.LevelScene3D,
 		Camera: &schema.Camera{
 			Mode:   "fly",
