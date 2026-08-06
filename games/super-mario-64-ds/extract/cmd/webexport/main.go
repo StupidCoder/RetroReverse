@@ -1337,6 +1337,9 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		// closure variable so the chain chomp's spawned stake and drawn links
 		// inherit the missions of the chomp that owns them.
 		var curVars []string
+		// curScale overrides the standard object scale for the one actor that
+		// sizes its own geometry — see paintingScale.
+		var curScale *schema.Scale
 		pid := 1
 		addObjOff := func(o sm64ds.LevelObject, actor int, par [3]int, rot bool, off [3]float64) {
 			m := modelFor(actor, par)
@@ -1344,11 +1347,15 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			if m == "" || !ok {
 				return
 			}
+			sc := schema.Scale{objScale}
+			if curScale != nil {
+				sc = *curScale
+			}
 			pl := schema.Placement{
 				ID:     pid,
 				Object: asset,
 				Pos:    []float64{r3(o.X*toStage + off[0]), r3(o.Y*toStage + off[1]), r3(o.Z*toStage + off[2])},
-				Scale:  schema.Scale{objScale},
+				Scale:  sc,
 				Props:  map[string]any{"actor": actor},
 			}
 			if rot && o.RotY != 0 {
@@ -1398,7 +1405,12 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		for _, p := range order {
 			o := p.o
 			curVars = variantIDs(p.layers, p.gated, declared)
+			curScale = nil
 			switch o.Actor {
+			case paintingActor:
+				sc, lift := paintingScale(o.Params[0])
+				curScale = &sc
+				addObjOff(o, o.Actor, o.Params, true, [3]float64{0, lift, 0})
 			case 219: // daWanwan_c — chained to a stake
 				addChomp(o, addObjOff, addModelAt)
 			case 337: // daWanwan2_c — the free-roaming one; no stake, same ball
@@ -1549,6 +1561,38 @@ var msgActors = map[int]string{
 	184: "Signpost",
 	183: "Notice board",
 	185: "Toad",
+}
+
+// paintingActor 307 is every framed painting in the castle, and it SIZES ITSELF:
+// the shipped model is a bare 12.5-unit square quad carrying the picture, and
+// the actor's init ($02126CA0, overlay 80) reads the spawn parameter word and
+// builds its own subdivided grid from it —
+//
+//	par1 & $F         width  = (n+1) * 100.0 world units
+//	(par1 >> 4) & $F  height = (n+1) * 100.0
+//	(par1 >> 8) & $1F which picture ($02125630 resolves the texture)
+//	(par1 >> 13) & 3  behaviour mode; >= 2 collapses the grid to 2x2 (a flat
+//	                  wall picture rather than an enterable, rippling one)
+//
+// The sizes are at $02126E80: two nibbles, each `(n+1) * $64000`, halved into
+// the interaction volume the init registers. Exporting the quad at the standard
+// object scale instead gave every painting the same 0.1 stage units — six times
+// too small for the 600-unit ones, sixteen times for the 1600-unit one.
+//
+// NOT reproduced: the ripple. The grid exists so the painting can be displaced
+// by a wave when you touch it, and the mesh generator lives behind a mode record
+// this does not decode. The Studio ships the painting flat, at its real size.
+const paintingActor = 307
+
+// paintingScale returns the placement scale that makes the 12.5-unit quad span
+// the painting's authored size, and the vertical lift that puts its BOTTOM edge
+// on the placement point — the quad is centred on its origin and the placement
+// sits at the foot of the frame.
+func paintingScale(par1 int) (schema.Scale, float64) {
+	const quad = 12.5 // every for_*.glb is exactly this, flat in XY at z=0
+	w := float64((par1&0xF)+1) * 100 * toStage
+	h := float64((par1>>4&0xF)+1) * 100 * toStage
+	return schema.Scale{r3(w / quad), r3(h / quad), objScale}, r3(h / 2)
 }
 
 // coinActors are the three placed-coin classes. All three profiles

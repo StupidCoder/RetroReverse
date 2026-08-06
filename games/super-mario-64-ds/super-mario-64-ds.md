@@ -448,6 +448,46 @@ The chain chomp is the object that proves it. It is one placement in six of seve
 A placement's mission list is the star layer intersected with §8's gate, which is
 what separates Whomp's Fortress's summit pair.
 
+**The paintings size themselves.** Every `for_*.glb` in the castle is the same
+object: a bare **12.5-unit square quad** carrying one picture. It is a
+placeholder, and the actor is what makes a painting out of it. Actor 307's init
+(`$02126CA0`, overlay 80) reads the spawn parameter word and builds its own
+subdivided grid from it:
+
+| field | meaning |
+|---|---|
+| `par1 & $F` | width = `(n+1) × 100.0` world units |
+| `(par1 >> 4) & $F` | height = `(n+1) × 100.0` |
+| `(par1 >> 8) & $1F` | which picture (`$02125630` resolves the texture) |
+| `(par1 >> 13) & 3` | behaviour mode; ≥ 2 collapses the grid to 2×2 |
+
+The sizes are two nibbles at `$02126E80`, each `(n+1) × $64000`, halved into the
+interaction volume the init registers; the grid dimensions come from a per-width
+byte table at `$02127714` and are allocated as `rows × cols` records of `$18`
+bytes. Exported at the standard object scale instead, every painting came out
+the same 0.1 stage units — six times too small for the 600-unit ones and sixteen
+for the 1600-unit one, sitting with its centre on the foot of the frame.
+
+**Checked against the castle's own walls, not by eye.** For each of the 35
+painting placements, take the stage mesh, keep the vertices lying in the
+painting's plane and within its width, and ask whether the opening they bound
+matches the rect the parameter says: **33 of 35 land on a frame opening to
+within 3 cm**. The two that do not are both `for_cv_ex5`, whose walls carry 21
+and 24 vertices in the painting's plane against 107 for a framed one — there is
+no modelled frame there for the check to find, which is a fact about the wall
+rather than about the size.
+
+The first version of that check reported 0 of 35 and was wrong: it compared the
+frame against `pos .. pos+h`, still assuming the placement was the bottom edge
+after the fix had made it the centre. The convention moved and the test did not.
+
+**Not reproduced: the ripple.** The grid exists so the painting can be displaced
+by a wave when you touch it. Its generator sits behind a mode record whose table
+lives in overlay 80's BSS, filled by the overlay's static initialiser; reading it
+back after the oracle loads that overlay gives file ids belonging to other
+actors, so the table is not where this reads it. The Studio ships the painting
+flat, at its real size.
+
 **What a mission does not show you.** Four models are in the level data and are not
 part of the level as you play it: the Power Star (`arc0_21`), the flat silhouette
 marking where one spawns (`star_base`), the mission-number glyph beside it
