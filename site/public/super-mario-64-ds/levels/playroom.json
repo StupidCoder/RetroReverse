@@ -38,6 +38,11 @@
    "pos": [0.58, 0.725, -2],
    "rot": [0, 1.9197769560388798, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Notice board",
+    "body": "My castle is in great \nperil!! I know it's \nbecause of Bowser \nagain. Will he never tire\nof terrorizing us?\nHe stole the castle's\nPower Stars and \ndisappeared into the \nwalls along with us!\n\nRetrieve all of the\nPower Stars from the \nwalls and the paintings\nin the castle. \n\nHere is a hint:\nthere are secret\npaths in this room,\nand one of them leads\nto a Secret Star! \nFind the Secret Star!\nIt will help you on\nyour quest."
+   },
    "props": {
     "actor": 183
    }
@@ -48,6 +53,11 @@
    "pos": [3.102, 0.6, -3.9],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Toad",
+    "body": "Oh, no! Oh, no! I can't \nbelieve I lost the keys \nto Princess Toadstool's \nsecret drawer!\nShe's going to chew me \nout big-time!\nWill you find the keys\nfor me, Mario?\nThis is just between you\nand me, but you can open\nthe drawer when you have\na key.\nThe drawer leads to the \nRec Room, where Princess \nToadstool used to play \ngames as a child. \n\n\nAfter you've found a\nkey, you can go inside \nand play more mini-games.\nJust select Rec Room \nfrom the Title Screen \nto play."
+   },
    "props": {
     "actor": 185
    }

@@ -82,6 +82,11 @@
    "pos": [-3.9, -1.35, -1.3],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Toad",
+    "body": "Wow! You've already \nrecovered that many \nStars? Way to go! \n\nYou'll have us out\nof here in no time!\nBe careful, though.\n\nBowser and his band\nwrote the book on bad.\nTake my advice: \n\nWhen you fall from\na high place, it'll hurt\nless if you ground-pound\nnear the ground.\nIf you go back to your\nroom, you can switch \nplaces with Yoshi. \n\nEveryone deserves\na chance to shine."
+   },
    "props": {
     "actor": 185
    }
@@ -163,6 +168,11 @@
    "object": "obj-kanban",
    "pos": [6.25, -1.025, -1.237],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Notice board",
+    "body": "It is decreed that \none shall pound \nthe pillars."
+   },
    "props": {
     "actor": 183
    }
@@ -192,6 +202,11 @@
    "pos": [1.7, -1.35, -1.9],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Toad",
+    "body": "Even if caps all look the\nsame, the one you've been\nwearing for years is \nspecial. Without it, your\nluck turns sour!\nHitting ? Blocks without\na cap can be downright\ndangerous! Don't try it!\n\n\nIf you lose your cap, \nyou\u003c62\u003ell find it in the \ncourse where you lost it.\nOh, and take this with \nyou. I had it hidden."
+   },
    "props": {
     "actor": 185
    }

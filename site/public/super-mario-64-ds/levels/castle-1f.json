@@ -38,6 +38,11 @@
    "pos": [-1.626, 0, 1.246],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Toad",
+    "body": "Mario! Am I glad to see\nyou! I hadn't seen you \nin so long that I was \ngetting worried!\n\nLooks like you met up \nwith Yoshi all right, \nhuh?\nYou better get back to \nfinding the Power Stars.\nPrincess Toadstool is \ndepending on you! \nYou are our only hope."
+   },
    "props": {
     "actor": 185
    }
@@ -123,6 +128,11 @@
    "pos": [-3.11, 0.325, -0.4],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Notice board",
+    "body": "You have to master two\nimportant jumping \ntechniques if you want \nto succeed.\n\nTo triple jump, run and\nthen jump three times \nin a row. If you time it\nright, you'll hop, skip, \nthen jump really high.\nNext, go for distance\nwith the long jump. Run,\ncrouch, and then jump \nto leap far.\n\nGot that? Triple jump,\nlong jump.\nYou don't stand a \nchance without them."
+   },
    "props": {
     "actor": 183
    }
@@ -133,6 +143,11 @@
    "pos": [-3.11, 0.325, -0.005],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Notice board",
+    "body": "You can return to the\ncastle's main hall at \nany time from the \npainting worlds.\n\nJust press START to \npause the game, then \nselect Exit Course.\n\n\nYou don't have to \ncollect all the \nPower Stars in one\ncourse before going \non to the next.\nReturn when you're \nmore experienced\nto pick up other \nStars."
+   },
    "props": {
     "actor": 183
    }
@@ -143,6 +158,11 @@
    "pos": [-3.21, 0.2, -1.022],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Toad",
+    "body": "Mario, Yoshi jumped in\nthat picture chasing\nyou. Did he find you?\nThe mountain in that\npicture looks like a\ngreat place to relax.\nI bet it's a peaceful\nland, with no strife."
+   },
    "props": {
     "actor": 185
    }
@@ -202,6 +222,11 @@
    "pos": [-2.225, -0.275, -2.932],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Notice board",
+    "body": "You can do a backward\nsomersault by\njumping while crouched.\n\nJump while making a \nsharp U-turn to do a \nside somersault. Catch \nbig air with both jumps."
+   },
    "props": {
     "actor": 183
    }
@@ -230,6 +255,11 @@
    "pos": [0.6, -0.3, -2.6],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Toad",
+    "body": "Mario, why don't you \ntriple jump into the \npainting? It's such a \nstylish move! \nI'll watch it from here."
+   },
    "props": {
     "actor": 185
    }
@@ -240,6 +270,11 @@
    "pos": [0.425, 0.125, -1.11],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Notice board",
+    "body": "Sometimes you'll bump\ninto invisible walls at\nthe edges of painting\nworlds.\n\nIf you hit a wall \nwhile flying, you'll \nbounce backward."
+   },
    "props": {
     "actor": 183
    }
@@ -260,6 +295,11 @@
    "pos": [1.151, 0.725, -2.377],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Notice board",
+    "body": "My castle is in great \nperil!! I know it's \nbecause of Bowser \nagain. Will he never tire\nof terrorizing us?\nHe stole the castle's\nPower Stars and \ndisappeared into the \nwalls along with us!\n\nRetrieve all of the\nPower Stars from the \nwalls and the paintings\nin the castle. \n\nHere is a hint:\nthere are secret\npaths in this room,\nand one of them leads\nto a Secret Star! \nFind the Secret Star!\nIt will help you on\nyour quest."
+   },
    "props": {
     "actor": 183
    }
@@ -290,6 +330,11 @@
    "pos": [1.6, 0.3, 0.5],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Toad",
+    "body": "Being imprisoned in these\nwalls can drive a \nfungus crazy. When I \nreally start to freak \nout, I think to myself,\n”Well, I'm going to be \nhere for a while, so I\nmight as well stare at\nthe fish. They are \noddly hypnotic.”\nThen I actually start\nto like being captured...\n...\n...\n...\nAaauugh! IT'S MADNESS!\nI've got to snap out of\nthis! You have to free\nus before we're all \ncompletely brainwashed!\n...\nBut for now, why don't\nyou gaze at the fish \nwith me. You look tense.\nCome relax."
+   },
    "props": {
     "actor": 185
    }
@@ -300,6 +345,11 @@
    "pos": [1.631, 0.425, -1.117],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Notice board",
+    "body": "Activate the ? Switch \nin the castle's mystical\nRainbow Tower to make\nall the ? Blocks solid.\n\n\nBreak the ? Blocks to\nget special items \nlike Power Flowers.\n\n\n\nThese bewitching \nblossoms strengthen \neach character in a \ndifferent way.\n\n\nDepending on their \ndispositions, characters\ncan float, turn into\nmetal, disappear, \nor breathe fire.\n\nIn addition to Power\nFlowers, ? Blocks can\nalso give you Wings to\nfly. But only if you \nare the original \nplumber. "
+   },
    "props": {
     "actor": 183
    }

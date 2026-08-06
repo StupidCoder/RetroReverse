@@ -92,6 +92,11 @@
    "object": "kinopio",
    "pos": [-0.9, 1.2, -1.5],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Toad",
+    "body": "Thanks to the power of\nthe Stars, life is\nreturning to the castle.\nPlease, you have to \ngive Bowser the boot!\nHere, let me tell you a\nlittle something about \nthe castle:\n\n\nIn the room with the \nmirrors, look carefully\nfor anything that's not\nreflected in the mirror.\n\nYou'll also find a friend\nin that room who has \nseen the invisible man...\nWhich is weird because,\nwell, he's invisible.\nAnd when you go to the\nwater town, you can \nflood it with a high \njump into the painting.\nOh, and I found this."
+   },
    "props": {
     "actor": 185
    }
@@ -102,6 +107,11 @@
    "pos": [0.8, 1.175, -1.1],
    "rot": [0, -2.0943631444601145, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Toad",
+    "body": "Thanks! The castle is \nrecovering its energy \nas you retrieve Power\nStars. \n\nYou've chased Bowser \nright out of here, on \nto some area ahead.\nOh, by the way, are \nyou collecting coins? \nSpecial Stars appear \nwhen you collect 100 \ncoins in each of the \n15 courses!"
+   },
    "props": {
     "actor": 185
    }
@@ -112,6 +122,11 @@
    "pos": [0.16, 1.3, -1.775],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Notice board",
+    "body": "Shhh! Please walk\nquietly in the \nhallway!"
+   },
    "props": {
     "actor": 183
    }
@@ -394,6 +409,11 @@
    "pos": [-1.6, 2.2, 3],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "onClick": {
+    "action": "text",
+    "title": "Toad",
+    "body": "You've finally made it\nthis far, Mario. \nBowser is waiting \non the top floor.\nPlease rescue Peach.\nOh, I almost forgot!\nThere's something odd\nabout that clock. As\nyou jump in, watch the\nposition of the big \nhand.\nOh, look what I found!\nHere, Mario, catch!"
+   },
    "props": {
     "actor": 185
    }

@@ -1156,15 +1156,18 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 	if err != nil {
 		return err
 	}
-	const signpostActor = 184
-	signText := func(o sm64ds.LevelObject) string {
-		if o.Actor != signpostActor {
-			return ""
+	// readText resolves a placement's own words: par1 is an EXTERNAL message id
+	// for the actors in msgActors, translated to an INF1 index by the game's own
+	// range table (sm64ds.MsgIndex). Returns the card title and the text.
+	readText := func(o sm64ds.LevelObject) (string, string) {
+		title, ok := msgActors[o.Actor]
+		if !ok {
+			return "", ""
 		}
 		if idx := ls.MsgIndex(o.Params[0]); idx >= 0 && idx < len(msgs) {
-			return msgs[idx]
+			return title, msgs[idx]
 		}
-		return ""
+		return "", ""
 	}
 
 	stageN := 0
@@ -1361,8 +1364,8 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 					Kind: "spin", Axis: []float64{0, 1, 0}, Rate: r3(coinSpinRate),
 				}
 			}
-			if t := signText(o); t != "" {
-				pl.OnClick = &schema.OnClick{Action: schema.ActionText, Title: "Signpost", Body: t}
+			if title, t := readText(o); t != "" {
+				pl.OnClick = &schema.OnClick{Action: schema.ActionText, Title: title, Body: t}
 			}
 			if c := colFor(actor, par); c != nil {
 				pl.Props["collider"] = c.KCL
@@ -1521,6 +1524,32 @@ var markerModels = map[string]bool{
 }
 
 const markerLayerID = "markers"
+
+// msgActors are the placed actors whose par1 is an EXTERNAL message id, with
+// the title their card gets. Established by resolving par1 through the game's
+// own id->index range table (`gateprobe -actormsgs N`) for EVERY placement of
+// the actor in the game, and keeping only the actors where ALL of them land on
+// real text:
+//
+//	184 obj_tatefuda  102 of 103 (the holdout is on the unused test map, par1 $FFFF)
+//	183 obj_kanban      9 of 9,  ids 1802-1809 — one contiguous block
+//	185 kinopio        10 of 10, ids in the 2800 block
+//
+// The control that makes those numbers mean something is actor 187 (mip, the
+// rabbit), where only 9 of 29 resolve: par1 is plainly not a message id there,
+// and a laxer test would have taken it.
+//
+// Honest limit: only the SIGNPOST's presentation is traced end to end (init
+// builds a dialog at +$59C, the step watches the interaction flag at +$B0 and
+// opens the window through $020BB060 — Part V §6). The notice board and Toad
+// register an interaction volume and hand off to overlay 7's dialog module,
+// which is where every caller of the id translator $020B8EC0 lives; that path
+// is not traced. What IS decoded is which words belong to which object.
+var msgActors = map[int]string{
+	184: "Signpost",
+	183: "Notice board",
+	185: "Toad",
+}
 
 // coinActors are the three placed-coin classes. All three profiles
 // ($02108790/AC/C8, actors 288/289/290) install the same vtable $021087EC,

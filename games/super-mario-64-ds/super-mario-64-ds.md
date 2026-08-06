@@ -714,6 +714,36 @@ The names are SHOUTED on the cartridge. The Studio title-cases them for its pick
 
 Every readable signpost in the game is the same actor, 184 (`obj_tatefuda`, Part V §6) — so where does each one get its words? From its **placement**: the first object parameter (`par1`) is an **external message ID**. These IDs are not `INF1` indices — they live in their own namespace (the course-story signs count up from `1000 + 50·course`: Bob-omb Battlefield uses 1000–1008, Whomp's Fortress 1050–1054…; shared tutorial signs sit in an 1800 block and recur across levels). The translation is the function the message window runs every ID through: **`$020B8EC0`** walks a `{u16 firstID, u16 firstIndex}` **range table at ARM9 `$0208EEEC`** (half-open ranges, sentinel ID ≥ 8000) and returns `firstIndex + (id − firstID)`.
 
+**The signpost is not the only thing with words.** Actor 184 is the one whose
+presentation is traced end to end, but the same `par1`-is-a-message-ID join holds
+for two more placed actors, and the test for it is the whole population: resolve
+`par1` for EVERY placement of an actor in the game and keep the actor only if all
+of them land on real text (`cmd/gateprobe -actormsgs N`).
+
+| actor | model | placements resolving | ids |
+|---|---|---|---|
+| 184 | `obj_tatefuda` (signpost) | 102 / 103 | 1000 + 50·course, and an 1800 block |
+| 183 | `obj_kanban` (wall notice board) | **9 / 9** | 1802–1809, one contiguous run |
+| 185 | `kinopio` (Toad) | **10 / 10** | the 2800 block |
+
+The numbers only mean something because of the actor that fails: **187** (`mip`,
+the rabbit) resolves 9 of 29, and a laxer test would have taken it — `par1` is
+plainly something else there. The 183 run reads as one authored set, each message
+apt for the wall it hangs on: the jump techniques and the ? Switch in the main
+hall, *"It is decreed that one shall pound the pillars"* in the basement,
+*"Shhh! Please walk quietly in the hallway!"* on the second floor. The Studio
+gives all three a click card, titled Signpost / Notice board / Toad.
+
+An honest limit, because the two are not the same standard of evidence. Which
+words belong to which object is **decoded**. How the notice board and Toad
+*present* them is not: only the signpost's path is traced (init builds a dialog
+at `+$59C`, the step watches the interaction flag at `+$B0` and opens the window
+through `$020BB060`). Actor 183 registers an interaction volume and its own
+vtable methods never reach the message window within three calls — and neither
+does any other actor, because **all ten call sites of the ID translator
+`$020B8EC0` are inside overlay 7**, the message module itself. Actors hand IDs to
+it; they do not translate. That path was not chased further.
+
 The join proves itself instantly: ID 1000 → index 42 = *"BEWARE OF CHAIN-CHOMP / Extreme Danger!"* — the famous sign next to the Chain Chomp's stake in Bob-omb Battlefield — and 1003 → 45, the Big Bob-omb's *"No visitors allowed, by decree of the Big Bob-omb."* Reimplemented as `sm64ds.LevelSet.MsgIndex`; `cmd/exportlevelobjs` now attaches each signpost's English text to its placement JSON (`txt`), and clicking a signpost in the Studio viewer quotes the sign itself — 102 of the 103 placed signposts resolve (the one holdout is on the unused test map, placed with parameter `$FFFF`, no valid message). Icon escapes (`$FE` controls — the button and d-pad glyphs in control hints) are skipped in the decoded text.
 
 # Appendix A — Toolchain and reproduction
@@ -767,6 +797,13 @@ go run ./extract/cmd/gateprobe -in "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).
 # create/init under each mission's progress context (-probe = the mutation test)
 go run ./extract/cmd/missionoracle -probe
 go run ./extract/cmd/missionoracle
+
+# Part VIII §5 — is this actor's par1 a message id? Resolve it for EVERY
+# placement of the actor and see whether they ALL land on real text
+go run ./extract/cmd/gateprobe -in "..." -actormsgs 183   # 9/9  — the notice board
+go run ./extract/cmd/gateprobe -in "..." -actormsgs 187   # 9/29 — the control
+go run ./extract/cmd/gateprobe -in "..." -msgid 1805      # one id, resolved
+go run ./extract/cmd/gateprobe -in "..." -callers 020B8EC0
 # and the inspection modes behind that answer
 go run ./extract/cmd/gateprobe -in "..." -actor 165        # profile / vtable / init
 go run ./extract/cmd/gateprobe -in "..." -pars 8           # a level's placements + params

@@ -25,6 +25,10 @@ const arm9Base = 0x02004000
 
 var le = binary.LittleEndian
 
+// callDepth is how many calls deep the sweeps follow from an actor's own
+// methods (-depth).
+var callDepth = 1
+
 type src struct {
 	name string
 	base uint32
@@ -64,12 +68,18 @@ func main() {
 	fn := flag.String("fn", "", "disassemble this address instead (hex)")
 	n := flag.Int("n", 90, "instructions")
 	cover := flag.Int("cover", 0, "list the overlays covering this address")
+	depth := flag.Int("depth", 1, "how many calls deep the sweeps follow")
 	sweep := flag.Bool("sweep", false, "which placed actors query the save's star bits")
+	msgs := flag.Bool("msgs", false, "which placed actors reach the message system")
+	callersOf := flag.String("callers", "", "list every BL site targeting this address")
+	actorMsgs := flag.Int("actormsgs", 0, "for this actor, resolve every placement's par1 as a message id")
+	msgid := flag.String("msgid", "", "resolve comma-separated EXTERNAL message ids to their text")
 	pars := flag.Int("pars", 0, "list every placement of this level (1-based) with its params")
 	calls := flag.String("calls", "", "list BL targets from this address")
 	words := flag.String("words", "", "dump raw words at this address")
 	tables := flag.Int("tables", 0, "dump every object-table entry of this level (1-based)")
 	flag.Parse()
+	callDepth = *depth
 
 	img, err := os.ReadFile(*in)
 	if err != nil {
@@ -89,6 +99,40 @@ func main() {
 
 	if *sweep {
 		sweepStarGates(srcs, a9, *in, *ext)
+		return
+	}
+	if *msgs {
+		// $020B8EC0 translates an actor's external message ID to an INF1 index
+		// (the range table at $0208EEEC; sm64ds.MsgIndex); $020BB060 is what
+		// actually opens the message window. An actor that reaches either has
+		// words of its own.
+		sweepCallers(srcs, a9, *in, *ext, map[uint32]string{
+			0x020B8EC0: "msgIndex", 0x020BB060: "openWindow",
+		}, "the message system")
+		return
+	}
+	if *callersOf != "" {
+		var want uint32
+		fmt.Sscanf(*callersOf, "%x", &want)
+		fmt.Printf("=== BL sites targeting %08X ===\n", want)
+		for _, s := range srcs {
+			c := ctx{own: s, a9: a9}
+			for i := 0; i+4 <= len(s.data); i += 4 {
+				in := arm.DecodeARM(s.data[i:], s.base+uint32(i))
+				if in.HasTarget && strings.HasPrefix(in.Mnem, "BL") && in.Target == want {
+					fmt.Printf("  %-8s %08X\n", s.name, s.base+uint32(i))
+				}
+			}
+			_ = c
+		}
+		return
+	}
+	if *actorMsgs > 0 {
+		actorMsgSurvey(*in, *ext, *actorMsgs)
+		return
+	}
+	if *msgid != "" {
+		showMsg(*in, *ext, *msgid)
 		return
 	}
 	if *pars > 0 {
@@ -380,6 +424,14 @@ var starGates = map[uint32]string{0x020137E0: "isStarCollected", 0x020136F8: "by
 // actor oracle recorded for it, and looks for a call to the star predicate in
 // its vtable methods — directly, and one call deep.
 func sweepStarGates(srcs []src, a9 src, rom, ext string) {
+	sweepCallers(srcs, a9, rom, ext, starGates, "the save's star bits")
+}
+
+// sweepCallers walks every actor that appears as a placement, resolves its
+// profile through the engine's own $02090864 table inside the overlay the
+// actor oracle recorded for it, and looks for a call to any of `targets` in
+// its vtable methods — directly, and one call deep.
+func sweepCallers(srcs []src, a9 src, rom, ext string, targets map[uint32]string, what string) {
 	ls, err := sm64ds.OpenLevels(rom, ext)
 	if err != nil {
 		log.Fatal(err)
@@ -431,24 +483,32 @@ func sweepStarGates(srcs []src, a9 src, rom, ext string) {
 				continue
 			}
 			where = s.name
-			fns := []uint32{create}
+			// Breadth-first from the actor's create and every vtable slot,
+			// recording the DEPTH a target is first reached at — a hit two
+			// helpers down is weaker evidence than one in the actor's own step,
+			// and the depth is what says which.
+			frontier := []uint32{create}
 			for k := 0; k < 16; k++ {
 				if f, ok := c.word(vt + uint32(k*4)); ok && c.isCode(f) {
-					fns = append(fns, f)
+					frontier = append(frontier, f)
 				}
 			}
-			// one call deep
-			for _, f := range append([]uint32{}, fns...) {
-				for _, t := range blTargets(c, f, 400) {
-					fns = append(fns, t)
-				}
-			}
-			for _, f := range fns {
-				for _, t := range blTargets(c, f, 400) {
-					if n, ok := starGates[t]; ok {
-						got = append(got, n)
+			seenFn := map[uint32]bool{}
+			for depth := 0; depth <= callDepth && len(frontier) > 0; depth++ {
+				var next []uint32
+				for _, f := range frontier {
+					if seenFn[f] {
+						continue
+					}
+					seenFn[f] = true
+					for _, t := range blTargets(c, f, 400) {
+						if n, ok := targets[t]; ok {
+							got = append(got, fmt.Sprintf("%s@%d", n, depth))
+						}
+						next = append(next, t)
 					}
 				}
+				frontier = next
 			}
 			break
 		}
@@ -471,11 +531,11 @@ func sweepStarGates(srcs []src, a9 src, rom, ext string) {
 		if len(lv) > 6 {
 			lv = append(lv[:6], "...")
 		}
-		fmt.Printf("  actor %3d  %-7s reads the star bits (%s)   in %s\n",
-			a, where, uniq(got), strings.Join(lv, " "))
+		fmt.Printf("  actor %3d  %-7s calls %s (%s)   in %s\n",
+			a, where, what, uniq(got), strings.Join(lv, " "))
 	}
-	fmt.Printf("%d placed actors, %d resolved to a vtable, %d query the save's star bits\n",
-		len(actors), reached, hits)
+	fmt.Printf("%d placed actors, %d resolved to a vtable, %d call %s\n",
+		len(actors), reached, hits, what)
 	fmt.Printf("%d of the %d stages place at least one of them\n", len(gatedLevels), nStage)
 }
 
@@ -507,4 +567,66 @@ func blTargets(c ctx, a uint32, n int) []uint32 {
 		}
 	}
 	return out
+}
+
+// showMsg resolves external message IDs the way the message window does
+// (sm64ds.MsgIndex, the range table at $0208EEEC) and prints the text.
+func showMsg(rom, ext, ids string) {
+	ls, err := sm64ds.OpenLevels(rom, ext)
+	if err != nil {
+		log.Fatal(err)
+	}
+	msgs, err := sm64ds.LoadBMG(filepath.Join(ext, "files/data/message/msg_data_eng.bin"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, tok := range strings.Split(ids, ",") {
+		var id int
+		fmt.Sscanf(strings.TrimSpace(tok), "%d", &id)
+		idx := ls.MsgIndex(id)
+		if idx < 0 || idx >= len(msgs) {
+			fmt.Printf("id %d -> index %d: OUT OF RANGE\n", id, idx)
+			continue
+		}
+		fmt.Printf("id %d -> index %d:\n%s\n\n", id, idx, msgs[idx])
+	}
+}
+
+// actorMsgSurvey tests the hypothesis "this actor's par1 is a message ID" the
+// only way that means anything: resolve it for EVERY placement of the actor in
+// the game and see whether they all land on real, apt messages.
+func actorMsgSurvey(rom, ext string, actor int) {
+	ls, err := sm64ds.OpenLevels(rom, ext)
+	if err != nil {
+		log.Fatal(err)
+	}
+	msgs, err := sm64ds.LoadBMG(filepath.Join(ext, "files/data/message/msg_data_eng.bin"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	n, ok := 0, 0
+	for id := 0; id < sm64ds.NumLevels; id++ {
+		lv, err := ls.Level(id)
+		if err != nil {
+			continue
+		}
+		stem := strings.TrimSuffix(filepath.Base(lv.BMDPath), ".bmd")
+		for _, o := range lv.Objects {
+			if o.Actor != actor {
+				continue
+			}
+			n++
+			idx := ls.MsgIndex(o.Params[0])
+			text := "OUT OF RANGE"
+			if idx >= 0 && idx < len(msgs) {
+				ok++
+				text = strings.ReplaceAll(msgs[idx], "\n", " ")
+				if len(text) > 110 {
+					text = text[:110] + "…"
+				}
+			}
+			fmt.Printf("lvl %2d %-20s par1 %5d -> idx %4d  %s\n", id, stem, o.Params[0], idx, text)
+		}
+	}
+	fmt.Printf("%d placements, %d resolve to a message\n", n, ok)
 }
