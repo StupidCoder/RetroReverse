@@ -1658,7 +1658,7 @@
   {
    "id": "stage-beac",
    "category": "level",
-   "name": "Stage 1A: Sunny Beach",
+   "name": "Stage 1: Sunny Beach",
    "group": "OutRun2: SP",
    "file": "levels/stage-beac.json"
   },
@@ -1756,7 +1756,7 @@
   {
    "id": "stage-sanf",
    "category": "level",
-   "name": "Stage 2A: Bay Area",
+   "name": "Stage 2: Bay Area",
    "group": "OutRun2: SP",
    "file": "levels/stage-sanf.json"
   },
@@ -1777,7 +1777,7 @@
   {
    "id": "stage-yose",
    "category": "level",
-   "name": "Stage 2B: National Park",
+   "name": "Stage 3: National Park",
    "group": "OutRun2: SP",
    "file": "levels/stage-yose.json"
   },
@@ -1812,7 +1812,7 @@
   {
    "id": "stage-niag",
    "category": "level",
-   "name": "Stage 3A: Water Falls",
+   "name": "Stage 4: Water Falls",
    "group": "OutRun2: SP",
    "file": "levels/stage-niag.json"
   },
@@ -1833,7 +1833,7 @@
   {
    "id": "stage-sequ",
    "category": "level",
-   "name": "Stage 3B: Big Forest",
+   "name": "Stage 5: Big Forest",
    "group": "OutRun2: SP",
    "file": "levels/stage-sequ.json"
   },
@@ -1924,14 +1924,14 @@
   {
    "id": "stage-gran",
    "category": "level",
-   "name": "Stage 3C: Canyon",
+   "name": "Stage 6: Canyon",
    "group": "OutRun2: SP",
    "file": "levels/stage-gran.json"
   },
   {
    "id": "stage-mach",
    "category": "level",
-   "name": "Stage 4A: Lost City",
+   "name": "Stage 7: Lost City",
    "group": "OutRun2: SP",
    "file": "levels/stage-mach.json"
   },
@@ -2008,14 +2008,14 @@
   {
    "id": "stage-lasv",
    "category": "level",
-   "name": "Stage 4B: Casino Town",
+   "name": "Stage 8: Casino Town",
    "group": "OutRun2: SP",
    "file": "levels/stage-lasv.json"
   },
   {
    "id": "stage-alas",
    "category": "level",
-   "name": "Stage 4C: Ice Scape",
+   "name": "Stage 9: Ice Scape",
    "group": "OutRun2: SP",
    "file": "levels/stage-alas.json"
   },
@@ -2043,7 +2043,7 @@
   {
    "id": "stage-amaz",
    "category": "level",
-   "name": "Stage 4D: Jungle",
+   "name": "Stage 10: Jungle",
    "group": "OutRun2: SP",
    "file": "levels/stage-amaz.json"
   },
@@ -2246,7 +2246,7 @@
   {
    "id": "stage-east",
    "category": "level",
-   "name": "Stage 5A: Giant Statues",
+   "name": "Stage 11: Giant Statues",
    "group": "OutRun2: SP",
    "file": "levels/stage-east.json"
   },
@@ -2505,9 +2505,37 @@
   {
    "id": "stage-maya",
    "category": "level",
-   "name": "Stage 5B: Legend",
+   "name": "Stage 12: Legend",
    "group": "OutRun2: SP",
    "file": "levels/stage-maya.json"
+  },
+  {
+   "id": "stage-prin-p10-47",
+   "category": "object",
+   "name": "Floral Village: object 10.47",
+   "group": "Course objects",
+   "file": "objects/stage-prin-p10-47.json"
+  },
+  {
+   "id": "stage-prin-p6-12",
+   "category": "object",
+   "name": "Floral Village: object 6.12",
+   "group": "Course objects",
+   "file": "objects/stage-prin-p6-12.json"
+  },
+  {
+   "id": "stage-prin-p8-0",
+   "category": "object",
+   "name": "Floral Village: object 8.0",
+   "group": "Course objects",
+   "file": "objects/stage-prin-p8-0.json"
+  },
+  {
+   "id": "stage-prin",
+   "category": "level",
+   "name": "Stage 13: Floral Village",
+   "group": "OutRun2: SP",
+   "file": "levels/stage-prin.json"
   },
   {
    "id": "stage-flor-p1-78",
@@ -2589,37 +2617,9 @@
   {
    "id": "stage-flor",
    "category": "level",
-   "name": "Stage 5C: Milky Way",
+   "name": "Stage 14: Milky Way",
    "group": "OutRun2: SP",
    "file": "levels/stage-flor.json"
-  },
-  {
-   "id": "stage-prin-p10-47",
-   "category": "object",
-   "name": "Floral Village: object 10.47",
-   "group": "Course objects",
-   "file": "objects/stage-prin-p10-47.json"
-  },
-  {
-   "id": "stage-prin-p6-12",
-   "category": "object",
-   "name": "Floral Village: object 6.12",
-   "group": "Course objects",
-   "file": "objects/stage-prin-p6-12.json"
-  },
-  {
-   "id": "stage-prin-p8-0",
-   "category": "object",
-   "name": "Floral Village: object 8.0",
-   "group": "Course objects",
-   "file": "objects/stage-prin-p8-0.json"
-  },
-  {
-   "id": "stage-prin",
-   "category": "level",
-   "name": "Stage 5D: Floral Village",
-   "group": "OutRun2: SP",
-   "file": "levels/stage-prin.json"
   },
   {
    "id": "stage-newy-p4-82",
@@ -2687,7 +2687,7 @@
   {
    "id": "stage-newy",
    "category": "level",
-   "name": "Stage 5E: Skyscrapers",
+   "name": "Stage 15: Skyscrapers",
    "group": "OutRun2: SP",
    "file": "levels/stage-newy.json"
   }

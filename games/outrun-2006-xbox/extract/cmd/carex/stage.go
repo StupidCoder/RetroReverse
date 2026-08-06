@@ -214,11 +214,21 @@ var stageTours = map[string]struct{ tour, slot string }{
 	"NIAG": {"OutRun2: SP", "3A"}, "SEQU": {"OutRun2: SP", "3B"}, "GRAN": {"OutRun2: SP", "3C"},
 	"MACH": {"OutRun2: SP", "4A"}, "LASV": {"OutRun2: SP", "4B"}, "ALAS": {"OutRun2: SP", "4C"},
 	"AMAZ": {"OutRun2: SP", "4D"}, "EAST": {"OutRun2: SP", "5A"}, "MAYA": {"OutRun2: SP", "5B"},
-	"FLOR": {"OutRun2: SP", "5C"}, "PRIN": {"OutRun2: SP", "5D"}, "NEWY": {"OutRun2: SP", "5E"},
+	"FLOR": {"OutRun2: SP", "5D"}, "PRIN": {"OutRun2: SP", "5C"}, "NEWY": {"OutRun2: SP", "5E"},
+}
+
+// spOrder is the SP tour's linear running order — unlike OutRun2's pyramid,
+// the SP tour is one 15-stage sequence (the csc_data_cvt transition table is
+// a pure chain; matching its per-transition entry-gate world positions
+// against every course's own geometry reproduces exactly the voice packs'
+// slot enumeration, total residual 1.2 km over 14 gates).
+var spOrder = map[string]int{
+	"1A": 1, "2A": 2, "2B": 3, "3A": 4, "3B": 5, "3C": 6, "4A": 7, "4B": 8,
+	"4C": 9, "4D": 10, "5A": 11, "5B": 12, "5C": 13, "5D": 14, "5E": 15,
 }
 
 // stageSortKey orders the manifest: the OutRun2 pyramid in stage order, then
-// the SP pyramid.
+// the SP sequence.
 func stageSortKey(dir string) string {
 	t, ok := stageTours[dir]
 	if !ok {
@@ -432,7 +442,12 @@ func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]
 	group := "Courses"
 	if t, ok := stageTours[dir]; ok {
 		group = t.tour
-		name = "Stage " + t.slot + ": " + name
+		if t.tour == "OutRun2: SP" {
+			// The SP tour is linear, not a pyramid: plain stage numbers.
+			name = fmt.Sprintf("Stage %d: %s", spOrder[t.slot], name)
+		} else {
+			name = "Stage " + t.slot + ": " + name
+		}
 	}
 	b.AddLevel(schema.Asset{ID: id, Name: name, Group: group}, &schema.Level{
 		Type: schema.LevelScene3D,

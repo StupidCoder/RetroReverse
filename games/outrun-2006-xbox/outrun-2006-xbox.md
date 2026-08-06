@@ -3844,3 +3844,24 @@ The export now carries that split: pass-1 descriptors emit as alpha-BLEND
 material groups (`TriGroup`/`TexturedGroup.Blend`), so the palm and gantry
 shadows finally render as translucent decals over the road instead of
 opaque grey cutouts — across all 30 courses and the placed objects alike.
+
+### The SP tour is a line, not a pyramid
+
+A longplay observation (the route indicator only branches in the OutRun2
+tour) sent the stage naming back to the data, and the data agrees: the SP
+tour is a single 15-stage sequence. `csc_data_cvt.bin` decodes as 0x3C-byte
+transition records `{afterStage, nextCourseIdx, mapPos, entryGate xyz,
+angle}` — a pure chain (one successor per stage; the OutRun2 table's
+duplicated left/right rows are the pyramid's paired gates). Better, the
+entry-gate positions are world coordinates in the *next* course, so each
+transition target is identifiable from geometry alone: matching all fourteen
+gates against every course's segment positions (Hungarian assignment, 1.2 km
+total residual, best match 7 m) reproduces exactly the voice packs' slot
+enumeration — and caught a transcription bug in the tour table on the way:
+FLOR/PRIN were swapped (the packs' own labels say 5C "Floral" = Floral
+Village, 5D "Milky" = Milky Way; the gates agree). The manifest now names
+the SP tour "Stage 1: Sunny Beach" … "Stage 15: Skyscrapers", stage 13
+Floral Village and 14 Milky Way corrected; the OutRun2 pyramid keeps its
+slot names. The transition table also hands over each course's internal
+index (OutRun2 tour: 0-14, SP: 15-29 — BEAC = 15, matching the live course
+object) for whenever the runtime tables need walking.
