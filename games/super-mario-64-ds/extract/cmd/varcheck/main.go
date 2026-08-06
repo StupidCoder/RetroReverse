@@ -6,6 +6,14 @@
 // It opens the emitted JSON rather than re-deriving it from the exporter's
 // structs, so an exporter that never wrote the field fails here.
 //
+// A placement's missions are the star layers its object-table entries carry,
+// INTERSECTED with whatever the actor's own code decided under each mission's
+// progress context (Part V §8) — Whomp's Fortress separates its summit pair
+// that way, not by layer. The layer half is re-decoded here independently; the
+// gate half re-runs the shared sweep sm64ds.MissionGates, which is itself
+// mutation-tested by `missionoracle -probe`, so that half checks that the
+// exporter APPLIED the gates, not that the sweep is right.
+//
 // Usage (from games/super-mario-64-ds/):
 //
 //	go run ./extract/cmd/varcheck -in <rom.nds> [-ext extracted] [-levels DIR] [-v]
@@ -55,6 +63,7 @@ func main() {
 	in := flag.String("in", "", "cartridge image")
 	ext := flag.String("ext", "extracted", "extracted binaries directory")
 	dir := flag.String("levels", filepath.Join("..", "..", "site", "public", "super-mario-64-ds", "levels"), "shipped level documents")
+	bind := flag.String("bindings", "extracted/actorbind.json", "actor oracle binding table")
 	verbose := flag.Bool("v", false, "print the per-mission placement census")
 	flag.Parse()
 	if *in == "" {
@@ -65,6 +74,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	gates := missionGates(ls, *in, *ext, *bind)
 
 	fails, checked, files := 0, 0, 0
 	fail := func(f, format string, a ...any) {
@@ -111,6 +121,15 @@ func main() {
 			if o.Layer != 0 {
 				used[o.Layer] = true
 			}
+		}
+
+		gate := map[string]map[int]bool{}
+		for _, g := range gates[stem] {
+			m := map[int]bool{}
+			for _, s := range g.Missions {
+				m[s] = true
+			}
+			gate[poskey(g.Actor, float64(g.X)/1000, float64(g.Y)/1000, float64(g.Z)/1000)] = m
 		}
 
 		declared := map[string]bool{}
@@ -163,7 +182,7 @@ func main() {
 			}
 			checked++
 			got := strings.Join(pl.Variants, ",")
-			exp := strings.Join(expect(layers, declared), ",")
+			exp := strings.Join(expect(layers, gate[poskey(int(actor), pl.Pos[0], pl.Pos[1], pl.Pos[2])], declared), ",")
 			if got != exp {
 				fail(name, "placement %d (%v) variants %q, cartridge says %q",
 					pl.ID, pl.Pos, got, exp)
@@ -193,20 +212,70 @@ func main() {
 // expect is the exporter's rule, restated: layer 0 means every mission, which
 // Retro-X spells as no variants field at all, and so does membership of every
 // declared mission.
-func expect(layers map[int]bool, declared map[string]bool) []string {
-	if len(declared) == 0 || layers[0] {
+func expect(layers, gate map[int]bool, declared map[string]bool) []string {
+	if len(declared) == 0 {
+		return nil
+	}
+	if layers[0] && gate == nil {
 		return nil
 	}
 	var out []string
-	for _, l := range sorted(layers) {
-		if id := fmt.Sprintf("star%d", l); declared[id] {
-			out = append(out, id)
+	for s := 1; s <= sm64ds.StarsPerCourse; s++ {
+		id := fmt.Sprintf("star%d", s)
+		if !declared[id] {
+			continue
 		}
+		if !layers[0] && !layers[s] {
+			continue
+		}
+		if gate != nil && !gate[s] {
+			continue
+		}
+		out = append(out, id)
 	}
 	if len(out) == len(declared) {
 		return nil
 	}
 	return out
+}
+
+// missionGates re-runs the progress sweep the exporter used.
+func missionGates(ls *sm64ds.LevelSet, rom, ext, bindPath string) map[string][]sm64ds.MissionGate {
+	var table map[string][]struct {
+		Params [3]int `json:"params"`
+		Config int    `json:"config"`
+	}
+	buf, err := os.ReadFile(bindPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := json.Unmarshal(buf, &table); err != nil {
+		log.Fatal(err)
+	}
+	o, err := sm64ds.NewOracle(ls)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := o.InitEngine(); err != nil {
+		log.Fatal(err)
+	}
+	return sm64ds.MissionGates(ls, o, func(actor int, par [3]int) (int, bool) {
+		bs := table[fmt.Sprint(actor)]
+		if len(bs) == 0 {
+			return -1, false
+		}
+		for _, b := range bs {
+			if b.Params == par {
+				return b.Config, true
+			}
+		}
+		for _, b := range bs {
+			if b.Params[0] == par[0] {
+				return b.Config, true
+			}
+		}
+		return bs[0].Config, true
+	}, nil)
 }
 
 func sorted(m map[int]bool) []int {

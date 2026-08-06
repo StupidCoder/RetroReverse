@@ -60,6 +60,19 @@ const (
 	oAsyncHd  = 0x020AA3F0 // async queue head
 	oSpawnCtx = 0x02043180 // factory's spawn-context store (actor,a,b,c -> globals)
 	oProfArr  = 0x02090864 // actor profile-pointer array (u32 x 783, "*ERR*" ends it)
+
+	// Mission/progress context (Part V §8). Fifty placed actors decide whether
+	// to exist at all from these three, so seeding them turns the oracle into
+	// the answer to "is this object in this mission?" — the actor's own code
+	// decides, and we never decode its condition.
+	oCurLevel = 0x0209F2F8 // s8: the level being played ($0202A6C8 reads it)
+	oCurStar  = 0x0209F220 // u8: the star being played — the SAME global the
+	//                        object-table layer walker $020FE33C compares against
+	oStarBits = 0x0209CAB4 // u8 per course: bit (1<<star) = that star is collected
+	//                        ($020137E0(course,star) is the one-line predicate)
+	oSpawnPos = 0x0209B460 // ptr to the fx20.12 spawn position $02010E78 stashes
+	//                        and the actor base ctor copies into obj+$5C
+	oDestroy  = 0x02043824 // actor destructor: marks the object for deletion
 	oProfMax  = 783
 	oOvl0Init = 0x020AA420 // overlay 0's initializer (its ctor list is a lone NULL)
 	oErrPrint = 0x02018E68 // error printf (message in r0), always followed by terminate
@@ -128,7 +141,10 @@ type ActorRun struct {
 	Config    int        `json:"config"` // extra overlay loaded (-1 = engine only)
 	Params    [3]int     `json:"params"` // par1, par2, par3 as placed
 	Create    uint32     `json:"create"`
-	Obj       uint32     `json:"obj"` // create's return (0 = refused)
+	Obj       uint32     `json:"obj"`                 // create's return (0 = refused)
+	InitRet   uint32     `json:"initRet,omitempty"`   // init's return (0 = the actor refused to exist)
+	Refused   bool       `json:"refused,omitempty"`   // create returned 0, or init did
+	Destroyed bool       `json:"destroyed,omitempty"` // init called the destructor $02043824 on itself
 	Files     []FileReq  `json:"files,omitempty"`
 	Colliders []Collider `json:"colliders,omitempty"`
 	Notes     []string   `json:"notes,omitempty"`
@@ -338,6 +354,18 @@ type Oracle struct {
 	initReq []FileReq // requests made during overlay static inits
 	asyncQ  []uint32  // async cb/aux pairs recorded (node addrs)
 
+	// Mission context, applied inside RunActor: LoadConfig restores the engine
+	// snapshot, so anything written before it is gone by the time create runs.
+	mission   bool
+	misLevel  int
+	misCourse int
+	misStar   int
+	misBits   uint8
+	spawnX    int32
+	spawnY    int32
+	spawnZ    int32
+	killed    uint32 // object the destructor trap saw during the current init
+
 	scratch uint32
 	callSP  uint32
 	served  []servedFile // buffer intervals handed out by the traps
@@ -413,6 +441,13 @@ func NewOracle(ls *LevelSet) (*Oracle, error) {
 			id := int(o.bus.r32(slot) & 0xFFFF)
 			name, _ := o.nameFor(id)
 			o.record(FileReq{ID: id, Name: name, Phase: o.phase, Kind: "acquire"})
+		},
+		// An actor that has decided not to exist marks itself for deletion
+		// through the destructor before returning zero from its init.
+		oDestroy: func(o *Oracle) {
+			if o.phase == "init" {
+				o.killed = o.cpu.R[0]
+			}
 		},
 		oWrapGet: (*Oracle).watchDisplay,
 		oRoSize:  (*Oracle).watchDisplay,
@@ -976,19 +1011,30 @@ func (o *Oracle) RunActor(actor, cfg int, par [3]int) *ActorRun {
 	// spawn context: the factory stores (actor, link, param, layer-byte) through
 	// $02043180 before calling create; par1 is the u32 param word.
 	o.phase = "create"
+	o.applyMission()
 	o.call(oSpawnCtx, uint32(actor), 0, uint32(par[0])|uint32(par[1])<<16, uint32(par[2]), 10_000)
 	obj, note := o.call(create, create, 0, 0, 0, 3_000_000)
 	if note != "" {
 		run.Notes = append(run.Notes, "create: "+note)
 	}
 	run.Obj = obj
+	run.Refused = obj == 0
 	if obj != 0 && obj < busSize {
 		vt := o.bus.r32(obj)
 		if init := o.bus.r32(vt); o.loaded(vt, cfg) && (o.loaded(init, cfg) || init >= 0x01FF8000 && init < 0x02000000) {
 			o.phase = "init"
-			if _, note := o.call(init, obj, 0, 0, 0, 6_000_000); note != "" {
+			o.killed = 0
+			ret, note := o.call(init, obj, 0, 0, 0, 6_000_000)
+			if note != "" {
 				run.Notes = append(run.Notes, "init: "+note)
 			}
+			// The factory treats a zero from init as "this actor is not to
+			// exist" ($02043114: MOVS r5,r0 / BNE keep), and a boss that has
+			// already been beaten additionally marks itself through the
+			// destructor $02043824 before returning it.
+			run.InitRet = ret
+			run.Refused = ret == 0 && note == ""
+			run.Destroyed = o.killed == obj
 		} else {
 			run.Notes = append(run.Notes, fmt.Sprintf("no vtable (obj=%08X vt=%08X)", obj, vt))
 		}
@@ -1235,3 +1281,42 @@ func (o *Oracle) LastServed() (lo, hi uint32, name string) {
 	s := o.served[len(o.served)-1]
 	return s.lo, s.hi, s.name
 }
+
+// applyMission writes the recorded progress context and spawn position into
+// the freshly-restored image, immediately before create runs.
+func (o *Oracle) applyMission() {
+	// The base ctor copies the vector at [oSpawnPos] into obj+$5C, exactly as
+	// $02010E78 sets it up for a real spawn. Actors that gate on WHERE they
+	// are (the Whomp's Fortress tower refuses to exist at y >= 3500) need it.
+	p := o.Alloc(12)
+	o.bus.w32(p, uint32(o.spawnX))
+	o.bus.w32(p+4, uint32(o.spawnY))
+	o.bus.w32(p+8, uint32(o.spawnZ))
+	o.bus.w32(oSpawnPos, p)
+	if !o.mission {
+		return
+	}
+	o.bus.Write(oCurLevel, byte(int8(o.misLevel)))
+	o.bus.Write(oCurStar, byte(o.misStar))
+	if o.misCourse >= 0 && o.misCourse < 32 {
+		o.bus.Write(oStarBits+uint32(o.misCourse), o.misBits)
+	}
+}
+
+// SetMission seeds the progress context every actor's init can read (Part V §8):
+// the level being played, the star being played (the same global the
+// object-table layer walker compares layers against) and the save's per-course
+// star bitmask. With it set, RunActor's Refused/Destroyed answer "does this
+// object exist in this mission?" — decided by the actor's own code.
+func (o *Oracle) SetMission(level, course, star int, bits uint8) {
+	o.mission = true
+	o.misLevel, o.misCourse, o.misStar, o.misBits = level, course, star, bits
+}
+
+// ClearMission returns the oracle to its context-free binding sweep.
+func (o *Oracle) ClearMission() { o.mission = false }
+
+// SetSpawnPos publishes the placement's world position (fx20.12, the placement
+// short << 12) the way $02010E78 does, so create copies it into obj+$5C.
+// Passing all zeroes restores the origin spawn the binding sweep uses.
+func (o *Oracle) SetSpawnPos(x, y, z int32) { o.spawnX, o.spawnY, o.spawnZ = x, y, z }

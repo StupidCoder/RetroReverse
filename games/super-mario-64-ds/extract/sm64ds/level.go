@@ -125,6 +125,15 @@ func (ls *LevelSet) Course(id int) int {
 	return int(int8(ls.arm9[courseTable+id]))
 }
 
+// LevelOverlay returns the overlay that carries the level's data and its
+// level-specific actors (the u32 table at ARM9 file offset 0x718C8).
+func (ls *LevelSet) LevelOverlay(id int) int {
+	if id < 0 || id >= NumLevels {
+		return -1
+	}
+	return int(le.Uint32(ls.arm9[levelOvlTable+id*4:]))
+}
+
 // MusicSeq returns the level's background-music SSEQ number (byte 2 of the
 // $02075768 level-info table, started by $0201320C at level start), or -1
 // for the silent levels.

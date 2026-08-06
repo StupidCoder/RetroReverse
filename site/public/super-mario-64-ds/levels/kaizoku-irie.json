@@ -1251,6 +1251,7 @@
    "pos": [5.575, -4.825, 1.775],
    "rot": [0, -0.17449031462199166, 0],
    "scale": 0.008,
+   "variants": ["star1"],
    "props": {
     "actor": 242
    }
@@ -1261,6 +1262,7 @@
    "pos": [6.9, -3.113, 2.15],
    "rot": [0, -1.3089649810626662, 0],
    "scale": 0.008,
+   "variants": ["star2"],
    "props": {
     "actor": 242
    }
@@ -1271,6 +1273,7 @@
    "pos": [3.8, -3.6, 1.05],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "variants": ["star3", "star4", "star5", "star6", "star7"],
    "props": {
     "actor": 242
    }
@@ -1281,6 +1284,7 @@
    "pos": [5.25, -5.4, 2.3],
    "rot": [0, -0.17449031462199166, 0],
    "scale": 0.008,
+   "variants": ["star1"],
    "collision": {
     "file": "objcol_ki_fune_down_a.glb",
     "matrix": [0.985, 0, -0.174, 5.25, 0, 1, 0, -5.4, 0.174, 0, 0.985, 2.3]
@@ -1295,6 +1299,7 @@
    "object": "ki-fune-up",
    "pos": [4.85, 0.8, 2.25],
    "scale": 0.008,
+   "variants": ["star2", "star3", "star4", "star5", "star6", "star7"],
    "collision": {
     "file": "objcol_ki_fune_up.glb",
     "matrix": [1, 0, 0, 4.85, 0, 1, 0, 0.8, 0, 0, 1, 2.25]
@@ -1333,6 +1338,7 @@
    "object": "w-ring",
    "pos": [4.85, -5.1, 2.425],
    "scale": 0.008,
+   "variants": ["star2", "star3", "star4", "star5", "star6", "star7"],
    "props": {
     "actor": 245
    }

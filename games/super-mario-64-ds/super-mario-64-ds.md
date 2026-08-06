@@ -445,7 +445,10 @@ The layer field (§2) is the fix, and Retro-X already had the mechanism: **varia
 
 The chain chomp is the object that proves it. It is one placement in six of seven missions, and its two *synthesised* companions — the stake its init spawns and the six chain links its own draw function strings (§6) — inherit that membership rather than standing in missions the chomp is absent from.
 
-Two verifications, both against the emitted files rather than the exporter's structs. `cmd/varcheck` re-decodes the cartridge and asserts every shipped placement's variant list equals the star-layer set its level's object table lists that (actor, position) under — 4,045 matched, 0 mismatches, with the chomp's spawned stake and links counted as synthesised. It was mutation-tested in both directions: reintroducing the keep-the-first-record bug in a copy of the shipped JSON, and deleting one coin's spin, both fail it. And in the Studio: picking *Big Bob-omb on the Summit* leaves one King on the summit and no flagpole, *Footrace with Koopa the Quick* leaves the flagpole and no King, *Big Bob-omb's Revenge* brings back the King and adds the breakable blocks — and world mode inherits all of it, so you can walk Bob-omb Battlefield one mission at a time.
+A placement's mission list is the star layer intersected with §8's gate, which is
+what separates Whomp's Fortress's summit pair.
+
+Two verifications, both against the emitted files rather than the exporter's structs. `cmd/varcheck` re-decodes the cartridge and asserts every shipped placement's variant list equals the star-layer set its level's object table lists that (actor, position) under, intersected with §8's mission gate — 4,045 matched, 0 mismatches, with the chomp's spawned stake and links counted as synthesised. It was mutation-tested in both directions: reintroducing the keep-the-first-record bug in a copy of the shipped JSON, and deleting one coin's spin, both fail it. And in the Studio: picking *Big Bob-omb on the Summit* leaves one King on the summit and no flagpole, *Footrace with Koopa the Quick* leaves the flagpole and no King, *Big Bob-omb's Revenge* brings back the King and adds the breakable blocks — and world mode inherits all of it, so you can walk Bob-omb Battlefield one mission at a time.
 
 ## 8. The other gate: the save's star bits
 
@@ -485,10 +488,9 @@ test, the same `$0202A6C8(1)` — and refuses to create when the object sits at
 kept.
 
 So the condition is `playing star 1 OR star 1 not collected` → King, else tower.
-It reads the **current star**, so it *is* on the mission axis and could be folded
-into the variant picker — but it also reads the **save**, which the exporter does
-not model, and the two are not the same thing: once the tower is built it stays
-for a replay of star 1.
+It reads the **current star**, so it is on the same axis as the layer; it also
+reads the **save**, which is not the same thing (once the tower is built it stays
+for a replay of star 1).
 
 `cmd/gateprobe -sweep` measures how far this reaches. It resolves every placed
 actor through the engine's own profile array at `$02090864` (inside the overlay
@@ -499,12 +501,47 @@ save's star bits, and 40 of the 49 stages place at least one of them** (287 of t
 `hatena` boxes, the castle's star-count gates and both Bob-omb kings are all in
 that set.
 
-This is an **open frontier**, deliberately not guessed at: fifty bespoke conditions
-is not something to pattern-match. The right instrument is the one this project
-already owns — the **actor oracle** runs each actor's real create/init, so seeding
-`$0209F2F8` (level), `$0209F220` (star) and `$0209CAB4` (the star bits) and
-recording which inits destroy themselves would answer all fifty by *running* them,
-for whatever save state the Studio chooses to depict.
+Fifty bespoke conditions is not something to pattern-match, so none of them were
+decoded. The instrument is the one this project already owns: the **actor oracle**
+runs each actor's real create/init, so seeding `$0209F2F8` (level), `$0209F220`
+(star) and `$0209CAB4` (the star bits) and watching which inits refuse answers all
+fifty by *running* them. `sm64ds.MissionGates` does exactly that, per mission, per
+placement, **at the placement's own position** — the tower's condition includes its
+own height, so the spawn vector `$02010E78` publishes at `$0209B460` is published
+too, and the base ctor copies it into `obj+$5C` as it would for a real spawn.
+
+Two signals say "this object is not to exist": the factory reads a zero from init
+as exactly that (`$02043114`: `MOVS r5,r0 / BNE keep`), and a boss that has already
+been beaten additionally marks itself through the destructor `$02043824` first.
+
+The save state depicted is **"the first time you play mission N"** — stars 1..N-1
+of that course collected, N not. It is the one state in which the picker means
+what it says, and it folds onto the mission axis the layer already uses. Only the
+fifteen numbered painting courses are swept: "the first time you play mission N"
+is not a state the castle hub has, whose doors count stars across the whole game,
+so those levels are left alone rather than depicted under an invented save.
+
+**The difference is the measurement, never the absolute outcome.** The bare oracle
+environment kills plenty of actors for reasons of its own; a placement that refuses
+under *every* mission is not a gate and is left alone. Only one whose existence
+*varies* is recorded. That sweep finds **22 gated placements across three stages** (14, 7 and 1),
+and every one of them reads as a progression: Whomp's Fortress puts the King on
+mission 1 and, on missions 2-7, the tower with its eight lift platforms spiralling
+up it, its top hatch, its cannon and its pole — the fortress builds itself. Jolly
+Roger Bay sinks its ship for *Plunder in the Sunken Ship* and floats it afterwards.
+A placement's final variant list is the star layer **intersected** with this.
+
+`missionoracle -probe` is the instrument's mutation test, and it has to pass three
+ways: the King alive only on mission 1, the tower alive only on 2-7 — exact
+complements — and the tower **moved off the summit** alive on all seven, which is
+what proves the position we publish actually reached the actor:
+
+```
+                           star 1 2 3 4 5 6 7
+Whomp King                      # . . . . . .
+tower (summit, y=3500)          . # # # # # #
+tower (moved down, y=0)         # # # # # # #
+```
 
 The `(actor, position)` key is load-bearing on the checking side too: a first version of `varcheck` keyed on position alone and reported fifteen failures, because the race flagpole (star 2) and the second King Bob-omb (star 4) **stand on the same point**. The exporter was right and the instrument was wrong.
 
@@ -715,6 +752,10 @@ go run ./extract/cmd/varcheck -in "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).n
 
 # Part V §8 — which placed actors gate themselves on the save's star bits
 go run ./extract/cmd/gateprobe -in "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds" -sweep
+# and ask the game which of them exist in which mission, by running their own
+# create/init under each mission's progress context (-probe = the mutation test)
+go run ./extract/cmd/missionoracle -probe
+go run ./extract/cmd/missionoracle
 # and the inspection modes behind that answer
 go run ./extract/cmd/gateprobe -in "..." -actor 165        # profile / vtable / init
 go run ./extract/cmd/gateprobe -in "..." -pars 8           # a level's placements + params

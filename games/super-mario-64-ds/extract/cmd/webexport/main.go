@@ -290,8 +290,33 @@ func runOracle(ctx *cli.Context, romPath, tmp string) (map[int][]Binding, error)
 	ctx.Logf("oracle: engine initialized (%d init-phase file requests)", len(o.InitRequests()))
 	table := sweep(ls, o)
 	ctx.Logf("oracle: %d actors bound", len(table))
+
+	// Second pass: which placements exist in which mission, decided by the
+	// actors' own code under a seeded progress context (sm64ds.MissionGates).
+	missionGates = sm64ds.MissionGates(ls, o, func(actor int, par [3]int) (int, bool) {
+		bs := table[actor]
+		if len(bs) == 0 {
+			return -1, false
+		}
+		for _, b := range bs {
+			if b.Params == par {
+				return b.Config, true
+			}
+		}
+		for _, b := range bs {
+			if b.Params[0] == par[0] {
+				return b.Config, true
+			}
+		}
+		return bs[0].Config, true
+	}, func(stem string, n int) {
+		ctx.Logf("oracle: %s — %d mission-gated placements", stem, n)
+	})
 	return table, nil
 }
+
+// missionGates: stage stem -> the placements whose existence varies by mission.
+var missionGates map[string][]sm64ds.MissionGate
 
 // sweep runs every distinct (actor, params) the levels place.
 func sweep(ls *sm64ds.LevelSet, o *sm64ds.Oracle) map[int][]Binding {
@@ -1254,6 +1279,7 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		type placedObj struct {
 			o      sm64ds.LevelObject
 			layers map[int]bool
+			gated  map[int]bool // nil = the actor never refused; else the missions it exists in
 		}
 		byKey := map[string]*placedObj{}
 		var order []*placedObj
@@ -1267,11 +1293,31 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			}
 			p.layers[o.Layer] = true
 		}
+		// A second mechanism decides mission membership on top of the layer:
+		// fifty placed actors gate themselves on the save's star bits, which is
+		// how Whomp's Fortress shows the Whomp King on mission 1 and the tower
+		// you climb on the rest (Part V §8). The oracle ran their real
+		// create/init under each mission; fold its answer in.
+		for _, g := range missionGates[stem] {
+			p := byKey[fmt.Sprintf("%d/%.3f/%.3f/%.3f", g.Actor, float64(g.X), float64(g.Y), float64(g.Z))]
+			if p == nil {
+				continue
+			}
+			p.gated = map[int]bool{}
+			for _, m := range g.Missions {
+				p.gated[m] = true
+			}
+		}
 		used := map[int]bool{}
 		for _, p := range order {
 			for l := range p.layers {
 				if l != 0 {
 					used[l] = true
+				}
+			}
+			if p.gated != nil {
+				for m := range p.gated {
+					used[m] = true
 				}
 			}
 		}
@@ -1341,7 +1387,7 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		}
 		for _, p := range order {
 			o := p.o
-			curVars = variantIDs(p.layers, declared)
+			curVars = variantIDs(p.layers, p.gated, declared)
 			switch o.Actor {
 			case 219: // daWanwan_c — chained to a stake
 				addChomp(o, addObjOff, addModelAt)
@@ -1408,20 +1454,32 @@ func starVariants(msgs []string, course int, used map[int]bool) []schema.Variant
 
 func starID(star int) string { return fmt.Sprintf("star%d", star) }
 
-// variantIDs turns one placement's star-layer set into its variant membership.
-// Layer 0 means "every star", which Retro-X spells as no `variants` field at
-// all, so it returns nil — as it does for a level with no variant list.
-func variantIDs(layers map[int]bool, declared map[string]bool) []string {
-	if len(declared) == 0 || layers[0] {
+// variantIDs turns one placement's star-layer set, intersected with whatever
+// its own code decided (the mission gate), into its variant membership. Layer 0
+// with no gate means "every mission", which Retro-X spells as no `variants`
+// field at all, so it returns nil — as it does for a level with no variants.
+func variantIDs(layers, gated map[int]bool, declared map[string]bool) []string {
+	if len(declared) == 0 {
+		return nil
+	}
+	if layers[0] && gated == nil {
 		return nil
 	}
 	var stars []int
-	for l := range layers {
-		if declared[starID(l)] {
-			stars = append(stars, l)
+	for l := 1; l <= sm64ds.StarsPerCourse; l++ {
+		if !declared[starID(l)] {
+			continue
 		}
+		// the object-table layer and the actor's own save gate must BOTH admit
+		// the mission (layer 0 means every mission, and no gate means the same)
+		if !layers[0] && !layers[l] {
+			continue
+		}
+		if gated != nil && !gated[l] {
+			continue
+		}
+		stars = append(stars, l)
 	}
-	sort.Ints(stars)
 	if len(stars) == 0 || len(stars) == len(declared) {
 		return nil // in every declared mission: same thing as unrestricted
 	}

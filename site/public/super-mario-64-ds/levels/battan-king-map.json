@@ -955,6 +955,7 @@
    "pos": [0.704, 3.5, 0.705],
    "rot": [0, -2.356194490192345, 0],
    "scale": 0.008,
+   "variants": ["star1"],
    "collision": {
     "file": "objcol_battan_king.glb",
     "matrix": [-0.5, -0.562, -0.707, 0.704, -0.707, 0.795, 0, 3.402, 0.5, 0.562, -0.707, 0.705]
@@ -979,6 +980,7 @@
    "pos": [0.013, 3.5, -1.375],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "variants": ["star2", "star3", "star4", "star5", "star6", "star7"],
    "collision": {
     "file": "objcol_bk_botaosi.glb",
     "matrix": [0.707, 0, -0.707, 0.013, 0, 1, 0, 3.5, 0.707, 0, 0.707, -1.375]
@@ -994,6 +996,7 @@
    "pos": [0.49, 3.8, 0.49],
    "rot": [0, 0.7853981633974483, 0],
    "scale": 0.008,
+   "variants": ["star2", "star3", "star4", "star5", "star6", "star7"],
    "collision": {
     "file": "objcol_bk_lift01.glb",
     "matrix": [0.071, 0, 0.071, 0.488, 0, 0.1, 0, 3.8, -0.071, 0, 0.071, 0.488]
@@ -1009,6 +1012,7 @@
    "pos": [0.49, 4, -0.49],
    "rot": [0, 2.356194490192345, 0],
    "scale": 0.008,
+   "variants": ["star2", "star3", "star4", "star5", "star6", "star7"],
    "collision": {
     "file": "objcol_bk_lift01.glb",
     "matrix": [-0.071, 0, 0.071, 0.488, 0, 0.1, 0, 4, -0.071, 0, -0.071, -0.488]
@@ -1024,6 +1028,7 @@
    "pos": [-0.49, 4.2, -0.49],
    "rot": [0, -2.356194490192345, 0],
    "scale": 0.008,
+   "variants": ["star2", "star3", "star4", "star5", "star6", "star7"],
    "collision": {
     "file": "objcol_bk_lift01.glb",
     "matrix": [-0.071, 0, -0.071, -0.488, 0, 0.1, 0, 4.2, 0.071, 0, -0.071, -0.488]
@@ -1039,6 +1044,7 @@
    "pos": [-0.49, 4.4, 0.49],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
+   "variants": ["star2", "star3", "star4", "star5", "star6", "star7"],
    "collision": {
     "file": "objcol_bk_lift01.glb",
     "matrix": [0.071, 0, -0.071, -0.49, 0, 0.1, 0, 4.4, 0.071, 0, 0.071, 0.49]
@@ -1053,6 +1059,7 @@
    "object": "bk-lift01",
    "pos": [0, 3.7, 0.7],
    "scale": 0.008,
+   "variants": ["star2", "star3", "star4", "star5", "star6", "star7"],
    "collision": {
     "file": "objcol_bk_lift01.glb",
     "matrix": [0.1, 0, 0, 0, 0, 0.1, 0, 3.7, 0, 0, 0.1, 0.7]
@@ -1068,6 +1075,7 @@
    "pos": [0.715, 3.9, 0],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
+   "variants": ["star2", "star3", "star4", "star5", "star6", "star7"],
    "collision": {
     "file": "objcol_bk_lift01.glb",
     "matrix": [0, 0, 0.1, 0.715, 0, 0.1, 0, 3.9, -0.1, 0, 0, 0]
@@ -1083,6 +1091,7 @@
    "pos": [0, 4.1, -0.7],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "variants": ["star2", "star3", "star4", "star5", "star6", "star7"],
    "collision": {
     "file": "objcol_bk_lift01.glb",
     "matrix": [-0.1, 0, 0, 0, 0, 0.1, 0, 4.1, 0, 0, -0.1, -0.7]
@@ -1098,6 +1107,7 @@
    "pos": [-0.7, 4.3, 0],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
+   "variants": ["star2", "star3", "star4", "star5", "star6", "star7"],
    "collision": {
     "file": "objcol_bk_lift01.glb",
     "matrix": [0, 0, -0.1, -0.7, 0, 0.1, 0, 4.3, 0.1, 0, 0, 0]
@@ -1112,6 +1122,7 @@
    "object": "bk-futa",
    "pos": [-0.5, 3.5, 0],
    "scale": 0.008,
+   "variants": ["star2", "star3", "star4", "star5", "star6", "star7"],
    "collision": {
     "file": "objcol_bk_futa.glb",
     "matrix": [0.1, 0, 0, -0.5, 0, 0.1, 0, 3.5, 0, 0, 0.1, 0]
@@ -1126,6 +1137,7 @@
    "object": "bk-tower",
    "pos": [0, 3.5, 0],
    "scale": 0.008,
+   "variants": ["star2", "star3", "star4", "star5", "star6", "star7"],
    "collision": {
     "file": "objcol_bk_tower.glb",
     "matrix": [1, 0, 0, 0, 0, 1, 0, 3.5, 0, 0, 1, 0]
@@ -1141,6 +1153,7 @@
    "pos": [1.25, 3.5, 0.9],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
+   "variants": ["star2", "star3", "star4", "star5", "star6", "star7"],
    "collision": {
     "file": "objcol_bk_killer_dai.glb",
     "matrix": [-0.1, 0, 0, 1.25, 0, 0.1, 0, 3.5, 0, 0, -0.1, 0.9]
