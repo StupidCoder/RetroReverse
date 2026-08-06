@@ -867,8 +867,13 @@
    "object": "arc0-21",
    "pos": [-2, 1.13, -0.5],
    "scale": 0.008,
-   "anim": "ar1_8",
    "layer": "markers",
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "holdAt": 0.449,
+    "toggle": true
+   },
    "props": {
     "actor": 178
    }
@@ -956,9 +961,14 @@
    "object": "arc0-21",
    "pos": [-2.001, 1.683, -1.034],
    "scale": 0.008,
-   "anim": "ar1_8",
    "layer": "markers",
    "variants": ["star3"],
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "holdAt": 0.449,
+    "toggle": true
+   },
    "props": {
     "actor": 178
    }

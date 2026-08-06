@@ -724,9 +724,14 @@
    "object": "arc0-21",
    "pos": [1.1, 0.05, -4.35],
    "scale": 0.008,
-   "anim": "ar1_8",
    "layer": "markers",
    "variants": ["star2", "star3"],
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "holdAt": 0.449,
+    "toggle": true
+   },
    "props": {
     "actor": 178
    }

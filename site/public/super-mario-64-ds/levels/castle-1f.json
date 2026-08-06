@@ -37,7 +37,12 @@
    "object": "ar1-9",
    "pos": [0.175, 0, -1.05],
    "scale": 0.008,
-   "anim": "ar1_8",
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "holdAt": 0.449,
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -48,7 +53,12 @@
    "pos": [0.575, 0.6, -1.494],
    "rot": [0, -0.7853981633974483, 0],
    "scale": 0.008,
-   "anim": "ar1_8",
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "holdAt": 0.449,
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -58,7 +68,12 @@
    "object": "ar1-9",
    "pos": [-2.325, 0, -1.05],
    "scale": 0.008,
-   "anim": "ar1_8",
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "holdAt": 0.449,
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -69,7 +84,12 @@
    "pos": [1.05, 0.2, -0.3],
    "rot": [0, -1.5707963267948966, 0],
    "scale": 0.008,
-   "anim": "ar1_8",
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "holdAt": 0.449,
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -90,7 +110,12 @@
    "pos": [-3.05, 0.2, -0.7],
    "rot": [0, 1.5707963267948966, 0],
    "scale": 0.008,
-   "anim": "ar1_8",
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "holdAt": 0.449,
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -129,7 +154,12 @@
    "object": "ar1-9",
    "pos": [-1.15, 0, 2.15],
    "scale": 0.008,
-   "anim": "ar1_8",
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "holdAt": 0.449,
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -140,7 +170,12 @@
    "pos": [-0.85, 0, 2.15],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
-   "anim": "ar1_8",
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "holdAt": 0.449,
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -151,7 +186,12 @@
    "pos": [-0.85, -1.05, 0.9],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
-   "anim": "ar1_8",
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "holdAt": 0.449,
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -161,7 +201,12 @@
    "object": "ar1-9",
    "pos": [-1.15, -1.05, 0.9],
    "scale": 0.008,
-   "anim": "ar1_8",
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "holdAt": 0.449,
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -171,7 +216,12 @@
    "object": "ar1-9",
    "pos": [-1.15, 0.5, -1.05],
    "scale": 0.008,
-   "anim": "ar1_8",
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "holdAt": 0.449,
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }
@@ -182,7 +232,12 @@
    "pos": [-0.85, 0.5, -1.05],
    "rot": [0, -3.141592653589793, 0],
    "scale": 0.008,
-   "anim": "ar1_8",
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "holdAt": 0.449,
+    "toggle": true
+   },
    "props": {
     "actor": 353
    }

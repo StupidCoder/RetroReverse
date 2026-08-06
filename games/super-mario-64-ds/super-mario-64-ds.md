@@ -490,10 +490,22 @@ Most entries name actor `$161` = 353, **`daDoor_c`**. Decoding the type gives
 **95 doors across 11 stages** — 14 on the castle's first floor alone, in the
 pairs the double doorways need.
 
-**Open, not shut.** A door ships as a model plus one `.bca`: the swing. There is
-no idle clip, so the viewer's autoplay rule (only looping clips play) leaves it
-on the bind pose, shut. Marking the clip `hold` plays it once and clamps on the
-last frame — the castle stands with its doors open.
+**Click to open.** A door ships as a model plus one `.bca`, and that clip is a
+full ROUND TRIP: `cmd/doorprobe -clip ar1_8 -model ar1_9` reads it as 50 frames,
+0° → **79.189°** at frame 22, held to frame 36, back to 0° by the last. Both ends
+are shut, so neither `once` nor `hold` can park a door open — clamping the last
+frame, the obvious move, leaves every one of them closed.
+
+Posing the leaf statically at the apex instead works for the castle's hinged
+doors and is wrong for the star doors, which do not swing: they **slide
+sideways into the wall**, so holding them open hides them completely.
+
+So the doors are interactive, like Luigi's Mansion's: `onClick` `animate` with
+`toggle`, and `holdAt` at the clip's own apex. The apex is measured, not chosen —
+`doorApex` walks the clip and takes the frame whose bones are furthest from the
+rest pose, summing rotation AND translation, which is what makes one rule cover a
+door that swings and a door that slides. Click a door and it opens with its own
+motion and stops open; click again and it closes.
 
 Getting the clip onto the model needed one more thing. An archive member's
 animation is *another archive member*, so the sibling-`.bca` glob that pairs

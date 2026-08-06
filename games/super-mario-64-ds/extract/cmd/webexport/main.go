@@ -795,6 +795,11 @@ func exportArchiveGLBs(ctx *cli.Context, ls *sm64ds.LevelSet, bindings map[int][
 		id := objectID(stem)
 		anims := clipAnims(clips)
 		if doorModels[stem] && len(anims) > 0 {
+			for _, c := range clips {
+				if c.Name == anims[0].ID {
+					doorHold[stem] = doorApex(c.Anim)
+				}
+			}
 			// A door's clip is its swing, not an idle: `hold` plays it once and
 			// clamps, so the castle stands with its doors open.
 			for i := range anims {
@@ -1495,7 +1500,12 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			}
 			pl.Variants = curVars
 			if a := doorAnim[m]; a != "" {
-				pl.Anim = a
+				// Click to open, click again to close — the door plays its own
+				// motion and stops where it stands open.
+				pl.OnClick = &schema.OnClick{
+					Action: schema.ActionAnimate, Clip: a,
+					HoldAt: r3(doorHold[m]), Toggle: true,
+				}
 			}
 			if markerModels[m] {
 				pl.Layer = markerLayerID
@@ -1803,6 +1813,38 @@ func spawnShot(lv *sm64ds.Level, kcl *sm64ds.KCL, contentFloor float64) (shot, b
 // bind pose. Marking the clip `hold` plays it once and clamps on the last
 // frame, which is the door standing open.
 const doorActor = 353
+
+// doorHold is the normalised time in a door's clip at which it stands open,
+// measured from the clip itself during the model export — see doorApex. A
+// door's clip is a full round trip: it leaves the rest pose, holds open, and
+// returns. Both ends are shut, so neither `once` nor `hold` can park one open;
+// the apex is the only frame that can, and the viewer's `animate` onClick stops
+// there and toggles back on the next click.
+var doorHold = map[string]float64{}
+
+// doorApex finds the frame furthest from the clip's rest pose, as a fraction of
+// its duration. Measuring the DISPLACEMENT rather than looking for a rotation is
+// what makes it work for every door: the castle's swing on a hinge, and the star
+// doors slide sideways into the wall.
+func doorApex(a *sm64ds.BCA) float64 {
+	if a.NumFrames < 2 {
+		return 0
+	}
+	best, at := 0.0, 0
+	for f := 0; f < a.NumFrames; f++ {
+		d := 0.0
+		for b := 0; b < a.NumBones; b++ {
+			r, z := a.BoneTRS(b, f), a.BoneTRS(b, 0)
+			for c := 3; c < 9; c++ { // rotation and translation, not scale
+				d += math.Abs(r[c] - z[c])
+			}
+		}
+		if d > best {
+			best, at = d, f
+		}
+	}
+	return float64(at) / float64(a.NumFrames-1)
+}
 
 // doorModels is the set of model stems actor 353 resolves to, from the binding
 // table. doorAnim is filled later, during the model export, with each door's

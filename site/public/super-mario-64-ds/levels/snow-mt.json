@@ -1109,8 +1109,13 @@
    "object": "arc0-21",
    "pos": [-2, -2.159, -2.8],
    "scale": 0.008,
-   "anim": "ar1_8",
    "layer": "markers",
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "holdAt": 0.449,
+    "toggle": true
+   },
    "props": {
     "actor": 178
    }
@@ -1373,8 +1378,13 @@
    "object": "arc0-21",
    "pos": [-1.1, 2.5, -2.25],
    "scale": 0.008,
-   "anim": "ar1_8",
    "layer": "markers",
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "holdAt": 0.449,
+    "toggle": true
+   },
    "props": {
     "actor": 178
    }
@@ -1417,8 +1427,13 @@
    "object": "arc0-21",
    "pos": [-0.18, 3.794, -1.442],
    "scale": 0.008,
-   "anim": "ar1_8",
    "layer": "markers",
+   "onClick": {
+    "action": "animate",
+    "clip": "ar1_8",
+    "holdAt": 0.449,
+    "toggle": true
+   },
    "props": {
     "actor": 178
    }
