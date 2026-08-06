@@ -469,17 +469,49 @@ out (`init: budget(6000000)@022916C0`, an all-zero stack at a heap PC). Having
 died there, the init never asked the loader for anything, so the binding table
 records no model and the exporter had nothing to place.
 
-The model is on the cartridge: `data/special_obj/hm_maruta/hm_maruta.bmd`, with
-its own `.kcl`. It is the **only** log model there, and **no actor in the binding
-table references it** — so no log is shipped in any level, Tall, Tall Mountain's
-included. Binding it by name would be exactly the heuristic this project keeps
-paying for; the fix is to make the oracle survive a BSS-initialised state record,
-which is what those 304 placements are waiting on.
+### An actor's code is not confined to its own overlay
 
-What is fixed here is the silence: the level pass now counts what it could not
-emit and prints it per stage — `fire_land_all 185 placements (25 unmodelled,
-actors [70 79 83 177 196 214 318])` — so this cannot hide again. The shipped
-documents are unchanged.
+The BSS was a red herring — overlay 22's static initialiser fills that record
+correctly, and the oracle already zeroes BSS and runs the ctor list. Tracing the
+runaway (a PC ring behind `SM64DS_ORACLE_TRACE=1`, recording the last instruction
+whose word was **not** zero, because a zero word is a legal no-op the CPU slides
+through) put the departure at one instruction:
+
+```
+02112590  LDR r12, [pc, #0x4]   ; =021274AC
+02112594  LDR r1,  [pc, #0x4]   ; =02112C9C
+02112598  BX  r12
+```
+
+A **linker veneer**: a long branch into a helper that lives in another bank, with
+a descriptor in `r1`. `$021274AC` is nowhere near overlay 22 — it belongs to one
+of the several overlays sharing the `$02123740` slot, which the game has resident
+alongside the level's actor overlay and the oracle never loaded. The veneer
+landed in memory nobody filled, and the run died on the instruction budget having
+asked the loader for nothing.
+
+**The oracle now finds the missing bank itself rather than being told.** It keeps
+the RAM ranges real code was loaded into, notices the first PC outside them,
+reports it, and `RunActorBanked` retries with each overlay covering that address.
+The winner is the one that both **stops escaping** and **asks the loader for
+something**: for the log that is overlay 80, uniquely — 77, 79 and 81 escape
+again, and 6 completes but loads nothing. No name is matched anywhere in that
+decision, which matters, because the tempting shortcut here was `hm_maruta`.
+
+The log then asks for **`data/special_obj/fl_log/fl_log.bmd`** and its `.kcl` —
+Lethal Lava Land has its own log, distinct from Tall, Tall Mountain's
+`hm_maruta`, and both were missing.
+
+**105 of the 304 came back.** The unmodelled count falls from 304 to 199 and the
+shipped stages gain 103 placements: `th_down_b` ×68 and `bk_down_b`/`fl_kuzure`/
+`km2_kuzure` ×9 each (the falling and crumbling platforms), `donkaku` ×3,
+**Big Boo**, **Chief Chilly** and his ice bully, and both rolling logs. What
+remains is a different question for a different day — `daBar_c`,
+`daObjWaterfall_c`, `daStarBase_c` and friends do not escape at all.
+
+And the silence is fixed too: the level pass counts what it could not emit and
+prints it per stage — `fire_land_all 195 placements (15 unmodelled, actors
+[79 177 196 214 318])` — so this cannot hide again.
 
 **Every level opens where the game starts you.** Object-table type 1 is an
 entrance record (handler `$020FE6C8`) and the level's FIRST one is the player
