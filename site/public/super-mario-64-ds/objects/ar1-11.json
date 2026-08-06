@@ -9,6 +9,12 @@
    "loop": "hold",
    "clip": "ar1_8",
    "fps": 30
+  },
+  {
+   "id": "ar1_8_m",
+   "loop": "hold",
+   "clip": "ar1_8_m",
+   "fps": 30
   }
  ],
  "model": "ar1_11.glb",

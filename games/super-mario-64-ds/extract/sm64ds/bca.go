@@ -45,6 +45,21 @@ type BCA struct {
 	NumFrames int
 	Loop      bool
 	tracks    [][9]BCATrack // per bone: sx,sy,sz, rx,ry,rz, tx,ty,tz
+
+	// MirrorY negates every bone's sampled Y rotation. A door's swing direction
+	// is not in its clip: the actor picks it from which side of the door the
+	// player stands on (the door-space player position it builds at +$80, whose
+	// Z sign $0214532C and $02145170 branch on). One clip, two senses — so an
+	// export that has no player has to choose, and the two leaves of a double
+	// door must choose oppositely or they open in opposite directions.
+	MirrorY bool
+}
+
+// MirroredY returns the same animation with every Y rotation negated.
+func (a *BCA) MirroredY() *BCA {
+	m := *a
+	m.MirrorY = !a.MirrorY
+	return &m
 }
 
 // LoadBCA reads and decompresses a .bca file.
@@ -168,6 +183,9 @@ func (a *BCA) BoneTRS(b, frame int) [9]float64 {
 	}
 	for c := 0; c < 9; c++ {
 		out[c] = a.tracks[b][c].sample(frame, a.NumFrames)
+	}
+	if a.MirrorY {
+		out[4] = -out[4]
 	}
 	return out
 }

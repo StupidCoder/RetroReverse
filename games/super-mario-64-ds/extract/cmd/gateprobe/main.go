@@ -79,9 +79,11 @@ func main() {
 	msgid := flag.String("msgid", "", "resolve comma-separated EXTERNAL message ids to their text")
 	pars := flag.Int("pars", 0, "list every placement of this level (1-based) with its params")
 	calls := flag.String("calls", "", "list BL targets from this address")
+	all := flag.Bool("all", false, "-fn: keep going past BX lr (sweep a region)")
 	words := flag.String("words", "", "dump raw words at this address")
 	tables := flag.Int("tables", 0, "dump every object-table entry of this level (1-based)")
 	flag.Parse()
+	dumpAll = *all
 	callDepth = *depth
 
 	img, err := os.ReadFile(*in)
@@ -319,6 +321,10 @@ func main() {
 	fmt.Println("no profile found")
 }
 
+// dumpAll keeps dump() running past a function's return, so -fn can sweep a
+// whole code region rather than a single routine.
+var dumpAll bool
+
 func dump(c ctx, a uint32, n int) {
 	code, ok := c.at(a)
 	if !ok {
@@ -342,7 +348,7 @@ func dump(c ctx, a uint32, n int) {
 			note = fmt.Sprintf("   ; =%08X", lit)
 		}
 		fmt.Printf("  %08X  %s%s\n", pc, in.Text, note)
-		if in.Text == "BX lr" && k > 2 {
+		if in.Text == "BX lr" && k > 2 && !dumpAll {
 			break
 		}
 	}

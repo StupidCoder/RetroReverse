@@ -547,7 +547,51 @@ archive ones do. That in turn made them skinned, which means they need the hinge
 compensation too — and the compensation is applied **only** to a leaf that
 actually carries the clip, because it cancels a bone translation and a model
 without one has nothing to cancel. Applying it blindly is what pushed the
-basement doors half a width the other way.
+basement doors half a width the other way. It also left them with no `holdAt`
+at all — a door whose clip arrives late missed the apex measurement — so those
+doors ran the whole round trip on a click: **open, and slam shut again.**
+
+**A door's swing direction is not in its clip.** Every door in the game plays
+the one animation `ar1_8`; the actor picks the SENSE at runtime from which side
+of the door the player is standing on. `$02145370` transforms the player's
+position into door space and leaves it at the actor's `+$80`, and the code
+branches on the sign of its Z:
+
+```
+02145314  LDR   r2, [r0, #0x88]      ; player z, in door space
+02145318  CMP   r2, #0
+0214532C  CMP   r2, #0
+02145330  LDRSHLT r0, [r0, #0x8E]    ; z < 0 -> the door's own yaw
+02145338  LDRSHGE r0, [r0, #0x8E]
+0214533C  ADDGE   r0, r0, #0x8000    ; z >= 0 -> yaw + 180 degrees
+```
+
+(The same `+$80` vector is a proximity box first — |x| ≤ 75.0, |y| ≤ 50.0,
+|z| ≤ 110.0 — and a second test at `$02145A3C` picks between two per-door bytes
+by the same sign. The record itself carries no flag: bits 5.. of a door entry's
+kind word are zero in all 102 of them.)
+
+A **double door** is two records of the same kind, 300 world units apart along
+their shared local X with yaws 180° apart — every leaf model spans local X
+`0.000..18.750` (150 world units) with its hinge at 0, so a pair brackets a
+300-unit doorway and the leaves meet in the middle. Fourteen of them are placed.
+Their placements are therefore fixed, and their local Z axes oppose: **one player
+stands on opposite sides of the two leaves**, they take opposite branches, and
+they swing together, which is what a double door does.
+
+An export has no player. Both leaves took the same branch and opened in opposite
+directions — one into the room, one into the hall. So a door object now ships
+BOTH senses as two clips, `ar1_8` and `ar1_8_m`, the second with every Y rotation
+negated (`BCA.MirroredY`), and `doubleDoorMirrors` hands the mirrored one to a
+single leaf of each pair, chosen by normalised yaw so the choice is stable.
+
+`cmd/doorcheck` verifies it **on the shipped files**: it re-derives the pairs
+from the exported placements, reads the clip each `onClick` names out of the
+GLB's own animation samplers, swings a unit leaf by the quaternion it holds at
+`holdAt`, and requires the pair's two displacements to point the same way. 95
+door placements, 14 double doors, none without a hold, no failures — and with the
+`_m` suffix stripped from the clip names, all 14 pairs fail. The instrument moves
+in both directions.
 
 **Click to open.** A door ships as a model plus one `.bca`, and that clip is a
 full ROUND TRIP: `cmd/doorprobe -clip ar1_8 -model ar1_9` reads it as 50 frames,

@@ -2,21 +2,15 @@
  "format": "retro-x",
  "version": 1,
  "type": "model3d",
- "name": "Ar1 9",
+ "name": "Obj door0 star (other hinge)",
  "animations": [
   {
    "id": "ar1_8",
    "loop": "hold",
    "clip": "ar1_8",
    "fps": 30
-  },
-  {
-   "id": "ar1_8_m",
-   "loop": "hold",
-   "clip": "ar1_8_m",
-   "fps": 30
   }
  ],
- "model": "ar1_9.glb",
+ "model": "obj_door0_star_m.glb",
  "skinnedClone": true
 }

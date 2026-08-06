@@ -129,6 +129,7 @@
    "onClick": {
     "action": "animate",
     "clip": "ar1_8",
+    "holdAt": 0.449,
     "toggle": true
    },
    "props": {
@@ -144,6 +145,7 @@
    "onClick": {
     "action": "animate",
     "clip": "ar1_8",
+    "holdAt": 0.449,
     "toggle": true
    },
    "props": {
@@ -158,6 +160,7 @@
    "onClick": {
     "action": "animate",
     "clip": "ar1_8",
+    "holdAt": 0.449,
     "toggle": true
    },
    "props": {
@@ -187,7 +190,7 @@
    "scale": 0.008,
    "onClick": {
     "action": "animate",
-    "clip": "ar1_8",
+    "clip": "ar1_8_m",
     "holdAt": 0.449,
     "toggle": true
    },
@@ -203,7 +206,7 @@
    "scale": 0.008,
    "onClick": {
     "action": "animate",
-    "clip": "ar1_8",
+    "clip": "ar1_8_m",
     "holdAt": 0.449,
     "toggle": true
    },
@@ -249,7 +252,7 @@
    "scale": 0.008,
    "onClick": {
     "action": "animate",
-    "clip": "ar1_8",
+    "clip": "ar1_8_m",
     "holdAt": 0.449,
     "toggle": true
    },

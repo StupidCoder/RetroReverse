@@ -2,7 +2,7 @@
  "format": "retro-x",
  "version": 1,
  "type": "model3d",
- "name": "Arc0 21",
+ "name": "Arc0 21 (other hinge)",
  "animations": [
   {
    "id": "ar1_8",
@@ -33,38 +33,8 @@
    "loop": "hold",
    "clip": "arc0_24",
    "fps": 30
-  },
-  {
-   "id": "ar1_8_m",
-   "loop": "hold",
-   "clip": "ar1_8_m",
-   "fps": 30
-  },
-  {
-   "id": "arc0_22_m",
-   "loop": "hold",
-   "clip": "arc0_22_m",
-   "fps": 30
-  },
-  {
-   "id": "arc0_26_m",
-   "loop": "hold",
-   "clip": "arc0_26_m",
-   "fps": 30
-  },
-  {
-   "id": "arc0_27_m",
-   "loop": "hold",
-   "clip": "arc0_27_m",
-   "fps": 30
-  },
-  {
-   "id": "arc0_24_m",
-   "loop": "hold",
-   "clip": "arc0_24_m",
-   "fps": 30
   }
  ],
- "model": "arc0_21.glb",
+ "model": "arc0_21_m.glb",
  "skinnedClone": true
 }

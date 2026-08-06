@@ -70,8 +70,8 @@ const (
 	doorParamTable = objActorTable - 0x84
 	doorActorTable = objActorTable - 0x6C
 	doorKinds      = 12 // record stride
-	arm9Base      = 0x02004000
-	NumLevels     = 52
+	arm9Base       = 0x02004000
+	NumLevels      = 52
 
 	// courseTable: s8 level -> course index (RAM $02075298). The game's
 	// accessor is the one-liner $02013558 `LDRSB r0,[$02075298,r0]`, called
@@ -365,6 +365,10 @@ func (ls *LevelSet) Level(id int) (*Level, error) {
 					if q+doorKinds > len(b) {
 						break
 					}
+					// The kind is the whole of this word: bits 5.. are zero in
+					// all 102 door records the game places, so a double door's
+					// two leaves are distinguished by nothing but their own
+					// position and yaw.
 					kind := int(le.Uint16(b[q+10:]) & 0x1F)
 					actor := int(le.Uint16(ls.ovl2[doorActorTable+kind*2:]))
 					par1 := int(le.Uint16(b[q+8:]))

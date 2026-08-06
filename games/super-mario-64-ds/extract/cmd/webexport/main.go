@@ -628,6 +628,9 @@ func exportModels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		if len(clips) == 0 && doorModels[m.Name] {
 			clips = append(clips, archiveClipsFor(ls, bindings, doorActor, m.NumBones)...)
 		}
+		if doorModels[m.Name] {
+			clips = appendMirrored(clips)
+		}
 		var data []byte
 		if len(clips) > 0 {
 			data, err = m.SkinnedGLB(clips)
@@ -661,12 +664,13 @@ func exportModels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		id := objectID(m.Name)
 		anims := clipAnims(clips)
 		if doorModels[m.Name] && len(anims) > 0 {
-			// A door's clip is its swing, not an idle: play it once and clamp,
-			// so the castle stands with its doors open (see doorModels).
+			// A door's clip is its swing, not an idle: play it once and clamp
+			// at the frame it stands open (doorApex). Without the hold the
+			// clip runs its full round trip and the door slams shut again.
 			for i := range anims {
 				anims[i].Loop = "hold"
 			}
-			doorAnim[m.Name] = anims[0].ID
+			setDoorClips(m.Name, clips, anims)
 		}
 		doc := &schema.Object{
 			Type: schema.ObjectModel3D, Name: name, Model: file,
@@ -777,6 +781,9 @@ func exportArchiveGLBs(ctx *cli.Context, ls *sm64ds.LevelSet, bindings map[int][
 			}
 			clips = append(clips, sm64ds.NamedBCA{Name: cs, Anim: a})
 		}
+		if doorModels[stem] {
+			clips = appendMirrored(clips)
+		}
 		glbData, err := m.GLB()
 		if len(clips) > 0 {
 			glbData, err = m.SkinnedGLB(clips)
@@ -805,17 +812,12 @@ func exportArchiveGLBs(ctx *cli.Context, ls *sm64ds.LevelSet, bindings map[int][
 		id := objectID(stem)
 		anims := clipAnims(clips)
 		if doorModels[stem] && len(anims) > 0 {
-			for _, c := range clips {
-				if c.Name == anims[0].ID {
-					doorHold[stem] = doorApex(c.Anim)
-				}
-			}
 			// A door's clip is its swing, not an idle: `hold` plays it once and
 			// clamps, so the castle stands with its doors open.
 			for i := range anims {
 				anims[i].Loop = "hold"
 			}
-			doorAnim[stem] = anims[0].ID
+			setDoorClips(stem, clips, anims)
 		}
 		b.AddObject(schema.Asset{ID: id, Name: title(stem), Group: "Archive members"}, &schema.Object{
 			Type: schema.ObjectModel3D, Name: title(stem), Model: stem + ".glb",
@@ -1560,7 +1562,7 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		// addDoor emits a door: a named model (leaf, or leaf+plaque merged) on
 		// the placement's own transform, with the actor binding and the
 		// click-to-open handler the leaf's clip provides.
-		addDoor := func(stem string, o sm64ds.LevelObject, off [3]float64) {
+		addDoor := func(stem string, o sm64ds.LevelObject, off [3]float64, clip string) {
 			asset, ok := refs[stem]
 			if !ok {
 				return
@@ -1575,7 +1577,11 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			if o.RotY != 0 {
 				pl.Rot = []float64{0, o.RotY * math.Pi / 180, 0}
 			}
-			if a := doorAnim[stem]; a != "" {
+			a := clip
+			if a == "" {
+				a = doorAnim[stem]
+			}
+			if a != "" {
 				pl.OnClick = &schema.OnClick{
 					Action: schema.ActionAnimate, Clip: a,
 					HoldAt: r3(doorHold[stem]), Toggle: true,
@@ -1584,7 +1590,12 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			doc.Placements = append(doc.Placements, pl)
 			pid++
 		}
-		for _, p := range order {
+		objs := make([]sm64ds.LevelObject, len(order))
+		for i, p := range order {
+			objs[i] = p.o
+		}
+		mirrorLeaf := doubleDoorMirrors(objs)
+		for i, p := range order {
 			o := p.o
 			curVars = variantIDs(p.layers, p.gated, declared)
 			curScale = nil
@@ -1606,7 +1617,13 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 					yaw := o.RotY * math.Pi / 180
 					off = [3]float64{math.Cos(yaw) * doorRestX, 0, -math.Sin(yaw) * doorRestX}
 				}
-				addDoor(stem, o, off)
+				// One leaf of a double door swings the other way, or the pair
+				// opens in opposite directions — see appendMirrored.
+				clip := ""
+				if mirrorLeaf[i] {
+					clip = doorMirrorAnim[stem]
+				}
+				addDoor(stem, o, off, clip)
 
 			case paintingActor:
 				sc, lift := paintingScale(o.Params[0])
@@ -1707,7 +1724,6 @@ func appendUniq(xs []string, v string) []string {
 }
 
 func starID(star int) string { return fmt.Sprintf("star%d", star) }
-
 
 // variantIDs turns one placement's star-layer set, intersected with whatever
 // its own code decided (the mission gate), into its variant membership. Layer 0
@@ -1891,6 +1907,111 @@ const doorRestX = 9.375 * objScale
 // doorCombo maps "leaf|plaque" to the stem of the merged object.
 var doorCombo = map[string]string{}
 
+// mirrorSuffix names the second, mirrored copy of a door's swing clip.
+const mirrorSuffix = "_m"
+
+// doorMirrorAnim maps a door object's stem to the id of its mirrored clip.
+var doorMirrorAnim = map[string]string{}
+
+// appendMirrored gives a door BOTH senses of its swing as two clips on the one
+// object.
+//
+// A door's swing direction is NOT in its clip. Every door in the game plays the
+// one clip ar1_8, and the actor picks the sense from which side of the door the
+// player is standing on: $02145370 transforms the player's position into door
+// space, and $0214532C and $02145170 branch on the sign of its Z. One clip, two
+// senses.
+//
+// A double door is two records of the same kind, 300 world units apart along
+// their shared local X with yaws 180 degrees apart: every leaf model spans local
+// X 0..18.750 (= 150 world units) with its hinge at 0, so the pair brackets a
+// 300-unit doorway and the two leaves meet in the middle. Their placements are
+// therefore fixed, and their local Z axes oppose — so one player stands on
+// opposite sides of the two leaves, they take opposite branches, and they swing
+// together as a double door must. An export has no player, so both leaves would
+// take the same branch and open in opposite directions — hence the second clip,
+// which doubleDoorMirrors hands to one leaf of each pair.
+func appendMirrored(clips []sm64ds.NamedBCA) []sm64ds.NamedBCA {
+	out := append([]sm64ds.NamedBCA{}, clips...)
+	for _, c := range clips {
+		out = append(out, sm64ds.NamedBCA{Name: c.Name + mirrorSuffix, Anim: c.Anim.MirroredY()})
+	}
+	return out
+}
+
+// setDoorClips records which of a door object's clips opens it, in each hinge
+// sense, and the frame at which it stands open (the same frame either way — a
+// mirror does not move the apex).
+func setDoorClips(stem string, clips []sm64ds.NamedBCA, anims []schema.Animation) {
+	base := ""
+	for _, a := range anims {
+		if !strings.HasSuffix(a.ID, mirrorSuffix) {
+			base = a.ID
+			break
+		}
+	}
+	if base == "" {
+		return
+	}
+	doorAnim[stem] = base
+	for _, c := range clips {
+		if c.Name == base {
+			doorHold[stem] = doorApex(c.Anim)
+		}
+		if c.Name == base+mirrorSuffix {
+			doorMirrorAnim[stem] = c.Name
+		}
+	}
+}
+
+// doubleDoorMirrors picks, for each double door in a level, the one leaf whose
+// swing has to be mirrored so the pair opens together. A pair is two door
+// records of the same kind, two leaf widths apart along their shared local X,
+// with yaws 180 degrees apart; the choice between them is by normalised yaw, so
+// it is stable from run to run. See emitDoorMirror for why one must be flipped.
+func doubleDoorMirrors(order []sm64ds.LevelObject) map[int]bool {
+	const leafPair = 300.0 // world units: two 150-unit leaves meeting in the middle
+	norm := func(d float64) float64 {
+		d = math.Mod(d, 360)
+		if d < 0 {
+			d += 360
+		}
+		return d
+	}
+	out := map[int]bool{}
+	for i := range order {
+		a := order[i]
+		if !a.Door {
+			continue
+		}
+		for j := i + 1; j < len(order); j++ {
+			b := order[j]
+			if !b.Door || b.ID != a.ID || b.Y != a.Y {
+				continue
+			}
+			dx, dz := b.X-a.X, b.Z-a.Z
+			if math.Abs(math.Hypot(dx, dz)-leafPair) > 1 {
+				continue
+			}
+			if math.Abs(norm(b.RotY-a.RotY)-180) > 1 {
+				continue
+			}
+			// and collinear with the leaves: the partner lies along local X
+			yaw := a.RotY * math.Pi / 180
+			ux, uz := math.Cos(yaw), -math.Sin(yaw)
+			if math.Abs((dx*ux+dz*uz)/leafPair) < 0.99 {
+				continue
+			}
+			if norm(b.RotY) > norm(a.RotY) {
+				out[j] = true
+			} else {
+				out[i] = true
+			}
+		}
+	}
+	return out
+}
+
 // exportDoorGLBs builds one object per (leaf, plaque) pair a door run asked for.
 // A star door is a leaf plus a plaque authored in the leaf's own space; as two
 // placements they cannot move together, so the plaque hung in the air when the
@@ -1926,7 +2047,7 @@ func exportDoorGLBs(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings 
 			continue
 		}
 		m := leaf.MergeParts(plaque)
-		clips := archiveClipsFor(ls, bindings, doorActor, m.NumBones)
+		clips := appendMirrored(archiveClipsFor(ls, bindings, doorActor, m.NumBones))
 		if len(clips) == 0 {
 			continue
 		}
@@ -1955,8 +2076,7 @@ func exportDoorGLBs(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings 
 			})
 		refs[stem] = id
 		doorCombo[k[0]+"|"+k[1]] = stem
-		doorAnim[stem] = anims[0].ID
-		doorHold[stem] = doorApex(clips[0].Anim)
+		setDoorClips(stem, clips, anims)
 		n++
 	}
 	ctx.Logf("%d door+plaque objects merged", n)
