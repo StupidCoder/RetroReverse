@@ -3629,3 +3629,40 @@ Spot-verified in the viewer: FORE (billboards), NEWY (pair overrides), BEAC
 (regression) — all load clean; all 66 shipped GLBs open and parse. Still open:
 friendly course names, the 11 unreachable env descriptors, cross-course
 texture dedup if the 360 MB ever needs shrinking.
+
+### The course names were on the signboards all along
+
+The open "friendly names" item closes from inside the disc. The names the game
+shows at course transitions are nowhere in `/Text` (the `txet` UTF-16 string
+bank carries UI text only) — they live as **pixels on the fork signboards**:
+`/Common/obj_obj_<code>_bunki_tx_pmt.sz` ("bunki" = branch), one tiny pmt per
+course, whose texture 1 is the green highway sign the branch gantry shows for
+that course ("Deep Lake ←"). Decoding all thirty with carex's own texture
+reader and reading the plates gives the full table — BEAC is "Sunny Beach",
+LAKE "Deep Lake", CLOU "Cloudy Highland", TULI "Tulip Garden", GRAN just
+"Canyon", FLOR "Milky Way" (the shuttle-launch course), SANF "Bay Area", MAYA
+"Legend". The co-driver voice packs cross-check it: each `/Sound/*_HAM_*.PAK`
+header carries a 20-byte dev label ("WBND HAM Req: Tulip "), and their file
+names carry the **route-pyramid stage codes** — `HAM_1A..5E` for one tour,
+`HAM_CVT_1A..5E` for the other.
+
+That also answers the course-count question. The route indicator's pyramid is
+15 stages (1+2+3+4+5) — **per tour, and the game ships two tours**: the
+OutRun2 pyramid (1A Palm Beach … 5A Tulip Garden … 5E Cape Way) and the
+OutRun2 SP pyramid (1A Sunny Beach … 5E Skyscrapers), which the course-select
+sprites confirm in words ("Outrun2 - 15 continuous course", "Outrun2: SP - 15
+continuous course"). 15 + 15 = 30 base courses; the extra six dirs are the
+`_BR`/`_BT`/`_T` variants of the two tour openers (Sunny Beach and Palm
+Beach); the skipped `_R` set is the same 30 reversed. The stage-code map:
+
+| tour | 1A | 2A | 2B | 3A | 3B | 3C | 4A | 4B | 4C | 4D | 5A | 5B | 5C | 5D | 5E |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| OutRun2 | PALM | LAKE | ALPI | CAST | FORE | DESE | CLOU | INDU | SNOW | GHOS | TULI | METR | RUIN | IMPE | CAPE |
+| OutRun2 SP | BEAC | SANF | YOSE | NIAG | SEQU | GRAN | MACH | LASV | ALAS | AMAZ | EAST | MAYA | FLOR | PRIN | NEWY |
+
+The Studio manifest now carries the signboard names (variants suffixed with
+their dir code: "Sunny Beach BR"). The sprite side of the hunt opened the
+`xst` sprite-bank container as a byproduct: an ani-side header, then a
+standard `XPR0` resource bank — 20-byte texture records `{0x00040001, data
+offset, 0, format dword}` with the D3D format byte at bits 8-15 and log2
+dimensions at bits 20-27.

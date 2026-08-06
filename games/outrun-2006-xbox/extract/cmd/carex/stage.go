@@ -176,6 +176,25 @@ func exportStages(disc *xbox.Image, b *build.Builder) {
 	}
 }
 
+// stageNames are the game's own course names, transcribed from each course's
+// fork-signboard texture (/Common/obj_obj_<code>_bunki_tx_pmt.sz, texture 1 —
+// the green "next course" arrow sign the gantries carry), with word spacing
+// normalised to the transition-banner style. The two 15-course tours these
+// belong to are the game's OutRun2 and OutRun2 SP route pyramids (the
+// co-driver voice packs label them HAM_<stage> and HAM_CVT_<stage>).
+var stageNames = map[string]string{
+	"ALAS": "Ice Scape", "ALPI": "Alpine", "AMAZ": "Jungle",
+	"BEAC": "Sunny Beach", "CAPE": "Cape Way", "CAST": "Castle Wall",
+	"CLOU": "Cloudy Highland", "DESE": "Desert", "EAST": "Giant Statues",
+	"FLOR": "Milky Way", "FORE": "Coniferous Forest", "GHOS": "Ghost Forest",
+	"GRAN": "Canyon", "IMPE": "Imperial Avenue", "INDU": "Industrial Complex",
+	"LAKE": "Deep Lake", "LASV": "Casino Town", "MACH": "Lost City",
+	"MAYA": "Legend", "METR": "Metropolis", "NEWY": "Skyscrapers",
+	"NIAG": "Water Falls", "PALM": "Palm Beach", "PRIN": "Floral Village",
+	"RUIN": "Ancient Ruins", "SANF": "Bay Area", "SEQU": "Big Forest",
+	"SNOW": "Snow Mountain", "TULI": "Tulip Garden", "YOSE": "National Park",
+}
+
 // stageID is the asset id for a course dir ("BEAC_BR" -> "stage-beac-br").
 func stageID(dir string) string {
 	return "stage-" + strings.ReplaceAll(strings.ToLower(dir), "_", "-")
@@ -312,8 +331,12 @@ func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]
 			Attach: "camera", RenderOrder: -1, DepthTest: &depthOff, Role: "sky"})
 	}
 	name := strings.ReplaceAll(dir, "_", " ")
-	if dir == "BEAC" {
-		name = "Beach"
+	base, suffix, isVariant := strings.Cut(dir, "_")
+	if n, ok := stageNames[base]; ok {
+		name = n
+		if isVariant {
+			name += " " + suffix
+		}
 	}
 	b.AddLevel(schema.Asset{ID: id, Name: name, Group: "Courses"}, &schema.Level{
 		Type: schema.LevelScene3D,
