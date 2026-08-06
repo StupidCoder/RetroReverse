@@ -3775,3 +3775,25 @@ screen than the `[0x3DBEE8]` cutoff are culled (flag bit 6 widens the cutoff
 to 2^-7 for a subtree, stack-scoped); nodes with **flag bit 4** turn the
 size into an e2 slot index biased by the **f14** field — the four-slot LOD
 ladder is real and in use (LAKE, CAST), just not the cause of the doubles.
+
+### The red beach — three stray vertices, verified against the game itself
+
+The saturated red/blue/cyan gradient on Sunny Beach's sand is in the disc's
+own data: part 1's coloured vertex pair carries 191 vertices of which 181 are
+pure white, a handful are the dark corner-shading that is the real (and
+modest) extent of "baked lighting" on the stages — and exactly three are
+stray paint: one pure red, one pure blue, one teal, at (−405, −49.5, −732),
+(−391, −49.7, −717) and (−457, −49.6, −795) on the beach cove. The gradients
+are just those three vertices interpolating across large sand triangles.
+
+Verified the honest way: the oracle drove the race there (right trigger held,
+a steer through the seaside curve) and the game's own frame at flip 1100
+shows the same blue/red/teal streaks on the same stretch of sand, in the
+same spatial order — a Sumo vertex-painting slip, shipped, and invisible at
+racing speed. The drive pinned two open items as a side effect: vertex
+colour really does modulate diffuse in the stage combiner (the tint could
+not show otherwise), and the export's channel order matches the game (red
+lands where the game's red lands). The chase also upgraded the instruments:
+`rtrigger` graduated from raw probe `an7` by moving the speedometer, and
+point-primitive draws (the drift sparks) now skip instead of halting the
+machine.

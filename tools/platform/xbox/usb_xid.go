@@ -115,6 +115,11 @@ var padControls = map[string]PadControl{
 	"a": {Kind: PadAnalogButton, Index: 0}, // gamepad+2 -> the title's game bit 0x0002
 	"b": {Kind: PadAnalogButton, Index: 1}, // gamepad+3 -> the title's game bit 0x0004
 
+	// The right trigger, named by driving it: held from the OutRun 2006 race
+	// grid it is the one byte that moves the speedometer (0 -> 150 km/h by
+	// flip 400 of race-driving.state; "a" leaves the car parked).
+	"rtrigger": {Kind: PadAnalogButton, Index: 7}, // gamepad+9
+
 	// The first stick — the one the menus steer by, which is what makes it the primary.
 	// The offsets are in the PAD'S OWN CONVENTION, where up INCREASES. The temptation is
 	// to write this table in screen terms and negate on the way out; doing both is how the

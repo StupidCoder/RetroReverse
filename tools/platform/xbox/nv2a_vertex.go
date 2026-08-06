@@ -516,6 +516,11 @@ func (g *pgraph) assemble(verts []kelvinVtx) {
 			tri(i, i+1, i+3)
 			tri(i, i+3, i+2)
 		}
+	case primPoints:
+		// Point sprites (OutRun's drift sparks). Not rasterized yet; a skip
+		// keeps the race running where a halt used to end it — the loss is a
+		// few sparkle pixels, and a halt is the one thing an instrument must
+		// not do to the run it measures.
 	default:
 		g.m.CPU.Halt("nv2a: draw %d primitive type %d not implemented", g.Draws, g.prim)
 		return
