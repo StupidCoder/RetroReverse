@@ -448,6 +448,34 @@ The chain chomp is the object that proves it. It is one placement in six of seve
 A placement's mission list is the star layer intersected with §8's gate, which is
 what separates Whomp's Fortress's summit pair.
 
+**Every level opens where the game starts you.** Object-table type 1 is an
+entrance record (handler `$020FE6C8`) and the level's FIRST one is the player
+spawn; **all 48 shipped stages have one, with a heading**, and Bob-omb
+Battlefield's reads `(-6225, 1700, 6353)` yaw 135 — the same value the world-mode
+preset derived independently. The heading convention is the one every placement
+already uses: yaw degrees about +Y, forward = `(sin, 0, cos)`.
+
+The catch is that **the spawn is in the sky**. An entrance is where the game
+RELEASES you, not where you land: Bob-omb Battlefield's `y = 1.7` is a drop
+height (the world-mode preset says so too, and refuses to stand on it), and
+Whomp's Fortress drops you high enough that a level shot from there frames
+nothing but skybox. So the exporter drops a ray onto the level's own collision
+and stands the camera on the floor, using `KCL.RaycastDown` — the reimplementation
+of the game's ground walker at `$01FFD3F8`, verified against it ray for ray
+(Part VI §5), with a nil CLPS to make the surface filter permissive because any
+floor will do. The signpost's init does the same thing to stand itself up
+(Part V §6).
+
+Two levels need a floor, not the floor: the wing-cap course is rings of items in
+open sky over ground far below everything it places, so the camera is never put
+below the lowest thing the level places, nor above the drop point.
+
+What is decoded is the position and the heading. The framing — 4 Mario-heights
+back, eye at 1.6 and aim at 1.0, with idle Mario as the ruler at 0.1415 stage
+units — is **editorial**, and deliberately not the game's own over-the-shoulder
+distance, which frames a diorama badly. The establishing shot over the level's
+extent survives as the fallback for anything with no entrance record.
+
 **The paintings size themselves.** Every `for_*.glb` in the castle is the same
 object: a bare **12.5-unit square quad** carrying one picture. It is a
 placeholder, and the actor is what makes a painting out of it. Actor 307's init

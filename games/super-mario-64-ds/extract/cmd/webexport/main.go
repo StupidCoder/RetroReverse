@@ -922,6 +922,42 @@ func kclIndex(ls *sm64ds.LevelSet) map[string]string {
 	return kclPaths
 }
 
+// loadKCL parses one of the cartridge's .kcl collision meshes by stem.
+func loadKCL(ls *sm64ds.LevelSet, tmp, stem string) (*sm64ds.KCL, error) {
+	p, ok := kclIndex(ls)[stem]
+	if !ok {
+		return nil, fmt.Errorf("no .kcl named %q", stem)
+	}
+	data, err := os.ReadFile(filepath.Join(tmp, "files", filepath.FromSlash(strings.TrimPrefix(p, "/"))))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > 4 && string(data[:4]) == "LZ77" {
+		data = nds.Decompress(data[4:])
+	}
+	return sm64ds.ParseKCL(data)
+}
+
+// groundUnder drops a ray from (x, y, z) — world units — onto the level's own
+// collision and returns the floor height in world units.
+//
+// This is the game's own ground query: RaycastDown reimplements the walker at
+// $01FFD3F8 and is verified against it ray for ray (Part VI §5). A nil CLPS
+// makes the surface filter permissive, which is what a camera wants — any floor
+// will do. The signpost's init does the same thing to stand itself on the
+// ground (Part V §6).
+func groundUnder(k *sm64ds.KCL, x, y, z float64) (float64, bool) {
+	if k == nil {
+		return 0, false
+	}
+	const floorBelow = -0x80000000
+	h, ok := k.RaycastDown(int32(x*4096), int32(y*4096), int32(z*4096), floorBelow, nil, 1)
+	if !ok {
+		return 0, false
+	}
+	return float64(h.Y) / 4096, true
+}
+
 // writeKCL converts one .kcl to a GLB under dir, named file. Shared by the
 // stage meshes and the object colliders, which differ only in where they land.
 func writeKCL(ctx *cli.Context, ls *sm64ds.LevelSet, tmp, stem, dir, file string) error {
@@ -1261,12 +1297,24 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			note(o.X*toStage, o.Y*toStage, o.Z*toStage)
 		}
 		cam := &schema.Camera{Mode: "fly", FOV: 50, Near: 0.01, Far: 500, Fly: &schema.Fly{Speed: 3}}
+		span := math.Max(1, math.Max(hi[0]-lo[0], hi[2]-lo[2]))
 		if haveB {
+			cam.Fly.Speed = math.Max(1, math.Min(10, span/6))
+		}
+		var kcl *sm64ds.KCL
+		if lv.KCLPath != "" {
+			kcl, _ = loadKCL(ls, tmp, strings.TrimSuffix(filepath.Base(lv.KCLPath), ".kcl"))
+		}
+		floorY := math.Inf(-1)
+		if haveB {
+			floorY = lo[1]
+		}
+		if e, ok := spawnShot(lv, kcl, floorY); ok {
+			cam.Pos, cam.Target = e.pos, e.target
+		} else if haveB {
 			cx, cz := (lo[0]+hi[0])/2, (lo[2]+hi[2])/2
-			span := math.Max(1, math.Max(hi[0]-lo[0], hi[2]-lo[2]))
 			cam.Pos = []float64{cx, hi[1] + span*0.5, lo[2] - span*0.7}
 			cam.Target = []float64{cx, (lo[1] + hi[1]) / 2, cz}
-			cam.Fly.Speed = math.Max(1, math.Min(10, span/6))
 		} else {
 			cam.Pos = []float64{0, 8, -16}
 			cam.Target = []float64{0, 0, 0}
@@ -1561,6 +1609,76 @@ var msgActors = map[int]string{
 	184: "Signpost",
 	183: "Notice board",
 	185: "Toad",
+}
+
+// shot is one camera placement in stage-GLB units.
+type shot struct{ pos, target []float64 }
+
+// spawnShot puts the opening camera where the game starts you: behind the
+// player's spawn, looking the way they face.
+//
+// The spawn is decoded, not chosen. Object-table type 1 is an entrance record
+// (handler $020FE6C8, Part V §2) and the level's FIRST one is where the game
+// stands the player; all 48 shipped stages have one, with a heading. Bob-omb
+// Battlefield's reads (-6225, 1700, 6353) yaw 135 — the same value the world-mode
+// preset derived independently.
+//
+// The OFFSET behind it is editorial, and deliberately not the game's: SM64DS's
+// own camera sits a couple of metres off Mario's shoulder, which frames a
+// diorama badly. These numbers are a third-person shot pulled back far enough to
+// show where you are — about 4 and 2 Mario-heights (idle Mario is 0.1415 stage
+// units, the ruler the world-mode preset established). What IS taken from the
+// cartridge is the position and the heading, so every level now opens facing the
+// way the game faces you.
+func spawnShot(lv *sm64ds.Level, kcl *sm64ds.KCL, contentFloor float64) (shot, bool) {
+	if len(lv.Entrances) == 0 {
+		return shot{}, false
+	}
+	e := lv.Entrances[0]
+	// marioH is idle Mario in stage-GLB units — the ruler the world-mode preset
+	// established by measuring the POSED model (site/vr/super-mario-64-ds/…).
+	const (
+		marioH = 0.1415
+		back   = 4.0 * marioH // behind the spawn, along its own heading
+		eye    = 1.6 * marioH // eye height above the floor
+		aim    = 1.0 * marioH // look at about where the player's head would be
+	)
+	// The heading convention is the one every placement already uses: yaw is
+	// degrees about +Y, forward = (sin, 0, cos).
+	yaw := e.RotY * math.Pi / 180
+	fx, fz := math.Sin(yaw), math.Cos(yaw)
+	x, z := e.X*toStage, e.Z*toStage
+	cx, cz := x-fx*back, z-fz*back
+	// The collision query is in WORLD units, the camera in stage-GLB units.
+	const toWorld = 1 / toStage
+
+	// THE SPAWN IS IN THE SKY. An entrance record is where the game RELEASES
+	// the player, not where they land — Bob-omb Battlefield's y=1.7 is a drop
+	// height, which the world-mode preset also refuses to stand on, and Whomp's
+	// Fortress drops you high enough that a shot from there sees nothing but
+	// skybox. So drop a ray onto the level's own collision and stand the camera
+	// on the floor, the way the game stands the player on it.
+	gy, ok := groundUnder(kcl, e.X, e.Y, e.Z)
+	if !ok {
+		gy = e.Y // no collision under the spawn: keep the drop height
+	}
+	// The camera sits BEHIND the spawn, which may be over higher ground (or a
+	// wall); take whichever floor is higher so the shot never sinks into it.
+	if cg, ok := groundUnder(kcl, cx*toWorld, e.Y, cz*toWorld); ok && cg > gy {
+		gy = cg
+	}
+	gy *= toStage
+	// Two levels drop you over a floor that is below EVERYTHING: the wing-cap
+	// course is rings of items in open sky, and standing on its distant ground
+	// looks at nothing. Never go below the lowest thing the level places, and
+	// never above the drop point itself.
+	if lowest := math.Min(e.Y*toStage, contentFloor); gy < lowest {
+		gy = lowest
+	}
+	return shot{
+		pos:    []float64{r3(cx), r3(gy + eye), r3(cz)},
+		target: []float64{r3(x), r3(gy + aim), r3(z)},
+	}, true
 }
 
 // paintingActor 307 is every framed painting in the castle, and it SIZES ITSELF:
