@@ -848,15 +848,58 @@ $02126330  [$040004A4] = $01000088 | r2 << 16
 
 Picture 7 is `for_wl`, and it is the only picture in the game the painting code
 singles out this way. So the export puts the actor's alpha on the model's
-material before writing the GLB, and the two facts compose the way the hardware
-composes them: the cut-out texels stay gone, and what is left is **`alphaMode:
-BLEND` at 20/31 = 0.645**. It reads as water now, not as a decal.
+material before writing the GLB: **`alphaMode: BLEND` at 20/31 = 0.645**.
 
 (Two other picture-specific branches sit beside it and are not reproduced:
 picture 4 with mode 1 clears bits 0–1 of the object's flag word at `+$B0`, and
 picture 7 with mode 1 saves `obj+$5C` and adds 2048 world units to it when bit
 `$40000` of `[$0209CAA0 + 8]` is set — the save flag that decides which height
 Wet-Dry World's entrance sits at.)
+
+### There is no cut-out, because the guest never samples those texels
+
+The first version of the alpha fix kept the texture's cut-out and blended what
+survived — "the cut-out texels stay gone, and what is left goes see-through" —
+and it was wrong. Two ragged gaps tore through the middle of the water. **There
+is no cut-out on this surface in the game.**
+
+The texture really does carry blank texels: every picture is format 5, the DS's
+**4×4 block compression**, and in two of its four block modes index 3 is
+transparent. `for_wl` has 306 such blocks and 4,057 such texels — a quarter of
+the image (`paintprobe -tex`; the palette-index region sits at `dataOff + size`,
+which the block-mode histogram confirms is where a coherent 0/1/2/3 distribution
+lands, 210/96/0/718 against `for_fl`'s 16/6/454/548). Every picture has colour
+index 0 opaque (`texparam` bit 29 clear), so this, not the palette, is where the
+holes came from.
+
+They never reach the screen, because **mode 1 does not map its picture per
+texel.** The two draws differ, and the difference is the whole finding:
+
+| | mode 0 — the framed pictures (`$0212677C`) | mode 1 — the liquid entrances (`$021261F4`) |
+|---|---|---|
+| `TEXCOORD` | written **inside** the vertex loop, per vertex | written **once**, before the loop |
+| per vertex | `TEXCOORD`, `NORMAL`, `VTX_16` | `NORMAL`, `VTX_16` |
+| texgen (`TEXIMAGE_PARAM` bits 30-31) | 0 — the coordinate as given | **2 — normal source** (`ORR r2, r2, #$80000000`, `$021262B8`) |
+
+Mode 1 is an **environment map** driven by the vertex normal — and the mode-1
+grid builder gives every vertex the same normal (`$1FF00000`, +Z), so a still
+surface samples a single texel and is one flat, uniformly translucent colour.
+That is what "no cut-out, all just alpha blended" looks like from the guest's
+side, and it is the user's account of the game.
+
+The Studio maps the picture anyway: a still water sheet reads better in a
+diorama than one flat colour, and the ripple that would move those normals is
+not reproduced (below). That is **editorial**, and it has a consequence the
+first fix missed — under a mapping the guest does not perform, blocks whose
+index 3 the guest never samples must not become holes. Those pictures decode
+with `nitro.BlankBaseColor`: the blank slot takes **the block's own colour 0**,
+so the fill stays inside the palette that block already carries and invents no
+colour. `for_wl`'s texture ships with no alpha channel at all.
+
+The general rule stays the hardware's: `nitro.BlankTransparent` is the default
+and every other 4×4 texture in the game keeps it — that transparent slot is what
+gives Bomb King, the Chain Chomp's flower and a hundred other compressed sheets
+their silhouette.
 
 **Not reproduced: the ripple.** The grid exists so the painting can be displaced
 by a wave when you touch it. The mode table *is* readable — it lives in overlay
@@ -866,7 +909,9 @@ loads the overlay — and mode 1's builder at `$021265EC` turns out to lay the
 grid **flat**: `x` over `[0,w]`, `y` over `[0,h]`, `z` = 0, one constant normal
 of `$1FF00000` (+Z). The displacement is not in the builder; it is in the
 record's middle method, which this does not run. The Studio ships the painting
-flat, at its real size.
+flat, at its real size. For mode 1 that constant normal is not just a still
+pose — it is the whole texture lookup (above), so the ripple and the picture on
+the water are the same missing thing.
 
 **What a mission does not show you.** Four models are in the level data and are not
 part of the level as you play it: the Power Star (`arc0_21`), the flat silhouette
@@ -1224,6 +1269,9 @@ go run ./extract/cmd/paintprobe -place
 go run ./extract/cmd/paintprobe -modes
 # and the per-picture records the painting indexes with (par1 >> 8) & $1F
 go run ./extract/cmd/paintprobe -pics
+# every picture's texture: TEXIMAGE_PARAM, format, and how many texels the
+# decode would cut out (-texdir data sweeps the whole filesystem instead)
+go run ./extract/cmd/paintprobe -tex
 
 # Part V §8 — which placed actors gate themselves on the save's star bits
 go run ./extract/cmd/gateprobe -in "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds" -sweep

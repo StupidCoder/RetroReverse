@@ -99,19 +99,47 @@ func DecodeContainerTextures(data []byte) ([]Texture, error) {
 	return nil, nil
 }
 
+// Blank4x4 chooses what a format-5 block's index 3 decodes to in the two block
+// modes where the hardware makes it transparent.
+//
+// BlankTransparent is the hardware's own meaning and the default: it is what
+// gives an enemy's 4x4-compressed sheet its silhouette, and nothing that draws a
+// texture the way the hardware does should ask for anything else.
+//
+// BlankBaseColor exists for a surface the guest does NOT sample per texel. SM64DS
+// draws its two liquid painting-entrances with normal-source texgen and a single
+// texture coordinate for the whole surface (Part V §7): the texture is an
+// environment map there, not a picture, so a re-render that maps it as a picture
+// anyway is already editorial — and under that rendering the blocks whose index 3
+// is unused must not turn into holes. Taking the block's own colour 0 keeps the
+// fill inside the palette the block already carries; it invents no colour.
+type Blank4x4 int
+
+const (
+	BlankTransparent Blank4x4 = iota
+	BlankBaseColor
+)
+
 // DecodeTexture decodes one DS texture from raw offsets and a texImageParam word,
 // for containers other than TEX0 (e.g. Super Mario 64 DS's own BMD model format).
 // texelOff is the texel data; palIdxOff the 4x4-format palette-index data (used
 // only for format 5); palOff the palette base. Format, width and height come from
 // param (the standard DS texImageParam; its low 16 offset bits are ignored here).
 func DecodeTexture(data []byte, texelOff, palIdxOff, palOff int, param uint32) (Texture, error) {
+	return DecodeTextureBlank(data, texelOff, palIdxOff, palOff, param, BlankTransparent)
+}
+
+// DecodeTextureBlank is DecodeTexture with a say in what a format-5 block's
+// unused index 3 becomes. See Blank4x4 — the answer is BlankTransparent unless
+// you can say why the guest never samples those texels.
+func DecodeTextureBlank(data []byte, texelOff, palIdxOff, palOff int, param uint32, blank Blank4x4) (Texture, error) {
 	fmtID := int(param>>26) & 7
 	w := 8 << (int(param>>20) & 7)
 	h := 8 << (int(param>>23) & 7)
 	color0 := param&(1<<29) != 0
 	var img *image.NRGBA
 	if fmtID == 5 {
-		img = decode4x4(data, texelOff, palIdxOff, palOff, w, h)
+		img = decode4x4(data, texelOff, palIdxOff, palOff, w, h, blank)
 	} else {
 		var err error
 		if img, err = decodeTexture(data, texelOff, palOff, fmtID, w, h, color0); err != nil {
@@ -164,7 +192,7 @@ func decodeTEX0(data []byte, base int) ([]Texture, error) {
 			// region (TEX0+$24); its per-block palette words live at half that offset in
 			// the palette-index region (TEX0+$28). Verified: in a real TEX0 the regions
 			// tile exactly — texels, 4x4 texels, 4x4 indices (half size), palettes.
-			img = decode4x4(data, tex4x4Off+addr, palIdxOff+addr/2, palBase, w, h)
+			img = decode4x4(data, tex4x4Off+addr, palIdxOff+addr/2, palBase, w, h, BlankTransparent)
 		} else {
 			var derr error
 			if img, derr = decodeTexture(data, texDataOff+addr, palBase, fmtID, w, h, color0); derr != nil {
@@ -259,7 +287,7 @@ func padded(b []byte) []byte {
 // word — bits 0-13 a sub-palette offset (in 4-byte steps, relative to the texture's
 // palette), bits 14-15 a mode selecting how the four 2-bit values map to colours
 // (two of them may be interpolations, one may be transparent).
-func decode4x4(data []byte, texel, palIdx, palBase, w, h int) *image.NRGBA {
+func decode4x4(data []byte, texel, palIdx, palBase, w, h int, blank Blank4x4) *image.NRGBA {
 	img := image.NewNRGBA(image.Rect(0, 0, w, h))
 	bw := w / 4
 	for by := 0; by < h/4; by++ {
@@ -272,6 +300,9 @@ func decode4x4(data []byte, texel, palIdx, palBase, w, h int) *image.NRGBA {
 			info := le.Uint16(data[palIdx+blk*2:])
 			cbase := palBase + int(info&0x3FFF)*4
 			cols := blockColors(data, cbase, info>>14)
+			if blank == BlankBaseColor && info>>14 < 2 {
+				cols[3] = cols[0]
+			}
 			for py := 0; py < 4; py++ {
 				for px := 0; px < 4; px++ {
 					v := (texels >> uint((py*4+px)*2)) & 3

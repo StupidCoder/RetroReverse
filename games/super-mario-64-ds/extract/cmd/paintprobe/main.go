@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"retroreverse.com/games/super-mario-64-ds/extract/sm64ds"
@@ -46,7 +47,14 @@ func main() {
 	dump := flag.Int("dump", 0, "print this many vertex records")
 	place := flag.Bool("place", false, "list every placement of the actor with its decoded parameter word")
 	modes := flag.Bool("modes", false, "dump the four behaviour-mode records the init dispatches through")
+	tex := flag.Bool("tex", false, "for every .bmd under -texdir: the material's TEXIMAGE_PARAM, the texture format, and how many texels the decode makes transparent")
+	texDir := flag.String("texdir", "data/picture", "subtree of the extracted filesystem -tex walks")
 	flag.Parse()
+
+	if *tex {
+		dumpTextures(*ext, *texDir)
+		return
+	}
 
 	ls, err := sm64ds.OpenLevels(*rom, *ext)
 	if err != nil {
@@ -137,6 +145,51 @@ func main() {
 		buf := o.R32(obj + offVerts)
 		fmt.Printf("%04X     %-5d %-5d %-4d %-5d %dx%d=%-3d %s\n",
 			par[0], w, h, mode, pic, rows, cols, n, bounds(o, buf, int(n), *dump))
+	}
+}
+
+// dumpTextures reports what each picture's own .bmd says about its texture.
+//
+// The painting's draw does not use the material record — it rebuilds
+// TEXIMAGE_PARAM at $02126290 out of the texture resource's authored param,
+// carrying the format, the two size fields and bit 29 (colour index 0 is
+// transparent) and nothing else. So the question "does this picture have a
+// cut-out?" is a question about bit 29 and the format, and this prints both
+// beside the count of texels the decode actually zeroes.
+func dumpTextures(ext, sub string) {
+	var paths []string
+	filepath.Walk(filepath.Join(ext, "files", filepath.FromSlash(sub)), func(p string, fi os.FileInfo, err error) error {
+		if err == nil && !fi.IsDir() && strings.HasSuffix(p, ".bmd") {
+			paths = append(paths, p)
+		}
+		return nil
+	})
+	sort.Strings(paths)
+	fmt.Printf("%-16s %-10s %-4s %-6s %-5s %-6s %s\n",
+		"model", "texparam", "fmt", "col0tr", "alpha", "size", "transparent texels")
+	for _, p := range paths {
+		m, err := sm64ds.LoadBMD(p)
+		if err != nil {
+			fmt.Printf("%-16s %v\n", filepath.Base(p), err)
+			continue
+		}
+		for _, mat := range m.Mats {
+			t, ok := m.Texs[mat.Texture]
+			if !ok {
+				continue
+			}
+			zero := 0
+			if t.Img != nil {
+				for i := 3; i < len(t.Img.Pix); i += 4 {
+					if t.Img.Pix[i] == 0 {
+						zero++
+					}
+				}
+			}
+			fmt.Printf("%-16s %08X   %-4d %-6t %-5d %dx%-3d %d\n",
+				m.Name, mat.TexParam, t.Format, mat.TexParam&(1<<29) != 0,
+				mat.Alpha, t.Width, t.Height, zero)
+		}
 	}
 }
 

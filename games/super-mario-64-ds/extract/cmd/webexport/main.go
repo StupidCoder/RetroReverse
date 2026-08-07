@@ -109,9 +109,12 @@ func run(ctx *cli.Context) error {
 			}
 		}
 		for _, b := range bindings[paintingActor] {
-			if a := paintingDrawAlpha(b.Params[0]); a < 0x1F {
-				for _, m := range b.Models {
+			for _, m := range b.Models {
+				if a := paintingDrawAlpha(b.Params[0]); a < 0x1F {
 					paintingAlpha[m] = a
+				}
+				if paintingModeEnvMapped(b.Params[0]) {
+					paintingEnvMapped[m] = true
 				}
 			}
 		}
@@ -619,7 +622,14 @@ func exportModels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 	n, listed := 0, 0
 	for _, p := range paths {
 		n++
-		m, err := sm64ds.LoadBMD(p)
+		// A picture the game environment-maps is not sampled per texel, so
+		// its 4x4 blocks' unused index 3 must not cut holes in it — see
+		// paintingModeEnvMapped.
+		blank := nitro.BlankTransparent
+		if paintingEnvMapped[strings.TrimSuffix(filepath.Base(p), ".bmd")] {
+			blank = nitro.BlankBaseColor
+		}
+		m, err := sm64ds.LoadBMDBlank(p, blank)
 		if err != nil {
 			continue
 		}
@@ -2319,6 +2329,10 @@ var (
 // spawn parameter, so the picture, not the .bmd, decides.
 var paintingAlpha = map[string]int{}
 
+// paintingEnvMapped is the set of painting models a mode-1 placement draws —
+// the ones the game does NOT map per texel. See paintingModeEnvMapped.
+var paintingEnvMapped = map[string]bool{}
+
 // paintingActor 307 is every framed painting in the castle, and it SIZES ITSELF:
 // the shipped model is a bare 12.5-unit square quad carrying the picture, and
 // the actor's init ($02126CA0, overlay 80) reads the spawn parameter word and
@@ -2415,6 +2429,27 @@ func paintingDrawAlpha(par1 int) int {
 	}
 	return 0x1F
 }
+
+// paintingModeEnvMapped reports whether a parameter word picks the behaviour
+// mode whose draw does not map the picture per texel.
+//
+// The two draws differ, and the difference is the whole point. Mode 0 (the
+// framed pictures, $0212677C) writes TEXCOORD **inside** its vertex loop, once
+// per vertex: a UV-mapped painting. Mode 1 (the liquid entrances, $021261F4)
+// writes TEXCOORD **once**, before the loop, and emits only NORMAL and VTX_16
+// per vertex — and its TEXIMAGE_PARAM carries `ORR r2, r2, #$80000000`
+// ($021262B8), texgen mode 2, *normal source*. The surface is an ENVIRONMENT
+// MAP driven by the vertex normal, and the mode-1 grid builder gives every
+// vertex the same normal ($1FF00000, +Z), so a still surface samples one texel.
+//
+// The Studio maps it as a picture anyway — a still, flat water sheet reads
+// better in a diorama than one flat colour, and the ripple that would move
+// those normals is not reproduced. That is editorial, and it has a consequence:
+// the texture's 4x4 blocks whose index 3 the guest never samples must not turn
+// into holes. `for_wl` has 306 such blocks and 4,057 such texels, and cut out
+// they tore two ragged gaps through the middle of the water. Those models load
+// with nitro.BlankBaseColor instead.
+func paintingModeEnvMapped(par1 int) bool { return (par1>>13)&3 == 1 }
 
 // coinActors are the three placed-coin classes. All three profiles
 // ($02108790/AC/C8, actors 288/289/290) install the same vtable $021087EC,

@@ -129,7 +129,13 @@ func (b bmd) name(o int) string {
 }
 
 // LoadBMD reads and decompresses a .bmd file and decodes its model.
-func LoadBMD(path string) (*Model, error) {
+func LoadBMD(path string) (*Model, error) { return LoadBMDBlank(path, nitro.BlankTransparent) }
+
+// LoadBMDBlank is LoadBMD with a say in what an unused index 3 becomes in a
+// 4x4-compressed texture — see nitro.Blank4x4. Only the two liquid painting
+// entrances, whose surface the game does not sample per texel, ask for anything
+// but the hardware's transparent.
+func LoadBMDBlank(path string, blank nitro.Blank4x4) (*Model, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -140,11 +146,16 @@ func LoadBMD(path string) (*Model, error) {
 	} else {
 		data = nds.Decompress(raw)
 	}
-	return Decode(data, baseName(path))
+	return DecodeBlank(data, baseName(path), blank)
 }
 
 // Decode parses a decompressed .bmd blob.
 func Decode(data []byte, name string) (*Model, error) {
+	return DecodeBlank(data, name, nitro.BlankTransparent)
+}
+
+// DecodeBlank is Decode with the format-5 blank-slot choice of nitro.Blank4x4.
+func DecodeBlank(data []byte, name string, blank nitro.Blank4x4) (*Model, error) {
 	if len(data) < 0x3C {
 		return nil, fmt.Errorf("sm64ds: short BMD")
 	}
@@ -187,7 +198,7 @@ func Decode(data []byte, name string) (*Model, error) {
 		}
 		palIdxOff := tr.dataOff + tr.sz // format-5 per-block palette-select data
 		if _, done := texs[tr.name]; !done {
-			t, err := nitro.DecodeTexture(data, tr.dataOff, palIdxOff, palOff, tr.param)
+			t, err := nitro.DecodeTextureBlank(data, tr.dataOff, palIdxOff, palOff, tr.param, blank)
 			if err != nil {
 				return tr.name, 0, 0, err
 			}
