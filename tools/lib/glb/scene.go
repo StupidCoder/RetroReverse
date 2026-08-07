@@ -77,7 +77,9 @@ type Prim struct {
 	Tris      [][3]uint32
 
 	Image       image.Image
-	Joints      []uint8 // per-vertex joint index (single influence) for skinning
+	Joints      []uint8      // per-vertex joint index (single influence) for skinning
+	JointsW     [][4]uint8   // per-vertex joint indices (multi-influence); pairs with Weights
+	Weights     [][4]float32 // per-vertex joint weights for JointsW
 	Layer       int     // draw-order layer (source submission order); >0 emits extras.layer
 	BaseColor   [4]float32
 	Unlit       bool
@@ -109,6 +111,9 @@ func (s *Scene) AddMesh(node int, name string, prims []Prim) error {
 		if p.Joints != nil {
 			attrs["JOINTS_0"] = s.addJoints(p.Joints)
 			attrs["WEIGHTS_0"] = s.addUnitWeights(len(p.Joints))
+		} else if p.JointsW != nil {
+			attrs["JOINTS_0"] = s.addJoints4(p.JointsW)
+			attrs["WEIGHTS_0"] = s.addWeights(p.Weights)
 		}
 		idx := make([]uint32, 0, len(p.Tris)*3)
 		for _, t := range p.Tris {
@@ -311,6 +316,34 @@ func (s *Scene) addJoints(j []uint8) int {
 	vi := s.b.addView(buf)
 	s.b.accessors = append(s.b.accessors, accessor{
 		BufferView: vi, ComponentType: 5121, Count: len(j), Type: "VEC4",
+	})
+	return len(s.b.accessors) - 1
+}
+
+// addJoints4 writes a VEC4 ubyte JOINTS_0 accessor (multi-influence).
+func (s *Scene) addJoints4(j [][4]uint8) int {
+	buf := make([]byte, 4*len(j))
+	for i, v := range j {
+		buf[i*4], buf[i*4+1], buf[i*4+2], buf[i*4+3] = v[0], v[1], v[2], v[3]
+	}
+	vi := s.b.addView(buf)
+	s.b.accessors = append(s.b.accessors, accessor{
+		BufferView: vi, ComponentType: 5121, Count: len(j), Type: "VEC4",
+	})
+	return len(s.b.accessors) - 1
+}
+
+// addWeights writes a VEC4 float WEIGHTS_0 accessor.
+func (s *Scene) addWeights(w [][4]float32) int {
+	buf := make([]byte, 16*len(w))
+	for i, v := range w {
+		for k := 0; k < 4; k++ {
+			putF32(buf[i*16+k*4:], v[k])
+		}
+	}
+	vi := s.b.addView(buf)
+	s.b.accessors = append(s.b.accessors, accessor{
+		BufferView: vi, ComponentType: 5126, Count: len(w), Type: "VEC4",
 	})
 	return len(s.b.accessors) - 1
 }

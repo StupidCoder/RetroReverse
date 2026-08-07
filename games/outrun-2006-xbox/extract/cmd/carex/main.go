@@ -679,6 +679,29 @@ func (p *pmt) decodeVerts(bp bufPair) (pos, nrm [][3]float32, uv, uv2 [][2]float
 	return pos, nrm, uv, uv2, col
 }
 
+// decodeWeights returns each vertex's stored blend weights (nil when the
+// layout has none). The stored weights cover all but the LAST bone of the
+// part's LOD bone list; the remainder 1-Σ belongs to it (fmt 0x116 ankle
+// part: weight 1.0 on foot-height vertices, 0.0 on shin-height ones — the
+// stored weight follows the record's first-listed bone).
+func (p *pmt) decodeWeights(bp bufPair) [][]float32 {
+	nw := bp.weights()
+	if nw == 0 {
+		return nil
+	}
+	n := int(bp.vbBytes / bp.stride)
+	out := make([][]float32, n)
+	for i := 0; i < n; i++ {
+		v := int(bp.vbOff) + i*int(bp.stride)
+		ws := make([]float32, nw)
+		for k := 0; k < nw; k++ {
+			ws[k] = f32(p.b, v+12+4*k)
+		}
+		out[i] = ws
+	}
+	return out
+}
+
 // unpackNormal decodes the NV2A CMP (11:11:10 signed) vertex normal: x in bits
 // 0-10, y in 11-21 (11-bit two's complement, /1023), z in 22-31 (10-bit, /511).
 func unpackNormal(v uint32) [3]float32 {
@@ -1832,6 +1855,9 @@ func main() {
 	partsFlag := flag.String("parts", "", "comma-separated part indices: export only these parts (diagnostic)")
 	site := flag.String("site", "", "Studio export: write the curated roster + manifest.json under this directory")
 	chrfit := flag.String("chrfit", "", "fit flagman pose conventions against a bootoracle -carvtx dump file")
+	chrcap := flag.String("chrcap", "", "print per-flip measured bone transforms (relative to kosi) from a multi-frame -carvtx log")
+	chrcapfit := flag.String("chrcapfit", "", "track clip phase across a multi-frame -carvtx log and report per-bone residuals")
+	chrikprobe := flag.String("chrikprobe", "", "FLIP:CLIP:FRAME — chain-by-chain measured vs predicted comparison (capture log from $CHRCAP)")
 	chrglb := flag.String("chrglb", "", "export the animated flagman GLB to this path")
 	chrpose := flag.String("chrpose", "", "debug: CLIP:frame[:frame...] — print key bone world positions")
 	chrOrder := flag.Int("chrorder", 0, "flagman euler order (debug)")
@@ -1866,6 +1892,36 @@ func main() {
 		}
 		defer disc.Close()
 		chrFit(disc, *chrfit)
+		return
+	}
+
+	if *chrcap != "" {
+		disc, err := xbox.Open(*imagePath)
+		if err != nil {
+			fatal("open image: %v", err)
+		}
+		defer disc.Close()
+		chrCapture(disc, *chrcap)
+		return
+	}
+
+	if *chrcapfit != "" {
+		disc, err := xbox.Open(*imagePath)
+		if err != nil {
+			fatal("open image: %v", err)
+		}
+		defer disc.Close()
+		chrCapFit(disc, *chrcapfit, poseConv{*chrOrder, *chrRT})
+		return
+	}
+
+	if *chrikprobe != "" {
+		disc, err := xbox.Open(*imagePath)
+		if err != nil {
+			fatal("open image: %v", err)
+		}
+		defer disc.Close()
+		chrIKProbe(disc, *chrikprobe, poseConv{*chrOrder, *chrRT})
 		return
 	}
 

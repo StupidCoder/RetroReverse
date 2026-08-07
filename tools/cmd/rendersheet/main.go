@@ -323,11 +323,35 @@ func main() {
 				if jm, ok := jointMats[*n.Skin]; ok {
 					if ji, ok2 := pr.Attributes["JOINTS_0"]; ok2 {
 						js := accVec(ji, 4)
+						var ws [][]float64
+						if wi, ok3 := pr.Attributes["WEIGHTS_0"]; ok3 {
+							ws = accVec(wi, 4)
+						}
 						for vi := range pos {
-							j := int(js[vi][0])
-							if j < len(jm) {
-								pos[vi] = matApply(jm[j], pos[vi])
+							if ws == nil {
+								// single influence, weight 1
+								if j := int(js[vi][0]); j < len(jm) {
+									pos[vi] = matApply(jm[j], pos[vi])
+								}
+								continue
 							}
+							// linear blend skinning over up to 4 joints
+							var out [3]float64
+							for k := 0; k < 4; k++ {
+								w := ws[vi][k]
+								if w == 0 {
+									continue
+								}
+								j := int(js[vi][k])
+								if j >= len(jm) {
+									continue
+								}
+								p := matApply(jm[j], pos[vi])
+								for c := 0; c < 3; c++ {
+									out[c] += w * p[c]
+								}
+							}
+							pos[vi] = out[:]
 						}
 					}
 				}

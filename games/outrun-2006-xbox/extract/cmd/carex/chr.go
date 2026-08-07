@@ -263,7 +263,13 @@ type chrBone struct {
 	parent   int
 	kind     int // 0 plain, 2 chain root, 3 IK joint, 4 effector
 	chainLen int
-	restT    [2]float32 // f[0], f[1]
+	// restT is the local rest translation (tx, ty, tz): tx is the float at
+	// record +0x0C — the BONE LENGTH along the parent's x (the word the
+	// first decode read as "FFFF, 0" padding; the game's runtime channel
+	// slots surface it: kao_chn 0.0464 = the neck, kata_l_n_x -0.0628,
+	// and the IK segment lengths hiji 0.272 / sune 0.390 / eff 0.440 all
+	// live there); ty, tz are the two floats at +0x10.
+	restT    [3]float32
 	restR    [3]float32 // f[2], f[3], f[4]
 	children []int
 }
@@ -290,7 +296,7 @@ func parseBoneLib(b []byte) []chrSkeleton {
 				kind: int(u16(b, r+4)), chainLen: int(u16(b, r+6)),
 				parent: -1,
 			}
-			br.restT = [2]float32{f32(b, r+0x10), f32(b, r+0x14)}
+			br.restT = [3]float32{f32(b, r+0x0C), f32(b, r+0x10), f32(b, r+0x14)}
 			br.restR = [3]float32{f32(b, r+0x18), f32(b, r+0x1C), f32(b, r+0x20)}
 			nChild := int(u32(b, r+0x30))
 			childOff := int(u32(b, r+0x34))
@@ -330,12 +336,22 @@ func boneBaseName(n string) string {
 
 // ---------- CHR_*.bin ----------
 
+// lodRec is one skinned-part record: the part's vertices (stored in the
+// character's T-pose model space, unlike the bone-local rigid parts) are
+// palette-skinned over the listed bones. A vertex's stored weights cover
+// bones[0..n-2] in list order; the remainder 1-Σ belongs to the last.
+type lodRec struct {
+	bones []int
+	part  int
+}
+
 type chrDesc struct {
 	skel    int
-	attach  map[int]int   // bone -> part
-	lodBone map[int]bool  // bones referenced by LOD records
-	bind    map[int]mat4  // bone -> bind (bone→world), from the inverse-bind table
-	invBind map[int]mat4  // bone -> inverse bind
+	attach  map[int]int  // bone -> part (rigid full-detail parts)
+	lods    []lodRec     // skinned junction parts (the seams between rigid parts)
+	lodBone map[int]bool // bones referenced by LOD records
+	bind    map[int]mat4 // bone -> bind (bone→world), from the inverse-bind table
+	invBind map[int]mat4 // bone -> inverse bind
 }
 
 func parseChrDesc(b []byte, sk *chrSkeleton) (*chrDesc, error) {
@@ -353,9 +369,13 @@ func parseChrDesc(b []byte, sk *chrSkeleton) (*chrDesc, error) {
 	for i := 0; i < nLOD; i++ {
 		o := lodOff + i*20
 		n := int(u16(b, o+2))
+		lr := lodRec{part: int(u16(b, o+16))}
 		for k := 0; k < n && k < 4; k++ {
-			d.lodBone[int(u16(b, o+4+2*k))] = true
+			bi := int(u16(b, o+4+2*k))
+			lr.bones = append(lr.bones, bi)
+			d.lodBone[bi] = true
 		}
+		d.lods = append(d.lods, lr)
 	}
 	// inverse binds: alphabetical by bone base name over the LOD bone union
 	var bones []int
@@ -475,7 +495,23 @@ func parseMotFile(b []byte, names []string) ([]*chrClip, error) {
 				if c.ch[bi] == nil {
 					c.ch[bi] = &[6]*motChan{}
 				}
-				c.ch[bi][bit] = ch
+				// The ROOT's six streams are ordered tx,ty,tz,rx,ry,rz —
+				// the reverse of every other bone's rx,ry,rz,tx,ty,tz.
+				// Pinned by the game's own runtime channel structs (the 39
+				// bone objects at 0xd04b50, flagman.state/wave400.state):
+				// hara_n_x's key counts [27,22,32] land in the walker's
+				// TRANSLATE slots and [1,46,1] in ROTATE — its composed
+				// matrix carries t=(0.077,1.106,-0.049) = the first triple
+				// and yaw 1.378 = the second — while kosi's mask-0x07
+				// streams land in ROTATE. The first shipped export read
+				// the root's height (~1.19 m) as yaw (~1.19 rad ≈ his real
+				// 68° facing — right by coincidence) and his yaw swing as
+				// added height: the phantom 2 m "gantry climb".
+				slot := bit
+				if bi == 0 {
+					slot = (bit + 3) % 6
+				}
+				c.ch[bi][slot] = ch
 			}
 		}
 		clips = append(clips, c)
@@ -569,11 +605,11 @@ func (rg *chrRig) evalPose(clip *chrClip, frame float32) []mat4 {
 
 	for i, b := range sk.bones {
 		var rx, ry, rz float32 = b.restR[0], b.restR[1], b.restR[2]
-		// rest translation slots map to the PARENT frame's (y, z): local
-		// t = (0, f0, f1) — bind-verified: momo under kosi = (0, -0.19,
-		// -0.09) exactly; limb links (sune, asi, hiji, te) run along +x
-		// from the binds, not from rest slots
-		tx, ty, tz := float32(0), b.restT[0], b.restT[1]
+		// local rest translation (tx from record +0x0C, then the ty/tz
+		// pair) — bind-verified: momo under kosi = (0, -0.19, -0.09), the
+		// shoulder links carry (-0.0628,-0,-0.067)/(-0.015,0,-0.153), the
+		// neck (0.0464,0,0)
+		tx, ty, tz := b.restT[0], b.restT[1], b.restT[2]
 		if chs := clip.ch[i]; chs != nil {
 			if chs[0] != nil || chs[1] != nil || chs[2] != nil {
 				// animated rotations replace the rest euler (clip constants
@@ -589,16 +625,24 @@ func (rg *chrRig) evalPose(clip *chrClip, frame float32) []mat4 {
 					rz = chs[2].eval(frame)
 				}
 			}
-			// animated translations ADD to the rest offset (the idle clip
-			// slouches the root by ty -0.098 from its rest 1.24)
-			if chs[3] != nil {
-				tx += chs[3].eval(frame)
-			}
-			if chs[4] != nil {
-				ty += chs[4].eval(frame)
-			}
-			if chs[5] != nil {
-				tz += chs[5].eval(frame)
+			// animated translations REPLACE the rest offset, as absolute
+			// (tx,ty,tz) in the parent frame — for the root that is the
+			// character's ground space (the game's root object composes
+			// exactly the raw channel triple: height ~1.11-1.23 across the
+			// whole wave, feet planted); effector translations are IK
+			// TARGETS, not locals — the IK pass consumes them and
+			// overwrites the effector transform. Unkeyed components keep
+			// their rest value.
+			if b.kind != 4 {
+				if chs[3] != nil {
+					tx = chs[3].eval(frame)
+				}
+				if chs[4] != nil {
+					ty = chs[4].eval(frame)
+				}
+				if chs[5] != nil {
+					tz = chs[5].eval(frame)
+				}
 			}
 		}
 		R := mEuler(rx, ry, rz, rg.conv.order)
@@ -624,26 +668,12 @@ func (rg *chrRig) evalPose(clip *chrClip, frame float32) []mat4 {
 	}
 
 	// IK pass: chains rooted at kind-2 bones whose effector has animated
-	// target translations. Targets are authored relative to the root's
-	// animated excursion (the flag-wave clip walks the root up onto the
-	// gantry deck and the foot targets stay near y 0.13 — they ride along).
-	var rootDelta [3]float32
-	for i, b := range sk.bones {
-		if b.parent == -1 {
-			if chs := clip.ch[i]; chs != nil {
-				if chs[3] != nil {
-					rootDelta[0] = chs[3].eval(frame)
-				}
-				if chs[4] != nil {
-					rootDelta[1] = chs[4].eval(frame)
-				}
-				if chs[5] != nil {
-					rootDelta[2] = chs[5].eval(frame)
-				}
-			}
-			break
-		}
-	}
+	// target translations. The targets are ABSOLUTE positions in the
+	// character's Y-up ground space — the game's own settled skeleton (the
+	// 39 bone objects at 0xd04b50, flagman.state) puts every effector
+	// exactly on its channel value (feet on the clip's constant 0.12-high
+	// spots, hands/chest/head on their moving targets), with no root
+	// riding of any kind.
 	for ci, b := range sk.bones {
 		if b.kind != 2 {
 			continue
@@ -666,13 +696,6 @@ func (rg *chrRig) evalPose(clip *chrClip, frame float32) []mat4 {
 		if chs[5] != nil {
 			tgt[2] = chs[5].eval(frame)
 		}
-		ride := rootDelta
-		if strings.Contains(sk.bones[eff].name, "sune") && ride[1] < 0 {
-			// the feet stay planted when the root slouches; they only ride
-			// the root UP (the wave clips carry the whole body)
-			ride[1] = 0
-		}
-		tgt = v3add(tgt, ride)
 		rg.solveChain(world, ci, joints, eff, tgt)
 		// re-propagate below the solved bones
 		for _, j := range append(append([]int{}, joints...), eff) {
@@ -695,147 +718,107 @@ func contains(s []int, v int) bool {
 	return false
 }
 
-// solveChain poses the chain's joint bones toward the target.
+// solveChain poses the chain's joint bones toward the target — the game's
+// own construction, read off its settled skeleton (the 39 bone objects in
+// flagman.state, each holding the composed matrix the walker wrote):
 //
-// Two-joint chains (arms, legs) use the standard two-bone law-of-cosines
-// solve: segment lengths come from the bind origins, and the bend plane is
-// taken from the FK pose (the animated chain-root rotation puts the middle
-// joint roughly where it should be; IK snaps the chain onto the target while
-// bending toward that hint). Single-joint chains (spine, head) are a
-// look-at: the joint keeps its FK roll and rotates its +x onto the target
-// direction. Joint frames keep +x along the limb — the rigid parts are
-// modeled with the limb running along local +x.
+//   axis = normalize(target − chainRootPos)
+//   Z    = the chain root's ANIMATED local z axis, Gram-Schmidt
+//          orthonormalized against axis — the shared hinge of every joint
+//          in the chain (measured z ≡ 0 for the mid-joint offset across
+//          700 captured flips of all four limb chains)
+//   bend = Z × axis (elbows behind the arm, knees forward — one rule, the
+//          chain roots' authored z orientations differ)
+//
+// Two-joint chains (arms, legs) place the mid joint by law of cosines with
+// the bind segment lengths; joint frames are X along their segment, Z the
+// shared hinge, Y = Z×X (verified exact against mune/kao/ude/momo/sune
+// world matrices). Single-joint chains (chest, head) keep the joint AT the
+// chain root — the spine segment stretches: X aims at the target, same Z
+// rule; the effector takes the joint's rotation at the target position.
 func (rg *chrRig) solveChain(world []mat4, root int, joints []int, eff int, tgt [3]float32) {
 	bind := rg.desc.bind
+	p0 := mPos(world[root])
+	d := v3sub(tgt, p0)
+	dl := v3len(d)
+	if dl < 1e-5 {
+		return
+	}
+	axis := v3scale(d, 1/dl)
+	chnZ := [3]float32{world[root][0][2], world[root][1][2], world[root][2][2]}
+	hz := v3sub(chnZ, v3scale(axis, v3dot(axis, chnZ)))
+	if v3len(hz) < 1e-5 {
+		// degenerate: chain aims along its own hinge; any perpendicular
+		hz = v3cross(axis, [3]float32{0, 1, 0})
+		if v3len(hz) < 1e-5 {
+			hz = v3cross(axis, [3]float32{1, 0, 0})
+		}
+	}
+	hz = v3norm(hz)
+	frameZ := func(p, dir [3]float32) mat4 {
+		x := v3norm(dir)
+		y := v3cross(hz, x)
+		var m mat4
+		for i := 0; i < 3; i++ {
+			m[i][0], m[i][1], m[i][2] = x[i], y[i], hz[i]
+		}
+		m[0][3], m[1][3], m[2][3] = p[0], p[1], p[2]
+		m[3] = [4]float32{0, 0, 0, 1}
+		return m
+	}
 	switch len(joints) {
 	case 2:
 		j1, j2 := joints[0], joints[1]
-		b1, ok1 := bind[j1]
-		b2, ok2 := bind[j2]
-		be, oke := bind[effBindProxy(rg.sk, eff)]
-		if !ok1 || !ok2 || !oke {
-			return
-		}
-		l1 := v3len(v3sub(mPos(b2), mPos(b1)))
-		l2 := v3len(v3sub(mPos(be), mPos(b2)))
-		p0 := mPos(world[j1])
-		d := v3sub(tgt, p0)
-		dl := v3len(d)
-		if dl < 1e-5 {
+		// segment lengths are the rig's own +0x0C bone lengths: the second
+		// joint's tx is segment 1 (hiji 0.272, sune 0.390), the effector's
+		// tx segment 2 (hiji_eff 0.272, sune_eff 0.440)
+		l1 := rg.sk.bones[j2].restT[0]
+		l2 := rg.sk.bones[eff].restT[0]
+		if l1 <= 0 || l2 <= 0 {
 			return
 		}
 		if dl > l1+l2 {
 			dl = l1 + l2
-			tgt = v3add(p0, v3scale(v3norm(d), dl))
-			d = v3sub(tgt, p0)
+			tgt = v3add(p0, v3scale(axis, dl))
 		}
 		if min := float32(math.Abs(float64(l1 - l2))); dl < min {
 			dl = min + 1e-4
-			tgt = v3add(p0, v3scale(v3norm(d), dl))
-			d = v3sub(tgt, p0)
+			tgt = v3add(p0, v3scale(axis, dl))
 		}
-		dn := v3norm(d)
-		// distance from p0 to the elbow's projection on the axis
 		a := (l1*l1 - l2*l2 + dl*dl) / (2 * dl)
 		h2 := l1*l1 - a*a
 		if h2 < 0 {
 			h2 = 0
 		}
 		h := float32(math.Sqrt(float64(h2)))
-		// pole: FK middle-joint direction off the axis
-		fkMid := mPos(world[j2])
-		off := v3sub(fkMid, v3add(p0, v3scale(dn, v3dot(v3sub(fkMid, p0), dn))))
-		if v3len(off) < 1e-5 {
-			// degenerate: pick any perpendicular
-			off = v3cross(dn, [3]float32{0, 1, 0})
-			if v3len(off) < 1e-5 {
-				off = v3cross(dn, [3]float32{1, 0, 0})
-			}
+		// Bend side: legs bend along Z×axis (knees forward, 700/700
+		// captured frames), arms along axis×Z (elbows back, 1380/1380).
+		// The rig marks the arm chains by a flip in the first joint's rest
+		// euler (ude_l_jnt rx ≈ -π, ude_r_jnt rz ≈ 3π/2); the leg joints'
+		// rest rotations are ≈ 0.
+		s := float32(1)
+		if math.Abs(float64(rg.sk.bones[j1].restR[0])) > math.Pi/2 ||
+			math.Abs(float64(rg.sk.bones[j1].restR[2])) > math.Pi/2 {
+			s = -1
 		}
-		off = v3norm(off)
-		elbow := v3add(v3add(p0, v3scale(dn, a)), v3scale(off, h))
-		// orient each limb by rotating its BIND frame onto the current
-		// segment direction (minimal rotation) — keeps the mesh's roll and
-		// secondary axes consistent with the bind instead of rebuilding
-		// frames from scratch
-		bp := effBindProxy(rg.sk, eff)
-		world[j1] = alignBind(p0, v3sub(elbow, p0), v3sub(mPos(b2), mPos(b1)), b1)
-		world[j2] = alignBind(elbow, v3sub(tgt, elbow), v3sub(mPos(rg.desc.bind[bp]), mPos(b2)), b2)
-		m := stripPos(world[j2])
-		m[0][3], m[1][3], m[2][3] = tgt[0], tgt[1], tgt[2]
-		world[eff] = m
+		mid := v3add(v3add(p0, v3scale(axis, a)), v3scale(v3cross(hz, axis), s*h))
+		world[j1] = frameZ(p0, v3sub(mid, p0))
+		world[j2] = frameZ(mid, v3sub(tgt, mid))
+		end := v3add(mid, v3scale(v3norm(v3sub(tgt, mid)), l2))
+		world[eff] = frameZ(end, v3sub(tgt, mid))
 	case 1:
-		// Spine and head: the segment lengths exist only in the binds (the
-		// rest locals of jnt/eff are zero), so the chain solve only LIFTS
-		// the joint/effector along the spine's continuation. Orientation
-		// stays with FK — the chain-root bones (mune_chn, kao_chn) are
-		// themselves animated, so the rotations are already in the clip;
-		// the effector target is the IK goal the game refines against, and
-		// FK alone already lands close.
+		// chest/head: the joint stays at the chain root; the effector goes
+		// its bone length along x-toward-target (the targets are authored
+		// at that distance — |target-root| ≈ 0.200/0.210 exactly)
 		j1 := joints[0]
-		p0 := mPos(world[j1])
-		lJnt, lEff := rg.chainLift(root, j1, eff)
-		up := rg.spineUp(world, root)
-		jp := v3add(p0, v3scale(up, lJnt))
-		m := world[j1]
-		m[0][3], m[1][3], m[2][3] = jp[0], jp[1], jp[2]
-		world[j1] = m
-		e := v3add(p0, v3scale(up, lEff))
-		m[0][3], m[1][3], m[2][3] = e[0], e[1], e[2]
-		world[eff] = m
-		_ = tgt
-	}
-}
-
-// spineUp is the direction a one-segment chain extends along: from the
-// chain root's parent frames — the vector from the waist to the chain root,
-// or world up when degenerate.
-func (rg *chrRig) spineUp(world []mat4, root int) [3]float32 {
-	// find the waist (kosi) as the torso's lower reference
-	for i, b := range rg.sk.bones {
-		if boneBaseName(b.name) == "kosi" {
-			d := v3sub(mPos(world[root]), mPos(world[i]))
-			if v3len(d) > 1e-4 {
-				return v3norm(d)
-			}
+		world[j1] = frameZ(p0, d)
+		le := rg.sk.bones[eff].restT[0]
+		if le <= 0 {
+			le = dl
 		}
+		world[eff] = frameZ(v3add(p0, v3scale(axis, le)), d)
 	}
-	return [3]float32{0, 1, 0}
-}
-
-// chainLift derives the one-segment chains' joint/effector distances from
-// the bind pose. The chest chain's effector is where the shoulder pair
-// hangs: the mean of the kata binds (their lateral rest offsets cancel).
-// The head chain's joint is the head bind above that same shoulder line.
-func (rg *chrRig) chainLift(root, jnt, eff int) (lJnt, lEff float32) {
-	sk, bind := rg.sk, rg.desc.bind
-	// mean of all kata_* binds = shoulder-line centre
-	var katas [][3]float32
-	for i, b := range sk.bones {
-		if strings.HasPrefix(boneBaseName(b.name), "kata") {
-			if bm, ok := bind[i]; ok {
-				katas = append(katas, mPos(bm))
-			}
-		}
-	}
-	var shoulder [3]float32
-	for _, k := range katas {
-		shoulder = v3add(shoulder, k)
-	}
-	if len(katas) > 0 {
-		shoulder = v3scale(shoulder, 1/float32(len(katas)))
-	}
-	jb, hasJb := bind[jnt]
-	switch {
-	case hasJb && strings.HasPrefix(boneBaseName(sk.bones[jnt].name), "kao"):
-		// head: pivot is the shoulder line (kubi/kao_chn carry no offsets)
-		l := v3len(v3sub(mPos(jb), shoulder))
-		return l, l
-	case hasJb:
-		// chest: joint ~at the pivot, effector at the shoulder line
-		return 0, v3len(v3sub(shoulder, mPos(jb)))
-	}
-	return 0, 0
+	_ = bind
 }
 
 // effBindProxy: effectors have no bind matrix; their first plain child (te,
@@ -1116,6 +1099,380 @@ func chrFit(disc *xbox.Image, dumpPath string) {
 	}
 }
 
+// chrCapture reads a MULTI-FRAME bootoracle -carvtx log (with "carvtx: FLIP"
+// markers) and prints, per flip, the measured bone transforms RELATIVE to the
+// kosi bone: rigid part draws carry S = VP·W_bone in c160-163 (bone-local
+// vertices), skinned junction draws carry S = VP·W_A·IBM_A (model-space
+// vertices, first LOD bone's skinning matrix — the capture's own vertex
+// program pins this: R11 = w·v + (1-w)·M_rel·v then oPos = S·R11), so
+// S·bind_A recovers VP·W_A and inv(S_kosi)·S_i cancels VP either way.
+func chrCapture(disc *xbox.Image, dumpPath string) {
+	cd, err := loadFlagman(disc)
+	if err != nil {
+		fatal("%v", err)
+	}
+	frames := chrCapParse(cd, dumpPath)
+	for fi, bm := range frames {
+		if bm == nil {
+			continue
+		}
+		var bones []int
+		for b := range bm {
+			bones = append(bones, b)
+		}
+		sort.Ints(bones)
+		for _, b := range bones {
+			rel := bm[b]
+			fmt.Printf("cap f%04d %-12s", fi, cd.sk.bones[b].name)
+			for r := 0; r < 3; r++ {
+				fmt.Printf(" %9.5f %9.5f %9.5f %9.5f", rel[r][0], rel[r][1], rel[r][2], rel[r][3])
+			}
+			fmt.Println()
+		}
+	}
+}
+
+// chrCapParse reads the log into per-flip kosi-relative bone matrices.
+func chrCapParse(cd *chrData, dumpPath string) []map[int]mat4 {
+	raw, err := os.ReadFile(dumpPath)
+	if err != nil {
+		fatal("%v", err)
+	}
+	// part -> section-B VB span
+	type span struct{ off, end, pi int }
+	var spans []span
+	minOff := 1 << 60
+	for pi := 0; pi < cd.model.nParts; pi++ {
+		rec := 0x18 + pi*0x3C
+		w2 := u32(cd.model.a, rec+4*2)
+		w12 := u32(cd.model.a, rec+4*12)
+		vbDesc := u32(cd.model.a, int(w2))
+		off := int(u32(cd.model.a, int(vbDesc)+4))
+		end := off + int(u32(cd.model.a, int(w12)+0x1C))
+		spans = append(spans, span{off, end, pi})
+		if off < minOff {
+			minOff = off
+		}
+	}
+	// bone lookup tables
+	part2bone := map[int]int{}   // rigid
+	part2lod := map[int]lodRec{} // skinned
+	for b, p := range cd.desc.attach {
+		part2bone[p] = b
+	}
+	for _, lr := range cd.desc.lods {
+		part2lod[lr.part] = lr
+	}
+	kosi := -1
+	for i, b := range cd.sk.bones {
+		if b.name == "kosi" {
+			kosi = i
+		}
+	}
+
+	type draw struct {
+		addr int
+		m    mat4
+	}
+	var frames [][]draw
+	cur := []draw{}
+	minAddr := 1 << 60
+	for _, ln := range strings.Split(string(raw), "\n") {
+		if strings.HasPrefix(ln, "carvtx: FLIP") {
+			frames = append(frames, cur)
+			cur = nil
+			continue
+		}
+		if !strings.Contains(ln, "DRAW attr0=") {
+			continue
+		}
+		var addr int
+		var fmtw string
+		if _, err := fmt.Sscanf(ln[strings.Index(ln, "attr0="):], "attr0=%X fmt0=%s", &addr, &fmtw); err != nil {
+			continue
+		}
+		fl := strings.Split(ln, "|")
+		if len(fl) != 5 {
+			continue
+		}
+		var vals []float32
+		for _, part := range fl[1:] {
+			for _, tok := range strings.Fields(part) {
+				var v float64
+				fmt.Sscanf(tok, "%g", &v)
+				vals = append(vals, float32(v))
+			}
+		}
+		if len(vals) != 16 {
+			continue
+		}
+		var m mat4
+		for i := 0; i < 4; i++ {
+			for j := 0; j < 4; j++ {
+				m[i][j] = vals[i*4+j]
+			}
+		}
+		cur = append(cur, draw{addr, m})
+		if addr < minAddr {
+			minAddr = addr
+		}
+	}
+	frames = append(frames, cur)
+	base := minAddr - minOff
+	partOf := func(addr int) int {
+		off := addr - base
+		for _, s := range spans {
+			if off >= s.off && off < s.end {
+				return s.pi
+			}
+		}
+		return -1
+	}
+	out := make([]map[int]mat4, len(frames))
+	for fi, fr := range frames {
+		if len(fr) == 0 {
+			continue
+		}
+		// measured VP·W per bone (first draw wins)
+		bm := map[int]mat4{}
+		for _, d := range fr {
+			pi := partOf(d.addr)
+			if pi < 0 {
+				continue
+			}
+			if b, ok := part2bone[pi]; ok {
+				if _, seen := bm[b]; !seen {
+					bm[b] = d.m
+				}
+			} else if lr, ok := part2lod[pi]; ok {
+				b := lr.bones[0]
+				if _, seen := bm[b]; !seen {
+					bm[b] = mMul(d.m, cd.desc.bind[b])
+				}
+			}
+		}
+		ref, ok := bm[kosi]
+		if !ok {
+			continue
+		}
+		refInv := mInvFull(ref)
+		rel := map[int]mat4{}
+		for b, m := range bm {
+			rel[b] = mMul(refInv, m)
+		}
+		out[fi] = rel
+	}
+	return out
+}
+
+// chrCapFit fits every captured flip against the clip library under the
+// export's pose conventions: tracks the (clip, frame) phase across flips
+// (full search on the first, ±12-frame window after) and reports per-bone
+// position residuals — the instrument that says WHICH bones the evaluator
+// gets wrong, not just that it is wrong somewhere.
+func chrCapFit(disc *xbox.Image, dumpPath string, conv poseConv) {
+	cd, err := loadFlagman(disc)
+	if err != nil {
+		fatal("%v", err)
+	}
+	caps := chrCapParse(cd, dumpPath)
+	rg := &chrRig{sk: cd.sk, desc: cd.desc, conv: conv}
+	kosi := -1
+	for i, b := range cd.sk.bones {
+		if b.name == "kosi" {
+			kosi = i
+		}
+	}
+	relPred := func(clip *chrClip, f float32) map[int]mat4 {
+		world := rg.evalPose(clip, f)
+		inv := mInv(world[kosi])
+		out := map[int]mat4{}
+		for b := range cd.desc.bind {
+			out[b] = mMul(inv, world[b])
+		}
+		return out
+	}
+	score := func(pred, meas map[int]mat4) float64 {
+		var e float64
+		for b, mm := range meas {
+			pm, ok := pred[b]
+			if !ok {
+				continue
+			}
+			for i := 0; i < 3; i++ {
+				e += math.Abs(float64(pm[i][3] - mm[i][3]))
+			}
+		}
+		return e
+	}
+	type phase struct {
+		clip *chrClip
+		f    float32
+	}
+	var cur phase
+	sumBone := map[int]float64{}
+	cntBone := map[int]int{}
+	for fi, meas := range caps {
+		if meas == nil {
+			continue
+		}
+		best := phase{}
+		bestE := math.Inf(1)
+		if cur.clip == nil {
+			for _, c := range cd.clips {
+				if c.name == "" {
+					continue
+				}
+				for f := 0; f < c.frames; f++ {
+					e := score(relPred(c, float32(f)), meas)
+					if e < bestE {
+						bestE, best = e, phase{c, float32(f)}
+					}
+				}
+			}
+		} else {
+			for _, c := range cd.clips {
+				lo, hi := 0, c.frames
+				if c == cur.clip {
+					lo, hi = int(cur.f)-2, int(cur.f)+14
+					if lo < 0 {
+						lo = 0
+					}
+					if hi > c.frames {
+						hi = c.frames
+					}
+				} else if c.name == "" {
+					continue
+				} else {
+					// other clips: only their head (a transition starts at 0)
+					hi = 20
+				}
+				for f := lo; f < hi; f++ {
+					e := score(relPred(c, float32(f)), meas)
+					if e < bestE {
+						bestE, best = e, phase{c, float32(f)}
+					}
+				}
+			}
+		}
+		cur = best
+		pred := relPred(best.clip, best.f)
+		fmt.Printf("fit f%04d clip=%-28s cf=%5g err=%.3f\n", fi, best.clip.name, best.f, bestE)
+		for b, mm := range meas {
+			if pm, ok := pred[b]; ok {
+				d := v3len(v3sub(mPos(pm), mPos(mm)))
+				sumBone[b] += float64(d)
+				cntBone[b]++
+			}
+		}
+	}
+	fmt.Println("mean |Δt| per bone:")
+	var bones []int
+	for b := range sumBone {
+		bones = append(bones, b)
+	}
+	sort.Ints(bones)
+	for _, b := range bones {
+		fmt.Printf("  %-12s %.4f m over %d frames\n", cd.sk.bones[b].name, sumBone[b]/float64(cntBone[b]), cntBone[b])
+	}
+}
+
+// chrIKProbe compares one captured flip against one clip frame chain by
+// chain: measured joint positions vs FK/IK prediction vs the clip's raw
+// effector targets, everything expressed in the kosi frame.
+func chrIKProbe(disc *xbox.Image, spec string, conv poseConv) {
+	var flip, cf int
+	var clipName string
+	if _, err := fmt.Sscanf(spec, "%d:%s", &flip, &clipName); err != nil {
+		fatal("want FLIP:CLIP:FRAME, got %q (%v)", spec, err)
+	}
+	if i := strings.LastIndex(clipName, ":"); i > 0 {
+		fmt.Sscanf(clipName[i+1:], "%d", &cf)
+		clipName = clipName[:i]
+	}
+	cd, err := loadFlagman(disc)
+	if err != nil {
+		fatal("%v", err)
+	}
+	caps := chrCapParse(cd, os.Getenv("CHRCAP"))
+	if flip >= len(caps) || caps[flip] == nil {
+		fatal("flip %d not in capture", flip)
+	}
+	meas := caps[flip]
+	clip := cd.clip(clipName)
+	if clip == nil {
+		fatal("clip %q?", clipName)
+	}
+	rg := &chrRig{sk: cd.sk, desc: cd.desc, conv: conv}
+	world := rg.evalPose(clip, float32(cf))
+	kosi := byNameBone(cd.sk, "kosi")
+	invK := mInv(world[kosi])
+	fmt.Printf("flip %d vs %s:%d\n", flip, clipName, cf)
+	for ci, b := range cd.sk.bones {
+		if b.kind != 2 {
+			continue
+		}
+		joints, eff := rg.chainOf(ci)
+		fmt.Printf("chain %s (joints %d, eff %s):\n", b.name, len(joints), nameOr(cd.sk, eff))
+		for _, j := range append(append([]int{}, joints...), eff) {
+			if j < 0 {
+				continue
+			}
+			pred := mMul(invK, world[j])
+			fmt.Printf("  %-12s pred t (%7.3f %7.3f %7.3f)", cd.sk.bones[j].name,
+				pred[0][3], pred[1][3], pred[2][3])
+			if mm, ok := meas[j]; ok {
+				fmt.Printf("  meas t (%7.3f %7.3f %7.3f)  |Δ|=%.3f",
+					mm[0][3], mm[1][3], mm[2][3],
+					v3len(v3sub(mPos(pred), mPos(mm))))
+			}
+			fmt.Println()
+		}
+		// raw effector target in character space -> kosi frame
+		if eff >= 0 {
+			if chs := clip.ch[eff]; chs != nil && (chs[3] != nil || chs[4] != nil || chs[5] != nil) {
+				var tgt [3]float32
+				for k := 0; k < 3; k++ {
+					if chs[3+k] != nil {
+						tgt[k] = chs[3+k].eval(float32(cf))
+					}
+				}
+				t4 := [4]float32{tgt[0], tgt[1], tgt[2], 1}
+				var tk [3]float32
+				for r := 0; r < 3; r++ {
+					tk[r] = invK[r][0]*t4[0] + invK[r][1]*t4[1] + invK[r][2]*t4[2] + invK[r][3]
+				}
+				fmt.Printf("  target raw (%7.3f %7.3f %7.3f)  in-kosi (%7.3f %7.3f %7.3f)\n",
+					tgt[0], tgt[1], tgt[2], tk[0], tk[1], tk[2])
+			}
+		}
+	}
+	// orientation detail: measured rotation rows of the arm/leg joints
+	for _, nm := range []string{"ude_l_jnt", "hiji_l_jnt", "momo_l_jnt", "sune_l_jnt"} {
+		j := byNameBone(cd.sk, nm)
+		if mm, ok := meas[j]; ok {
+			fmt.Printf("meas %-12s rot rows (%6.3f %6.3f %6.3f | %6.3f %6.3f %6.3f | %6.3f %6.3f %6.3f)\n",
+				nm, mm[0][0], mm[0][1], mm[0][2], mm[1][0], mm[1][1], mm[1][2], mm[2][0], mm[2][1], mm[2][2])
+		}
+	}
+}
+
+func byNameBone(sk *chrSkeleton, name string) int {
+	for i, b := range sk.bones {
+		if b.name == name {
+			return i
+		}
+	}
+	return -1
+}
+
+func nameOr(sk *chrSkeleton, i int) string {
+	if i < 0 || i >= len(sk.bones) {
+		return "-"
+	}
+	return sk.bones[i].name
+}
+
 // readCarvtxDump parses "carvtx: DRAW attr0=... | 16 floats" lines into
 // column-vector S = VP·M matrices per rigid part (fmt 1832 draws only).
 func readCarvtxDump(path string, model *pmt) (map[int]mat4, error) {
@@ -1212,20 +1569,25 @@ func readCarvtxDump(path string, model *pmt) (map[int]mat4, error) {
 
 // ---------- GLB export ----------
 
-// chrPartPrims builds the glb primitives of one rigid part (bone-local
-// vertices, textured per material like the car path).
-func chrPartPrims(model *pmt, texs []texInfo, pi int) ([]glb.Prim, error) {
+// chrPartPrims builds the glb primitives of one character part, textured per
+// material like the car path. Rigid parts carry bone-local vertices; skinned
+// junction parts (weights != nil after decode) carry T-pose model-space
+// vertices, and joints/weights build glTF skinning attributes over jointOf
+// (LOD-record bone list order; the last listed bone takes the 1-Σ remainder).
+// Batches whose referenced vertices all coincide are dropped: part 31 (the
+// left hand) ships 16 checkered-flag verts collapsed to a point — the game
+// draws them degenerate at the start line (live VB = file bytes; he never
+// holds a flag there), so the export leaves them out.
+func chrPartPrims(model *pmt, texs []texInfo, pi int, lodBones []int, jointOf map[int]uint8) ([]glb.Prim, error) {
 	pt, err := model.parsePart(pi)
 	if err != nil {
 		return nil, err
 	}
-	type group struct {
-		tex  int
-		tris [][3]uint32
-	}
 	var pos [][3]float32
 	var nrm [][3]float32
 	var uvs [][2]float32
+	var joints [][4]uint8
+	var weights [][4]float32
 	vbase := make([]uint32, len(pt.pairs))
 	for k, bp := range pt.pairs {
 		vbase[k] = uint32(len(pos))
@@ -1233,7 +1595,33 @@ func chrPartPrims(model *pmt, texs []texInfo, pi int) ([]glb.Prim, error) {
 		pos = append(pos, p2...)
 		nrm = append(nrm, n2...)
 		uvs = append(uvs, u2...)
+		if ws := model.decodeWeights(bp); ws != nil {
+			if len(lodBones) != len(ws[0])+1 {
+				return nil, fmt.Errorf("part %d: %d stored weights for %d LOD bones", pi, len(ws[0]), len(lodBones))
+			}
+			var j4 [4]uint8
+			for k, bi := range lodBones {
+				j4[k] = jointOf[bi]
+			}
+			for _, w := range ws {
+				var w4 [4]float32
+				rest := float32(1)
+				for k, v := range w {
+					w4[k] = v
+					rest -= v
+				}
+				w4[len(w)] = rest
+				joints = append(joints, j4)
+				weights = append(weights, w4)
+			}
+		} else {
+			for range p2 {
+				joints = append(joints, [4]uint8{})
+				weights = append(weights, [4]float32{1})
+			}
+		}
 	}
+	skinned := len(lodBones) > 0
 	groups := map[int][][3]uint32{}
 	for _, b := range pt.batches {
 		bp := pt.pairs[b.pair]
@@ -1246,6 +1634,18 @@ func chrPartPrims(model *pmt, texs []texInfo, pi int) ([]glb.Prim, error) {
 				return nil, fmt.Errorf("part %d: index out of VB", pi)
 			}
 			raw[i] = ix + vbase[b.pair]
+		}
+		if degenerateBatch(pos, raw) {
+			continue
+		}
+		if !skinned && detachedBatch(pos, raw) {
+			// part 31 (left hand) carries a furled checkered-flag remnant
+			// 1.3-1.5 m out along the hand's z — its own texture, drawn by
+			// nothing in the live start-line frames (the whole VB is
+			// byte-identical to the file, and no geometry appears at its
+			// spot in any captured flip). A rigid part's batch that sits
+			// entirely a limb's length from its own bone is that remnant.
+			continue
 		}
 		tris := triangulate(b.prim, raw)
 		ti := -1
@@ -1262,12 +1662,44 @@ func chrPartPrims(model *pmt, texs []texInfo, pi int) ([]glb.Prim, error) {
 	sort.Ints(keys)
 	for _, ti := range keys {
 		pr := glb.Prim{Positions: pos, Normals: nrm, UVs: uvs, Tris: groups[ti], DoubleSided: true}
+		if skinned {
+			pr.JointsW = joints
+			pr.Weights = weights
+		}
 		if ti >= 0 {
 			pr.Image = texs[ti].img
 		}
 		out = append(out, pr)
 	}
 	return out, nil
+}
+
+// detachedBatch reports whether every vertex the index list touches lies more
+// than half a metre from the part's bone origin — detached remnant geometry
+// on an otherwise bone-hugging rigid part.
+func detachedBatch(pos [][3]float32, raw []uint32) bool {
+	for _, ix := range raw {
+		if v3dot(pos[ix], pos[ix]) < 0.25 {
+			return false
+		}
+	}
+	return len(raw) > 0
+}
+
+// degenerateBatch reports whether every vertex the index list touches sits at
+// (numerically) one point — a zero-area batch that can never shade a pixel.
+func degenerateBatch(pos [][3]float32, raw []uint32) bool {
+	if len(raw) == 0 {
+		return true
+	}
+	p0 := pos[raw[0]]
+	for _, ix := range raw[1:] {
+		d := v3sub(pos[ix], p0)
+		if v3dot(d, d) > 1e-6 {
+			return false
+		}
+	}
+	return true
 }
 
 // chrExportGLB writes the animated flagman GLB. The geometry-bone nodes
@@ -1283,7 +1715,9 @@ func chrExportGLB(disc *xbox.Image, outPath string, conv poseConv) error {
 	}
 	rg := &chrRig{sk: cd.sk, desc: cd.desc, conv: conv}
 
-	// geometry bones parented by nearest geometry ancestor
+	// geometry bones parented by nearest bind-carrying ancestor (the 17-bone
+	// LOD union: the 15 rigid attach bones + the kata_l/kata_r shoulder bones
+	// that only skinned junction parts reference)
 	byName := map[string]int{}
 	for i, b := range cd.sk.bones {
 		byName[b.name] = i
@@ -1292,32 +1726,29 @@ func chrExportGLB(disc *xbox.Image, outPath string, conv poseConv) error {
 		p := cd.sk.bones[bone].parent
 		for p >= 0 {
 			if _, ok := cd.desc.bind[p]; ok {
-				if _, isGeom := cd.desc.attach[p]; isGeom {
-					return p
-				}
+				return p
 			}
 			p = cd.sk.bones[p].parent
 		}
 		return -1
 	}
 
-	// attach parts sorted for stable node order; parents before children
-	type pb struct{ part, bone int }
-	var parts []pb
-	for b, p := range cd.desc.attach {
-		parts = append(parts, pb{p, b})
+	// all bind bones sorted for stable node order; parents before children
+	var boneList []int
+	for b := range cd.desc.bind {
+		boneList = append(boneList, b)
 	}
-	sort.Slice(parts, func(i, j int) bool { return parts[i].part < parts[j].part })
-	order := make([]pb, 0, len(parts))
+	sort.Ints(boneList)
+	var order []int
 	added := map[int]bool{}
-	for len(order) < len(parts) {
-		for _, x := range parts {
-			if added[x.bone] {
+	for len(order) < len(boneList) {
+		for _, b := range boneList {
+			if added[b] {
 				continue
 			}
-			if gp := geomParent(x.bone); gp == -1 || added[gp] {
-				order = append(order, x)
-				added[x.bone] = true
+			if gp := geomParent(b); gp == -1 || added[gp] {
+				order = append(order, b)
+				added[b] = true
 			}
 		}
 	}
@@ -1325,29 +1756,65 @@ func chrExportGLB(disc *xbox.Image, outPath string, conv poseConv) error {
 	s := glb.NewScene()
 	root := s.AddNode("flagman", -1, [3]float32{}, [4]float32{0, 0, 0, 1}, [3]float32{1, 1, 1})
 	nodes := map[int]int{} // bone -> node
-	for _, x := range order {
-		bind := cd.desc.bind[x.bone]
+	for _, b := range order {
+		bind := cd.desc.bind[b]
 		local := bind
 		parentNode := root
-		if gp := geomParent(x.bone); gp >= 0 {
+		if gp := geomParent(b); gp >= 0 {
 			local = mMul(mInv(cd.desc.bind[gp]), bind)
 			parentNode = nodes[gp]
 		}
-		name := cd.sk.bones[x.bone].name
+		name := cd.sk.bones[b].name
 		n := s.AddNode(name, parentNode, mPos(local), mQuat(local), [3]float32{1, 1, 1})
-		prims, err := chrPartPrims(cd.model, cd.texs, x.part)
+		if part, ok := cd.desc.attach[b]; ok {
+			prims, err := chrPartPrims(cd.model, cd.texs, part, nil, nil)
+			if err != nil {
+				return err
+			}
+			if err := s.AddMesh(n, name, prims); err != nil {
+				return err
+			}
+		}
+		nodes[b] = n
+	}
+
+	// the skinned junction parts: one skin over the bind-bone union, meshes
+	// under the root (a skinned glTF mesh takes its transforms from the
+	// joints alone). This is the game's own pipeline: the capture's skinning
+	// vertex program blends w·v + (1-w)·(M_rel·v) inside the first bone's
+	// skinning frame — linear blend skinning over W_bone·invBind_bone.
+	jointOf := map[int]uint8{}
+	var jointNodes []int
+	var ibms [][16]float32
+	for i, b := range order {
+		jointOf[b] = uint8(i)
+		jointNodes = append(jointNodes, nodes[b])
+		inv := cd.desc.invBind[b]
+		var m16 [16]float32
+		for c := 0; c < 4; c++ {
+			for r := 0; r < 4; r++ {
+				m16[c*4+r] = inv[r][c]
+			}
+		}
+		ibms = append(ibms, m16)
+	}
+	skin := s.AddSkin(jointNodes, ibms)
+	for _, lr := range cd.desc.lods {
+		prims, err := chrPartPrims(cd.model, cd.texs, lr.part, lr.bones, jointOf)
 		if err != nil {
 			return err
 		}
+		name := fmt.Sprintf("skin_%d", lr.part)
+		n := s.AddNode(name, root, [3]float32{}, [4]float32{0, 0, 0, 1}, [3]float32{1, 1, 1})
 		if err := s.AddMesh(n, name, prims); err != nil {
 			return err
 		}
-		nodes[x.bone] = n
+		s.SetNodeSkin(n, skin)
 	}
 
 	const fps = 60.0
-	const step = 3 // sample every 3 frames (20 Hz; locals interpolate cleanly)
-	bake := func(clipName, asName string, ground bool) error {
+	const step = 2 // sample every 2 frames (30 Hz; locals interpolate cleanly)
+	bake := func(clipName, asName string) error {
 		clip := cd.clip(clipName)
 		if clip == nil {
 			return fmt.Errorf("clip %s not found", clipName)
@@ -1365,9 +1832,6 @@ func chrExportGLB(disc *xbox.Image, outPath string, conv poseConv) error {
 		worlds := make([][]mat4, len(frames))
 		for i, fr := range frames {
 			worlds[i] = rg.evalPose(clip, fr)
-		}
-		if ground {
-			groundBaseline(worlds, cd, byName)
 		}
 		rot := map[int][][4]float32{}
 		trn := map[int][][3]float32{}
@@ -1397,49 +1861,18 @@ func chrExportGLB(disc *xbox.Image, outPath string, conv poseConv) error {
 		c.Finish()
 		return nil
 	}
-	if err := bake("ORT_OZI_OZI_STAND_SP_LP", "idle", false); err != nil {
+	// idle = the plain stand loop; the wave = HATAFURI_00, the clip the
+	// game actually plays at the start line (the 700-flip capture tracks
+	// it monotonically at one clip frame per flip; HATA_SP, shipped
+	// before, is a different wave he never performs there — and before
+	// the wave starts he simply holds RUNAWAY frame 0, err 0.002 m).
+	if err := bake("ORT_OZI_OZI_STAND_LP", "idle"); err != nil {
 		return err
 	}
-	if err := bake("ORT_OZI_OZI_HATA_SP", "hatafuri", true); err != nil {
+	if err := bake("ORT_OZI_OZI_HATAFURI_00", "hatafuri"); err != nil {
 		return err
 	}
 	return s.Write(outPath, "flagman")
-}
-
-// groundBaseline shifts each frame of a baked clip down by a min-filtered
-// baseline so the lowest foot tracks the ground. HATA_SP is authored for
-// the start-gantry anchor — the old man performs the whole wave on the deck
-// ~2 m up and jumps down at the end. The Studio places him on the road, so
-// the baseline (a ±0.5 s running minimum of the lower foot's height above
-// ankle rest) is removed: hops shorter than the window survive, the deck
-// section grounds, and the final dismount eases out instead of falling two
-// metres. A presentation choice, documented, not part of the decode.
-func groundBaseline(worlds [][]mat4, cd *chrData, byName map[string]int) {
-	al, ar := byName["asi_l"], byName["asi_r"]
-	n := len(worlds)
-	raw := make([]float32, n)
-	for i, w := range worlds {
-		fl, fr := w[al][1][3], w[ar][1][3]
-		if fr < fl {
-			fl = fr
-		}
-		raw[i] = fl - 0.14 // height of the lower ankle above its rest
-	}
-	const win = 10 // ±10 keys at 20 Hz = ±0.5 s
-	for i := range worlds {
-		base := raw[i]
-		for j := i - win; j <= i+win; j++ {
-			if j >= 0 && j < n && raw[j] < base {
-				base = raw[j]
-			}
-		}
-		if base < 0 {
-			base = 0
-		}
-		for b := range worlds[i] {
-			worlds[i][b][1][3] -= base
-		}
-	}
 }
 
 // chrPoseDebug prints key bone world positions of a clip at given frames.
@@ -1491,12 +1924,12 @@ func exportFlagman(disc *xbox.Image, b *build.Builder) error {
 	if err := chrExportGLB(disc, out, poseConv{5, false}); err != nil {
 		return err
 	}
-	b.AddObject(schema.Asset{ID: "flagman", Name: "The flagman", Group: "Characters"},
-		&schema.Object{Type: schema.ObjectModel3D, Name: "The flagman", Model: "flagman.glb",
+	b.AddObject(schema.Asset{ID: "flagman", Name: "The starter", Group: "Characters"},
+		&schema.Object{Type: schema.ObjectModel3D, Name: "The starter", Model: "flagman.glb",
 			Animations: []schema.Animation{
 				{ID: "idle", Name: "Idle", Loop: "loop", Clip: "idle"},
-				{ID: "hatafuri", Name: "Flag wave", Loop: "once", Clip: "hatafuri"},
+				{ID: "hatafuri", Name: "Start wave", Loop: "once", Clip: "hatafuri"},
 			},
-			Props: map[string]any{"source": "/Chr/obj_chr_aut04_pmt.sz", "skeleton": "OZI (/Common/bone.bin)", "clips": "mot_OR2SP_ETC_bin.sz"}})
+			Props: map[string]any{"source": "/Chr/obj_chr_aut04_pmt.sz", "skeleton": "OZI (/Common/bone.bin)", "clips": "mot_ETC_bin.sz (STAND_LP, HATAFURI_00)"}})
 	return nil
 }

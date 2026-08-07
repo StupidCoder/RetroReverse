@@ -420,14 +420,16 @@ func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]
 		})
 	}
 	if id == "stage-beac" {
-		// The start-line flagman. His spot is measured off the live game
+		// The start-line starter (he waves the start bare-handed — the
+		// checkered flag ships collapsed to a point in his hand part and
+		// is never unfurled here). His spot is measured off the live game
 		// (bootoracle race-driving frame, feet mid-point via VP recovered
 		// from the frame's world draws); the idle loop autoplays, clicking
-		// him waves the flag.
+		// him plays the start wave.
 		pls = append(pls, schema.Placement{
 			ID: len(pls), Object: "flagman",
 			Pos:     []float64{-4.38, 0, -21.4},
-			Name:    "The flagman",
+			Name:    "The starter",
 			OnClick: &schema.OnClick{Action: "animate", Clip: "hatafuri"},
 			Props:   map[string]any{"measured": "live frame; feet mid (-4.38, 0, -21.4)"},
 		})

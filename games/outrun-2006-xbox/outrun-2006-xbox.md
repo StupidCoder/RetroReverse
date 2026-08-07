@@ -3993,3 +3993,90 @@ merged geometry — the full-detail parts ship); exact hermite semantics of
 the 0x80/0xC0 key slopes (linear sampling at 20 Hz ships); the other
 characters (the start girl FAL/JEN with her 113-bone skeleton, MAN/WMN
 driver-passenger pairs, and the aut04_cvt convertible variant).
+
+## Part XXXIV — the starter, actually decoded (the user's screenshots were right)
+
+Part XXXIII shipped broken, and every one of its claims the user challenged
+was wrong: the body still had huge gaps (whole chunks of geometry missing at
+every joint), the arms crossed to one side at unnatural angles, the exported
+wave floated him vertically though his feet never leave the ground in-game,
+and he holds no flag at the start line at all. This part re-derives the
+character pipeline against the running game and closes all of it.
+
+**The gaps were the LOD records — which are not LODs.** CHR_AUT04's twenty
+20-byte records don't describe distance variants: each binds one of the
+model's remaining 20 parts to 2–4 bones, and those parts are the *skinned
+junction geometry* — waist, neck, both shoulders, elbows, wrists, hips,
+knees, ankles, and a 4-bone pelvis — the seams between the 15 rigid attach
+parts. Their vertices are stored in T-pose model space (the rigid parts are
+bone-local), with 1–3 stored f32 weights (fmt 0x116/0x118/0x11A) covering
+all but the last listed bone, which takes the 1-Σ remainder; the stored
+weight follows the record's first-listed bone (the ankle part's weights are
+1.0 on foot-height vertices, 0.0 at shin height). The capture pinned the
+runtime: the skinning vertex program is explicit two-bone LBS —
+`R11 = w·v0 + (1-w)·(c180-183·v0)`, `oPos = c160-163·R11` — i.e. the draw's
+composite is VP·W_A·IBM_A and the second matrix is
+(W_A·IBM_A)⁻¹·(W_B·IBM_B): exactly glTF linear-blend skinning over the CHR
+file's inverse binds. That is what those 17 matrices are *for*. The export
+now writes one glTF skin (17 joints) and the 20 junction parts as skinned
+primitives; the bind pose renders a seamless T-posed man, and tools/lib/glb
+grew multi-influence JOINTS_0/WEIGHTS_0.
+
+**The pose was wrong because the ROOT'S CHANNEL TRIPLES ARE SWAPPED.** The
+mot descriptor mask covers six streams per bone; for every bone but the
+root they are rx,ry,rz,tx,ty,tz — but for bone 0 they are
+tx,ty,tz,rx,ry,rz. The game's own runtime proves it: the character player
+keeps one 0x350-byte object per bone (the flagman's 39 at 0xd04b50 in
+flagman.state, contiguous in bone.bin order; header = the composed matrix
+the hierarchy walker copies from the matrix stack at 0x3DE454, nine 0x48
+channel structs at +0x48 — translation, rotation, scale triples — evaluated
+into +0x2DC/+0x2E8/+0x2F4). hara_n_x's key counts [27,22,32] land in the
+walker's TRANSLATE slots and [1,46,1] in ROTATE, and its composed matrix
+carries t=(0.077,1.106,-0.049) with yaw 1.378 rad. Under the old reading
+the root's *height* channel (~1.19 m) was applied as yaw — right by pure
+coincidence, 1.19 rad ≈ his real 68° facing — and his *yaw swing* (0.9-1.4
+rad while waving, 3.29 rad = turned right around at the clip's end) was
+applied as added height: the phantom "2 m gantry climb". HATAFURI_00's real
+ty breathes between 1.11 and 1.23: he crouches 8 cm into the wave and his
+feet never leave the ground, exactly as the user said.
+
+**The IK is now the game's own construction, read off its settled skeleton**
+(wave400.state, mid-wave) and verified against a 700-flip capture (the
+carvtx probe grew a FLIP marker; carex -chrcap/-chrcapfit/-chrikprobe are
+the instruments): every effector lands EXACTLY on its channel target —
+targets are absolute positions in the character's Y-up ground space, no
+root riding of any kind. Chains solve in a plane: axis = target−chainRoot,
+hinge Z = the chain root's ANIMATED local z Gram-Schmidt-orthonormalized
+against the axis (the mid-joint offset has z≡0 in the joint frame across
+all 700 flips of all four limb chains), law-of-cosines bend along Z×axis
+for legs (knees forward) and axis×Z for arms (elbows back — the rig marks
+arm chains by a flip in the mid-joint's rest euler), joint frames X along
+the segment / shared Z / Y=Z×X. Chest and head are single-segment chains:
+the joint stays at the chain root, X aims at the target, and the effector
+sits its bone length out. Segment lengths come from bone.bin itself: the
+word at record +0x0C — read as padding before — is a float, the bone's
+x-length (hiji 0.272, sune 0.390, sune_eff 0.440, mune_eff 0.200, kao_eff
+0.210, the 0.0464 neck, the -0.0628/-0.0150 shoulder links), completing the
+rest translation to (tx, ty, tz). After the fixes the fitter tracks
+HATAFURI_00 monotonically at one clip frame per flip with mean per-bone
+residuals of 1-3 cm (linear sampling vs the runtime's Hermite is most of
+what remains), and the pre-wave hold is RUNAWAY frame 0 to 2 mm.
+
+**What the start line actually plays:** idle hold = RUNAWAY:0, the start
+wave = HATAFURI_00 (mot_ETC) — not HATA_SP, which he never performs there.
+The export ships idle = STAND_LP (the ambient stand loop) and hatafuri =
+HATAFURI_00, baked hierarchically at 30 Hz with the real root motion; the
+ground-baseline filter is deleted. And there is no flag: part 31's second
+batch (16 verts, the model's only use of the checkered-flag texture) sits
+1.3-1.5 m from the hand and the live frames draw nothing at its spot — the
+export drops detached rigid batches. He is "The starter" in the Studio now;
+the misleading "flagman" stays only as the asset id.
+
+Verified: bind-pose and posed rendersheets against the game's own flip
+captures; the shipped site GLB loads and GPU-skins in three.js (headless
+harness, magenta clear — no seams, no strays); skin attributes validated
+structurally (17 joints, 364 skinned verts, weights sum to 1).
+
+Open (moves from XXXIII): Hermite key slopes (linear 30 Hz ships); the
+other characters (FAL/JEN start girl, MAN/WMN pairs, aut04_cvt); whether
+any context ever unfurls the flag (nothing at the start line does).

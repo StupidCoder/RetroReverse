@@ -2694,7 +2694,7 @@
   {
    "id": "flagman",
    "category": "object",
-   "name": "The flagman",
+   "name": "The starter",
    "group": "Characters",
    "file": "objects/flagman.json"
   }

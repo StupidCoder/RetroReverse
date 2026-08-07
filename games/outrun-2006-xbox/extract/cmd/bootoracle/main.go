@@ -485,12 +485,15 @@ func main() {
 				if (method-0x0B80)/4%4 == 3 {
 					constLoad++
 				}
+			case method == 0x0130:
+				// frame boundary marker so multi-frame captures group per flip
+				fmt.Printf("carvtx: FLIP\n")
 			case method == 0x17FC && arg != 0:
 				off0 := attrOff[0] &^ 0x80000000
 				if off0 < lo || off0 >= hi {
 					return
 				}
-				if len(seen) > 600 {
+				if len(seen) > 60000 {
 					return
 				}
 				seen[fmt.Sprintf("%d", len(seen))] = true

@@ -2,7 +2,7 @@
  "format": "retro-x",
  "version": 1,
  "type": "model3d",
- "name": "The flagman",
+ "name": "The starter",
  "animations": [
   {
    "id": "idle",
@@ -12,14 +12,14 @@
   },
   {
    "id": "hatafuri",
-   "name": "Flag wave",
+   "name": "Start wave",
    "loop": "once",
    "clip": "hatafuri"
   }
  ],
  "model": "flagman.glb",
  "props": {
-  "clips": "mot_OR2SP_ETC_bin.sz",
+  "clips": "mot_ETC_bin.sz (STAND_LP, HATAFURI_00)",
   "skeleton": "OZI (/Common/bone.bin)",
   "source": "/Chr/obj_chr_aut04_pmt.sz"
  }
