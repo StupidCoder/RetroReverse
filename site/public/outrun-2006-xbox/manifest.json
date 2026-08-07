@@ -2708,7 +2708,7 @@
   {
    "id": "driver-cap",
    "category": "object",
-   "name": "The driver (capped)",
+   "name": "The driver (alternate)",
    "group": "Characters",
    "file": "objects/driver-cap.json"
   },
@@ -2722,7 +2722,7 @@
   {
    "id": "passenger-hat",
    "category": "object",
-   "name": "The passenger (hat)",
+   "name": "The passenger (alternate)",
    "group": "Characters",
    "file": "objects/passenger-hat.json"
   },
@@ -2736,21 +2736,21 @@
   {
    "id": "passenger-hat-usa",
    "category": "object",
-   "name": "The passenger (hat, US)",
+   "name": "The passenger (alternate, US)",
    "group": "Characters",
    "file": "objects/passenger-hat-usa.json"
   },
   {
    "id": "passenger-skirt",
    "category": "object",
-   "name": "The passenger (skirt)",
+   "name": "The passenger (blouse)",
    "group": "Characters",
    "file": "objects/passenger-skirt.json"
   },
   {
    "id": "passenger-skirt-hat",
    "category": "object",
-   "name": "The passenger (skirt, hat)",
+   "name": "The passenger (blouse, loose hair)",
    "group": "Characters",
    "file": "objects/passenger-skirt-hat.json"
   },

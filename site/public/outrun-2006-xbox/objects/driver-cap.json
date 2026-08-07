@@ -2,7 +2,7 @@
  "format": "retro-x",
  "version": 1,
  "type": "model3d",
- "name": "The driver (capped)",
+ "name": "The driver (alternate)",
  "animations": [
   {
    "id": "sit",

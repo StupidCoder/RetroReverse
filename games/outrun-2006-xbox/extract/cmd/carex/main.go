@@ -309,6 +309,11 @@ type batch struct {
 
 type material struct {
 	texIdx  int // first bound 2-D texture, -1 if none
+	// blend: stateKey toggle-byte bit 1 = the alpha state pair (0x900/901)
+	// — set on the characters' soft-alpha hair and lash materials
+	// (stateKey 0x5403/0x5407 vs the plain 0x5401); shipped as glTF BLEND
+	// so gradient hair alpha survives (a MASK 0.5 cutoff balds the buns)
+	blend   bool
 	diffuse [3]float32
 	alpha   float32 // D3DMATERIAL8 diffuse alpha — the glass batches carry < 1
 	// additive: the stateKey's blend-factor byte (bits 8-15, indexing the
@@ -420,6 +425,7 @@ func (p *pmt) parsePart(pi int) (*part, error) {
 		}
 		stateKey := u32(p.a, m+4)
 		mat.additive = stateKey>>8&0xFF == 0x14 // SRC_ALPHA / ONE
+		mat.blend = stateKey&0x2 != 0
 		for s := 0; s < 4; s++ {
 			ti := u32(p.a, m+8+20*s+16)
 			if ti == 0xFFFFFFFF || int(ti) >= p.nTex {

@@ -379,6 +379,10 @@ type chrDesc struct {
 	skel    int
 	attach  map[int][]int // bone -> rigid parts (full-detail + runtime-attached hand/face variants)
 	lods    []lodRec     // skinned junction parts (the seams between rigid parts)
+	// pretrans re-bases an attach part's vertices before export: the
+	// headwear orphans (dr_lh00's sun hat, dr_g00's scrunchie) are stored
+	// in MODEL space, so they carry invBind(head) to become head-local
+	pretrans map[int]mat4
 	lodBone map[int]bool // bones referenced by LOD records
 	bind    map[int]mat4 // bone -> bind (bone→world), from the inverse-bind table
 	invBind map[int]mat4 // bone -> inverse bind
@@ -418,7 +422,7 @@ func parseChrExtra(b []byte) (chains []chrDynChain, nDyn int) {
 func parseChrDesc(b []byte, sk *chrSkeleton, model *pmt) (*chrDesc, error) {
 	d := &chrDesc{
 		skel:   int(u16(b, 0)),
-		attach: map[int][]int{}, lodBone: map[int]bool{},
+		attach: map[int][]int{}, lodBone: map[int]bool{}, pretrans: map[int]mat4{},
 		bind: map[int]mat4{}, invBind: map[int]mat4{},
 	}
 	nAttach, nLOD, nMat := int(u16(b, 2)), int(u16(b, 4)), int(u16(b, 6))
@@ -478,6 +482,16 @@ func parseChrDesc(b []byte, sk *chrSkeleton, model *pmt) (*chrDesc, error) {
 	// rest-FK world it matches — bind origins are distinctive (the file
 	// binds sit within ~2 cm of rest-FK; rotation breaks stacked-origin
 	// ties). Greedy by best score, unique per bone.
+	// ORPHAN PARTS — the runtime-attached variants (nothing in the CHR
+	// references them; the game's code picks per frame): hand SHAPES in
+	// mirrored L/R blocks, FACE EXPRESSION sets, and model-space headwear.
+	// The in-race capture pinned the semantics on the driver: of his four
+	// orphans the game draws exactly the FIRST shape of each side (parts
+	// 22/24), 22 riding te_l, 24 te_r — and the +z-dominant local bbox is
+	// the LEFT hand. Must run BEFORE the bind fallback below so the newly
+	// attached bones get binds and nodes.
+	attachOrphans(d, sk, model, dynBase)
+
 	rest := restFK(sk)
 	var cand []int
 	seen := map[int]bool{}
@@ -509,16 +523,6 @@ func parseChrDesc(b []byte, sk *chrSkeleton, model *pmt) (*chrDesc, error) {
 		m[3] = [4]float32{0, 0, 0, 1}
 		mats[i] = fileMat{inv: m, bind: mInv(m)}
 	}
-	// ORPHAN PARTS — the runtime-attached variants (nothing in the CHR
-	// references them; the game's code picks per frame): hand SHAPES in
-	// mirrored L/R blocks and FACE EXPRESSION sets. The in-race capture
-	// pinned the semantics on the driver: of his four orphans the game
-	// draws exactly the FIRST shape of each side (parts 22/24), 22 riding
-	// te_l, 24 te_r — and the +z-dominant local bbox is the LEFT hand.
-	// The export attaches the first face and the first hand pair so the
-	// cast ships whole; the other variants stay unshipped (documented).
-	attachOrphans(d, sk, model, dynBase)
-
 	// The matrix table's bone order is IN THE FILE: the header word at +16
 	// points at a u16 list (right before the attach table) naming the bone
 	// of each matrix — skeleton indices, or 0x8000|i for dynamics bones.
@@ -544,6 +548,17 @@ func parseChrDesc(b []byte, sk *chrSkeleton, model *pmt) (*chrDesc, error) {
 		if _, ok := d.bind[bi]; !ok {
 			d.bind[bi] = rest[bi]
 			d.invBind[bi] = mInvFull(rest[bi])
+		}
+	}
+
+	// model-space headwear parts become head-local now that binds exist
+	for b2, ps := range d.attach {
+		for _, p2 := range ps {
+			if _, ok := d.pretrans[p2]; ok {
+				if inv, ok2 := d.invBind[b2]; ok2 {
+					d.pretrans[p2] = inv
+				}
+			}
 		}
 	}
 
@@ -615,19 +630,31 @@ func attachOrphans(d *chrDesc, sk *chrSkeleton, model *pmt, dynBase int) {
 		return
 	}
 	boneByName := func(sub string, preferAttached bool) int {
-		best := -1
-		for i, b := range sk.bones {
-			if !strings.Contains(b.name, sub) {
-				continue
-			}
-			if _, has := d.attach[i]; has && preferAttached {
-				return i
-			}
-			if best < 0 {
-				best = i
+		// exact / j_-prefixed / o_-prefixed / _-suffixed forms only — a
+		// plain substring match trips over kl_ste_l_crl for "te_l"
+		match := func(n string) bool {
+			return n == sub || n == "j_"+sub || n == "o_"+sub || strings.HasSuffix(n, "_"+sub)
+		}
+		if preferAttached {
+			for i, b := range sk.bones {
+				if _, has := d.attach[i]; has && strings.Contains(b.name, sub) {
+					return i
+				}
 			}
 		}
-		return best
+		for _, pre := range []string{"j_", "", "o_"} {
+			for i, b := range sk.bones {
+				if b.name == pre+sub {
+					return i
+				}
+			}
+		}
+		for i, b := range sk.bones {
+			if match(b.name) {
+				return i
+			}
+		}
+		return -1
 	}
 	head := boneByName("kao", true)
 	teL, teR := boneByName("te_l", false), boneByName("te_r", false)
@@ -702,6 +729,22 @@ func attachOrphans(d *chrDesc, sk *chrSkeleton, model *pmt, dynBase int) {
 			taken[l.pi], taken[r.pi] = true, true
 			handDone = true
 			break
+		}
+	}
+	// headwear: orphan singles stored in MODEL space at head height (the
+	// lh00 sun hat spans y 1.27-1.66, the g00 scrunchie 1.61-1.69) — they
+	// ride the head; the tail of parseChrDesc fills their invBind(head)
+	// pre-transform once the binds are assigned
+	if head >= 0 {
+		for _, o := range orphans {
+			if taken[o.pi] {
+				continue
+			}
+			if o.mn[1] > 0.9 && o.mx[1] < 2.0 && o.mx[1]-o.mn[1] < 0.6 && o.mx[0]-o.mn[0] < 0.6 {
+				d.attach[head] = append(d.attach[head], o.pi)
+				d.pretrans[o.pi] = mIdent() // placeholder: head invBind later
+				taken[o.pi] = true
+			}
 		}
 	}
 }
@@ -2067,7 +2110,7 @@ func readCarvtxDump(path string, model *pmt) (map[int]mat4, error) {
 // left hand) ships 16 checkered-flag verts collapsed to a point — the game
 // draws them degenerate at the start line (live VB = file bytes; he never
 // holds a flag there), so the export leaves them out.
-func chrPartPrims(model *pmt, texs []texInfo, pi int, lodBones []int, jointOf map[int]uint8) ([]glb.Prim, error) {
+func chrPartPrims(model *pmt, texs []texInfo, pi int, lodBones []int, jointOf map[int]uint8, modelSpace bool) ([]glb.Prim, error) {
 	pt, err := model.parsePart(pi)
 	if err != nil {
 		return nil, err
@@ -2127,7 +2170,7 @@ func chrPartPrims(model *pmt, texs []texInfo, pi int, lodBones []int, jointOf ma
 		if degenerateBatch(pos, raw) {
 			continue
 		}
-		if !skinned && detachedBatch(pos, raw) {
+		if !skinned && !modelSpace && detachedBatch(pos, raw) {
 			// part 31 (left hand) carries a furled checkered-flag remnant
 			// 1.3-1.5 m out along the hand's z — its own texture, drawn by
 			// nothing in the live start-line frames (the whole VB is
@@ -2141,7 +2184,13 @@ func chrPartPrims(model *pmt, texs []texInfo, pi int, lodBones []int, jointOf ma
 		if m := pt.mats[b.matIdx]; m.texIdx >= 0 && texs[m.texIdx].img != nil {
 			ti = m.texIdx
 		}
-		groups[ti] = append(groups[ti], tris...)
+		// group key carries the blend flag so soft-alpha hair batches get
+		// their own BLEND primitive
+		key := ti*2 + 2
+		if pt.mats[b.matIdx].blend {
+			key++
+		}
+		groups[key] = append(groups[key], tris...)
 	}
 	var out []glb.Prim
 	var keys []int
@@ -2149,8 +2198,9 @@ func chrPartPrims(model *pmt, texs []texInfo, pi int, lodBones []int, jointOf ma
 		keys = append(keys, k)
 	}
 	sort.Ints(keys)
-	for _, ti := range keys {
-		pr := glb.Prim{Positions: pos, Normals: nrm, UVs: uvs, Tris: groups[ti], DoubleSided: true}
+	for _, key := range keys {
+		ti := key/2 - 1
+		pr := glb.Prim{Positions: pos, Normals: nrm, UVs: uvs, Tris: groups[key], DoubleSided: true, Blend: key&1 == 1}
 		if skinned {
 			pr.JointsW = joints
 			pr.Weights = weights
@@ -2279,9 +2329,26 @@ func exportChrGLB(cd *chrData, rootName, outPath string, conv poseConv, bakes []
 		if parts, ok := cd.desc.attach[b]; ok {
 			var prims []glb.Prim
 			for _, part := range parts {
-				pp, err := chrPartPrims(cd.model, cd.texs, part, nil, nil)
+				_, isPre := cd.desc.pretrans[part]
+				pp, err := chrPartPrims(cd.model, cd.texs, part, nil, nil, isPre)
 				if err != nil {
 					return err
+				}
+				if pre, ok := cd.desc.pretrans[part]; ok {
+					for i := range pp {
+						for vi, v := range pp[i].Positions {
+							x := pre[0][0]*v[0] + pre[0][1]*v[1] + pre[0][2]*v[2] + pre[0][3]
+							y := pre[1][0]*v[0] + pre[1][1]*v[1] + pre[1][2]*v[2] + pre[1][3]
+							z := pre[2][0]*v[0] + pre[2][1]*v[1] + pre[2][2]*v[2] + pre[2][3]
+							pp[i].Positions[vi] = [3]float32{x, y, z}
+						}
+						for vi, nv := range pp[i].Normals {
+							x := pre[0][0]*nv[0] + pre[0][1]*nv[1] + pre[0][2]*nv[2]
+							y := pre[1][0]*nv[0] + pre[1][1]*nv[1] + pre[1][2]*nv[2]
+							z := pre[2][0]*nv[0] + pre[2][1]*nv[1] + pre[2][2]*nv[2]
+							pp[i].Normals[vi] = [3]float32{x, y, z}
+						}
+					}
 				}
 				prims = append(prims, pp...)
 			}
@@ -2314,7 +2381,7 @@ func exportChrGLB(cd *chrData, rootName, outPath string, conv poseConv, bakes []
 	}
 	skin := s.AddSkin(jointNodes, ibms)
 	for _, lr := range cd.desc.lods {
-		prims, err := chrPartPrims(cd.model, cd.texs, lr.part, lr.bones, jointOf)
+		prims, err := chrPartPrims(cd.model, cd.texs, lr.part, lr.bones, jointOf, false)
 		if err != nil {
 			return err
 		}
@@ -2472,7 +2539,7 @@ var chrRoster = []chrSpec{
 			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
 			{ID: "winner", Name: "Winner", Loop: "once", Clip: "winner"},
 		}},
-	{base: "dr_mh00", id: "driver-cap", name: "The driver (capped)",
+	{base: "dr_mh00", id: "driver-cap", name: "The driver (alternate)",
 		files: []string{"mot_START_bin", "mot_F40_bin"},
 		bakes: []chrBake{{"ORT_MAN_OTK_SUWARI_LP_01", "sit"}, {"ORT_MAN_OTK_WINNER_01", "winner"}},
 		anims: []schema.Animation{
@@ -2486,7 +2553,7 @@ var chrRoster = []chrSpec{
 			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
 			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
 		}},
-	{base: "dr_gh00", id: "passenger-hat", name: "The passenger (hat)",
+	{base: "dr_gh00", id: "passenger-hat", name: "The passenger (alternate)",
 		files: []string{"mot_START_bin", "mot_F40_bin"},
 		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
 		anims: []schema.Animation{
@@ -2500,21 +2567,21 @@ var chrRoster = []chrSpec{
 			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
 			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
 		}},
-	{base: "dr_gh00_usa", id: "passenger-hat-usa", name: "The passenger (hat, US)",
+	{base: "dr_gh00_usa", id: "passenger-hat-usa", name: "The passenger (alternate, US)",
 		files: []string{"mot_START_bin", "mot_F40_bin"},
 		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
 		anims: []schema.Animation{
 			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
 			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
 		}},
-	{base: "dr_l00", id: "passenger-skirt", name: "The passenger (skirt)",
+	{base: "dr_l00", id: "passenger-skirt", name: "The passenger (blouse)",
 		files: []string{"mot_START_bin", "mot_F40_bin"},
 		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
 		anims: []schema.Animation{
 			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
 			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
 		}},
-	{base: "dr_lh00", id: "passenger-skirt-hat", name: "The passenger (skirt, hat)",
+	{base: "dr_lh00", id: "passenger-skirt-hat", name: "The passenger (blouse, loose hair)",
 		files: []string{"mot_START_bin", "mot_F40_bin"},
 		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
 		anims: []schema.Animation{

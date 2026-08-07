@@ -4178,3 +4178,25 @@ the same pass: the CHR header word at +16 points at a u16 BONE LIST naming
 each bind matrix's owner (skeleton index or 0x8000|dyn) — the whole
 three-pass bind matcher collapsed to a table read; FAL's dynamics matrices
 interleave as 2,3,0,1,8,9... which no heuristic would have produced.
+
+**Post-ship fix 2 — the start girl's hands, the accessories, and the hats
+that never were.** Three causes, one round: (1) the orphan-attach pass ran
+AFTER the bind fallback, so bones it added (the JEN girls' te hands, the
+accessory carriers) never got binds or nodes and their meshes silently
+dropped — the classic ordering bug, moved before; the te-bone lookup also
+matched kl_ste_l_crl by substring ("s-te_l") and now takes exact/j_/o_
+forms only. (2) Model-space accessory parts (dr_lh00's five loose-hair
+strand quads, dr_g00's scrunchie) were killed by the detached-batch filter
+before their invBind(head) re-basing could run — pretrans parts are exempt
+now, and ride the head. (3) THERE ARE NO HATS OR CAPS in these models:
+"mh00/gh00/lh00 = hat" was this exporter's own naming invention (the h
+variants differ by painted LOD head-shells and hair accessories), and the
+user hunted for headwear the data never contained — the labels now say
+"(alternate)"/"(loose hair)". Also: character materials carry the stateKey
+alpha bit (0x5403/0x5407 hair and lashes vs plain 0x5401) — shipped as
+glTF BLEND so gradient hair alpha survives (MASK 0.5 balds the buns; the
+road's 1/255 lesson, chapter two). OPEN: the l00/lh00/mh00 heads carry a
+painted whole-head LOD shell in the same part as the close-up geometry
+(the shell's skin-toned dome reads as a bald patch up close); picking the
+close-up batch set needs the game's own draw-path selection of the
+material id field — decode pending, primary cast unaffected.
