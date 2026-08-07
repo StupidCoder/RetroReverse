@@ -1,6 +1,7 @@
 // doorcheck opens the SHIPPED level documents and door GLBs and asserts what a
-// player would see: every door holds itself open when clicked, and the two
-// leaves of a double door swing the SAME way.
+// player would see: every door holds itself open when clicked, the two leaves of
+// a double door swing the SAME way, and every star gate is a PAIR of halves that
+// can slide the width of one half apart.
 //
 // It re-derives the pairs from the shipped placements, reads the clip each
 // placement's onClick names out of the exported GLB, samples it at the frame
@@ -144,9 +145,34 @@ func main() {
 		objModel[strings.TrimSuffix(filepath.Base(p), ".json")] = o.Model
 	}
 
+	// vec3At reads a clip's translation output at its last key.
+	endShift := func(obj, clip string) (float64, bool) {
+		doc, bin, err := readGLB(filepath.Join(*root, "objects", objModel[obj]))
+		if err != nil {
+			return 0, false
+		}
+		for _, a := range doc.Animations {
+			if a.Name != clip {
+				continue
+			}
+			for _, ch := range a.Channels {
+				if ch.Target.Path != "translation" {
+					continue
+				}
+				acc := doc.Accessors[a.Samplers[ch.Sampler].Output]
+				bv := doc.BufferViews[acc.BufferView]
+				base := bv.ByteOffset + acc.ByteOffset + (acc.Count-1)*12
+				return float64(math.Float32frombits(
+					binary.LittleEndian.Uint32(bin[base:]))), true
+			}
+		}
+		return 0, false
+	}
+
 	levels, _ := filepath.Glob(filepath.Join(*root, "levels", "*.json"))
 	sort.Strings(levels)
 	doors, pairs, fails, noHold := 0, 0, 0, 0
+	gates := 0
 	for _, lp := range levels {
 		var lv level
 		d, err := os.ReadFile(lp)
@@ -182,6 +208,61 @@ func main() {
 			}
 			ls = append(ls, l)
 		}
+		// a star gate is one record drawn twice: same position, yaws 180 apart,
+		// each half able to slide its own width (18.750 model units)
+		type half struct {
+			yaw  float64
+			obj  string
+			clip string
+			hold float64
+		}
+		byPos := map[string][]half{}
+		for _, p := range lv.Placements {
+			act, _ := p.Props["actor"].(float64)
+			if int(act) != 354 || len(p.Pos) < 3 {
+				continue
+			}
+			yaw := 0.0
+			if len(p.Rot) > 1 {
+				yaw = p.Rot[1]
+			}
+			h := half{yaw: yaw, obj: p.Object}
+			if p.OnClick != nil {
+				h.clip, h.hold = p.OnClick.Clip, p.OnClick.HoldAt
+			}
+			k := fmt.Sprintf("%.3f/%.3f/%.3f", p.Pos[0], p.Pos[1], p.Pos[2])
+			byPos[k] = append(byPos[k], h)
+		}
+		var keys []string
+		for k := range byPos {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			hs := byPos[k]
+			gates++
+			if len(hs) != 2 {
+				fmt.Printf("  %s: star gate at %s has %d half/halves, not 2\n",
+					filepath.Base(lp), k, len(hs))
+				fails++
+				continue
+			}
+			d := math.Abs(math.Mod(math.Abs(hs[0].yaw-hs[1].yaw), 2*math.Pi) - math.Pi)
+			if d > 0.01 {
+				fmt.Printf("  %s: star gate at %s: halves are not 180 apart\n",
+					filepath.Base(lp), k)
+				fails++
+			}
+			for _, h := range hs {
+				sh, ok := endShift(h.obj, h.clip)
+				if !ok || math.Abs(math.Abs(sh)-18.75) > 1e-3 || h.hold <= 0 {
+					fmt.Printf("  %s: star gate half %s does not slide a half width (%.3f, hold %.3f)\n",
+						filepath.Base(lp), h.obj, sh, h.hold)
+					fails++
+				}
+			}
+		}
+
 		// the same pairing rule the exporter uses, on the shipped numbers
 		// The two records sit 0.300 apart (two 0.150 leaves), but each placement
 		// carries the hinge compensation along its OWN local +X, and those
@@ -238,8 +319,8 @@ func main() {
 			}
 		}
 	}
-	fmt.Printf("%d door placements, %d double doors, %d without a hold, %d failures\n",
-		doors, pairs, noHold, fails)
+	fmt.Printf("%d door placements, %d double doors, %d star gates, %d without a hold, %d failures\n",
+		doors, pairs, gates, noHold, fails)
 	if fails+noHold > 0 {
 		log.Fatal("door check failed")
 	}

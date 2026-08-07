@@ -53,6 +53,18 @@ type BCA struct {
 	// export that has no player has to choose, and the two leaves of a double
 	// door must choose oppositely or they open in opposite directions.
 	MirrorY bool
+
+	// synth, when set, IS the animation: it answers BoneTRS directly. Not every
+	// motion in the game is shipped as a .bca — the star gate has none at all,
+	// its two halves being slid apart by its own draw code — so that motion has
+	// to be authored to be shown. See SynthBCA.
+	synth func(bone, frame int) [9]float64
+}
+
+// SynthBCA builds an animation in memory from a function giving each bone's
+// local {sx,sy,sz, rx,ry,rz (radians), tx,ty,tz} at each frame.
+func SynthBCA(numBones, numFrames int, trs func(bone, frame int) [9]float64) *BCA {
+	return &BCA{NumBones: numBones, NumFrames: numFrames, synth: trs}
 }
 
 // MirroredY returns the same animation with every Y rotation negated.
@@ -178,6 +190,16 @@ func (t *BCATrack) sample(frame, numFrames int) float64 {
 // frame.
 func (a *BCA) BoneTRS(b, frame int) [9]float64 {
 	var out [9]float64
+	if a.synth != nil {
+		if b < 0 || b >= a.NumBones {
+			return out
+		}
+		out = a.synth(b, frame)
+		if a.MirrorY {
+			out[4] = -out[4]
+		}
+		return out
+	}
 	if b < 0 || b >= len(a.tracks) {
 		return out
 	}

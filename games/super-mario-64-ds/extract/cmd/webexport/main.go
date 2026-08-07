@@ -103,6 +103,11 @@ func run(ctx *cli.Context) error {
 				doorModels[m] = true
 			}
 		}
+		for _, b := range bindings[starGateActor] {
+			for _, m := range b.Models {
+				gateModels[m] = true
+			}
+		}
 
 		if ctx.Stage("objects") {
 			if err := exportModels(ctx, ls, tmp, bindings); err != nil {
@@ -631,6 +636,9 @@ func exportModels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		if doorModels[m.Name] {
 			clips = appendMirrored(clips)
 		}
+		if gateModels[m.Name] && len(clips) == 0 {
+			clips = append(clips, gateSlideClip())
+		}
 		var data []byte
 		if len(clips) > 0 {
 			data, err = m.SkinnedGLB(clips)
@@ -663,6 +671,12 @@ func exportModels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		}
 		id := objectID(m.Name)
 		anims := clipAnims(clips)
+		if gateModels[m.Name] && len(anims) > 0 {
+			for i := range anims {
+				anims[i].Loop = "hold"
+			}
+			gateAnim[m.Name] = anims[0].ID
+		}
 		if doorModels[m.Name] && len(anims) > 0 {
 			// A door's clip is its swing, not an idle: play it once and clamp
 			// at the frame it stands open (doorApex). Without the hold the
@@ -1562,6 +1576,31 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		// addDoor emits a door: a named model (leaf, or leaf+plaque merged) on
 		// the placement's own transform, with the actor binding and the
 		// click-to-open handler the leaf's clip provides.
+		// addGate emits one half of a star gate: the model at the record's own
+		// transform, turned by extra degrees, with the slide as a click.
+		addGate := func(stem string, o sm64ds.LevelObject, extra float64) {
+			asset, ok := refs[stem]
+			if !ok {
+				return
+			}
+			pl := schema.Placement{
+				ID: pid, Object: asset,
+				Pos:      []float64{r3(o.X * toStage), r3(o.Y * toStage), r3(o.Z * toStage)},
+				Scale:    schema.Scale{objScale},
+				Props:    map[string]any{"actor": o.Actor},
+				Variants: curVars,
+			}
+			if yaw := o.RotY + extra; yaw != 0 {
+				pl.Rot = []float64{0, yaw * math.Pi / 180, 0}
+			}
+			if a := gateAnim[stem]; a != "" {
+				pl.OnClick = &schema.OnClick{
+					Action: schema.ActionAnimate, Clip: a, HoldAt: 1, Toggle: true,
+				}
+			}
+			doc.Placements = append(doc.Placements, pl)
+			pid++
+		}
 		addDoor := func(stem string, o sm64ds.LevelObject, off [3]float64, clip string) {
 			asset, ok := refs[stem]
 			if !ok {
@@ -1624,6 +1663,14 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 					clip = doorMirrorAnim[stem]
 				}
 				addDoor(stem, o, off, clip)
+
+			case starGateActor:
+				// Two halves, from the gate's own draw ($0214601C and
+				// $02146070): the same model twice, the second at yaw + 180
+				// degrees, at pos + and pos - the slide offset.
+				stem := modelFor(o.Actor, o.Params)
+				addGate(stem, o, 0)
+				addGate(stem, o, 180)
 
 			case paintingActor:
 				sc, lift := paintingScale(o.Params[0])
@@ -1906,6 +1953,41 @@ const doorRestX = 9.375 * objScale
 
 // doorCombo maps "leaf|plaque" to the stem of the merged object.
 var doorCombo = map[string]string{}
+
+// starGateActor 354 is daStarGate_c, the big two-panel gate that slides open
+// when you have the stars. It ships as ONE model, obj_stargate, spanning local
+// X -18.750..0.000 with no .bca at all — and its own draw renders that model
+// TWICE ($021460DC): first at the record's yaw, translated by pos + an offset
+// vector, then again at yaw + $8000 (180 degrees) at pos - the same offset. Two
+// halves, mirrored about the record, meeting there when the offset is zero and
+// parting as it grows. Exporting one placement gave one half, standing still.
+//
+// The offset itself is written by base-class code outside overlay 100, so the
+// distance is not decoded; the geometry fixes it anyway. Each half is 18.750
+// model units wide and they meet at the record, so the pair fills a 37.500-unit
+// (300 world unit) opening, and a half has to travel its OWN WIDTH to clear it.
+// That is the slide authored here, along each half's local -X — which is one
+// direction for both halves, since the second one is turned to face the other
+// way, exactly as the game's pos + / pos - does it.
+const (
+	starGateActor = 354
+	gateSlide     = 18.75
+	gateFrames    = 30
+)
+
+var (
+	gateModels = map[string]bool{}
+	gateAnim   = map[string]string{}
+)
+
+// gateSlideClip authors the star gate's motion, which the game codes by hand.
+func gateSlideClip() sm64ds.NamedBCA {
+	return sm64ds.NamedBCA{Name: "slide", Anim: sm64ds.SynthBCA(1, gateFrames,
+		func(bone, frame int) [9]float64 {
+			t := float64(frame) / float64(gateFrames-1)
+			return [9]float64{1, 1, 1, 0, 0, 0, -gateSlide * t, 0, 0}
+		})}
+}
 
 // mirrorSuffix names the second, mirrored copy of a door's swing clip.
 const mirrorSuffix = "_m"

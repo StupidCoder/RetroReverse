@@ -585,13 +585,46 @@ BOTH senses as two clips, `ar1_8` and `ar1_8_m`, the second with every Y rotatio
 negated (`BCA.MirroredY`), and `doubleDoorMirrors` hands the mirrored one to a
 single leaf of each pair, chosen by normalised yaw so the choice is stable.
 
+### The star gate is one model drawn twice
+
+`daStarGate_c` (actor 354, four of them) is the big two-panel gate that slides
+open once you have the stars. It ships as ONE model, `obj_stargate`, spanning
+local X **−18.750..0.000**, and with **no `.bca` at all** — the oracle watches its
+runs ask the loader for the model and nothing else. Its own draw is where the
+second half is:
+
+```
+0214601C  yaw     = [this+$8E]           ; the record's own yaw
+02146028  pos     = [this+$5C..$64] + [this+$A4..$AC]
+0214606C  BL 02016104                    ; draw obj_stargate
+02146070  yaw     = [this+$8E] + $8000   ; + 180 degrees
+02146088  pos     = [this+$5C..$64] - [this+$A4..$AC]
+021460D0  BL 02016104                    ; draw it AGAIN
+```
+
+Two halves, mirrored about the record and displaced symmetrically, so they meet
+exactly at it when the offset is zero — the model's origin is the edge of its own
+half, so one copy fills local X `−18.750..0` and the turned copy fills `0..18.750`
+with no gap and no overlap. One placement gave one half, standing still.
+
+The offset vector is never written anywhere in overlay 100; base-class code
+outside it drives the gate open, so the distance is not decoded. The geometry
+fixes it anyway: the halves meet at the record and are 18.750 units wide each, so
+the pair fills a 37.500-unit (300 world unit) opening and **a half has to travel
+its own width to clear it**. That is the motion authored here — `SynthBCA` builds
+a 30-frame clip in memory, translating the single bone along the half's local −X,
+which is one direction for both halves because the second is turned to face the
+other way, exactly as the game's `pos +` / `pos −` does it. Click the gate and it
+slides open.
+
 `cmd/doorcheck` verifies it **on the shipped files**: it re-derives the pairs
 from the exported placements, reads the clip each `onClick` names out of the
 GLB's own animation samplers, swings a unit leaf by the quaternion it holds at
 `holdAt`, and requires the pair's two displacements to point the same way. 95
-door placements, 14 double doors, none without a hold, no failures — and with the
-`_m` suffix stripped from the clip names, all 14 pairs fail. The instrument moves
-in both directions.
+door placements, 14 double doors, none without a hold, no failures, and 4 star gates, each two
+halves 180° apart that slide a half width. The instrument moves in both
+directions: strip the `_m` from the clip names and all 14 pairs fail; keep only
+one half of each gate and all 4 gates fail.
 
 **Click to open.** A door ships as a model plus one `.bca`, and that clip is a
 full ROUND TRIP: `cmd/doorprobe -clip ar1_8 -model ar1_9` reads it as 50 frames,

@@ -35,7 +35,7 @@ func main() {
 		log.Fatal(err)
 	}
 	fs := []string{"obj_door1", "obj_door2_boro", "obj_door4_yami", "obj_door5_horror",
-		"obj_door0_star", "obj_door0_star1", "obj_door0_star3", "obj_door0_star10"}
+		"obj_door0_star", "obj_door0_star1", "obj_door0_star3", "obj_door0_star10", "obj_stargate"}
 	for _, s := range fs {
 		p, _ := filepath.Glob("extracted/files/data/*/*/" + s + ".bmd")
 		if len(p) == 0 {
