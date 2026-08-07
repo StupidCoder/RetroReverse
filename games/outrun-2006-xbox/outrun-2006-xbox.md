@@ -4159,3 +4159,22 @@ harness — seams closed, ponytail on her head, nothing at the floor.
 Open: the dynamics spring sim (chains ride rigidly); HANDOL per-car wheel
 poses for a seated-in-car diorama; the E-scene camera tracks; DR_G00's
 flagged attach record (a second kosi part — alternate outfit piece?).
+
+**Post-ship fix — hands and faces.** The cast shipped handless, and the
+JEN girls faceless: hands and facial expressions are ORPHAN PARTS no CHR
+table references — runtime-attached variant sets the game's code picks per
+frame (hand shapes in mirrored left/right blocks; 18 face expressions on
+fal, plus eyelash pairs). The in-race capture pinned the semantics on the
+driver: of his four orphan hands the game draws exactly the FIRST shape of
+each side, part 22 riding te_l and 24 riding te_r — and with the hands
+attached, his te_r becomes a measured bone in the race fit (6 mm). The
+export now classifies orphans (≥3 identical-bbox parts = the face set →
+first one onto the kao attach bone; z-mirrored pairs 5-30 cm = hands →
+first pair onto te_l/te_r, +z-local = LEFT, capture-pinned; tiny x-mirrored
+pairs = eyelashes → with the face) and ships the defaults. The remaining
+variants (17 more faces, other hand shapes, two both-hand clasp pieces and
+two unidentified props on fal) stay unshipped, documented. Also found in
+the same pass: the CHR header word at +16 points at a u16 BONE LIST naming
+each bind matrix's owner (skeleton index or 0x8000|dyn) — the whole
+three-pass bind matcher collapsed to a table read; FAL's dynamics matrices
+interleave as 2,3,0,1,8,9... which no heuristic would have produced.

@@ -377,7 +377,7 @@ type lodRec struct {
 
 type chrDesc struct {
 	skel    int
-	attach  map[int]int  // bone -> part (rigid full-detail parts)
+	attach  map[int][]int // bone -> rigid parts (full-detail + runtime-attached hand/face variants)
 	lods    []lodRec     // skinned junction parts (the seams between rigid parts)
 	lodBone map[int]bool // bones referenced by LOD records
 	bind    map[int]mat4 // bone -> bind (bone→world), from the inverse-bind table
@@ -418,7 +418,7 @@ func parseChrExtra(b []byte) (chains []chrDynChain, nDyn int) {
 func parseChrDesc(b []byte, sk *chrSkeleton, model *pmt) (*chrDesc, error) {
 	d := &chrDesc{
 		skel:   int(u16(b, 0)),
-		attach: map[int]int{}, lodBone: map[int]bool{},
+		attach: map[int][]int{}, lodBone: map[int]bool{},
 		bind: map[int]mat4{}, invBind: map[int]mat4{},
 	}
 	nAttach, nLOD, nMat := int(u16(b, 2)), int(u16(b, 4)), int(u16(b, 6))
@@ -453,7 +453,7 @@ func parseChrDesc(b []byte, sk *chrSkeleton, model *pmt) (*chrDesc, error) {
 		if bi&0x8000 != 0 {
 			bi = dynBase + bi&0x7FFF
 		}
-		d.attach[bi] = int(u16(b, o+4)) & 0x7FFF
+		d.attach[bi] = append(d.attach[bi], int(u16(b, o+4))&0x7FFF)
 	}
 	for i := 0; i < nLOD; i++ {
 		o := lodOff + i*20
@@ -509,223 +509,41 @@ func parseChrDesc(b []byte, sk *chrSkeleton, model *pmt) (*chrDesc, error) {
 		m[3] = [4]float32{0, 0, 0, 1}
 		mats[i] = fileMat{inv: m, bind: mInv(m)}
 	}
-	// HINTS from the model itself: a LOD bone's bind origin is where its
-	// dominant-weight vertices cluster (the skinned parts are stored in
-	// the BIND-POSE model space — the same space the matrix table maps
-	// out of). This is the only assignment that works on every rig: the
-	// ONN girl RESTS in a sitting stance while her binds are a T-pose, so
-	// any rest-pose matching mis-hangs her arms, and the table order is
-	// alphabetical over bone names whose vocabulary differs per rig.
-	// One cluster per part, credited to the DEEPEST bone the part skins
-	// over: a junction part wraps the seam between its bones, and the seam
-	// sits at the child joint's bind origin (the elbow part hugs hiji, the
-	// hip part momo, the neck part kao, a ponytail part its dyn segment).
-	depth := func(bi int) int {
-		n := 0
-		for p := sk.bones[bi].parent; p >= 0; p = sk.bones[p].parent {
-			n++
-		}
-		return n
-	}
-	hints := map[int][][3]float32{}
-	for _, lr := range d.lods {
-		pt, err := model.parsePart(lr.part)
-		if err != nil {
-			continue
-		}
-		deepest, dbest := -1, -1
-		for _, bi := range lr.bones {
-			if dd := depth(bi); dd > dbest {
-				dbest, deepest = dd, bi
-			}
-		}
-		var sum [3]float32
-		n := 0
-		for _, bp := range pt.pairs {
-			pos, _, _, _, _ := model.decodeVerts(bp)
-			for _, p := range pos {
-				sum[0] += p[0]
-				sum[1] += p[1]
-				sum[2] += p[2]
-				n++
-			}
-		}
-		if n >= 3 && deepest >= 0 {
-			hints[deepest] = append(hints[deepest], [3]float32{sum[0] / float32(n), sum[1] / float32(n), sum[2] / float32(n)})
-		}
-	}
-	type pair struct {
-		mi, bi int
-		score  float32
-	}
-	usedM, usedB := map[int]bool{}, map[int]bool{}
-	assign := func(ps []pair, cutoff float32) {
-		// deterministic order: tie-break on matrix then bone index
-		sort.Slice(ps, func(i, j int) bool {
-			if ps[i].score != ps[j].score {
-				return ps[i].score < ps[j].score
-			}
-			if ps[i].mi != ps[j].mi {
-				return ps[i].mi < ps[j].mi
-			}
-			return ps[i].bi < ps[j].bi
-		})
-		for _, p := range ps {
-			if usedM[p.mi] || usedB[p.bi] || p.score > cutoff {
-				continue
-			}
-			usedM[p.mi], usedB[p.bi] = true, true
-			d.invBind[p.bi] = mats[p.mi].inv
-			d.bind[p.bi] = mats[p.mi].bind
-		}
-	}
-	var lodBones []int
-	for bi := range d.lodBone {
-		lodBones = append(lodBones, bi)
-	}
-	sort.Ints(lodBones)
-	// rotation distance disambiguates coincident origins (mal's j_ude_l
-	// and j_kobo_hiji_l share a position with different bind frames)
-	rotDiff := func(a, b mat4) float32 {
-		var s float32
-		for r := 0; r < 3; r++ {
-			for c := 0; c < 3; c++ {
-				v := a[r][c] - b[r][c]
-				s += v * v
-			}
-		}
-		return s
-	}
-	// pass 1: strict REST lock — on most rigs the bind pose IS the rest
-	// pose (OZI/OTK/MAN/JEN/RIC), and even the sitting ONN rig's SPINE
-	// rests within 3 cm of its bind
-	var pairs []pair
-	for mi := range mats {
-		bp := mPos(mats[mi].bind)
-		for _, bi := range lodBones {
-			if bi >= dynBase {
-				continue
-			}
-			pairs = append(pairs, pair{mi, bi,
-				v3len(v3sub(bp, mPos(rest[bi]))) + 0.002*rotDiff(mats[mi].bind, rest[bi])})
-		}
-	}
-	assign(pairs, 0.06)
-	// pass 2: model-vertex hints for the rest (the ONN limbs: her rest sits
-	// while her binds T-pose — the junction parts say where each bind is)
-	pairs = pairs[:0]
-	for mi := range mats {
-		if usedM[mi] {
-			continue
-		}
-		bp := mPos(mats[mi].bind)
-		for _, bi := range lodBones {
-			if usedB[bi] {
-				continue
-			}
-			best := float32(1e9)
-			for _, h := range hints[bi] {
-				if dd := v3len(v3sub(bp, h)); dd < best {
-					best = dd
-				}
-			}
-			if best < 1e9 {
-				pairs = append(pairs, pair{mi, bi, best})
-			}
-		}
-	}
-	assign(pairs, 1e8)
-	// pass 3: whatever remains (bones never a part's deepest and outside
-	// the strict rest lock) — nearest rest position, loose cutoff
-	pairs = pairs[:0]
-	for mi := range mats {
-		if usedM[mi] {
-			continue
-		}
-		bp := mPos(mats[mi].bind)
-		for _, bi := range lodBones {
-			if usedB[bi] || bi >= dynBase {
-				continue
-			}
-			pairs = append(pairs, pair{mi, bi,
-				v3len(v3sub(bp, mPos(rest[bi]))) + 0.002*rotDiff(mats[mi].bind, rest[bi])})
-		}
-	}
-	assign(pairs, 0.3)
-	// Swap refinement: junction centroids can hug either end of a segment
-	// (the half-body drivers' belly part sits at the waist, the starter's
-	// at the chest), so verify the assignment against the union topology —
-	// for every ancestor-related bone pair the bind distance must match
-	// the rest distance (segments are rigid) — and swap any pair of
-	// assignments that strictly improves the total.
-	{
-		var ub []int
-		for bi := range d.lodBone {
-			if _, ok := d.bind[bi]; ok && bi < dynBase {
-				ub = append(ub, bi)
-			}
-		}
-		sort.Ints(ub)
-		inU := map[int]bool{}
-		for _, bi := range ub {
-			inU[bi] = true
-		}
-		type edge struct {
-			a, b int
-			want float32
-		}
-		var edges []edge
-		for _, bi := range ub {
-			for p := sk.bones[bi].parent; p >= 0; p = sk.bones[p].parent {
-				if inU[p] {
-					edges = append(edges, edge{bi, p, v3len(v3sub(mPos(rest[bi]), mPos(rest[p])))})
-					break
-				}
-			}
-		}
-		cost := func() float32 {
-			var c float32
-			for _, e := range edges {
-				got := v3len(v3sub(mPos(d.bind[e.a]), mPos(d.bind[e.b])))
-				diff := got - e.want
-				if diff < 0 {
-					diff = -diff
-				}
-				c += diff
-			}
-			return c
-		}
-		for pass := 0; pass < 8; pass++ {
-			improved := false
-			base := cost()
-			for i := 0; i < len(ub); i++ {
-				for j := i + 1; j < len(ub); j++ {
-					a, bb := ub[i], ub[j]
-					d.bind[a], d.bind[bb] = d.bind[bb], d.bind[a]
-					d.invBind[a], d.invBind[bb] = d.invBind[bb], d.invBind[a]
-					if c := cost(); c < base-1e-4 {
-						base = c
-						improved = true
-					} else {
-						d.bind[a], d.bind[bb] = d.bind[bb], d.bind[a]
-						d.invBind[a], d.invBind[bb] = d.invBind[bb], d.invBind[a]
-					}
-				}
-			}
-			if !improved {
-				break
-			}
-		}
-	}
+	// ORPHAN PARTS — the runtime-attached variants (nothing in the CHR
+	// references them; the game's code picks per frame): hand SHAPES in
+	// mirrored L/R blocks and FACE EXPRESSION sets. The in-race capture
+	// pinned the semantics on the driver: of his four orphans the game
+	// draws exactly the FIRST shape of each side (parts 22/24), 22 riding
+	// te_l, 24 te_r — and the +z-dominant local bbox is the LEFT hand.
+	// The export attaches the first face and the first hand pair so the
+	// cast ships whole; the other variants stay unshipped (documented).
+	attachOrphans(d, sk, model, dynBase)
 
-	// bones the table (or the hints) missed — attach-only bones included —
-	// bind at the rest pose (full inverse: the twins carry rest scale)
+	// The matrix table's bone order is IN THE FILE: the header word at +16
+	// points at a u16 list (right before the attach table) naming the bone
+	// of each matrix — skeleton indices, or 0x8000|i for dynamics bones.
+	// (Before this list was found, the assignment was reconstructed from
+	// rest-pose matching plus model-vertex hints; the list settles rigs no
+	// heuristic could — FAL's dynamics matrices interleave as 2,3,0,1,8..)
+	listOff := int(u32(b, 16))
+	for i := 0; i < nMat; i++ {
+		bi := int(u16(b, listOff+2*i))
+		if bi&0x8000 != 0 {
+			bi = dynBase + bi&0x7FFF
+		} else if bi >= dynBase {
+			continue
+		}
+		d.invBind[bi] = mats[i].inv
+		d.bind[bi] = mats[i].bind
+	}
+	_ = model
+
+	// bones the table missed — attach-only bones included — bind at the
+	// rest pose (full inverse: the twins carry rest scale)
 	for _, bi := range append(append([]int(nil), cand...), dynIDs(dynBase, nDyn)...) {
-		if !usedB[bi] {
-			if _, ok := d.bind[bi]; !ok {
-				d.bind[bi] = rest[bi]
-				d.invBind[bi] = mInvFull(rest[bi])
-			}
+		if _, ok := d.bind[bi]; !ok {
+			d.bind[bi] = rest[bi]
+			d.invBind[bi] = mInvFull(rest[bi])
 		}
 	}
 
@@ -744,6 +562,148 @@ func parseChrDesc(b []byte, sk *chrSkeleton, model *pmt) (*chrDesc, error) {
 		}
 	}
 	return d, nil
+}
+
+// attachOrphans classifies the parts no CHR table references and attaches
+// the defaults. Face set = ≥3 consecutive orphans with identical vertex
+// count and bbox → first one onto the head bone (name containing "kao",
+// preferring the bone that already carries an attach part — the scalp).
+// Hand pair = two orphans with equal counts and z-mirrored bboxes → first
+// pair onto the te bones, +z-dominant to the left. Tiny mirrored pairs
+// (<5 cm, the eyelashes) go with the face. Everything else stays out.
+func attachOrphans(d *chrDesc, sk *chrSkeleton, model *pmt, dynBase int) {
+	used := map[int]bool{}
+	for _, ps := range d.attach {
+		for _, p := range ps {
+			used[p] = true
+		}
+	}
+	for _, lr := range d.lods {
+		used[lr.part] = true
+	}
+	type info struct {
+		pi, verts int
+		mn, mx    [3]float32
+	}
+	var orphans []info
+	for pi := 0; pi < model.nParts; pi++ {
+		if used[pi] {
+			continue
+		}
+		pt, err := model.parsePart(pi)
+		if err != nil {
+			continue
+		}
+		in := info{pi: pi, mn: [3]float32{1e9, 1e9, 1e9}, mx: [3]float32{-1e9, -1e9, -1e9}}
+		for _, bp := range pt.pairs {
+			pos, _, _, _, _ := model.decodeVerts(bp)
+			in.verts += len(pos)
+			for _, p := range pos {
+				for c := 0; c < 3; c++ {
+					if p[c] < in.mn[c] {
+						in.mn[c] = p[c]
+					}
+					if p[c] > in.mx[c] {
+						in.mx[c] = p[c]
+					}
+				}
+			}
+		}
+		orphans = append(orphans, in)
+	}
+	if len(orphans) == 0 {
+		return
+	}
+	boneByName := func(sub string, preferAttached bool) int {
+		best := -1
+		for i, b := range sk.bones {
+			if !strings.Contains(b.name, sub) {
+				continue
+			}
+			if _, has := d.attach[i]; has && preferAttached {
+				return i
+			}
+			if best < 0 {
+				best = i
+			}
+		}
+		return best
+	}
+	head := boneByName("kao", true)
+	teL, teR := boneByName("te_l", false), boneByName("te_r", false)
+	near := func(a, b float32) bool { v := a - b; return v > -0.006 && v < 0.006 }
+	sameBox := func(a, b info) bool {
+		return a.verts == b.verts &&
+			near(a.mn[0], b.mn[0]) && near(a.mx[0], b.mx[0]) &&
+			near(a.mn[1], b.mn[1]) && near(a.mx[1], b.mx[1]) &&
+			near(a.mn[2], b.mn[2]) && near(a.mx[2], b.mx[2])
+	}
+	mirrored := func(a, b info) bool {
+		return a.verts == b.verts &&
+			near(a.mn[0], b.mn[0]) && near(a.mx[0], b.mx[0]) &&
+			near(a.mn[1], b.mn[1]) && near(a.mx[1], b.mx[1]) &&
+			near(a.mn[2], -b.mx[2]) && near(a.mx[2], -b.mn[2])
+	}
+	// the eyelash pair mirrors in X (face-local), not Z
+	mirroredX := func(a, b info) bool {
+		return a.verts == b.verts &&
+			near(a.mn[1], b.mn[1]) && near(a.mx[1], b.mx[1]) &&
+			near(a.mn[2], b.mn[2]) && near(a.mx[2], b.mx[2]) &&
+			near(a.mn[0], -b.mx[0]) && near(a.mx[0], -b.mn[0])
+	}
+	taken := map[int]bool{}
+	// face expression set
+	if head >= 0 {
+		for i := 0; i+2 < len(orphans); i++ {
+			n := 1
+			for i+n < len(orphans) && sameBox(orphans[i], orphans[i+n]) {
+				n++
+			}
+			if n >= 3 {
+				d.attach[head] = append(d.attach[head], orphans[i].pi)
+				for k := 0; k < n; k++ {
+					taken[orphans[i+k].pi] = true
+				}
+				break
+			}
+		}
+	}
+	handDone := false
+	for i := 0; i < len(orphans); i++ {
+		if taken[orphans[i].pi] {
+			continue
+		}
+		for j := i + 1; j < len(orphans); j++ {
+			if taken[orphans[j].pi] {
+				continue
+			}
+			ext := orphans[i].mx[0] - orphans[i].mn[0]
+			if ext < 0.05 && (mirrored(orphans[i], orphans[j]) || mirroredX(orphans[i], orphans[j])) {
+				// eyelash-sized: rides the face
+				if head >= 0 {
+					d.attach[head] = append(d.attach[head], orphans[i].pi, orphans[j].pi)
+				}
+				taken[orphans[i].pi], taken[orphans[j].pi] = true, true
+				break
+			}
+			if !mirrored(orphans[i], orphans[j]) {
+				continue
+			}
+			if ext > 0.30 || handDone || teL < 0 || teR < 0 {
+				break
+			}
+			// +z-dominant local bbox = the LEFT hand (capture-pinned)
+			l, r := orphans[i], orphans[j]
+			if l.mx[2]+l.mn[2] < r.mx[2]+r.mn[2] {
+				l, r = r, l
+			}
+			d.attach[teL] = append(d.attach[teL], l.pi)
+			d.attach[teR] = append(d.attach[teR], r.pi)
+			taken[l.pi], taken[r.pi] = true, true
+			handDone = true
+			break
+		}
+	}
 }
 
 // dynIDs enumerates the synthesized dynamics-bone ids.
@@ -1457,8 +1417,10 @@ func chrFit(disc *xbox.Image, dumpPath string) {
 
 	// part -> bone
 	part2bone := map[int]int{}
-	for b, p := range cd.desc.attach {
-		part2bone[p] = b
+	for b, ps := range cd.desc.attach {
+		for _, p := range ps {
+			part2bone[p] = b
+		}
 	}
 	var parts []int
 	for p := range live {
@@ -1607,8 +1569,10 @@ func chrCapParse(cd *chrData, dumpPath string) []map[int]mat4 {
 	// bone lookup tables
 	part2bone := map[int]int{}   // rigid
 	part2lod := map[int]lodRec{} // skinned
-	for b, p := range cd.desc.attach {
-		part2bone[p] = b
+	for b, ps := range cd.desc.attach {
+		for _, p := range ps {
+			part2bone[p] = b
+		}
 	}
 	for _, lr := range cd.desc.lods {
 		part2lod[lr.part] = lr
@@ -2312,10 +2276,14 @@ func exportChrGLB(cd *chrData, rootName, outPath string, conv poseConv, bakes []
 		name := cd.sk.bones[b].name
 		lt, lq, ls := mDecompose(local)
 		n := s.AddNode(name, parentNode, lt, lq, ls)
-		if part, ok := cd.desc.attach[b]; ok {
-			prims, err := chrPartPrims(cd.model, cd.texs, part, nil, nil)
-			if err != nil {
-				return err
+		if parts, ok := cd.desc.attach[b]; ok {
+			var prims []glb.Prim
+			for _, part := range parts {
+				pp, err := chrPartPrims(cd.model, cd.texs, part, nil, nil)
+				if err != nil {
+					return err
+				}
+				prims = append(prims, pp...)
 			}
 			if err := s.AddMesh(n, name, prims); err != nil {
 				return err
