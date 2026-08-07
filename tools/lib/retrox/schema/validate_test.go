@@ -448,3 +448,45 @@ func TestReadGLBInfo(t *testing.T) {
 		t.Fatal("garbage accepted as GLB")
 	}
 }
+
+// --- onClick.with: placements that move together ---------------------------
+
+// A pair that names each other and both animate is the whole point, and has to
+// pass — the double door, the star gate, the trapdoor's two leaves.
+func TestOnClickWithPairPasses(t *testing.T) {
+	fsys := validGame(t)
+	mutateLevel(t, fsys, "levels/lv1.json", func(l *Level) {
+		l.Placements[1].OnClick = &OnClick{Action: "animate", Clip: "walk"}
+		l.Placements[0].OnClick.With = []string{"2"}
+		l.Placements[1].OnClick.With = []string{"1"}
+	})
+	if errs := errorsOf(ValidateGame(fsys, "demo")); len(errs) != 0 {
+		t.Fatalf("a paired onClick reported errors:\n%s", strings.Join(errs, "\n"))
+	}
+}
+
+func TestOnClickWithUnknownPlacement(t *testing.T) {
+	fsys := validGame(t)
+	mutateLevel(t, fsys, "levels/lv1.json", func(l *Level) {
+		l.Placements[0].OnClick.With = []string{"99"}
+	})
+	expectError(t, fsys, `with "99" is not a placement id`)
+}
+
+func TestOnClickWithSelf(t *testing.T) {
+	fsys := validGame(t)
+	mutateLevel(t, fsys, "levels/lv1.json", func(l *Level) {
+		l.Placements[0].OnClick.With = []string{"1"}
+	})
+	expectError(t, fsys, "with names this placement itself")
+}
+
+// A partner runs its OWN action, so one that has none (or has a text action)
+// would be named for nothing.
+func TestOnClickWithPartnerHasNoAnimation(t *testing.T) {
+	fsys := validGame(t)
+	mutateLevel(t, fsys, "levels/lv1.json", func(l *Level) {
+		l.Placements[0].OnClick.With = []string{"2"} // placement 2 is a text action
+	})
+	expectError(t, fsys, `with "2" has no animate action of its own`)
+}

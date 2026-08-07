@@ -46,6 +46,7 @@
    "scale": 0.008,
    "onClick": {
     "action": "animate",
+    "with": ["2"],
     "clip": "slide",
     "holdAt": 1,
     "toggle": true
@@ -62,6 +63,7 @@
    "scale": 0.008,
    "onClick": {
     "action": "animate",
+    "with": ["1"],
     "clip": "slide",
     "holdAt": 1,
     "toggle": true
@@ -77,6 +79,7 @@
    "scale": 0.008,
    "onClick": {
     "action": "animate",
+    "with": ["4"],
     "clip": "ar1_8",
     "holdAt": 0.449,
     "toggle": true
@@ -93,6 +96,7 @@
    "scale": 0.008,
    "onClick": {
     "action": "animate",
+    "with": ["3"],
     "clip": "ar1_8_m",
     "holdAt": 0.449,
     "toggle": true

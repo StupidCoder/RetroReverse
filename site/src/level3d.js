@@ -407,13 +407,26 @@ export async function mount(ctx, doc) {
     return b && b.distance < dist ? b.node : hit;
   }
 
-  function runAction(pl, node, e) {
+  // partner=true means this call came from another placement's onClick.with,
+  // so it drives its own animation but does not expand its own partners — the
+  // two leaves of a door name each other, and without that guard the click
+  // would bounce between them.
+  function runAction(pl, node, e, partner) {
     const oc = pl.onClick;
     if (oc.action === 'text') {
       showTextCard(e, oc.title || pl.name, oc.body);
       return;
     }
     if (oc.action !== 'animate') return; // unknown actions are no-ops by spec
+    // One thing in the world can be several placements. Each partner plays its
+    // OWN action, because a pair need not share a clip: a double door's leaves
+    // swing on mirrored ones.
+    if (!partner) {
+      for (const id of oc.with || []) {
+        const r = placementById.get(parseInt(id, 10));
+        if (r?.pl?.onClick && r.node) runAction(r.pl, r.node, e, true);
+      }
+    }
     let target = node.userData.pick;
     if (oc.target && oc.target !== 'self') {
       target = placementById.get(parseInt(oc.target, 10)) || target;

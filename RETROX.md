@@ -422,6 +422,7 @@ actions (switch level, hide object, ...).
 // play an animation:
 { "action": "animate",
   "target": "self",                          // or another placement id
+  "with": ["12"],                            // placements that move TOGETHER with this one
   "clip": "open",                            // animation id on the target's object
   "holdAt": 0.5,                             // freeze at this normalized clip time
                                              //   (a door's half-open apex); absent = play out
@@ -431,6 +432,15 @@ actions (switch level, hide object, ...).
 // show a text popup:
 { "action": "text", "title": "Sign", "body": "WELCOME TO THE FIRST LEVEL..." }
 ```
+
+`with` is for one thing in the world that is several placements — a double door, a
+sliding star gate's two halves, a trapdoor's two leaves. Each named placement runs its
+OWN `onClick`, so a pair need not share a clip (a double door's leaves swing on mirrored
+ones); that is the difference from `target`, which plays *this* placement's clip
+somewhere else. Partners list each other, so whichever half is clicked, both move. A
+partner's own `with` is not expanded again, so a mutual pair cannot loop. Each named id
+MUST exist, MUST NOT be the placement itself, and MUST have an `animate` action of its
+own. A viewer that ignores `with` keeps the per-placement behaviour.
 
 Double-click/long-press is reserved by the viewer for the object info popup (name, stats,
 `info`, `props`, description, link to the object asset) and is not represented in data.
@@ -732,6 +742,8 @@ A conforming tree satisfies all of the following (the reference validator enforc
 4. Every id cross-reference resolves: `related`, level `music`, placement `object` /
    `anim` / `route` / `layer` / `room` / `variants` / onClick `clip` / onClick + events +
    cutscene `sfx`, pool `object`, script actor `placement`, drive `route`, room `area`.
+   Every `onClick.with` id names another placement — not the one it is on — and that
+   placement has an `animate` action of its own to run.
 5. `tilemap`: `cells.length == width*height`; every cell id (after masking `hflipMask`)
    indexes the atlas (or `blocks`); `blocks.tiles[i].length == size*size`.
 6. `sprite2d`/`billboard3d`: the atlas PNG's dimensions are exact multiples of

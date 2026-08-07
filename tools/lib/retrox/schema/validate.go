@@ -498,6 +498,20 @@ func (c *checker) checkLevel(p string, l *Level, assets map[string]*Asset, objec
 					c.errf(where, "clip %q does not exist on object %q", oc.Clip, target.Object)
 				}
 			}
+			// A partner has to exist, has to have its own animate action to
+			// run, and must not be this placement — a self-reference would
+			// drive the same animation twice in one click.
+			for _, w := range oc.With {
+				id, err := strconv.Atoi(w)
+				switch {
+				case err != nil || placements[id] == nil:
+					c.errf(where, "with %q is not a placement id", w)
+				case id == pl.ID:
+					c.errf(where, "with names this placement itself")
+				case placements[id].OnClick == nil || placements[id].OnClick.Action != ActionAnimate:
+					c.errf(where, "with %q has no animate action of its own", w)
+				}
+			}
 			for _, s := range oc.SFX {
 				if a := assets[s.ID]; a == nil || a.Category != CategorySFX {
 					c.errf(where, "sfx %q is not an sfx asset", s.ID)

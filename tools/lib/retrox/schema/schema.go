@@ -460,7 +460,19 @@ const (
 type OnClick struct {
 	Action string `json:"action"`
 	// animate
-	Target string   `json:"target,omitempty"` // "" == "self", or a placement id (decimal string)
+	Target string `json:"target,omitempty"` // "" == "self", or a placement id (decimal string)
+	// With names placements that move TOGETHER with this one: clicking either
+	// runs both. Each partner plays its OWN onClick — its own clip, hold and
+	// toggle — because a pair need not share one animation: a double door's two
+	// leaves swing on mirrored clips. That is the difference from Target, which
+	// plays THIS placement's clip somewhere else.
+	//
+	// One thing in the world is often several placements (a double door, a star
+	// gate's two halves, the castle trapdoor's two leaves), and a click that
+	// moves half of it reads as a bug. Pairs list each other, so whichever half
+	// is clicked, both move. A viewer that does not implement it simply keeps
+	// the old per-placement behaviour.
+	With   []string `json:"with,omitempty"`
 	Clip   string   `json:"clip,omitempty"`
 	HoldAt float64  `json:"holdAt,omitempty"` // normalized clip time
 	Toggle bool     `json:"toggle,omitempty"`

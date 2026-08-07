@@ -217,6 +217,7 @@
    "scale": 0.008,
    "onClick": {
     "action": "animate",
+    "with": ["11"],
     "clip": "ar1_8_m",
     "holdAt": 0.449,
     "toggle": true
@@ -233,6 +234,7 @@
    "scale": 0.008,
    "onClick": {
     "action": "animate",
+    "with": ["10"],
     "clip": "ar1_8",
     "holdAt": 0.449,
     "toggle": true

@@ -750,6 +750,31 @@ registry at `$0209B468`, so its handle is 0 and a single-leaf run sits at rotZ 0
 for as many ticks as you give it. That is recorded in `trapprobe`'s header
 rather than papered over.
 
+### One thing, two placements — and one click
+
+The castle has three things that are each **one object in the world and two
+placements in the document**: a double door (two leaves on mirrored clips), a
+star gate (two halves sliding apart), and now the trapdoor (two leaves dropping
+together). Every one of them opened by halves — you clicked a leaf and the other
+stayed shut, which reads as a bug rather than as a faithful export.
+
+The format could say "play my clip over there" (`onClick.target`) but not "these
+move together", and the two are not the same: a double door's leaves swing on
+*different* clips, `ar1_8` and its mirror, so retargeting one to the other would
+play the wrong swing. Retro-X 1 gains **`onClick.with`** — a list of placements
+whose OWN `onClick` runs alongside this one. Partners name each other, so
+whichever half is clicked both move; a partner does not expand its own list, so
+a mutual pair cannot loop; and a viewer that ignores the field keeps the old
+per-placement behaviour, which is why this is not a version bump.
+
+The exporter cross-links the pairs it already knows it emitted: the door pairs
+`doubleDoorMirrors` finds (it was computing the pairing and throwing it away —
+now it returns it), the gate's two `addGate` calls, and the trapdoor's two
+leaves. Only placements that were actually emitted get linked, so a half the
+binding could not model does not leave a dangling id. **38 placements across
+7 levels carry a partner** — 14 double doors, 4 star gates, 1 trapdoor — and
+every link is mutual.
+
 ### An actor's code is not confined to its own overlay
 
 The BSS was a red herring — overlay 22's static initialiser fills that record

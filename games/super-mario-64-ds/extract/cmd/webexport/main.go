@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"retroreverse.com/games/super-mario-64-ds/extract/sm64ds"
@@ -1697,7 +1698,13 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		for i, p := range order {
 			objs[i] = p.o
 		}
-		mirrorLeaf := doubleDoorMirrors(objs)
+		mirrorLeaf, doorPair := doubleDoorMirrors(objs)
+		// twins are placements that are one thing in the world and must move
+		// together: the two leaves of a double door, the two halves of a star
+		// gate, the two leaves of the trapdoor. Collected as they are emitted
+		// and cross-linked below, when both ids exist. See schema.OnClick.With.
+		var twins [][2]int
+		doorPID := map[int]int{}
 		for i, p := range order {
 			o := p.o
 			curVars = variantIDs(p.layers, p.gated, declared)
@@ -1728,15 +1735,29 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 				if mirrorLeaf[i] {
 					clip = doorMirrorAnim[stem]
 				}
+				before := pid
 				addDoor(stem, o, off, clip)
+				if pid == before+1 {
+					doorPID[i] = before
+					if j, ok := doorPair[i]; ok {
+						if pj, ok := doorPID[j]; ok {
+							twins = append(twins, [2]int{pj, before})
+						}
+					}
+				}
 
 			case starGateActor:
 				// Two halves, from the gate's own draw ($0214601C and
 				// $02146070): the same model twice, the second at yaw + 180
 				// degrees, at pos + and pos - the slide offset.
 				stem := modelFor(o.Actor, o.Params)
+				a := pid
 				addGate(stem, o, 0)
+				b := pid
 				addGate(stem, o, 180)
+				if b == a+1 && pid == b+1 {
+					twins = append(twins, [2]int{a, b})
+				}
 
 			case paintingActor:
 				sc, lift := paintingScale(o.Params[0])
@@ -1754,6 +1775,7 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			case trapActor:
 				// Two leaves, from the spawner's own init: the same model at
 				// +/- trapHalf along the yaw axis, the second turned 180.
+				var leafPID []int
 				for _, leaf := range []int{0, 1} {
 					par := [3]int{leaf, 0, 0}
 					rot, off := trapLeafPose(o, leaf)
@@ -1763,7 +1785,14 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 							Action: schema.ActionAnimate, Clip: a, HoldAt: 1, Toggle: true,
 						}
 					}
+					before := pid
 					addObjOff(o, trapActor, par, true, off)
+					if pid == before+1 {
+						leafPID = append(leafPID, before)
+					}
+				}
+				if len(leafPID) == 2 {
+					twins = append(twins, [2]int{leafPID[0], leafPID[1]})
 				}
 				curRot, curClick = nil, nil
 			case 219: // daWanwan_c — chained to a stake
@@ -1773,6 +1802,22 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 					[3]float64{0, -modelFloor["ar1_2"] * objScale, 0})
 			default:
 				addObj(o, o.Actor, o.Params, true)
+			}
+		}
+		// Cross-link the pairs, now that both halves have their ids. Each names
+		// the other, so whichever half is clicked, both move.
+		if len(twins) > 0 {
+			byID := map[int]*schema.Placement{}
+			for i := range doc.Placements {
+				byID[doc.Placements[i].ID] = &doc.Placements[i]
+			}
+			for _, t := range twins {
+				a, b := byID[t[0]], byID[t[1]]
+				if a == nil || b == nil || a.OnClick == nil || b.OnClick == nil {
+					continue // one half has no motion of its own to run
+				}
+				a.OnClick.With = []string{strconv.Itoa(b.ID)}
+				b.OnClick.With = []string{strconv.Itoa(a.ID)}
 			}
 		}
 
@@ -2250,7 +2295,7 @@ func setDoorClips(stem string, clips []sm64ds.NamedBCA, anims []schema.Animation
 // records of the same kind, two leaf widths apart along their shared local X,
 // with yaws 180 degrees apart; the choice between them is by normalised yaw, so
 // it is stable from run to run. See emitDoorMirror for why one must be flipped.
-func doubleDoorMirrors(order []sm64ds.LevelObject) map[int]bool {
+func doubleDoorMirrors(order []sm64ds.LevelObject) (map[int]bool, map[int]int) {
 	const leafPair = 300.0 // world units: two 150-unit leaves meeting in the middle
 	norm := func(d float64) float64 {
 		d = math.Mod(d, 360)
@@ -2259,7 +2304,7 @@ func doubleDoorMirrors(order []sm64ds.LevelObject) map[int]bool {
 		}
 		return d
 	}
-	out := map[int]bool{}
+	out, pair := map[int]bool{}, map[int]int{}
 	for i := range order {
 		a := order[i]
 		if !a.Door {
@@ -2288,9 +2333,10 @@ func doubleDoorMirrors(order []sm64ds.LevelObject) map[int]bool {
 			} else {
 				out[i] = true
 			}
+			pair[i], pair[j] = j, i
 		}
 	}
-	return out
+	return out, pair
 }
 
 // exportDoorGLBs builds one object per (leaf, plaque) pair a door run asked for.
