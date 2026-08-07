@@ -4200,3 +4200,18 @@ painted whole-head LOD shell in the same part as the close-up geometry
 (the shell's skin-toned dome reads as a bald patch up close); picking the
 close-up batch set needs the game's own draw-path selection of the
 material id field — decode pending, primary cast unaffected.
+
+**Post-ship fix 3 — the hovering hair and the sorted-wrong blouse.** The
+hair-textured debris metres under the loose-hair passenger was a shared-
+slice aliasing bug: every primitive of a part shares ONE backing vertex
+array, and the model-space pre-transform was applied once per PRIMITIVE —
+the five-strand hair part got invBind(head) five times over (the single-
+prim scrunchie survived, hiding the bug). Transform once. And the start
+girl's depth-sorting mess was the BLEND choice from the previous fix
+biting back: her ruffled blouse is layered sheer fabric, and glTF BLEND
+disables depth-friendly rendering. The alpha-flagged character materials
+now ship as MASK at the game's own alpha-test reference of 1/255 (glb
+Prim gained AlphaCutoff) — soft hair keeps its strands, the blouse keeps
+its depth. Still open: the l00/lh00/mh00 painted LOD head-shell (the
+skin-toned patch on the loose-hair passenger's head) pending the
+material-id draw-path decode.

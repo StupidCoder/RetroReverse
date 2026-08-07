@@ -2200,7 +2200,14 @@ func chrPartPrims(model *pmt, texs []texInfo, pi int, lodBones []int, jointOf ma
 	sort.Ints(keys)
 	for _, key := range keys {
 		ti := key/2 - 1
-		pr := glb.Prim{Positions: pos, Normals: nrm, UVs: uvs, Tris: groups[key], DoubleSided: true, Blend: key&1 == 1}
+		// alpha-flagged materials (hair, lashes, sheer fabric) keep the
+		// depth-friendly MASK but at the game's own alpha-test reference
+		// of 1/255 — BLEND turned the start girl's ruffled blouse into a
+		// depth-sorting mess, while a 0.5 cutoff balds the hair buns
+		pr := glb.Prim{Positions: pos, Normals: nrm, UVs: uvs, Tris: groups[key], DoubleSided: true}
+		if key&1 == 1 {
+			pr.AlphaCutoff = 1.0 / 255
+		}
 		if skinned {
 			pr.JointsW = joints
 			pr.Weights = weights
@@ -2334,8 +2341,12 @@ func exportChrGLB(cd *chrData, rootName, outPath string, conv poseConv, bakes []
 				if err != nil {
 					return err
 				}
-				if pre, ok := cd.desc.pretrans[part]; ok {
-					for i := range pp {
+				if pre, ok := cd.desc.pretrans[part]; ok && len(pp) > 0 {
+					// every prim of a part shares ONE backing vertex
+					// slice — transform it once, not once per prim (the
+					// five-strand hair part got the matrix five times
+					// and hovered metres below the girl)
+					for i := range pp[:1] {
 						for vi, v := range pp[i].Positions {
 							x := pre[0][0]*v[0] + pre[0][1]*v[1] + pre[0][2]*v[2] + pre[0][3]
 							y := pre[1][0]*v[0] + pre[1][1]*v[1] + pre[1][2]*v[2] + pre[1][3]

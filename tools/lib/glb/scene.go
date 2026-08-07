@@ -84,7 +84,8 @@ type Prim struct {
 	BaseColor   [4]float32
 	Unlit       bool
 	DoubleSided bool
-	Blend       bool // alphaMode BLEND instead of MASK when the texture has alpha
+	Blend       bool    // alphaMode BLEND instead of MASK when the texture has alpha
+	AlphaCutoff float32 // custom MASK cutoff (0 = the default 0.5); the guests' alpha tests often use 1/255
 	Additive    bool // additive blending: BLEND + Retro-X extras {blend: "additive"}
 	WrapS       int  // glTF sampler wrap enums; 0 = REPEAT
 	WrapT       int
@@ -191,7 +192,11 @@ func (s *Scene) addMaterial(p *Prim) int {
 			mat["alphaMode"] = "BLEND"
 		} else {
 			mat["alphaMode"] = "MASK"
-			mat["alphaCutoff"] = 0.5
+			if p.AlphaCutoff > 0 {
+				mat["alphaCutoff"] = p.AlphaCutoff
+			} else {
+				mat["alphaCutoff"] = 0.5
+			}
 		}
 	}
 	s.materials = append(s.materials, mat)
