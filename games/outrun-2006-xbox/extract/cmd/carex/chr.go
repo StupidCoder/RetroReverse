@@ -1833,10 +1833,13 @@ func chrExportGLB(disc *xbox.Image, outPath string, conv poseConv) error {
 		for i, fr := range frames {
 			worlds[i] = rg.evalPose(clip, fr)
 		}
+		// iterate bones in the stable node order — a map walk here writes
+		// the animation channels in random order and churns the GLB bytes
+		// on every re-export
 		rot := map[int][][4]float32{}
 		trn := map[int][][3]float32{}
 		for _, world := range worlds {
-			for b := range nodes {
+			for _, b := range order {
 				m := world[b]
 				if gp := geomParent(b); gp >= 0 {
 					m = mMul(mInv(world[gp]), world[b])
@@ -1845,7 +1848,8 @@ func chrExportGLB(disc *xbox.Image, outPath string, conv poseConv) error {
 				trn[b] = append(trn[b], mPos(m))
 			}
 		}
-		for b, n := range nodes {
+		for _, b := range order {
+			n := nodes[b]
 			// keep quaternion continuity for LINEAR interpolation
 			qs := rot[b]
 			for i := 1; i < len(qs); i++ {
@@ -1924,8 +1928,15 @@ func exportFlagman(disc *xbox.Image, b *build.Builder) error {
 	if err := chrExportGLB(disc, out, poseConv{5, false}); err != nil {
 		return err
 	}
+	// SkinnedClone: the junction parts are glTF-skinned, and the Studio's
+	// ObjectLibrary instantiates placements via plain Object3D.clone unless
+	// the doc asks for SkeletonUtils.clone — a plain clone's skinned meshes
+	// stay bound to the PROTO scene's bones, whose world matrices never
+	// update, so every skinned vertex renders at Σw·IBM·v: a bone-local
+	// pile at the placement origin while the rigid parts animate above it.
 	b.AddObject(schema.Asset{ID: "flagman", Name: "The starter", Group: "Characters"},
 		&schema.Object{Type: schema.ObjectModel3D, Name: "The starter", Model: "flagman.glb",
+			SkinnedClone: true,
 			Animations: []schema.Animation{
 				{ID: "idle", Name: "Idle", Loop: "loop", Clip: "idle"},
 				{ID: "hatafuri", Name: "Start wave", Loop: "once", Clip: "hatafuri"},

@@ -18,6 +18,7 @@
   }
  ],
  "model": "flagman.glb",
+ "skinnedClone": true,
  "props": {
   "clips": "mot_ETC_bin.sz (STAND_LP, HATAFURI_00)",
   "skeleton": "OZI (/Common/bone.bin)",

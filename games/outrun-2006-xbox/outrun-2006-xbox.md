@@ -4080,3 +4080,19 @@ structurally (17 joints, 364 skinned verts, weights sum to 1).
 Open (moves from XXXIII): Hermite key slopes (linear 30 Hz ships); the
 other characters (FAL/JEN start girl, MAN/WMN pairs, aut04_cvt); whether
 any context ever unfurls the flag (nothing at the start line does).
+
+**Post-ship fix — the pile on the floor.** The Studio still showed the
+gaps: the junction parts rendered as a static heap at his feet while the
+rigid parts animated above. The GLB was fine (the three.js harness loads
+and skins it) — the *Studio's* ObjectLibrary instantiates placements with
+plain `Object3D.clone(true)` unless the object doc sets `skinnedClone`,
+and a plain clone's skinned meshes stay bound to the proto scene's bones,
+whose world matrices never compose — every skinned vertex renders at
+Σw·IBM·v, a bone-local pile at the placement origin. One flag:
+`SkinnedClone: true` on the flagman object (the same flag Luigi's Mansion,
+SM3DL and SM64DS actors already set). Lesson repeated at a higher level:
+verifying the shipped FILE in an equivalent loader is not verifying the
+shipped EXPERIENCE — the consumer's own instantiation path (here,
+SkeletonUtils vs plain clone) must be exercised too. Also made the bake
+deterministic (channel order followed a map walk; re-exports churned the
+GLB bytes).
