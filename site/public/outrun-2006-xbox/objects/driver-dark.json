@@ -1,0 +1,26 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "The driver (dark)",
+ "animations": [
+  {
+   "id": "sit",
+   "name": "In the seat",
+   "loop": "loop",
+   "clip": "sit"
+  },
+  {
+   "id": "winner",
+   "name": "Winner",
+   "loop": "once",
+   "clip": "winner"
+  }
+ ],
+ "model": "driver-dark.glb",
+ "skinnedClone": true,
+ "props": {
+  "skeleton": "MAN (/Common/bone.bin)",
+  "source": "/Chr/obj_chr_dr_w00_pmt.sz"
+ }
+}

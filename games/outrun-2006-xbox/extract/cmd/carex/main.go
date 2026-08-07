@@ -1860,9 +1860,22 @@ func main() {
 	chrikprobe := flag.String("chrikprobe", "", "FLIP:CLIP:FRAME — chain-by-chain measured vs predicted comparison (capture log from $CHRCAP)")
 	chrglb := flag.String("chrglb", "", "export the animated flagman GLB to this path")
 	chrpose := flag.String("chrpose", "", "debug: CLIP:frame[:frame...] — print key bone world positions")
+	chrrest := flag.String("chrrest", "", "debug: character base name — validate rest-FK binds against the CHR file matrices")
+	chrbind := flag.String("chrbind", "", "debug: BASE,BASE,...:DIR — write bind-pose GLBs for identification")
+	chrchar := flag.String("chrchar", "", "debug: character base + clip files for -chrcap/-chrcapfit/-chrpose/-chrikprobe, e.g. dr_g00:mot_START_bin,mot_DRIVER_bin")
 	chrOrder := flag.Int("chrorder", 0, "flagman euler order (debug)")
 	chrRT := flag.Bool("chrrt", true, "flagman R·T local composition (debug)")
 	flag.Parse()
+
+	if *chrchar != "" {
+		i := strings.Index(*chrchar, ":")
+		if i < 0 {
+			fatal("-chrchar wants BASE:FILE,FILE,...")
+		}
+		chrDebugChar = (*chrchar)[:i]
+		chrDebugFiles = strings.Split((*chrchar)[i+1:], ",")
+	}
+
 
 	if *chrpose != "" {
 		disc, err := xbox.Open(*imagePath)
@@ -1912,6 +1925,29 @@ func main() {
 		}
 		defer disc.Close()
 		chrCapFit(disc, *chrcapfit, poseConv{*chrOrder, *chrRT})
+		return
+	}
+
+	if *chrrest != "" {
+		disc, err := xbox.Open(*imagePath)
+		if err != nil {
+			fatal("open image: %v", err)
+		}
+		defer disc.Close()
+		for _, b := range strings.Split(*chrrest, ",") {
+			chrRestCheck(disc, b)
+		}
+		return
+	}
+
+	if *chrbind != "" {
+		disc, err := xbox.Open(*imagePath)
+		if err != nil {
+			fatal("open image: %v", err)
+		}
+		defer disc.Close()
+		i := strings.LastIndex(*chrbind, ":")
+		chrBindGLBs(disc, (*chrbind)[:i], (*chrbind)[i+1:])
 		return
 	}
 
@@ -2212,10 +2248,17 @@ func exportSite(imagePath, siteDir string) {
 	// (collision, spline, fog/sun params) is still closed.
 	exportStages(disc, b)
 
-	// The start-line flagman (Part XXXII): obj_chr_aut04 on the OZI
-	// skeleton, idle + flag-wave clips baked from mot_OR2SP_ETC.
+	// The start-line starter (Part XXXIV): obj_chr_aut04 on the OZI
+	// skeleton, stand loop + start wave from mot_ETC.
 	if err := exportFlagman(disc, b); err != nil {
 		fatal("flagman: %v", err)
+	}
+
+	// The rest of /Chr: the in-car driver and passenger (and their outfit
+	// variants), the story-scene pair, the start girl, the alternate
+	// starter (Part XXXV).
+	if err := exportCharacters(disc, b); err != nil {
+		fatal("characters: %v", err)
 	}
 
 	if err := b.Write(); err != nil {

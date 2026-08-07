@@ -1,0 +1,26 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "The passenger (black)",
+ "animations": [
+  {
+   "id": "sit",
+   "name": "In the seat",
+   "loop": "loop",
+   "clip": "sit"
+  },
+  {
+   "id": "tuntun",
+   "name": "Impatient",
+   "loop": "once",
+   "clip": "tuntun"
+  }
+ ],
+ "model": "passenger-black.glb",
+ "skinnedClone": true,
+ "props": {
+  "skeleton": "WMN (/Common/bone.bin)",
+  "source": "/Chr/obj_chr_dr_h00_pmt.sz"
+ }
+}

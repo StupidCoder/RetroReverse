@@ -2697,6 +2697,118 @@
    "name": "The starter",
    "group": "Characters",
    "file": "objects/flagman.json"
+  },
+  {
+   "id": "driver",
+   "category": "object",
+   "name": "The driver",
+   "group": "Characters",
+   "file": "objects/driver.json"
+  },
+  {
+   "id": "driver-cap",
+   "category": "object",
+   "name": "The driver (capped)",
+   "group": "Characters",
+   "file": "objects/driver-cap.json"
+  },
+  {
+   "id": "passenger",
+   "category": "object",
+   "name": "The passenger",
+   "group": "Characters",
+   "file": "objects/passenger.json"
+  },
+  {
+   "id": "passenger-hat",
+   "category": "object",
+   "name": "The passenger (hat)",
+   "group": "Characters",
+   "file": "objects/passenger-hat.json"
+  },
+  {
+   "id": "passenger-usa",
+   "category": "object",
+   "name": "The passenger (US)",
+   "group": "Characters",
+   "file": "objects/passenger-usa.json"
+  },
+  {
+   "id": "passenger-hat-usa",
+   "category": "object",
+   "name": "The passenger (hat, US)",
+   "group": "Characters",
+   "file": "objects/passenger-hat-usa.json"
+  },
+  {
+   "id": "passenger-skirt",
+   "category": "object",
+   "name": "The passenger (skirt)",
+   "group": "Characters",
+   "file": "objects/passenger-skirt.json"
+  },
+  {
+   "id": "passenger-skirt-hat",
+   "category": "object",
+   "name": "The passenger (skirt, hat)",
+   "group": "Characters",
+   "file": "objects/passenger-skirt-hat.json"
+  },
+  {
+   "id": "passenger-black",
+   "category": "object",
+   "name": "The passenger (black)",
+   "group": "Characters",
+   "file": "objects/passenger-black.json"
+  },
+  {
+   "id": "driver-shirt",
+   "category": "object",
+   "name": "The driver (shirt)",
+   "group": "Characters",
+   "file": "objects/driver-shirt.json"
+  },
+  {
+   "id": "driver-dark",
+   "category": "object",
+   "name": "The driver (dark)",
+   "group": "Characters",
+   "file": "objects/driver-dark.json"
+  },
+  {
+   "id": "driver-story",
+   "category": "object",
+   "name": "The driver (story scenes)",
+   "group": "Characters",
+   "file": "objects/driver-story.json"
+  },
+  {
+   "id": "passenger-story",
+   "category": "object",
+   "name": "The passenger (story scenes)",
+   "group": "Characters",
+   "file": "objects/passenger-story.json"
+  },
+  {
+   "id": "passenger-story-usa",
+   "category": "object",
+   "name": "The passenger (story scenes, US)",
+   "group": "Characters",
+   "file": "objects/passenger-story-usa.json"
+  },
+  {
+   "id": "startgirl",
+   "category": "object",
+   "name": "The start girl",
+   "group": "Characters",
+   "file": "objects/startgirl.json"
+  },
+  {
+   "id": "starter-cvt",
+   "category": "object",
+   "name": "The starter (alternate)",
+   "group": "Characters",
+   "file": "objects/starter-cvt.json"
   }
  ]
 }

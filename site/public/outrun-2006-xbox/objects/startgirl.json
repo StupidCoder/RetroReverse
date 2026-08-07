@@ -1,0 +1,26 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "The start girl",
+ "animations": [
+  {
+   "id": "dance",
+   "name": "Dance (the rig's test clip)",
+   "loop": "loop",
+   "clip": "dance"
+  },
+  {
+   "id": "scene16",
+   "name": "Story scene 16",
+   "loop": "once",
+   "clip": "scene16"
+  }
+ ],
+ "model": "startgirl.glb",
+ "skinnedClone": true,
+ "props": {
+  "skeleton": "JEN (/Common/bone.bin)",
+  "source": "/Chr/obj_chr_fal_pmt.sz"
+ }
+}

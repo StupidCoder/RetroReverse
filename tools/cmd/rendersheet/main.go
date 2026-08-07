@@ -356,6 +356,22 @@ func main() {
 					}
 				}
 			}
+			if os.Getenv("DBGBOX") != "" {
+				mn := []float64{1e30, 1e30, 1e30}
+				mx := []float64{-1e30, -1e30, -1e30}
+				for _, p := range pos {
+					for c := 0; c < 3; c++ {
+						if p[c] < mn[c] {
+							mn[c] = p[c]
+						}
+						if p[c] > mx[c] {
+							mx[c] = p[c]
+						}
+					}
+				}
+				fmt.Printf("dbgbox node %d %q prim %d skin=%v bbox (%.2f %.2f %.2f)..(%.2f %.2f %.2f)\n",
+					ni, n.Name, pi, n.Skin != nil, mn[0], mn[1], mn[2], mx[0], mx[1], mx[2])
+			}
 			var uvs, cols [][]float64
 			if ai, ok := pr.Attributes["TEXCOORD_0"]; ok {
 				uvs = accVec(ai, 2)

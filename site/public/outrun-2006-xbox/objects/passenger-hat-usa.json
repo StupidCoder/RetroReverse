@@ -1,0 +1,26 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "The passenger (hat, US)",
+ "animations": [
+  {
+   "id": "sit",
+   "name": "In the seat",
+   "loop": "loop",
+   "clip": "sit"
+  },
+  {
+   "id": "tuntun",
+   "name": "Impatient",
+   "loop": "once",
+   "clip": "tuntun"
+  }
+ ],
+ "model": "passenger-hat-usa.glb",
+ "skinnedClone": true,
+ "props": {
+  "skeleton": "ONN (/Common/bone.bin)",
+  "source": "/Chr/obj_chr_dr_gh00_usa_pmt.sz"
+ }
+}

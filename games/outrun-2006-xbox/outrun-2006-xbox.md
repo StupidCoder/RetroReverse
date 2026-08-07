@@ -4096,3 +4096,66 @@ shipped EXPERIENCE — the consumer's own instantiation path (here,
 SkeletonUtils vs plain clone) must be exercised too. Also made the bake
 deterministic (channel order followed a map walk; re-exports churned the
 GLB bytes).
+
+## Part XXXV — the whole cast of /Chr (driver, passenger, and everyone else)
+
+The character pipeline generalizes to all sixteen /Chr models: the in-car
+DRIVER (dr_m00 — orange shirt, plus capped/striped/dark variants on the OTK
+rig and its structurally identical twin MAN) and PASSENGER (dr_g00 — the
+blonde with the ponytail, plus hat/US/skirt/black variants on ONN and its
+twin WMN), the high-poly story-scene pair (mal on the 115-bone RIC, gal on
+the 113-bone JEN), the start girl (fal, JEN), and the starter's convertible
+variant. All ship to the Studio's Characters group with SkinnedClone and
+curated clips: the pair sit with mot_START's SUWARI loops (driver's click =
+WINNER, passenger's = TUNTUN, her impatient tapping), the story pair play
+their E-scene clips, the start girl her dance TEST clip.
+
+What the generalization surfaced:
+
+- **Bone record +0x0C is a float on every rig** (the segment length /
+  x-offset); rest scale (floats 5-7) is real — the ONN rig's HARA twin
+  rests at 0.9 — and the uppercase twin bones (KOSI, MUNE, HARA…) are
+  flipped geometry-attach frames.
+- **The CHR extra section is a dynamics-chain table**: header {nChains,
+  nBones, offsets}, 0x24-byte chains {parentBone, firstDyn, count, params},
+  and a bone table of {0x8000|i, segment length}. The passenger's ponytail
+  is a 3-segment chain plus a fringe on kao_jnt; fal carries 14 dynamics
+  bones (hair + skirt), gal 12, mal 6. The 0x8000 flag on LOD bone slots
+  indexes this space — masking it (the first attempt) aliased her ponytail
+  onto the skeleton roots and shredded her. The export synthesizes the dyn
+  bones into the skeleton and rides them rigidly on their chain parent at
+  the bind offset (the game spring-sims them; declared simplification).
+- **The bind-matrix table order is rig-specific, and the ONN girls BIND in
+  a T-pose but REST in a sitting stance** — so rest-pose matching cannot
+  assign their arm matrices. The assignment is now three evidence passes:
+  a strict rest lock (most rigs bind at rest; even ONN's spine rests
+  within 3 cm of its bind), then model-vertex hints (each junction part's
+  centroid marks its DEEPEST bone's bind origin — the elbow part hugs
+  hiji, the hip part momo, a ponytail part its dyn segment), then a loose
+  rest pass — plus a pairwise swap refinement that checks every
+  ancestor-pair's bind distance against its rest distance (segments are
+  rigid; the half-body drivers' belly part hugs the waist, the starter's
+  the chest, so centroids alone can swap kosi/mune). Deterministic
+  tie-breaks throughout; coincident-origin bones (mal's j_ude_l vs
+  j_kobo_hiji_l) disambiguate by bind rotation.
+- **The bend side is a per-chain constant relative to the hinge**: derived
+  from the rig's rest pose when it rests bent, else from the joints' own
+  names (momo/sune/hiza vs ude/hiji — the same vocabulary on all nine
+  skeletons). The earlier per-frame FK-side idea flips on near-straight
+  chains and broke the flagman's right knee at 0.28 m mean.
+- **In a standard race the passenger does not exist**: her model in RAM is
+  a menu leftover, no bone objects animate her (she rides in Heart Attack
+  mode only) — so the driver was verified against a 250-flip live race
+  capture (his in-car HIZIOKI wheel poses fit at 0.5 cm mean, FK bones to
+  0.3 mm) and the ONN pipeline against the SUWARI descriptors (identical
+  semantics: six effector targets, rotations on chains) plus the shipped
+  files in the three.js harness.
+
+Verified: per-rig bind audits (aut04/OTK/MAN/JEN/RIC/GAL_USA at mm level;
+ONN's arms differ from rest by construction), flagman + driver capture fits
+unchanged, and every character loaded, posed and GPU-skinned in the
+harness — seams closed, ponytail on her head, nothing at the floor.
+
+Open: the dynamics spring sim (chains ride rigidly); HANDOL per-car wheel
+poses for a seated-in-car diorama; the E-scene camera tracks; DR_G00's
+flagged attach record (a second kosi part — alternate outfit piece?).

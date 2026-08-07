@@ -1,0 +1,26 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "The starter (alternate)",
+ "animations": [
+  {
+   "id": "idle",
+   "name": "Idle",
+   "loop": "loop",
+   "clip": "idle"
+  },
+  {
+   "id": "hatafuri",
+   "name": "Start wave",
+   "loop": "once",
+   "clip": "hatafuri"
+  }
+ ],
+ "model": "starter-cvt.glb",
+ "skinnedClone": true,
+ "props": {
+  "skeleton": "OZI (/Common/bone.bin)",
+  "source": "/Chr/obj_chr_aut04_cvt_pmt.sz"
+ }
+}

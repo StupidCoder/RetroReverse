@@ -100,6 +100,12 @@ func mTrans(x, y, z float32) mat4 {
 	return m
 }
 
+func mScale(x, y, z float32) mat4 {
+	m := mIdent()
+	m[0][0], m[1][1], m[2][2] = x, y, z
+	return m
+}
+
 func mRotX(a float32) mat4 {
 	s, c := float32(math.Sin(float64(a))), float32(math.Cos(float64(a)))
 	return mat4{{1, 0, 0, 0}, {0, c, -s, 0}, {0, s, c, 0}, {0, 0, 0, 1}}
@@ -219,6 +225,22 @@ func v3norm(a [3]float32) [3]float32 {
 	return v3scale(a, 1/l)
 }
 
+// mDecompose splits a TRS matrix into translation, unit quaternion and
+// per-axis scale (column norms; the rigs only ever scale positively).
+func mDecompose(m mat4) (t [3]float32, q [4]float32, s [3]float32) {
+	t = mPos(m)
+	for c := 0; c < 3; c++ {
+		s[c] = float32(math.Sqrt(float64(m[0][c]*m[0][c] + m[1][c]*m[1][c] + m[2][c]*m[2][c])))
+		if s[c] > 1e-8 {
+			for r := 0; r < 3; r++ {
+				m[r][c] /= s[c]
+			}
+		}
+	}
+	q = mQuat(m)
+	return
+}
+
 // mQuat extracts a unit quaternion (x,y,z,w) from the rotation part.
 func mQuat(m mat4) [4]float32 {
 	t := float64(m[0][0] + m[1][1] + m[2][2])
@@ -271,6 +293,13 @@ type chrBone struct {
 	// live there); ty, tz are the two floats at +0x10.
 	restT    [3]float32
 	restR    [3]float32 // f[2], f[3], f[4]
+	restS    [3]float32 // f[5], f[6], f[7] — the ONN rig's HARA twin rests at 0.9
+	// restL, when set, is the bone's whole local transform verbatim — used
+	// for the synthesized DYNAMICS bones (ponytail/skirt chains from the
+	// CHR extra section, simulated by the game at runtime): their local is
+	// the bind-relative offset from their chain parent, so they ride it
+	// rigidly in the export.
+	restL    *mat4
 	children []int
 }
 
@@ -298,6 +327,7 @@ func parseBoneLib(b []byte) []chrSkeleton {
 			}
 			br.restT = [3]float32{f32(b, r+0x0C), f32(b, r+0x10), f32(b, r+0x14)}
 			br.restR = [3]float32{f32(b, r+0x18), f32(b, r+0x1C), f32(b, r+0x20)}
+			br.restS = [3]float32{f32(b, r+0x24), f32(b, r+0x28), f32(b, r+0x2C)}
 			nChild := int(u32(b, r+0x30))
 			childOff := int(u32(b, r+0x34))
 			for c := 0; c < nChild; c++ {
@@ -354,7 +384,38 @@ type chrDesc struct {
 	invBind map[int]mat4 // bone -> inverse bind
 }
 
-func parseChrDesc(b []byte, sk *chrSkeleton) (*chrDesc, error) {
+// chrDynChain is one runtime-simulated dynamics chain from the CHR extra
+// section: ponytails, fringes, skirt hems, shirt tails. The game integrates
+// these bones with a spring sim; the export rides them rigidly on their
+// chain parent at the bind offset (a declared simplification).
+type chrDynChain struct {
+	parent int // skeleton bone the chain hangs from
+	first  int // first dynamics-bone index (the 0x8000|i space)
+	count  int
+}
+
+// parseChrExtra reads the extra section: header {nChains, nBones, chainsOff,
+// bonesOff, idxOff}; chains are 0x24-byte records {parentBone u32, firstDyn
+// u32, count u32, params f32×6}; the bone table pairs {0x8000|i, segment
+// length f32} (dr_g00: a 3-segment ponytail + 1-segment fringe on kao_jnt,
+// lengths 0.10/0.13/0.14/0.07).
+func parseChrExtra(b []byte) (chains []chrDynChain, nDyn int) {
+	extra := int(u32(b, 28))
+	if extra == 0 || extra+20 > len(b) {
+		return nil, 0
+	}
+	nChains, nBones := int(u32(b, extra)), int(u32(b, extra+4))
+	chainsOff := int(u32(b, extra+8))
+	for i := 0; i < nChains; i++ {
+		o := chainsOff + i*0x24
+		chains = append(chains, chrDynChain{
+			parent: int(u32(b, o)), first: int(u32(b, o+4)), count: int(u32(b, o+8)),
+		})
+	}
+	return chains, nBones
+}
+
+func parseChrDesc(b []byte, sk *chrSkeleton, model *pmt) (*chrDesc, error) {
 	d := &chrDesc{
 		skel:   int(u16(b, 0)),
 		attach: map[int]int{}, lodBone: map[int]bool{},
@@ -362,9 +423,37 @@ func parseChrDesc(b []byte, sk *chrSkeleton) (*chrDesc, error) {
 	}
 	nAttach, nLOD, nMat := int(u16(b, 2)), int(u16(b, 4)), int(u16(b, 6))
 	attOff, lodOff, matOff := int(u32(b, 8)), int(u32(b, 12)), int(u32(b, 24))
+
+	// Synthesize the dynamics bones into the skeleton: chain-linked under
+	// their parent, locals fixed later from the bind matrices. The 0x8000
+	// flag on a LOD bone slot indexes this space.
+	chains, nDyn := parseChrExtra(b)
+	dynBase := len(sk.bones)
+	if nDyn > 0 {
+		for i := 0; i < nDyn; i++ {
+			sk.bones = append(sk.bones, chrBone{
+				name: fmt.Sprintf("dyn_%d", i), parent: -2,
+				restS: [3]float32{1, 1, 1},
+			})
+		}
+		for _, ch := range chains {
+			prev := ch.parent
+			for k := 0; k < ch.count; k++ {
+				vid := dynBase + ch.first + k
+				sk.bones[vid].parent = prev
+				sk.bones[prev].children = append(sk.bones[prev].children, vid)
+				prev = vid
+			}
+		}
+	}
+
 	for i := 0; i < nAttach; i++ {
 		o := attOff + i*8
-		d.attach[int(u16(b, o))] = int(u16(b, o+4))
+		bi := int(u16(b, o))
+		if bi&0x8000 != 0 {
+			bi = dynBase + bi&0x7FFF
+		}
+		d.attach[bi] = int(u16(b, o+4)) & 0x7FFF
 	}
 	for i := 0; i < nLOD; i++ {
 		o := lodOff + i*20
@@ -372,23 +461,42 @@ func parseChrDesc(b []byte, sk *chrSkeleton) (*chrDesc, error) {
 		lr := lodRec{part: int(u16(b, o+16))}
 		for k := 0; k < n && k < 4; k++ {
 			bi := int(u16(b, o+4+2*k))
+			if bi&0x8000 != 0 {
+				// dynamics-bone reference (dr_g00's ponytail parts skin
+				// over {0x8000..0x8003})
+				bi = dynBase + bi&0x7FFF
+			}
 			lr.bones = append(lr.bones, bi)
 			d.lodBone[bi] = true
 		}
 		d.lods = append(d.lods, lr)
 	}
-	// inverse binds: alphabetical by bone base name over the LOD bone union
-	var bones []int
+	// Inverse binds: the table covers the geometry bones, but its ORDER is
+	// rig-specific (AUT04 sorts by base bone name; the JEN/ONN rigs use a
+	// different naming vocabulary, and dr_g00 carries one matrix more than
+	// its LOD union). Assign each matrix to the geometry bone whose
+	// rest-FK world it matches — bind origins are distinctive (the file
+	// binds sit within ~2 cm of rest-FK; rotation breaks stacked-origin
+	// ties). Greedy by best score, unique per bone.
+	rest := restFK(sk)
+	var cand []int
+	seen := map[int]bool{}
 	for bi := range d.lodBone {
-		bones = append(bones, bi)
+		if bi < dynBase {
+			cand = append(cand, bi)
+			seen[bi] = true
+		}
 	}
-	sort.Slice(bones, func(i, j int) bool {
-		return boneBaseName(sk.bones[bones[i]].name) < boneBaseName(sk.bones[bones[j]].name)
-	})
-	if len(bones) != nMat {
-		return nil, fmt.Errorf("chr desc: %d LOD bones vs %d matrices", len(bones), nMat)
+	for bi := range d.attach {
+		if !seen[bi] && bi < dynBase {
+			cand = append(cand, bi)
+		}
 	}
-	for i, bi := range bones {
+	type fileMat struct {
+		inv, bind mat4
+	}
+	mats := make([]fileMat, nMat)
+	for i := 0; i < nMat; i++ {
 		o := matOff + i*0x40
 		// stored row-vector (p·M + t); convert to column-vector M·p
 		var m mat4
@@ -399,10 +507,252 @@ func parseChrDesc(b []byte, sk *chrSkeleton) (*chrDesc, error) {
 		}
 		m[0][3], m[1][3], m[2][3] = f32(b, o+48), f32(b, o+52), f32(b, o+56)
 		m[3] = [4]float32{0, 0, 0, 1}
-		d.invBind[bi] = m
-		d.bind[bi] = mInv(m)
+		mats[i] = fileMat{inv: m, bind: mInv(m)}
+	}
+	// HINTS from the model itself: a LOD bone's bind origin is where its
+	// dominant-weight vertices cluster (the skinned parts are stored in
+	// the BIND-POSE model space — the same space the matrix table maps
+	// out of). This is the only assignment that works on every rig: the
+	// ONN girl RESTS in a sitting stance while her binds are a T-pose, so
+	// any rest-pose matching mis-hangs her arms, and the table order is
+	// alphabetical over bone names whose vocabulary differs per rig.
+	// One cluster per part, credited to the DEEPEST bone the part skins
+	// over: a junction part wraps the seam between its bones, and the seam
+	// sits at the child joint's bind origin (the elbow part hugs hiji, the
+	// hip part momo, the neck part kao, a ponytail part its dyn segment).
+	depth := func(bi int) int {
+		n := 0
+		for p := sk.bones[bi].parent; p >= 0; p = sk.bones[p].parent {
+			n++
+		}
+		return n
+	}
+	hints := map[int][][3]float32{}
+	for _, lr := range d.lods {
+		pt, err := model.parsePart(lr.part)
+		if err != nil {
+			continue
+		}
+		deepest, dbest := -1, -1
+		for _, bi := range lr.bones {
+			if dd := depth(bi); dd > dbest {
+				dbest, deepest = dd, bi
+			}
+		}
+		var sum [3]float32
+		n := 0
+		for _, bp := range pt.pairs {
+			pos, _, _, _, _ := model.decodeVerts(bp)
+			for _, p := range pos {
+				sum[0] += p[0]
+				sum[1] += p[1]
+				sum[2] += p[2]
+				n++
+			}
+		}
+		if n >= 3 && deepest >= 0 {
+			hints[deepest] = append(hints[deepest], [3]float32{sum[0] / float32(n), sum[1] / float32(n), sum[2] / float32(n)})
+		}
+	}
+	type pair struct {
+		mi, bi int
+		score  float32
+	}
+	usedM, usedB := map[int]bool{}, map[int]bool{}
+	assign := func(ps []pair, cutoff float32) {
+		// deterministic order: tie-break on matrix then bone index
+		sort.Slice(ps, func(i, j int) bool {
+			if ps[i].score != ps[j].score {
+				return ps[i].score < ps[j].score
+			}
+			if ps[i].mi != ps[j].mi {
+				return ps[i].mi < ps[j].mi
+			}
+			return ps[i].bi < ps[j].bi
+		})
+		for _, p := range ps {
+			if usedM[p.mi] || usedB[p.bi] || p.score > cutoff {
+				continue
+			}
+			usedM[p.mi], usedB[p.bi] = true, true
+			d.invBind[p.bi] = mats[p.mi].inv
+			d.bind[p.bi] = mats[p.mi].bind
+		}
+	}
+	var lodBones []int
+	for bi := range d.lodBone {
+		lodBones = append(lodBones, bi)
+	}
+	sort.Ints(lodBones)
+	// rotation distance disambiguates coincident origins (mal's j_ude_l
+	// and j_kobo_hiji_l share a position with different bind frames)
+	rotDiff := func(a, b mat4) float32 {
+		var s float32
+		for r := 0; r < 3; r++ {
+			for c := 0; c < 3; c++ {
+				v := a[r][c] - b[r][c]
+				s += v * v
+			}
+		}
+		return s
+	}
+	// pass 1: strict REST lock — on most rigs the bind pose IS the rest
+	// pose (OZI/OTK/MAN/JEN/RIC), and even the sitting ONN rig's SPINE
+	// rests within 3 cm of its bind
+	var pairs []pair
+	for mi := range mats {
+		bp := mPos(mats[mi].bind)
+		for _, bi := range lodBones {
+			if bi >= dynBase {
+				continue
+			}
+			pairs = append(pairs, pair{mi, bi,
+				v3len(v3sub(bp, mPos(rest[bi]))) + 0.002*rotDiff(mats[mi].bind, rest[bi])})
+		}
+	}
+	assign(pairs, 0.06)
+	// pass 2: model-vertex hints for the rest (the ONN limbs: her rest sits
+	// while her binds T-pose — the junction parts say where each bind is)
+	pairs = pairs[:0]
+	for mi := range mats {
+		if usedM[mi] {
+			continue
+		}
+		bp := mPos(mats[mi].bind)
+		for _, bi := range lodBones {
+			if usedB[bi] {
+				continue
+			}
+			best := float32(1e9)
+			for _, h := range hints[bi] {
+				if dd := v3len(v3sub(bp, h)); dd < best {
+					best = dd
+				}
+			}
+			if best < 1e9 {
+				pairs = append(pairs, pair{mi, bi, best})
+			}
+		}
+	}
+	assign(pairs, 1e8)
+	// pass 3: whatever remains (bones never a part's deepest and outside
+	// the strict rest lock) — nearest rest position, loose cutoff
+	pairs = pairs[:0]
+	for mi := range mats {
+		if usedM[mi] {
+			continue
+		}
+		bp := mPos(mats[mi].bind)
+		for _, bi := range lodBones {
+			if usedB[bi] || bi >= dynBase {
+				continue
+			}
+			pairs = append(pairs, pair{mi, bi,
+				v3len(v3sub(bp, mPos(rest[bi]))) + 0.002*rotDiff(mats[mi].bind, rest[bi])})
+		}
+	}
+	assign(pairs, 0.3)
+	// Swap refinement: junction centroids can hug either end of a segment
+	// (the half-body drivers' belly part sits at the waist, the starter's
+	// at the chest), so verify the assignment against the union topology —
+	// for every ancestor-related bone pair the bind distance must match
+	// the rest distance (segments are rigid) — and swap any pair of
+	// assignments that strictly improves the total.
+	{
+		var ub []int
+		for bi := range d.lodBone {
+			if _, ok := d.bind[bi]; ok && bi < dynBase {
+				ub = append(ub, bi)
+			}
+		}
+		sort.Ints(ub)
+		inU := map[int]bool{}
+		for _, bi := range ub {
+			inU[bi] = true
+		}
+		type edge struct {
+			a, b int
+			want float32
+		}
+		var edges []edge
+		for _, bi := range ub {
+			for p := sk.bones[bi].parent; p >= 0; p = sk.bones[p].parent {
+				if inU[p] {
+					edges = append(edges, edge{bi, p, v3len(v3sub(mPos(rest[bi]), mPos(rest[p])))})
+					break
+				}
+			}
+		}
+		cost := func() float32 {
+			var c float32
+			for _, e := range edges {
+				got := v3len(v3sub(mPos(d.bind[e.a]), mPos(d.bind[e.b])))
+				diff := got - e.want
+				if diff < 0 {
+					diff = -diff
+				}
+				c += diff
+			}
+			return c
+		}
+		for pass := 0; pass < 8; pass++ {
+			improved := false
+			base := cost()
+			for i := 0; i < len(ub); i++ {
+				for j := i + 1; j < len(ub); j++ {
+					a, bb := ub[i], ub[j]
+					d.bind[a], d.bind[bb] = d.bind[bb], d.bind[a]
+					d.invBind[a], d.invBind[bb] = d.invBind[bb], d.invBind[a]
+					if c := cost(); c < base-1e-4 {
+						base = c
+						improved = true
+					} else {
+						d.bind[a], d.bind[bb] = d.bind[bb], d.bind[a]
+						d.invBind[a], d.invBind[bb] = d.invBind[bb], d.invBind[a]
+					}
+				}
+			}
+			if !improved {
+				break
+			}
+		}
+	}
+
+	// bones the table (or the hints) missed — attach-only bones included —
+	// bind at the rest pose (full inverse: the twins carry rest scale)
+	for _, bi := range append(append([]int(nil), cand...), dynIDs(dynBase, nDyn)...) {
+		if !usedB[bi] {
+			if _, ok := d.bind[bi]; !ok {
+				d.bind[bi] = rest[bi]
+				d.invBind[bi] = mInvFull(rest[bi])
+			}
+		}
+	}
+
+	// Dynamics bones ride their chain parent rigidly at the bind offset.
+	for _, ch := range chains {
+		prev := ch.parent
+		for k := 0; k < ch.count; k++ {
+			vid := dynBase + ch.first + k
+			pb, ok := d.bind[prev]
+			if !ok {
+				pb = rest[prev]
+			}
+			local := mMul(mInvFull(pb), d.bind[vid])
+			sk.bones[vid].restL = &local
+			prev = vid
+		}
 	}
 	return d, nil
+}
+
+// dynIDs enumerates the synthesized dynamics-bone ids.
+func dynIDs(base, n int) []int {
+	out := make([]int, n)
+	for i := range out {
+		out[i] = base + i
+	}
+	return out
 }
 
 // ---------- motion clips ----------
@@ -576,6 +926,56 @@ type chrRig struct {
 	sk   *chrSkeleton
 	desc *chrDesc
 	conv poseConv
+	side map[int]float32 // chain root -> bend sign (chainSide cache)
+}
+
+// chainSide returns the two-joint bend sign for a chain (+1 = Z×axis, the
+// legs; -1 = axis×Z, the arms). Preference order: the rig's own REST pose
+// when the chain rests bent (measured in the rest hinge frame), else the
+// joint names — momo/sune/hiza (thigh/shin/knee) vs ude/hiji (arm/elbow) is
+// the developers' own vocabulary on all nine skeletons.
+func (rg *chrRig) chainSide(root, j1, j2, eff int) float32 {
+	if rg.side == nil {
+		rg.side = map[int]float32{}
+	}
+	if s, ok := rg.side[root]; ok {
+		return s
+	}
+	s := float32(0)
+	rest := restFK(rg.sk)
+	p0 := mPos(rest[root])
+	pm := mPos(rest[j2])
+	pe := mPos(rest[eff])
+	ax := v3sub(pe, p0)
+	if l := v3len(ax); l > 1e-4 {
+		ax = v3scale(ax, 1/l)
+		off := v3sub(v3sub(pm, p0), v3scale(ax, v3dot(v3sub(pm, p0), ax)))
+		if v3len(off) > 0.02 {
+			chnZ := [3]float32{rest[root][0][2], rest[root][1][2], rest[root][2][2]}
+			hz := v3sub(chnZ, v3scale(ax, v3dot(ax, chnZ)))
+			if v3len(hz) > 1e-5 {
+				hz = v3norm(hz)
+				if v3dot(v3norm(off), v3cross(hz, ax)) >= 0 {
+					s = 1
+				} else {
+					s = -1
+				}
+			}
+		}
+	}
+	if s == 0 {
+		n := rg.sk.bones[j1].name + " " + rg.sk.bones[j2].name
+		switch {
+		case strings.Contains(n, "momo") || strings.Contains(n, "sune") || strings.Contains(n, "hiza"):
+			s = 1
+		case strings.Contains(n, "ude") || strings.Contains(n, "hiji"):
+			s = -1
+		default:
+			s = 1
+		}
+	}
+	rg.side[root] = s
+	return s
 }
 
 // chainOf walks a chain root's single-child spine to its effector.
@@ -645,12 +1045,20 @@ func (rg *chrRig) evalPose(clip *chrClip, frame float32) []mat4 {
 				}
 			}
 		}
+		if b.restL != nil {
+			// synthesized dynamics bone: fixed bind-relative local
+			local[i] = *b.restL
+			continue
+		}
 		R := mEuler(rx, ry, rz, rg.conv.order)
 		T := mTrans(tx, ty, tz)
 		if rg.conv.rt {
 			local[i] = mMul(R, T)
 		} else {
 			local[i] = mMul(T, R)
+		}
+		if b.restS != ([3]float32{1, 1, 1}) && b.restS != ([3]float32{}) {
+			local[i] = mMul(local[i], mScale(b.restS[0], b.restS[1], b.restS[2]))
 		}
 	}
 
@@ -791,16 +1199,15 @@ func (rg *chrRig) solveChain(world []mat4, root int, joints []int, eff int, tgt 
 			h2 = 0
 		}
 		h := float32(math.Sqrt(float64(h2)))
-		// Bend side: legs bend along Z×axis (knees forward, 700/700
-		// captured frames), arms along axis×Z (elbows back, 1380/1380).
-		// The rig marks the arm chains by a flip in the first joint's rest
-		// euler (ude_l_jnt rx ≈ -π, ude_r_jnt rz ≈ 3π/2); the leg joints'
-		// rest rotations are ≈ 0.
-		s := float32(1)
-		if math.Abs(float64(rg.sk.bones[j1].restR[0])) > math.Pi/2 ||
-			math.Abs(float64(rg.sk.bones[j1].restR[2])) > math.Pi/2 {
-			s = -1
-		}
+		// Bend side relative to the hinge: legs bend along Z×axis (knees
+		// forward), arms along axis×Z (elbows back) — 950/950 captured
+		// frames across OZI and OTK, zero plane violations. The side is a
+		// per-chain constant; rigs whose REST pose is already bent (the
+		// ONN girl sits at rest) carry it in their own geometry, and for
+		// straight-rest rigs the joints' names decide — momo/sune/hiza
+		// (thigh/shin/knee) vs ude/hiji (arm/elbow) is the developers' own
+		// vocabulary on all nine skeletons.
+		s := rg.chainSide(root, j1, j2, eff)
 		mid := v3add(v3add(p0, v3scale(axis, a)), v3scale(v3cross(hz, axis), s*h))
 		world[j1] = frameZ(p0, v3sub(mid, p0))
 		world[j2] = frameZ(mid, v3sub(tgt, mid))
@@ -907,14 +1314,16 @@ type chrData struct {
 	clips []*chrClip // both mot files, named
 }
 
-func loadFlagman(disc *xbox.Image) (*chrData, error) {
+// loadChr loads any /Chr character: CHR_<BASE>.bin descriptor,
+// obj_chr_<base>_pmt.sz model, and its bone.bin skeleton. Clips are not
+// loaded — see loadClips.
+func loadChr(disc *xbox.Image, base string) (*chrData, error) {
 	boneRaw, err := disc.ReadFile("/Common/bone.bin")
 	if err != nil {
 		return nil, err
 	}
 	sks := parseBoneLib(boneRaw)
-	var ozi *chrSkeleton
-	descRaw, err := disc.ReadFile("/Chr/CHR_AUT04.bin")
+	descRaw, err := disc.ReadFile("/Chr/CHR_" + strings.ToUpper(base) + ".bin")
 	if err != nil {
 		return nil, err
 	}
@@ -922,13 +1331,20 @@ func loadFlagman(disc *xbox.Image) (*chrData, error) {
 	if skelIdx >= len(sks) {
 		return nil, fmt.Errorf("skeleton %d out of range", skelIdx)
 	}
-	ozi = &sks[skelIdx]
-	desc, err := parseChrDesc(descRaw, ozi)
+	// deep-copy: parseChrDesc appends this character's dynamics bones and
+	// wires them into parents' child lists — the library entry must stay
+	// pristine for the next character on the same rig
+	src := sks[skelIdx]
+	sk := &chrSkeleton{name: src.name, bones: make([]chrBone, len(src.bones))}
+	copy(sk.bones, src.bones)
+	for i := range sk.bones {
+		sk.bones[i].children = append([]int(nil), src.bones[i].children...)
+	}
+	model, err := readPMT(disc, "/Chr/obj_chr_"+base+"_pmt.sz")
 	if err != nil {
 		return nil, err
 	}
-
-	model, err := readPMT(disc, "/Chr/obj_chr_aut04_pmt.sz")
+	desc, err := parseChrDesc(descRaw, sk, model)
 	if err != nil {
 		return nil, err
 	}
@@ -936,13 +1352,18 @@ func loadFlagman(disc *xbox.Image) (*chrData, error) {
 	if err != nil {
 		return nil, err
 	}
+	return &chrData{sk: sk, desc: desc, model: model, texs: texs}, nil
+}
 
+// loadClips reads the named mot files (motdata_table names like
+// "mot_ETC_bin.gz") and returns their clips, named.
+func loadClips(disc *xbox.Image, files ...string) ([]*chrClip, error) {
 	tblRaw, err := disc.ReadFile("/Common/motdata_table.bin")
 	if err != nil {
 		return nil, err
 	}
 	var clips []*chrClip
-	for _, mf := range []string{"mot_ETC_bin", "mot_OR2SP_ETC_bin"} {
+	for _, mf := range files {
 		names := motTableNames(tblRaw, mf+".gz")
 		raw, err := readInflated(disc, "/Anims/"+mf+".sz")
 		if err != nil {
@@ -954,7 +1375,19 @@ func loadFlagman(disc *xbox.Image) (*chrData, error) {
 		}
 		clips = append(clips, cs...)
 	}
-	return &chrData{sk: ozi, desc: desc, model: model, texs: texs, clips: clips}, nil
+	return clips, nil
+}
+
+func loadFlagman(disc *xbox.Image) (*chrData, error) {
+	cd, err := loadChr(disc, "aut04")
+	if err != nil {
+		return nil, err
+	}
+	cd.clips, err = loadClips(disc, "mot_ETC_bin", "mot_OR2SP_ETC_bin")
+	if err != nil {
+		return nil, err
+	}
+	return cd, nil
 }
 
 func (cd *chrData) clip(name string) *chrClip {
@@ -1106,8 +1539,25 @@ func chrFit(disc *xbox.Image, dumpPath string) {
 // vertices, first LOD bone's skinning matrix — the capture's own vertex
 // program pins this: R11 = w·v + (1-w)·M_rel·v then oPos = S·R11), so
 // S·bind_A recovers VP·W_A and inv(S_kosi)·S_i cancels VP either way.
+// chrDebugChar/chrDebugFiles select which character the -chrcap/-chrcapfit/
+// -chrikprobe/-chrpose instruments load (default: the starter).
+var chrDebugChar = "aut04"
+var chrDebugFiles = []string{"mot_ETC_bin", "mot_OR2SP_ETC_bin"}
+
+func loadDebugChr(disc *xbox.Image) (*chrData, error) {
+	cd, err := loadChr(disc, chrDebugChar)
+	if err != nil {
+		return nil, err
+	}
+	cd.clips, err = loadClips(disc, chrDebugFiles...)
+	if err != nil {
+		return nil, err
+	}
+	return cd, nil
+}
+
 func chrCapture(disc *xbox.Image, dumpPath string) {
-	cd, err := loadFlagman(disc)
+	cd, err := loadDebugChr(disc)
 	if err != nil {
 		fatal("%v", err)
 	}
@@ -1271,7 +1721,7 @@ func chrCapParse(cd *chrData, dumpPath string) []map[int]mat4 {
 // position residuals — the instrument that says WHICH bones the evaluator
 // gets wrong, not just that it is wrong somewhere.
 func chrCapFit(disc *xbox.Image, dumpPath string, conv poseConv) {
-	cd, err := loadFlagman(disc)
+	cd, err := loadDebugChr(disc)
 	if err != nil {
 		fatal("%v", err)
 	}
@@ -1377,6 +1827,81 @@ func chrCapFit(disc *xbox.Image, dumpPath string, conv poseConv) {
 	}
 }
 
+// restFK composes the skeleton's rest pose (the bind pose): local = T·R
+// with the full rest translation (tx@+0x0C, f0, f1) and the ZYX rest euler —
+// the same conventions the animated evaluator uses with no channels applied.
+func restFK(sk *chrSkeleton) []mat4 {
+	world := make([]mat4, len(sk.bones))
+	var walk func(i int, parent mat4)
+	walk = func(i int, parent mat4) {
+		b := sk.bones[i]
+		var local mat4
+		if b.restL != nil {
+			local = *b.restL
+		} else {
+			local = mMul(mTrans(b.restT[0], b.restT[1], b.restT[2]),
+				mEuler(b.restR[0], b.restR[1], b.restR[2], 5))
+			if b.restS != ([3]float32{1, 1, 1}) && b.restS != ([3]float32{}) {
+				local = mMul(local, mScale(b.restS[0], b.restS[1], b.restS[2]))
+			}
+		}
+		world[i] = mMul(parent, local)
+		for _, c := range b.children {
+			walk(c, world[i])
+		}
+	}
+	for i, b := range sk.bones {
+		if b.parent == -1 {
+			walk(i, mIdent())
+		}
+	}
+	return world
+}
+
+// chrRestCheck validates the rest-FK bind hypothesis for one character: every
+// file inverse-bind matrix must match inv(restFK world) of one LOD-union bone.
+func chrRestCheck(disc *xbox.Image, base string) {
+	cd, err := loadChr(disc, base)
+	if err != nil {
+		fatal("%v", err)
+	}
+	rest := restFK(cd.sk)
+	var bones []int
+	for b := range cd.desc.lodBone {
+		bones = append(bones, b)
+	}
+	sort.Ints(bones)
+	worst := float32(0)
+	for _, b := range bones {
+		fb, ok := cd.desc.bind[b]
+		if !ok {
+			fmt.Printf("  %-16s NO FILE BIND\n", cd.sk.bones[b].name)
+			continue
+		}
+		var d float32
+		for r := 0; r < 3; r++ {
+			for c := 0; c < 4; c++ {
+				v := fb[r][c] - rest[b][r][c]
+				if v < 0 {
+					v = -v
+				}
+				if v > d {
+					d = v
+				}
+			}
+		}
+		if d > worst {
+			worst = d
+		}
+		if d > 0.005 {
+			fp, rp := mPos(fb), mPos(rest[b])
+			fmt.Printf("  %-16s maxΔ=%.4f file t(%6.3f %6.3f %6.3f) rest t(%6.3f %6.3f %6.3f)\n",
+				cd.sk.bones[b].name, d, fp[0], fp[1], fp[2], rp[0], rp[1], rp[2])
+		}
+	}
+	fmt.Printf("%s: %d LOD bones, worst bind-vs-restFK maxΔ = %.5f\n", base, len(bones), worst)
+}
+
 // chrIKProbe compares one captured flip against one clip frame chain by
 // chain: measured joint positions vs FK/IK prediction vs the clip's raw
 // effector targets, everything expressed in the kosi frame.
@@ -1390,7 +1915,7 @@ func chrIKProbe(disc *xbox.Image, spec string, conv poseConv) {
 		fmt.Sscanf(clipName[i+1:], "%d", &cf)
 		clipName = clipName[:i]
 	}
-	cd, err := loadFlagman(disc)
+	cd, err := loadDebugChr(disc)
 	if err != nil {
 		fatal("%v", err)
 	}
@@ -1702,17 +2227,37 @@ func degenerateBatch(pos [][3]float32, raw []uint32) bool {
 	return true
 }
 
-// chrExportGLB writes the animated flagman GLB. The geometry-bone nodes
-// form a HIERARCHY (hip → thigh → shin → foot, chest → arm chain …) and the
-// clips carry per-node LOCAL TRS — interpolating locals keeps every limb
-// attached between keyframes, which a flat world-space bake cannot (parts
-// lerp along straight lines and a fast sweep tears the chain apart
-// mid-interval; the first shipped bake did exactly that).
+// chrBake names one clip to bake into a character GLB.
+type chrBake struct {
+	clip string // full mot clip name
+	as   string // glTF animation name
+}
+
+// chrExportGLB writes the animated flagman GLB (kept for the -chrglb debug
+// flow; the roster export goes through exportChrGLB directly).
 func chrExportGLB(disc *xbox.Image, outPath string, conv poseConv) error {
 	cd, err := loadFlagman(disc)
 	if err != nil {
 		return err
 	}
+	// idle = the plain stand loop; the wave = HATAFURI_00, the clip the
+	// game actually plays at the start line (the 700-flip capture tracks
+	// it monotonically at one clip frame per flip; HATA_SP, shipped
+	// before, is a different wave he never performs there — and before
+	// the wave starts he simply holds RUNAWAY frame 0, err 0.002 m).
+	return exportChrGLB(cd, "flagman", outPath, conv, []chrBake{
+		{"ORT_OZI_OZI_STAND_LP", "idle"},
+		{"ORT_OZI_OZI_HATAFURI_00", "hatafuri"},
+	})
+}
+
+// exportChrGLB writes one character's animated GLB. The geometry-bone nodes
+// form a HIERARCHY (hip → thigh → shin → foot, chest → arm chain …) and the
+// clips carry per-node LOCAL TRS — interpolating locals keeps every limb
+// attached between keyframes, which a flat world-space bake cannot (parts
+// lerp along straight lines and a fast sweep tears the chain apart
+// mid-interval; the first shipped bake did exactly that).
+func exportChrGLB(cd *chrData, rootName, outPath string, conv poseConv, bakes []chrBake) error {
 	rg := &chrRig{sk: cd.sk, desc: cd.desc, conv: conv}
 
 	// geometry bones parented by nearest bind-carrying ancestor (the 17-bone
@@ -1754,7 +2299,7 @@ func chrExportGLB(disc *xbox.Image, outPath string, conv poseConv) error {
 	}
 
 	s := glb.NewScene()
-	root := s.AddNode("flagman", -1, [3]float32{}, [4]float32{0, 0, 0, 1}, [3]float32{1, 1, 1})
+	root := s.AddNode(rootName, -1, [3]float32{}, [4]float32{0, 0, 0, 1}, [3]float32{1, 1, 1})
 	nodes := map[int]int{} // bone -> node
 	for _, b := range order {
 		bind := cd.desc.bind[b]
@@ -1765,7 +2310,8 @@ func chrExportGLB(disc *xbox.Image, outPath string, conv poseConv) error {
 			parentNode = nodes[gp]
 		}
 		name := cd.sk.bones[b].name
-		n := s.AddNode(name, parentNode, mPos(local), mQuat(local), [3]float32{1, 1, 1})
+		lt, lq, ls := mDecompose(local)
+		n := s.AddNode(name, parentNode, lt, lq, ls)
 		if part, ok := cd.desc.attach[b]; ok {
 			prims, err := chrPartPrims(cd.model, cd.texs, part, nil, nil)
 			if err != nil {
@@ -1838,14 +2384,22 @@ func chrExportGLB(disc *xbox.Image, outPath string, conv poseConv) error {
 		// on every re-export
 		rot := map[int][][4]float32{}
 		trn := map[int][][3]float32{}
+		scl := map[int][][3]float32{}
+		sclLive := map[int]bool{}
 		for _, world := range worlds {
 			for _, b := range order {
 				m := world[b]
 				if gp := geomParent(b); gp >= 0 {
-					m = mMul(mInv(world[gp]), world[b])
+					// full inverse: twin bones carry non-unit rest scale
+					m = mMul(mInvFull(world[gp]), world[b])
 				}
-				rot[b] = append(rot[b], mQuat(m))
-				trn[b] = append(trn[b], mPos(m))
+				t, q, sv := mDecompose(m)
+				rot[b] = append(rot[b], q)
+				trn[b] = append(trn[b], t)
+				scl[b] = append(scl[b], sv)
+				if sv[0] < 0.999 || sv[0] > 1.001 || sv[1] < 0.999 || sv[1] > 1.001 || sv[2] < 0.999 || sv[2] > 1.001 {
+					sclLive[b] = true
+				}
 			}
 		}
 		for _, b := range order {
@@ -1861,27 +2415,24 @@ func chrExportGLB(disc *xbox.Image, outPath string, conv poseConv) error {
 			}
 			c.Rotations(n, times, qs)
 			c.Vec3s(n, "translation", times, trn[b])
+			if sclLive[b] {
+				c.Vec3s(n, "scale", times, scl[b])
+			}
 		}
 		c.Finish()
 		return nil
 	}
-	// idle = the plain stand loop; the wave = HATAFURI_00, the clip the
-	// game actually plays at the start line (the 700-flip capture tracks
-	// it monotonically at one clip frame per flip; HATA_SP, shipped
-	// before, is a different wave he never performs there — and before
-	// the wave starts he simply holds RUNAWAY frame 0, err 0.002 m).
-	if err := bake("ORT_OZI_OZI_STAND_LP", "idle"); err != nil {
-		return err
+	for _, bk := range bakes {
+		if err := bake(bk.clip, bk.as); err != nil {
+			return err
+		}
 	}
-	if err := bake("ORT_OZI_OZI_HATAFURI_00", "hatafuri"); err != nil {
-		return err
-	}
-	return s.Write(outPath, "flagman")
+	return s.Write(outPath, rootName)
 }
 
 // chrPoseDebug prints key bone world positions of a clip at given frames.
 func chrPoseDebug(disc *xbox.Image, spec string, conv poseConv) {
-	cd, err := loadFlagman(disc)
+	cd, err := loadDebugChr(disc)
 	if err != nil {
 		fatal("%v", err)
 	}
@@ -1912,6 +2463,182 @@ func chrPoseDebug(disc *xbox.Image, spec string, conv poseConv) {
 			}
 		}
 	}
+}
+
+// chrBindGLBs writes bind-pose GLBs (no clips) for the named characters —
+// the identification pass: who is who in /Chr.
+func chrBindGLBs(disc *xbox.Image, list, dir string) {
+	for _, base := range strings.Split(list, ",") {
+		cd, err := loadChr(disc, base)
+		if err != nil {
+			fatal("%s: %v", base, err)
+		}
+		out := dir + "/bind-" + base + ".glb"
+		if err := exportChrGLB(cd, base, out, poseConv{5, false}, nil); err != nil {
+			fatal("%s: %v", base, err)
+		}
+		fmt.Println("wrote", out)
+	}
+}
+
+// chrSpec curates one /Chr character for the Studio.
+type chrSpec struct {
+	base  string // obj_chr_<base>_pmt.sz / CHR_<BASE>.bin
+	id    string // asset id
+	name  string // display name
+	files []string
+	bakes []chrBake
+	anims []schema.Animation
+}
+
+// The /Chr roster. Skeletons: dr_m*/s00/w00 sit on OTK or its twin MAN
+// (identical bone names + topology), dr_g*/l*/h00 on ONN or its twin WMN,
+// fal/gal on the 113-bone JEN, mal on the 115-bone RIC. The in-car pair's
+// sitting loops are mot_START's two SUWARI clips; WINNER/TUNTUN come from
+// the goal celebrations (mot_F40).
+var chrRoster = []chrSpec{
+	{base: "dr_m00", id: "driver", name: "The driver",
+		files: []string{"mot_START_bin", "mot_F40_bin"},
+		bakes: []chrBake{{"ORT_MAN_OTK_SUWARI_LP_01", "sit"}, {"ORT_MAN_OTK_WINNER_01", "winner"}},
+		anims: []schema.Animation{
+			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
+			{ID: "winner", Name: "Winner", Loop: "once", Clip: "winner"},
+		}},
+	{base: "dr_mh00", id: "driver-cap", name: "The driver (capped)",
+		files: []string{"mot_START_bin", "mot_F40_bin"},
+		bakes: []chrBake{{"ORT_MAN_OTK_SUWARI_LP_01", "sit"}, {"ORT_MAN_OTK_WINNER_01", "winner"}},
+		anims: []schema.Animation{
+			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
+			{ID: "winner", Name: "Winner", Loop: "once", Clip: "winner"},
+		}},
+	{base: "dr_g00", id: "passenger", name: "The passenger",
+		files: []string{"mot_START_bin", "mot_F40_bin"},
+		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
+		anims: []schema.Animation{
+			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
+			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
+		}},
+	{base: "dr_gh00", id: "passenger-hat", name: "The passenger (hat)",
+		files: []string{"mot_START_bin", "mot_F40_bin"},
+		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
+		anims: []schema.Animation{
+			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
+			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
+		}},
+	{base: "dr_g00_usa", id: "passenger-usa", name: "The passenger (US)",
+		files: []string{"mot_START_bin", "mot_F40_bin"},
+		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
+		anims: []schema.Animation{
+			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
+			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
+		}},
+	{base: "dr_gh00_usa", id: "passenger-hat-usa", name: "The passenger (hat, US)",
+		files: []string{"mot_START_bin", "mot_F40_bin"},
+		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
+		anims: []schema.Animation{
+			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
+			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
+		}},
+	{base: "dr_l00", id: "passenger-skirt", name: "The passenger (skirt)",
+		files: []string{"mot_START_bin", "mot_F40_bin"},
+		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
+		anims: []schema.Animation{
+			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
+			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
+		}},
+	{base: "dr_lh00", id: "passenger-skirt-hat", name: "The passenger (skirt, hat)",
+		files: []string{"mot_START_bin", "mot_F40_bin"},
+		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
+		anims: []schema.Animation{
+			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
+			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
+		}},
+	{base: "dr_h00", id: "passenger-black", name: "The passenger (black)",
+		files: []string{"mot_START_bin", "mot_F40_bin"},
+		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
+		anims: []schema.Animation{
+			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
+			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
+		}},
+	{base: "dr_s00", id: "driver-shirt", name: "The driver (shirt)",
+		files: []string{"mot_START_bin", "mot_F40_bin"},
+		bakes: []chrBake{{"ORT_MAN_OTK_SUWARI_LP_01", "sit"}, {"ORT_MAN_OTK_WINNER_01", "winner"}},
+		anims: []schema.Animation{
+			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
+			{ID: "winner", Name: "Winner", Loop: "once", Clip: "winner"},
+		}},
+	{base: "dr_w00", id: "driver-dark", name: "The driver (dark)",
+		files: []string{"mot_START_bin", "mot_F40_bin"},
+		bakes: []chrBake{{"ORT_MAN_OTK_SUWARI_LP_01", "sit"}, {"ORT_MAN_OTK_WINNER_01", "winner"}},
+		anims: []schema.Animation{
+			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
+			{ID: "winner", Name: "Winner", Loop: "once", Clip: "winner"},
+		}},
+	{base: "mal", id: "driver-story", name: "The driver (story scenes)",
+		files: []string{"mot_E16_bin", "mot_E01_bin"},
+		bakes: []chrBake{{"ORT_MAL_RIC_E01_1", "scene1"}, {"ORT_MAL_RIC_E16_2_1", "scene16"}},
+		anims: []schema.Animation{
+			{ID: "scene1", Name: "Story scene 1", Loop: "loop", Clip: "scene1"},
+			{ID: "scene16", Name: "Story scene 16", Loop: "once", Clip: "scene16"},
+		}},
+	{base: "gal", id: "passenger-story", name: "The passenger (story scenes)",
+		files: []string{"mot_E16_bin", "mot_E01_bin"},
+		bakes: []chrBake{{"ORT_FAL_JEN_E01_1", "scene1"}, {"ORT_FAL_JEN_E16_2_1", "scene16"}},
+		anims: []schema.Animation{
+			{ID: "scene1", Name: "Story scene 1", Loop: "loop", Clip: "scene1"},
+			{ID: "scene16", Name: "Story scene 16", Loop: "once", Clip: "scene16"},
+		}},
+	{base: "gal_usa", id: "passenger-story-usa", name: "The passenger (story scenes, US)",
+		files: []string{"mot_E16_bin", "mot_E01_bin"},
+		bakes: []chrBake{{"ORT_FAL_JEN_E01_1", "scene1"}, {"ORT_FAL_JEN_E16_2_1", "scene16"}},
+		anims: []schema.Animation{
+			{ID: "scene1", Name: "Story scene 1", Loop: "loop", Clip: "scene1"},
+			{ID: "scene16", Name: "Story scene 16", Loop: "once", Clip: "scene16"},
+		}},
+	{base: "fal", id: "startgirl", name: "The start girl",
+		files: []string{"mot_E01_bin", "mot_E16_bin"},
+		bakes: []chrBake{{"ORT_FAL_JEN_TEST", "dance"}, {"ORT_FAL_JEN_E16_2_1", "scene16"}},
+		anims: []schema.Animation{
+			{ID: "dance", Name: "Dance (the rig's test clip)", Loop: "loop", Clip: "dance"},
+			{ID: "scene16", Name: "Story scene 16", Loop: "once", Clip: "scene16"},
+		}},
+	{base: "aut04_cvt", id: "starter-cvt", name: "The starter (alternate)",
+		files: []string{"mot_ETC_bin"},
+		bakes: []chrBake{{"ORT_OZI_OZI_STAND_LP", "idle"}, {"ORT_OZI_OZI_HATAFURI_00", "hatafuri"}},
+		anims: []schema.Animation{
+			{ID: "idle", Name: "Idle", Loop: "loop", Clip: "idle"},
+			{ID: "hatafuri", Name: "Start wave", Loop: "once", Clip: "hatafuri"},
+		}},
+}
+
+// exportCharacters writes the whole /Chr roster into the Studio site.
+func exportCharacters(disc *xbox.Image, b *build.Builder) error {
+	for _, spec := range chrRoster {
+		cd, err := loadChr(disc, spec.base)
+		if err != nil {
+			return fmt.Errorf("%s: %w", spec.base, err)
+		}
+		cd.clips, err = loadClips(disc, spec.files...)
+		if err != nil {
+			return fmt.Errorf("%s: %w", spec.base, err)
+		}
+		out, err := b.Path("objects", spec.id+".glb")
+		if err != nil {
+			return err
+		}
+		if err := exportChrGLB(cd, spec.id, out, poseConv{5, false}, spec.bakes); err != nil {
+			return fmt.Errorf("%s: %w", spec.base, err)
+		}
+		b.AddObject(schema.Asset{ID: spec.id, Name: spec.name, Group: "Characters"},
+			&schema.Object{Type: schema.ObjectModel3D, Name: spec.name, Model: spec.id + ".glb",
+				SkinnedClone: true,
+				Animations:   spec.anims,
+				Props: map[string]any{
+					"source":   "/Chr/obj_chr_" + spec.base + "_pmt.sz",
+					"skeleton": cd.sk.name + " (/Common/bone.bin)",
+				}})
+	}
+	return nil
 }
 
 // exportFlagman writes the flagman object into the Studio site: the
