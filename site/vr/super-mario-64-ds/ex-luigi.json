@@ -1,0 +1,87 @@
+{
+  "_": [
+    "ex_luigi_all, at Mario's own scale.",
+    "",
+    "Derived by extract/cmd/vrpresets from the cartridge, following the",
+    "reference preset bombhei-map.json — which explains the working for every",
+    "number here and is the one to read first. Authored data: edit freely, the",
+    "generator will not overwrite a file that exists.",
+    "",
+    "SCALE. Mario is the ruler. Idle mario_model_mg at the 0.008 scale every",
+    "actor placement carries is 0.1415 stage units posed, and 1.55 / 0.1415 =",
+    "10.95 metres per unit. The same in every level, because the scale is.",
+    "",
+    "SPAWN. The level's own first entrance record: (-1500, 1700, 0) yaw 90.",
+    "The 1700 is a drop height, not a floor, so a ray onto the level's own",
+    "collision puts the feet at 0 world units instead."
+  ],
+  "metresPerUnit": 10.95,
+  "spawn": {
+    "pos": [
+      -1.5,
+      0,
+      0
+    ],
+    "dir": [
+      1,
+      0,
+      0
+    ]
+  },
+  "_sky": [
+    "No skybox in the level settings: this stage is an interior."
+  ],
+  "sky": false,
+  "_fog": [
+    "Not atmosphere: a workaround. An interior has no sky to take a haze",
+    "colour from, so the honest value is none — but world mode draws",
+    "nothing at all when fog is null (A/B on this level, same load, only",
+    "that field differing), because the mode's far-plane policy hangs off",
+    "the fog. This one is black and starts past the far wall, so it tints",
+    "nothing; it is here only to exist. Delete it if that is ever fixed."
+  ],
+  "fog": {
+    "color": "#000000",
+    "near": 72,
+    "far": 80
+  },
+  "torch": {
+    "flicker": 0
+  },
+  "_floor": [
+    "The game's own walkable surface (the level's .kcl, shipped as the hidden",
+    "col_* layer) rather than the art. maxSlope 50 because Mario's hills are",
+    "steep."
+  ],
+  "floor": {
+    "maxSlope": 50,
+    "source": "collision"
+  },
+  "teleport": {
+    "blockers": true,
+    "markerRadius": 0.6,
+    "maxRange": 40,
+    "maxRise": 2.5,
+    "snapTurn": 30,
+    "speed": 9
+  },
+  "_props": [
+    "Mario, two metres ahead and facing the way you are: he is the ruler this",
+    "preset is measured with, so if he does not come up to your eyes the scale",
+    "is wrong."
+  ],
+  "props": [
+    {
+      "object": "mario-model-mg",
+      "pos": [
+        -1.317,
+        0,
+        0
+      ],
+      "rotY": 90,
+      "scale": 0.008,
+      "anim": "su_wait"
+    }
+  ],
+  "sounds": []
+}

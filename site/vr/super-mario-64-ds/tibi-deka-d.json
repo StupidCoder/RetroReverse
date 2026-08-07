@@ -1,0 +1,90 @@
+{
+  "_": [
+    "tibi_deka_d_all, at Mario's own scale.",
+    "",
+    "Derived by extract/cmd/vrpresets from the cartridge, following the",
+    "reference preset bombhei-map.json — which explains the working for every",
+    "number here and is the one to read first. Authored data: edit freely, the",
+    "generator will not overwrite a file that exists.",
+    "",
+    "SCALE. Mario is the ruler. Idle mario_model_mg at the 0.008 scale every",
+    "actor placement carries is 0.1415 stage units posed, and 1.55 / 0.1415 =",
+    "10.95 metres per unit. The same in every level, because the scale is.",
+    "",
+    "SPAWN. The level's own first entrance record: (-7300, -1200, 7300) yaw 130.",
+    "The -1200 is a drop height, not a floor, so a ray onto the level's own",
+    "collision puts the feet at -2900 world units instead."
+  ],
+  "metresPerUnit": 10.95,
+  "spawn": {
+    "pos": [
+      -7.3,
+      -2.9,
+      7.3
+    ],
+    "dir": [
+      0.7661,
+      0,
+      -0.6427
+    ]
+  },
+  "_sky": [
+    "scale:auto: the dome is authored tens of thousands of units across, which",
+    "is outside any far plane worth having. The viewer centres it on the EYE",
+    "being drawn, so the binocular disparity is zero however near it is pulled."
+  ],
+  "sky": {
+    "fog": false,
+    "scale": "auto"
+  },
+  "_fog": [
+    "Daylight, so this is aerial perspective and not a torch: distance haze",
+    "only, no flicker. The colour is the lightest band of the stage's own",
+    "skybox (vr01.bmd), over its upper half. The distance is 1.5x the stage's own",
+    "horizontal diagonal, 260 m, the ratio bombhei-map was tuned to."
+  ],
+  "fog": {
+    "color": "#5cb6ed",
+    "near": 41,
+    "far": 390
+  },
+  "torch": {
+    "flicker": 0
+  },
+  "_floor": [
+    "The game's own walkable surface (the level's .kcl, shipped as the hidden",
+    "col_* layer) rather than the art. maxSlope 50 because Mario's hills are",
+    "steep."
+  ],
+  "floor": {
+    "maxSlope": 50,
+    "source": "collision"
+  },
+  "teleport": {
+    "blockers": true,
+    "markerRadius": 0.6,
+    "maxRange": 40,
+    "maxRise": 2.5,
+    "snapTurn": 30,
+    "speed": 9
+  },
+  "_props": [
+    "Mario, two metres ahead and facing the way you are: he is the ruler this",
+    "preset is measured with, so if he does not come up to your eyes the scale",
+    "is wrong."
+  ],
+  "props": [
+    {
+      "object": "mario-model-mg",
+      "pos": [
+        -7.16,
+        -2.9,
+        7.183
+      ],
+      "rotY": 129.996,
+      "scale": 0.008,
+      "anim": "su_wait"
+    }
+  ],
+  "sounds": []
+}

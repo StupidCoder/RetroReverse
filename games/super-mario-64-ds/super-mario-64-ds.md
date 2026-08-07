@@ -1351,6 +1351,47 @@ it; they do not translate. That path was not chased further.
 
 The join proves itself instantly: ID 1000 → index 42 = *"BEWARE OF CHAIN-CHOMP / Extreme Danger!"* — the famous sign next to the Chain Chomp's stake in Bob-omb Battlefield — and 1003 → 45, the Big Bob-omb's *"No visitors allowed, by decree of the Big Bob-omb."* Reimplemented as `sm64ds.LevelSet.MsgIndex`; `cmd/exportlevelobjs` now attaches each signpost's English text to its placement JSON (`txt`), and clicking a signpost in the Studio viewer quotes the sign itself — 102 of the 103 placed signposts resolve (the one holdout is on the unused test map, placed with parameter `$FFFF`, no valid message). Icon escapes (`$FE` controls — the button and d-pad glyphs in control hints) are skipped in the decoded text.
 
+### Every level, walked into
+
+World mode — standing in a level at Mario's own scale rather than looking at it
+on a table — needs one thing per level that no amount of measuring a GLB gives
+you: how big a unit is, where you stand and which way you face. Bob-omb
+Battlefield had that, hand-tuned, and the other 47 stages did not.
+
+`cmd/vrpresets` derives them, and every number comes from somewhere:
+
+* **Scale** is the same in all of them, because the game's is: Mario is the one
+  character whose height Nintendo states (155 cm), every actor placement carries
+  the same 0.008 scale, and idle `mario_model_mg` measures 0.1415 stage units
+  posed — **10.95 metres per unit**.
+* **Spawn** is the level's own first type-1 entrance record, with its y thrown
+  away and replaced by a ray onto the level's collision, because an entrance is
+  where the game *releases* you (§7's establishing shots do the same thing for
+  the same reason). The heading is the record's, under the yaw convention every
+  placement uses.
+* **Sky and fog** follow the level settings: a stage with a skybox is outdoors,
+  so the dome is fitted and given aerial perspective in **the mean of its own
+  dome texture's upper half**. That rule returns `#57b3ec` for `vr01` against
+  the `#60baf2` the reference preset picked by eye — nine, seven and six out of
+  255. Naive alternatives miss: the brightest *texel* is the 32×32 `sun`, and
+  the brightest *band* is the cloud layer.
+* **Distance** is 1.5× the stage's own horizontal diagonal, the ratio
+  bombhei-map was tuned to.
+
+The generator never overwrites a preset that exists, so the hand-tuned reference
+stays hand-tuned and anything tuned later survives.
+
+**One thing is a workaround, not a decode.** An interior has no sky to take a
+haze colour from, so its honest fog is none — and a preset with `fog: null`
+enters world mode and draws *nothing*. That was A/B'd on `castle-b1` with a
+clean page load either way and only that field differing: black with `fog: null`,
+correct with fog. "Fog IS the torch" is the mode's own design note and the
+far-plane policy hangs off it, so the null case is a path no shipped preset had
+ever taken. The 20 interiors therefore carry black fog starting past their own
+far wall — present in order to exist, tinting nothing. Each says so in its own
+`_fog`, and deleting the block is a one-line change if the viewer's no-fog path
+is ever fixed.
+
 # Appendix A — Toolchain and reproduction
 
 Everything here is derived from the `.nds` image with this repository's own tools: the shared `tools/platform/nds` container reader and the `tools/cpu/arm` disassembler/tracer, plus this game's `extract` module. No third-party emulator, debugger or disassembler was used, and nothing was read from released source.
@@ -1422,6 +1463,10 @@ go run ./extract/cmd/paintprobe -grid 0x2777 -ticks 6
 go run ./extract/cmd/trapprobe -states
 go run ./extract/cmd/trapprobe -place
 go run ./extract/cmd/trapprobe -swing
+
+# world mode: derive the per-level VR preset for every shipped stage (never
+# overwrites one that exists, so a tuned preset stays tuned)
+go run ./extract/cmd/vrpresets
 
 # Part V §8 — which placed actors gate themselves on the save's star bits
 go run ./extract/cmd/gateprobe -in "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds" -sweep
