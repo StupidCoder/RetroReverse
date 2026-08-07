@@ -162,11 +162,14 @@ func appendTextured(b *builder, st *sharedTex, matBase int,
 			mat["alphaMode"] = "OPAQUE"
 			delete(mat, "alphaCutoff")
 		}
-		if g.Blend || g.Additive {
+		if g.Blend || g.Additive || g.Alpha > 0 {
 			mat["alphaMode"] = "BLEND"
 			delete(mat, "alphaCutoff")
 		}
-		if extras := groupExtras(g.Additive, g.Sheen); extras != nil {
+		if g.Alpha > 0 && g.Alpha < 1 {
+			mat["pbrMetallicRoughness"].(map[string]any)["baseColorFactor"] = []float64{1, 1, 1, g.Alpha}
+		}
+		if extras := groupExtras(g.Additive, g.Sheen, g.Matcap); extras != nil {
 			mat["extras"] = extras
 		}
 		materials = append(materials, mat)
@@ -192,7 +195,7 @@ func appendTextured(b *builder, st *sharedTex, matBase int,
 		if g.Additive || g.Blend {
 			mat["alphaMode"] = "BLEND"
 		}
-		if extras := groupExtras(g.Additive, g.Sheen); extras != nil {
+		if extras := groupExtras(g.Additive, g.Sheen, false); extras != nil {
 			mat["extras"] = extras
 		}
 		materials = append(materials, mat)
@@ -201,8 +204,8 @@ func appendTextured(b *builder, st *sharedTex, matBase int,
 }
 
 // groupExtras builds the Retro-X material extras for additive/sheen flags.
-func groupExtras(additive, sheen bool) map[string]any {
-	if !additive && !sheen {
+func groupExtras(additive, sheen, matcap bool) map[string]any {
+	if !additive && !sheen && !matcap {
 		return nil
 	}
 	extras := map[string]any{}
@@ -211,6 +214,9 @@ func groupExtras(additive, sheen bool) map[string]any {
 	}
 	if sheen {
 		extras["sheen"] = true
+	}
+	if matcap {
+		extras["matcap"] = true
 	}
 	return extras
 }

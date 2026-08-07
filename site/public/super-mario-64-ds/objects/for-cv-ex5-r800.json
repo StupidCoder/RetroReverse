@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "For cv ex5 (rippling)",
+ "animations": [
+  {
+   "id": "ripple",
+   "loop": "loop",
+   "clip": "ripple",
+   "fps": 30
+  }
+ ],
+ "model": "for_cv_ex5_r800.glb",
+ "skinnedClone": true
+}

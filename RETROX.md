@@ -756,8 +756,16 @@ A conforming tree satisfies all of the following (the reference validator enforc
    when present, has exactly six existing faces.
 
    GLB material `extras` conventions the Studio honours: `{"blend": "additive"}` renders
-   the material additively (glTF itself has no additive alphaMode), and `{"sheen": true}`
-   marks a material for the object's `envMap` cube reflection.
+   the material additively (glTF itself has no additive alphaMode), `{"sheen": true}`
+   marks a material for the object's `envMap` cube reflection, and `{"matcap": true}`
+   says the texture is sampled BY THE SURFACE NORMAL rather than by its UVs — a guest
+   that generated texture coordinates from the normal (a reflective liquid, a chrome
+   part) looks like this, and the Studio swaps in a matcap material. A viewer without
+   one falls back to the UVs the mesh still carries.
+
+   Morph targets are ordinary glTF: a mesh may carry POSITION/NORMAL targets and an
+   animation that drives `weights`. Weights are unbounded and may be negative, which is
+   what lets a travelling wave ship as two static fields and a rotating weight pair.
 8. `wireframe3d`: edge vertex/face indices in range; `faces.length == faceCenters.length`.
 9. Camera tracks: `track.length == frames`.
 10. A `matrix` has 16 numbers; a placement `collision.matrix` has 12.

@@ -135,6 +135,9 @@ func run(ctx *cli.Context) error {
 			if err := exportDoorGLBs(ctx, ls, tmp, bindings); err != nil {
 				return err
 			}
+			if err := exportRippleGLBs(ctx, ls, tmp, bindings); err != nil {
+				return err
+			}
 		}
 		if ctx.Stage("levels") {
 			if err := exportCollision(ctx, ls, tmp); err != nil {
@@ -1558,10 +1561,14 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		var curScale *schema.Scale
 		var curRot []float64
 		var curClick *schema.OnClick
+		var curAnim string
 		pid := 1
 		dropped := map[int]int{} // actor -> placements this level could not emit
 		addObjOff := func(o sm64ds.LevelObject, actor int, par [3]int, rot bool, off [3]float64) {
 			m := modelFor(actor, par)
+			if curAnim != "" {
+				m = rippleAsset[par[0]] // the built surface, not the .bmd quad
+			}
 			asset, ok := refs[m]
 			if m == "" || !ok {
 				// The actor oracle recorded no model for this actor, so there
@@ -1587,6 +1594,7 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			} else if rot && o.RotY != 0 {
 				pl.Rot = []float64{0, o.RotY * math.Pi / 180, 0}
 			}
+			pl.Anim = curAnim
 			pl.Variants = curVars
 			if curClick != nil {
 				pl.OnClick = curClick
@@ -1711,6 +1719,7 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			curScale = nil
 			curRot = nil
 			curClick = nil
+			curAnim = ""
 			switch o.Actor {
 			case doorActor:
 				// One object, not two: a star door's plaque is merged into its
@@ -1762,6 +1771,15 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			case paintingActor:
 				sc, lift := paintingScale(o.Params[0])
 				rot, off := paintingPose(o, lift)
+				if stem := rippleAsset[o.Params[0]]; stem != "" {
+					// The liquid entrances are not the flat quad: they are the
+					// game's own grid, rippling. It is built at world scale, so
+					// it takes the standard object scale and not paintingScale.
+					curRot, curAnim = rot, "ripple"
+					addObjOff(o, o.Actor, o.Params, true, off)
+					curAnim = ""
+					break
+				}
 				if n := nonZero(o.RotX, o.RotY, o.RotZ); n > 1 {
 					// The lift composes the angles in the game's order, the
 					// viewer composes the emitted triple in its own. With one

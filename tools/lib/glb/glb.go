@@ -472,6 +472,16 @@ type TexturedGroup struct {
 	// here: OutRun's road asphalt carries alpha ≈ 0.25 as a combiner input,
 	// and a 0.5 cutout deletes the road surface. Ignored for OPAQUE/BLEND.
 	AlphaCutoff float64
+	// Alpha, in (0,1), is a constant base-colour alpha over the texture's own
+	// — the guest's per-polygon translucency, which is a property of the DRAW
+	// and not of the image. Implies BLEND.
+	Alpha float64
+	// Matcap marks the material extras {"matcap": true}: the texture is not a
+	// picture on the surface, it is sampled BY THE SURFACE NORMAL. Guests that
+	// generate texture coordinates from the normal (the DS's texgen mode 2,
+	// SM64DS's liquid painting-entrances) look like this, and a viewer with a
+	// matcap material can reproduce it; one without falls back to the UVs.
+	Matcap bool
 }
 
 // addVec3 writes a tightly packed VEC3 float32 accessor without bounds (glTF
@@ -594,4 +604,76 @@ func lastDot(s string) int {
 		}
 	}
 	return -1
+}
+
+// MorphTarget is one morph target of WriteTexturedMorph: per-vertex
+// displacements parallel to the positions array. Normal is optional; when
+// present the viewer's shading follows the deformation, which is the whole
+// point for a surface whose texture is sampled by its normal.
+type MorphTarget struct {
+	Pos    [][3]float32
+	Normal [][3]float32
+}
+
+// MorphClip drives a mesh's morph weights. Weights[k] holds one weight per
+// target at Times[k]; make the last keyframe equal the first for a seamless
+// loop. Weights may be negative — glTF places no bound on them, and a wave
+// decomposed onto a sine/cosine pair needs both signs.
+type MorphClip struct {
+	Name    string
+	Times   []float32
+	Weights [][]float32
+}
+
+// WriteTexturedMorph is WriteTexturedLit with morph targets and one weight
+// animation.
+//
+// Two targets and a sinusoidal weight pair express a travelling wave EXACTLY,
+// with no sampling: A·sin(kd − φ) = cos(φ)·[A·sin(kd)] + (−sin φ)·[A·cos(kd)],
+// so the two bracketed fields are static geometry and the whole animation is
+// the weights. SM64DS's liquid painting-entrances ripple this way.
+func WriteTexturedMorph(path string, positions [][3]float32, uvs [][2]float32,
+	normals [][3]float32, texGroups []TexturedGroup, targets []MorphTarget, clip MorphClip) error {
+
+	b := &builder{}
+	st := &sharedTex{samplerIndex: map[[2]int]int{}, imageIndex: map[image.Image]int{}}
+	prims, materials, err := appendTextured(b, st, 0, positions, uvs, nil, normals, nil, texGroups, nil)
+	if err != nil {
+		return err
+	}
+	var tgt []map[string]int
+	for _, t := range targets {
+		m := map[string]int{"POSITION": b.addPositions(t.Pos)}
+		if len(t.Normal) > 0 {
+			m["NORMAL"] = b.addVec3(t.Normal)
+		}
+		tgt = append(tgt, m)
+	}
+	rest := make([]float64, len(targets))
+	for _, p := range prims {
+		p["targets"] = tgt
+	}
+	// One flat SCALAR run of len(Times)*len(targets) weights, keyframe-major.
+	flat := make([]float32, 0, len(clip.Times)*len(targets))
+	for _, w := range clip.Weights {
+		flat = append(flat, w...)
+	}
+	tAcc, wAcc := b.addScalars(clip.Times), b.addScalars(flat)
+	doc := assemble(baseName(path), b, prims, materials)
+	doc["meshes"].([]map[string]any)[0]["weights"] = rest
+	doc["animations"] = []map[string]any{{
+		"name":     clip.Name,
+		"samplers": []map[string]any{{"input": tAcc, "output": wAcc, "interpolation": "LINEAR"}},
+		"channels": []map[string]any{{"sampler": 0, "target": map[string]any{"node": 0, "path": "weights"}}},
+	}}
+	if len(st.images) > 0 {
+		doc["images"] = st.images
+		doc["textures"] = st.textures
+		doc["samplers"] = st.samplers
+	}
+	data, err := pack(doc, b.bin.Bytes())
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
 }

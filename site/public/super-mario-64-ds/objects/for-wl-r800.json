@@ -1,0 +1,16 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "model3d",
+ "name": "For wl (rippling)",
+ "animations": [
+  {
+   "id": "ripple",
+   "loop": "loop",
+   "clip": "ripple",
+   "fps": 30
+  }
+ ],
+ "model": "for_wl_r800.glb",
+ "skinnedClone": true
+}

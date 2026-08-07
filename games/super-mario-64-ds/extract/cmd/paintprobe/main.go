@@ -49,6 +49,8 @@ func main() {
 	modes := flag.Bool("modes", false, "dump the four behaviour-mode records the init dispatches through")
 	tex := flag.Bool("tex", false, "for every .bmd under -texdir: the material's TEXIMAGE_PARAM, the texture format, and how many texels the decode makes transparent")
 	texDir := flag.String("texdir", "data/picture", "subtree of the extracted filesystem -tex walks")
+	grid := flag.String("grid", "", "run this par1 (hex ok) and dump the mesh grid the actor builds")
+	ticks := flag.Int("ticks", 0, "step the -grid actor this many ticks, dumping the grid each tick")
 	flag.Parse()
 
 	if *tex {
@@ -71,6 +73,16 @@ func main() {
 		sm64ds.Die(err)
 	}
 
+	if *grid != "" {
+		var v int
+		if strings.HasPrefix(*grid, "0x") {
+			fmt.Sscanf((*grid)[2:], "%x", &v)
+		} else {
+			fmt.Sscanf(*grid, "%d", &v)
+		}
+		dumpGrid(o, v, *ticks)
+		return
+	}
 	if *pics {
 		dumpPics(o, ls)
 		return
@@ -190,6 +202,51 @@ func dumpTextures(ext, sub string) {
 				m.Name, mat.TexParam, t.Format, mat.TexParam&(1<<29) != 0,
 				mat.Alpha, t.Width, t.Height, zero)
 		}
+	}
+}
+
+// dumpGrid runs one painting for real and reads back the mesh its actor builds,
+// then steps it. The grid records are $18 bytes: +0/+4/+8 an fx20.12 position,
+// +$C the vertex's own phase and +$10 the packed NORMAL the draw emits.
+func dumpGrid(o *sm64ds.Oracle, par1, ticks int) {
+	run := o.RunActorBanked(paintActor, paintCfg, [3]int{par1, 0, 0}, func(extra int) error {
+		if extra < 0 {
+			return o.LoadConfig(paintCfg)
+		}
+		return o.LoadConfigMulti([]int{paintCfg, extra})
+	})
+	if run.Obj == 0 {
+		fmt.Println("refused:", run.Notes)
+		return
+	}
+	obj := run.Obj
+	fmt.Printf("obj=%08X  rows=%d cols=%d count=%d buf=%08X  phase=%d ring=%d  notes=%v\n",
+		obj, o.ReadBytes(obj+offRows, 1)[0], o.ReadBytes(obj+offCols, 1)[0],
+		o.R16(obj+offCount), o.R32(obj+offVerts),
+		int16(o.R16(obj+0x1B4)), o.R16(obj+0x1B6), run.Notes)
+	for t := 0; t <= ticks; t++ {
+		n, buf := int(o.R16(obj+offCount)), o.R32(obj+offVerts)
+		if buf == 0 || n == 0 {
+			fmt.Println("  (no buffer)")
+			return
+		}
+		lo, hi := 1<<30, -(1 << 30)
+		var zs []string
+		for i := 0; i < n; i++ {
+			z := int(int32(o.R32(buf + uint32(i*recSize+8))))
+			if z < lo {
+				lo = z
+			}
+			if z > hi {
+				hi = z
+			}
+			if i < 8 {
+				zs = append(zs, fmt.Sprintf("%7.2f", float64(z)/4096))
+			}
+		}
+		fmt.Printf("  tick %-3d phase=%-7d ring=%-4d  z %7.2f..%7.2f   first: %s\n",
+			t, int16(o.R16(obj+0x1B4)), o.R16(obj+0x1B6), f(int32(lo)), f(int32(hi)), strings.Join(zs, " "))
+		o.StepActor(run)
 	}
 }
 

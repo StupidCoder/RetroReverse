@@ -987,17 +987,71 @@ and every other 4×4 texture in the game keeps it — that transparent slot is w
 gives Bomb King, the Chain Chomp's flower and a hundred other compressed sheets
 their silhouette.
 
-**Not reproduced: the ripple.** The grid exists so the painting can be displaced
-by a wave when you touch it. The mode table *is* readable — it lives in overlay
-80's BSS at `$02128628`, four `$18`-byte records the overlay's static
-initialiser fills, and `paintprobe -modes` prints them back after the oracle
-loads the overlay — and mode 1's builder at `$021265EC` turns out to lay the
-grid **flat**: `x` over `[0,w]`, `y` over `[0,h]`, `z` = 0, one constant normal
-of `$1FF00000` (+Z). The displacement is not in the builder; it is in the
-record's middle method, which this does not run. The Studio ships the painting
-flat, at its real size. For mode 1 that constant normal is not just a still
-pose — it is the whole texture lookup (above), so the ripple and the picture on
-the water are the same missing thing.
+**The framed paintings ship flat.** The grid exists so a painting can be
+displaced by a wave *where you touched it*, and mode 1's builder at `$021265EC`
+lays it out flat to start with: `x` over `[0,w]`, `y` over `[0,h]`, `z` = 0, one
+constant normal of `$1FF00000` (+Z). Nobody touches a picture in a diorama, so
+the 33 framed ones stay flat, at their real size.
+
+### The liquid entrances ripple by themselves
+
+The two mode-1 surfaces are not like that, and the difference is one call. The
+mode-1 builder ENDS by invoking the ripple trigger `$02125DE0` on the surface's
+own centre (`w/2, h/2`, at `$02126768`) — the wave starts at build time, and mode
+1 skips the decay test at `$02125BF0` that ends the painting's ring. They wave
+forever.
+
+The wave is data, all of it. `$02125DE0` picks a `$14`-byte parameter record out
+of the table at `$021277A8` by picture (mode 1 takes 12 for picture 4 and 13 for
+picture 7, `$02125E20`) and the step integrates it:
+
+```
+$021265A4  per vertex:  rec+$8 (z) = $02125BB0(obj, rec+$C)
+$021265D4  obj+$1B4 (the phase) += params+$04, once per 30 Hz tick
+$02125D08  angle = rec+$C * FX_Div($FFFF, params+$08) >> 12  -  phase
+$02125C84  amp   = max(0, A - FX_Div(A, params+$0C) * rec+$C >> 12)
+$02125CA4  z     = sin(angle) * amp          (the table at $02082214)
+```
+
+`rec+$C` is each vertex's distance from the source, filled once by `$02125D64`.
+So it is a circular travelling wave from the middle of the surface, amplitude
+falling linearly to nothing at `params+$0C`, and the two records read:
+
+| | amplitude | wavelength | phase/tick | falloff | period |
+|---|---|---|---|---|---|
+| picture 4 — `for_cv_ex5` | 16.0 | 300 | `$0E38` = 20.00° | 900 | 18.00 ticks |
+| picture 7 — `for_wl` | 32.0 | 300 | `$0D79` = 18.95° | 900 | 19.00 ticks |
+
+(all in world units; the periods are `$10000` / phase-per-tick.)
+
+**Shipped as two morph targets and a rotating weight pair.** A travelling wave
+is exactly
+
+```
+amp(d)·sin(kd − φ)  =  cos(φ)·[amp(d)·sin(kd)]  +  (−sin φ)·[amp(d)·cos(kd)]
+```
+
+so the two bracketed fields are *static geometry* and the entire animation is
+the two weights — no sampling of the wave, and it closes on itself as exactly as
+the phase does (the residue at the wrap is 16 and 5 angle units, 0.09° and
+0.03°). The surface is the game's own grid at the game's own resolution: the
+byte table at `$02127714` behind the jump table at `$02126CFC` gives 20×20 for
+both. `glb.WriteTexturedMorph` writes it, one keyframe per 30 Hz tick.
+
+And this is where §7's texgen finding pays: because mode 1 samples the texture
+by the NORMAL, a surface whose normals move IS a moving reflection. The two
+surfaces ship `{"matcap": true}` in their material extras and the Studio swaps
+in a matcap material, so the water texture rides the ripple instead of sitting
+on it.
+
+**What is decoded and what is not.** The grid, the wave, the constants and the
+period are decoded. Two things are not: the game recomputes each vertex normal
+from its displaced neighbours (`$02125940`/`$02125AF0`) and the export takes the
+analytic gradient of the same field instead; and **nothing here could be checked
+against a run**, because actor 307's init dies in the picture resolver under the
+oracle (`paintprobe -grid` reports the terminate and an empty grid buffer). This
+is a reimplementation from the disassembly, not a capture, and it is the first
+thing in this document that is.
 
 **What a mission does not show you.** Four models are in the level data and are not
 part of the level as you play it: the Power Star (`arc0_21`), the flat silhouette
@@ -1358,6 +1412,10 @@ go run ./extract/cmd/paintprobe -pics
 # every picture's texture: TEXIMAGE_PARAM, format, and how many texels the
 # decode would cut out (-texdir data sweeps the whole filesystem instead)
 go run ./extract/cmd/paintprobe -tex
+# run one painting for real and read back the mesh grid its actor builds --
+# which is how the ripple's reimplementation was found to have no run to be
+# checked against: the init dies in the picture resolver under the oracle
+go run ./extract/cmd/paintprobe -grid 0x2777 -ticks 6
 
 # Part V §7 — the castle's trapdoor: the five-state table its leaves run, the
 # leaf transforms its spawner derives, and the opening angle per tick

@@ -684,6 +684,28 @@ export class ObjectLibrary {
         cube.colorSpace = THREE.SRGBColorSpace;
         cube.needsUpdate = true;
       }
+      // A matcap is a different material CLASS, not a tweak, so it is swapped
+      // in on the meshes before anything is collected. The guest generated the
+      // texture coordinate from the surface NORMAL (the DS's texgen mode 2, the
+      // liquid painting-entrances in SM64DS): the texture is a reflection the
+      // surface wears, not a picture printed on it, so it has to follow the
+      // normals a morph animation moves. GLTFLoader has already put the
+      // base-colour alpha on opacity, so translucency carries over.
+      for (const sc of proto.gltf.scenes?.length ? proto.gltf.scenes : [proto.gltf.scene]) {
+        sc.traverse((o) => {
+          if (!o.material) return;
+          const swap = (m) => {
+            if (!m.userData?.matcap || !m.map) return m;
+            const n = new THREE.MeshMatcapMaterial({
+              matcap: m.map, transparent: m.transparent, opacity: m.opacity,
+              side: m.side, depthWrite: m.depthWrite,
+            });
+            n.userData = m.userData;
+            return n;
+          };
+          o.material = Array.isArray(o.material) ? o.material.map(swap) : swap(o.material);
+        });
+      }
       const mats = new Set();
       for (const sc of proto.gltf.scenes?.length ? proto.gltf.scenes : [proto.gltf.scene]) {
         sc.traverse((o) => {

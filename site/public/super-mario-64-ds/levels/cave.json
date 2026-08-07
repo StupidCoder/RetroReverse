@@ -2177,10 +2177,11 @@
   },
   {
    "id": 159,
-   "object": "for-cv-ex5",
+   "object": "for-cv-ex5-r700",
    "pos": [3.27, -4.45, 4.665],
    "rot": [-1.571, 0, 0],
-   "scale": [0.056, 0.056, 0.008],
+   "scale": 0.008,
+   "anim": "ripple",
    "props": {
     "actor": 307
    }

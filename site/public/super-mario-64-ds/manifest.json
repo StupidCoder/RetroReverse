@@ -3881,6 +3881,27 @@
    "file": "objects/ar1-9-obj-door0-star3.json"
   },
   {
+   "id": "for-cv-ex5-r700",
+   "category": "object",
+   "name": "For cv ex5 (rippling)",
+   "group": "Other models",
+   "file": "objects/for-cv-ex5-r700.json"
+  },
+  {
+   "id": "for-cv-ex5-r800",
+   "category": "object",
+   "name": "For cv ex5 (rippling)",
+   "group": "Other models",
+   "file": "objects/for-cv-ex5-r800.json"
+  },
+  {
+   "id": "for-wl-r800",
+   "category": "object",
+   "name": "For wl (rippling)",
+   "group": "Other models",
+   "file": "objects/for-wl-r800.json"
+  },
+  {
    "id": "test-map",
    "category": "level",
    "name": "Test map",
