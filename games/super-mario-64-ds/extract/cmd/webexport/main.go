@@ -108,6 +108,11 @@ func run(ctx *cli.Context) error {
 				gateModels[m] = true
 			}
 		}
+		for _, b := range bindings[trapActor] {
+			for _, m := range b.Models {
+				trapModels[m] = true
+			}
+		}
 		for _, b := range bindings[paintingActor] {
 			for _, m := range b.Models {
 				if a := paintingDrawAlpha(b.Params[0]); a < 0x1F {
@@ -363,6 +368,24 @@ func sweep(ls *sm64ds.LevelSet, o *sm64ds.Oracle) map[int][]Binding {
 			if !perLevel[lv.Overlay][c] {
 				perLevel[lv.Overlay][c] = true
 				all[c] = append(all[c], lv.Overlay)
+			}
+		}
+	}
+	// A placed record can be a SPAWNER: the level table carries it, and the
+	// thing you see is what its own init spawns. Those children are placements
+	// no table lists, so the sweep has to be told their parameters — see
+	// spawnedChildren.
+	for ov, set := range perLevel {
+		var extra []combo
+		for c := range set {
+			for _, p1 := range spawnedChildren[c.actor] {
+				extra = append(extra, combo{c.actor, p1, 0, 0})
+			}
+		}
+		for _, c := range extra {
+			if !set[c] {
+				set[c] = true
+				all[c] = append(all[c], ov)
 			}
 		}
 	}
@@ -656,6 +679,9 @@ func exportModels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		if gateModels[m.Name] && len(clips) == 0 {
 			clips = append(clips, gateSlideClip())
 		}
+		if trapModels[m.Name] && len(clips) == 0 {
+			clips = append(clips, trapSwingClip())
+		}
 		// A painting's polygon alpha comes from its actor's draw, not from its
 		// material record; put it on the material so the GLB carries it.
 		if a, ok := paintingAlpha[m.Name]; ok {
@@ -700,6 +726,12 @@ func exportModels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 				anims[i].Loop = "hold"
 			}
 			gateAnim[m.Name] = anims[0].ID
+		}
+		if trapModels[m.Name] && len(anims) > 0 {
+			for i := range anims {
+				anims[i].Loop = "hold"
+			}
+			trapAnim[m.Name] = anims[0].ID
 		}
 		if doorModels[m.Name] && len(anims) > 0 {
 			// A door's clip is its swing, not an idle: play it once and clamp
@@ -1524,6 +1556,7 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		// three of the record's angle shorts — see paintingPose.
 		var curScale *schema.Scale
 		var curRot []float64
+		var curClick *schema.OnClick
 		pid := 1
 		dropped := map[int]int{} // actor -> placements this level could not emit
 		addObjOff := func(o sm64ds.LevelObject, actor int, par [3]int, rot bool, off [3]float64) {
@@ -1554,7 +1587,9 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 				pl.Rot = []float64{0, o.RotY * math.Pi / 180, 0}
 			}
 			pl.Variants = curVars
-			if a := doorAnim[m]; a != "" {
+			if curClick != nil {
+				pl.OnClick = curClick
+			} else if a := doorAnim[m]; a != "" {
 				// Click to open, click again to close — the door plays its own
 				// motion and stops where it stands open.
 				pl.OnClick = &schema.OnClick{
@@ -1668,6 +1703,7 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			curVars = variantIDs(p.layers, p.gated, declared)
 			curScale = nil
 			curRot = nil
+			curClick = nil
 			switch o.Actor {
 			case doorActor:
 				// One object, not two: a star door's plaque is merged into its
@@ -1715,6 +1751,21 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 				}
 				curScale, curRot = &sc, rot
 				addObjOff(o, o.Actor, o.Params, true, off)
+			case trapActor:
+				// Two leaves, from the spawner's own init: the same model at
+				// +/- trapHalf along the yaw axis, the second turned 180.
+				for _, leaf := range []int{0, 1} {
+					par := [3]int{leaf, 0, 0}
+					rot, off := trapLeafPose(o, leaf)
+					curRot = rot
+					if a := trapAnim[modelFor(trapActor, par)]; a != "" {
+						curClick = &schema.OnClick{
+							Action: schema.ActionAnimate, Clip: a, HoldAt: 1, Toggle: true,
+						}
+					}
+					addObjOff(o, trapActor, par, true, off)
+				}
+				curRot, curClick = nil, nil
 			case 219: // daWanwan_c — chained to a stake
 				addChomp(o, addObjOff, addModelAt)
 			case 337: // daWanwan2_c — the free-roaming one; no stake, same ball
@@ -2026,6 +2077,115 @@ func gateSlideClip() sm64ds.NamedBCA {
 			t := float64(frame) / float64(gateFrames-1)
 			return [9]float64{1, 1, 1, 0, 0, 0, -gateSlide * t, 0, 0}
 		})}
+}
+
+// trapActor 36 is the castle's double trapdoor — the one in the first floor's
+// upper gallery, the 45-degree slot in the carpet you drop through.
+//
+// It is a SPAWNER, which is why the level shipped with an open hole. The placed
+// record carries par1 $FF, and the init at $02111654 tests `[obj+8] & $FF`:
+// on $FF it calls the spawn entry $02010E2C twice with actor $24 and par1 0 and
+// 1, and returns. Run as placed, the actor loads nothing at all — the oracle was
+// right, and the models are the CHILDREN's. Those two runs bind `c1_trap` (and
+// its .kcl).
+//
+// The children's transforms are the parent's own arithmetic. Each spawn takes
+// the parent's position offset along the yaw's own X axis by trapHalf, in
+// opposite senses (`x -/+ K*cos`, `z +/- K*sin`, with the sin/cos table at
+// $02082214 indexed by `rotY >> 4` and K = $15D = 349), and the parent's whole
+// rotation triple — then leaf 1 adds $8000 to its own yaw ($02111814), the same
+// same-model-twice-at-180-degrees trick the star gate and the double doors use.
+//
+// Checked against the castle's own floor, not by eye. The gallery's carpet is
+// two halves with a diagonal slot between them: 0.700 stage units long along the
+// leaves' axis, centred on the placement to within a millimetre, and 0.601 wide
+// across it. Two leaves of 350 world units hinged at ±349 span the length
+// exactly, and the model is 600 wide.
+const trapActor = 36
+
+// spawnedChildren lists, per actor, the par1 values that actor's own init hands
+// to the spawn entry. Only the trapdoor needs it; see trapActor.
+var spawnedChildren = map[int][]int{trapActor: {0, 1}}
+
+// trapModels is the set of models the two leaves resolve to, and trapAnim their
+// synthesised swing — filled during the model export, like the star gate's.
+var (
+	trapModels = map[string]bool{}
+	trapAnim   = map[string]string{}
+)
+
+// The leaf's swing, from its own state machine. The step ($021115E0) dispatches
+// on `obj+$3A0` through a five-entry table in overlay 10's BSS at $02112D28
+// (`trapprobe -states`), and every state moves ONE field: `obj+$90`, the third
+// of the object's rotation shorts, its local Z.
+//
+//	state 0 ($02111320)  idle. Sets the angular velocity obj+$3A8 to $400 and,
+//	                     once its partner asks, plays sound $E and enters 1.
+//	state 1 ($021112B4)  opening: v -= $100, rotZ += v, every tick. Ballistic,
+//	                     not linear — the leaf lifts $600 (8.4 deg) before it
+//	                     falls. At rotZ < -$3D00 it clamps there and enters 2.
+//	state 2 ($02111284)  open, until the partner stops asking; then 3.
+//	state 3 ($0211125C)  closing: rotZ += $400 a tick, clamped at 0; then 0.
+//	state 4 ($0211124C)  rotZ = -$3C00, held open. Entered from state 0 when
+//	                     $020C7E84 says so.
+//
+// Local +X is the leaf's length (the model spans 0..43.75, hinge at 0), so a
+// negative Z turn drops its free end — and the two leaves' free ends are the
+// ones that meet in the middle of the slot. They split downwards.
+const (
+	trapOpenSpeed = 0x400  // obj+$3A8 as state 0 hands it over
+	trapGravity   = 0x100  // taken off it every tick
+	trapOpenStop  = 0x3D00 // |rotZ| at which state 1 gives way to state 2
+	trapHalf      = 349.0  // world units from the placement to each leaf's hinge
+)
+
+// trapSwing returns the leaf's local-Z angle in DS angle units on each tick of
+// state 1, starting from the closed pose.
+func trapSwing() []int {
+	out, v, a := []int{0}, trapOpenSpeed, 0
+	for {
+		v -= trapGravity
+		a += v
+		if a < -trapOpenStop {
+			return append(out, -trapOpenStop)
+		}
+		out = append(out, a)
+	}
+}
+
+// trapSwingClip is that sequence as a one-bone clip. The model has exactly one
+// bone (`world_root`, identity), so the clip turns the whole leaf.
+func trapSwingClip() sm64ds.NamedBCA {
+	seq := trapSwing()
+	return sm64ds.NamedBCA{Name: "open", Anim: sm64ds.SynthBCA(1, len(seq),
+		func(bone, frame int) [9]float64 {
+			if frame >= len(seq) {
+				frame = len(seq) - 1
+			}
+			rz := float64(seq[frame]) * 2 * math.Pi / 0x10000
+			return [9]float64{1, 1, 1, 0, 0, rz, 0, 0, 0}
+		})}
+}
+
+// trapLeafPose returns leaf `n`'s placement rotation (radians) and its offset
+// from the placement point, in stage units.
+func trapLeafPose(o sm64ds.LevelObject, n int) (rot []float64, off [3]float64) {
+	yaw := o.RotY * math.Pi / 180
+	sign := -1.0 // leaf 0 goes to -X of the yaw axis, leaf 1 to +X
+	extra := 0.0
+	if n == 1 {
+		sign, extra = 1, 180
+	}
+	rot = []float64{
+		r3(o.RotX * math.Pi / 180),
+		r3((o.RotY + extra) * math.Pi / 180),
+		r3(o.RotZ * math.Pi / 180),
+	}
+	return rot, [3]float64{
+		r3(sign * trapHalf * math.Cos(yaw) * toStage),
+		0,
+		r3(-sign * trapHalf * math.Sin(yaw) * toStage),
+	}
 }
 
 // mirrorSuffix names the second, mirrored copy of a door's swing clip.

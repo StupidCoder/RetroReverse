@@ -689,6 +689,67 @@ anim on objects which do not have it — **155 validator errors**, every one
 `anim X does not exist on object Y`. The fix is to take the animation id from the
 object's own animation list, which is the only list guaranteed right.
 
+### The trapdoor was a placement the level table does not list
+
+The upper corridor of the castle's first floor — the red carpet that leads to
+Bowser's star door — shipped with a **hole in its floor**. The stage mesh has
+one: the carpet is two halves with a 45-degree slot between them, and nothing
+covered it.
+
+The level table does place something there. `castle_1f` has exactly one object
+the export could not model, **actor 36 at (-5383, 700, -4222), par1 `$FFFF`**,
+and the actor oracle was right about it: run as placed, that actor loads nothing
+at all. Its create allocates and returns; its init at `$02111654` reads the
+parameter byte, and on `$FF` takes a branch that never touches a file. What it
+does instead is call the spawn entry `$02010E2C` **twice**, with actor `$24` and
+par1 0 and 1 — and *those* runs bind `c1_trap`.
+
+**A placed record can be a spawner, and then the thing you see is not the thing
+the table lists.** The sweep now expands such a record into the parameters the
+actor's own init passes (`spawnedChildren`), so the oracle runs the children as
+well; everything else about the binding is unchanged.
+
+The two leaves are the parent's own arithmetic, and it is the double-door
+pattern again: the position offset along the yaw's X axis by `$15D` = 349 world
+units in both senses (the sin/cos table at `$02082214`, indexed `rotY >> 4`),
+the parent's whole rotation triple passed down, and leaf 1 adding `$8000` to its
+own yaw at `$02111814` — the same model twice, 180 degrees apart. Their hinges
+land on the two long edges of the slot and their free ends meet in the middle.
+
+**Measured against the floor, not by eye.** The slot in the carpet is **0.700
+stage units long** along the leaves' axis, centred on the placement to within a
+millimetre, and **0.601 wide** across it. Each leaf is 350 world units long
+(model X 0..43.75, hinge at 0) and 600 wide (model Z ±37.5). Two of them hinged
+at ±349 span the length exactly, and the width matches to 1 mm.
+
+**The swing is a state machine, not a clip.** There is no `.bca` beside
+`c1_trap.bmd`; the leaf's step (`$021115E0`) dispatches on `obj+$3A0` through a
+five-entry table in overlay 10's BSS at `$02112D28` (`trapprobe -states`), and
+every state moves one field — `obj+$90`, the third rotation short, its local Z:
+
+| state | what it does |
+|---|---|
+| 0 `$02111320` | idle; puts `$400` in the angular velocity `obj+$3A8` and, once the partner asks, plays sound `$E` and enters 1 |
+| 1 `$021112B4` | **opening**: `v -= $100`, `rotZ += v`, every tick — ballistic, so the leaf lifts `$600` (8.4°) before it falls. Clamps at `rotZ < -$3D00` and enters 2 |
+| 2 `$02111284` | open, until the partner stops asking |
+| 3 `$0211125C` | closing: `rotZ += $400` a tick, clamped at 0 |
+| 4 `$0211124C` | `rotZ = -$3C00`, held open |
+
+Reimplemented, that is 17 frames to −85.781° in 0.533 s (`trapprobe -swing`).
+What corroborates the reimplementation is **state 4**, which hard-codes the
+held-open angle as −`$3C00` independently — and which the integration passes
+through exactly one tick before it clamps. The export bakes those 17 frames onto
+the model's one bone (`world_root`), the way the star gate's slide is baked, and
+the placement gets the doors' click-to-open.
+
+What could not be done is watch the game swing it. Every state resolves the
+OTHER leaf first (`$0211139C`: `obj+$3AC` is a handle, `$02010F3C` turns it into
+an object) and a leaf that cannot find its partner destroys itself and returns —
+and an actor the oracle spawns on its own is never entered in the object
+registry at `$0209B468`, so its handle is 0 and a single-leaf run sits at rotZ 0
+for as many ticks as you give it. That is recorded in `trapprobe`'s header
+rather than papered over.
+
 ### An actor's code is not confined to its own overlay
 
 The BSS was a red herring — overlay 22's static initialiser fills that record
@@ -924,7 +985,7 @@ its own, whose only job is to give the placements naming it one toggle, shipped
 `visible: false`. The default look is the level you played; one checkbox brings
 them back. (Retro-X gained file-less layers for this; §5.3.)
 
-Two verifications, both against the emitted files rather than the exporter's structs. `cmd/varcheck` re-decodes the cartridge and asserts every shipped placement's variant list equals the star-layer set its level's object table lists that (actor, position) under, intersected with §8's mission gate — 4,045 matched, 0 mismatches, with the chomp's spawned stake and links counted as synthesised. It was mutation-tested in both directions: reintroducing the keep-the-first-record bug in a copy of the shipped JSON, and deleting one coin's spin, both fail it. And in the Studio: picking *Big Bob-omb on the Summit* leaves one King on the summit and no flagpole, *Footrace with Koopa the Quick* leaves the flagpole and no King, *Big Bob-omb's Revenge* brings back the King and adds the breakable blocks — and world mode inherits all of it, so you can walk Bob-omb Battlefield one mission at a time.
+Two verifications, both against the emitted files rather than the exporter's structs. `cmd/varcheck` re-decodes the cartridge and asserts every shipped placement's variant list equals the star-layer set its level's object table lists that (actor, position) under, intersected with §8's mission gate — 4,121 matched, 0 mismatches, with the placements no record carries counted as synthesised: the chomp's spawned stake and links, and the trapdoor's two leaves. It was mutation-tested in both directions: reintroducing the keep-the-first-record bug in a copy of the shipped JSON, and deleting one coin's spin, both fail it. And in the Studio: picking *Big Bob-omb on the Summit* leaves one King on the summit and no flagpole, *Footrace with Koopa the Quick* leaves the flagpole and no King, *Big Bob-omb's Revenge* brings back the King and adds the breakable blocks — and world mode inherits all of it, so you can walk Bob-omb Battlefield one mission at a time.
 
 ## 8. The other gate: the save's star bits
 
@@ -1272,6 +1333,12 @@ go run ./extract/cmd/paintprobe -pics
 # every picture's texture: TEXIMAGE_PARAM, format, and how many texels the
 # decode would cut out (-texdir data sweeps the whole filesystem instead)
 go run ./extract/cmd/paintprobe -tex
+
+# Part V §7 — the castle's trapdoor: the five-state table its leaves run, the
+# leaf transforms its spawner derives, and the opening angle per tick
+go run ./extract/cmd/trapprobe -states
+go run ./extract/cmd/trapprobe -place
+go run ./extract/cmd/trapprobe -swing
 
 # Part V §8 — which placed actors gate themselves on the save's star bits
 go run ./extract/cmd/gateprobe -in "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds" -sweep
