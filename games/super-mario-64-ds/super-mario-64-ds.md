@@ -364,9 +364,41 @@ An objects table is `{u16 count, u32 entries}`; each 8-byte entry is `{u8 type|l
 
 Two types carry the placements this analysis extracts:
 
-* **Type 0 — standard objects** (handler `$020FE8AC`, 16 bytes each): u16 object ID at `+$00`, signed 16-bit x/y/z at `+$02/$04/$06` — each shifted `LSL #12` into fx20.12, so the short *is* the world coordinate — a parameter at `+$08`, the y-rotation at `+$0A` (standard DS angle-index units, `$10000` = 360°), another parameter at `+$0C` and the primary parameter at `+$0E`.
+* **Type 0 — standard objects** (handler `$020FE8AC`, 16 bytes each): u16 object ID at `+$00`, signed 16-bit x/y/z at `+$02/$04/$06` — each shifted `LSL #12` into fx20.12, so the short *is* the world coordinate — **three rotation shorts at `+$08/$0A/$0C`** (standard DS angle-index units, `$10000` = 360°) and the object's one parameter at `+$0E`.
 * **Type 1 — entrances** (handler `$020FE6C8`, 16 bytes each): the same signed-short position triple at `+$02/$04/$06` (`LSL #12`) and yaw at `+$0A`; the level's first entry is where the player spawns. The viewer stands the playable Mario (the 16-bone `MG/mario_model_mg.bmd`, sharing the `data/player` skeleton and its `su_wait` idle clip) at that point.
 * **Type 5 — simple objects** (handler `$020FE960`, 8 bytes each): u16 at `+$00` packing `id & $1FF` (the mask is a literal in the handler) with a 7-bit parameter above it, then the same three position shorts. Trees, coins and other set-dressing use this compact form.
+
+**A standard object has three angles, not one.** `+$08` and `+$0C` read as two
+spare parameter words for a long time, and they are not: the type-0 handler
+hands the spawn call `r3 = record + 8` as its **rotation pointer**, and the base
+object's constructor copies three consecutive shorts through it —
+`$02011434 obj+$8C = [rot+0]`, `$0201143C obj+$8E = [rot+2]`,
+`$02011444 obj+$90 = [rot+4]`, then the same three again at `+$92/$94/$96`, the
+copy an actor resets itself to. `+$0A` was never the odd one out; it is the
+middle of a triple. (The 8-byte simple objects pass a NULL rotation pointer, and
+the 14-byte type-10 records build a two-short one on the stack, negated.)
+
+`cmd/rotcensus` puts numbers on it: of 2,575 standard placements **268 carry a
+non-zero `+$08` or `+$0C`**, and the values sit on exact angles — `$4000`,
+`$8000`, `$C000`, `$2AAA`, `$5555` (90°, 180°, −90°, 60°, 120°). It also shows
+the other half of the truth. The storage is the rotation, but an actor is free
+to read its own rotation shorts as data, and several do: 106 signposts carry
+`$FFFF` at `+$08`, the cave's lift carries 1465/2200/2665/4265. So the export
+applies a pitch or a roll **per actor, on the evidence of that actor's own
+draw** — which for now means the paintings, and there the evidence is
+conclusive (Part V §7).
+
+**What the rename did *not* have to change.** `LevelObject.Params` still carries
+those two shorts in slots 1 and 2, because the actor-binding oracle (§3) keys
+its table on the triple and spawns each actor with `par1 | par2 << 16` as its
+parameter word — which for a **type-9 door** is right, the door's second
+parameter genuinely is the high half. Dropping the high half to test whether the
+rotation had been polluting the bindings changed the models of **exactly one
+actor out of 303**, and that one was actor 353, the door: every door collapsed
+from its own leaf (`obj_door5_horror`, `obj_door2_boro`, …) to the generic
+`ar1_9`. So the packing stays, and the measurement is the point — across every
+standard object, a rotation sitting in the top half of the parameter word has
+never changed a binding.
 
 Both handlers translate the object ID through the **object → actor table** at `$0210CBF4` (u16 entries; 326 objects) before spawning — the object namespace in the level data is not the actor namespace the engine runs.
 
@@ -742,6 +774,11 @@ subdivided grid from it:
 | `(par1 >> 8) & $1F` | which picture (`$02125630` resolves the texture) |
 | `(par1 >> 13) & 3` | behaviour mode; ≥ 2 collapses the grid to 2×2 |
 
+All four modes are placed. Mode 1 is the two *liquid* entrances and nothing
+else — the standing water of Wet-Dry World and the flat portal into Hazy Maze
+Cave, three placements between them — and both of the branches the painting code
+writes for a specific picture live inside it.
+
 The sizes are two nibbles at `$02126E80`, each `(n+1) × $64000`, halved into the
 interaction volume the init registers; the grid dimensions come from a per-width
 byte table at `$02127714` and are allocated as `rows × cols` records of `$18`
@@ -754,19 +791,81 @@ painting placements, take the stage mesh, keep the vertices lying in the
 painting's plane and within its width, and ask whether the opening they bound
 matches the rect the parameter says: **33 of 35 land on a frame opening to
 within 3 cm**. The two that do not are both `for_cv_ex5`, whose walls carry 21
-and 24 vertices in the painting's plane against 107 for a framed one — there is
-no modelled frame there for the check to find, which is a fact about the wall
-rather than about the size.
+and 24 vertices in the painting's plane against 107 for a framed one.
 
 The first version of that check reported 0 of 35 and was wrong: it compared the
 frame against `pos .. pos+h`, still assuming the placement was the bottom edge
 after the fix had made it the centre. The convention moved and the test did not.
 
+### The two that missed were lying flat
+
+The two `for_cv_ex5` misses were written off as "no modelled frame there for the
+check to find" — a fact about the wall rather than about the size. That was the
+wrong conclusion from the right measurement. There is no frame because **there
+is no wall**: `for_cv_ex5` is the dark square in the floor of the basement's
+sunken pool that you dive through into Hazy Maze Cave, and it lies **flat**.
+
+Its records say so, in the two shorts §2 turned out to be rotation. Both
+`for_cv_ex5` placements — and no other painting in the game — carry **`$C000` at
+`+$08`: a pitch of −90°**. The painting is the one placed thing whose draw uses
+all three angle shorts: its matrix build at `$0212555C` reads `obj+$8C/$8E/$90`
+straight into `translate(pos) · rotate(rx,ry,rz) · translate(−w⁄2, 0, 0)`, and
+nothing in actor 307's own code touches them.
+
+−90° about X turns the quad's local up into world −Z, so the same
+bottom-edge-to-centre lift that stands the other 33 up lays this one down and
+carries it *away* from the placement point instead of above it. The castle's own
+mesh is the referee, and this time both cases land:
+
+| | portal (parameter) | opening (stage mesh) | miss |
+|---|---|---|---|
+| `castle_b1` | 0.800 sq, centre (2.420, −2.600) | 0.750 sq hole in the pool floor, centre (2.425, −2.600) | 5 mm |
+| `cave` | 0.700 sq, centre (3.270, 4.665) | 0.707 sq floor plate, centre (3.273, 4.662) | 4 mm |
+
+Standing up, each missed its own half-height — which is exactly the residue the
+frame check reported for these two and no others. **A check that fails on two of
+thirty-five is not noise to be explained away; it is the two the model is wrong
+about.**
+
+### The water is 20/31, and the model file cannot say so
+
+`for_wl` — the sheet of water standing in the basement that is Wet-Dry World's
+way in — shipped as a hard-edged blue plate, because its texture is a paletted
+one with binary alpha and the exporter cut it out (`alphaMode: MASK`) and drew
+what survived at full strength.
+
+The painting's draw never uses the model's material. `$021261F4` (the mode-1
+record's third method) writes the whole `POLYGON_ATTR` word itself, and picks
+the alpha from the picture number:
+
+```
+$0212630C  r0 = (param >> 8) & $1F        ; which picture
+$02126320  CMP r0, #7
+$02126324  MOVEQ r2, #$14                 ; alpha 20 of 31
+$0212632C  MOVNE r2, #$1F                 ; opaque
+$02126330  [$040004A4] = $01000088 | r2 << 16
+```
+
+Picture 7 is `for_wl`, and it is the only picture in the game the painting code
+singles out this way. So the export puts the actor's alpha on the model's
+material before writing the GLB, and the two facts compose the way the hardware
+composes them: the cut-out texels stay gone, and what is left is **`alphaMode:
+BLEND` at 20/31 = 0.645**. It reads as water now, not as a decal.
+
+(Two other picture-specific branches sit beside it and are not reproduced:
+picture 4 with mode 1 clears bits 0–1 of the object's flag word at `+$B0`, and
+picture 7 with mode 1 saves `obj+$5C` and adds 2048 world units to it when bit
+`$40000` of `[$0209CAA0 + 8]` is set — the save flag that decides which height
+Wet-Dry World's entrance sits at.)
+
 **Not reproduced: the ripple.** The grid exists so the painting can be displaced
-by a wave when you touch it. Its generator sits behind a mode record whose table
-lives in overlay 80's BSS, filled by the overlay's static initialiser; reading it
-back after the oracle loads that overlay gives file ids belonging to other
-actors, so the table is not where this reads it. The Studio ships the painting
+by a wave when you touch it. The mode table *is* readable — it lives in overlay
+80's BSS at `$02128628`, four `$18`-byte records the overlay's static
+initialiser fills, and `paintprobe -modes` prints them back after the oracle
+loads the overlay — and mode 1's builder at `$021265EC` turns out to lay the
+grid **flat**: `x` over `[0,w]`, `y` over `[0,h]`, `z` = 0, one constant normal
+of `$1FF00000` (+Z). The displacement is not in the builder; it is in the
+record's middle method, which this does not run. The Studio ships the painting
 flat, at its real size.
 
 **What a mission does not show you.** Four models are in the level data and are not
@@ -1111,6 +1210,20 @@ go run ./extract/cmd/spinprobe -in "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).
 # Part V §7 — verify the SHIPPED level documents' mission membership against a
 # fresh decode of the cartridge (-v prints the per-mission placement census)
 go run ./extract/cmd/varcheck -in "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds" -v
+
+# Part V §2 — what a standard object's record really carries at +$8 and +$C:
+# the distribution over all 2,575 placements, and which actors reuse the
+# rotation shorts as data
+go run ./extract/cmd/rotcensus
+
+# Part V §7 — every painting placement with its parameter word split into the
+# fields the actor's init reads, and its three rotation angles
+go run ./extract/cmd/paintprobe -place
+# the four behaviour-mode records, read back out of overlay 80's BSS after the
+# oracle has run the overlay's static initialisers
+go run ./extract/cmd/paintprobe -modes
+# and the per-picture records the painting indexes with (par1 >> 8) & $1F
+go run ./extract/cmd/paintprobe -pics
 
 # Part V §8 — which placed actors gate themselves on the save's star bits
 go run ./extract/cmd/gateprobe -in "Super Mario 64 DS (Europe) (En,Fr,De,Es,It).nds" -sweep

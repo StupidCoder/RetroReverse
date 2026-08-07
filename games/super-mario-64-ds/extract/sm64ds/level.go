@@ -163,8 +163,25 @@ type LevelObject struct {
 	Actor   int     // actor ID (the table's translation)
 	Layer   int     // 0 = all stars, 1-7 = that star only
 	X, Y, Z float64 // world units
-	RotY    float64 // degrees
-	Params  [3]int  // par1; par2, par3 (standard objects only)
+	// RotX/RotY/RotZ are the three Euler angles of a standard object's record,
+	// in degrees. A 16-byte type-0 record carries all three, as CONSECUTIVE
+	// shorts at +$8/+$A/+$C — the type-0 handler ($020FE8AC) hands the spawn
+	// call `r3 = record + 8` as the rotation pointer, and the base object's
+	// ctor copies three shorts through it:
+	//
+	//	$02011434  obj+$8C = (s16)[rot+0]   ; X
+	//	$0201143C  obj+$8E = (s16)[rot+2]   ; Y
+	//	$02011444  obj+$90 = (s16)[rot+4]   ; Z
+	//
+	// (and again at obj+$92/$94/$96, the copy an actor resets itself to). +$8
+	// and +$C were read as two extra parameter words until the painting in the
+	// castle basement stood up on its edge; see the painting case in
+	// cmd/webexport. Params keeps them as well, because the actor-binding
+	// oracle keys its table on the triple and an actor is free to read its own
+	// rotation shorts as data — 106 signposts carry $FFFF at +$8 — but the
+	// storage is the rotation and nothing else.
+	RotX, RotY, RotZ float64 // degrees
+	Params           [3]int  // par1; +$8 and +$C, which are RotX and RotZ
 	Simple  bool    // from an 8-byte "simple" entry
 	Door    bool    // from a 12-byte type-9 entry (the castle doors)
 }
@@ -335,11 +352,14 @@ func (ls *LevelSet) Level(id int) (*Level, error) {
 						X:     float64(int16(le.Uint16(b[q+2:]))),
 						Y:     float64(int16(le.Uint16(b[q+4:]))),
 						Z:     float64(int16(le.Uint16(b[q+6:]))),
-						RotY:  float64(int16(le.Uint16(b[q+10:]))) * 360 / 0x10000, // idx units, 0x10000 = 360°
+						// idx units, 0x10000 = 360°
+						RotX: float64(int16(le.Uint16(b[q+8:]))) * 360 / 0x10000,
+						RotY: float64(int16(le.Uint16(b[q+10:]))) * 360 / 0x10000,
+						RotZ: float64(int16(le.Uint16(b[q+12:]))) * 360 / 0x10000,
 						Params: [3]int{
-							int(le.Uint16(b[q+14:])), // par1 (+$E)
-							int(le.Uint16(b[q+8:])),  // par2 (+$8)
-							int(le.Uint16(b[q+12:])), // par3 (+$C)
+							int(le.Uint16(b[q+14:])), // par1 (+$E) — the only real parameter
+							int(le.Uint16(b[q+8:])),  // = RotX
+							int(le.Uint16(b[q+12:])), // = RotZ
 						},
 					})
 				}

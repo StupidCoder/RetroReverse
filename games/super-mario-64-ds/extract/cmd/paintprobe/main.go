@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"retroreverse.com/games/super-mario-64-ds/extract/sm64ds"
@@ -43,6 +44,8 @@ func main() {
 	pars := flag.String("par", "", "comma-separated par1 values (hex ok with 0x); default = every placed one")
 	pics := flag.Bool("pics", false, "dump the per-picture records overlay 80's static init builds")
 	dump := flag.Int("dump", 0, "print this many vertex records")
+	place := flag.Bool("place", false, "list every placement of the actor with its decoded parameter word")
+	modes := flag.Bool("modes", false, "dump the four behaviour-mode records the init dispatches through")
 	flag.Parse()
 
 	ls, err := sm64ds.OpenLevels(*rom, *ext)
@@ -62,6 +65,14 @@ func main() {
 
 	if *pics {
 		dumpPics(o, ls)
+		return
+	}
+	if *place {
+		listPlacements(ls)
+		return
+	}
+	if *modes {
+		dumpModes(o)
 		return
 	}
 	var list [][3]int
@@ -126,6 +137,54 @@ func main() {
 		buf := o.R32(obj + offVerts)
 		fmt.Printf("%04X     %-5d %-5d %-4d %-5d %dx%d=%-3d %s\n",
 			par[0], w, h, mode, pic, rows, cols, n, bounds(o, buf, int(n), *dump))
+	}
+}
+
+// dumpModes reads the mode table the init indexes with (par1 >> 13) & 3.
+//
+//	$02126E3C  r0 = param >> 13 & 3
+//	$02126E54  MLA r0, r0, #$18, $02128628   -> obj+$1A4 = &modeRec[mode]
+//	$02126E5C  the member-function pair at +0/+4 is then called on the object
+//
+// The table is in overlay 80's BSS, so it only exists after the overlay's
+// static initialisers have run — which LoadConfig does for real.
+const modeTable = 0x02128628
+
+func dumpModes(o *sm64ds.Oracle) {
+	fmt.Printf("%-5s %-10s %s\n", "mode", "record", "$18 bytes")
+	for m := 0; m < 4; m++ {
+		rec := uint32(modeTable + m*recSize)
+		fmt.Printf("%-5d %08X  ", m, rec)
+		for k := 0; k < recSize; k += 4 {
+			fmt.Printf("%08X ", o.R32(rec+uint32(k)))
+		}
+		fmt.Println()
+	}
+}
+
+// listPlacements walks every level's object table and prints each actor-307
+// record with its parameter word split into the fields the init reads. The
+// point is to see WHICH placement carries which mode: the mode nibble is the
+// only thing distinguishing the framed wall pictures from whatever else the
+// same actor is asked to be.
+func listPlacements(ls *sm64ds.LevelSet) {
+	fmt.Printf("%-20s %-6s %-5s %-5s %-4s %-4s %7s %7s %7s  %s\n",
+		"level", "par1", "w", "h", "mode", "pic", "rotX", "rotY", "rotZ", "position (world units)")
+	for id := 0; id < sm64ds.NumLevels; id++ {
+		lv, err := ls.Level(id)
+		if err != nil {
+			continue
+		}
+		stem := strings.TrimSuffix(filepath.Base(lv.BMDPath), ".bmd")
+		for _, ob := range lv.Objects {
+			if ob.Actor != paintActor {
+				continue
+			}
+			p := uint32(ob.Params[0])
+			fmt.Printf("%-20s %04X   %-5d %-5d %-4d %-4d %7.2f %7.2f %7.2f  %8.1f %8.1f %8.1f\n",
+				stem, p, (p&0xF+1)*100, (p>>4&0xF+1)*100, p>>13&3, p>>8&0x1F,
+				ob.RotX, ob.RotY, ob.RotZ, ob.X, ob.Y, ob.Z)
+		}
 	}
 }
 

@@ -108,6 +108,13 @@ func run(ctx *cli.Context) error {
 				gateModels[m] = true
 			}
 		}
+		for _, b := range bindings[paintingActor] {
+			if a := paintingDrawAlpha(b.Params[0]); a < 0x1F {
+				for _, m := range b.Models {
+					paintingAlpha[m] = a
+				}
+			}
+		}
 
 		if ctx.Stage("objects") {
 			if err := exportModels(ctx, ls, tmp, bindings); err != nil {
@@ -638,6 +645,13 @@ func exportModels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		}
 		if gateModels[m.Name] && len(clips) == 0 {
 			clips = append(clips, gateSlideClip())
+		}
+		// A painting's polygon alpha comes from its actor's draw, not from its
+		// material record; put it on the material so the GLB carries it.
+		if a, ok := paintingAlpha[m.Name]; ok {
+			for i := range m.Mats {
+				m.Mats[i].Alpha = a
+			}
 		}
 		var data []byte
 		if len(clips) > 0 {
@@ -1495,8 +1509,11 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 		// inherit the missions of the chomp that owns them.
 		var curVars []string
 		// curScale overrides the standard object scale for the one actor that
-		// sizes its own geometry — see paintingScale.
+		// sizes its own geometry — see paintingScale. curRot likewise overrides
+		// the yaw-only placement rotation for the one actor whose draw uses all
+		// three of the record's angle shorts — see paintingPose.
 		var curScale *schema.Scale
+		var curRot []float64
 		pid := 1
 		dropped := map[int]int{} // actor -> placements this level could not emit
 		addObjOff := func(o sm64ds.LevelObject, actor int, par [3]int, rot bool, off [3]float64) {
@@ -1521,7 +1538,9 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 				Scale:  sc,
 				Props:  map[string]any{"actor": actor},
 			}
-			if rot && o.RotY != 0 {
+			if curRot != nil {
+				pl.Rot = curRot
+			} else if rot && o.RotY != 0 {
 				pl.Rot = []float64{0, o.RotY * math.Pi / 180, 0}
 			}
 			pl.Variants = curVars
@@ -1638,6 +1657,7 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 			o := p.o
 			curVars = variantIDs(p.layers, p.gated, declared)
 			curScale = nil
+			curRot = nil
 			switch o.Actor {
 			case doorActor:
 				// One object, not two: a star door's plaque is merged into its
@@ -1674,8 +1694,17 @@ func exportLevels(ctx *cli.Context, ls *sm64ds.LevelSet, tmp string, bindings ma
 
 			case paintingActor:
 				sc, lift := paintingScale(o.Params[0])
-				curScale = &sc
-				addObjOff(o, o.Actor, o.Params, true, [3]float64{0, lift, 0})
+				rot, off := paintingPose(o, lift)
+				if n := nonZero(o.RotX, o.RotY, o.RotZ); n > 1 {
+					// The lift composes the angles in the game's order, the
+					// viewer composes the emitted triple in its own. With one
+					// angle they agree; with two they need not, so say so
+					// rather than ship a pose nobody checked.
+					ctx.Logf("%s: painting at (%.0f,%.0f,%.0f) has %d non-zero angles; "+
+						"lift and rotation may disagree", stem, o.X, o.Y, o.Z, n)
+				}
+				curScale, curRot = &sc, rot
+				addObjOff(o, o.Actor, o.Params, true, off)
 			case 219: // daWanwan_c — chained to a stake
 				addChomp(o, addObjOff, addModelAt)
 			case 337: // daWanwan2_c — the free-roaming one; no stake, same ball
@@ -2284,6 +2313,12 @@ var (
 	doorAnim   = map[string]string{}
 )
 
+// paintingAlpha maps a painting model to the POLYGON_ATTR alpha its own draw
+// gives it, when that is not the opaque 31 — see paintingDrawAlpha. The model
+// file cannot know: the painting's draw builds the attribute word from the
+// spawn parameter, so the picture, not the .bmd, decides.
+var paintingAlpha = map[string]int{}
+
 // paintingActor 307 is every framed painting in the castle, and it SIZES ITSELF:
 // the shipped model is a bare 12.5-unit square quad carrying the picture, and
 // the actor's init ($02126CA0, overlay 80) reads the spawn parameter word and
@@ -2306,14 +2341,79 @@ var (
 const paintingActor = 307
 
 // paintingScale returns the placement scale that makes the 12.5-unit quad span
-// the painting's authored size, and the vertical lift that puts its BOTTOM edge
-// on the placement point — the quad is centred on its origin and the placement
-// sits at the foot of the frame.
+// the painting's authored size, and the lift along the painting's OWN up axis
+// that puts its bottom edge on the placement point — the quad is centred on its
+// origin and the placement sits at the foot of the frame.
+//
+// The game builds the same pose in $0212555C: translate(pos), rotate by the
+// object's three angle shorts, then translate -w/2 along local X. Its grid runs
+// x in [0,w] and y in [0,h] from the origin, so the placement is the frame's
+// bottom-CENTRE and the painting grows along its own +Y.
 func paintingScale(par1 int) (schema.Scale, float64) {
 	const quad = 12.5 // every for_*.glb is exactly this, flat in XY at z=0
 	w := float64((par1&0xF)+1) * 100 * toStage
 	h := float64((par1>>4&0xF)+1) * 100 * toStage
 	return schema.Scale{r3(w / quad), r3(h / quad), objScale}, r3(h / 2)
+}
+
+// paintingPose returns the placement rotation (radians, X/Y/Z) and the lift
+// vector that carries the quad's centre off the placement point, for a painting
+// whose record asks for `lift` along its own +Y.
+//
+// A painting is the one placed thing whose draw uses all three of the object's
+// angle shorts (the matrix build at $0212555C reads obj+$8C/$8E/$90 and none of
+// the actor's own code touches them), so it is the one placement that has to
+// carry the record's pitch and roll and not just its yaw. Two placements ask
+// for one — both of `for_cv_ex5`, the Hazy Maze Cave portal, whose records
+// carry $C000 at +$8: a pitch of -90 degrees that lays it FLAT. It is not a
+// picture on a wall, it is the dark square in the floor of the basement's
+// sunken pool that you dive through, and the castle's own mesh says so: the
+// pool floor has a 0.75-unit square hole at (2.425, -2.600) and this pose puts
+// the 0.8-unit portal's centre at (2.420, -2.600). Standing up, it missed by
+// its own half-height — which is exactly the residue the frame-opening check
+// reported for these two and no others.
+//
+// No painting record carries two non-zero angles, so the composition order
+// (the game's is Ry then Rx then Rz, from $0203C0B4) never gets exercised; the
+// export emits the three angles and the caller composes them the same way for
+// the lift.
+func paintingPose(o sm64ds.LevelObject, lift float64) (rot []float64, off [3]float64) {
+	rx, ry, rz := o.RotX*math.Pi/180, o.RotY*math.Pi/180, o.RotZ*math.Pi/180
+	// local +Y turned by Ry, then Rx, then Rz — the game's order.
+	x, y, z := 0.0, lift, 0.0
+	x, z = x*math.Cos(ry)+z*math.Sin(ry), -x*math.Sin(ry)+z*math.Cos(ry)
+	y, z = y*math.Cos(rx)-z*math.Sin(rx), y*math.Sin(rx)+z*math.Cos(rx)
+	x, y = x*math.Cos(rz)-y*math.Sin(rz), x*math.Sin(rz)+y*math.Cos(rz)
+	if rx != 0 || ry != 0 || rz != 0 {
+		rot = []float64{r3(rx), r3(ry), r3(rz)}
+	}
+	return rot, [3]float64{r3(x), r3(y), r3(z)}
+}
+
+// paintingDrawAlpha is the POLYGON_ATTR alpha the painting's own draw sets for
+// a picture, out of 31.
+//
+// The draw ($021261F4, the mode-1 record's third method) writes the whole
+// attribute word itself — the model file's material never reaches the hardware:
+//
+//	$0212630C  r0 = (param >> 8) & $1F        ; which picture
+//	$02126320  CMP r0, #7
+//	$02126324  MOVEQ r2, #$14                 ; alpha 20 of 31
+//	$0212632C  MOVNE r2, #$1F                 ; opaque
+//	$02126330  [$040004A4] = $01000088 | r2 << 16
+//
+// Picture 7 is `for_wl`, the sheet of water standing in the basement that is
+// Wet-Dry World's way in. Its texture is a paletted one with binary alpha, so
+// the exporter cut it out (alphaMode MASK) and drew what survived at full
+// strength — a hard-edged blue plate. It is 20/31 translucent, and the two
+// facts compose: the cut-out texels stay gone, the rest goes see-through.
+const paintingWaterPic = 7
+
+func paintingDrawAlpha(par1 int) int {
+	if (par1>>8)&0x1F == paintingWaterPic {
+		return 0x14
+	}
+	return 0x1F
 }
 
 // coinActors are the three placed-coin classes. All three profiles
@@ -2327,6 +2427,16 @@ var coinActors = map[int]bool{288: true, 289: true, 290: true}
 // coinSpinRate is that $C00-per-tick yaw in rad/s — $10000 angle units is a
 // full turn, the actor tick is 30 Hz: ~1.4 revolutions per second.
 const coinSpinRate = float64(0xC00) / 0x10000 * 30 * 2 * math.Pi
+
+func nonZero(vs ...float64) int {
+	n := 0
+	for _, v := range vs {
+		if v != 0 {
+			n++
+		}
+	}
+	return n
+}
 
 func r3(v float64) float64 { return float64(int(v*1000+0.5*sign(v))) / 1000 }
 func sign(v float64) float64 {
