@@ -309,6 +309,8 @@ type batch struct {
 
 type material struct {
 	texIdx  int // first bound 2-D texture, -1 if none
+	matID   int // the 0x58 entry's id: colour-material group; 2 marks the
+	// h-variant heads' runtime-toggled second config (blink/alt state)
 	// blend: stateKey toggle-byte bit 1 = the alpha state pair (0x900/901)
 	// — set on the characters' soft-alpha hair and lash materials
 	// (stateKey 0x5403/0x5407 vs the plain 0x5401); shipped as glTF BLEND
@@ -417,7 +419,7 @@ func (p *pmt) parsePart(pi int) (*part, error) {
 	for mi := 0; mi < nMat58; mi++ {
 		m := int(w[13]) + mi*0x58
 		id := int(u32(p.a, m))
-		mat := material{texIdx: -1, diffuse: [3]float32{1, 1, 1}, alpha: 1}
+		mat := material{texIdx: -1, matID: id, diffuse: [3]float32{1, 1, 1}, alpha: 1}
 		if id >= 0 && id < nMat48 {
 			c := int(w[14]) + id*0x48
 			mat.diffuse = [3]float32{f32(p.a, c), f32(p.a, c+4), f32(p.a, c+8)}

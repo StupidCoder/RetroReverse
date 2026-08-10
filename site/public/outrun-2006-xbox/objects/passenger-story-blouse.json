@@ -2,7 +2,7 @@
  "format": "retro-x",
  "version": 1,
  "type": "model3d",
- "name": "The start girl",
+ "name": "The passenger (story scenes, blouse)",
  "animations": [
   {
    "id": "dance",
@@ -17,7 +17,7 @@
    "clip": "scene16"
   }
  ],
- "model": "startgirl.glb",
+ "model": "passenger-story-blouse.glb",
  "skinnedClone": true,
  "props": {
   "skeleton": "JEN (/Common/bone.bin)",

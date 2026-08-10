@@ -741,9 +741,14 @@ func attachOrphans(d *chrDesc, sk *chrSkeleton, model *pmt, dynBase int) {
 				continue
 			}
 			if o.mn[1] > 0.9 && o.mx[1] < 2.0 && o.mx[1]-o.mn[1] < 0.6 && o.mx[0]-o.mn[0] < 0.6 {
-				d.attach[head] = append(d.attach[head], o.pi)
-				d.pretrans[o.pi] = mIdent() // placeholder: head invBind later
-				taken[o.pi] = true
+				// only compact accessories (the scrunchie): the 5-batch
+				// loose-hair strand sets are runtime-placed flat quads
+				// that cut through the skull when worn statically
+				if pt, err := model.parsePart(o.pi); err == nil && len(pt.batches) <= 2 {
+					d.attach[head] = append(d.attach[head], o.pi)
+					d.pretrans[o.pi] = mIdent() // placeholder: head invBind later
+					taken[o.pi] = true
+				}
 			}
 		}
 	}
@@ -1315,6 +1320,9 @@ type chrData struct {
 	model *pmt
 	texs  []texInfo
 	clips []*chrClip // both mot files, named
+	// drop names batches to leave out, per part — the explicit per-model
+	// exceptions for runtime-state batches (see chrRoster specs)
+	drop map[int]map[int]bool
 }
 
 // loadChr loads any /Chr character: CHR_<BASE>.bin descriptor,
@@ -2110,7 +2118,7 @@ func readCarvtxDump(path string, model *pmt) (map[int]mat4, error) {
 // left hand) ships 16 checkered-flag verts collapsed to a point — the game
 // draws them degenerate at the start line (live VB = file bytes; he never
 // holds a flag there), so the export leaves them out.
-func chrPartPrims(model *pmt, texs []texInfo, pi int, lodBones []int, jointOf map[int]uint8, modelSpace bool) ([]glb.Prim, error) {
+func chrPartPrims(model *pmt, texs []texInfo, pi int, lodBones []int, jointOf map[int]uint8, modelSpace bool, dropB map[int]bool) ([]glb.Prim, error) {
 	pt, err := model.parsePart(pi)
 	if err != nil {
 		return nil, err
@@ -2155,7 +2163,7 @@ func chrPartPrims(model *pmt, texs []texInfo, pi int, lodBones []int, jointOf ma
 	}
 	skinned := len(lodBones) > 0
 	groups := map[int][][3]uint32{}
-	for _, b := range pt.batches {
+	for bi2, b := range pt.batches {
 		bp := pt.pairs[b.pair]
 		idxCount, _ := indexCount(b.prim, b.prims)
 		raw := make([]uint32, idxCount)
@@ -2168,6 +2176,15 @@ func chrPartPrims(model *pmt, texs []texInfo, pi int, lodBones []int, jointOf ma
 			raw[i] = ix + vbase[b.pair]
 		}
 		if degenerateBatch(pos, raw) {
+			continue
+		}
+		if dropB[bi2] {
+			// explicit per-model exceptions: the h-variant drivers' heads
+			// carry a runtime-toggled eye/blink-state batch that tiles
+			// iris texture across the face when drawn statically (id=2 is
+			// NOT a usable predicate — fal's sheer blouse layer and knee
+			// stitches use it legitimately); which batch set the game
+			// draws per state is the pending material-id/draw-path decode
 			continue
 		}
 		if !skinned && !modelSpace && detachedBatch(pos, raw) {
@@ -2337,7 +2354,7 @@ func exportChrGLB(cd *chrData, rootName, outPath string, conv poseConv, bakes []
 			var prims []glb.Prim
 			for _, part := range parts {
 				_, isPre := cd.desc.pretrans[part]
-				pp, err := chrPartPrims(cd.model, cd.texs, part, nil, nil, isPre)
+				pp, err := chrPartPrims(cd.model, cd.texs, part, nil, nil, isPre, cd.drop[part])
 				if err != nil {
 					return err
 				}
@@ -2392,7 +2409,7 @@ func exportChrGLB(cd *chrData, rootName, outPath string, conv poseConv, bakes []
 	}
 	skin := s.AddSkin(jointNodes, ibms)
 	for _, lr := range cd.desc.lods {
-		prims, err := chrPartPrims(cd.model, cd.texs, lr.part, lr.bones, jointOf, false)
+		prims, err := chrPartPrims(cd.model, cd.texs, lr.part, lr.bones, jointOf, false, cd.drop[lr.part])
 		if err != nil {
 			return err
 		}
@@ -2535,6 +2552,7 @@ type chrSpec struct {
 	files []string
 	bakes []chrBake
 	anims []schema.Animation
+	drop  map[int]map[int]bool // part -> batch indices to leave out
 }
 
 // The /Chr roster. Skeletons: dr_m*/s00/w00 sit on OTK or its twin MAN
@@ -2551,6 +2569,7 @@ var chrRoster = []chrSpec{
 			{ID: "winner", Name: "Winner", Loop: "once", Clip: "winner"},
 		}},
 	{base: "dr_mh00", id: "driver-cap", name: "The driver (alternate)",
+		drop: map[int]map[int]bool{6: {2: true}}, // head batch 2: eye-state batch (iris tiled over the face)
 		files: []string{"mot_START_bin", "mot_F40_bin"},
 		bakes: []chrBake{{"ORT_MAN_OTK_SUWARI_LP_01", "sit"}, {"ORT_MAN_OTK_WINNER_01", "winner"}},
 		anims: []schema.Animation{
@@ -2593,6 +2612,7 @@ var chrRoster = []chrSpec{
 			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
 		}},
 	{base: "dr_lh00", id: "passenger-skirt-hat", name: "The passenger (blouse, loose hair)",
+		drop: map[int]map[int]bool{6: {1: true}}, // head batch 1: eye-state batch
 		files: []string{"mot_START_bin", "mot_F40_bin"},
 		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
 		anims: []schema.Animation{
@@ -2641,7 +2661,7 @@ var chrRoster = []chrSpec{
 			{ID: "scene1", Name: "Story scene 1", Loop: "loop", Clip: "scene1"},
 			{ID: "scene16", Name: "Story scene 16", Loop: "once", Clip: "scene16"},
 		}},
-	{base: "fal", id: "startgirl", name: "The start girl",
+	{base: "fal", id: "passenger-story-blouse", name: "The passenger (story scenes, blouse)",
 		files: []string{"mot_E01_bin", "mot_E16_bin"},
 		bakes: []chrBake{{"ORT_FAL_JEN_TEST", "dance"}, {"ORT_FAL_JEN_E16_2_1", "scene16"}},
 		anims: []schema.Animation{
@@ -2668,6 +2688,7 @@ func exportCharacters(disc *xbox.Image, b *build.Builder) error {
 		if err != nil {
 			return fmt.Errorf("%s: %w", spec.base, err)
 		}
+		cd.drop = spec.drop
 		out, err := b.Path("objects", spec.id+".glb")
 		if err != nil {
 			return err

@@ -4215,3 +4215,21 @@ Prim gained AlphaCutoff) — soft hair keeps its strands, the blouse keeps
 its depth. Still open: the l00/lh00/mh00 painted LOD head-shell (the
 skin-toned patch on the loose-hair passenger's head) pending the
 material-id draw-path decode.
+
+**Post-ship fix 4 — the eye-state batches, and FAL's real identity.** The
+weave-textured blocks across the loose-hair passenger's face were her
+head's runtime EYE/BLINK-STATE batch — iris texture tiled over the face
+when every state draws at once. A general material-id predicate does NOT
+exist: id=2 marks those eye batches on the two h-variant driver heads, but
+fal uses id=2 legitimately across her sheer blouse layer, knee stitches
+and mouth (a first attempt at "drop id=2" tore her knee open) — so the
+two measured cases are explicit per-model batch exceptions in the roster
+spec (dr_lh00 head batch 1, dr_mh00 head batch 2), pending the real
+draw-path decode. The strand-quad accessory sets (runtime-placed flat
+quads) are no longer worn statically — only compact accessories like the
+scrunchie attach. And FAL is not a "start girl": same face, same blouse
+outfit as the dr_l00 passenger — she is THE PASSENGER's story-scene model
+in her second outfit; the asset is now passenger-story-blouse ("The
+passenger (story scenes, blouse)"), startgirl.glb removed. What remains
+on the low-poly in-car girls' heads (sparse painted crowns) is the
+models' own authored reality, seen from behind in-game.

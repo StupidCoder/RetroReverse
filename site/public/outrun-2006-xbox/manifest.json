@@ -2797,11 +2797,11 @@
    "file": "objects/passenger-story-usa.json"
   },
   {
-   "id": "startgirl",
+   "id": "passenger-story-blouse",
    "category": "object",
-   "name": "The start girl",
+   "name": "The passenger (story scenes, blouse)",
    "group": "Characters",
-   "file": "objects/startgirl.json"
+   "file": "objects/passenger-story-blouse.json"
   },
   {
    "id": "starter-cvt",
