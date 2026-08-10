@@ -4362,3 +4362,31 @@ Verified in ?vremulate=1 sessions on Sunny Beach and (unprobed by any
 fixture) Alpine: level streams in, car/driver/passenger placed, TUNTUN
 playing, music fetched. Presets in site/vr/outrun-2006-xbox/, thirty
 files plus the index entries.
+
+## Part XXXIX — the palms were draw calls (Quest 3 world mode)
+
+The user's Quest 3 report was its own diagnosis: looking down the track
+crawls, looking back at the lone car is fine — the draw-call signature,
+CPU-bound in a browser on a mobile chip. Counted (a GL-prototype counter
+in the live page; the desktop profile is the control, not the target):
+Sunny Beach's 411 scenery placements cost 663 draw calls before the
+course itself — 211 of them the same two-primitive palm, each placement
+its own Object3D.clone, the transparent ones depth-sorted every frame.
+
+The fix is the billboard batch's solid-geometry sibling
+(site/src/instances.js): every (object, primitive) pair of repeated
+inert scenery becomes ONE THREE.InstancedMesh with per-instance world
+matrices — the palms drop from 422 calls to 2. Eligibility is strict
+(no clips, skins, clicks, tints, variants, rooms, layers — scenery in
+the strictest sense) and node-tested against the shipped level document
+(site/test/instances.test.mjs pins the 663→dozens collapse and every
+refusal rule). The placement groups stay as invisible pick proxies —
+three's raycaster never tests visibility, which for once is the useful
+reading of that gotcha. ?nobatch=1 keeps the clones as the A/B control.
+
+Measured settled on Deep Lake, desktop view: 113 calls/frame unbatched
+(frustum culling already saving the narrow view) vs 85 batched,
+identical picture. The VR win is the point though: a wide stereo view
+down the track puts most of the scenery in frustum — the unbatched cost
+heads for the full several hundred per eye while the batch stays at
+~85 whichever way you face.

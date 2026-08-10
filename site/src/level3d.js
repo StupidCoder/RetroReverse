@@ -9,6 +9,7 @@ import { CutscenePlayer } from './cutscene.js';
 import { PanInput } from './pancam.js';
 import { arSupported, PerfMeter } from './xr.js';
 import { BillboardBatch } from './billboards.js';
+import { buildInstances, disposeInstances } from './instances.js';
 
 export async function mount(ctx, doc) {
   const { stage: el, game, asset, params } = ctx;
@@ -345,15 +346,33 @@ export async function mount(ctx, doc) {
     }
   }
 
+  // ---- static instancing --------------------------------------------------------------
+  // The solid-geometry sibling of the billboard batch above (see instances.js
+  // for the whole story): repeated inert scenery placements collapse to one
+  // InstancedMesh per (object, primitive). The placement groups stay for
+  // picking — invisible, which the raycaster ignores. Same ?nobatch=1 escape,
+  // same contract: the two paths must render the same picture.
+  let instanced = null;
+  if (!(params.get?.('nobatch') ?? params.nobatch)) {
+    instanced = buildInstances([...placementById.values()].filter((r) => !r.batched), THREE);
+    if (instanced) {
+      stage.scene.add(instanced.group);
+      const s = instanced.stats;
+      console.log(`instanced ${s.taken} placements: ${s.callsBefore} draw calls -> ${s.meshes}`);
+    }
+  }
+
   // hoisted: the variant setter can fire while placements are still loading
   // The variant the picker last chose. World mode reads it (xrworld _tick):
   // both the top-bar select and the XR shell's radio funnel through the same
   // apply callback below, so one place holds the answer and a mode that needs
   // to react to it does not have to be wired into every picker.
   function applyVariant() {
-    for (const { pl, node } of placementById.values()) {
-      node.userData.varOn = !pl.variants?.length || pl.variants.includes(activeVariant);
-      node.visible = node.userData.varOn;
+    for (const r of placementById.values()) {
+      r.node.userData.varOn = !r.pl.variants?.length || r.pl.variants.includes(activeVariant);
+      // A batched record renders through its InstancedMesh; its own node is
+      // the invisible pick proxy and must stay that way.
+      r.node.visible = r.node.userData.varOn && !r.batched;
     }
   }
   if (variants.length) applyVariant();
@@ -657,6 +676,7 @@ export async function mount(ctx, doc) {
     get activeVariant() { return variants.length ? activeVariant : null; },
     unmount() {
       billboards?.dispose();
+      if (instanced) { disposeInstances(instanced.group); instanced.group.removeFromParent(); }
       player?.dispose();
       fly?.dispose();
       panInput?.dispose();
