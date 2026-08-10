@@ -3355,6 +3355,21 @@
     "node": "part 6 id 721",
     "w4": 39
    }
+  },
+  {
+   "id": 368,
+   "object": "flagman",
+   "pos": [-4.5, 0, -21],
+   "rot": [0, 3.141592653589793, 0],
+   "anim": "prewave",
+   "onClick": {
+    "action": "animate",
+    "clip": "hatafuri"
+   },
+   "name": "The starter",
+   "props": {
+    "source": "XBE spawn tables 0x29224C/0x2922C4, entry 1 (race mode [0x57D774]=1)"
+   }
   }
  ]
 }

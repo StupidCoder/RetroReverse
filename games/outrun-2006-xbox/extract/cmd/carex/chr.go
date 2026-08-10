@@ -2269,6 +2269,8 @@ func degenerateBatch(pos [][3]float32, raw []uint32) bool {
 type chrBake struct {
 	clip string // full mot clip name
 	as   string // glTF animation name
+	hold bool   // bake only holdFrame as a static pose instead of the whole clip
+	holdFrame int
 }
 
 // chrExportGLB writes the animated flagman GLB (kept for the -chrglb debug
@@ -2283,9 +2285,12 @@ func chrExportGLB(disc *xbox.Image, outPath string, conv poseConv) error {
 	// it monotonically at one clip frame per flip; HATA_SP, shipped
 	// before, is a different wave he never performs there — and before
 	// the wave starts he simply holds RUNAWAY frame 0, err 0.002 m).
+	// prewave bakes that hold (race-start.state root: ty 1.1943,
+	// ry 1.1904 — the pose the start-line placements autoplay).
 	return exportChrGLB(cd, "flagman", outPath, conv, []chrBake{
-		{"ORT_OZI_OZI_STAND_LP", "idle"},
-		{"ORT_OZI_OZI_HATAFURI_00", "hatafuri"},
+		{clip: "ORT_OZI_OZI_STAND_LP", as: "idle"},
+		{clip: "ORT_OZI_OZI_HATAFURI_00", as: "hatafuri"},
+		{clip: "ORT_OZI_OZI_RUNAWAY", as: "prewave", hold: true, holdFrame: 0},
 	})
 }
 
@@ -2423,21 +2428,28 @@ func exportChrGLB(cd *chrData, rootName, outPath string, conv poseConv, bakes []
 
 	const fps = 60.0
 	const step = 2 // sample every 2 frames (30 Hz; locals interpolate cleanly)
-	bake := func(clipName, asName string) error {
-		clip := cd.clip(clipName)
+	bake := func(bk chrBake) error {
+		clip := cd.clip(bk.clip)
 		if clip == nil {
-			return fmt.Errorf("clip %s not found", clipName)
+			return fmt.Errorf("clip %s not found", bk.clip)
 		}
-		c := s.NewClip(asName)
+		c := s.NewClip(bk.as)
 		var times []float32
 		var frames []float32
-		for f := 0; f < clip.frames; f += step {
-			times = append(times, float32(f)/fps)
-			frames = append(frames, float32(f))
+		if bk.hold {
+			// a static hold: one clip frame as a two-key constant pose
+			// (the start line holds RUNAWAY frame 0 until the wave)
+			times = []float32{0, 1}
+			frames = []float32{float32(bk.holdFrame), float32(bk.holdFrame)}
+		} else {
+			for f := 0; f < clip.frames; f += step {
+				times = append(times, float32(f)/fps)
+				frames = append(frames, float32(f))
+			}
+			// close the loop exactly at the final frame
+			times = append(times, float32(clip.frames-1)/fps)
+			frames = append(frames, float32(clip.frames-1))
 		}
-		// close the loop exactly at the final frame
-		times = append(times, float32(clip.frames-1)/fps)
-		frames = append(frames, float32(clip.frames-1))
 		worlds := make([][]mat4, len(frames))
 		for i, fr := range frames {
 			worlds[i] = rg.evalPose(clip, fr)
@@ -2486,7 +2498,7 @@ func exportChrGLB(cd *chrData, rootName, outPath string, conv poseConv, bakes []
 		return nil
 	}
 	for _, bk := range bakes {
-		if err := bake(bk.clip, bk.as); err != nil {
+		if err := bake(bk); err != nil {
 			return err
 		}
 	}
@@ -2563,7 +2575,7 @@ type chrSpec struct {
 var chrRoster = []chrSpec{
 	{base: "dr_m00", id: "driver", name: "The driver",
 		files: []string{"mot_START_bin", "mot_F40_bin"},
-		bakes: []chrBake{{"ORT_MAN_OTK_SUWARI_LP_01", "sit"}, {"ORT_MAN_OTK_WINNER_01", "winner"}},
+		bakes: []chrBake{{clip: "ORT_MAN_OTK_SUWARI_LP_01", as: "sit"}, {clip: "ORT_MAN_OTK_WINNER_01", as: "winner"}},
 		anims: []schema.Animation{
 			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
 			{ID: "winner", Name: "Winner", Loop: "once", Clip: "winner"},
@@ -2571,42 +2583,42 @@ var chrRoster = []chrSpec{
 	{base: "dr_mh00", id: "driver-cap", name: "The driver (alternate)",
 		drop: map[int]map[int]bool{6: {2: true}}, // head batch 2: eye-state batch (iris tiled over the face)
 		files: []string{"mot_START_bin", "mot_F40_bin"},
-		bakes: []chrBake{{"ORT_MAN_OTK_SUWARI_LP_01", "sit"}, {"ORT_MAN_OTK_WINNER_01", "winner"}},
+		bakes: []chrBake{{clip: "ORT_MAN_OTK_SUWARI_LP_01", as: "sit"}, {clip: "ORT_MAN_OTK_WINNER_01", as: "winner"}},
 		anims: []schema.Animation{
 			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
 			{ID: "winner", Name: "Winner", Loop: "once", Clip: "winner"},
 		}},
 	{base: "dr_g00", id: "passenger", name: "The passenger",
 		files: []string{"mot_START_bin", "mot_F40_bin"},
-		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
+		bakes: []chrBake{{clip: "ORT_WMN_ONN_SUWARI_LP_01", as: "sit"}, {clip: "ORT_WMN_ONN_TUNTUN_01", as: "tuntun"}},
 		anims: []schema.Animation{
 			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
 			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
 		}},
 	{base: "dr_gh00", id: "passenger-hat", name: "The passenger (alternate)",
 		files: []string{"mot_START_bin", "mot_F40_bin"},
-		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
+		bakes: []chrBake{{clip: "ORT_WMN_ONN_SUWARI_LP_01", as: "sit"}, {clip: "ORT_WMN_ONN_TUNTUN_01", as: "tuntun"}},
 		anims: []schema.Animation{
 			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
 			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
 		}},
 	{base: "dr_g00_usa", id: "passenger-usa", name: "The passenger (US)",
 		files: []string{"mot_START_bin", "mot_F40_bin"},
-		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
+		bakes: []chrBake{{clip: "ORT_WMN_ONN_SUWARI_LP_01", as: "sit"}, {clip: "ORT_WMN_ONN_TUNTUN_01", as: "tuntun"}},
 		anims: []schema.Animation{
 			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
 			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
 		}},
 	{base: "dr_gh00_usa", id: "passenger-hat-usa", name: "The passenger (alternate, US)",
 		files: []string{"mot_START_bin", "mot_F40_bin"},
-		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
+		bakes: []chrBake{{clip: "ORT_WMN_ONN_SUWARI_LP_01", as: "sit"}, {clip: "ORT_WMN_ONN_TUNTUN_01", as: "tuntun"}},
 		anims: []schema.Animation{
 			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
 			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
 		}},
 	{base: "dr_l00", id: "passenger-skirt", name: "The passenger (blouse)",
 		files: []string{"mot_START_bin", "mot_F40_bin"},
-		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
+		bakes: []chrBake{{clip: "ORT_WMN_ONN_SUWARI_LP_01", as: "sit"}, {clip: "ORT_WMN_ONN_TUNTUN_01", as: "tuntun"}},
 		anims: []schema.Animation{
 			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
 			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
@@ -2614,63 +2626,63 @@ var chrRoster = []chrSpec{
 	{base: "dr_lh00", id: "passenger-skirt-hat", name: "The passenger (blouse, loose hair)",
 		drop: map[int]map[int]bool{6: {1: true}}, // head batch 1: eye-state batch
 		files: []string{"mot_START_bin", "mot_F40_bin"},
-		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
+		bakes: []chrBake{{clip: "ORT_WMN_ONN_SUWARI_LP_01", as: "sit"}, {clip: "ORT_WMN_ONN_TUNTUN_01", as: "tuntun"}},
 		anims: []schema.Animation{
 			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
 			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
 		}},
 	{base: "dr_h00", id: "passenger-black", name: "The passenger (black)",
 		files: []string{"mot_START_bin", "mot_F40_bin"},
-		bakes: []chrBake{{"ORT_WMN_ONN_SUWARI_LP_01", "sit"}, {"ORT_WMN_ONN_TUNTUN_01", "tuntun"}},
+		bakes: []chrBake{{clip: "ORT_WMN_ONN_SUWARI_LP_01", as: "sit"}, {clip: "ORT_WMN_ONN_TUNTUN_01", as: "tuntun"}},
 		anims: []schema.Animation{
 			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
 			{ID: "tuntun", Name: "Impatient", Loop: "once", Clip: "tuntun"},
 		}},
 	{base: "dr_s00", id: "driver-shirt", name: "The driver (shirt)",
 		files: []string{"mot_START_bin", "mot_F40_bin"},
-		bakes: []chrBake{{"ORT_MAN_OTK_SUWARI_LP_01", "sit"}, {"ORT_MAN_OTK_WINNER_01", "winner"}},
+		bakes: []chrBake{{clip: "ORT_MAN_OTK_SUWARI_LP_01", as: "sit"}, {clip: "ORT_MAN_OTK_WINNER_01", as: "winner"}},
 		anims: []schema.Animation{
 			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
 			{ID: "winner", Name: "Winner", Loop: "once", Clip: "winner"},
 		}},
 	{base: "dr_w00", id: "driver-dark", name: "The driver (dark)",
 		files: []string{"mot_START_bin", "mot_F40_bin"},
-		bakes: []chrBake{{"ORT_MAN_OTK_SUWARI_LP_01", "sit"}, {"ORT_MAN_OTK_WINNER_01", "winner"}},
+		bakes: []chrBake{{clip: "ORT_MAN_OTK_SUWARI_LP_01", as: "sit"}, {clip: "ORT_MAN_OTK_WINNER_01", as: "winner"}},
 		anims: []schema.Animation{
 			{ID: "sit", Name: "In the seat", Loop: "loop", Clip: "sit"},
 			{ID: "winner", Name: "Winner", Loop: "once", Clip: "winner"},
 		}},
 	{base: "mal", id: "driver-story", name: "The driver (story scenes)",
 		files: []string{"mot_E16_bin", "mot_E01_bin"},
-		bakes: []chrBake{{"ORT_MAL_RIC_E01_1", "scene1"}, {"ORT_MAL_RIC_E16_2_1", "scene16"}},
+		bakes: []chrBake{{clip: "ORT_MAL_RIC_E01_1", as: "scene1"}, {clip: "ORT_MAL_RIC_E16_2_1", as: "scene16"}},
 		anims: []schema.Animation{
 			{ID: "scene1", Name: "Story scene 1", Loop: "loop", Clip: "scene1"},
 			{ID: "scene16", Name: "Story scene 16", Loop: "once", Clip: "scene16"},
 		}},
 	{base: "gal", id: "passenger-story", name: "The passenger (story scenes)",
 		files: []string{"mot_E16_bin", "mot_E01_bin"},
-		bakes: []chrBake{{"ORT_FAL_JEN_E01_1", "scene1"}, {"ORT_FAL_JEN_E16_2_1", "scene16"}},
+		bakes: []chrBake{{clip: "ORT_FAL_JEN_E01_1", as: "scene1"}, {clip: "ORT_FAL_JEN_E16_2_1", as: "scene16"}},
 		anims: []schema.Animation{
 			{ID: "scene1", Name: "Story scene 1", Loop: "loop", Clip: "scene1"},
 			{ID: "scene16", Name: "Story scene 16", Loop: "once", Clip: "scene16"},
 		}},
 	{base: "gal_usa", id: "passenger-story-usa", name: "The passenger (story scenes, US)",
 		files: []string{"mot_E16_bin", "mot_E01_bin"},
-		bakes: []chrBake{{"ORT_FAL_JEN_E01_1", "scene1"}, {"ORT_FAL_JEN_E16_2_1", "scene16"}},
+		bakes: []chrBake{{clip: "ORT_FAL_JEN_E01_1", as: "scene1"}, {clip: "ORT_FAL_JEN_E16_2_1", as: "scene16"}},
 		anims: []schema.Animation{
 			{ID: "scene1", Name: "Story scene 1", Loop: "loop", Clip: "scene1"},
 			{ID: "scene16", Name: "Story scene 16", Loop: "once", Clip: "scene16"},
 		}},
 	{base: "fal", id: "passenger-story-blouse", name: "The passenger (story scenes, blouse)",
 		files: []string{"mot_E01_bin", "mot_E16_bin"},
-		bakes: []chrBake{{"ORT_FAL_JEN_TEST", "dance"}, {"ORT_FAL_JEN_E16_2_1", "scene16"}},
+		bakes: []chrBake{{clip: "ORT_FAL_JEN_TEST", as: "dance"}, {clip: "ORT_FAL_JEN_E16_2_1", as: "scene16"}},
 		anims: []schema.Animation{
 			{ID: "dance", Name: "Dance (the rig's test clip)", Loop: "loop", Clip: "dance"},
 			{ID: "scene16", Name: "Story scene 16", Loop: "once", Clip: "scene16"},
 		}},
 	{base: "aut04_cvt", id: "starter-cvt", name: "The starter (alternate)",
 		files: []string{"mot_ETC_bin"},
-		bakes: []chrBake{{"ORT_OZI_OZI_STAND_LP", "idle"}, {"ORT_OZI_OZI_HATAFURI_00", "hatafuri"}},
+		bakes: []chrBake{{clip: "ORT_OZI_OZI_STAND_LP", as: "idle"}, {clip: "ORT_OZI_OZI_HATAFURI_00", as: "hatafuri"}},
 		anims: []schema.Animation{
 			{ID: "idle", Name: "Idle", Loop: "loop", Clip: "idle"},
 			{ID: "hatafuri", Name: "Start wave", Loop: "once", Clip: "hatafuri"},
@@ -2734,7 +2746,8 @@ func exportFlagman(disc *xbox.Image, b *build.Builder) error {
 			Animations: []schema.Animation{
 				{ID: "idle", Name: "Idle", Loop: "loop", Clip: "idle"},
 				{ID: "hatafuri", Name: "Start wave", Loop: "once", Clip: "hatafuri"},
+				{ID: "prewave", Name: "Start-line hold", Loop: "loop", Clip: "prewave"},
 			},
-			Props: map[string]any{"source": "/Chr/obj_chr_aut04_pmt.sz", "skeleton": "OZI (/Common/bone.bin)", "clips": "mot_ETC_bin.sz (STAND_LP, HATAFURI_00)"}})
+			Props: map[string]any{"source": "/Chr/obj_chr_aut04_pmt.sz", "skeleton": "OZI (/Common/bone.bin)", "clips": "mot_ETC_bin.sz (STAND_LP, HATAFURI_00, RUNAWAY:0 hold)"}})
 	return nil
 }

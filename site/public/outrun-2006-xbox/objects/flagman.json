@@ -15,12 +15,18 @@
    "name": "Start wave",
    "loop": "once",
    "clip": "hatafuri"
+  },
+  {
+   "id": "prewave",
+   "name": "Start-line hold",
+   "loop": "loop",
+   "clip": "prewave"
   }
  ],
  "model": "flagman.glb",
  "skinnedClone": true,
  "props": {
-  "clips": "mot_ETC_bin.sz (STAND_LP, HATAFURI_00)",
+  "clips": "mot_ETC_bin.sz (STAND_LP, HATAFURI_00, RUNAWAY:0 hold)",
   "skeleton": "OZI (/Common/bone.bin)",
   "source": "/Chr/obj_chr_aut04_pmt.sz"
  }

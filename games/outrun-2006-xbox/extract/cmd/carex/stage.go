@@ -419,19 +419,28 @@ func exportStage(disc *xbox.Image, b *build.Builder, dir string, idx map[string]
 			Props: map[string]any{"node": fmt.Sprintf("part %d id %d", pl.part, pl.id), "w4": pl.matrixIdx},
 		})
 	}
-	if id == "stage-beac" {
+	if id == "stage-beac" || id == "stage-palm" {
 		// The start-line starter (he waves the start bare-handed — the
 		// checkered flag ships collapsed to a point in his hand part and
-		// is never unfurled here). His spot is measured off the live game
-		// (bootoracle race-driving frame, feet mid-point via VP recovered
-		// from the frame's world draws); the idle loop autoplays, clicking
-		// him plays the start wave.
+		// is never unfurled here). His spot is the game's own: the spawn
+		// at 0xB35F0 builds the start-line character from tables hardcoded
+		// in the XBE — positions at 0x29224C, eulers at 0x2922C4 (stride
+		// 12), indexed by the race-mode global [0x57D774]. Both tour
+		// openers race as mode 1 (verified live on BEAC and PALM: record
+		// 0x59D7F0 spawns model 3 with placement yaw pi, translation
+		// (-4.5, 0, -21)) — the classic starter on the left shoulder,
+		// turned to face the grid. He holds the game's own pre-wave pose
+		// (RUNAWAY frame 0 — what the start line holds until the countdown
+		// wave; race-start.state root ty 1.1943 / ry 1.1904 = the clip's
+		// frame 0); clicking him plays the start wave.
 		pls = append(pls, schema.Placement{
 			ID: len(pls), Object: "flagman",
-			Pos:     []float64{-4.38, 0, -21.4},
+			Pos:     []float64{-4.5, 0, -21},
+			Rot:     []float64{0, math.Pi, 0},
+			Anim:    "prewave",
 			Name:    "The starter",
 			OnClick: &schema.OnClick{Action: "animate", Clip: "hatafuri"},
-			Props:   map[string]any{"measured": "live frame; feet mid (-4.38, 0, -21.4)"},
+			Props:   map[string]any{"source": "XBE spawn tables 0x29224C/0x2922C4, entry 1 (race mode [0x57D774]=1)"},
 		})
 	}
 

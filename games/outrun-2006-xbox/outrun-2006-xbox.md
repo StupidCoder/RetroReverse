@@ -4233,3 +4233,64 @@ in her second outfit; the asset is now passenger-story-blouse ("The
 passenger (story scenes, blouse)"), startgirl.glb removed. What remains
 on the low-poly in-car girls' heads (sparse painted crowns) is the
 models' own authored reality, seen from behind in-game.
+
+## Part XXXVI — the starter's spot was in the XBE all along
+
+The Studio's starter placement was a Part XXXIII expedient: a spot
+measured off one live frame (feet mid-point via a recovered VP), no
+rotation at all, Sunny Beach only. The user's report — he belongs on Palm
+Beach too, and neither his position nor his facing looked right — sent
+this part after the data that actually puts him there.
+
+**The spawn, traced.** The start-line character is built by the spawn at
+`0xB35F0`: it reads the race-mode global `[0x57D774]` and indexes two
+tables hardcoded in the XBE's data section — positions at `0x29224C`,
+euler rotations at `0x2922C4`, both stride 12. The same index picks the
+model (`0xB3605`: modes 1 and 3 → model 3, the classic moustached
+`aut04`; modes 0/2/4 → model 4, the `aut04_cvt` alternate) and his
+animation set (`0x315BF0`/`0x315B78`). The spawn then composes
+translate·rotZ·rotY·rotX on the game's matrix stack and copies the result
+into the character record at `0x59D7F0` (+0x10 = the placement matrix);
+the per-frame behaviour tick `0xB3700` refreshes the same matrix from the
+live globals (`0x613B6C` position, `0x613BE8/EC/F0` euler) and cycles his
+attract spots from a second table at `0x292288`.
+
+**The values.** Mode 1 places model 3 at **(-4.5, 0, -21)** with euler
+**(0, π, 0)** — the left road shoulder at the start line, turned to face
+the grid. Verified live in three contexts, all byte-identical in the
+record: the Coast-2-Coast mission fixture (`flagman.state`), an OUTRUN
+tour started on Palm Beach (`palm-race3.state` — menu-driven from
+`main-menu.state`: Single Player → OUTRUN → OUTRUN2 → race), and an
+OUTRUN2SP tour on Sunny Beach (`spbeac-race2.state`). `[0x57D774]` is 1
+in all three, so both tour openers get the same classic starter at the
+same spot. (The right-shoulder entries — (4.7761, 0, -20.5843), yaw 0,
+model 4 — belong to the other modes; no tour start uses them.)
+
+**The pose is data too.** The start line does not play the STAND_LP loop
+the Studio had been autoplaying: until the countdown wave the game holds
+one pose — the live skeleton in `race-start.state` has root ty 1.1943 /
+ry 1.1904, and our decoded HATAFURI_00 (= RUNAWAY) frame 0 reproduces it
+exactly (root (0, 1.194, 0), kosi 1.094, mune 1.284 — the same numbers
+the 0xd04b50 bone objects hold). The GLB now bakes that hold as a third
+clip (`prewave`, a two-key static pose), and the start-line placements
+autoplay it; the click still fires the full HATAFURI_00 wave.
+
+**Two traps this part stepped in.** First: comparing "kosi" across
+pipelines that disagree about which bone that is — the live matrix at
+bone slot 3 is `mune_jnt` (chest), and half an hour of "the bake carries
+a spurious 90°" dissolved once the composed positions were compared
+bone-for-bone (root 1.1943 = root 1.1943; the "+90°" was kosi's own bind
+rest, present in both pipelines). Second: the first visual check compared
+the Studio's STAND_LP against the game's pre-wave hold — two different
+clips whose root yaws differ by ~150°; "his orientation is wrong" was
+really "he is playing the wrong clip at that placement". With the game's
+own placement AND the game's own pose, the Studio start line now matches
+the live frames on both beaches.
+
+Shipped: `stage-beac` and `stage-palm` place the starter from the spawn
+tables (pos (-4.5, 0, -21), rot (0, π, 0), anim `prewave`);
+`flagman.glb` gains the `prewave` hold clip. Fixtures:
+`work/states/palm-race3.state` (OUTRUN tour, Palm Beach start line, the
+starter drawn), `spbeac-race2.state` (OUTRUN2SP, Sunny Beach),
+`palm-probe.state`/`spbeac-probe.state` (music select, one A-press from
+the race load).
