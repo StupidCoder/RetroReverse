@@ -1,0 +1,93 @@
+{
+ "_": [
+  "The start line, standing on the grid behind the Dino.",
+  "",
+  "Every number here is the game's own start template, identical on every",
+  "course (verified live on BEAC in a C2C race and on PALM/BEAC in the two",
+  "OUTRUN tours; the writeup's Part XXXVIII has the derivation):",
+  "",
+  "SCALE. OutRun's world units are metres \u2014 the Dino's wheelbase in the",
+  "chassis table is 2.34 m, the real car's to a centimetre \u2014 so",
+  "metresPerUnit is 1.",
+  "",
+  "CAR. The grid slot: the physics body rests at (0, 0.30, -15.72) with",
+  "identity rotation; the MODEL frame (ground-origin, nose toward -z, the",
+  "direction of travel) sits at (0, 0, -16.0) \u2014 pinned by the driver",
+  "record at 0x59D6D0, whose world position equals car frame + the",
+  "chassis seat anchor exactly, on both verified courses.",
+  "",
+  "SEATS. The chassis record's two attach points at +0x108 (default.xbe,",
+  "Dino record) are HIP TARGETS, car-local: driver (-0.318, 0.614,",
+  "0.257), passenger (0.314, 0.614, 0.292). The sitting clips carry",
+  "their own hip height in character space (SUWARI kosi rides at 0.613",
+  "= the anchor's 0.614, measured in both), so the character ORIGIN",
+  "goes on the floor at the anchor's x/z and the pose lands the hips",
+  "on the anchor. The driver plays the grid sitting loop; the",
+  "passenger is Heart Attack's ride-along, bouncing her excited",
+  "TUNTUN loop.",
+  "SPAWN. The race camera idles a few metres behind the car: floor spawn",
+  "7 m behind the rear bumper, looking down the course (-z), standing eye",
+  "height lands where the game's own chase camera sits.",
+  "",
+  "MUSIC. Magical Sound Shower, for the SP tour."
+ ],
+ "metresPerUnit": 1,
+ "spawn": {
+  "pos": [
+   0,
+   0,
+   -9
+  ],
+  "dir": [
+   0,
+   0,
+   -1
+  ]
+ },
+ "music": {
+  "asset": "bgm-02"
+ },
+ "props": [
+  {
+   "object": "plcar-dino",
+   "pos": [
+    0,
+    0,
+    -16.0
+   ],
+   "rotY": 0
+  },
+  {
+   "object": "driver",
+   "pos": [
+    -0.318,
+    0,
+    -15.743
+   ],
+   "rotY": 0,
+   "anim": "sit"
+  },
+  {
+   "object": "passenger",
+   "pos": [
+    0.314,
+    0,
+    -15.708
+   ],
+   "rotY": 0,
+   "anim": "tuntun"
+  }
+ ],
+ "_fog": [
+  "The game's own scn_env_fog on these stages is exponential at density",
+  "~1.5e-4 \u2014 a clear day, effectively no fog \u2014 but world mode's far-plane",
+  "policy hangs off fog.far (the SM64DS castle preset hit the same wall),",
+  "so this one is black and starts beyond everything visible: it tints",
+  "nothing and exists only to give the mode its far plane."
+ ],
+ "fog": {
+  "color": "#000000",
+  "near": 5500,
+  "far": 6000
+ }
+}

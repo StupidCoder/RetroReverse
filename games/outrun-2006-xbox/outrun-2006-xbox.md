@@ -4317,3 +4317,48 @@ OutRun page. Verified: both headline tracks decode clean end-to-end
 5:47, Magical Sound Shower 5:32), and the player fetches and lists all
 28. `Beach_wave.wma` (shore ambience) and the `.PAK` co-driver voice
 banks stay unshipped — they are SFX/speech, not BGM.
+
+## Part XXXVIII — walking onto the grid (VR world mode for every course)
+
+All thirty courses now carry a VR world-mode preset: you spawn on the
+start straight a few metres behind the yellow Dino, the driver seated,
+the passenger bouncing her excited loop, Splash Wave or Magical Sound
+Shower looping — the OutRun postcard, walk-in scale. Every number in the
+presets is the game's own, and two of them took real digging:
+
+* **The seats were in the chassis table all along.** The player-car
+  record's "+0x108 two attach points" — noted in Part XXI and never
+  parsed — are the two seat anchors, car-local: driver (-0.318, 0.614,
+  0.257), passenger (0.314, 0.614, 0.292) (the driver side matches the
+  steering-wheel pivot at x=-0.331). They are HIP TARGETS: the live
+  driver record at `0x59D6D0` (same array as the starter's) sits at
+  world (-0.318, 0.618, -15.76) = car frame + anchor exactly, and the
+  seated clips carry the anchor height inside their own character space
+  (SUWARI holds kosi at 0.613 ≈ the anchor's 0.614), so a character
+  ORIGIN goes on the floor at the anchor's x/z and the pose lands the
+  hips on the anchor. First placing the origin AT the anchor stacked
+  the two heights and sat the pair a full seat above the roofline.
+* **The grid slot is one template, every course.** The physics body
+  rests at (0, 0.30, -15.72) with identity rotation (BEAC C2C, PALM
+  OUTRUN2 and BEAC OUTRUN2SP races agree to millimetres); the model
+  frame — ground-origin, nose toward -z, confirmed against the live
+  frame and the rendersheet — sits at (0, 0, -16.0), pinned by
+  driver-record − seat-anchor on both verified courses (PALM lands on
+  -15.9998). A draw-composite capture (`-carvtx` over a full frame,
+  VP recovered from the flagman's known transform in the same frame)
+  chased a phantom here: the car's own draws never surfaced in the
+  dump's c160-163 window, but the record arithmetic made the capture
+  unnecessary.
+* **Spawn and music.** Floor spawn (0, 0, -9) facing down the course —
+  standing eye height lands where the game's chase camera idles. The
+  OutRun2-tour courses loop Splash Wave (bgm-01), the SP tour Magical
+  Sound Shower (bgm-02). The preset fog is the black
+  beyond-everything-visible kind (the SM64DS castle trick): the game's
+  own scn_env_fog on these stages is exponential at density ~1.5e-4 —
+  a clear day — and world mode's far-plane policy needs a finite
+  fog.far to exist at all (null fog crashes the placer).
+
+Verified in ?vremulate=1 sessions on Sunny Beach and (unprobed by any
+fixture) Alpine: level streams in, car/driver/passenger placed, TUNTUN
+playing, music fetched. Presets in site/vr/outrun-2006-xbox/, thirty
+files plus the index entries.
