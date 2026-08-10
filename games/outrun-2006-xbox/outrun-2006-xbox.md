@@ -4294,3 +4294,26 @@ tables (pos (-4.5, 0, -21), rot (0, π, 0), anim `prewave`);
 starter drawn), `spbeac-race2.state` (OUTRUN2SP, Sunny Beach),
 `palm-probe.state`/`spbeac-probe.state` (music select, one A-press from
 the race load).
+
+## Part XXXVII — the soundtrack was never hidden
+
+The background music turns out to be the least protected data on the
+disc: `/Sound` carries the whole music-select jukebox as 28 plainly named
+files — `01_Splash_wave.wma` through `28_Night_Flight_Instrumental.wma`:
+the nine OutRun2/2006 tracks, the three 1986 originals (Splash Wave,
+Magical Sound Shower, Passing Breeze), four 1989 Turbo OutRun tracks,
+the Euro mixes, the arranged versions and the prototypes. They are
+standard WMA v2 streams (44.1 kHz stereo, 128 kbit/s — the format the
+XBE's statically-linked WMADEC decodes at runtime; Part VII met its
+UNPCKHPS instruction long before we knew what it was decoding), so no
+format work was needed: `carex -site` now pulls each track off the disc
+and transcodes it to MP3 through the shared `retrox/audio` helper
+(ffmpeg/libmp3lame, the same settings as every other game's music),
+naming each asset from the disc's own file name.
+
+The Studio's music view picks them up as a 28-track jukebox on the
+OutRun page. Verified: both headline tracks decode clean end-to-end
+(`ffmpeg -f null`), shipped durations match the WMA sources (Splash Wave
+5:47, Magical Sound Shower 5:32), and the player fetches and lists all
+28. `Beach_wave.wma` (shore ambience) and the `.PAK` co-driver voice
+banks stay unshipped — they are SFX/speech, not BGM.

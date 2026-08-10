@@ -2809,6 +2809,314 @@
    "name": "The starter (alternate)",
    "group": "Characters",
    "file": "objects/starter-cvt.json"
+  },
+  {
+   "id": "bgm-01",
+   "category": "music",
+   "name": "Splash wave",
+   "file": "music/bgm-01.mp3",
+   "duration": 347.184762,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/01_Splash_wave.wma"
+   }
+  },
+  {
+   "id": "bgm-02",
+   "category": "music",
+   "name": "Magical Sound Shower",
+   "file": "music/bgm-02.mp3",
+   "duration": 332.231111,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/02_Magical_Sound_Shower.wma"
+   }
+  },
+  {
+   "id": "bgm-03",
+   "category": "music",
+   "name": "Passing Breeze",
+   "file": "music/bgm-03.mp3",
+   "duration": 320.806893,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/03_Passing_Breeze.wma"
+   }
+  },
+  {
+   "id": "bgm-04",
+   "category": "music",
+   "name": "Risky Ride",
+   "file": "music/bgm-04.mp3",
+   "duration": 365.435646,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/04_Risky_Ride.wma"
+   }
+  },
+  {
+   "id": "bgm-05",
+   "category": "music",
+   "name": "Shiny World",
+   "file": "music/bgm-05.mp3",
+   "duration": 366.085805,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/05_Shiny_World.wma"
+   }
+  },
+  {
+   "id": "bgm-06",
+   "category": "music",
+   "name": "Night Flight",
+   "file": "music/bgm-06.mp3",
+   "duration": 365.900045,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/06_Night_Flight.wma"
+   }
+  },
+  {
+   "id": "bgm-07",
+   "category": "music",
+   "name": "Life was a Bore",
+   "file": "music/bgm-07.mp3",
+   "duration": 355.961905,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/07_Life_was_a_Bore.wma"
+   }
+  },
+  {
+   "id": "bgm-08",
+   "category": "music",
+   "name": "Radiation",
+   "file": "music/bgm-08.mp3",
+   "duration": 335.481905,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/08_Radiation.wma"
+   }
+  },
+  {
+   "id": "bgm-09",
+   "category": "music",
+   "name": "Night Bird",
+   "file": "music/bgm-09.mp3",
+   "duration": 358.19102,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/09_Night_Bird.wma"
+   }
+  },
+  {
+   "id": "bgm-10",
+   "category": "music",
+   "name": "Splash wave 1986",
+   "file": "music/bgm-10.mp3",
+   "duration": 352.014512,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/10_Splash_wave_1986.wma"
+   }
+  },
+  {
+   "id": "bgm-11",
+   "category": "music",
+   "name": "Magical Sound Shower 1986",
+   "file": "music/bgm-11.mp3",
+   "duration": 326.472562,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/11_Magical_Sound_Shower_1986.wma"
+   }
+  },
+  {
+   "id": "bgm-12",
+   "category": "music",
+   "name": "Passing Breeze 1986",
+   "file": "music/bgm-12.mp3",
+   "duration": 342.401451,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/12_Passing_Breeze_1986.wma"
+   }
+  },
+  {
+   "id": "bgm-13",
+   "category": "music",
+   "name": "Shake the Street 1989",
+   "file": "music/bgm-13.mp3",
+   "duration": 218.360454,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/13_Shake_the_Street_1989.wma"
+   }
+  },
+  {
+   "id": "bgm-14",
+   "category": "music",
+   "name": "Rush a Difficulty 1989",
+   "file": "music/bgm-14.mp3",
+   "duration": 199.73805,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/14_Rush_a_Difficulty_1989.wma"
+   }
+  },
+  {
+   "id": "bgm-15",
+   "category": "music",
+   "name": "Who are You 1989",
+   "file": "music/bgm-15.mp3",
+   "duration": 294.429025,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/15_Who_are_You_1989.wma"
+   }
+  },
+  {
+   "id": "bgm-16",
+   "category": "music",
+   "name": "Keep Your Heart 1989",
+   "file": "music/bgm-16.mp3",
+   "duration": 260.852971,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/16_Keep_Your_Heart_1989.wma"
+   }
+  },
+  {
+   "id": "bgm-17",
+   "category": "music",
+   "name": "Splash Wave EuroMix",
+   "file": "music/bgm-17.mp3",
+   "duration": 392.092154,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/17_Splash_Wave_EuroMix.wma"
+   }
+  },
+  {
+   "id": "bgm-18",
+   "category": "music",
+   "name": "Magical Sound Shower EuroMix",
+   "file": "music/bgm-18.mp3",
+   "duration": 370.497596,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/18_Magical_Sound_Shower_EuroMix.wma"
+   }
+  },
+  {
+   "id": "bgm-19",
+   "category": "music",
+   "name": "Passing Breeze EuroMix",
+   "file": "music/bgm-19.mp3",
+   "duration": 440.06458,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/19_Passing_Breeze_EuroMix.wma"
+   }
+  },
+  {
+   "id": "bgm-20",
+   "category": "music",
+   "name": "Risky Ride Guitar Mix",
+   "file": "music/bgm-20.mp3",
+   "duration": 365.110567,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/20_Risky_Ride_Guitar_Mix.wma"
+   }
+  },
+  {
+   "id": "bgm-21",
+   "category": "music",
+   "name": "Shake the Street ARRANGED",
+   "file": "music/bgm-21.mp3",
+   "duration": 347.370522,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/21_Shake_the_Street_ARRANGED.wma"
+   }
+  },
+  {
+   "id": "bgm-22",
+   "category": "music",
+   "name": "Who are you ARRANGED",
+   "file": "music/bgm-22.mp3",
+   "duration": 336.782222,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/22_Who_are_you_ARRANGED.wma"
+   }
+  },
+  {
+   "id": "bgm-23",
+   "category": "music",
+   "name": "Rush a difficulty ARRANGED",
+   "file": "music/bgm-23.mp3",
+   "duration": 359.723537,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/23_Rush_a_difficulty_ARRANGED.wma"
+   }
+  },
+  {
+   "id": "bgm-24",
+   "category": "music",
+   "name": "Keep your Heart ARRANGED",
+   "file": "music/bgm-24.mp3",
+   "duration": 347.649161,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/24_Keep_your_Heart_ ARRANGED.wma"
+   }
+  },
+  {
+   "id": "bgm-25",
+   "category": "music",
+   "name": "Shiny World prototype",
+   "file": "music/bgm-25.mp3",
+   "duration": 366.085805,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/25_Shiny_World_prototype.wma"
+   }
+  },
+  {
+   "id": "bgm-26",
+   "category": "music",
+   "name": "Night Flight prototype",
+   "file": "music/bgm-26.mp3",
+   "duration": 359.630658,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/26_Night_Flight_prototype.wma"
+   }
+  },
+  {
+   "id": "bgm-27",
+   "category": "music",
+   "name": "Life was a Bore Instrumental",
+   "file": "music/bgm-27.mp3",
+   "duration": 352.711111,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/27_Life_was_a_Bore_Instrumental.wma"
+   }
+  },
+  {
+   "id": "bgm-28",
+   "category": "music",
+   "name": "Night Flight Instrumental",
+   "file": "music/bgm-28.mp3",
+   "duration": 359.677098,
+   "stats": {
+    "on disc": "WMA v2, 44.1 kHz stereo, 128 kbit/s",
+    "source": "/Sound/28_Night_Flight_Instrumental.wma"
+   }
   }
  ]
 }

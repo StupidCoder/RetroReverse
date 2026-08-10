@@ -2269,6 +2269,11 @@ func exportSite(imagePath, siteDir string) {
 		fatal("characters: %v", err)
 	}
 
+	// The soundtrack: the /Sound jukebox WMAs transcoded to MP3.
+	if err := exportMusic(disc, b); err != nil {
+		fatal("music: %v", err)
+	}
+
 	if err := b.Write(); err != nil {
 		fatal("%v", err)
 	}
