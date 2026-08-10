@@ -162,14 +162,21 @@ func appendTextured(b *builder, st *sharedTex, matBase int,
 			mat["alphaMode"] = "OPAQUE"
 			delete(mat, "alphaCutoff")
 		}
-		if g.Blend || g.Additive || g.Alpha > 0 {
+		if g.Blend || g.Additive || g.Decal || g.Alpha > 0 {
 			mat["alphaMode"] = "BLEND"
 			delete(mat, "alphaCutoff")
 		}
 		if g.Alpha > 0 && g.Alpha < 1 {
 			mat["pbrMetallicRoughness"].(map[string]any)["baseColorFactor"] = []float64{1, 1, 1, g.Alpha}
 		}
-		if extras := groupExtras(g.Additive, g.Sheen, g.Matcap); extras != nil {
+		extras := groupExtras(g.Additive, g.Sheen, g.Matcap)
+		if g.Decal {
+			if extras == nil {
+				extras = map[string]any{}
+			}
+			extras["decal"] = true
+		}
+		if extras != nil {
 			mat["extras"] = extras
 		}
 		materials = append(materials, mat)

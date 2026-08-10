@@ -476,6 +476,11 @@ type TexturedGroup struct {
 	// — the guest's per-polygon translucency, which is a property of the DRAW
 	// and not of the image. Implies BLEND.
 	Alpha float64
+	// Decal marks a baked ground decal (a car's shadow blob): alphaMode BLEND
+	// plus extras {"decal": true} — the viewer renders it depth-biased with
+	// depth writes off, so a quad lying ON the road neither z-fights it nor
+	// stamps opaque black (the source draws it SRC_ALPHA/ONE_MINUS_SRC_ALPHA).
+	Decal bool
 	// Matcap marks the material extras {"matcap": true}: the texture is not a
 	// picture on the surface, it is sampled BY THE SURFACE NORMAL. Guests that
 	// generate texture coordinates from the normal (the DS's texgen mode 2,

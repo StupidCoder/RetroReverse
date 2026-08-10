@@ -4390,3 +4390,29 @@ identical picture. The VR win is the point though: a wide stereo view
 down the track puts most of the scenery in frustum — the unbatched cost
 heads for the full several hundred per eye while the batch stays at
 ~85 whichever way you face.
+
+## Part XL — the shadow was a decal, and the matrices were busywork
+
+Two Quest follow-ups. The car's ground shadow rendered as an opaque
+black slab z-fighting the asphalt: the exporter had shipped the kind-2
+shadow part MASK-opaque, but the game's own draw state for that part —
+sitting in the Part XXXIX capture all along (`blend=1:302:303`,
+alpha-test ref 8 vs the body draws' ref 1) — is plain
+SRC_ALPHA/ONE_MINUS_SRC_ALPHA blending. The part now exports as a
+ground decal: alphaMode BLEND plus material extras `{"decal": true}`,
+which the viewer renders with no depth write and a -1/-1 polygon offset
+so the coplanar road cannot fight it. All thirty car GLBs regenerate
+with it. (Reading that capture also corrected Part XXXIX's "the car's
+draws never surfaced" — the 0x024xxxxx VBs WERE the car; the earlier
+draw-transform recovery had calibrated VP on one of them believing it
+was the flagman, which made the whole solve circular. The record
+arithmetic that actually placed the car was independent and stands.)
+
+And more main-thread headroom: three.js recomposes every auto-updating
+matrix in the scene each frame — thousands of composes for geometry
+that never moves. Static placements (and the instancing batch's
+invisible pick proxies) and every layer tree now freeze
+matrixAutoUpdate after their one real compose; billboard nodes already
+drive their own matrix and flag matrixWorldNeedsUpdate, and the
+camera-attached sky moves via its live group node, so both keep
+working frozen.

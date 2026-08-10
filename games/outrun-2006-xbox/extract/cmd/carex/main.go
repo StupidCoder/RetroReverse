@@ -1641,7 +1641,12 @@ func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, s
 	type texKey struct {
 		tex             int
 		additive, sheen bool
-		wrapS, wrapT    int
+		// decal marks the car's baked ground-shadow part: the game draws it
+		// alpha-blended (race capture: blend=1:302:303, SRC_ALPHA /
+		// ONE_MINUS_SRC_ALPHA, alpha-test ref 8) flat on the road plane —
+		// exported opaque it renders pitch black and z-fights the asphalt.
+		decal        bool
+		wrapS, wrapT int
 	}
 	type colKey struct {
 		rgba            [4]int
@@ -1751,7 +1756,7 @@ func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, s
 			totalTris += len(tris)
 			m := pt.mats[b.matIdx]
 			if m.texIdx >= 0 && texs[m.texIdx].img != nil && !texs[m.texIdx].cube {
-				k := texKey{m.texIdx, m.additive, m.sheen, m.wrapS, m.wrapT}
+				k := texKey{m.texIdx, m.additive, m.sheen, pl.label == "ground shadow", m.wrapS, m.wrapT}
 				na.texTris[k] = append(na.texTris[k], tris...)
 			} else {
 				k := colKey{[4]int{int(m.diffuse[0] * 255), int(m.diffuse[1] * 255), int(m.diffuse[2] * 255), int(m.alpha * 255)}, m.additive, m.sheen}
@@ -1782,13 +1787,16 @@ func buildVariant(p *pmt, texs []texInfo, plan []placement) (glb.ModelVariant, s
 			if a.additive != b.additive {
 				return !a.additive
 			}
-			return !a.sheen && b.sheen
+			if a.sheen != b.sheen {
+				return !a.sheen
+			}
+			return !a.decal && b.decal
 		})
 		var texGroups []glb.TexturedGroup
 		for _, k := range tkeys {
 			texGroups = append(texGroups, glb.TexturedGroup{
 				Tris: na.texTris[k], Image: texs[k.tex].img, WrapS: k.wrapS, WrapT: k.wrapT,
-				Additive: k.additive, Sheen: k.sheen,
+				Additive: k.additive, Sheen: k.sheen, Decal: k.decal,
 				// The game's own alpha test: enabled with ref 0x01 at every
 				// opaque stage/car draw (bootoracle -carvtx at=1:…:01) — only
 				// fully transparent texels are cut. The road's asphalt alpha

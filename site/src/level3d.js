@@ -139,6 +139,15 @@ export async function mount(ctx, doc) {
         applyLayerLook(gltf.scene, ly);
         await applyLayerMaterialExtras(gltf.scene, ly, game, docPath);
         wireBillboardNodes(gltf.scene, stage);
+        // Layer geometry never moves, but every auto-updating node recomposes
+        // its local matrix each frame — thousands of composes on the bigger
+        // courses, on the Quest's one busy thread. Freeze the tree: billboard
+        // nodes already drive their own matrix and flag matrixWorldNeedsUpdate,
+        // and the camera-attached sky moves via the GROUP node, which stays
+        // live — a frozen child still follows a moving parent (the force
+        // cascade recomputes world from the frozen local).
+        gltf.scene.updateMatrixWorld(true);
+        gltf.scene.traverse((o) => { o.matrixAutoUpdate = false; });
       }
       stage.scene.add(group);
       roots.push(group);
@@ -360,6 +369,17 @@ export async function mount(ctx, doc) {
       const s = instanced.stats;
       console.log(`instanced ${s.taken} placements: ${s.callsBefore} draw calls -> ${s.meshes}`);
     }
+  }
+
+  // Static placements never move, but three recomposes every auto-updating
+  // matrix in the scene each frame — on a Quest that is hundreds of pointless
+  // composes per frame for scenery (and for the batch's invisible pick
+  // proxies, which never render at all). Freeze them; anything with an
+  // updater (billboards, behaviours) keeps its live matrix.
+  for (const r of placementById.values()) {
+    if (r.upd || r.inst.update || r.inst.playAnim) continue;
+    r.node.updateMatrixWorld(true);
+    r.node.traverse((o) => { o.matrixAutoUpdate = false; });
   }
 
   // hoisted: the variant setter can fire while placements are still loading

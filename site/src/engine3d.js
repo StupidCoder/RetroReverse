@@ -732,6 +732,19 @@ export class ObjectLibrary {
           m.depthWrite = false;
           m.needsUpdate = true;
         }
+        if (m.userData?.decal) {
+          // A baked ground decal (a car's shadow blob) lies ON the surface it
+          // shades: the source draws it alpha-blended in the same plane and
+          // wins the depth tie by submission order. Here it gets the same
+          // blend plus a polygon offset so the coplanar road cannot z-fight
+          // it, and no depth write — a decal has no thickness to record.
+          m.transparent = true;
+          m.depthWrite = false;
+          m.polygonOffset = true;
+          m.polygonOffsetFactor = -1;
+          m.polygonOffsetUnits = -1;
+          m.needsUpdate = true;
+        }
         if (cube && m.userData?.sheen) {
           // The game's combiner ADDS the reflection; the fixed 0.3 amount is
           // a declared approximation (the exact scale lives in the material
