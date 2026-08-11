@@ -863,6 +863,12 @@ type BCHMaterial struct {
 	AlphaFunc uint8 // its comparison, in the PICA's numbering (gpu_tev.go)
 	AlphaRef  uint8 // its reference value
 
+	// WrapS/WrapT are the texture-unit wrap modes the material programs, one
+	// pair per unit. Hard-coding REPEAT tiles the goal star's single eye
+	// texture into a row of slots across its face.
+	WrapS, WrapT [3]PICAWrap
+	wrapSet      [3]bool
+
 	// The material's own combiner program, and which of the six stages its
 	// command list actually writes. The distinction matters: PICA registers
 	// latch, so the register file during a draw also holds whatever the
@@ -883,6 +889,14 @@ const (
 	AlphaGreater
 	AlphaGEqual
 )
+
+// WrapModes returns the wrap modes the material programs for a texture unit,
+// and whether it programs them at all. A material that never writes the unit's
+// parameter register leaves whatever the previous draw set — the register file
+// is not the material.
+func (m *BCHMaterial) WrapModes(unit int) (s, t PICAWrap, ok bool) {
+	return m.WrapS[unit], m.WrapT[unit], m.wrapSet[unit]
+}
 
 // PICA blend factors this decoder names.
 const (
@@ -992,6 +1006,15 @@ func (f *BCH) decodeMaterialState(obj int64, m *BCHMaterial) error {
 		}
 	}
 	m.tev = tevStateFromRegs(&regs)
+	for u := 0; u < 3; u++ {
+		_, param, _, _ := texUnitRegs(u)
+		// Only a register the material WROTE says anything. An unwritten one
+		// reads zero, and zero is CLAMP_TO_EDGE — a perfectly plausible answer
+		// that would be the decoder's invention, not the material's.
+		m.wrapSet[u] = written[param]
+		m.WrapS[u] = PICAWrap(regs[param] >> 12 & 7)
+		m.WrapT[u] = PICAWrap(regs[param] >> 8 & 7)
+	}
 
 	bf := regs[regBlendFunc]
 	srcRGB, dstRGB := bf>>16&0xF, bf>>20&0xF
@@ -1187,30 +1210,60 @@ func (m *BCHMaterial) BakeCheck() float64 {
 // whose second texture is on a different UV set would need more than that, and
 // none of the characters' do (checked: their colour stages read tex1 only).
 func (m *BCHMaterial) BakeAlbedo(textures map[string]*image.NRGBA) (*image.NRGBA, error) {
-	src := textures[m.Names[bchUnitAlbedo]]
-	if src == nil {
-		// No albedo texture: the chain is constants alone, so one texel says
-		// everything about it.
-		src = image.NewNRGBA(image.Rect(0, 0, 1, 1))
-		src.Set(0, 0, color.NRGBA{255, 255, 255, 255})
+	// Every unit the material binds, sampled from the texture it names.
+	//
+	// ⚠ Unit 0 is NOT always the shadow map. It is on the terrain and on the
+	// characters, whose materials name `$shadowmap` there — a target the engine
+	// renders at run time, which no archive holds. The goal star binds real
+	// textures to it and BUILDS ITS ALPHA OUT OF THEM: its glow quad's chain is
+	// `alpha = tex0.r + tex1.r + tex2.r`. Substituting an opaque white for unit
+	// 0 because the terrain's is a shadow map turned that glow into a solid
+	// yellow card with the star behind it.
+	//
+	// So the rule is what the archive can answer, not what the name looks like:
+	// a bound name the archive holds is sampled, and a name it does not hold is
+	// something the engine makes at run time and gets the neutral value that
+	// means "not there" — unoccluded for the shadow unit, a flat normal for the
+	// bump unit.
+	var units [3]*image.NRGBA
+	w, h := 0, 0
+	for u := 0; u < 3; u++ {
+		img := textures[m.Names[u]]
+		units[u] = img
+		if img == nil {
+			continue
+		}
+		if img.Bounds().Dx() > w {
+			w = img.Bounds().Dx()
+		}
+		if img.Bounds().Dy() > h {
+			h = img.Bounds().Dy()
+		}
 	}
-	nrm := textures[m.Names[bchUnitNormal]]
-	b := src.Bounds()
-	out := image.NewNRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
-	for y := 0; y < b.Dy(); y++ {
-		for x := 0; x < b.Dx(); x++ {
-			c := src.NRGBAAt(b.Min.X+x, b.Min.Y+y)
-			tex := [3]rgba{
-				{255, 255, 255, 255}, // unit 0: the shadow map, unoccluded
-				{int32(c.R), int32(c.G), int32(c.B), int32(c.A)},
-				{128, 128, 255, 255}, // unit 2: a flat normal
+	if w == 0 || h == 0 {
+		// The chain is constants alone, so one texel says everything about it.
+		w, h = 1, 1
+	}
+
+	// The units are sampled at a shared coordinate, which is right only because
+	// these meshes carry one UV set — the materials that bind more than one
+	// texture all draw meshes with UVCount 1. A material whose units read
+	// different UV sets would need the mesh's UVs, not a texel grid.
+	neutral := [3]rgba{{255, 255, 255, 255}, {255, 255, 255, 255}, {128, 128, 255, 255}}
+	out := image.NewNRGBA(image.Rect(0, 0, w, h))
+	white := rgba{255, 255, 255, 255}
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			tex := neutral
+			for u := 0; u < 3; u++ {
+				img := units[u]
+				if img == nil {
+					continue
+				}
+				ib := img.Bounds()
+				c := img.NRGBAAt(ib.Min.X+x*ib.Dx()/w, ib.Min.Y+y*ib.Dy()/h)
+				tex[u] = rgba{int32(c.R), int32(c.G), int32(c.B), int32(c.A)}
 			}
-			if nrm != nil {
-				nb := nrm.Bounds()
-				n := nrm.NRGBAAt(nb.Min.X+x*nb.Dx()/b.Dx(), nb.Min.Y+y*nb.Dy()/b.Dy())
-				tex[2] = rgba{int32(n.R), int32(n.G), int32(n.B), int32(n.A)}
-			}
-			white := rgba{255, 255, 255, 255}
 			r, ok := m.tev.run(white, white, rgba{0, 0, 0, 0}, tex)
 			if !ok {
 				return nil, fmt.Errorf("material %q: its combiner uses a source or op this model does not implement", m.Name)

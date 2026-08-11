@@ -20,5 +20,6 @@
    "loop": "hold"
   }
  ],
- "model": "goalitem.glb"
+ "model": "goalitem.glb",
+ "skinnedClone": true
 }

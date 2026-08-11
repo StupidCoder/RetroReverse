@@ -20,5 +20,6 @@
    "loop": "hold"
   }
  ],
- "model": "kinopico.glb"
+ "model": "kinopico.glb",
+ "skinnedClone": true
 }

@@ -130,6 +130,28 @@ const (
 	WrapMirroredRepeat PICAWrap = 3
 )
 
+// glTF sampler wrap enums.
+const (
+	GLTFRepeat   = 10497
+	GLTFClamp    = 33071
+	GLTFMirrored = 33648
+)
+
+// GLTF maps a PICA wrap mode onto glTF's. CLAMP_TO_BORDER has no glTF
+// equivalent (glTF has no border colour), so it is refused rather than silently
+// downgraded to clamp-to-edge.
+func (w PICAWrap) GLTF() (int, error) {
+	switch w {
+	case WrapClampToEdge:
+		return GLTFClamp, nil
+	case WrapRepeat:
+		return GLTFRepeat, nil
+	case WrapMirroredRepeat:
+		return GLTFMirrored, nil
+	}
+	return 0, fmt.Errorf("wrap mode %d (clamp-to-border) has no glTF equivalent", w)
+}
+
 // TexMapper is one of a material's texture mappers: the texture it samples,
 // which of the shape's UV sets feeds it, the transform applied to that UV, and
 // the sampler's wrap modes.

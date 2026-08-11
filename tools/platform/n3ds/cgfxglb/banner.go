@@ -281,18 +281,7 @@ const (
 // gltfWrap maps a PICA wrap mode onto glTF's. CLAMP_TO_BORDER has no glTF
 // equivalent (glTF has no border colour), so it is refused rather than silently
 // downgraded to clamp-to-edge.
-func gltfWrap(w n3ds.PICAWrap) (int, error) {
-	switch w {
-	case n3ds.WrapClampToEdge:
-		return gltfClamp, nil
-	case n3ds.WrapRepeat:
-		return gltfRepeat, nil
-	case n3ds.WrapMirroredRepeat:
-		return gltfMirrored, nil
-	default:
-		return 0, fmt.Errorf("wrap mode %d (clamp-to-border) has no glTF equivalent", w)
-	}
-}
+func gltfWrap(w n3ds.PICAWrap) (int, error) { return w.GLTF() }
 
 // uvArray extracts the UV set a mapper reads and puts it through the mapper's
 // texture matrix. The result is still in PICA texture space (V up).

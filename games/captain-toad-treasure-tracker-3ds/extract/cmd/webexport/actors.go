@@ -114,11 +114,13 @@ func exportActors(fs *n3ds.RomFS, stage string, path func(rel ...string) (string
 		if err != nil {
 			return nil, nil, err
 		}
-		tris, clips, err := exportActor(fs, a, out, cache)
+		tris, clips, skinned, err := exportActor(fs, a, out, cache)
 		if err != nil {
 			return nil, nil, fmt.Errorf("%s: %w", a.id, err)
 		}
-		objs = append(objs, objectAsset{actor: a, file: a.id + ".glb", tris: tris, clips: clips})
+		objs = append(objs, objectAsset{
+			actor: a, file: a.id + ".glb", tris: tris, clips: clips, skinned: skinned,
+		})
 	}
 	return objs, places, nil
 }
@@ -129,14 +131,25 @@ type objectAsset struct {
 	file  string
 	tris  int
 	clips []schema.Animation
+
+	// skinned records that the GLB's meshes are bound to a skeleton, which the
+	// level document has to say out loud: the viewer places an object by
+	// *cloning* its prototype, and a plain three.js clone of a skinned mesh
+	// keeps pointing at the ORIGINAL skeleton's bones — bones that live under a
+	// prototype nobody adds to the scene, so their world matrices stay the
+	// identity. Every bone-space mesh then draws at the origin, which is a
+	// character collapsed into a heap with its cap under its chin. `skinnedClone`
+	// is what asks for SkeletonUtils.clone instead, and it also keeps the object
+	// out of the instanced-batching path, which drops skinning altogether.
+	skinned bool
 }
 
 // exportActor writes one actor's GLB: its skeleton, its skinned meshes with the
 // material's own baked albedo, and its clips.
-func exportActor(fs *n3ds.RomFS, a actor, out string, cache map[string]*objectArchive) (int, []schema.Animation, error) {
+func exportActor(fs *n3ds.RomFS, a actor, out string, cache map[string]*objectArchive) (int, []schema.Animation, bool, error) {
 	o, err := loadObject(fs, a.object, cache)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, false, err
 	}
 	model := o.Model
 	if model == nil || model.Name != a.model {
@@ -147,7 +160,7 @@ func exportActor(fs *n3ds.RomFS, a actor, out string, cache map[string]*objectAr
 		}
 	}
 	if model == nil {
-		return 0, nil, fmt.Errorf("no model named %q", a.model)
+		return 0, nil, false, fmt.Errorf("no model named %q", a.model)
 	}
 
 	want := map[string]bool{}
@@ -157,7 +170,7 @@ func exportActor(fs *n3ds.RomFS, a actor, out string, cache map[string]*objectAr
 
 	s := glb.NewScene()
 	rig := bchglb.AddSkeleton(s, model, -1, "")
-	tris := 0
+	tris, skinned := 0, false
 	for i := range model.Meshes {
 		sh := &model.Meshes[i]
 		mat := &model.Materials[sh.MaterialIndex]
@@ -169,20 +182,21 @@ func exportActor(fs *n3ds.RomFS, a actor, out string, cache map[string]*objectAr
 		}
 		pr, err := actorPrim(sh, mat, model, o.Textures)
 		if err != nil {
-			return 0, nil, err
+			return 0, nil, false, err
 		}
 		tris += len(pr.Tris)
 		bchglb.BindJoints(&pr, sh)
 		node := s.AddNode(mat.Name, -1, [3]float32{}, [4]float32{0, 0, 0, 1}, [3]float32{1, 1, 1})
 		if err := s.AddMesh(node, mat.Name, []glb.Prim{pr}); err != nil {
-			return 0, nil, err
+			return 0, nil, false, err
 		}
 		if sk := rig.Skin(s, sh); sk >= 0 {
 			s.SetNodeSkin(node, sk)
+			skinned = true
 		}
 	}
 	for n := range want {
-		return 0, nil, fmt.Errorf("the visible set names %q, which the model does not have", n)
+		return 0, nil, false, fmt.Errorf("the visible set names %q, which the model does not have", n)
 	}
 
 	// Clips come from the object's own archive unless it names another.
@@ -190,7 +204,7 @@ func exportActor(fs *n3ds.RomFS, a actor, out string, cache map[string]*objectAr
 	if a.animArc != "" {
 		anims, err := loadObject(fs, a.animArc, cache)
 		if err != nil {
-			return 0, nil, err
+			return 0, nil, false, err
 		}
 		sources = append(sources, anims)
 	}
@@ -205,10 +219,10 @@ func exportActor(fs *n3ds.RomFS, a actor, out string, cache map[string]*objectAr
 					}
 					an, err := f.DecodeSkeletalAnim(e)
 					if err != nil {
-						return 0, nil, fmt.Errorf("clip %q: %w", want, err)
+						return 0, nil, false, fmt.Errorf("clip %q: %w", want, err)
 					}
 					if err := bchglb.AddClip(s, rig, an, want); err != nil {
-						return 0, nil, err
+						return 0, nil, false, err
 					}
 					found = true
 					// Whether a clip repeats is the animation header's own
@@ -222,10 +236,10 @@ func exportActor(fs *n3ds.RomFS, a actor, out string, cache map[string]*objectAr
 			}
 		}
 		if !found {
-			return 0, nil, fmt.Errorf("no skeletal animation named %q", want)
+			return 0, nil, false, fmt.Errorf("no skeletal animation named %q", want)
 		}
 	}
-	return tris, got, s.Write(out, a.model)
+	return tris, got, skinned, s.Write(out, a.model)
 }
 
 // actorPrim builds one mesh's primitive: the material's baked albedo, the
@@ -256,7 +270,26 @@ func actorPrim(sh *n3ds.BCHMesh, mat *n3ds.BCHMaterial, model *n3ds.BCHModel, te
 		for j, v := range sh.Verts {
 			pr.UVs[j] = [2]float32{v.UV[0][0], 1 - v.UV[0][1]}
 		}
+		// The wrap the material states, when it states one. None of these
+		// materials does — not one writes its texture unit's parameter
+		// register — so this falls back to REPEAT, which is what the game
+		// programs for the draws the oracle can be asked about (the character
+		// textures come back with wrap 2/2 in their unit-1 parameter word).
+		//
+		// ⚠ That is not the whole story, and the goal star shows where it runs
+		// out: its eye mesh's UVs span u -0.47..4.49, five tiles of a texture
+		// holding ONE eye, which comes out as a row of slots across its face.
+		// A material carries a texture MATRIX as well as a wrap, and this
+		// decoder does not read it yet — see uv-set-is-not-a-texture-coord.
 		pr.WrapS, pr.WrapT = gltfRepeat, gltfRepeat
+		if ws, wt, ok := mat.WrapModes(1); ok {
+			if g, err := ws.GLTF(); err == nil {
+				pr.WrapS = g
+			}
+			if g, err := wt.GLTF(); err == nil {
+				pr.WrapT = g
+			}
+		}
 	}
 	switch {
 	case mat.Additive():

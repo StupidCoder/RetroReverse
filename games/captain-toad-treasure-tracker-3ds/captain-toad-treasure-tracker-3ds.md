@@ -1751,3 +1751,61 @@ decimals. Two independent routes to the same vector.
 Toad (2,554 tris, 5 clips), Toadette (2,764, 3) and the goal star (180, 3), each skinned, each with
 its own light bake, and each placed in the opening diorama at the position, facing and starting
 animation the stage's own map gives it.
+
+
+## Part XXV — Three bugs the Studio found that my own renderer could not
+
+Part XXIV verified the characters by rendering the shipped GLB with `tools/cmd/rendersheet` and looking
+at the picture. They were right in that picture and wrong in the Studio, which is the renderer that
+matters. Opening the artefact is not enough if you open it somewhere else.
+
+### 1. A plain clone does not rebind a skeleton
+
+In the viewer, Toad arrived as a heap with his cap under his chin. The cause is one field:
+
+    engine3d._model:  const node = doc.skinnedClone ? SkeletonUtils.clone(src) : src.clone(true);
+
+`Object3D.clone(true)` copies a `SkinnedMesh` but leaves its `skeleton` pointing at the **original**
+bones — bones that live under a prototype nobody adds to the scene, so their world matrices are never
+updated and stay the identity. Every *bone-space* mesh then draws at the origin while the model-space
+ones stay put, which is precisely a character with its rigid parts collapsed into a pile. It is the
+Part XXIV finding again, seen from the other end: the two spaces are real, and the failure mode of
+losing the skeleton is exactly the failure mode of applying the wrong rule.
+
+`skinnedClone: true` asks for `SkeletonUtils.clone` instead, and also keeps the object out of the
+instanced-batching path, which drops skinning altogether. Every other game in the repo that ships a
+skinned model already sets it; this export did not. It is now derived, not declared: an actor sets it
+when any of its meshes got a skin.
+
+### 2. Texture unit 0 is not always the shadow map
+
+The goal star came out as a solid yellow card with the star behind it. `BakeAlbedo` was substituting
+an opaque white for unit 0, on the grounds that the terrain and the characters bind `$shadowmap`
+there. The star binds **real textures** to unit 0 and builds its alpha out of them — its glow quad's
+chain is `alpha = tex0.r + tex1.r + tex2.r` — so the substitution made every glow and sparkle fully
+opaque.
+
+The fix is to stop reasoning about the name and ask the archive: a bound texture the archive holds is
+sampled, and a name it does not hold is something the engine renders at run time (the shadow map, a
+cube map) and gets the neutral value that means "not there". The glow and the sparkles now blend and
+add as the material says.
+
+### 3. A wrap mode read out of a register nobody wrote
+
+Chasing a row of dark slots across the star's face, I decoded the materials' texture-unit wrap modes
+and got a clean, plausible answer: **CLAMP_TO_EDGE, all 97 materials across three models.** It was
+the decoder's invention. Not one of those materials writes its unit's parameter register, and an
+unwritten register reads zero, and zero is CLAMP_TO_EDGE. `WrapModes` now reports whether the
+material said anything at all — [[stored-registers-are-not-read-registers]], caught this time by
+asking before believing.
+
+What the game actually programs, for the only draws the oracle can be asked about, is REPEAT (the
+character textures come back with wrap 2/2), so that is the fallback and it is right for the terrain
+and the characters.
+
+The star's slots are still there, and now precisely understood: its eye mesh's UVs span
+**u −0.47 … 4.49** — five tiles of a texture holding one eye. A material carries a texture *matrix*
+as well as a wrap, and this decoder does not read it yet. See [[uv-set-is-not-a-texture-coord]],
+which is the same lesson from the banner: a vertex UV set is not a texture coordinate until the
+material's mapper has had its say.
+

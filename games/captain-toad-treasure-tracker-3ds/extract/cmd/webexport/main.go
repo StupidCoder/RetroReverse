@@ -93,7 +93,8 @@ func exportStages(ctx *cli.Context) error {
 	for i, a := range acts {
 		ctx.Builder.AddObject(schema.Asset{ID: a.actor.id, Name: a.actor.name, Group: "Actors"}, &schema.Object{
 			Type: schema.ObjectModel3D, Name: a.actor.name, Model: a.file,
-			Animations: a.clips,
+			Animations:   a.clips,
+			SkinnedClone: a.skinned,
 		})
 		ctx.Progress("objects", i+2, len(acts)+1,
 			fmt.Sprintf("%s (%d tris, %d clips)", a.file, a.tris, len(a.clips)))
