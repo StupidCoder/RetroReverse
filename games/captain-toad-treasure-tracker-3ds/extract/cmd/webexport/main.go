@@ -89,9 +89,18 @@ func exportStages(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		tris, lights, skipped, err := exportStage(fs, st.stage, out)
+		shadowFile := st.id + "-shadow.glb"
+		shadowOut, err := ctx.Builder.Path("levels", shadowFile)
+		if err != nil {
+			return err
+		}
+		tris, lights, casters, skipped, err := exportStage(fs, st.stage, out, shadowOut)
 		if err != nil {
 			return fmt.Errorf("%s: %w", st.stage, err)
+		}
+		layers := []schema.Layer{{ID: "stage", File: file}}
+		if casters > 0 {
+			layers = append(layers, schema.Layer{ID: "shadow", File: shadowFile, Role: "shadow"})
 		}
 		if len(skipped) > 0 {
 			fmt.Printf("  %s: %d placed objects have no model archive yet: %s\n",
@@ -105,11 +114,11 @@ func exportStages(ctx *cli.Context) error {
 				Target: []float64{0, -400, 0},
 			},
 			Scene: &schema.Scene{
-				Layers: []schema.Layer{{ID: "stage", File: file}},
+				Layers: layers,
 				Lights: lights,
 			},
 		})
-		ctx.Progress("levels", i+1, len(stages), fmt.Sprintf("%s (%d tris, %d lights)", file, tris, len(lights)))
+		ctx.Progress("levels", i+1, len(stages), fmt.Sprintf("%s (%d tris, %d lights, %d shadow-caster tris)", file, tris, len(lights), casters))
 	}
 	return nil
 }

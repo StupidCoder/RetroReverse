@@ -1439,9 +1439,37 @@ Measured on the same surfaces, ours against a frame the oracle drew:
 | the Studio's | 1.26, 1.34, 1.22 |
 
 and the lit stone's hue is warmer than the console's (blue at 0.74 of red against the reference's
-0.93). Both residuals point the same way, and it is the honest place to leave this: **what is modelled
-is the diffuse rig — ambient plus `N·L` — and what is not is everything that adds a neutral highlight
-or takes light away.** The specular and Fresnel lookup tables (Part XVIII named six of them), the
-normal maps on texture unit 2, and the depth-shadow map on unit 0 are all still on the floor. A neutral
-specular is exactly what would pull the hue back towards the reference, and a shadow map is exactly
-what would deepen the sides.
+0.93). Both residuals point the same way: **what is modelled is the diffuse rig — ambient plus `N·L` —
+and what is not is everything that adds a neutral highlight or takes light away.** The shadow map is
+the next section; the specular and Fresnel lookup tables and the unit-2 normal maps are still on the
+floor.
+
+### The shadow: the one thing that composes with a bake
+
+A shadow **multiplies**, and a multiply is the single operation that survives the gamma/linear round
+trip unchanged — `(a·s)` and `(a^2.2·s^2.2)^(1/2.2)` are the same number. So unlike the diffuse rig, the
+shadow does not have to be baked to be exact: it can be evaluated live, in whichever space the renderer
+happens to be in, and still land on the value the console computes.
+
+The caster was already in the cartridge and already being skipped. Every object archive holds a coarse
+second model beside its visible one — `Season1OpeningStepA_shd`, 136 triangles — and its
+`InitExecutor.byml` lists it under the draw categories `デプスシャドウ[地形]` and `Ｚプリパス[地形]`,
+depth-shadow and Z-prepass. That is what the game renders its shadow map from, so it is what the Studio
+renders its shadow map from: the export publishes it as a level layer with role `shadow`, geometry that
+exists to be rendered from the light and never to be seen.
+
+`site/src/shadowmap.js` renders it once — the scene and the light are both static — into a packed-depth
+target from an orthographic camera along `mainLight`, and patches every other layer's material to
+multiply by the comparison. Two details make it right rather than decorative:
+
+- The injection sits **after `<colorspace_fragment>`**, where `gl_FragColor` is already in the output's
+  gamma space. That is the space the guest's combiner multiplies in, so the multiply needs no
+  conversion at all.
+- **A shadow removes one light's contribution, not all of them.** The hardware's shadow attenuation
+  scales the *casting light's* term; the ambient — and any second light that does not cast — keeps
+  shining inside the shadow. The baked vertex colour holds `ambient + Σ light·N·L`, so the factor is
+  `(everything except the caster) / (everything)`, computed per fragment from the same colours the bake
+  used. A constant "shadow floor" would have been wrong in both hue and depth. Two things fall out of
+  the exact form for free: the factor reaches 1 precisely where the caster's `N·L` reaches 0, so a face
+  already turned away from the light is not darkened twice, and the shadowed stone comes out the cool
+  blue-grey of the sky ambient rather than black — which is what the console shows.

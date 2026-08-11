@@ -298,16 +298,19 @@ type Layer struct {
 	// give the placements naming it a shared toggle (the same idea the tilemap
 	// body's `layers` list has). A file-less layer must be named by at least
 	// one placement.
-	File          string   `json:"file,omitempty"`
-	Mode          string   `json:"mode,omitempty"` // default "base"
-	Visible       *bool    `json:"visible,omitempty"`
-	Attach        string   `json:"attach,omitempty"` // "" == "world" | "camera" | "cameraYaw"
-	RenderOrder   float64  `json:"renderOrder,omitempty"`
-	Transparent   bool     `json:"transparent,omitempty"`
-	DepthTest     *bool    `json:"depthTest,omitempty"`
-	PolygonOffset float64  `json:"polygonOffset,omitempty"`
-	Role          string   `json:"role,omitempty"`   // "collision" | "sky" | "water"
-	EnvMap        []string `json:"envMap,omitempty"` // 6 cube faces (+x,-x,+y,-y,+z,-z) for sheen-marked materials
+	File          string  `json:"file,omitempty"`
+	Mode          string  `json:"mode,omitempty"` // default "base"
+	Visible       *bool   `json:"visible,omitempty"`
+	Attach        string  `json:"attach,omitempty"` // "" == "world" | "camera" | "cameraYaw"
+	RenderOrder   float64 `json:"renderOrder,omitempty"`
+	Transparent   bool    `json:"transparent,omitempty"`
+	DepthTest     *bool   `json:"depthTest,omitempty"`
+	PolygonOffset float64 `json:"polygonOffset,omitempty"`
+	// Role "shadow" is geometry that is never drawn: it exists only to cast
+	// the scene's shadows, which is what the guest's own depth-shadow proxy
+	// models are for.
+	Role   string   `json:"role,omitempty"`   // "collision" | "sky" | "water" | "shadow"
+	EnvMap []string `json:"envMap,omitempty"` // 6 cube faces (+x,-x,+y,-y,+z,-z) for sheen-marked materials
 }
 
 // IsVisible resolves the initial-visibility default (true).

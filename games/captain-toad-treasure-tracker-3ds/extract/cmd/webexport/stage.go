@@ -295,16 +295,21 @@ func eulerXYZ(deg [3]float32) [4]float32 {
 // exportStage writes one stage's placed geometry as a GLB and reports which
 // placed objects had no model archive to load (the characters, effects and
 // markers, which are a later pass).
-func exportStage(fs *n3ds.RomFS, stage, out string) (tris int, lights []schema.Light, skipped []string, err error) {
+// exportStage writes one stage's placed geometry as a GLB and, beside it, the
+// depth-shadow proxies the same objects carry — the coarse models the game
+// renders its shadow map from. It reports which placed objects had no model
+// archive to load (the characters, effects and markers, which are a later pass).
+func exportStage(fs *n3ds.RomFS, stage, out, shadowOut string) (tris int, lights []schema.Light, casters int, skipped []string, err error) {
 	places, err := readStageMap(fs, stage)
 	if err != nil {
-		return 0, nil, nil, err
+		return 0, nil, 0, nil, err
 	}
 	if lights, err = readStageLights(fs, stage); err != nil {
-		return 0, nil, nil, err
+		return 0, nil, 0, nil, err
 	}
 	cache := map[string]*objectArchive{}
 	s := glb.NewScene()
+	shadow := glb.NewScene()
 	miss := map[string]bool{}
 	for _, p := range places {
 		unit := p.Unit
@@ -318,15 +323,56 @@ func exportStage(fs *n3ds.RomFS, stage, out string) (tris int, lights []schema.L
 		}
 		n, err := addObject(s, p, o, lights)
 		if err != nil {
-			return 0, nil, nil, err
+			return 0, nil, 0, nil, err
 		}
 		tris += n
+		n, err = addShadowCasters(shadow, p, o)
+		if err != nil {
+			return 0, nil, 0, nil, err
+		}
+		casters += n
 	}
 	for k := range miss {
 		skipped = append(skipped, k)
 	}
 	sort.Strings(skipped)
-	return tris, lights, skipped, s.Write(out, stage)
+	if err := s.Write(out, stage); err != nil {
+		return 0, nil, 0, nil, err
+	}
+	if casters > 0 {
+		if err := shadow.Write(shadowOut, stage+"-shadow"); err != nil {
+			return 0, nil, 0, nil, err
+		}
+	}
+	return tris, lights, casters, skipped, nil
+}
+
+// addShadowCasters appends a placed object's depth-shadow proxies — the extra,
+// coarse models an object archive carries beside its visible one, which its
+// InitExecutor lists under the depth-shadow and Z-prepass draw categories.
+// Positions only: nothing about them is ever seen.
+func addShadowCasters(s *glb.Scene, p placement, o *objectArchive) (tris int, err error) {
+	var prims []glb.Prim
+	for _, m := range o.Extra {
+		for _, sh := range m.Meshes {
+			pr := glb.Prim{BaseColor: [4]float32{0, 0, 0, 1}, Unlit: true}
+			pr.Positions = make([][3]float32, len(sh.Verts))
+			for j, v := range sh.Verts {
+				pr.Positions[j] = v.Pos
+			}
+			pr.Tris = make([][3]uint32, len(sh.Indices)/3)
+			for t := range pr.Tris {
+				pr.Tris[t] = [3]uint32{sh.Indices[t*3], sh.Indices[t*3+1], sh.Indices[t*3+2]}
+			}
+			tris += len(pr.Tris)
+			prims = append(prims, pr)
+		}
+	}
+	if len(prims) == 0 {
+		return 0, nil
+	}
+	node := s.AddNode(p.ID+"-"+p.Unit+"-shadow", -1, p.Translate, eulerXYZ(p.Rotate), p.Scale)
+	return tris, s.AddMesh(node, p.Unit+"-shadow", prims)
 }
 
 // --- lighting -----------------------------------------------------------

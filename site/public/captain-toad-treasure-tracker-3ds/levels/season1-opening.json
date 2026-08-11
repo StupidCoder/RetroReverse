@@ -15,6 +15,11 @@
    {
     "id": "stage",
     "file": "season1-opening.glb"
+   },
+   {
+    "id": "shadow",
+    "file": "season1-opening-shadow.glb",
+    "role": "shadow"
    }
   ],
   "lights": [

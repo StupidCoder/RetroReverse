@@ -10,6 +10,7 @@ import { PanInput } from './pancam.js';
 import { arSupported, PerfMeter } from './xr.js';
 import { BillboardBatch } from './billboards.js';
 import { buildInstances, disposeInstances } from './instances.js';
+import { rigFromLights, buildShadowMap, receiveShadows } from './shadowmap.js';
 
 export async function mount(ctx, doc) {
   const { stage: el, game, asset, params } = ctx;
@@ -36,10 +37,17 @@ export async function mount(ctx, doc) {
   if (ownStage && doc.scene?.fog) {
     stage.scene.fog = new THREE.Fog(new THREE.Color(doc.scene.fog.color), doc.scene.fog.near, doc.scene.fog.far);
   }
-  stage.scene.add(new THREE.AmbientLight(0xffffff, 2.2));
-  const key = new THREE.DirectionalLight(0xffffff, 1.2);
-  key.position.set(1, 2, 1.4);
-  stage.scene.add(key);
+  // A document that publishes the guest's own light rig has that rig baked into
+  // its vertex colours already (the hardware multiplies in gamma space, which a
+  // linear renderer does not reproduce), so adding lights on top would light it
+  // twice. The rig is used for the shadow pass instead — see shadowmap.js.
+  const rig = rigFromLights(doc.scene?.lights);
+  if (!rig) {
+    stage.scene.add(new THREE.AmbientLight(0xffffff, 2.2));
+    const key = new THREE.DirectionalLight(0xffffff, 1.2);
+    key.position.set(1, 2, 1.4);
+    stage.scene.add(key);
+  }
 
   // Camera input belongs to the stage, and in a session the head owns the
   // camera outright — a FlyCam or PanInput built against the shell's stage
@@ -110,6 +118,7 @@ export async function mount(ctx, doc) {
   }
 
   const roots = []; // everything mountable, for wireframe toggle + disposal
+  let shadowPass = null; // the static shadow map, when the document carries a rig
   const dp = ctx.displayPanel;
   const hud = document.createElement('div');
   hud.className = 'hud';
@@ -133,7 +142,9 @@ export async function mount(ctx, doc) {
         if (game.display.texFilter) applyTexFilter(gltf.scene, game.display.texFilter);
         group.add(gltf.scene);
       }
-      group.visible = ly.visible !== false;
+      // A shadow-caster layer is the guest's own depth-shadow proxy: geometry
+      // that exists to be rendered from the light and never to be seen.
+      group.visible = ly.role !== 'shadow' && ly.visible !== false;
       group.userData.layer = ly; // role/attach/mode — read by contentBox() and AR mode
       if (gltf) {
         applyLayerLook(gltf.scene, ly);
@@ -170,6 +181,19 @@ export async function mount(ctx, doc) {
         });
       }
     }));
+    // The shadow pass, once: the scene and its light are both static, so the
+    // map is rendered a single time and every other layer samples it.
+    const caster = doc.scene.layers.find((ly) => ly.role === 'shadow');
+    if (rig && caster) {
+      const rec = layerNodes.get(caster.id);
+      const shadow = rec && buildShadowMap(stage.renderer, rec.group, rig);
+      if (shadow) {
+        for (const [id, other] of layerNodes) {
+          if (id !== caster.id) receiveShadows(other.group, shadow);
+        }
+        shadowPass = shadow;
+      }
+    }
     for (const ly of doc.scene.layers) {
       const rec = layerNodes.get(ly.id);
       if (!rec) continue;
@@ -714,6 +738,7 @@ export async function mount(ctx, doc) {
       // Both matter only on a stage that outlives the view. With its own
       // renderer, Stage.dispose() drops the whole context and none of this is
       // observable — which is exactly why it was never here.
+      shadowPass?.dispose();
       for (const r of roots) disposeScene(r);
       lib.dispose();
       closeCard();
