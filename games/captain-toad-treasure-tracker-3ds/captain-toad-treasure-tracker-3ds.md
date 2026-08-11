@@ -1897,3 +1897,31 @@ texture occupies 640 bytes where its base level needs 512 (base plus one level),
 occupies 10,880 where it needs 8,192 (base plus three). Only mip 0 is decoded and the viewer generates
 the rest, which is an approximation of the chain the cartridge carries, not a substitute for one.
 
+
+## Part XXVII — A filter that empties itself stops filtering
+
+Both characters were still wearing two pairs of eyes, one over the other. It looked like a texture
+fault — a wrong tile of the 32x128 eye strip, or the mirrored wrap catching a neighbour — and it was
+not a texture fault at all. **The GLB contained six eye meshes.**
+
+A character carries every eye it can wear (`EyeAngry`, `EyeBall`, `EyeBallBig`, `EyeSad`,
+`Eyelid00`-`02`) and the export names the one the running game draws. The filter read:
+
+    if len(want) > 0 {
+        if !want[mat.Name] { continue }
+        delete(want, mat.Name)          // <- also the "have we used this name" tracker
+    }
+
+One collection doing two jobs: the membership test, and the record of which names had been matched so
+an unused one could be reported. Striking each name off as it matched **emptied the set**, and an
+empty set is read one line above as "no filter" — so every mesh after the last match went straight
+through. Toad's list ends at his eyeball, which is fifth from last in the model, so out came
+`EyeBallBig`, `EyeSad` and three eyelids on top of it.
+
+Nothing about the artefact looked like that. Fourteen names went in, twenty meshes came out, and the
+picture was a plausible-looking character with slightly wrong eyes — which is why it survived a
+careful look at Toad, Toadette, the star and the diorama. The invariant that catches it is one line,
+and it is now enforced: **one mesh out per name in.**
+
+Two sets, and a count that has to match.
+

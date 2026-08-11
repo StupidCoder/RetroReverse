@@ -163,28 +163,40 @@ func exportActor(fs *n3ds.RomFS, a actor, out string, cache map[string]*objectAr
 		return 0, nil, false, fmt.Errorf("no model named %q", a.model)
 	}
 
+	// Two sets, deliberately. Asking the membership set "is this mesh visible?"
+	// and then striking the name off it makes the set EMPTY once the last one
+	// matches — and an empty set read as "no filter" lets every mesh after that
+	// point through. Toad's list ends at his eyeball, which sits fifth from
+	// last, so he came out wearing all four of his eye variants and three
+	// eyelids at once.
 	want := map[string]bool{}
 	for _, n := range a.visible {
 		want[n] = true
 	}
+	filter := len(want) > 0
+	unused := map[string]bool{}
+	for n := range want {
+		unused[n] = true
+	}
 
 	s := glb.NewScene()
 	rig := bchglb.AddSkeleton(s, model, -1, "")
-	tris, skinned := 0, false
+	tris, meshes, skinned := 0, 0, false
 	for i := range model.Meshes {
 		sh := &model.Meshes[i]
 		mat := &model.Materials[sh.MaterialIndex]
-		if len(want) > 0 {
+		if filter {
 			if !want[mat.Name] {
 				continue
 			}
-			delete(want, mat.Name)
+			delete(unused, mat.Name)
 		}
 		pr, err := actorPrim(sh, mat, model, o.Textures)
 		if err != nil {
 			return 0, nil, false, err
 		}
 		tris += len(pr.Tris)
+		meshes++
 		bchglb.BindJoints(&pr, sh)
 		node := s.AddNode(mat.Name, -1, [3]float32{}, [4]float32{0, 0, 0, 1}, [3]float32{1, 1, 1})
 		if err := s.AddMesh(node, mat.Name, []glb.Prim{pr}); err != nil {
@@ -195,8 +207,13 @@ func exportActor(fs *n3ds.RomFS, a actor, out string, cache map[string]*objectAr
 			skinned = true
 		}
 	}
-	for n := range want {
+	for n := range unused {
 		return 0, nil, false, fmt.Errorf("the visible set names %q, which the model does not have", n)
+	}
+	// The count is the cheap invariant that would have caught the filter
+	// emptying itself: one mesh out per name in, no more.
+	if filter && meshes != len(a.visible) {
+		return 0, nil, false, fmt.Errorf("exported %d meshes for a visible set of %d", meshes, len(a.visible))
 	}
 
 	// Clips come from the object's own archive unless it names another.
