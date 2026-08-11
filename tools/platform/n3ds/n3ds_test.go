@@ -322,3 +322,140 @@ func TestBannerModelDecode(t *testing.T) {
 		}
 	}
 }
+
+// TestBannerMaterialMappers pins the two pieces of material state that a
+// "one texture, UV0, repeat" reading loses, and — more usefully — the
+// consequence of losing them.
+//
+// The banner's atlases are 512x256 and their vertex UVs address them as if they
+// were square: the title plane's V never exceeds 0.52, and it is the texture
+// coordinator's scaleT = 2 that stretches it back over the whole image. And
+// Mario's UVs run well outside [0,1], where his sampler mirrors rather than
+// repeats. Dropping either is not subtle — half the logo and half his hat come
+// out wrong — but neither shows up in any count or size check, so assert them.
+func TestBannerMaterialMappers(t *testing.T) {
+	n := loadImage(t)
+	c, _ := n.Executable()
+	efs, _ := c.ExeFS()
+	raw, _ := efs.File("banner")
+	bn, err := ParseBanner(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cgfx, err := bn.CommonModel()
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := ParseCGFX(cgfx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := g.DecodeModel(g.Resources["Models"][0])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	type wantMapper struct {
+		tex            string
+		uv             int
+		scaleS, scaleT float32
+		wrapS, wrapT   PICAWrap
+	}
+	want := map[string][]wantMapper{
+		"BlockMat": {{"COMMON1", 0, 1, 2, WrapRepeat, WrapRepeat}},
+		"MarioMat": {{"COMMON4", 0, 1, 1, WrapMirroredRepeat, WrapMirroredRepeat}},
+		"TitleMat": {
+			{"COMMON1", 0, 1, 2, WrapRepeat, WrapRepeat},
+			{"COMMON7", 1, 1, 2, WrapRepeat, WrapRepeat},
+		},
+		"TitleSideMat": {
+			{"COMMON1", 0, 1, 2, WrapRepeat, WrapRepeat},
+			{"COMMON8", 1, 1, 1, WrapRepeat, WrapRepeat},
+		},
+	}
+	for _, mat := range m.Materials {
+		w, ok := want[mat.Name]
+		if !ok {
+			t.Errorf("unexpected material %q", mat.Name)
+			continue
+		}
+		if len(mat.Mappers) != len(w) {
+			t.Errorf("material %q has %d mappers, want %d", mat.Name, len(mat.Mappers), len(w))
+			continue
+		}
+		for i, got := range mat.Mappers {
+			if got.Texture != w[i].tex || got.SourceUV != w[i].uv ||
+				got.ScaleS != w[i].scaleS || got.ScaleT != w[i].scaleT ||
+				got.WrapS != w[i].wrapS || got.WrapT != w[i].wrapT {
+				t.Errorf("%s mapper %d = %+v, want %v", mat.Name, i, got, w[i])
+			}
+			// The baked matrix must agree with the scalars it was baked from
+			// (rotation is zero throughout this banner).
+			if got.Rotate != 0 {
+				t.Errorf("%s mapper %d has rotation %g; the matrix check below assumes none", mat.Name, i, got.Rotate)
+				continue
+			}
+			if got.Matrix != [2][3]float32{{got.ScaleS, 0, got.TransS}, {0, got.ScaleT, got.TransT}} {
+				t.Errorf("%s mapper %d matrix %v disagrees with scale(%g,%g) translate(%g,%g)",
+					mat.Name, i, got.Matrix, got.ScaleS, got.ScaleT, got.TransS, got.TransT)
+			}
+		}
+	}
+
+	// The consequence: find the title's front plane and check that its V only
+	// covers the atlas once the mapper's transform is applied.
+	byBone := map[string]*Shape{}
+	for _, mesh := range m.Meshes {
+		sh := &m.Shapes[mesh.ShapeIndex]
+		if sh.BoneIndex >= 0 && sh.BoneIndex < len(m.Bones) {
+			byBone[m.Bones[sh.BoneIndex].Name] = sh
+		}
+	}
+	title := byBone["TitleFront"]
+	if title == nil {
+		t.Fatal("no shape bound to the TitleFront bone")
+	}
+	rawLo, rawHi := float32(1e9), float32(-1e9)
+	mapLo, mapHi := float32(1e9), float32(-1e9)
+	mapper := m.Materials[2].Mappers[0] // TitleMat's atlas mapper
+	for _, v := range title.Verts {
+		rawLo, rawHi = minf32(rawLo, v.UV0[1]), maxf32(rawHi, v.UV0[1])
+		tv := mapper.Apply(v.UV0)[1]
+		mapLo, mapHi = minf32(mapLo, tv), maxf32(mapHi, tv)
+	}
+	if rawHi > 0.6 {
+		t.Errorf("raw V reaches %g; the half-atlas premise of this test no longer holds", rawHi)
+	}
+	if mapLo > 0.05 || mapHi < 0.95 {
+		t.Errorf("transformed V covers [%g,%g]; the title plane must span the whole atlas", mapLo, mapHi)
+	}
+
+	// Mario's UVs leave [0,1], which is what makes his wrap mode load-bearing.
+	mario := byBone["Mario"]
+	if mario == nil {
+		t.Fatal("no shape bound to the Mario bone")
+	}
+	outside := false
+	for _, v := range mario.Verts {
+		if v.UV0[0] < 0 || v.UV0[0] > 1 || v.UV0[1] < 0 || v.UV0[1] > 1 {
+			outside = true
+			break
+		}
+	}
+	if !outside {
+		t.Error("Mario's UVs all lie inside [0,1]; the mirrored wrap would then be unobservable")
+	}
+}
+
+func minf32(a, b float32) float32 {
+	if b < a {
+		return b
+	}
+	return a
+}
+func maxf32(a, b float32) float32 {
+	if b > a {
+		return b
+	}
+	return a
+}

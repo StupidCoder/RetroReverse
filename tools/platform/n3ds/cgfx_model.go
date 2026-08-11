@@ -46,11 +46,63 @@ type Mesh struct {
 	MaterialIndex int
 }
 
-// Material is the slice of an MTOB this exporter needs: its name and the names
-// of the textures its texture mappers reference, in mapper order.
+// Material is the slice of an MTOB this exporter needs: its name and its
+// texture mappers, in mapper order.
 type Material struct {
-	Name     string
-	Textures []string
+	Name    string
+	Mappers []TexMapper
+}
+
+// PICAWrap is a sampler's wrap mode, as the PICA200 encodes it in the texture
+// unit's parameter register (0x083 / 0x093 / 0x09B, bits 12-14 for S and 8-10
+// for T).
+type PICAWrap uint8
+
+// The four wrap modes. gpu_texture.go's wrapCoord implements them.
+const (
+	WrapClampToEdge    PICAWrap = 0
+	WrapClampToBorder  PICAWrap = 1
+	WrapRepeat         PICAWrap = 2
+	WrapMirroredRepeat PICAWrap = 3
+)
+
+// TexMapper is one of a material's texture mappers: the texture it samples,
+// which of the shape's UV sets feeds it, the transform applied to that UV, and
+// the sampler's wrap modes.
+//
+// None of this is decoration. The banner's atlases are 512x256 while their
+// vertex UVs address them as if they were square, and the coordinator's
+// scaleT = 2 is what stretches the V range back over the whole image; ignoring
+// it samples half the atlas and cuts the logo in two. Mario's UVs run outside
+// [0,1] and his sampler is MIRRORED_REPEAT, not the REPEAT that a glTF viewer
+// assumes by default.
+type TexMapper struct {
+	Texture  string
+	SourceUV int // the coordinator's sourceCoordinate: which vertex UV set feeds this mapper
+
+	// The coordinator's authored transform. Matrix is what the runtime uploads
+	// to the shader and what Apply uses; the scalars are kept because they name
+	// what the matrix means.
+	ScaleS, ScaleT float32
+	Rotate         float32
+	TransS, TransT float32
+
+	// Matrix is the two rows of the coordinator's baked 3x4 texture matrix that
+	// produce (s, t) from (u, v, 1). The third row is the pass-through
+	// [0 0 1 0] for the unused third coordinate.
+	Matrix [2][3]float32
+
+	WrapS, WrapT PICAWrap
+}
+
+// Apply transforms one UV pair through the mapper's texture matrix. It works in
+// PICA texture space, where t = 0 is the *bottom* row — flip V for glTF after
+// this, not before.
+func (m *TexMapper) Apply(uv [2]float32) [2]float32 {
+	return [2]float32{
+		m.Matrix[0][0]*uv[0] + m.Matrix[0][1]*uv[1] + m.Matrix[0][2],
+		m.Matrix[1][0]*uv[0] + m.Matrix[1][1]*uv[1] + m.Matrix[1][2],
+	}
 }
 
 // Bone is one skeleton joint. Rotation is the CGFX XYZ Euler triple.
@@ -333,31 +385,145 @@ func (c *CGFX) readInterleaved(vb int64, sh *Shape) error {
 	return nil
 }
 
-// decodeMaterial reads an MTOB's name and texture-mapper references. The three
-// mapper slots' texture-name pointers sit at a fixed offset from the MTOB's
-// typeId word (+0x33C, stride 0x8C) — verified identical across all four banner
-// materials; a zero slot means no mapper.
+// MTOB offsets, all from the object's typeId word and identical across the
+// banner's four materials:
+//
+//	+0x168  u32  live texture-coordinator count (1 or 2 here)
+//	+0x16C  the coordinator array, stride 0x58
+//	+0x2F4  the mapper's sampler command entry, stride 0x8C
+//	+0x33C  self-relative pointer to the mapper's texture name, stride 0x8C
+//
+// The count is the authority on how many mappers a material has: an MTOB always
+// carries three name slots, and MarioMat's unused two point at *empty strings*
+// rather than being null, so counting non-null pointers over-reports.
+const (
+	mtobCoordCount  = 0x168
+	mtobCoordArray  = 0x16C
+	mtobCoordStride = 0x58
+	mtobSamplerCmd  = 0x2F4
+	mtobTexName     = 0x33C
+	mtobMapperStrid = 0x8C
+)
+
+// Texture-coordinator field offsets within one 0x58-byte entry.
+const (
+	coordSourceUV   = 0x00 // u32: which vertex UV set feeds this mapper
+	coordMethod     = 0x04 // u32: mapping method (UV / cube / sphere env)
+	coordScaleS     = 0x10
+	coordScaleT     = 0x14
+	coordRotate     = 0x18
+	coordTransS     = 0x1C
+	coordTransT     = 0x20
+	coordMatrix     = 0x28 // f32[3][4], row-major
+	coordMethodUV   = 0    // the only method this decoder handles
+	coordMatrixRow  = 4    // floats per matrix row
+	coordMatrixRows = 3
+)
+
+// picaBorderReg is the first register of each texture unit's config block; the
+// unit's wrap/filter PARAM register is two further on. The three blocks are not
+// evenly spaced in the register file (0x081, 0x091, 0x099), so they are named
+// rather than computed.
+var picaBorderReg = [3]uint16{0x081, 0x091, 0x099}
+
+// decodeMaterial reads an MTOB into a Material: its name, and one TexMapper per
+// live texture coordinator carrying the texture name, the source UV set, the
+// coordinate transform and the sampler's wrap modes.
 func (c *CGFX) decodeMaterial(e CGFXEntry) (*Material, error) {
 	base := e.Offset // typeId word (magic at +4)
+	if err := c.check(base, mtobTexName+3*mtobMapperStrid, "MTOB"); err != nil {
+		return nil, err
+	}
 	if string(c.raw[base+4:base+8]) != "MTOB" {
 		return nil, fmt.Errorf("not an MTOB (magic %q)", c.raw[base+4:base+8])
 	}
 	mat := &Material{Name: e.Name}
-	for i := 0; i < 3; i++ {
-		slot := base + 0x33C + int64(i)*0x8C
-		if slot+4 > int64(len(c.raw)) {
-			break
+
+	n := int(c.u32(base + mtobCoordCount))
+	if n > 3 {
+		return nil, fmt.Errorf("material has %d texture coordinators; the PICA has 3 units", n)
+	}
+	for i := 0; i < n; i++ {
+		m, err := c.decodeMapper(base, i)
+		if err != nil {
+			return nil, fmt.Errorf("mapper %d: %w", i, err)
 		}
-		nameOff := c.rel(slot)
-		if nameOff == 0 || nameOff >= int64(len(c.raw)) {
-			continue
-		}
-		name := readCStr(c.raw, nameOff)
-		if name != "" {
-			mat.Textures = append(mat.Textures, name)
-		}
+		mat.Mappers = append(mat.Mappers, *m)
 	}
 	return mat, nil
+}
+
+// decodeMapper reads one texture coordinator plus the texture name and sampler
+// state that belong to the same mapper slot.
+func (c *CGFX) decodeMapper(base int64, i int) (*TexMapper, error) {
+	nameOff := c.rel(base + mtobTexName + int64(i)*mtobMapperStrid)
+	if nameOff <= 0 || nameOff >= int64(len(c.raw)) {
+		return nil, fmt.Errorf("texture name pointer is out of range")
+	}
+	name := readCStr(c.raw, nameOff)
+	if name == "" {
+		return nil, fmt.Errorf("live coordinator names no texture")
+	}
+
+	C := base + mtobCoordArray + int64(i)*mtobCoordStride
+	if method := c.u32(C + coordMethod); method != coordMethodUV {
+		return nil, fmt.Errorf("texture %q uses mapping method %d; only plain UV mapping is implemented", name, method)
+	}
+	m := &TexMapper{
+		Texture:  name,
+		SourceUV: int(c.u32(C + coordSourceUV)),
+		ScaleS:   c.f32(C + coordScaleS),
+		ScaleT:   c.f32(C + coordScaleT),
+		Rotate:   c.f32(C + coordRotate),
+		TransS:   c.f32(C + coordTransS),
+		TransT:   c.f32(C + coordTransT),
+	}
+	// The matrix's third row must be the pass-through the 2-D reading assumes.
+	row := func(r int) [4]float32 {
+		var out [4]float32
+		for k := 0; k < 4; k++ {
+			out[k] = c.f32(C + coordMatrix + int64(r*coordMatrixRow+k)*4)
+		}
+		return out
+	}
+	if r2 := row(2); r2 != [4]float32{0, 0, 1, 0} {
+		return nil, fmt.Errorf("texture %q has a non-planar texture matrix (third row %v)", name, r2)
+	}
+	for r := 0; r < 2; r++ {
+		v := row(r)
+		if v[2] != 0 {
+			return nil, fmt.Errorf("texture %q's texture matrix uses the third coordinate (row %d = %v)", name, r, v)
+		}
+		m.Matrix[r] = [3]float32{v[0], v[1], v[3]}
+	}
+
+	ws, wt, err := c.samplerWrap(base, i)
+	if err != nil {
+		return nil, fmt.Errorf("texture %q: %w", name, err)
+	}
+	m.WrapS, m.WrapT = ws, wt
+	return m, nil
+}
+
+// samplerWrap reads a mapper's wrap modes out of the PICA command entry the
+// MTOB carries for that texture unit. The entry is a real command-buffer pair —
+// parameter word, then a header writing the unit's border colour with nine
+// consecutive extra parameters — so the unit's PARAM register (border + 2) is
+// extra parameter 1. Reading the game's own register write beats inventing a
+// struct field for it, and the header shape is checked so a layout change is a
+// loud error rather than a plausible wrap mode.
+func (c *CGFX) samplerWrap(base int64, i int) (PICAWrap, PICAWrap, error) {
+	hdrOff := base + mtobSamplerCmd + int64(i)*mtobMapperStrid
+	if err := c.check(hdrOff, 4+9*4, "sampler command entry"); err != nil {
+		return 0, 0, err
+	}
+	hdr := c.u32(hdrOff)
+	reg, mask, extras, consec := uint16(hdr&0xFFFF), hdr>>16&0xF, hdr>>20&0xFF, hdr>>31
+	if reg != picaBorderReg[i] || mask != 0xF || extras != 9 || consec != 1 {
+		return 0, 0, fmt.Errorf("sampler command header 0x%08x is not the expected write of 0x%03X+9", hdr, picaBorderReg[i])
+	}
+	param := c.u32(hdrOff + 4 + 1*4) // extra 1 writes register border+2 = PARAM
+	return PICAWrap(param >> 12 & 7), PICAWrap(param >> 8 & 7), nil
 }
 
 // decodeSkeleton reads the bones dictionary.

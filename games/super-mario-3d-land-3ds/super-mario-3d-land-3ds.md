@@ -678,15 +678,71 @@ IMAG. The **textures** decode from the 3DS's native layouts — the colour atlas
 **ETC1** (4×4 block compression, four blocks per 8×8 tile in Z-order), the title's cutout layers are
 **L4** (4-bit luminance) — all un-swizzled from their 8×8 Morton-ordered tiles.
 
+### A vertex UV set is not a texture coordinate
+
+The first export bound each material's first texture to UV0 and left the sampler at glTF's defaults,
+and the result was wrong in three visible places: the logo's flat front and back planes carried only
+the bottom-right quarter of the logo, the Super Leaf was a smear of gold and white, and half of
+Mario's cap and both of his gloves were replaced by a brown speckle. The geometry was innocent — in
+wireframe the extruded contours spelled the logo correctly — so the fault was between the UVs and the
+texels, and the MTOB had two fields to say so.
+
+**The texture coordinator.** Each MTOB carries one **texture coordinator** per mapper, in an array at
+`+0x16C` (count at `+0x168`, stride `0x58`), holding the source UV set, a scale/rotate/translate, and
+the 3×4 matrix the runtime bakes from them and uploads to the shader:
+
+```
++0x00 u32  sourceCoordinate   which vertex UV set feeds this mapper
++0x04 u32  mappingMethod      0 = plain UV
++0x10 f32  scaleS   +0x14 f32 scaleT   +0x18 f32 rotate
++0x1C f32  translateS         +0x20 f32 translateT
++0x28 f32[3][4]  the baked matrix:  [ sS·cos r, −sS·sin r, 0, tS ]
+                                    [ sT·sin r,  sT·cos r, 0, tT ]
+                                    [        0,         0, 1,  0 ]
+```
+
+Every material that samples a 512×256 atlas has **scaleT = 2**; `MarioMat`, whose texture is a square
+128×128, has 1. The banner's artists authored those UVs against a square, and the coordinator is what
+stretches V back over the whole image; honouring only the raw UV samples the bottom half and cuts the
+logo in two.
+
+Two independent checks pin the value before a single pixel is re-exported. The atlas region the title
+plane addresses is 341 × 131 texels raw, an aspect of 2.60 against the plane's own 1.30 — doubling V
+makes it 341 × 262 and the two agree exactly. Generalised, the same test runs over every triangle in
+the banner: take the 2×2 Jacobian of texel position against the triangle's own plane basis and compare
+its singular values, and the mapping is isotropic (ratio 1.00) at scaleT = 2 for the title, tail and
+block, and at scaleT = 1 for Mario — exactly the split the coordinators declare. *An artist's UV
+layout is a measurement you already have; the shape of the thing being textured tells you the scale
+the file should be carrying.*
+
+**The wrap mode.** Mario's UVs run to `u ∈ [−1.67, 1.15]`, far outside `[0,1]`, so what happens beyond
+the edge is not a detail — it *is* his cap and gloves. The MTOB does not store a wrap field of its own;
+it stores the **PICA command entry that sets the sampler up**, at `+0x2F4` with the same `0x8C` mapper
+stride: a parameter word plus a header writing the unit's border colour with nine consecutive extras,
+so the unit's `TEXn_PARAM` register (border + 2) is extra parameter 1. Decoding it as the command
+processor would gives `0x2206` for every material — wrap 2, REPEAT — except `MarioMat`, which is
+`0x3306`: **MIRRORED_REPEAT**. glTF viewers default to REPEAT, which is why his cap tiled the wrong
+half of the atlas across the M. *The material's wrap mode was never a struct field to guess at; it was
+sitting in the register write the material performs.*
+
+Both are decoded now (`Material.Mappers`, one `TexMapper` per live coordinator), the exporter puts each
+UV set through its mapper's matrix and emits the glTF sampler wrap to match, and `bannerdump -model`
+prints the table. The bake needed one more change to follow: with the transform applied the title
+plane's V reaches 1.02, past the top of the mask, so the combiner now bakes over the *footprint* of the
+transformed UVs rather than the mask's own rectangle — sampling inside it still wraps exactly as the
+hardware does, so the texels fetched from beyond the edge are the ones the PICA would have fetched, but
+nothing is clipped off. `tools/cmd/rendersheet` learned the glTF wrap enums in the same pass: without
+them the verification renderer would have reproduced the very bug it was being used to check.
+
 The one place glTF cannot mirror the hardware is the **texture combiner**: the title's flat faces are
 plain quads that the PICA cuts to the logo silhouette by multiplying the colour atlas (sampled by
 UV0) with a 4-bit mask (sampled by UV1). glTF binds one texture per material, so the exporter **bakes
-the combine per texel** — it rasterises each such mesh in mask (UV1) space, interpolates UV0
+the combine per texel** — it rasterises each such mesh in mask-texel space, interpolates UV0
 barycentrically (exact, since UV0 is affine within a triangle), and writes the atlas colour with the
 mask as alpha — reproducing the fragment result exactly. Only the extruded title-side mesh drops its
 secondary depth-shade layer; that is the single documented approximation. The result renders correctly:
-Mario mid-run in his textures, the golden Super Leaf, the question block and the brick platforms, and
-Mario and the leaf bobbing on the baked animation loop. The Studio hosts it under a new Nintendo 3DS
+Mario mid-run in his textures, the Super Leaf with its eyes, the question block and the brick
+platforms, and Mario and the leaf bobbing on the baked animation loop. The Studio hosts it under a new Nintendo 3DS
 system entry.
 
 ---
@@ -697,8 +753,9 @@ system entry.
 |------|------|
 | `tools/platform/n3ds` | NCSD/NCCH/ExHeader/ExeFS/RomFS parsers, BLZ + LZ11 decompressors, CBMD/CGFX banner parsing, the machine + SVC & IPC HLE |
 | `tools/platform/n3ds/cmd/n3dsdump` | list/extract the cartridge's containers (`-romfs`, `-verify`, `-code`, `-x`) |
-| `tools/platform/n3ds/cmd/bannerdump` | decode the HOME-Menu banner scene (`game.cci`; `-o` writes the CGFX) |
+| `tools/platform/n3ds/cmd/bannerdump` | decode the HOME-Menu banner scene (`game.cci`; `-o` writes the CGFX, `-model` prints meshes and material texture mappers) |
 | `games/super-mario-3d-land-3ds/extract/cmd/webexport` | export the banner to `site/public/.../banner.glb` (`-texdump` writes the decoded PNGs) |
+| `tools/cmd/rendersheet` | software-render a GLB's own buffers to a sheet of views — the check that the *shipped* file is right |
 | `tools/cpu/arm` (`V6K` variant) | ARMv6K + VFPv2 disassembler, code-tracer and execution core |
 | `tools/cmd/disarm -v6`, `codetracearm -v6` | ARM11 disassembly and recursive-descent tracing |
 | `games/super-mario-3d-land-3ds/extract/cmd/bootoracle` | boot and run the ARM11 program under the HLE kernel |

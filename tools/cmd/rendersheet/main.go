@@ -2,7 +2,8 @@ package main
 
 // rendersheet: parse a GLB (its own buffers) and software-render a sheet of
 // views: rows = {all nodes, node0, node1, ...}, cols = yaw angles.
-// Textured: samples baseColorTexture (nearest, REPEAT) x COLOR_0 x shade.
+// Textured: samples baseColorTexture (nearest, honouring the sampler's wrap
+// modes) x COLOR_0 x shade.
 import (
 	"bytes"
 	"encoding/binary"
@@ -61,8 +62,13 @@ type gltf struct {
 		Extras map[string]any `json:"extras"`
 	} `json:"materials"`
 	Textures []struct {
-		Source int `json:"source"`
+		Source  int  `json:"source"`
+		Sampler *int `json:"sampler"`
 	} `json:"textures"`
+	Samplers []struct {
+		WrapS int `json:"wrapS"`
+		WrapT int `json:"wrapT"`
+	} `json:"samplers"`
 	Images []struct {
 		BufferView int `json:"bufferView"`
 	} `json:"images"`
@@ -86,8 +92,42 @@ type tri struct {
 	uv       [3][2]float64
 	col      [3][4]float64
 	tex      *image.RGBA
+	wrapS    int // glTF sampler enums; 0 = the glTF default, REPEAT
+	wrapT    int
 	node     int
 	additive bool
+}
+
+// wrapTexel applies one glTF wrap mode to an integer texel index. Honouring it
+// is not cosmetic: a mirrored-repeat texture read as repeat pulls in the wrong
+// half of the atlas wherever a UV leaves [0,1].
+func wrapTexel(v, n, mode int) int {
+	switch mode {
+	case 33071: // CLAMP_TO_EDGE
+		if v < 0 {
+			return 0
+		}
+		if v >= n {
+			return n - 1
+		}
+		return v
+	case 33648: // MIRRORED_REPEAT
+		period := 2 * n
+		v %= period
+		if v < 0 {
+			v += period
+		}
+		if v >= n {
+			v = period - 1 - v
+		}
+		return v
+	default: // REPEAT
+		v %= n
+		if v < 0 {
+			v += n
+		}
+		return v
+	}
 }
 
 var g gltf
@@ -168,6 +208,18 @@ func main() {
 	bin = raw[20+jlen+8 : 20+jlen+8+blen]
 
 	texs := map[int]*image.RGBA{}
+	// texWrap reports a texture's sampler wrap modes (glTF enums).
+	texWrap := func(mi *int) (int, int) {
+		if mi == nil || g.Materials[*mi].PBR.BaseColorTexture == nil {
+			return 0, 0
+		}
+		t := g.Textures[g.Materials[*mi].PBR.BaseColorTexture.Index]
+		if t.Sampler == nil || *t.Sampler >= len(g.Samplers) {
+			return 0, 0
+		}
+		s := g.Samplers[*t.Sampler]
+		return s.WrapS, s.WrapT
+	}
 	getTex := func(mi *int) *image.RGBA {
 		if mi == nil {
 			return nil
@@ -380,6 +432,7 @@ func main() {
 				cols = accVec(ai, 4)
 			}
 			tex := getTex(pr.Material)
+			wrapS, wrapT := texWrap(pr.Material)
 			additive := false
 			if pr.Material != nil {
 				if b, ok := g.Materials[*pr.Material].Extras["blend"].(string); ok && b == "additive" {
@@ -390,6 +443,7 @@ func main() {
 			for i := 0; i+2 < len(idx); i += 3 {
 				var t tri
 				t.tex = tex
+				t.wrapS, t.wrapT = wrapS, wrapT
 				t.node = ni
 				t.additive = additive
 				for k := 0; k < 3; k++ {
@@ -574,14 +628,8 @@ func fillTri(img *image.RGBA, pt *ptri) {
 				v := w0*t.uv[0][1] + w1*t.uv[1][1] + w2*t.uv[2][1]
 				b := t.tex.Bounds()
 				tw, th := b.Dx(), b.Dy()
-				tx := int(math.Floor(u*float64(tw))) % tw
-				ty := int(math.Floor(v*float64(th))) % th
-				if tx < 0 {
-					tx += tw
-				}
-				if ty < 0 {
-					ty += th
-				}
+				tx := wrapTexel(int(math.Floor(u*float64(tw))), tw, t.wrapS)
+				ty := wrapTexel(int(math.Floor(v*float64(th))), th, t.wrapT)
 				c := t.tex.RGBAAt(b.Min.X+tx, b.Min.Y+ty)
 				cr, cg, cb = float64(c.R)/255, float64(c.G)/255, float64(c.B)/255
 				ta = float64(c.A) / 255

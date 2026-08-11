@@ -11,15 +11,22 @@
 // bound to one bone), a mesh per CGFX mesh attached to its bone's node, and the
 // hermite animation keys carried loss-lessly as glTF CUBICSPLINE channels.
 //
+// A vertex UV set is not a texture coordinate here. Each material mapper names
+// the UV set it reads, a texture matrix to put it through, and its own wrap
+// modes, and none of the three is the default: the 512x256 atlases are
+// addressed as if they were square and the coordinator's scaleT = 2 stretches V
+// back over the whole image, while Mario's UVs run outside [0,1] under a
+// MIRRORED_REPEAT sampler. All three are carried into the GLB.
+//
 // The PICA texture combiner blends two textures on the title materials: the
 // colour atlas (COMMON1, sampled by UV0) times a 4-bit cutout mask (COMMON7,
 // sampled by UV1) — the title's flat front/back faces and the tail are plain
 // rectangles cut to the logo silhouette by the mask. glTF samples one texture
 // per material, so for those meshes the exporter *bakes the combiner*: it
-// rasterises the mesh's triangles in UV1 space at the mask's resolution,
-// interpolates UV0 barycentrically per texel (exact — UV0 is affine within a
-// triangle), and writes RGB from the atlas with alpha from the mask. The result
-// is fragment-for-fragment what the PICA computes. The extruded title-side mesh
+// rasterises the mesh's triangles in mask-texel space, interpolates UV0
+// barycentrically per texel (exact — UV0 is affine within a triangle), and
+// writes RGB from the atlas with alpha from the mask. The result is
+// fragment-for-fragment what the PICA computes. The extruded title-side mesh
 // (which has real letter geometry and uses its second texture only as a depth
 // shade) keeps the plain atlas; the shade layer is dropped — noted in the
 // writeup as the one approximation.
@@ -29,6 +36,7 @@ import (
 	"fmt"
 	"image"
 	"image/png"
+	"math"
 	"os"
 	"path/filepath"
 
@@ -238,9 +246,10 @@ type pngTex struct {
 
 func (t *pngTex) image() *image.NRGBA { return t.img }
 
-// buildPrim assembles one shape + material into a GLB primitive. Material→UV
-// binding: one texture uses mapper 0 over UV0; two textures use the second
-// mapper over UV1 (the detail/mask layer — see the package comment).
+// buildPrim assembles one shape + material into a GLB primitive. Each of the
+// material's texture mappers names its own source UV set, its own coordinate
+// transform and its own wrap modes; none of those are identity in this banner,
+// so all three are carried through rather than assumed.
 func buildPrim(sh *n3ds.Shape, mat *n3ds.Material, textures map[string]*pngTex) (*glb.Prim, error) {
 	p := &glb.Prim{
 		BaseColor:   [4]float32{1, 1, 1, 1},
@@ -271,94 +280,218 @@ func buildPrim(sh *n3ds.Shape, mat *n3ds.Material, textures map[string]*pngTex) 
 		p.Tris[i] = [3]uint32{sh.Indices[i*3], sh.Indices[i*3+1], sh.Indices[i*3+2]}
 	}
 
-	// Texture + UV selection. Masked flat faces (two textures, two UV sets, no
+	// Texture + UV selection. Masked flat faces (two mappers, two UV sets, no
 	// normals — the title/tail quads) get the baked combiner; everything else
-	// samples its first texture by UV0.
+	// samples its first mapper's texture.
 	switch {
-	case len(mat.Textures) >= 2 && sh.UVCount >= 2 && !sh.HasNormal:
-		atlas, mask := textures[mat.Textures[0]], textures[mat.Textures[1]]
+	case len(mat.Mappers) >= 2 && sh.UVCount >= 2 && !sh.HasNormal:
+		am, mm := &mat.Mappers[0], &mat.Mappers[1]
+		atlas, mask := textures[am.Texture], textures[mm.Texture]
 		if atlas == nil || mask == nil {
-			return nil, fmt.Errorf("material %q references unknown textures %v", mat.Name, mat.Textures)
+			return nil, fmt.Errorf("material %q references unknown textures %q/%q", mat.Name, am.Texture, mm.Texture)
 		}
-		p.Image = bakeMasked(sh, atlas.img, mask.img)
-		p.UVs = uvArray(sh, 1)
-	case len(mat.Textures) >= 1 && sh.UVCount >= 1:
-		t := textures[mat.Textures[0]]
+		uv0, err := uvArray(sh, am)
+		if err != nil {
+			return nil, err
+		}
+		uv1, err := uvArray(sh, mm)
+		if err != nil {
+			return nil, err
+		}
+		p.Image, p.UVs = bakeMasked(sh, atlas.img, mask.img, uv0, uv1, am, mm)
+		// The bake covers the whole footprint, so nothing samples outside it.
+		p.WrapS, p.WrapT = gltfClamp, gltfClamp
+	case len(mat.Mappers) >= 1:
+		m := &mat.Mappers[0]
+		t := textures[m.Texture]
 		if t == nil {
-			return nil, fmt.Errorf("material %q references unknown texture %q", mat.Name, mat.Textures[0])
+			return nil, fmt.Errorf("material %q references unknown texture %q", mat.Name, m.Texture)
+		}
+		uvs, err := uvArray(sh, m)
+		if err != nil {
+			return nil, err
 		}
 		p.Image = t.img
-		p.UVs = uvArray(sh, 0)
+		p.UVs = flipV(uvs)
+		p.WrapS, err = gltfWrap(m.WrapS)
+		if err != nil {
+			return nil, fmt.Errorf("material %q: %w", mat.Name, err)
+		}
+		p.WrapT, err = gltfWrap(m.WrapT)
+		if err != nil {
+			return nil, fmt.Errorf("material %q: %w", mat.Name, err)
+		}
 	}
 	return p, nil
 }
 
-// uvArray extracts one UV set, flipped from the PICA's V-up to glTF's V-down.
-func uvArray(sh *n3ds.Shape, set int) [][2]float32 {
+// glTF sampler wrap enums.
+const (
+	gltfRepeat   = 10497
+	gltfClamp    = 33071
+	gltfMirrored = 33648
+)
+
+// gltfWrap maps a PICA wrap mode onto glTF's. CLAMP_TO_BORDER has no glTF
+// equivalent (glTF has no border colour), so it is refused rather than silently
+// downgraded to clamp-to-edge.
+func gltfWrap(w n3ds.PICAWrap) (int, error) {
+	switch w {
+	case n3ds.WrapClampToEdge:
+		return gltfClamp, nil
+	case n3ds.WrapRepeat:
+		return gltfRepeat, nil
+	case n3ds.WrapMirroredRepeat:
+		return gltfMirrored, nil
+	default:
+		return 0, fmt.Errorf("wrap mode %d (clamp-to-border) has no glTF equivalent", w)
+	}
+}
+
+// uvArray extracts the UV set a mapper reads and puts it through the mapper's
+// texture matrix. The result is still in PICA texture space (V up).
+func uvArray(sh *n3ds.Shape, m *n3ds.TexMapper) ([][2]float32, error) {
+	if m.SourceUV < 0 || m.SourceUV >= sh.UVCount {
+		return nil, fmt.Errorf("texture %q reads UV set %d but the shape has %d", m.Texture, m.SourceUV, sh.UVCount)
+	}
 	uvs := make([][2]float32, len(sh.Verts))
 	for i, v := range sh.Verts {
 		uv := v.UV0
-		if set == 1 {
+		if m.SourceUV == 1 {
 			uv = v.UV1
 		}
-		uvs[i] = [2]float32{uv[0], 1 - uv[1]}
+		uvs[i] = m.Apply(uv)
 	}
-	return uvs
+	return uvs, nil
+}
+
+// flipV converts PICA texture space (V up) to glTF's (V down).
+func flipV(uvs [][2]float32) [][2]float32 {
+	out := make([][2]float32, len(uvs))
+	for i, uv := range uvs {
+		out[i] = [2]float32{uv[0], 1 - uv[1]}
+	}
+	return out
 }
 
 // bakeMasked rasterises the PICA two-texture combine for a masked flat face:
-// output texels live in UV1 (mask) space; each covered texel takes its colour
-// from the atlas at the barycentrically interpolated UV0 and its alpha from the
-// mask's own value. Texels no triangle covers stay transparent.
-func bakeMasked(sh *n3ds.Shape, atlas, mask *image.NRGBA) *image.NRGBA {
+// output texels are mask texels, each taking its colour from the atlas at the
+// barycentrically interpolated UV0 and its alpha from the mask's own value.
+//
+// The output covers the *footprint* of the transformed mask UVs rather than the
+// whole mask, and the returned UVs address that footprint. The title planes
+// reach past the mask's top edge — with the coordinate transform applied their
+// V runs to 1.02 — so baking into the mask's own rectangle would clip the top
+// of the logo off. Sampling inside the bake still wraps exactly as the hardware
+// does, so the texels that come from beyond the edge are the ones the PICA
+// would have fetched.
+func bakeMasked(sh *n3ds.Shape, atlas, mask *image.NRGBA, uv0, uv1 [][2]float32, am, mm *n3ds.TexMapper) (*image.NRGBA, [][2]float32) {
 	W, H := mask.Rect.Dx(), mask.Rect.Dy()
-	out := image.NewNRGBA(image.Rect(0, 0, W, H))
 
-	// Per-vertex positions in mask-pixel space (V flipped to image rows).
+	// Per-vertex positions in mask-texel space, V flipped to image rows.
 	px := make([][2]float32, len(sh.Verts))
-	for i, v := range sh.Verts {
-		px[i] = [2]float32{v.UV1[0] * float32(W), (1 - v.UV1[1]) * float32(H)}
+	for i, uv := range uv1 {
+		px[i] = [2]float32{uv[0] * float32(W), (1 - uv[1]) * float32(H)}
 	}
-	sample := func(img *image.NRGBA, u, v float32) (byte, byte, byte, byte) {
-		x := int(u * float32(img.Rect.Dx()))
-		y := int((1 - v) * float32(img.Rect.Dy()))
-		x = clampi(x, 0, img.Rect.Dx()-1)
-		y = clampi(y, 0, img.Rect.Dy()-1)
-		o := img.PixOffset(x, y)
-		return img.Pix[o], img.Pix[o+1], img.Pix[o+2], img.Pix[o+3]
+	// Footprint, snapped out to whole texels with a texel of margin.
+	lo := [2]float32{px[0][0], px[0][1]}
+	hi := lo
+	for _, p := range px[1:] {
+		for k := 0; k < 2; k++ {
+			lo[k] = minf(lo[k], p[k])
+			hi[k] = maxf(hi[k], p[k])
+		}
 	}
+	x0, y0 := int(floorf(lo[0]))-1, int(floorf(lo[1]))-1
+	x1, y1 := int(ceilf(hi[0]))+1, int(ceilf(hi[1]))+1
+	outW, outH := x1-x0, y1-y0
+	out := image.NewNRGBA(image.Rect(0, 0, outW, outH))
 
 	for t := 0; t+2 < len(sh.Indices); t += 3 {
 		i0, i1, i2 := sh.Indices[t], sh.Indices[t+1], sh.Indices[t+2]
 		a, b, c := px[i0], px[i1], px[i2]
-		minX := clampi(int(min3(a[0], b[0], c[0])), 0, W-1)
-		maxX := clampi(int(max3(a[0], b[0], c[0]))+1, 0, W-1)
-		minY := clampi(int(min3(a[1], b[1], c[1])), 0, H-1)
-		maxY := clampi(int(max3(a[1], b[1], c[1]))+1, 0, H-1)
 		den := (b[1]-c[1])*(a[0]-c[0]) + (c[0]-b[0])*(a[1]-c[1])
 		if den == 0 {
 			continue
 		}
+		minX := clampi(int(min3(a[0], b[0], c[0]))-x0, 0, outW-1)
+		maxX := clampi(int(max3(a[0], b[0], c[0]))+1-x0, 0, outW-1)
+		minY := clampi(int(min3(a[1], b[1], c[1]))-y0, 0, outH-1)
+		maxY := clampi(int(max3(a[1], b[1], c[1]))+1-y0, 0, outH-1)
 		for y := minY; y <= maxY; y++ {
 			for x := minX; x <= maxX; x++ {
-				fx, fy := float32(x)+0.5, float32(y)+0.5
+				fx, fy := float32(x+x0)+0.5, float32(y+y0)+0.5
 				w0 := ((b[1]-c[1])*(fx-c[0]) + (c[0]-b[0])*(fy-c[1])) / den
 				w1 := ((c[1]-a[1])*(fx-c[0]) + (a[0]-c[0])*(fy-c[1])) / den
 				w2 := 1 - w0 - w1
 				if w0 < -0.001 || w1 < -0.001 || w2 < -0.001 {
 					continue
 				}
-				u0 := w0*sh.Verts[i0].UV0[0] + w1*sh.Verts[i1].UV0[0] + w2*sh.Verts[i2].UV0[0]
-				v0 := w0*sh.Verts[i0].UV0[1] + w1*sh.Verts[i1].UV0[1] + w2*sh.Verts[i2].UV0[1]
-				r, g, bb, _ := sample(atlas, u0, v0)
-				mo := mask.PixOffset(x, y)
+				u := w0*uv0[i0][0] + w1*uv0[i1][0] + w2*uv0[i2][0]
+				v := w0*uv0[i0][1] + w1*uv0[i1][1] + w2*uv0[i2][1]
+				r, g, bb, _ := sampleWrapped(atlas, u, v, am.WrapS, am.WrapT)
 				o := out.PixOffset(x, y)
 				out.Pix[o], out.Pix[o+1], out.Pix[o+2] = r, g, bb
-				out.Pix[o+3] = mask.Pix[mo] // L4 mask: gray value = coverage
+				// The mask is texel-aligned with the output, so its own wrap
+				// rule is applied to the integer coordinate directly.
+				mx := wrapTexel(x+x0, W, mm.WrapS)
+				my := wrapTexel(y+y0, H, mm.WrapT)
+				if mx < 0 || my < 0 {
+					continue // clamp-to-border: outside is transparent
+				}
+				out.Pix[o+3] = mask.Pix[mask.PixOffset(mx, my)] // L4 mask: grey = coverage
 			}
 		}
 	}
-	return out
+
+	// UVs addressing the baked footprint, already in glTF's V-down space.
+	uvs := make([][2]float32, len(px))
+	for i, p := range px {
+		uvs[i] = [2]float32{(p[0] - float32(x0)) / float32(outW), (p[1] - float32(y0)) / float32(outH)}
+	}
+	return out, uvs
+}
+
+// sampleWrapped is a nearest-neighbour fetch honouring the PICA wrap modes.
+func sampleWrapped(img *image.NRGBA, u, v float32, ws, wt n3ds.PICAWrap) (byte, byte, byte, byte) {
+	w, h := img.Rect.Dx(), img.Rect.Dy()
+	x := wrapTexel(int(floorf(u*float32(w))), w, ws)
+	y := wrapTexel(int(floorf((1-v)*float32(h))), h, wt)
+	if x < 0 || y < 0 {
+		return 0, 0, 0, 0
+	}
+	o := img.PixOffset(x, y)
+	return img.Pix[o], img.Pix[o+1], img.Pix[o+2], img.Pix[o+3]
+}
+
+// wrapTexel applies one wrap mode to an integer texel index, returning -1 for
+// "outside" under clamp-to-border. It mirrors gpu_texture.go's wrapCoord.
+func wrapTexel(v, n int, mode n3ds.PICAWrap) int {
+	switch mode {
+	case n3ds.WrapClampToEdge:
+		return clampi(v, 0, n-1)
+	case n3ds.WrapClampToBorder:
+		if v < 0 || v >= n {
+			return -1
+		}
+		return v
+	case n3ds.WrapRepeat:
+		v %= n
+		if v < 0 {
+			v += n
+		}
+		return v
+	default: // mirrored repeat
+		period := 2 * n
+		v %= period
+		if v < 0 {
+			v += period
+		}
+		if v >= n {
+			v = period - 1 - v
+		}
+		return v
+	}
 }
 
 func clampi(v, lo, hi int) int {
@@ -370,6 +503,20 @@ func clampi(v, lo, hi int) int {
 	}
 	return v
 }
+func minf(a, b float32) float32 {
+	if b < a {
+		return b
+	}
+	return a
+}
+func maxf(a, b float32) float32 {
+	if b > a {
+		return b
+	}
+	return a
+}
+func floorf(v float32) float32 { return float32(math.Floor(float64(v))) }
+func ceilf(v float32) float32  { return float32(math.Ceil(float64(v))) }
 func min3(a, b, c float32) float32 {
 	if b < a {
 		a = b
