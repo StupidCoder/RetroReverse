@@ -288,3 +288,66 @@ func decodeETC1Block(img *image.NRGBA, bx, by int, v uint64) {
 		}
 	}
 }
+
+// DecodePICATexture decodes one mip level of a texture in the PICA200's own
+// format numbering — the values register 0x08E (and its unit-1/2 twins) carry,
+// which is how the *game* asset containers name a format, as opposed to the GL
+// enums CGFX uses. gpu_texture.go decodes the same fourteen formats out of
+// emulated memory; this decodes them out of a byte slice.
+func DecodePICATexture(data []byte, format uint32, w, h int) (*image.NRGBA, error) {
+	if w <= 0 || h <= 0 {
+		return nil, fmt.Errorf("texture: %dx%d is not a size", w, h)
+	}
+	need := int64(w) * int64(h) * int64(picaTexBits[format&0xF]) / 8
+	if int64(len(data)) < need {
+		return nil, fmt.Errorf("texture: format 0x%X at %dx%d needs %d bytes, have %d", format, w, h, need, len(data))
+	}
+	switch format & 0xF {
+	case 0x0: // RGBA8
+		return decodeTiledN(data, w, h, 4, func(p []byte) [4]byte { return [4]byte{p[3], p[2], p[1], p[0]} }), nil
+	case 0x1: // RGB8
+		return decodeTiledN(data, w, h, 3, func(p []byte) [4]byte { return [4]byte{p[2], p[1], p[0], 255} }), nil
+	case 0x2: // RGBA5551
+		return decodeTiledN(data, w, h, 2, func(p []byte) [4]byte {
+			v := binary.LittleEndian.Uint16(p)
+			r, g, b := byte(v>>11)&31, byte(v>>6)&31, byte(v>>1)&31
+			return [4]byte{r<<3 | r>>2, g<<3 | g>>2, b<<3 | b>>2, byte(v&1) * 255}
+		}), nil
+	case 0x3: // RGB565
+		return decodeTiledN(data, w, h, 2, func(p []byte) [4]byte {
+			v := binary.LittleEndian.Uint16(p)
+			r, g, b := byte(v>>11)&31, byte(v>>5)&63, byte(v)&31
+			return [4]byte{r<<3 | r>>2, g<<2 | g>>4, b<<3 | b>>2, 255}
+		}), nil
+	case 0x4: // RGBA4
+		return decodeTiledN(data, w, h, 2, func(p []byte) [4]byte {
+			v := binary.LittleEndian.Uint16(p)
+			return [4]byte{byte(v>>12) * 17, byte(v>>8&15) * 17, byte(v>>4&15) * 17, byte(v&15) * 17}
+		}), nil
+	case 0x5: // LA8
+		return decodeTiledN(data, w, h, 2, func(p []byte) [4]byte { return [4]byte{p[1], p[1], p[1], p[0]} }), nil
+	case 0x6: // HILO8 — two channels of a bump/normal map, high byte first
+		return decodeTiledN(data, w, h, 2, func(p []byte) [4]byte { return [4]byte{p[1], p[0], 0, 255} }), nil
+	case 0x7: // L8
+		return decodeTiledN(data, w, h, 1, func(p []byte) [4]byte { return [4]byte{p[0], p[0], p[0], 255} }), nil
+	case 0x8: // A8
+		return decodeTiledN(data, w, h, 1, func(p []byte) [4]byte { return [4]byte{255, 255, 255, p[0]} }), nil
+	case 0x9: // LA4
+		return decodeTiledN(data, w, h, 1, func(p []byte) [4]byte {
+			l := p[0] >> 4 * 17
+			return [4]byte{l, l, l, p[0] & 0xF * 17}
+		}), nil
+	case 0xA: // L4
+		return decodeTiled4(data, w, h, func(n byte) [4]byte { return [4]byte{n * 17, n * 17, n * 17, 255} }), nil
+	case 0xB: // A4
+		return decodeTiled4(data, w, h, func(n byte) [4]byte { return [4]byte{255, 255, 255, n * 17} }), nil
+	case 0xC: // ETC1
+		return decodeETC1(data, w, h), nil
+	default: // 0xD, ETC1A4
+		return decodeETC1A4(data, w, h), nil
+	}
+}
+
+// picaTexBits is each PICA texture format's bits per texel — also what says how
+// far the next mip level starts.
+var picaTexBits = [16]int{32, 24, 16, 16, 16, 16, 16, 8, 8, 8, 4, 4, 4, 8, 8, 8}

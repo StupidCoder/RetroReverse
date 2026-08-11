@@ -1,0 +1,21 @@
+{
+ "format": "retro-x",
+ "version": 1,
+ "type": "scene3d",
+ "camera": {
+  "mode": "orbit",
+  "pos": [1800, 900, 1800],
+  "target": [0, -400, 0],
+  "fov": 45,
+  "near": 10,
+  "far": 20000
+ },
+ "scene": {
+  "layers": [
+   {
+    "id": "stage",
+    "file": "season1-opening.glb"
+   }
+  ]
+ }
+}

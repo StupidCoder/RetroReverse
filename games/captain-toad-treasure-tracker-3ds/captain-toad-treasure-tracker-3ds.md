@@ -1204,3 +1204,120 @@ that channel. It is deliberately not a combiner model: six stages of TEV cannot 
 one texture per material, and the three shapes a banner material actually takes can.
 
 The GLB is in the Studio under a new Captain Toad entry, beside 3D Land's.
+
+---
+
+## Part XXI — The opening diorama, taken out of the cartridge
+
+The oracle has been drawing this stage since Part XVII. Part XXI takes it out of the cartridge as
+data: the ruin, its textures and its placement, rebuilt from the files rather than photographed from
+the emulator. Four formats had to come apart, and none of them is the CGFX the HOME Menu banner uses —
+the *game* assets are a different stack entirely.
+
+```
+/StageData/Season1OpeningStageMap1.szs   Yaz0 → SARC → BYML   where things stand
+/ObjectData/Season1OpeningStepA.szs      Yaz0 → SARC → BCH    the ruin, and its collision
+/ObjectData/Season1OpeningTextures.szs   Yaz0 → SARC → BCH    30 textures, nothing else
+```
+
+### SARC, and an archive that checks itself
+
+Every `.szs` is Yaz0 (already decompressed for the message archives in Part IV) wrapping a **SARC**:
+a header, an SFAT node table, an SFNT string table. What makes it pleasant is that a node stores both
+its name's *offset* and a **hash of the name**, under a key the header gives. Rehashing every name and
+demanding it match proves the node stride, the string-table base, the name lengths and the hash key
+simultaneously — a layout read wrongly cannot produce names that hash correctly. `ParseSARC` insists on
+it rather than treating it as optional.
+
+### BCH — where a mesh is a command list
+
+The models are **BCH** ("Binary CTR H3D"). Its header gives six sections an offset and a length that
+**tile the file exactly**, which is what pins every offset in it: the relocation table's end is the
+file's end, to the byte, on every `.bch` in the cartridge. The main header is fifteen
+(pointer table, count, dictionary) triples — models, materials, shaders, textures, LUTs, lights,
+cameras, fogs, the animation families, scenes — and the dictionaries are patricia trees a linear walk
+enumerates, exactly like CGFX's.
+
+Then the part worth the trip: **a mesh does not describe its geometry, it programs it.** The vertex
+format, the buffer offset, the stride, the index array and the draw call are stored as **PICA register
+writes**, in the same command encoding the game submits at run time. So the decoder does not parse a
+vertex-buffer struct — it runs the mesh's command lists through a bare register file with the same
+`DecodePICA` the emulated GPU uses, and then reads registers `0x200`-`0x205`, `0x227`, `0x228` and
+`0x2BB` exactly as `gpu_raster.go` reads them when the game draws. The attribute→shader-input
+permutation of Part XVII does double duty here: because the H3D vertex shader takes position in `v0`,
+normal in `v1`, tangent in `v2`, colour in `v3` and texture coordinates in `v4`-`v6`, **the permutation
+is the file's own statement of what each attribute means**, and no attribute order has to be assumed.
+The stage's vertices come out `3f pos + 3f normal + 2f uv + 3f tangent + 4ub colour` = 48 bytes,
+matching the configured stride exactly.
+
+**The index width is not where the hardware keeps it.** Register `0x227` has a bit for 8- versus
+16-bit indices, and in the file that bit is *zero* for every mesh — the address it shares the word with
+has not been relocated yet, so the whole word is a placeholder. The width is instead carried by the
+**relocation type** of the entry that patches that word: `0x58` for 16-bit, `0x5A` for 8-bit, ten of
+one and forty-four of the other, fifty-four together, which is exactly the model's face count. Read as
+8-bit, a 16-bit mesh decodes to an index list of `0 0 1 0 2 0 …` — the low bytes and their zero high
+bytes — which is a real triangle list of half the size, and looks plausible enough to ship.
+
+**The decode proves itself.** A model's meshes take their vertices from one shared array, each naming
+its own byte offset into it, and the arrays **tile end to end**: mesh *k*'s offset plus its vertex
+count times its stride is exactly where the next mesh begins. The vertex count is stored nowhere — it
+comes from the largest index in the mesh's index array, so it is only right if the index *width* is
+right. All 53 arrays tiling with no gap and no overlap is a coincidence nothing but a correct decode
+produces, and it is what `TestBCHVertexArraysTile` asserts. Mutating either the stride or the index
+width breaks it.
+
+Textures are the same idea: a texture object is a triple of command lists, one per unit, and the
+unit-0 list carries the size (`0x082`), the format (`0x08E`) and the pixel offset (`0x085`). The
+stage's thirty are all ETC1 or ETC1A4 — decoders Part XVI already built for the emulated GPU, now
+factored out to run on a byte slice.
+
+### The material names its texture, the object names its archive
+
+A model carries a per-material binding table of 0x2C-byte entries whose slot 0 is the texture the
+material samples on unit 0. The stage's textures are not in the model's own file at all, and nothing is
+inferred from the filename: the object archive's **`InitModel.byml` names its texture archive**
+(`TextureArc: Season1OpeningTextures`), and the material names the texture inside it.
+
+One trap. An unset slot is a zero word — and zero is a *valid* string-table offset, landing on the
+table's first entry, which in this file is `$shadowmap`. Resolving it gives the two vertex-coloured
+grass materials a confident, wrong texture name. An unset slot has to stay empty.
+
+### BYML, and where the ruin stands
+
+The configuration files are **BYML** ("binary YAML"): a tree of dictionaries, arrays and scalars over
+two string tables, one for keys and one for values. The opening stage's map decodes to nine lists —
+`ObjectList`, `SkyList`, `PlayerList`, `GoalList`, `DemoObjList`, `AreaList`, `Rails`, `Objs`,
+`GoalList` — and the placements read straight off:
+
+| list | object | at |
+|------|--------|-----|
+| ObjectList | `Season1OpeningStepA` | (200, −750, 50) — the ruin |
+| SkyList | `SkySeason1Opening` | (0, 850, 0) |
+| PlayerList | `Player` | (−400, −800, 550), yaw 90 |
+| GoalList | `KinopioBrigadeChecker` | (550, 50, −150) — the star atop the ruin |
+
+It even keeps the authoring path it was built from, `…/StageData/Season1OpeningStage/Map/Season1Opening
+StageMap.muunt`.
+
+### What is in the Studio, and what is not
+
+`webexport` reads the map, loads each placed object's archive, resolves its textures through the
+archive its own `InitModel.byml` names, and writes the stage as one GLB with every object at the map's
+transform — the opening diorama, 7,552 triangles, textured. It is a new **Stages** entry beside the
+banner.
+
+Two things are deliberately left out, and are the next pass rather than approximations shipped as
+fact:
+
+- **The sky.** `SkyList` places a dome whose material binds only a cloud *mask* to unit 0; the blue
+  behind the clouds (`SkyBlueSunny_color`, a 512×64 texture sitting unbound in the same archive) is
+  applied by something this decoder does not yet read. Exporting the dome as it stands would ship a
+  black sky, so it is not exported.
+- **The characters.** Toad, the birds and the star are placed by `PlayerList`, `ObjectList` and
+  `GoalList` and are skinned, animated objects — `KinopioAnimationSeason1OpeningStage.szs` alone is
+  2.6 MB. They are the object pass.
+
+The albedo comes out much lighter than the stage looks in play, and that is correct: the stone's
+texture really is near-white (mean RGB 200, 200, 191) and the dark, mossy look the game has is its
+**fragment lighting**, the unit Part XVIII spent six bugs on. An unlit extraction shows the albedo and
+the baked ambient occlusion in the vertex colours, which is what every other model in the Studio shows.
