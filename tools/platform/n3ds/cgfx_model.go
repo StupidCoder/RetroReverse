@@ -46,11 +46,75 @@ type Mesh struct {
 	MaterialIndex int
 }
 
-// Material is the slice of an MTOB this exporter needs: its name and its
-// texture mappers, in mapper order.
+// Material is the slice of an MTOB this exporter needs: its name, its texture
+// mappers in mapper order, and its first texture-environment stage.
 type Material struct {
 	Name    string
 	Mappers []TexMapper
+	Stage0  TevStage0
+}
+
+// picaTevStage0Reg is the first register of the PICA's first TEV stage; the
+// four that follow it hold the operands, the combine ops, the stage constant
+// and the output scale. gpu_tev_state.go interprets the same words for the
+// emulated GPU, and this decode follows its field layout.
+const picaTevStage0Reg = 0x0C0
+
+// TEV source ids and operand multiplexers, named for the few this exporter
+// reasons about. The full sets live in gpu_tev.go.
+const (
+	TevSrcTexture0 = 3  // ...through TevSrcTexture0+2 for units 1 and 2
+	TevSrcConstant = 14 // the stage's own constant colour
+
+	TevColorOpSrcColor = 0 // the colour operand passes the source's RGB
+	TevAlphaOpSrcAlpha = 0 // the alpha operand passes the source's alpha
+	TevAlphaOpSrcRed   = 2 // ...or its *red* channel, for alpha-less textures
+
+	TevCombineReplace = 0 // out = arg0
+)
+
+// TevStage0 is a material's first texture-environment stage: which source and
+// which channel each of colour and alpha is taken from, how they combine, and
+// the stage constant.
+//
+// The PICA runs six of these and this decodes only the first. That is enough to
+// tell apart the three shapes a banner material takes — a plain texture, a
+// texture cut by another texture's red channel, and a flat colour cut by a
+// texture's red channel — which is what an exporter with one texture per
+// material has to distinguish. It is deliberately not a combiner model.
+type TevStage0 struct {
+	ColorSrc, AlphaSrc [3]uint8 // TEV source ids
+	ColorOp, AlphaOp   [3]uint8 // operand multiplexers
+	CombineColor       uint8
+	CombineAlpha       uint8
+	Constant           [4]uint8 // RGBA
+}
+
+// AlphaFromRed reports whether the stage replaces alpha with a texture's red
+// channel — the way a colour-only format (ETC1, L4) carries a cutout mask. It
+// returns the texture unit the channel comes from.
+//
+// Both 3DS banners in this repository use it: Super Mario 3D Land's title
+// planes take alpha from a separate 4-bit mask, and Captain Toad's ™ mark takes
+// it from its own ETC1 texture, which has no alpha channel at all.
+func (s *TevStage0) AlphaFromRed() (unit int, ok bool) {
+	if s.CombineAlpha != TevCombineReplace || s.AlphaOp[0] != TevAlphaOpSrcRed {
+		return 0, false
+	}
+	if s.AlphaSrc[0] < TevSrcTexture0 || s.AlphaSrc[0] > TevSrcTexture0+2 {
+		return 0, false
+	}
+	return int(s.AlphaSrc[0] - TevSrcTexture0), true
+}
+
+// ConstantColor reports whether the stage's colour output is simply its
+// constant — a flat-coloured decal, with the shape coming entirely from alpha.
+func (s *TevStage0) ConstantColor() (rgb [3]uint8, ok bool) {
+	if s.CombineColor != TevCombineReplace || s.ColorOp[0] != TevColorOpSrcColor ||
+		s.ColorSrc[0] != TevSrcConstant {
+		return rgb, false
+	}
+	return [3]uint8{s.Constant[0], s.Constant[1], s.Constant[2]}, true
 }
 
 // PICAWrap is a sampler's wrap mode, as the PICA200 encodes it in the texture
@@ -392,10 +456,14 @@ func (c *CGFX) readInterleaved(vb int64, sh *Shape) error {
 //	+0x16C  the coordinator array, stride 0x58
 //	+0x2F4  the mapper's sampler command entry, stride 0x8C
 //	+0x33C  self-relative pointer to the mapper's texture name, stride 0x8C
+//	+0x3B8  the TEV stage-0 command entry — *after* the mapper blocks, so this
+//	        offset moves by 0x8C for each mapper past the first
 //
-// The count is the authority on how many mappers a material has: an MTOB always
-// carries three name slots, and MarioMat's unused two point at *empty strings*
-// rather than being null, so counting non-null pointers over-reports.
+// The count is the authority on how many mappers a material has, and it also
+// bounds what may be read: the mapper region is only as long as the material
+// has mappers, so the slots past the count belong to whatever follows. Reading
+// them anyway is how MarioMat appeared to name two extra (empty-string)
+// textures.
 const (
 	mtobCoordCount  = 0x168
 	mtobCoordArray  = 0x16C
@@ -403,6 +471,7 @@ const (
 	mtobSamplerCmd  = 0x2F4
 	mtobTexName     = 0x33C
 	mtobMapperStrid = 0x8C
+	mtobTevStage0   = 0x3B8 // for a one-mapper material
 )
 
 // Texture-coordinator field offsets within one 0x58-byte entry.
@@ -450,7 +519,47 @@ func (c *CGFX) decodeMaterial(e CGFXEntry) (*Material, error) {
 		}
 		mat.Mappers = append(mat.Mappers, *m)
 	}
+	st, err := c.decodeTevStage0(base, n)
+	if err != nil {
+		return nil, err
+	}
+	mat.Stage0 = *st
 	return mat, nil
+}
+
+// decodeTevStage0 reads the material's first texture-environment stage out of
+// the command entry the MTOB carries for it (register 0x0C0 plus four
+// consecutive extras: operands, combine ops, the stage constant, the output
+// scale). The entry sits past the mapper blocks, so its offset moves with the
+// mapper count; the header shape is checked, so a layout that has moved is a
+// loud error rather than a plausible-looking combiner.
+func (c *CGFX) decodeTevStage0(base int64, mappers int) (*TevStage0, error) {
+	if mappers < 1 {
+		mappers = 1
+	}
+	hdrOff := base + mtobTevStage0 + int64(mappers-1)*mtobMapperStrid
+	if err := c.check(hdrOff, 4+4*4, "TEV stage-0 command entry"); err != nil {
+		return nil, err
+	}
+	hdr := c.u32(hdrOff)
+	reg, mask, extras, consec := uint16(hdr&0xFFFF), hdr>>16&0xF, hdr>>20&0xFF, hdr>>31
+	if reg != picaTevStage0Reg || mask != 0xF || extras != 4 || consec != 1 {
+		return nil, fmt.Errorf("TEV command header 0x%08x is not the expected write of 0x%03X+4", hdr, picaTevStage0Reg)
+	}
+	src := c.u32(hdrOff - 4)     // 0x0C0 sources
+	opd := c.u32(hdrOff + 4)     // 0x0C1 operands
+	cmb := c.u32(hdrOff + 4 + 4) // 0x0C2 combine ops
+	kst := c.u32(hdrOff + 4 + 8) // 0x0C3 the stage constant
+	st := &TevStage0{CombineColor: uint8(cmb & 0xF), CombineAlpha: uint8(cmb >> 16 & 0xF)}
+	for i := 0; i < 3; i++ {
+		st.ColorSrc[i] = uint8(src >> (4 * uint(i)) & 0xF)
+		st.ColorOp[i] = uint8(opd >> (4 * uint(i)) & 0xF)
+		st.AlphaSrc[i] = uint8(src >> (16 + 4*uint(i)) & 0xF)
+		st.AlphaOp[i] = uint8(opd >> (12 + 4*uint(i)) & 7)
+	}
+	// PICA colours are four little-endian bytes, R first.
+	st.Constant = [4]uint8{uint8(kst), uint8(kst >> 8), uint8(kst >> 16), uint8(kst >> 24)}
+	return st, nil
 }
 
 // decodeMapper reads one texture coordinator plus the texture name and sampler

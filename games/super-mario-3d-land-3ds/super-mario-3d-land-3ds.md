@@ -662,7 +662,8 @@ ExeFS/banner  =  CBMD
 
 ### The GLB export
 
-`webexport` decodes the whole scene from the cartridge and writes one GLB —
+`webexport` decodes the whole scene from the cartridge and writes one GLB (the conversion itself lives
+in `tools/platform/n3ds/cgfxglb`, shared with Captain Toad's banner) —
 `site/public/super-mario-3d-land-3ds/models/banner.glb` — that a standard glTF viewer plays. The
 mapping is one-to-one with the CGFX: a node per bone (parented per the skeleton), a mesh per CGFX
 mesh attached to its bone's node, and the CANM curves carried as glTF **CUBICSPLINE** channels — the
@@ -754,6 +755,7 @@ system entry.
 | `tools/platform/n3ds` | NCSD/NCCH/ExHeader/ExeFS/RomFS parsers, BLZ + LZ11 decompressors, CBMD/CGFX banner parsing, the machine + SVC & IPC HLE |
 | `tools/platform/n3ds/cmd/n3dsdump` | list/extract the cartridge's containers (`-romfs`, `-verify`, `-code`, `-x`) |
 | `tools/platform/n3ds/cmd/bannerdump` | decode the HOME-Menu banner scene (`game.cci`; `-o` writes the CGFX, `-model` prints meshes and material texture mappers) |
+| `tools/platform/n3ds/cgfxglb` | CGFX banner scene → GLB, shared with the other 3DS title |
 | `games/super-mario-3d-land-3ds/extract/cmd/webexport` | export the banner to `site/public/.../banner.glb` (`-texdump` writes the decoded PNGs) |
 | `tools/cmd/rendersheet` | software-render a GLB's own buffers to a sheet of views — the check that the *shipped* file is right |
 | `tools/cpu/arm` (`V6K` variant) | ARMv6K + VFPv2 disassembler, code-tracer and execution core |

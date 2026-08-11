@@ -1,21 +1,15 @@
-// webexport extracts Super Mario 3D Land's web deliverables from the cartridge
-// image into site/public/super-mario-3d-land-3ds/. The first asset is the
-// HOME-Menu banner: the animated 3-D logo scene (CBMD → LZ11 → CGFX), exported
-// as one GLB with embedded PNG textures and the CANM skeletal animation baked
-// into per-bone node translation tracks.
+// webexport extracts Captain Toad: Treasure Tracker's web deliverables from the
+// cartridge image into site/public/captain-toad-treasure-tracker-3ds/. The first
+// asset is the HOME-Menu banner: the 3-D logo scene (CBMD → LZ11 → CGFX),
+// exported as one GLB with embedded PNG textures.
 //
 //	webexport -in game.cci [-o DIR] [-texdump DIR]
 //
-// The GLB maps the CGFX one-to-one: a node per bone (the logo's parts — Block,
-// Mario, SuperLeaf, the title faces and the Tanooki tail — are each rigidly
-// bound to one bone), a mesh per CGFX mesh attached to its bone's node, and the
-// hermite animation keys carried loss-lessly as glTF CUBICSPLINE channels.
-//
-// The CGFX → GLB conversion itself lives in tools/platform/n3ds/cgfxglb, shared
-// with the other 3DS title; its package comment records the format's traps (the
-// per-mapper texture matrices and wrap modes, and the baked PICA combiner). The
-// one approximation here is Super Mario 3D Land's extruded title-side mesh,
-// which drops its secondary depth-shade layer.
+// The CGFX → GLB conversion lives in tools/platform/n3ds/cgfxglb, shared with
+// the other 3DS title; its package comment records the format's traps. This
+// banner is a static, folded triptych — three quads, no camera, light or
+// animation — where Super Mario 3D Land's is a rigged, animated scene, and the
+// same exporter covers both.
 package main
 
 import (
@@ -29,7 +23,7 @@ import (
 )
 
 func main() {
-	cli.Main("super-mario-3d-land-3ds", runCLI)
+	cli.Main("captain-toad-treasure-tracker-3ds", runCLI)
 }
 
 func runCLI(ctx *cli.Context) error {
@@ -37,9 +31,9 @@ func runCLI(ctx *cli.Context) error {
 		return fmt.Errorf("usage: webexport -in game.cci [-o DIR]")
 	}
 	b := ctx.Builder
-	b.SetTitle("Super Mario 3D Land")
+	b.SetTitle("Captain Toad: Treasure Tracker")
 	b.SetPlatform("Nintendo 3DS")
-	b.SetYear(2011)
+	b.SetYear(2018)
 	b.SetDisplay(schema.Display{
 		Native: schema.Size{W: 400, H: 240},
 		TickHz: 60,
@@ -57,8 +51,6 @@ func runCLI(ctx *cli.Context) error {
 	}
 	b.AddObject(schema.Asset{ID: "banner", Name: "HOME Menu Banner", Group: "Banner"}, &schema.Object{
 		Type: schema.ObjectModel3D, Name: "HOME Menu Banner", Model: "banner.glb",
-		SkinnedClone: true,
-		Animations:   []schema.Animation{{ID: "banner", Clip: "banner", FPS: 30, Loop: "loop"}},
 	})
 	ctx.Progress("objects", 1, 1, "banner.glb")
 	return nil

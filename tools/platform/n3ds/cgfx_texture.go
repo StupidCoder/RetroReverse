@@ -23,6 +23,7 @@ import (
 // The GL enums are the 3DS's DMP extensions; the pairs seen so far:
 //
 //	(0x675A, 0)      ETC1 compressed RGB
+//	(0x675B, 0)      ETC1 + a 4-bit alpha plane (ETC1A4) — twice ETC1's size
 //	(0x6757, 0x6761) LUMINANCE, UNSIGNED_4BITS — L4, 4-bit grayscale
 type TXOB struct {
 	Name          string
@@ -69,6 +70,8 @@ func (t *TXOB) decode(data []byte) (*image.NRGBA, error) {
 	switch {
 	case t.GLFormat == 0x675A: // ETC1
 		return decodeETC1(data, t.Width, t.Height), nil
+	case t.GLFormat == 0x675B: // ETC1A4
+		return decodeETC1A4(data, t.Width, t.Height), nil
 	case t.GLFormat == 0x6757 && t.GLType == 0x6761: // L4
 		return decodeTiled4(data, t.Width, t.Height, func(v byte) [4]byte {
 			g := v * 17

@@ -1,0 +1,6 @@
+{
+ "title": "Captain Toad: Treasure Tracker",
+ "platform": "Nintendo 3DS",
+ "year": 2018,
+ "description": "The repo's second Nintendo 3DS title, and the one that drove most of the PICA200 fragment pipeline — fragment lighting, shadow maps, the chained command buffers and the compressed texture formats. The Studio carries what's decoded for the web so far: the cartridge's HOME Menu banner, a folded three-panel diorama of the logo standing in front of Toad's tower, decompressed from its CBMD container and rebuilt from the CGFX scene."
+}

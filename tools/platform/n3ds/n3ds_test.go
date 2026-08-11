@@ -459,3 +459,96 @@ func maxf32(a, b float32) float32 {
 	}
 	return a
 }
+
+const toadImagePath = "../../../games/captain-toad-treasure-tracker-3ds/image/Captain Toad - Treasure Tracker (Europe) (En,Fr,De,Es,It,Nl).cci"
+
+// TestToadBannerScene covers the second title's banner, which exercises the
+// parts of the format Super Mario 3D Land's does not: an ETC1A4 texture (ETC1
+// colour plus a 4-bit alpha plane), a scene with no camera, light or animation
+// at all, and a material whose colour is a flat constant with its alpha taken
+// from a texture's red channel — the ™ mark, whose ETC1 texture has no alpha of
+// its own and which reads as an opaque black square if that is missed.
+func TestToadBannerScene(t *testing.T) {
+	img, err := os.ReadFile(toadImagePath)
+	if err != nil {
+		t.Skip("Captain Toad image not present (game images are not committed)")
+	}
+	g, err := BannerScene(img)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := g.DecodeModel(g.Resources["Models"][0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Meshes) != 3 || len(m.Materials) != 3 {
+		t.Fatalf("model has %d meshes / %d materials, want 3/3", len(m.Meshes), len(m.Materials))
+	}
+	// Every mapper is a plain UV0 sampler with no transform — the opposite of
+	// the other banner, and worth pinning so a decode that invents a scale gets
+	// caught by one of the two titles.
+	for _, mat := range m.Materials {
+		for i, mp := range mat.Mappers {
+			if mp.SourceUV != 0 || mp.ScaleS != 1 || mp.ScaleT != 1 || mp.WrapS != WrapRepeat {
+				t.Errorf("%s mapper %d = %+v; want an untransformed UV0 repeat sampler", mat.Name, i, mp)
+			}
+		}
+	}
+	// The ™ material: a flat constant colour cut by its texture's red channel.
+	// Exactly one material does this, and the other two must not.
+	stencils := 0
+	for _, mat := range m.Materials {
+		unit, red := mat.Stage0.AlphaFromRed()
+		rgb, flat := mat.Stage0.ConstantColor()
+		if !red && !flat {
+			continue
+		}
+		if !red || !flat {
+			t.Errorf("%s: alphaFromRed=%v constantColour=%v — a stencil material needs both", mat.Name, red, flat)
+			continue
+		}
+		if unit != 0 {
+			t.Errorf("%s takes alpha from texture unit %d, want 0", mat.Name, unit)
+		}
+		if rgb != [3]uint8{0, 0, 0} {
+			t.Errorf("%s stencil colour = %v, want black", mat.Name, rgb)
+		}
+		stencils++
+	}
+	if stencils != 1 {
+		t.Errorf("%d stencil materials, want exactly 1 (the ™ mark)", stencils)
+	}
+
+	// The ETC1A4 textures decode at 8 bits per texel and carry real alpha —
+	// a decode that dropped the alpha plane would be uniformly opaque.
+	sawAlpha := false
+	for _, te := range g.Resources["Textures"] {
+		txob, im, err := g.DecodeTexture(te)
+		if err != nil {
+			t.Fatalf("texture %q: %v", te.Name, err)
+		}
+		if txob.GLFormat != 0x675B {
+			continue
+		}
+		if txob.BPP != 8 {
+			t.Errorf("texture %q is ETC1A4 but %d bpp, want 8", te.Name, txob.BPP)
+		}
+		opaque, clear := 0, 0
+		for i := 3; i < len(im.Pix); i += 4 {
+			if im.Pix[i] == 0xFF {
+				opaque++
+			} else if im.Pix[i] == 0 {
+				clear++
+			}
+		}
+		if opaque == 0 || clear == 0 {
+			t.Errorf("texture %q has %d opaque and %d transparent texels; the alpha plane looks unread",
+				te.Name, opaque, clear)
+			continue
+		}
+		sawAlpha = true
+	}
+	if !sawAlpha {
+		t.Error("no ETC1A4 texture found; this banner should have two")
+	}
+}

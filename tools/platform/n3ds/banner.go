@@ -79,3 +79,35 @@ func (bn *Banner) CommonModel() ([]byte, error) {
 	}
 	return cgfx, nil
 }
+
+// BannerScene runs the whole chain from a cartridge image to the parsed common
+// banner scene: NCSD → the executable CXI → its ExeFS → the "banner" file →
+// CBMD → LZ11 → CGFX. Every title's banner arrives the same way, so the chain
+// lives here rather than being retyped per game.
+func BannerScene(image []byte) (*CGFX, error) {
+	ncsd, err := ParseNCSD(image)
+	if err != nil {
+		return nil, err
+	}
+	cxi, err := ncsd.Executable()
+	if err != nil {
+		return nil, err
+	}
+	efs, err := cxi.ExeFS()
+	if err != nil {
+		return nil, err
+	}
+	raw, err := efs.File("banner")
+	if err != nil {
+		return nil, err
+	}
+	bn, err := ParseBanner(raw)
+	if err != nil {
+		return nil, err
+	}
+	blob, err := bn.CommonModel()
+	if err != nil {
+		return nil, err
+	}
+	return ParseCGFX(blob)
+}

@@ -1139,3 +1139,68 @@ value" was read as a region; the word we never wrote was read as half a hash. Bo
 through both bugs — the only symptom either ever produced was a logo in the wrong language, and only
 because someone looked at the screen. *Answer the command the game sent, not the one whose number you
 recognise.*
+
+---
+
+## Part XX — The banner, and the material that was a stencil
+
+The HOME Menu banner — the little 3-D scene shown when the title is highlighted — comes out of the
+cartridge by the same chain as 3D Land's, with no new code: ExeFS `banner` → **CBMD** (one shared
+CGFX, no language variants, no CWAV) → **LZ11** → a 140,928-byte **CGFX**. What is inside it is the
+opposite of the other title's banner, and that is what made it worth extracting.
+
+```
+CGFX  revision 0x05000000  fileSize 140928
+    Models    1  COMMON (CMDL)
+    Textures  3  COMMON1 COMMON2 COMMON3
+```
+
+No camera, no light, no scene environment, **no animation**. Three meshes, three materials, four
+bones, twelve triangles. The scene is a **folded triptych**: `Logo` is two quads creased down the
+middle (the crease sits 2.7 units nearer the viewer than the outer edges), `Bird` is three quads
+behind it carrying the tower and its cast, and `TM` is a single quad. The fold is the whole 3-D
+effect — on the HOME Menu the parallax as the panels turn is what sells the diorama.
+
+Every mapper is a plain UV0 sampler, scale (1,1), REPEAT. Where 3D Land's banner is a rigged, animated
+scene whose atlases are addressed through per-mapper texture matrices, this one is three flat
+billboards with untransformed coordinates, and the same exporter covers both — which is the useful
+result: `tools/platform/n3ds/cgfxglb` is now a *format* exporter, not one game's scaffolding.
+
+### ETC1A4 — the alpha plane the CGFX decoder had never been asked for
+
+`COMMON1` (the logo) and `COMMON2` (the tower scene) are 256×256 in GL format **`0x675B`**: ETC1
+colour blocks with a **4-bit alpha plane** apiece, 8 bits per texel against ETC1's 4. The decoder for
+it already existed — the emulated GPU has decoded PICA texture format `0xD` since the fragment
+pipeline work in Part XVIII — but the CGFX texture path had only ever seen `0x675A`, plain ETC1,
+because that is all 3D Land's banner uses. One case in the format switch, and the size check
+(`width × height × bpp / 8 == dataSize`) confirms it: 8 bpp, not 4.
+
+### The ™ was an opaque black square
+
+The first export put a black box beside the logo. The mesh, the UVs and the texture were all correct:
+`COMMON3` is a 16×16 **ETC1** image of a white "TM" on black, and ETC1 has no alpha channel at all, so
+sampled as a picture it *is* an opaque black square.
+
+The material says otherwise, in its **texture-environment stage 0** — five registers the MTOB carries
+as a command entry (`0x0C0` sources, `0x0C1` operands, `0x0C2` combine ops, `0x0C3` the stage
+constant, `0x0C4` scale), sitting after the mapper blocks so its offset moves by `0x8C` per extra
+mapper. Decoded with the same field layout the emulated GPU uses:
+
+| material | colour | alpha |
+|----------|--------|-------|
+| `COMMON4` (Logo) | `Replace(Texture0)` | `Replace(Texture0.a)` |
+| `COMMON5` (Bird) | `Add(Texture0, black)` | `Replace(Texture0.a)` |
+| `COMMON1` (™) | **`Replace(Constant)`** = black | **`Replace(Texture0.`*red*`)`** |
+
+The ™ is a **stencil**: a flat black decal whose shape comes entirely from a colour channel. The alpha
+operand `2` — "source red" — is the standard way a format without alpha carries a cutout mask, and it
+is not a Captain Toad quirk: 3D Land's title planes use the identical operand to take their alpha from
+the separate 4-bit mask, which is why the combiner bake written for them was right. The same fact,
+read out of the file this time instead of assumed.
+
+`Material.Stage0` now carries the stage, with two derived questions the exporter asks of it —
+`AlphaFromRed()` and `ConstantColor()` — and a stencil material bakes to a one-colour image cut by
+that channel. It is deliberately not a combiner model: six stages of TEV cannot be folded into glTF's
+one texture per material, and the three shapes a banner material actually takes can.
+
+The GLB is in the Studio under a new Captain Toad entry, beside 3D Land's.
