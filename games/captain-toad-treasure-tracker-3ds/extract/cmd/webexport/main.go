@@ -89,7 +89,7 @@ func exportStages(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		tris, skipped, err := exportStage(fs, st.stage, out)
+		tris, lights, skipped, err := exportStage(fs, st.stage, out)
 		if err != nil {
 			return fmt.Errorf("%s: %w", st.stage, err)
 		}
@@ -104,9 +104,12 @@ func exportStages(ctx *cli.Context) error {
 				Pos:    []float64{1800, 900, 1800},
 				Target: []float64{0, -400, 0},
 			},
-			Scene: &schema.Scene{Layers: []schema.Layer{{ID: "stage", File: file}}},
+			Scene: &schema.Scene{
+				Layers: []schema.Layer{{ID: "stage", File: file}},
+				Lights: lights,
+			},
 		})
-		ctx.Progress("levels", i+1, len(stages), fmt.Sprintf("%s (%d tris)", file, tris))
+		ctx.Progress("levels", i+1, len(stages), fmt.Sprintf("%s (%d tris, %d lights)", file, tris, len(lights)))
 	}
 	return nil
 }

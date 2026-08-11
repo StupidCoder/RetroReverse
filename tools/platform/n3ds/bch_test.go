@@ -14,6 +14,7 @@ const (
 	toadStage   = "Season1OpeningStage"    // the stage whose map places the terrain
 	toadTerrain = "Season1OpeningStepA"    // the object archive holding that terrain
 	toadTexArc  = "Season1OpeningTextures" // the archive its InitModel.byml names
+	toadScene   = "Season1OpeningScene"    // the scene archive holding its lights
 )
 
 func toadRomFS(t *testing.T) *RomFS {
@@ -342,6 +343,121 @@ func TestBCHMaterialAlpha(t *testing.T) {
 		}
 		if mat.AlphaTest || mat.Blends {
 			t.Errorf("material %q is solid but reports alphaTest=%v blends=%v", name, mat.AlphaTest, mat.Blends)
+		}
+	}
+}
+
+// TestBCHSceneLights decodes the opening stage's light rig and checks it
+// against the registers the machine actually programs when it draws that stage.
+//
+// The values here were read back from a running frame (`bootoracle -gputrace`,
+// which dumps the lighting unit's state per draw): the terrain's draws report
+// two lights, a global ambient of raw 0x06C1D07F and a key diffuse of raw
+// 0x0FA2F04C. Those are 10-bit fields holding 8-bit colours, so they decode to
+// (108,116,127) and (254,188,76) — the file's (109,117,128) and (255,189,77) to
+// within one unit of quantisation. That agreement is the point: it says the
+// scene file's lights are the ones the hardware is handed.
+func TestBCHSceneLights(t *testing.T) {
+	fs := toadRomFS(t)
+	a := openSZS(t, fs, "/ObjectData/"+toadScene+".szs")
+	blob, ok := a.File(toadScene + ".bch")
+	if !ok {
+		t.Fatal("the scene archive has no .bch")
+	}
+	f, err := ParseBCH(blob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lights, err := f.Lights()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lights) != 4 {
+		t.Fatalf("%d lights, want 4", len(lights))
+	}
+
+	key := lights["mainLight"]
+	if key == nil {
+		t.Fatal("no mainLight")
+	}
+	if !key.Directional {
+		t.Error("mainLight is not directional")
+	}
+	if key.Diffuse != [3]uint8{255, 189, 77} {
+		t.Errorf("mainLight diffuse = %v, want the warm key {255 189 77}", key.Diffuse)
+	}
+	// The stored vector is the direction the light travels: it points *down*,
+	// and the sun is above. Reading it as the direction towards the light would
+	// light the underside of everything.
+	if key.Direction[1] >= 0 {
+		t.Errorf("mainLight direction %v does not travel downwards", key.Direction)
+	}
+
+	amb := lights["AmbientLight"]
+	if amb == nil {
+		t.Fatal("no AmbientLight")
+	}
+	if amb.Directional {
+		t.Error("AmbientLight should carry no direction")
+	}
+	if amb.Ambient != [3]uint8{109, 117, 128} {
+		t.Errorf("AmbientLight = %v, want the cool sky {109 117 128}", amb.Ambient)
+	}
+
+	// Both directional lights are unit vectors — DecodeLight enforces it, and
+	// it is what makes the +0x40 offset trustworthy.
+	for name, l := range lights {
+		if !l.Directional {
+			continue
+		}
+		var sum float64
+		for _, c := range l.Direction {
+			sum += float64(c) * float64(c)
+		}
+		if d := sum - 1; d > 1e-5 || d < -1e-5 {
+			t.Errorf("light %q direction is not unit length (|d|^2 = %v)", name, sum)
+		}
+	}
+}
+
+// TestBCHStageLightAreas checks the other half of the chain: the stage's own
+// Design archive says which of the scene's lights light it.
+func TestBCHStageLightAreas(t *testing.T) {
+	fs := toadRomFS(t)
+	a := openSZS(t, fs, "/StageData/"+toadStage+"Design1.szs")
+	blob, ok := a.File("LightAreas.byml")
+	if !ok {
+		t.Fatal("the design archive has no LightAreas.byml")
+	}
+	doc, err := ParseBYML(blob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	areas, _ := doc.(BYMLDict)["LightAreas"].([]any)
+	if len(areas) != 2 {
+		t.Fatalf("%d light areas, want 2", len(areas))
+	}
+	// Both areas light the terrain with a key plus the ambient; they differ
+	// only in whether that key casts a depth shadow, which is why either can be
+	// read for the rig's colours.
+	want := [][]string{{"mainLight", "AmbientLight"}, {"mainLight_noshadow", "AmbientLight"}}
+	for i, area := range areas {
+		d, _ := area.(BYMLDict)
+		names, _ := d["Lights"].([]any)
+		var got []string
+		for _, n := range names {
+			nd, _ := n.(BYMLDict)
+			s, _ := nd["lightName"].(string)
+			got = append(got, s)
+		}
+		if len(got) != len(want[i]) {
+			t.Errorf("area %d has %v, want %v", i, got, want[i])
+			continue
+		}
+		for j := range got {
+			if got[j] != want[i][j] {
+				t.Errorf("area %d light %d = %q, want %q", i, j, got[j], want[i][j])
+			}
 		}
 	}
 }

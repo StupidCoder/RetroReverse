@@ -270,6 +270,11 @@ type Scene struct {
 	Fog        *Fog    `json:"fog,omitempty"`
 	Layers     []Layer `json:"layers"`
 	Rooms      *Rooms  `json:"rooms,omitempty"`
+	// Lights the scene is lit by, when the game's own light rig is known. A
+	// viewer that gets these must use them *instead of* its default rig, not on
+	// top of it. Absent, the viewer lights the scene however it likes — which
+	// is right for content exported unlit.
+	Lights []Light `json:"lights,omitempty"`
 }
 
 type Fog struct {

@@ -1356,3 +1356,92 @@ every texel of it. The island had been floating on nothing.
 
 *A format that obliges every texture to carry alpha has made alpha uninformative; the material is the
 only thing that knows whether it is coverage.*
+
+---
+
+## Part XXII — The light rig, and why it is baked
+
+The diorama's albedo is near-white stone and bright green lawn; everything that makes it *look* like
+Captain Toad is the lighting. Part XVIII made the emulator's fragment-lighting unit correct. This gets
+the same rig out of the cartridge and into the Studio.
+
+### Where a stage keeps its lights
+
+Three files, and none of it is guessed:
+
+```
+/ObjectData/Season1OpeningScene.szs   → BCH, Lights group: mainLight, secondLight,
+                                        AmbientLight, mainLight_noshadow
+/StageData/…Design1.szs → LightAreas.byml   which lights each light area applies
+/StageData/…Map1.szs    → AreaList          where those areas are
+```
+
+A light object is small and its layout is checkable: flags at `+0x28`, ambient at `+0x30`, and — when
+the flags' bit 3 is set — diffuse, two speculars and a direction at `+0x40`. Bit 3 is not asserted, it
+is **tested**: across every scene archive in the cartridge, each light that bit marks carries a vector
+of exactly unit length, which a misread offset does not produce. Objects without one are `0x34` bytes
+long and stop before the field.
+
+The stage's two light areas are commented `default` and `no_shadow` and name `mainLight + AmbientLight`
+and `mainLight_noshadow + AmbientLight` — the same colour and the same direction, differing only in
+whether the key casts a depth shadow. So the rig is:
+
+| | colour | |
+|---|---|---|
+| `mainLight` | `#ffbd4d` (255, 189, 77) | a warm key, travelling (−0.431, −0.666, −0.609) |
+| `AmbientLight` | `#6d7580` (109, 117, 128) | a cool sky ambient |
+
+**The stored vector is the direction the light travels, not the direction towards it.** Its Y is
+negative — the sun is above, so `L = −direction`; reading it the other way lights the underside of
+everything.
+
+### Checked against the hardware, not against taste
+
+`bootoracle -gputrace` dumps the lighting unit's state per draw, so the file's values can be compared
+with the registers the machine is actually handed while it draws this stage. The terrain's draws report
+**two** lights — the count the light area declares — with a global ambient of raw `0x06C1D07F` and a
+key diffuse of raw `0x0FA2F04C`. Those are 10-bit fields carrying 8-bit colours: they decode to
+(108, 116, 127) and (254, 188, 76), against the file's (109, 117, 128) and (255, 189, 77). One unit of
+quantisation apart. The scene file's lights *are* the ones the hardware gets.
+
+(The same trace shows other draws using four lights, two of them positional with spotlight and distance
+attenuation, and the key's colour sliding down through a series of dimmer values — the characters' own
+light set, and the intro's fade. Neither belongs to the terrain.)
+
+### Why the rig is baked rather than handed to the renderer
+
+The material's combiner is `PrimaryFragmentColor × Texture1` — the lighting unit's output times the
+albedo — and a later stage multiplies by the vertex colour, which carries the artists' baked ambient
+occlusion. **All three multiplies happen on 8-bit values, in gamma space.**
+
+A linear-space renderer does not reproduce that. Computing `albedo × colour × N·L` in linear and
+encoding the result to sRGB returns the colour product unchanged but the geometric factor as
+`N·L^(1/2.2)` — at a typical 0.67 that is 0.83, a visibly flatter and brighter picture than the
+console's. The lighting model is not the disagreement; the space the multiply happens in is.
+
+So the lit term is evaluated per vertex in gamma space, multiplied by the occlusion exactly as the
+combiner does, and written to `COLOR_0` — converted to linear on the way out, because glTF defines
+that attribute as linear. The material stays unlit and performs the one multiply that is left. Per
+vertex is not an approximation here: the normal is a vertex attribute, so a hard edge already has split
+vertices and a face's shading is constant across it either way.
+
+The scene's lights are still published in the level document (`scene.lights`, with the direction
+already negated into the towards-the-light sense). They are decoded fact, and they are what a renderer
+that wanted to light this dynamically would need.
+
+### How close it gets
+
+Measured on the same surfaces, ours against a frame the oracle drew:
+
+| | top / side brightness ratio |
+|---|---|
+| the oracle's frame | 1.47, 1.48, 1.41 |
+| the Studio's | 1.26, 1.34, 1.22 |
+
+and the lit stone's hue is warmer than the console's (blue at 0.74 of red against the reference's
+0.93). Both residuals point the same way, and it is the honest place to leave this: **what is modelled
+is the diffuse rig — ambient plus `N·L` — and what is not is everything that adds a neutral highlight
+or takes light away.** The specular and Fresnel lookup tables (Part XVIII named six of them), the
+normal maps on texture unit 2, and the depth-shadow map on unit 0 are all still on the floor. A neutral
+specular is exactly what would pull the hue back towards the reference, and a shadow map is exactly
+what would deepen the sides.

@@ -273,7 +273,7 @@ func (f *BCH) DecodeModel(e BCHEntry) (*BCHModel, error) {
 		if err := f.decodeMaterialState(obj, &mat); err != nil {
 			return nil, fmt.Errorf("bch: model %q: %w", e.Name, err)
 		}
-		for u := 0; u < 3; u++ {
+		for u := 0; u < 4; u++ {
 			// An unset slot is a zero word, and zero is a valid string-table
 			// offset — it lands on the table's first entry. Resolving it would
 			// give every textureless material the same plausible-looking name,
@@ -566,14 +566,15 @@ func (f *BCH) DecodeTexture(e BCHEntry) (*BCHTexture, error) {
 // container holds the textures — a stage's models keep their textures in a
 // separate `.bch` beside them, so the binding is by name, not by pointer.
 //
-// **Slot 0 is the texture the material samples on unit 0** in every material
-// seen, and is what an exporter wants. Slots 1 and 2 are not reliably textures:
-// the stage terrain's shader puts its normal map in slot 1 and the material's
-// own short name in slot 2, while the sky's puts a shader name in slot 1. Read
-// them as names, not as texture units.
+// The four slots are the material's three **texture units** followed by its own
+// short name. This stage's terrain shader binds the depth-shadow map to unit 0,
+// the albedo to unit 1 and the normal map to unit 2 — and its TEV stage 0 is
+// `Modulate(PrimaryFragmentColor, Texture1)`, the lighting unit's output times
+// that albedo, which is where the game's whole look comes from. Slot 0 is an
+// unset name on the sky's materials, so read them as names, not as guarantees.
 type BCHMaterial struct {
 	Name  string
-	Names [3]string
+	Names [4]string
 
 	// How the material treats alpha, read from the PICA state it programs.
 	// Ignoring this is not cosmetic: the stage's albedo textures are ETC1A4 and
@@ -616,8 +617,19 @@ func (m *BCHMaterial) AlphaCutoff() (float32, bool) {
 	return 0, false
 }
 
-// Texture returns the material's unit-0 texture name.
-func (m *BCHMaterial) Texture() string { return m.Names[0] }
+// Texture returns the name of the albedo the material samples — the texture on
+// unit 1, which is the one its combiner multiplies the lighting by.
+func (m *BCHMaterial) Texture() string { return m.Names[bchUnitAlbedo] }
+
+// NormalMap returns the material's unit-2 normal map, if it binds one.
+func (m *BCHMaterial) NormalMap() string { return m.Names[bchUnitNormal] }
+
+// Texture-unit assignments this stage's shader uses.
+const (
+	bchUnitShadow = 0
+	bchUnitAlbedo = 1
+	bchUnitNormal = 2
+)
 
 // The model's per-material binding table: one 0x2C-byte entry per material,
 // holding a pointer to the material object and the names of the textures it
@@ -625,7 +637,7 @@ func (m *BCHMaterial) Texture() string { return m.Names[0] }
 const (
 	bchMatBindStride = 0x2C
 	bchMatBindObject = 0x00
-	bchMatBindTex0   = 0x20
+	bchMatBindTex0   = 0x1C // the unit-0 name; units 1 and 2 follow, then the short name
 )
 
 // The material object's own PICA command list: (offset, word count) into the
@@ -678,4 +690,98 @@ func (f *BCH) decodeMaterialState(obj int64, m *BCHMaterial) error {
 	m.AlphaFunc = uint8(at >> 4 & 7)
 	m.AlphaRef = uint8(at >> 8)
 	return nil
+}
+
+// A scene's lights live in their own `.bch` beside the stage's models — the
+// stage `<Base>Stage` is lit by the scene `<Base>Scene` — and the stage's
+// Design archive names, per light area, which of them apply.
+//
+// Light object fields, from the object's start:
+//
+//	+0x00 u32 name offset       +0x28 u32 flags
+//	+0x30 u32 ambient  RGBA     +0x34 u32 diffuse RGBA
+//	+0x38 u32 specular0         +0x3C u32 specular1
+//	+0x40 f32[3] direction      (only when the flags say the light has one)
+//
+// The flags' bit 3 says whether the light carries a direction, and the objects
+// are sized accordingly (0x34 bytes without one). That reading is checked
+// against the data rather than assumed: across every scene in the cartridge,
+// each light the bit marks carries a vector of **exactly** unit length, which a
+// misread offset does not produce.
+const (
+	bchLightFlags     = 0x28
+	bchLightAmbient   = 0x30
+	bchLightDiffuse   = 0x34
+	bchLightSpecular0 = 0x38
+	bchLightSpecular1 = 0x3C
+	bchLightDirection = 0x40
+
+	bchLightHasVector = 1 << 3 // the flags bit that says +0x40 is meaningful
+)
+
+// BCHLight is one of a scene's lights.
+type BCHLight struct {
+	Name    string
+	Flags   uint32
+	Ambient [3]uint8 // 255 is full scale, as the hardware's 10-bit fields read it
+
+	// Directional lights only.
+	Directional bool
+	Diffuse     [3]uint8
+	Specular0   [3]uint8
+	Specular1   [3]uint8
+
+	// Direction is the direction the light *travels*, in the model's world
+	// space. The vector towards the light — the L of an N·L — is its negation.
+	Direction [3]float32
+}
+
+// picaColor reads one of the file's RGBA colour words: four bytes, red first.
+func (f *BCH) picaColor(o int64) [3]uint8 {
+	v := f.u32(o)
+	return [3]uint8{uint8(v), uint8(v >> 8), uint8(v >> 16)}
+}
+
+// DecodeLight decodes the light a Lights-group entry points at.
+func (f *BCH) DecodeLight(e BCHEntry) (*BCHLight, error) {
+	if !f.inRange(e.Offset, bchLightDirection) {
+		return nil, fmt.Errorf("bch: light %q header runs outside the file", e.Name)
+	}
+	l := &BCHLight{
+		Name:    e.Name,
+		Flags:   f.u32(e.Offset + bchLightFlags),
+		Ambient: f.picaColor(e.Offset + bchLightAmbient),
+	}
+	if l.Flags&bchLightHasVector == 0 {
+		return l, nil // an ambient-only light: the object ends before the rest
+	}
+	if !f.inRange(e.Offset, bchLightDirection+12) {
+		return nil, fmt.Errorf("bch: light %q direction runs outside the file", e.Name)
+	}
+	l.Directional = true
+	l.Diffuse = f.picaColor(e.Offset + bchLightDiffuse)
+	l.Specular0 = f.picaColor(e.Offset + bchLightSpecular0)
+	l.Specular1 = f.picaColor(e.Offset + bchLightSpecular1)
+	var sum float64
+	for k := 0; k < 3; k++ {
+		l.Direction[k] = f.f32(e.Offset + bchLightDirection + int64(k)*4)
+		sum += float64(l.Direction[k]) * float64(l.Direction[k])
+	}
+	if d := math.Abs(math.Sqrt(sum) - 1); d > 1e-3 {
+		return nil, fmt.Errorf("bch: light %q direction %v is not a unit vector (off by %g)", e.Name, l.Direction, d)
+	}
+	return l, nil
+}
+
+// Lights decodes every light in the container, by name.
+func (f *BCH) Lights() (map[string]*BCHLight, error) {
+	out := make(map[string]*BCHLight, len(f.Groups[BCHLights]))
+	for _, e := range f.Groups[BCHLights] {
+		l, err := f.DecodeLight(e)
+		if err != nil {
+			return nil, err
+		}
+		out[l.Name] = l
+	}
+	return out, nil
 }

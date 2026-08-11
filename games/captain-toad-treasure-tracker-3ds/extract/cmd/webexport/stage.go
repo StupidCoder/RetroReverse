@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"retroreverse.com/tools/lib/glb"
+	"retroreverse.com/tools/lib/retrox/schema"
 	"retroreverse.com/tools/platform/n3ds"
 )
 
@@ -193,12 +194,16 @@ func loadObject(fs *n3ds.RomFS, name string, cache map[string]*objectArchive) (*
 
 // addObject appends one placed object's meshes to the scene, under a node
 // carrying the map's transform.
-func addObject(s *glb.Scene, p placement, o *objectArchive) (tris int, err error) {
+func addObject(s *glb.Scene, p placement, o *objectArchive, lights []schema.Light) (tris int, err error) {
 	if o.Model == nil {
 		return 0, nil
 	}
 	prims := make([]glb.Prim, 0, len(o.Model.Meshes))
 	for _, sh := range o.Model.Meshes {
+		sh := sh
+		// The material's combiner is lighting × albedo × vertex colour, and the
+		// lighting is baked into that vertex colour (bakeLighting), so the glTF
+		// material stays unlit and does the one multiply that is left.
 		pr := glb.Prim{BaseColor: [4]float32{1, 1, 1, 1}, Unlit: true, DoubleSided: true}
 		pr.Positions = make([][3]float32, len(sh.Verts))
 		for j, v := range sh.Verts {
@@ -210,10 +215,14 @@ func addObject(s *glb.Scene, p placement, o *objectArchive) (tris int, err error
 				pr.Normals[j] = v.Normal
 			}
 		}
-		if sh.HasColor {
+		if sh.HasColor || len(lights) > 0 {
 			pr.Colors = make([][4]uint8, len(sh.Verts))
-			for j, v := range sh.Verts {
-				pr.Colors[j] = v.Color
+			if len(lights) > 0 {
+				bakeLighting(&sh, lights, pr.Colors)
+			} else {
+				for j, v := range sh.Verts {
+					pr.Colors[j] = v.Color
+				}
 			}
 		}
 		if sh.UVCount > 0 && sh.MaterialIndex < len(o.Model.Materials) {
@@ -286,10 +295,13 @@ func eulerXYZ(deg [3]float32) [4]float32 {
 // exportStage writes one stage's placed geometry as a GLB and reports which
 // placed objects had no model archive to load (the characters, effects and
 // markers, which are a later pass).
-func exportStage(fs *n3ds.RomFS, stage, out string) (tris int, skipped []string, err error) {
+func exportStage(fs *n3ds.RomFS, stage, out string) (tris int, lights []schema.Light, skipped []string, err error) {
 	places, err := readStageMap(fs, stage)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
+	}
+	if lights, err = readStageLights(fs, stage); err != nil {
+		return 0, nil, nil, err
 	}
 	cache := map[string]*objectArchive{}
 	s := glb.NewScene()
@@ -304,9 +316,9 @@ func exportStage(fs *n3ds.RomFS, stage, out string) (tris int, skipped []string,
 			miss[unit] = true
 			continue
 		}
-		n, err := addObject(s, p, o)
+		n, err := addObject(s, p, o, lights)
 		if err != nil {
-			return 0, nil, err
+			return 0, nil, nil, err
 		}
 		tris += n
 	}
@@ -314,5 +326,237 @@ func exportStage(fs *n3ds.RomFS, stage, out string) (tris int, skipped []string,
 		skipped = append(skipped, k)
 	}
 	sort.Strings(skipped)
-	return tris, skipped, s.Write(out, stage)
+	return tris, lights, skipped, s.Write(out, stage)
+}
+
+// --- lighting -----------------------------------------------------------
+
+// A stage's lights live in a scene archive beside it, named by stripping the
+// trailing "Stage" from the stage's name and appending "Scene" — a convention
+// that holds for all 118 of the cartridge's scenes. Which of that scene's
+// lights apply is not a convention: the stage's Design archive carries a
+// LightAreas.byml naming them, per light area, and the map's AreaList places
+// those areas.
+const (
+	stageSuffix = "Stage"
+	sceneSuffix = "Scene"
+)
+
+// readStageLights resolves the lights a stage's terrain is lit by.
+//
+// The opening stage declares two light areas that differ only in whether the
+// key light casts a depth shadow — the same colour, the same direction — so
+// which one is read does not change the rig. When a stage's areas disagree
+// about more than that, this says so rather than picking one silently.
+func readStageLights(fs *n3ds.RomFS, stage string) ([]schema.Light, error) {
+	design, err := fs.File("/StageData/" + stage + "Design1.szs")
+	if err != nil {
+		return nil, err
+	}
+	darc, err := n3ds.OpenSZS(design)
+	if err != nil {
+		return nil, fmt.Errorf("%s design archive: %w", stage, err)
+	}
+	blob, ok := darc.File("LightAreas.byml")
+	if !ok {
+		return nil, nil // a stage with no light areas is lit by the viewer's default
+	}
+	doc, err := n3ds.ParseBYML(blob)
+	if err != nil {
+		return nil, fmt.Errorf("%s LightAreas.byml: %w", stage, err)
+	}
+	areas, _ := doc.(n3ds.BYMLDict)["LightAreas"].([]any)
+	if len(areas) == 0 {
+		return nil, nil
+	}
+
+	if !strings.HasSuffix(stage, stageSuffix) {
+		return nil, fmt.Errorf("stage %q does not end in %q, so its scene archive cannot be named", stage, stageSuffix)
+	}
+	sceneName := strings.TrimSuffix(stage, stageSuffix) + sceneSuffix
+	sraw, err := fs.File("/ObjectData/" + sceneName + ".szs")
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", sceneName, err)
+	}
+	sarc, err := n3ds.OpenSZS(sraw)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", sceneName, err)
+	}
+	sblob, ok := sarc.File(sceneName + ".bch")
+	if !ok {
+		return nil, fmt.Errorf("%s has no scene .bch", sceneName)
+	}
+	sf, err := n3ds.ParseBCH(sblob)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", sceneName, err)
+	}
+	lights, err := sf.Lights()
+	if err != nil {
+		return nil, err
+	}
+
+	// Take the first area's rig, and check the others agree on the light
+	// *values* — they may name a different light, but a stage whose areas light
+	// the terrain differently needs a decision this pass is not making.
+	var out []schema.Light
+	var first []*n3ds.BCHLight
+	for ai, a := range areas {
+		d, _ := a.(n3ds.BYMLDict)
+		names, _ := d["Lights"].([]any)
+		var rig []*n3ds.BCHLight
+		for _, n := range names {
+			nd, _ := n.(n3ds.BYMLDict)
+			name, _ := nd["lightName"].(string)
+			l := lights[name]
+			if l == nil {
+				return nil, fmt.Errorf("%s light area names %q, which %s does not hold", stage, name, sceneName)
+			}
+			rig = append(rig, l)
+		}
+		if ai == 0 {
+			first = rig
+			continue
+		}
+		if len(rig) != len(first) {
+			return nil, fmt.Errorf("%s light areas disagree: %d lights vs %d", stage, len(rig), len(first))
+		}
+		for i := range rig {
+			if rig[i].Ambient != first[i].Ambient || rig[i].Diffuse != first[i].Diffuse ||
+				rig[i].Direction != first[i].Direction {
+				return nil, fmt.Errorf("%s light areas disagree about light %d (%q vs %q)",
+					stage, i, rig[i].Name, first[i].Name)
+			}
+		}
+	}
+
+	for _, l := range first {
+		// Every light contributes its ambient term; a directional one adds its
+		// diffuse over the surfaces facing it.
+		if l.Ambient != ([3]uint8{}) {
+			out = append(out, schema.Light{
+				ID: l.Name + "-ambient", Type: "ambient",
+				Keys: []schema.LightKey{{Color: hexColor(l.Ambient)}},
+			})
+		}
+		if !l.Directional {
+			continue
+		}
+		// The file stores the direction the light travels; a renderer wants the
+		// direction *towards* it.
+		out = append(out, schema.Light{
+			ID: l.Name, Type: "directional",
+			Keys: []schema.LightKey{{
+				Color: hexColor(l.Diffuse),
+				Dir:   []float64{-float64(l.Direction[0]), -float64(l.Direction[1]), -float64(l.Direction[2])},
+			}},
+		})
+	}
+	return out, nil
+}
+
+func hexColor(c [3]uint8) string { return fmt.Sprintf("#%02x%02x%02x", c[0], c[1], c[2]) }
+
+// bakeLighting folds the stage's light rig into the vertex colours.
+//
+// The materials' combiner is `lighting × albedo`, and a later stage multiplies
+// by the vertex colour, which carries the artists' baked ambient occlusion. All
+// three multiplies happen on the hardware in **gamma space**, on 8-bit values —
+// and that is why the rig is baked rather than handed to the renderer as lights.
+// A linear-space renderer computing `albedo × colour × N·L` and encoding the
+// result to sRGB does not reproduce a gamma-space one: the colours survive the
+// round trip but the N·L factor comes back as N·L^(1/2.2), which at a typical
+// 0.67 is 0.83 — a visibly flatter, brighter picture than the console's.
+//
+// Baking sidesteps that. The lit term is evaluated per vertex, which for this
+// geometry is not an approximation: the normal is a vertex attribute, so a hard
+// edge already has split vertices and a face's shading is constant across it
+// either way.
+//
+// The result goes out as COLOR_0, which glTF defines as **linear**, so the
+// gamma-space product is converted on the way. The scene's lights are still
+// published in the level document — they are decoded fact, and what a renderer
+// that wanted to light this dynamically would need.
+func bakeLighting(sh *n3ds.BCHMesh, lights []schema.Light, out [][4]uint8) {
+	var ambient [3]float64
+	type dirLight struct{ color, l [3]float64 }
+	var dirs []dirLight
+	for _, l := range lights {
+		if len(l.Keys) == 0 {
+			continue
+		}
+		k := l.Keys[0]
+		c := parseHexColor(k.Color)
+		switch l.Type {
+		case "ambient":
+			for i := 0; i < 3; i++ {
+				ambient[i] += c[i]
+			}
+		case "directional":
+			d := dirLight{color: c}
+			var n float64
+			for i := 0; i < 3 && i < len(k.Dir); i++ {
+				d.l[i] = k.Dir[i]
+				n += k.Dir[i] * k.Dir[i]
+			}
+			if n = math.Sqrt(n); n > 0 {
+				for i := 0; i < 3; i++ {
+					d.l[i] /= n
+				}
+			}
+			dirs = append(dirs, d)
+		}
+	}
+
+	for v := range sh.Verts {
+		lit := ambient
+		if sh.HasNormal {
+			n := sh.Verts[v].Normal
+			for _, d := range dirs {
+				nl := float64(n[0])*d.l[0] + float64(n[1])*d.l[1] + float64(n[2])*d.l[2]
+				if nl <= 0 {
+					continue
+				}
+				for i := 0; i < 3; i++ {
+					lit[i] += d.color[i] * nl
+				}
+			}
+		}
+		for i := 0; i < 3; i++ {
+			c := clamp01(lit[i])
+			if sh.HasColor {
+				c *= float64(sh.Verts[v].Color[i]) / 255 // the artists' baked occlusion
+			}
+			out[v][i] = uint8(srgbToLinear(c)*255 + 0.5)
+		}
+		out[v][3] = 255
+		if sh.HasColor {
+			out[v][3] = sh.Verts[v].Color[3]
+		}
+	}
+}
+
+func parseHexColor(s string) [3]float64 {
+	var r, g, b int
+	fmt.Sscanf(s, "#%02x%02x%02x", &r, &g, &b)
+	return [3]float64{float64(r) / 255, float64(g) / 255, float64(b) / 255}
+}
+
+func clamp01(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
+}
+
+// srgbToLinear converts a gamma-space multiplier into the linear value glTF's
+// COLOR_0 carries, so the renderer's linear multiply and its sRGB encode put
+// the gamma-space product back on screen unchanged.
+func srgbToLinear(c float64) float64 {
+	if c <= 0.04045 {
+		return c / 12.92
+	}
+	return math.Pow((c+0.055)/1.055, 2.4)
 }

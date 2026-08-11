@@ -16,6 +16,29 @@
     "id": "stage",
     "file": "season1-opening.glb"
    }
+  ],
+  "lights": [
+   {
+    "id": "mainLight",
+    "type": "directional",
+    "keys": [
+     {
+      "frame": 0,
+      "color": "#ffbd4d",
+      "dir": [0.4308353066444397, 0.6660115122795105, 0.608941376209259]
+     }
+    ]
+   },
+   {
+    "id": "AmbientLight-ambient",
+    "type": "ambient",
+    "keys": [
+     {
+      "frame": 0,
+      "color": "#6d7580"
+     }
+    ]
+   }
   ]
  }
 }
