@@ -94,7 +94,7 @@ func exportStages(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		tris, lights, casters, skipped, err := exportStage(fs, st.stage, out, shadowOut)
+		tris, lights, shadow, casters, skipped, err := exportStage(fs, st.stage, out, shadowOut)
 		if err != nil {
 			return fmt.Errorf("%s: %w", st.stage, err)
 		}
@@ -116,6 +116,7 @@ func exportStages(ctx *cli.Context) error {
 			Scene: &schema.Scene{
 				Layers: layers,
 				Lights: lights,
+				Shadow: shadow,
 			},
 		})
 		ctx.Progress("levels", i+1, len(stages), fmt.Sprintf("%s (%d tris, %d lights, %d shadow-caster tris)", file, tris, len(lights), casters))

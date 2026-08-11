@@ -461,3 +461,60 @@ func TestBCHStageLightAreas(t *testing.T) {
 		}
 	}
 }
+
+// TestBYMLDepthShadow reads the stage's depth-shadow settings, which its Design
+// archive ships beside the light areas.
+//
+// BiasFactor is the number that matters and it is not a slope-acne nudge: a
+// fraction of the near-far range, 0.0185 of 4,300 units is about eighty world
+// units. That is the *stand-off of the caster*. The depth-shadow proxy is a
+// coarse shell stretched over the light-facing side of the object — 128 of its
+// 136 triangles face the light, and it is not a closed solid — standing well
+// clear of the real surface, so every recess it bridges over needs that much
+// bias to stay lit. Comparing against it with a small bias shadows geometry the
+// game does not, and moirés every face lying near the shell.
+func TestBYMLDepthShadow(t *testing.T) {
+	fs := toadRomFS(t)
+	a := openSZS(t, fs, "/StageData/"+toadStage+"Design1.szs")
+	blob, ok := a.File("DepthShadow.byml")
+	if !ok {
+		t.Fatal("the design archive has no DepthShadow.byml")
+	}
+	doc, err := ParseBYML(blob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, _ := doc.(BYMLDict)
+	p, _ := d.Get("DepthShadowParam", "DefaultDepthShadowParam").(BYMLDict)
+	if p == nil {
+		t.Fatal("no DefaultDepthShadowParam")
+	}
+	if on, _ := p["IsDepthShadowEnable"].(bool); !on {
+		t.Error("the stage's default depth shadow is disabled")
+	}
+	for _, want := range []struct {
+		key string
+		v   float32
+	}{{"BiasFactor", 0.0185}, {"Near", 500}, {"Far", 4800}, {"ColorA", 150}} {
+		got, ok := p[want.key].(float32)
+		if !ok {
+			if i, isInt := p[want.key].(int32); isInt {
+				got, ok = float32(i), true
+			}
+		}
+		if !ok || got != want.v {
+			t.Errorf("%s = %v, want %v", want.key, p[want.key], want.v)
+		}
+	}
+	// The bias in world units is what says it is a stand-off, not an epsilon.
+	near, _ := p["Near"].(float32)
+	far, _ := p["Far"].(float32)
+	bias, _ := p["BiasFactor"].(float32)
+	if u := bias * (far - near); u < 50 || u > 120 {
+		t.Errorf("bias is %.1f world units; the caster stand-off should put it near eighty", u)
+	}
+	g, _ := d["GlobalParam"].(BYMLDict)
+	if w, _ := g["ShadowMapWidth"].(int32); w != 512 {
+		t.Errorf("ShadowMapWidth = %v, want 512", g["ShadowMapWidth"])
+	}
+}

@@ -186,7 +186,7 @@ export async function mount(ctx, doc) {
     const caster = doc.scene.layers.find((ly) => ly.role === 'shadow');
     if (rig && caster) {
       const rec = layerNodes.get(caster.id);
-      const shadow = rec && buildShadowMap(stage.renderer, rec.group, rig);
+      const shadow = rec && buildShadowMap(stage.renderer, rec.group, rig, doc.scene.shadow);
       if (shadow) {
         for (const [id, other] of layerNodes) {
           if (id !== caster.id) receiveShadows(other.group, shadow);

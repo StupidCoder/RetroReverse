@@ -34,7 +34,8 @@
 //     that does not cast keeps its contribution inside the shadow.
 import * as THREE from 'three';
 
-const TEX = 2048;
+// Fallbacks for a document that names no shadow parameters of its own.
+const DEFAULTS = { mapSize: 512, near: 0, far: 0, bias: 0.005, strength: 1 };
 
 function srgbColor(hex) {
   const c = new THREE.Color();
@@ -77,24 +78,32 @@ export function rigFromLights(lights) {
 
 // buildShadowMap renders the caster group from the light and returns the
 // uniforms the receivers need, or null when there is nothing to cast.
-export function buildShadowMap(renderer, casterGroup, rig) {
+export function buildShadowMap(renderer, casterGroup, rig, params) {
   if (!casterGroup || !rig) return null;
   const box = new THREE.Box3().setFromObject(casterGroup);
   if (box.isEmpty()) return null;
+  const p = { ...DEFAULTS, ...(params || {}) };
 
   const centre = box.getCenter(new THREE.Vector3());
   const radius = box.getBoundingSphere(new THREE.Sphere()).radius;
   const dir = rig.key.dir;
-  const eye = centre.clone().addScaledVector(dir, radius * 2);
   const up = Math.abs(dir.y) > 0.99 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
-  const cam = new THREE.OrthographicCamera(-radius, radius, radius, -radius, 0.01, radius * 4);
+
+  // The guest states the depth range its shadow pass renders over, and its bias
+  // is a fraction OF THAT RANGE — so the range has to be the guest's or the
+  // bias means something else. The caster is parked just past the near plane.
+  const near = p.far > p.near ? p.near : 0.01;
+  const far = p.far > p.near ? p.far : radius * 4;
+  const eye = centre.clone().addScaledVector(dir, near + radius);
+  const cam = new THREE.OrthographicCamera(-radius, radius, radius, -radius, near, far);
   cam.position.copy(eye);
   cam.up.copy(up);
   cam.lookAt(centre);
   cam.updateMatrixWorld(true);
   cam.updateProjectionMatrix();
 
-  const target = new THREE.WebGLRenderTarget(TEX, TEX, {
+  const size = p.mapSize;
+  const target = new THREE.WebGLRenderTarget(size, size, {
     minFilter: THREE.NearestFilter,
     magFilter: THREE.NearestFilter,
     depthBuffer: true,
@@ -126,7 +135,18 @@ export function buildShadowMap(renderer, casterGroup, rig) {
     uniforms: {
       uShadowMap: { value: target.texture },
       uShadowMatrix: { value: matrix },
-      uShadowBias: { value: 2.5 / (radius * 4) },
+      uShadowTexel: { value: 1 / size },
+      // The bias is the guest's, in its own units: a fraction of the depth
+      // range. At 0.0185 of this stage's 4,300 that is some eighty world units,
+      // which is not an acne nudge — it is the STAND-OFF OF THE CASTER. The
+      // depth-shadow proxy is a coarse shell stretched over the light-facing
+      // side of the object (128 of its 136 triangles face the light; it is not
+      // a closed solid, so it cannot be cast from its back faces either), and
+      // it stands well clear of the real surface. Bias it by less and every
+      // recess the shell bridges over comes out shadowed, and every face lying
+      // near it comes out in moiré.
+      uShadowBias: { value: p.bias },
+      uShadowStrength: { value: p.strength },
       uAmbient: { value: rig.ambient },
       uKeyColor: { value: rig.key.color },
       uKeyDir: { value: dir },
@@ -171,6 +191,8 @@ vShadowNormal = mat3(modelMatrix) * normal;`);
 #include <packing>
 uniform sampler2D uShadowMap;
 uniform float uShadowBias;
+uniform float uShadowStrength;
+uniform float uShadowTexel;
 uniform vec3 uAmbient;
 uniform vec3 uKeyColor;
 uniform vec3 uKeyDir;
@@ -186,7 +208,7 @@ varying vec3 vShadowNormal;`)
   vec3 sc = vShadowCoord.xyz / vShadowCoord.w * 0.5 + 0.5;
   if (sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0 && sc.z < 1.0) {
     float lit = 0.0;
-    vec2 texel = vec2(1.0 / ${TEX}.0);
+    vec2 texel = vec2(uShadowTexel);
     for (int y = -1; y <= 1; y++) {
       for (int x = -1; x <= 1; x++) {
         float d = unpackRGBAToDepth(texture2D(uShadowMap, sc.xy + vec2(float(x), float(y)) * texel));
@@ -207,7 +229,10 @@ varying vec3 vShadowNormal;`)
     vec3 full = min(vec3(1.0), kept + uKeyColor * max(dot(n, uKeyDir), 0.0));
     vec3 shaded = min(vec3(1.0), kept);
     vec3 ratio = shaded / max(full, vec3(1e-4));
-    gl_FragColor.rgb *= mix(min(ratio, vec3(1.0)), vec3(1.0), lit);
+    // A depth shadow does not remove all of its light: the guest states how
+    // much it takes, and this one keeps two fifths of the key.
+    vec3 shadowed = mix(vec3(1.0), min(ratio, vec3(1.0)), uShadowStrength);
+    gl_FragColor.rgb *= mix(shadowed, vec3(1.0), lit);
   }
 }
 #include <dithering_fragment>`);

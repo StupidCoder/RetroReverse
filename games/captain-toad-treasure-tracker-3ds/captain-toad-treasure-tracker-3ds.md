@@ -1458,9 +1458,27 @@ depth-shadow and Z-prepass. That is what the game renders its shadow map from, s
 renders its shadow map from: the export publishes it as a level layer with role `shadow`, geometry that
 exists to be rendered from the light and never to be seen.
 
-`site/src/shadowmap.js` renders it once — the scene and the light are both static — into a packed-depth
-target from an orthographic camera along `mainLight`, and patches every other layer's material to
-multiply by the comparison. Two details make it right rather than decorative:
+**And the stage ships the numbers for it.** The Design archive's `DepthShadow.byml` holds the pass's
+own configuration, and reading it settled two bugs that guessing had put in:
+
+| | |
+|---|---|
+| `Near` 500, `Far` 4800 | the depth range the pass renders over |
+| `BiasFactor` 0.0185 | a fraction **of that range** — about eighty world units |
+| `ShadowMapWidth/Height` 512 | not the 2048 a modern default reaches for |
+| `ColorA` 150 | how much of the light the shadow takes: 59%, not all of it |
+
+The bias is the interesting one, because eighty units is not an acne epsilon — **it is the stand-off of
+the caster**. The proxy is a coarse *shell* stretched over the light-facing side of the object (128 of
+its 136 triangles face the light, and 132 of its edges are boundaries, so it is not a closed solid and
+cannot be cast from its back faces either), and it stands well clear of the surface it stands for.
+Compared against with a small bias it does exactly what a first attempt here did: it moirés every face
+lying near the shell, and it shadows every recess the shell bridges over — a slab set back under an
+overhang came out uniformly dark when the game has it lit. With the guest's own bias both go away.
+
+`site/src/shadowmap.js` renders the proxy once — the scene and the light are both static — into a
+packed-depth target from an orthographic camera over the guest's near/far, and patches every other
+layer's material to multiply by the comparison. Two details make it right rather than decorative:
 
 - The injection sits **after `<colorspace_fragment>`**, where `gl_FragColor` is already in the output's
   gamma space. That is the space the guest's combiner multiplies in, so the multiply needs no
@@ -1469,7 +1487,11 @@ multiply by the comparison. Two details make it right rather than decorative:
   scales the *casting light's* term; the ambient — and any second light that does not cast — keeps
   shining inside the shadow. The baked vertex colour holds `ambient + Σ light·N·L`, so the factor is
   `(everything except the caster) / (everything)`, computed per fragment from the same colours the bake
-  used. A constant "shadow floor" would have been wrong in both hue and depth. Two things fall out of
-  the exact form for free: the factor reaches 1 precisely where the caster's `N·L` reaches 0, so a face
-  already turned away from the light is not darkened twice, and the shadowed stone comes out the cool
-  blue-grey of the sky ambient rather than black — which is what the console shows.
+  used, and scaled by the guest's own shadow strength. A constant "shadow floor" would have been wrong
+  in both hue and depth. Two things fall out of the exact form for free: the factor reaches 1 precisely
+  where the caster's `N·L` reaches 0, so a face already turned away from the light is not darkened
+  twice, and the shadowed stone comes out the cool blue-grey of the sky ambient rather than black —
+  which is what the console shows.
+
+*Every number this pass needed was in the stage's own files. The two artefacts came from the two that
+were not read.*

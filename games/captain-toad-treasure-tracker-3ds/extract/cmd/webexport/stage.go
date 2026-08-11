@@ -299,17 +299,20 @@ func eulerXYZ(deg [3]float32) [4]float32 {
 // depth-shadow proxies the same objects carry — the coarse models the game
 // renders its shadow map from. It reports which placed objects had no model
 // archive to load (the characters, effects and markers, which are a later pass).
-func exportStage(fs *n3ds.RomFS, stage, out, shadowOut string) (tris int, lights []schema.Light, casters int, skipped []string, err error) {
+func exportStage(fs *n3ds.RomFS, stage, out, shadowOut string) (tris int, lights []schema.Light, shadow *schema.ShadowParams, casters int, skipped []string, err error) {
 	places, err := readStageMap(fs, stage)
 	if err != nil {
-		return 0, nil, 0, nil, err
+		return 0, nil, nil, 0, nil, err
 	}
 	if lights, err = readStageLights(fs, stage); err != nil {
-		return 0, nil, 0, nil, err
+		return 0, nil, nil, 0, nil, err
+	}
+	if shadow, err = readShadowParams(fs, stage); err != nil {
+		return 0, nil, nil, 0, nil, err
 	}
 	cache := map[string]*objectArchive{}
 	s := glb.NewScene()
-	shadow := glb.NewScene()
+	casterScene := glb.NewScene()
 	miss := map[string]bool{}
 	for _, p := range places {
 		unit := p.Unit
@@ -323,12 +326,12 @@ func exportStage(fs *n3ds.RomFS, stage, out, shadowOut string) (tris int, lights
 		}
 		n, err := addObject(s, p, o, lights)
 		if err != nil {
-			return 0, nil, 0, nil, err
+			return 0, nil, nil, 0, nil, err
 		}
 		tris += n
-		n, err = addShadowCasters(shadow, p, o)
+		n, err = addShadowCasters(casterScene, p, o)
 		if err != nil {
-			return 0, nil, 0, nil, err
+			return 0, nil, nil, 0, nil, err
 		}
 		casters += n
 	}
@@ -337,14 +340,14 @@ func exportStage(fs *n3ds.RomFS, stage, out, shadowOut string) (tris int, lights
 	}
 	sort.Strings(skipped)
 	if err := s.Write(out, stage); err != nil {
-		return 0, nil, 0, nil, err
+		return 0, nil, nil, 0, nil, err
 	}
 	if casters > 0 {
-		if err := shadow.Write(shadowOut, stage+"-shadow"); err != nil {
-			return 0, nil, 0, nil, err
+		if err := casterScene.Write(shadowOut, stage+"-shadow"); err != nil {
+			return 0, nil, nil, 0, nil, err
 		}
 	}
-	return tris, lights, casters, skipped, nil
+	return tris, lights, shadow, casters, skipped, nil
 }
 
 // addShadowCasters appends a placed object's depth-shadow proxies — the extra,
@@ -501,6 +504,69 @@ func readStageLights(fs *n3ds.RomFS, stage string) ([]schema.Light, error) {
 }
 
 func hexColor(c [3]uint8) string { return fmt.Sprintf("#%02x%02x%02x", c[0], c[1], c[2]) }
+
+// readShadowParams reads the stage's depth-shadow configuration out of the
+// DepthShadow.byml its Design archive carries. Every number the shadow pass
+// needs is in there, and two of them matter a great deal:
+//
+//   - BiasFactor is a fraction of the near-far range, and at 0.0185 of 4,300
+//     units it is about 80 world units. That is not a slope-acne nudge, it is
+//     the *stand-off of the caster*: the depth-shadow proxy is a coarse shell
+//     stretched over the light-facing side of the object, standing well clear
+//     of the real surface, and without a bias that size every recess the shell
+//     bridges over comes out shadowed.
+//   - ColorA is how much of the light the shadow takes away. A depth shadow is
+//     not an absence of light.
+func readShadowParams(fs *n3ds.RomFS, stage string) (*schema.ShadowParams, error) {
+	design, err := fs.File("/StageData/" + stage + "Design1.szs")
+	if err != nil {
+		return nil, err
+	}
+	arc, err := n3ds.OpenSZS(design)
+	if err != nil {
+		return nil, err
+	}
+	blob, ok := arc.File("DepthShadow.byml")
+	if !ok {
+		return nil, nil
+	}
+	doc, err := n3ds.ParseBYML(blob)
+	if err != nil {
+		return nil, fmt.Errorf("%s DepthShadow.byml: %w", stage, err)
+	}
+	d, _ := doc.(n3ds.BYMLDict)
+	p, _ := d.Get("DepthShadowParam", "DefaultDepthShadowParam").(n3ds.BYMLDict)
+	if p == nil {
+		return nil, nil
+	}
+	if on, _ := p["IsDepthShadowEnable"].(bool); !on {
+		return nil, nil
+	}
+	global, _ := d["GlobalParam"].(n3ds.BYMLDict)
+	sp := &schema.ShadowParams{
+		MapSize:  int(num(global["ShadowMapWidth"])),
+		Near:     num(p["Near"]),
+		Far:      num(p["Far"]),
+		Bias:     num(p["BiasFactor"]),
+		Strength: num(p["ColorA"]) / 255,
+	}
+	if sp.MapSize == 0 {
+		sp.MapSize = 512
+	}
+	return sp, nil
+}
+
+func num(v any) float64 {
+	switch n := v.(type) {
+	case float32:
+		return float64(n)
+	case int32:
+		return float64(n)
+	case uint32:
+		return float64(n)
+	}
+	return 0
+}
 
 // bakeLighting folds the stage's light rig into the vertex colours.
 //

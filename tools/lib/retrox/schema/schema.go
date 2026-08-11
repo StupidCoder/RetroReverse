@@ -275,6 +275,23 @@ type Scene struct {
 	// top of it. Absent, the viewer lights the scene however it likes — which
 	// is right for content exported unlit.
 	Lights []Light `json:"lights,omitempty"`
+	// Shadow describes the depth-shadow pass, when the game's own parameters
+	// for it are known. Pairs with a layer of role "shadow".
+	Shadow *ShadowParams `json:"shadow,omitempty"`
+}
+
+// ShadowParams is a guest's depth-shadow configuration, in its own terms: the
+// map it renders, the depth range it renders over, the bias it compares with,
+// and how much of the light the shadow actually takes away.
+type ShadowParams struct {
+	MapSize int     `json:"mapSize,omitempty"`
+	Near    float64 `json:"near,omitempty"`
+	Far     float64 `json:"far,omitempty"`
+	// Bias is a fraction of the near-far range, as the guest states it.
+	Bias float64 `json:"bias,omitempty"`
+	// Strength is how much of the casting light a shadow removes, 0..1. A
+	// depth shadow is not a black hole: this one keeps two fifths of its key.
+	Strength float64 `json:"strength,omitempty"`
 }
 
 type Fog struct {
