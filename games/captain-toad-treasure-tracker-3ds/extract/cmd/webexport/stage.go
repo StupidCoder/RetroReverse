@@ -116,6 +116,10 @@ type objectArchive struct {
 	Model    *n3ds.BCHModel
 	Extra    []*n3ds.BCHModel // the object's other models (its depth-shadow proxy)
 	Textures map[string]*image.NRGBA
+
+	// The parsed containers themselves, kept because an archive holds more than
+	// models and textures — the animation archives hold only clips.
+	BCHs []*n3ds.BCH
 }
 
 // loadObject loads an object archive and, if its InitModel.byml names one, the
@@ -162,6 +166,7 @@ func loadObject(fs *n3ds.RomFS, name string, cache map[string]*objectArchive) (*
 		if err != nil {
 			return nil, fmt.Errorf("%s/%s: %w", name, f.Name, err)
 		}
+		o.BCHs = append(o.BCHs, bch)
 		for _, e := range bch.Groups[n3ds.BCHTextures] {
 			t, err := bch.DecodeTexture(e)
 			if err != nil {
@@ -218,7 +223,11 @@ func addObject(s *glb.Scene, p placement, o *objectArchive, lights []schema.Ligh
 		if sh.HasColor || len(lights) > 0 {
 			pr.Colors = make([][4]uint8, len(sh.Verts))
 			if len(lights) > 0 {
-				bakeLighting(&sh, lights, pr.Colors)
+				var mat *n3ds.BCHMaterial
+				if sh.MaterialIndex < len(o.Model.Materials) {
+					mat = &o.Model.Materials[sh.MaterialIndex]
+				}
+				bakeLighting(&sh, mat, lights, pr.Colors)
 			} else {
 				for j, v := range sh.Verts {
 					pr.Colors[j] = v.Color
@@ -588,7 +597,7 @@ func num(v any) float64 {
 // gamma-space product is converted on the way. The scene's lights are still
 // published in the level document — they are decoded fact, and what a renderer
 // that wanted to light this dynamically would need.
-func bakeLighting(sh *n3ds.BCHMesh, lights []schema.Light, out [][4]uint8) {
+func bakeLighting(sh *n3ds.BCHMesh, mat *n3ds.BCHMaterial, lights []schema.Light, out [][4]uint8) {
 	var ambient [3]float64
 	type dirLight struct{ color, l [3]float64 }
 	var dirs []dirLight
@@ -619,6 +628,10 @@ func bakeLighting(sh *n3ds.BCHMesh, lights []schema.Light, out [][4]uint8) {
 		}
 	}
 
+	// Whether the vertex colour is an occlusion *number* or a colour is the
+	// material's statement, not a guess (BCHMaterial.VertexColorScalar).
+	scalar := mat != nil && mat.VertexColorScalar()
+
 	for v := range sh.Verts {
 		lit := ambient
 		if sh.HasNormal {
@@ -636,7 +649,11 @@ func bakeLighting(sh *n3ds.BCHMesh, lights []schema.Light, out [][4]uint8) {
 		for i := 0; i < 3; i++ {
 			c := clamp01(lit[i])
 			if sh.HasColor {
-				c *= float64(sh.Verts[v].Color[i]) / 255 // the artists' baked occlusion
+				ao := sh.Verts[v].Color[i] // the artists' baked occlusion
+				if scalar {
+					ao = sh.Verts[v].Color[0]
+				}
+				c *= float64(ao) / 255
 			}
 			out[v][i] = uint8(srgbToLinear(c)*255 + 0.5)
 		}

@@ -25,9 +25,11 @@ func main() {
 	model := flag.String("model", "", "only dump models whose name contains this")
 	bones := flag.Bool("bones", false, "print every bone of each model's skeleton")
 	texdump := flag.String("texdump", "", "write every decoded texture into this directory as PNG")
+	listAllF := flag.Bool("list", false, "list every entry of every group, however many there are")
 	mats := flag.Bool("mats", false, "with -meshes, print each material's combiner program")
 	meshes := flag.Bool("meshes", false, "print every mesh: vertex count, stride, skin shape, matrix palette")
 	flag.Parse()
+	listAll = *listAllF
 	if flag.NArg() == 0 {
 		fmt.Fprintln(os.Stderr, "usage: bchdump [-model NAME] [-bones] [-meshes] file.szs|file.bch […]")
 		os.Exit(2)
@@ -67,6 +69,8 @@ func dumpFile(path, want string, bones, meshes bool, texdump string, mats bool) 
 	return nil
 }
 
+var listAll bool
+
 var groupNames = map[int]string{
 	n3ds.BCHModels: "models", n3ds.BCHMaterials: "materials", n3ds.BCHShaders: "shaders",
 	n3ds.BCHTextures: "textures", n3ds.BCHMaterialLUTs: "material LUTs", n3ds.BCHLights: "lights",
@@ -87,7 +91,7 @@ func dumpBCH(name string, raw []byte, want string, bones, meshes bool, texdump s
 			continue
 		}
 		fmt.Printf("  %-18s %d\n", groupNames[g], len(es))
-		if g != n3ds.BCHModels && len(es) <= 24 {
+		if g != n3ds.BCHModels && (len(es) <= 24 || listAll) {
 			for _, e := range es {
 				fmt.Printf("      %s\n", e.Name)
 			}
@@ -181,6 +185,9 @@ func dumpBCH(name string, raw []byte, want string, bones, meshes bool, texdump s
 				fmt.Printf("             extent  (%7.1f %7.1f %7.1f)..(%7.1f %7.1f %7.1f)  textures %s\n",
 					mlo[0], mlo[1], mlo[2], mhi[0], mhi[1], mhi[2], tex)
 				if mats && sh.MaterialIndex < len(m.Materials) {
+					mm := &m.Materials[sh.MaterialIndex]
+					fmt.Printf("             blend %v (src %d dst %d, additive %v) alphaTest %v func %d ref %d\n",
+						mm.Blends, mm.BlendSrc, mm.BlendDst, mm.Additive(), mm.AlphaTest, mm.AlphaFunc, mm.AlphaRef)
 					for si, line := range m.Materials[sh.MaterialIndex].Describe() {
 						fmt.Printf("             tev%d %s\n", si, line)
 					}

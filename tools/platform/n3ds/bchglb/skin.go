@@ -10,6 +10,7 @@
 //
 //	mode 1 (smooth)  vertices are in the MODEL's space, the matrix is world(bone) x invBind(bone)
 //	mode 2 (rigid)   vertices are in the BONE's own space, the matrix is world(bone)
+//	mode 0 (none)    no per-vertex skinning at all, and the same rule as rigid
 //
 // That is not inferred from the geometry: it was read out of the running game.
 // The PICA has no matrix-palette registers, so a skinned draw's matrices arrive
@@ -85,15 +86,18 @@ func (r *Rig) Skin(s *glb.Scene, sh *n3ds.BCHMesh) int {
 			return -1
 		}
 		joints = append(joints, r.Nodes[b])
-		switch sh.SkinMode {
-		case n3ds.BCHSkinRigid:
-			// The vertices are already in this bone's space, so the only
-			// transform they want is the bone's world matrix. glTF always
-			// applies world x inverseBind, so the inverse bind is the identity.
-			ibm = append(ibm, [16]float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1})
-		default:
+		if sh.SkinMode == n3ds.BCHSkinSmooth {
 			ibm = append(ibm, colMajor(r.model.Bones[b].InvBind4()))
+			continue
 		}
+		// The vertices are already in the bone's space, so the only transform
+		// they want is the bone's world matrix. glTF always applies
+		// world x inverseBind, so the inverse bind is the identity. This covers
+		// mode 0 as well as mode 2: a mesh that names a palette but carries no
+		// per-vertex skinning attributes still rides its bone. The goal star
+		// says so plainly — its glow quads are centred on nothing, and the bone
+		// they name stands 73 units up, exactly where the star they surround is.
+		ibm = append(ibm, [16]float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1})
 	}
 	return s.AddSkin(joints, ibm)
 }

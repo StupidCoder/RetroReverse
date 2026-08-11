@@ -24,18 +24,19 @@ import (
 func main() {
 	out := flag.String("o", "out.glb", "write the GLB here")
 	only := flag.String("model", "", "export only the model with this exact name")
+	clips := flag.String("clips", "", "comma-separated skeletal animations to export as glTF clips (\"all\" for every one that decodes)")
 	flag.Parse()
 	if flag.NArg() == 0 {
 		fmt.Fprintln(os.Stderr, "usage: bchglb [-o out.glb] model.bch [textures.bch …]")
 		os.Exit(2)
 	}
-	if err := run(flag.Args(), *out, *only); err != nil {
+	if err := run(flag.Args(), *out, *only, *clips); err != nil {
 		fmt.Fprintln(os.Stderr, "bchglb:", err)
 		os.Exit(1)
 	}
 }
 
-func run(in []string, out, only string) error {
+func run(in []string, out, only, clips string) error {
 	var files []*n3ds.BCH
 	textures := map[string]*image.NRGBA{}
 	for _, p := range in {
@@ -68,7 +69,7 @@ func run(in []string, out, only string) error {
 			}
 		}
 	}
-	return build(in, files, textures, out, only)
+	return build(in, files, textures, out, only, clips)
 }
 
 func addFile(p string, b []byte, files *[]*n3ds.BCH, textures map[string]*image.NRGBA) error {
@@ -88,7 +89,7 @@ func addFile(p string, b []byte, files *[]*n3ds.BCH, textures map[string]*image.
 	return nil
 }
 
-func build(in []string, files []*n3ds.BCH, textures map[string]*image.NRGBA, out, only string) error {
+func build(in []string, files []*n3ds.BCH, textures map[string]*image.NRGBA, out, only, clips string) error {
 	s := glb.NewScene()
 	tris, missing := 0, map[string]bool{}
 	for fi, f := range files {
@@ -170,7 +171,14 @@ func build(in []string, files []*n3ds.BCH, textures map[string]*image.NRGBA, out
 					s.SetNodeSkin(node, sk)
 				}
 			}
-			fmt.Printf("model %-28s %d meshes, %d materials\n", m.Name, len(m.Meshes), len(m.Materials))
+			fmt.Printf("model %-28s %d meshes, %d materials, %d bones\n", m.Name, len(m.Meshes), len(m.Materials), len(m.Bones))
+			if clips != "" && len(m.Bones) > 0 {
+				n, err := addClips(s, rig, files, clips)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("  %d animation clips\n", n)
+			}
 		}
 	}
 	for n := range missing {
@@ -190,4 +198,41 @@ func matName(m *n3ds.BCHModel, sh *n3ds.BCHMesh) string {
 		return m.Materials[sh.MaterialIndex].Name
 	}
 	return "mesh"
+}
+
+// addClips exports the named skeletal animations from whichever input holds
+// them. "all" takes every animation that decodes; the rest halt the run, since
+// a clip asked for by name and silently missing is worse than a stop.
+func addClips(s *glb.Scene, rig *bchglb.Rig, files []*n3ds.BCH, clips string) (int, error) {
+	want := map[string]bool{}
+	all := clips == "all"
+	if !all {
+		for _, n := range strings.Split(clips, ",") {
+			want[n] = true
+		}
+	}
+	n := 0
+	for _, f := range files {
+		for _, e := range f.Groups[n3ds.BCHSkeletalAnims] {
+			if !all && !want[e.Name] {
+				continue
+			}
+			a, err := f.DecodeSkeletalAnim(e)
+			if err != nil {
+				if all {
+					continue // an encoding this decoder does not model yet
+				}
+				return n, fmt.Errorf("%s: %w", e.Name, err)
+			}
+			if err := bchglb.AddClip(s, rig, a, e.Name); err != nil {
+				return n, err
+			}
+			delete(want, e.Name)
+			n++
+		}
+	}
+	for k := range want {
+		return n, fmt.Errorf("no skeletal animation named %q in any input", k)
+	}
+	return n, nil
 }

@@ -52,5 +52,31 @@
    "bias": 0.01850000023841858,
    "strength": 0.5882352941176471
   }
- }
+ },
+ "placements": [
+  {
+   "id": 1,
+   "object": "kinopio",
+   "pos": [-400, -800, 550],
+   "rot": [0, -45, 0],
+   "anim": "CourseInRove",
+   "name": "Captain Toad"
+  },
+  {
+   "id": 2,
+   "object": "goalitem",
+   "pos": [550, 49.99993896484375, -149.99996948242188],
+   "rot": [0, -0, 0],
+   "anim": "DemoOpeningSeason1",
+   "name": "Goal Star"
+  },
+  {
+   "id": 3,
+   "object": "kinopico",
+   "pos": [677.6640625, 50, -203.53125],
+   "rot": [0, -67, 0],
+   "anim": "KinopicoWaitRove",
+   "name": "Toadette"
+  }
+ ]
 }

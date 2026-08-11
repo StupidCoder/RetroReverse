@@ -1564,3 +1564,190 @@ and both render as a jumble. The skeleton itself is not in doubt: its bones land
 the stored positions relate to it. The next move is to read the vertex shader the model names
 (`DefaultShader-rs-nl`) rather than to keep proposing rules for it to disagree with: the shader is in
 the cartridge, it is what the hardware runs, and it will say which matrix it multiplies by.
+
+
+## Part XXIV — Two skinning spaces, and the game that said which
+
+Part XXIII left the characters decoded and not assembled. The skeleton was right and the skin was
+right, and neither of the two rules that could join them produced a Toad. The reason turns out to be
+that the question had a false premise: **a character does not have one skinning rule. It has two, and
+the file says per mesh which applies.**
+
+### Reading the register instead of proposing a third rule
+
+The PICA200 has no matrix-palette registers. A skinned draw's bone matrices arrive as ordinary
+vertex-shader **float uniforms**, uploaded through `0x2C0`/`0x2C1` — which the emulator already
+decodes, and never printed. Two instruments closed that gap:
+
+- **`-drawcensus FILE`** writes one line per draw: index count, vertex stride, and the
+  attribute→shader-input map. It is how a mesh decoded from a file is *located* among the 44,000
+  draws of a frame, and the match is not approximate. Toad's rucksack is 562 vertices, 1,914 indices,
+  60-byte stride, with attributes reaching inputs 7 and 8 — the bone index and weight. Exactly one
+  draw in the frame looks like that.
+- **`-gputracefrom N` + `-gpuuniforms`** then print that draw's whole uniform file.
+
+The answer was in it at a glance. Uniforms **c25 onward hold one three-row matrix per palette slot,
+in the palette's own order** — proved by three draws with different palettes: the rucksack (six
+bones) fills c25–c42; the body (four bones, a prefix of the same list) is handed the first four of
+them unchanged; and the scarf (three bones, 8/14/18) is handed the rucksack's slots 1–3 verbatim.
+
+And the matrices say two different things:
+
+| mesh | mode | what the game hands the shader |
+|---|---|---|
+| rucksack, body, scarf, skin, buckle | 1 | six matrices all within **three units** of the placement itself |
+| lamp strap (HeadBelt) | 2 | a matrix translating 123 units **above** the placement |
+| head (Head) | 2 | 72 above |
+| headlamp (HeadLight) | 2 | 146 above |
+
+With Toad placed at (−400, −800, 550): the first row is `world × invBind` at a pose near the bind
+pose, which is the placement and nothing else — six bones' *world* matrices would be a hundred units
+apart in Y. The rest are bone world matrices with no inverse bind anywhere: HeadBelt stands 124 units
+up the bind pose and is handed −677; Head stands at 72 and is handed −728; HeadLight at 146, −653.
+
+So:
+
+- **mode 1 (smooth)** — vertices in the *model's* space, matrix `world(bone) × invBind(bone)`. glTF's
+  own rule.
+- **mode 2 (rigid)** — vertices in the *bone's* space, matrix `world(bone)`.
+- **mode 0 (none)** — no per-vertex skinning; the same rule as rigid. The goal star settles that one:
+  its glow quads are modelled centred on nothing, and the bone they name stands 73 units up, exactly
+  where the star they surround is.
+
+Applying either rule to a whole character breaks the half that wanted the other. That is precisely
+what "the body hangs below the floor" and "closer to standing, still a jumble" were, and why no
+amount of staring at either picture was going to resolve it.
+
+### The palette's first two words were never bones
+
+The face header does not begin with the palette. It begins with the **skinning mode** and the **bone
+count**, and the bones follow — so reading the reserved block straight through put every vertex's
+joint two slots wrong. The game's own uniform uploads say so: each draw is handed exactly *count*
+matrices. With the count read properly, every one of Toad's 4,470 vertex influences names a palette
+slot that exists, which a two-slot shift does not survive.
+
+### The check that has a control
+
+`TestBCHSkinSpaces` asserts that every mesh, assembled at the bind pose by the header's own rule,
+sits closer to the bones its palette names than the same mesh does under the opposite rule — 78
+meshes across the two characters and the star, none worse, and all but the degenerate ones decisively
+better.
+
+The first version of that test used a **whole-character bounding box**, and it had to be thrown away:
+the all-rigid hypothesis produces a box of the right size and shape while scattering the parts inside
+it. It agreed with a wrong model because the criterion could not disagree. The test now logs the fact
+so the next person does not reach for the same measure.
+
+### A character's colour is not in its texture
+
+With Toad standing, he was standing in the wrong colours: a **black cap with white spots**. The cap's
+32×32 texture really is black with a white blob, because it is not an albedo at all — it is a *mask*,
+and the material builds the surface out of it with two stage constants:
+
+    stage2   (1 − mask) × (242,246,255)     the white cap
+    stage3   mask × (196,30,25) + prev      the red spots
+
+A decoder that stops at the texture name paints the inverse of the character. The colours are in the
+material, and **the material is a program** — six PICA combiner stages, which the BCH stores as the
+same register writes the running game submits.
+
+`BCHMaterial.BakeAlbedo` runs that program with the lighting inputs *neutral* — diffuse white,
+specular black, vertex colour white — which is what "unlit albedo" means for a combiner and which on
+these materials reduces exactly: the stages that consume the lighting become identities. The stage
+loop is factored out of the GPU's own fragment path so the same code does both, and the oracle's
+frame is byte-identical across the move.
+
+⚠ **Only the stages the material writes are the material's.** PICA registers latch, so the register
+file during a draw also holds whatever the *previous* material left in the stages this one does not
+touch. The file is the only thing that says which are which.
+
+### Three more things the material had to be asked, not told
+
+1. **The vertex colour is a scalar.** Toad's meshes carry one whose red channel runs the full 0–255
+   range while green and blue sit at 255, and every colour stage that reads it reads it through the
+   *source-red* operand. Multiplying a baked light by all three channels drags green and blue down
+   independently of red — and painted him teal. The stage terrain, by contrast, reads `vtxcol(rgb)`
+   and means it. `BCHMaterial.VertexColorScalar()` asks the material rather than the game.
+2. **It is not even a plain multiply.** His cap's chain ends `(vtxcol.r + 0.46) × everything` — an
+   *add* before the multiply, so an occlusion above about half does not darken him at all. Treating
+   it as a multiplier makes him a third too dark. The shading factor is therefore computed as a
+   **ratio of the material's own chain to itself**, lit over neutral, which cancels whatever the chain
+   does to the texture and leaves exactly the part that varies per vertex. `BakeCheck` measures
+   whether that ratio depends on which texel it is taken at — for 38 of Toad's 40 materials it is
+   under two per cent, and the two that fail are the ones sampling an environment map.
+3. **A mesh with no colour attribute means white, not black.** His hands carry position, normal and a
+   bone index and nothing else, and their chain ends `× vtxcol`. A zero there renders them black; the
+   shader input is simply never written, and the identity is what the hardware's picture implies.
+
+### The animations
+
+BCH group 8. The object is a name, a loop flag, a **curve count**, a frame count and a table of
+per-bone elements; an element is nine transform slots — scale XYZ, rotate XYZ, translate XYZ — each
+either absent, a stored constant, or a pointer to a hermite curve. The flags carry both: bit `16+s`
+marks slot *s* absent, and bit `6+s` (for the six scale and rotation slots) or `7+s` (for the three
+translation ones) marks it constant. **Bit 12 is skipped**, and reading straight through it makes
+every translation look like a curve.
+
+Two counts prove the whole reading, and neither can be satisfied by accident:
+
+- the header's own curve count equals the number of slots this decode calls curves — over all 198
+  animations of the two characters;
+- every curve stores its ordinal within the animation, and it comes out as exactly its position in
+  that enumeration.
+
+The key encodings are named by the high byte of the encoding word, and their widths are *measured*
+rather than assumed: the curve headers and key blocks tile the section, so the distance from a key
+block to whatever starts next, over the key count, is the key size. It comes out constant per
+encoding — 96 bits for encoding 3 across 9,797 curves, 128 for encoding 0, 64 for encoding 1.
+Encoding 3 (`frame, value, slope`), 0 (`frame, value, in-slope, out-slope`) and 1 (a packed word
+holding the frame in the low twelve bits and a signed twenty-bit value above it, then a float slope)
+are implemented; they are 97.8% of the curves. **The rest halt loudly.** Their frame fields are
+already pinned by the same invariant that pinned encoding 1's — the frames must ascend, start no
+earlier than the curve's start and land exactly on its end — and are recorded here as the lead:
+encoding 5 and 2 carry the frame in the low **8** bits, encoding 7 in the low **12**. What is not yet
+pinned is the width of their value fields, and a value field guessed is a pose invented.
+
+**The frame rate is 30 Hz, and that is a measurement.** Six consecutive rendered frames of the intro
+give three distinct matrix palettes: the engine presents at the 3DS's 60 and advances its animations
+at half that.
+
+### What the map says, and what it does not
+
+Nothing about the actors is named by convention. The map's `GoalList` entry is a logic object,
+`KinopioBrigadeChecker`, which has no archive at all; what it *links* is a **`GoalItem`** — the star,
+`/ObjectData/GoalItem.szs` — and a **`PlayerNpc` whose ModelName is `KinopicoNpc`**, which is
+Toadette, each with its own translation. Toad comes from `PlayerList`, and the clip the stage starts
+him in is written down: the `DemoObjList` entry beside him says `StartAnimation: CourseInRove`.
+
+Their light rig is not the terrain's, and the oracle says how it differs: the fragment-lighting unit
+is programmed for character draws with a brighter ambient and a second light. That second light is
+**Toad's own headlamp** — his `InitLightActor.byml` declares a `spotLight` on the `HeadLight` joint —
+and it is deliberately not baked, because it is aimed every frame and a baked cone would be a lie
+about a light that moves with his head. The key light *is* the stage's `mainLight`: the unit is
+handed a view-space direction of (0.735, 0.610, 0.294), and rotating that back through the game's own
+view matrix gives (0.431, 0.666, 0.609) — the stage file's `mainLight` travel vector negated, to four
+decimals. Two independent routes to the same vector.
+
+### What is still open
+
+- **Which clip the intro is playing.** No single animation reproduces the pose the savestate holds;
+  the closest is out by about three degrees. The reason is in the file: `InitModel.byml` says
+  `BlendAnimMax: 4`, and `AnimInterp.byml` gives a per-clip blend length. The game is blending, and
+  matching one clip to a blended pose is the wrong question.
+- **The visibility animations.** A character carries every face, hand and eye it can wear — nine
+  faces, seven hands a side — and the game shows one of each. The mechanism is decoded: for each
+  skeletal clip there are four visibility animations named `<clip>Eye`, `<clip>Face`, `<clip>HandL`,
+  `<clip>HandR` (148 clips × 4 ≈ the 600 in the archive), and each names its variants with a constant
+  0 or 1 — `WalkFace` says `Face01`. What is *not* decoded is how those names bind to a model's
+  meshes, which carry no names of their own. So the exported set is the one the **running game
+  draws**, read off the draw census by matching each draw's vertex-buffer offset to a decoded mesh:
+  `HandR02`, `HandL02`, `Face00`, `EyeBall`.
+- **The headlamp's aim.** The game holds `HeadLight` at a rotation of about 27° that no clip in the
+  archive puts there. Something outside the skeletal animation points the lamp.
+
+### Shipped
+
+`site/public/captain-toad-treasure-tracker-3ds/objects/{kinopio,kinopico,goalitem}.glb` — Captain
+Toad (2,554 tris, 5 clips), Toadette (2,764, 3) and the goal star (180, 3), each skinned, each with
+its own light bake, and each placed in the opening diorama at the position, facing and starting
+animation the stage's own map gives it.

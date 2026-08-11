@@ -26,7 +26,12 @@ import "fmt"
 // triple (frame, value, inSlope==outSlope), 12 bytes per key — anything else is
 // rejected loudly rather than mis-decoded.
 type AnimKey struct {
-	Frame, Value, Slope float32
+	Frame, Value float32
+
+	// The tangents on either side of the key. Most encodings store one slope
+	// and use it for both; the BCH containers also carry a form with two
+	// (bch_anim.go), so they are kept apart here.
+	Slope, OutSlope float32
 }
 
 // AnimCurve is one component's keyframe list.
@@ -55,7 +60,7 @@ func (c *AnimCurve) Eval(frame float32) float32 {
 	h := b.Frame - a.Frame
 	t := (frame - a.Frame) / h
 	t2, t3 := t*t, t*t*t
-	return (2*t3-3*t2+1)*a.Value + (t3-2*t2+t)*h*a.Slope +
+	return (2*t3-3*t2+1)*a.Value + (t3-2*t2+t)*h*a.OutSlope +
 		(-2*t3+3*t2)*b.Value + (t3-t2)*h*b.Slope
 }
 
@@ -153,7 +158,8 @@ func (c *CGFX) decodeCurve(seg int64) (*AnimCurve, error) {
 	curve := &AnimCurve{Keys: make([]AnimKey, n)}
 	for i := 0; i < n; i++ {
 		k := keys + int64(i)*12
-		curve.Keys[i] = AnimKey{Frame: c.f32(k), Value: c.f32(k + 4), Slope: c.f32(k + 8)}
+		sl := c.f32(k + 8)
+		curve.Keys[i] = AnimKey{Frame: c.f32(k), Value: c.f32(k + 4), Slope: sl, OutSlope: sl}
 	}
 	return curve, nil
 }

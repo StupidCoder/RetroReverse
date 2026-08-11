@@ -656,7 +656,11 @@ func TestBCHSkinWeights(t *testing.T) {
 // disagree.
 func TestBCHSkinSpaces(t *testing.T) {
 	fs := toadRomFS(t)
-	for _, obj := range []string{"Kinopio", "KinopicoNpc"} {
+	allModes := map[int]int{}
+	// The goal star is in the list for its own mode: its meshes carry a palette
+	// and no per-vertex skinning at all (mode 0), which turns out to ride the
+	// bone exactly as the rigid mode does.
+	for _, obj := range []string{"Kinopio", "KinopicoNpc", "GoalItem"} {
 		a := openSZS(t, fs, "/ObjectData/"+obj+".szs")
 		blob, ok := a.File(obj + ".bch")
 		if !ok {
@@ -674,7 +678,7 @@ func TestBCHSkinSpaces(t *testing.T) {
 
 		modes := map[int]int{}
 		tightest, tightName := math.Inf(1), ""
-		checked := 0
+		checked, decisive := 0, 0
 		for _, sh := range m.Meshes {
 			modes[sh.SkinMode]++
 			if len(sh.Palette) == 0 {
@@ -682,23 +686,39 @@ func TestBCHSkinSpaces(t *testing.T) {
 			}
 			checked++
 			other := BCHSkinRigid
-			if sh.SkinMode == BCHSkinRigid {
+			if sh.SkinMode != BCHSkinSmooth {
 				other = BCHSkinSmooth
 			}
 			own, alt := meshBoneRadius(&sh, m, world, 0), meshBoneRadius(&sh, m, world, other)
-			if own >= alt {
+			// A mesh bound to a bone that stands at the model's origin cannot
+			// tell the two rules apart, and several do — the goal star's body is
+			// one. Those are allowed to tie; none is allowed to be worse.
+			if own > alt*1.001 {
 				t.Errorf("%s mesh %q (mode %d): its own rule puts it %.1f from its bones, the opposite rule %.1f — the header's mode is not the one that fits",
 					obj, m.Materials[sh.MaterialIndex].Name, sh.SkinMode, own, alt)
+			}
+			if alt > own*1.2 {
+				decisive++
 			}
 			if r := alt / own; r < tightest {
 				tightest, tightName = r, m.Materials[sh.MaterialIndex].Name
 			}
 		}
-		if modes[BCHSkinSmooth] == 0 || modes[BCHSkinRigid] == 0 {
-			t.Fatalf("%s uses only one skinning mode (%v) — the two-space claim is not being exercised", obj, modes)
+		for k, v := range modes {
+			allModes[k] += v
 		}
-		t.Logf("%s: %d meshes (%d smooth, %d rigid) all sit closer to their own bones under the header's mode; tightest margin %.2fx on %q",
-			obj, checked, modes[BCHSkinSmooth], modes[BCHSkinRigid], tightest, tightName)
+		t.Logf("%s: %d meshes (modes %v), none worse under the header's mode and %d decisively better; tightest margin %.2fx on %q",
+			obj, checked, modes, decisive, tightest, tightName)
+		if decisive == 0 {
+			t.Errorf("%s: not one of its meshes distinguishes the two rules, so nothing here is being tested", obj)
+		}
+	}
+	// All three modes have to appear, or the claim that they differ is being
+	// made about samples that were never tried.
+	for _, m := range []int{BCHSkinNone, BCHSkinSmooth, BCHSkinRigid} {
+		if allModes[m] == 0 {
+			t.Errorf("no mesh in the sample uses skinning mode %d (%v)", m, allModes)
+		}
 	}
 }
 
@@ -713,10 +733,10 @@ func meshBoneRadius(sh *BCHMesh, m *BCHModel, world [][16]float64, force int) fl
 	}
 	mats := make([][16]float64, len(sh.Palette))
 	for i, b := range sh.Palette {
-		if mode == BCHSkinRigid {
-			mats[i] = world[b]
-		} else {
+		if mode == BCHSkinSmooth {
 			mats[i] = mul4(world[b], m.Bones[b].InvBind4())
+		} else {
+			mats[i] = world[b]
 		}
 	}
 	worst := 0.0

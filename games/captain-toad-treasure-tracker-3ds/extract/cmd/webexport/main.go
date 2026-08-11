@@ -82,8 +82,30 @@ func exportStages(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+
+	// The stage's actors, as objects in their own right: the diorama places
+	// them, and the Studio also lists them on their own so their clips can be
+	// played and looked at.
+	acts, places, err := exportActors(fs, stages[0].stage, ctx.Builder.Path)
+	if err != nil {
+		return err
+	}
+	for i, a := range acts {
+		ctx.Builder.AddObject(schema.Asset{ID: a.actor.id, Name: a.actor.name, Group: "Actors"}, &schema.Object{
+			Type: schema.ObjectModel3D, Name: a.actor.name, Model: a.file,
+			Animations: a.clips,
+		})
+		ctx.Progress("objects", i+2, len(acts)+1,
+			fmt.Sprintf("%s (%d tris, %d clips)", a.file, a.tris, len(a.clips)))
+	}
+
 	ctx.Stage("levels")
 	for i, st := range stages {
+		// The actors belong to the stage whose map placed them.
+		var lvlPlaces []schema.Placement
+		if st.stage == stages[0].stage {
+			lvlPlaces = places
+		}
 		file := st.id + ".glb"
 		out, err := ctx.Builder.Path("levels", file)
 		if err != nil {
@@ -107,7 +129,8 @@ func exportStages(ctx *cli.Context) error {
 				st.stage, len(skipped), strings.Join(skipped, ", "))
 		}
 		ctx.Builder.AddLevel(schema.Asset{ID: st.id, Name: st.name, Group: "Stages"}, &schema.Level{
-			Type: schema.LevelScene3D,
+			Type:       schema.LevelScene3D,
+			Placements: lvlPlaces,
 			Camera: &schema.Camera{
 				Mode: "orbit", FOV: 45, Near: 10, Far: 20000,
 				Pos:    []float64{1800, 900, 1800},

@@ -591,7 +591,14 @@ func (f *BCH) appendFace(sh *BCHMesh, regs *[0x300]uint32, wide bool) error {
 	firstVert := uint32(len(sh.Verts))
 	for v := int64(0); v < nVert; v++ {
 		vo := arr + v*stride
-		var out BCHVertex
+		// White, not black, when the mesh has no colour attribute. The shader
+		// input is simply never written for such a mesh, and a material whose
+		// combiner multiplies by the vertex colour has to come out unchanged —
+		// Captain Toad's hands carry position, normal and a bone index and
+		// nothing else, and their chain ends `x vtxcol`, so a zero here paints
+		// them black. HasColor stays false: this is the identity for a mesh
+		// that has no opinion, not a colour anyone stored.
+		out := BCHVertex{Color: [4]uint8{255, 255, 255, 255}}
 		for _, a := range attrs {
 			var vals [4]float32
 			for k := 0; k < a.size; k++ {
@@ -844,6 +851,13 @@ type BCHMaterial struct {
 	// sampling them neither blend nor alpha-test, so that plane is not coverage
 	// and must not be used as any. All five of the stone albedos carry the
 	// identical alpha histogram (85..221) — the tell that it is not a mask.
+	// BlendSrc/BlendDst are the colour blend factors the material programs, in
+	// the PICA's numbering. They are kept rather than reduced to a flag because
+	// "it blends" is not one behaviour: a glow quad that adds its colour to the
+	// frame is a different thing from a leaf that covers what is behind it, and
+	// only the factors tell them apart.
+	BlendSrc, BlendDst uint8
+
 	Blends    bool  // the blend function is anything other than src×1 + dst×0
 	AlphaTest bool  // the alpha test is enabled
 	AlphaFunc uint8 // its comparison, in the PICA's numbering (gpu_tev.go)
@@ -869,6 +883,22 @@ const (
 	AlphaGreater
 	AlphaGEqual
 )
+
+// PICA blend factors this decoder names.
+const (
+	BlendZero        = 0
+	BlendOne         = 1
+	BlendSrcAlpha    = 6
+	BlendOneMinusSrc = 7
+)
+
+// Additive reports whether the material adds its colour to what is already
+// there rather than covering it — `src + dst`, however the source is weighted.
+// A glow or a sparkle wants to be exported as additive; a cut-out leaf does not.
+func (m *BCHMaterial) Additive() bool {
+	return m.Blends && m.BlendDst == BlendOne &&
+		(m.BlendSrc == BlendOne || m.BlendSrc == BlendSrcAlpha)
+}
 
 // AlphaCutoff turns an enabled alpha test into the equivalent "keep alpha >= c"
 // threshold in [0,1], and reports whether the test is expressible that way. A
@@ -967,6 +997,7 @@ func (f *BCH) decodeMaterialState(obj int64, m *BCHMaterial) error {
 	srcRGB, dstRGB := bf>>16&0xF, bf>>20&0xF
 	srcA, dstA := bf>>24&0xF, bf>>28&0xF
 	m.Blends = !(srcRGB == blendOne && dstRGB == blendZero && srcA == blendOne && dstA == blendZero)
+	m.BlendSrc, m.BlendDst = uint8(srcRGB), uint8(dstRGB)
 	at := regs[regAlphaTest]
 	m.AlphaTest = at&1 != 0
 	m.AlphaFunc = uint8(at >> 4 & 7)
@@ -998,6 +1029,140 @@ func (m *BCHMaterial) Describe() []string {
 			s.konst.r, s.konst.g, s.konst.b, s.konst.a, s.updC, s.updA))
 	}
 	return out
+}
+
+// VertexColorScalar reports whether the material reads the vertex colour as a
+// single number rather than as a colour.
+//
+// It matters because a mesh can carry a vertex colour whose channels are not a
+// colour at all. Captain Toad's own meshes are the case: the red channel runs
+// the whole 0-255 range while green and blue sit at 255, and every colour stage
+// that reads the vertex colour reads it through the *source-red* operand — the
+// artists' occlusion, stored once and replicated. Multiplying a baked light by
+// all three channels then drags green and blue down independently of red and
+// paints the character teal. The stage terrain, by contrast, reads `vtxcol(rgb)`
+// and means it.
+//
+// The material is the one that knows, so it is the one asked.
+func (m *BCHMaterial) VertexColorScalar() bool {
+	reads := 0
+	for i := 0; i < m.stages; i++ {
+		for _, o := range m.tev.stages[i].colr {
+			if o.src != tevSrcVertexColor {
+				continue
+			}
+			reads++
+			if o.op == tevOpRGB || o.op == tevOpOneMinusRGB {
+				return false
+			}
+		}
+	}
+	return reads > 0
+}
+
+// The TEV source and colour-operand codes this file names.
+const (
+	tevSrcVertexColor = 0
+	tevOpRGB          = 0
+	tevOpOneMinusRGB  = 1
+)
+
+// Shade evaluates how much the lighting and the vertex colour darken this
+// material, as the factor to multiply its baked albedo by.
+//
+// It is a ratio of the material's own program to itself: the chain run with
+// this vertex's lighting, over the chain run with the lighting neutral — the
+// second being exactly what BakeAlbedo wrote into the texture. Anything the
+// chain does to the texture cancels, and what is left is the part that varies
+// per vertex.
+//
+// A ratio rather than a second evaluation, because the albedo is not a factor
+// of these chains. Captain Toad's cap is built out of its texture rather than
+// multiplied by it — `(1-mask) x white + mask x red` — so running the chain
+// with a white texture does not yield "the shading with no albedo", it yields
+// the colour of his spots.
+//
+// The vertex colour is left to the chain too, and that matters: his cap ends
+// with `(vtxcol.r + 0.46) x everything`, an ADD before the multiply, so an
+// occlusion above about half does not darken him at all. Multiplying by the
+// vertex colour by hand makes him a third too dark and, because only the red
+// channel carries the occlusion, green.
+//
+// texel is the albedo texel to take the ratio at; the caller should pick a
+// bright one, and BakeCheck says whether the choice matters.
+func (m *BCHMaterial) Shade(vertexColor [4]uint8, light [3]float64, texel [4]uint8) [3]float64 {
+	num, den, ok := m.shadePair(vertexColor, light, texel)
+	if !ok {
+		return [3]float64{1, 1, 1}
+	}
+	var out [3]float64
+	for i := 0; i < 3; i++ {
+		if den[i] <= 0 {
+			out[i] = 0
+			continue
+		}
+		out[i] = float64(num[i]) / float64(den[i])
+	}
+	return out
+}
+
+func (m *BCHMaterial) shadePair(vertexColor [4]uint8, light [3]float64, texel [4]uint8) (num, den [3]int32, ok bool) {
+	white := rgba{255, 255, 255, 255}
+	tex := [3]rgba{white,
+		{int32(texel[0]), int32(texel[1]), int32(texel[2]), int32(texel[3])},
+		{128, 128, 255, 255}}
+	v := rgba{int32(vertexColor[0]), int32(vertexColor[1]), int32(vertexColor[2]), int32(vertexColor[3])}
+	prim := rgba{clamp255(float32(light[0] * 255)), clamp255(float32(light[1] * 255)),
+		clamp255(float32(light[2] * 255)), 255}
+	lit, ok1 := m.tev.run(v, prim, rgba{0, 0, 0, 0}, tex)
+	flat, ok2 := m.tev.run(white, white, rgba{0, 0, 0, 0}, tex)
+	if !ok1 || !ok2 {
+		return num, den, false
+	}
+	return [3]int32{lit.r, lit.g, lit.b}, [3]int32{flat.r, flat.g, flat.b}, true
+}
+
+// BakeCheck reports how much the shading factor depends on which albedo texel
+// it is measured at. The split into "a baked albedo texture" and "a per-vertex
+// factor" is only meaningful if it does not: zero means the material multiplies
+// its albedo by a shading term, and a large value means the two are entangled
+// and must not be separated.
+func (m *BCHMaterial) BakeCheck() float64 {
+	worst := 0.0
+	for _, l := range [][3]float64{{0.2, 0.2, 0.2}, {0.6, 0.6, 0.6}, {1, 0.8, 0.5}} {
+		for _, vc := range [][4]uint8{{0, 255, 255, 255}, {128, 255, 255, 255}, {255, 255, 255, 255}} {
+			var ref [3]float64
+			first := true
+			for _, t := range [][4]uint8{{255, 255, 255, 255}, {160, 160, 160, 255}, {96, 96, 96, 255}} {
+				num, den, ok := m.shadePair(vc, l, t)
+				if !ok {
+					return 1
+				}
+				var f [3]float64
+				dark := false
+				for i := 0; i < 3; i++ {
+					if den[i] < 16 { // too dark to measure a ratio against
+						dark = true
+						break
+					}
+					f[i] = float64(num[i]) / float64(den[i])
+				}
+				if dark {
+					continue
+				}
+				if first {
+					ref, first = f, false
+					continue
+				}
+				for i := 0; i < 3; i++ {
+					if d := math.Abs(f[i] - ref[i]); d > worst {
+						worst = d
+					}
+				}
+			}
+		}
+	}
+	return worst
 }
 
 // BakeAlbedo evaluates the material's own combiner over its unit-1 texture and

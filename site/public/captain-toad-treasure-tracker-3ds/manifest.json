@@ -24,6 +24,27 @@
    "file": "objects/banner.json"
   },
   {
+   "id": "kinopio",
+   "category": "object",
+   "name": "Captain Toad",
+   "group": "Actors",
+   "file": "objects/kinopio.json"
+  },
+  {
+   "id": "kinopico",
+   "category": "object",
+   "name": "Toadette",
+   "group": "Actors",
+   "file": "objects/kinopico.json"
+  },
+  {
+   "id": "goalitem",
+   "category": "object",
+   "name": "Goal Star",
+   "group": "Actors",
+   "file": "objects/goalitem.json"
+  },
+  {
    "id": "season1-opening",
    "category": "level",
    "name": "Opening Stage",
