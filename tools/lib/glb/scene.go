@@ -80,14 +80,19 @@ type Prim struct {
 	Joints      []uint8      // per-vertex joint index (single influence) for skinning
 	JointsW     [][4]uint8   // per-vertex joint indices (multi-influence); pairs with Weights
 	Weights     [][4]float32 // per-vertex joint weights for JointsW
-	Layer       int     // draw-order layer (source submission order); >0 emits extras.layer
+	Layer       int          // draw-order layer (source submission order); >0 emits extras.layer
 	BaseColor   [4]float32
 	Unlit       bool
 	DoubleSided bool
-	Blend       bool    // alphaMode BLEND instead of MASK when the texture has alpha
+	Blend       bool // alphaMode BLEND instead of MASK when the texture has alpha
+	// Opaque forces alphaMode OPAQUE: the texture's alpha channel is ignored.
+	// A guest format can oblige every texture to carry an alpha plane whether
+	// or not the material samples it as coverage (the 3DS's ETC1A4 does), and
+	// masking such a texture at any cutoff punches holes the game never has.
+	Opaque      bool
 	AlphaCutoff float32 // custom MASK cutoff (0 = the default 0.5); the guests' alpha tests often use 1/255
-	Additive    bool // additive blending: BLEND + Retro-X extras {blend: "additive"}
-	WrapS       int  // glTF sampler wrap enums; 0 = REPEAT
+	Additive    bool    // additive blending: BLEND + Retro-X extras {blend: "additive"}
+	WrapS       int     // glTF sampler wrap enums; 0 = REPEAT
 	WrapT       int
 }
 
@@ -188,9 +193,12 @@ func (s *Scene) addMaterial(p *Prim) int {
 		}
 		s.textures = append(s.textures, map[string]any{"sampler": len(s.samplers) - 1, "source": img})
 		pbr["baseColorTexture"] = map[string]int{"index": len(s.textures) - 1}
-		if p.Blend || p.Additive {
+		switch {
+		case p.Blend || p.Additive:
 			mat["alphaMode"] = "BLEND"
-		} else {
+		case p.Opaque:
+			mat["alphaMode"] = "OPAQUE"
+		default:
 			mat["alphaMode"] = "MASK"
 			if p.AlphaCutoff > 0 {
 				mat["alphaCutoff"] = p.AlphaCutoff

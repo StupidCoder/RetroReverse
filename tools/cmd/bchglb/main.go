@@ -90,6 +90,17 @@ func run(in []string, out string) error {
 						for j, v := range sh.Verts {
 							p.UVs[j] = [2]float32{v.UV[0][0], 1 - v.UV[0][1]}
 						}
+						mat := m.Materials[sh.MaterialIndex]
+						switch {
+						case mat.Blends:
+							p.Blend = true
+						case mat.AlphaTest:
+							if c, ok := mat.AlphaCutoff(); ok {
+								p.AlphaCutoff = c
+							}
+						default:
+							p.Opaque = true
+						}
 					} else if name != "" {
 						missing[name] = true
 					}

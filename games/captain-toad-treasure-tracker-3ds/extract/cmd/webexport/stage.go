@@ -217,13 +217,17 @@ func addObject(s *glb.Scene, p placement, o *objectArchive) (tris int, err error
 			}
 		}
 		if sh.UVCount > 0 && sh.MaterialIndex < len(o.Model.Materials) {
-			if img := o.Textures[o.Model.Materials[sh.MaterialIndex].Texture()]; img != nil {
+			mat := &o.Model.Materials[sh.MaterialIndex]
+			if img := o.Textures[mat.Texture()]; img != nil {
 				pr.Image = img
 				pr.UVs = make([][2]float32, len(sh.Verts))
 				for j, v := range sh.Verts {
 					pr.UVs[j] = [2]float32{v.UV[0][0], 1 - v.UV[0][1]}
 				}
 				pr.WrapS, pr.WrapT = gltfRepeat, gltfRepeat
+				if err := setAlpha(&pr, mat); err != nil {
+					return 0, err
+				}
 			}
 		}
 		pr.Tris = make([][3]uint32, len(sh.Indices)/3)
@@ -238,6 +242,30 @@ func addObject(s *glb.Scene, p placement, o *objectArchive) (tris int, err error
 }
 
 const gltfRepeat = 10497
+
+// setAlpha carries the material's own alpha handling into the glTF material.
+//
+// The stage's albedo textures are ETC1A4 and so every one of them has an alpha
+// plane, but most of the materials sampling them neither blend nor alpha-test —
+// for those the plane is not coverage and using it punches holes in the stone
+// and drops the floor out from between the clover leaves. Only a material that
+// says it blends, or that enables the alpha test, gets alpha at all.
+func setAlpha(pr *glb.Prim, mat *n3ds.BCHMaterial) error {
+	switch {
+	case mat.Blends:
+		pr.Blend = true
+	case mat.AlphaTest:
+		c, ok := mat.AlphaCutoff()
+		if !ok {
+			return fmt.Errorf("material %q alpha-tests with comparison %d, which is not a cutoff",
+				mat.Name, mat.AlphaFunc)
+		}
+		pr.AlphaCutoff = c
+	default:
+		pr.Opaque = true
+	}
+	return nil
+}
 
 // eulerXYZ converts the map's degree triple to a quaternion. The map's rotation
 // is applied X then Y then Z, which is the order the engine's own pose data

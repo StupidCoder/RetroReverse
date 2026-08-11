@@ -266,6 +266,13 @@ func (f *BCH) DecodeModel(e BCHEntry) (*BCHModel, error) {
 			return nil, fmt.Errorf("bch: model %q material %d runs outside the file", e.Name, i)
 		}
 		mat := BCHMaterial{Name: readCStr(f.raw, f.str+int64(f.u32(node+8)))}
+		obj := f.main + int64(f.u32(be+bchMatBindObject))
+		if !f.inRange(obj, bchMatCmdLen+4) {
+			return nil, fmt.Errorf("bch: model %q material %d object runs outside the file", e.Name, i)
+		}
+		if err := f.decodeMaterialState(obj, &mat); err != nil {
+			return nil, fmt.Errorf("bch: model %q: %w", e.Name, err)
+		}
 		for u := 0; u < 3; u++ {
 			// An unset slot is a zero word, and zero is a valid string-table
 			// offset — it lands on the table's first entry. Resolving it would
@@ -567,6 +574,46 @@ func (f *BCH) DecodeTexture(e BCHEntry) (*BCHTexture, error) {
 type BCHMaterial struct {
 	Name  string
 	Names [3]string
+
+	// How the material treats alpha, read from the PICA state it programs.
+	// Ignoring this is not cosmetic: the stage's albedo textures are ETC1A4 and
+	// therefore *all* carry a 4-bit alpha plane, but most of the materials
+	// sampling them neither blend nor alpha-test, so that plane is not coverage
+	// and must not be used as any. All five of the stone albedos carry the
+	// identical alpha histogram (85..221) — the tell that it is not a mask.
+	Blends    bool  // the blend function is anything other than src×1 + dst×0
+	AlphaTest bool  // the alpha test is enabled
+	AlphaFunc uint8 // its comparison, in the PICA's numbering (gpu_tev.go)
+	AlphaRef  uint8 // its reference value
+}
+
+// PICA alpha-test comparisons, as register 0x104 numbers them.
+const (
+	AlphaNever = iota
+	AlphaAlways
+	AlphaEqual
+	AlphaNotEqual
+	AlphaLess
+	AlphaLEqual
+	AlphaGreater
+	AlphaGEqual
+)
+
+// AlphaCutoff turns an enabled alpha test into the equivalent "keep alpha >= c"
+// threshold in [0,1], and reports whether the test is expressible that way. A
+// GREATER test keeps strictly above its reference, so its threshold is one
+// texel value higher than a GEQUAL one with the same reference.
+func (m *BCHMaterial) AlphaCutoff() (float32, bool) {
+	if !m.AlphaTest {
+		return 0, false
+	}
+	switch m.AlphaFunc {
+	case AlphaGreater:
+		return float32(int(m.AlphaRef)+1) / 255, true
+	case AlphaGEqual:
+		return float32(m.AlphaRef) / 255, true
+	}
+	return 0, false
 }
 
 // Texture returns the material's unit-0 texture name.
@@ -580,3 +627,55 @@ const (
 	bchMatBindObject = 0x00
 	bchMatBindTex0   = 0x20
 )
+
+// The material object's own PICA command list: (offset, word count) into the
+// GPU command section, holding the material's whole fragment state — the TEV
+// stages, the texture-unit setup, the blend function and the alpha test.
+const (
+	bchMatCmds   = 0xC8
+	bchMatCmdLen = 0xCC
+)
+
+// The output-merger registers the material programs.
+const (
+	regBlendFunc = 0x101 // src/dst factors in bits 16-31
+	regAlphaTest = 0x104 // bit0 enable, bits 4-6 function, bits 8-15 reference
+)
+
+// PICA blend factors, of which only these two are needed to recognise a
+// material that does not blend at all.
+const (
+	blendZero = 0
+	blendOne  = 1
+)
+
+// decodeMaterialState runs a material object's command list and reads the
+// output-merger state out of the registers it sets.
+func (f *BCH) decodeMaterialState(obj int64, m *BCHMaterial) error {
+	off, words := int64(f.u32(obj+bchMatCmds)), int64(f.u32(obj+bchMatCmdLen))
+	if words == 0 {
+		return nil
+	}
+	if !f.inRange(f.gpu+off, words*4) {
+		return fmt.Errorf("material %q: command list at gpu+0x%x (%d words) runs outside the file", m.Name, off, words)
+	}
+	ws, err := DecodePICA(f.raw[f.gpu+off : f.gpu+off+words*4])
+	if err != nil {
+		return fmt.Errorf("material %q: %w", m.Name, err)
+	}
+	var regs [0x300]uint32
+	for _, w := range ws {
+		if w.Reg < 0x300 {
+			regs[w.Reg] = w.Value
+		}
+	}
+	bf := regs[regBlendFunc]
+	srcRGB, dstRGB := bf>>16&0xF, bf>>20&0xF
+	srcA, dstA := bf>>24&0xF, bf>>28&0xF
+	m.Blends = !(srcRGB == blendOne && dstRGB == blendZero && srcA == blendOne && dstA == blendZero)
+	at := regs[regAlphaTest]
+	m.AlphaTest = at&1 != 0
+	m.AlphaFunc = uint8(at >> 4 & 7)
+	m.AlphaRef = uint8(at >> 8)
+	return nil
+}

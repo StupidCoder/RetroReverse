@@ -273,3 +273,75 @@ func TestBYMLStageMap(t *testing.T) {
 		t.Errorf("FilePath = %q, want the map's authoring path", s)
 	}
 }
+
+// TestBCHMaterialAlpha pins how the stage's materials treat alpha, which is not
+// something the textures can be asked.
+//
+// Every one of this stage's albedo textures is ETC1A4 and therefore carries a
+// 4-bit alpha plane — but only ten of the fifty-three materials sampling them
+// enable the alpha test, and none blends at all. For the other forty-three the
+// plane is not coverage, and honouring it masks holes through the stone and
+// deletes the soil layers under the diorama. The tell is in the textures too:
+// all five stone albedos carry the *identical* alpha histogram, which is not
+// what per-texture coverage looks like.
+func TestBCHMaterialAlpha(t *testing.T) {
+	fs := toadRomFS(t)
+	a := openSZS(t, fs, "/ObjectData/"+toadTerrain+".szs")
+	blob, _ := a.File(toadTerrain + ".bch")
+	f, err := ParseBCH(blob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := f.DecodeModel(f.Groups[BCHModels][0])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	blend, test, opaque := 0, 0, 0
+	byName := map[string]*BCHMaterial{}
+	for i := range m.Materials {
+		mat := &m.Materials[i]
+		byName[mat.Name] = mat
+		switch {
+		case mat.Blends:
+			blend++
+		case mat.AlphaTest:
+			test++
+			c, ok := mat.AlphaCutoff()
+			if !ok {
+				t.Errorf("material %q alpha-tests with comparison %d, which is not a cutoff", mat.Name, mat.AlphaFunc)
+			}
+			if c <= 0 || c > 1 {
+				t.Errorf("material %q cutoff %v is outside [0,1]", mat.Name, c)
+			}
+		default:
+			opaque++
+		}
+	}
+	if blend != 0 || test != 10 || opaque != 43 {
+		t.Errorf("%d blend / %d alpha-test / %d opaque, want 0/10/43", blend, test, opaque)
+	}
+
+	// The split is meaningful, not just numerically right: the cut-out decals
+	// test, and the solid stone does not.
+	for _, name := range []string{"Clovers", "ivybillboard", "moss", "OpStone03_AI_Tile"} {
+		mat := byName[name]
+		if mat == nil {
+			t.Errorf("no material %q", name)
+			continue
+		}
+		if !mat.AlphaTest {
+			t.Errorf("material %q is a cut-out decal but does not alpha-test", name)
+		}
+	}
+	for _, name := range []string{"OpStone00_AI", "OpStone03_AI", "Lawn01_S", "DanmenSoilLayer00_S"} {
+		mat := byName[name]
+		if mat == nil {
+			t.Errorf("no material %q", name)
+			continue
+		}
+		if mat.AlphaTest || mat.Blends {
+			t.Errorf("material %q is solid but reports alphaTest=%v blends=%v", name, mat.AlphaTest, mat.Blends)
+		}
+	}
+}

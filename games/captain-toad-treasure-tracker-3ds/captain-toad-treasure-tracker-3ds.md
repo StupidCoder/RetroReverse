@@ -1321,3 +1321,38 @@ The albedo comes out much lighter than the stage looks in play, and that is corr
 texture really is near-white (mean RGB 200, 200, 191) and the dark, mossy look the game has is its
 **fragment lighting**, the unit Part XVIII spent six bugs on. An unlit extraction shows the albedo and
 the baked ambient occlusion in the vertex colours, which is what every other model in the Studio shows.
+
+### Every texture has an alpha plane. Almost none of them means it.
+
+The first export was full of holes: the floor showed through between the clover leaves, and the stone
+walls and paving were pocked with transparent patches. The cause is a property of the *format*, not of
+any one asset. The stage's albedos are **ETC1A4**, so every single one carries a 4-bit alpha plane
+whether or not anything samples it as coverage — and an exporter that turns a texture with alpha into
+an alpha-masked material will cut holes wherever that plane happens to dip.
+
+The textures say so themselves, if you look at the histograms rather than the pixels. They fall into
+two populations: the genuine cut-outs run the full 0-255 (`clowers_alb`, `tile_alb`, `moss_alb`,
+`Ground_Grass`), while the rest sit in narrow mid-range bands — and **all five stone albedos carry the
+identical band, 85 to 221, mean 149.2**. Five different textures with the same alpha histogram is not
+coverage.
+
+The authority is the material, and it keeps its answer where it keeps everything else: in the PICA
+state it programs. Each material object carries its own command list at `+0xC8`, and two of its
+registers settle the question — `0x101`, the blend function, and `0x104`, the alpha test:
+
+| | value | meaning |
+|---|---|---|
+| blend function `0x101` | `0x01010000` on **all 53** | src×ONE + dst×ZERO — no blending anywhere |
+| alpha test `0x104` | `0x8061` on 10, disabled on 43 | GREATER than 128 — a cut-out, on ten materials |
+
+So: nothing in this stage blends; ten materials cut out at a threshold of 128; the other forty-three
+ignore alpha completely. The ten are exactly the ones that should be — the clovers, the ivy billboards,
+the moss, the tile decal, the grass overlays. `glb.Prim` grew an `Opaque` flag to say so, since the
+writer had only ever emitted `MASK` or `BLEND` for a textured material.
+
+Fixing it brought back more than the holes: the **soil layers** banding the underside of the diorama
+had been invisible, because `SoilLayer00_AI_alb`'s alpha plane sits at 17-85 and a 0.5 cutoff deletes
+every texel of it. The island had been floating on nothing.
+
+*A format that obliges every texture to carry alpha has made alpha uninformative; the material is the
+only thing that knows whether it is coverage.*
