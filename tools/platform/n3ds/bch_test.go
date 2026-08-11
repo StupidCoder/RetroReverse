@@ -5,6 +5,7 @@ package n3ds
 // into. The cartridge is not committed, so these skip when it is absent.
 
 import (
+	"math"
 	"os"
 	"strings"
 	"testing"
@@ -517,4 +518,165 @@ func TestBYMLDepthShadow(t *testing.T) {
 	if w, _ := g["ShadowMapWidth"].(int32); w != 512 {
 		t.Errorf("ShadowMapWidth = %v, want 512", g["ShadowMapWidth"])
 	}
+}
+
+// TestBCHSkeletonBindPose proves the skeleton decode with the invariant a
+// skeleton carries about itself: composing a bone's world matrix down the
+// parent chain and multiplying by the inverse bind matrix stored beside it must
+// give the identity, because that is what "inverse bind" means.
+//
+// It settles four things at once — the bone stride, the parent links, the
+// order the Euler triple composes in, and the inverse-bind layout — and it is
+// sharp. The rotation is Rz·Ry·Rx, the X term applied first: over Toadette's
+// skeleton, whose bones turn about all three axes, that order lands within 0.01
+// while the next best is out by 30 and the one after by 67. A skeleton with no
+// three-axis bone cannot tell those apart, which is why the check runs over the
+// one that has them.
+func TestBCHSkeletonBindPose(t *testing.T) {
+	fs := toadRomFS(t)
+	for _, obj := range []string{"Kinopio", "KinopicoNpc"} {
+		a := openSZS(t, fs, "/ObjectData/"+obj+".szs")
+		blob, ok := a.File(obj + ".bch")
+		if !ok {
+			t.Fatalf("%s: no .bch", obj)
+		}
+		f, err := ParseBCH(blob)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m, err := f.DecodeModel(f.Groups[BCHModels][0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(m.Bones) == 0 {
+			t.Fatalf("%s has no skeleton", obj)
+		}
+		world := make([][16]float64, len(m.Bones))
+		threeAxis := 0
+		for i, b := range m.Bones {
+			if b.Rotate[0] != 0 && b.Rotate[1] != 0 && b.Rotate[2] != 0 {
+				threeAxis++
+			}
+			l := mul4(mul4(trans4(b.Trans), eulerZYX(b.Rotate)), scale4(b.Scale))
+			if b.Parent < 0 {
+				world[i] = l
+			} else {
+				if b.Parent >= i {
+					t.Fatalf("%s bone %q has parent %d, which is not before it", obj, b.Name, b.Parent)
+				}
+				world[i] = mul4(world[b.Parent], l)
+			}
+		}
+		worst := 0.0
+		for i, b := range m.Bones {
+			var ib [16]float64
+			for r := 0; r < 3; r++ {
+				for c := 0; c < 4; c++ {
+					ib[r*4+c] = float64(b.InvBind[r][c])
+				}
+			}
+			ib[15] = 1
+			p := mul4(world[i], ib)
+			for r := 0; r < 4; r++ {
+				for c := 0; c < 4; c++ {
+					want := 0.0
+					if r == c {
+						want = 1
+					}
+					if d := math.Abs(p[r*4+c] - want); d > worst {
+						worst = d
+					}
+				}
+			}
+		}
+		if worst > 0.02 {
+			t.Errorf("%s: worst |world x invBind - I| = %g over %d bones; the bind pose does not close",
+				obj, worst, len(m.Bones))
+		}
+		t.Logf("%s: %d bones (%d turning about all three axes), worst bind-pose residual %.4f",
+			obj, len(m.Bones), threeAxis, worst)
+	}
+}
+
+// TestBCHSkinWeights checks the other half of the skin: the stored weights are
+// percentages, and every skinned vertex's influences sum to one. DecodeModel
+// enforces it, so this pins that the enforcement is exercised and that the
+// palette a vertex indexes is in range.
+func TestBCHSkinWeights(t *testing.T) {
+	fs := toadRomFS(t)
+	a := openSZS(t, fs, "/ObjectData/Kinopio.szs")
+	blob, _ := a.File("Kinopio.bch")
+	f, err := ParseBCH(blob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := f.DecodeModel(f.Groups[BCHModels][0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	skinned, influences := 0, 0
+	for i, sh := range m.Meshes {
+		if !sh.HasSkin {
+			continue
+		}
+		skinned++
+		for _, v := range sh.Verts {
+			var sum float32
+			for k, w := range v.Weights {
+				if w == 0 {
+					continue
+				}
+				influences++
+				sum += w
+				if int(v.Joints[k]) >= len(sh.Palette) {
+					t.Fatalf("mesh %d: joint %d indexes a palette of %d", i, v.Joints[k], len(sh.Palette))
+				}
+				if b := sh.Palette[v.Joints[k]]; b >= len(m.Bones) {
+					t.Fatalf("mesh %d: palette slot %d names bone %d of %d", i, v.Joints[k], b, len(m.Bones))
+				}
+			}
+			if sum < 0.99 || sum > 1.01 {
+				t.Fatalf("mesh %d: weights sum to %g", i, sum)
+			}
+		}
+	}
+	if skinned == 0 || influences == 0 {
+		t.Fatalf("%d skinned meshes, %d influences — the skin decode is not being exercised", skinned, influences)
+	}
+	t.Logf("%d skinned meshes, %d vertex influences, all weights sum to one", skinned, influences)
+}
+
+func mul4(a, b [16]float64) [16]float64 {
+	var o [16]float64
+	for r := 0; r < 4; r++ {
+		for c := 0; c < 4; c++ {
+			s := 0.0
+			for k := 0; k < 4; k++ {
+				s += a[r*4+k] * b[k*4+c]
+			}
+			o[r*4+c] = s
+		}
+	}
+	return o
+}
+func trans4(t [3]float32) [16]float64 {
+	return [16]float64{1, 0, 0, float64(t[0]), 0, 1, 0, float64(t[1]), 0, 0, 1, float64(t[2]), 0, 0, 0, 1}
+}
+func scale4(s [3]float32) [16]float64 {
+	return [16]float64{float64(s[0]), 0, 0, 0, 0, float64(s[1]), 0, 0, 0, 0, float64(s[2]), 0, 0, 0, 0, 1}
+}
+
+// eulerZYX builds Rz·Ry·Rx from an XYZ triple in radians.
+func eulerZYX(r [3]float32) [16]float64 {
+	rot := func(ax int, a float64) [16]float64 {
+		c, s := math.Cos(a), math.Sin(a)
+		switch ax {
+		case 0:
+			return [16]float64{1, 0, 0, 0, 0, c, -s, 0, 0, s, c, 0, 0, 0, 0, 1}
+		case 1:
+			return [16]float64{c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, 0, 0, 0, 1}
+		}
+		return [16]float64{c, -s, 0, 0, s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+	}
+	return mul4(mul4(rot(2, float64(r[2])), rot(1, float64(r[1]))), rot(0, float64(r[0])))
 }

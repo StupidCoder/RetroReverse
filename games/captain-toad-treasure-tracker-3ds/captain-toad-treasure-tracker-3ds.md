@@ -1495,3 +1495,72 @@ layer's material to multiply by the comparison. Two details make it right rather
 
 *Every number this pass needed was in the stage's own files. The two artefacts came from the two that
 were not read.*
+
+---
+
+## Part XXIII — The characters: a skeleton that proves itself, and a space that does not
+
+Toad, Toadette and the star are skinned, animated actors, and the archives are generous:
+`Kinopio.szs` is a 22-bone character with 40 meshes, `KinopicoNpc.szs` a 28-bone one with 38, and
+`KinopioAnimationSeason1OpeningStage.szs` carries **148 skeletal animations** for the opening alone
+(plus 600 visibility animations and 5 material ones). Toadette brings her own 50.
+
+### The skeleton, and the invariant that settles it
+
+A model header carries its skeleton at `+0x70` with the bone count at `+0x74` — zero for the terrain,
+22 for Toad, which is how the field was found. A bone is `0x64` bytes: flags, an int16 parent, scale,
+an XYZ Euler triple in radians, a translation, a 3×4 matrix, and its name last at `+0x5C`. Toad's
+reads as a clean humanoid — `AllRoot → JointRoot → Hip → FootL/ToeL, FootR/ToeR`, and
+`Spine1 → Spine2 → Head → HeadBelt → HeadLight`, that last one being the lamp on his cap, plus a
+rucksack chain and two arms.
+
+The 3×4 is the inverse bind matrix, and **a skeleton carries the proof of its own decode**: compose
+each bone's world matrix down the parent chain and multiply by the inverse bind beside it, and the
+result must be the identity, because that is what "inverse bind" means. The check settles four things
+at once — the bone stride, the parent links, the Euler order and the matrix layout — and it is sharp.
+The rotation is **Rz·Ry·Rx**, the X term applied first:
+
+| order | worst residual |
+|---|---|
+| `Rz·Ry·Rx` | **0.0096** |
+| next best | 30.7 |
+| the one after | 66.7 |
+
+measured over Toadette's skeleton. It has to be hers: eight of her bones turn about all three axes,
+and Toad's turn about at most two, which cannot tell those orderings apart at all. *A degenerate
+sample agrees with every hypothesis.*
+
+### The skin
+
+The vertex format carries the rest. Shader inputs 7 and 8 are the bone index and the bone weight, and
+a mesh takes one of three shapes: indices and weights (smooth, two influences), indices alone (rigid,
+one bone per vertex), or neither (rigid, the whole draw on one bone). The weights are unsigned bytes
+and they are **percentages** — a two-influence vertex stores 70 and 30, not 179 and 76 — which the
+decoder both relies on and checks: every skinned vertex's influences sum to one, over 4,470 of them.
+
+A vertex does not name a bone directly. It names a slot in the **matrix palette** the face header
+carries as twenty u16s before its command list — the same `0x2C` bytes that are all zero on the
+terrain — and the palette names the bone. An upper-body mesh's palette reads
+`JointRoot, HeadBelt, Spine2, ShoulderL, ArmL1, Head, HandL, ArmL2, ArmR1, ArmR2, HandR, ShoulderR`,
+which is exactly what an upper body needs.
+
+One more rule fell out on the way: a vertex's attributes may fall short of its stride by up to three
+bytes, because a vertex is padded to a multiple of four. The tolerance is exactly the alignment and
+no more — the terrain's 48-byte vertices sum to 48 exactly, and Toad's rigid meshes sum to 37 in a
+stride of 40.
+
+### What is not yet right: the space the vertices live in
+
+Assembling the character is still open, and the writeup says so rather than shipping a guess. Neither
+of the two obvious rules puts Toad together:
+
+| skinning matrix | resulting extent |
+|---|---|
+| `world × invBind` (glTF's rule) | y from −103 to 86 — a body hanging below the floor |
+| `world` alone (vertices bone-local) | y from −18 to 187 — closer to standing, but wrong in detail |
+
+and both render as a jumble. The skeleton itself is not in doubt: its bones land where a Toad's should
+(Hip at y = 40, HeadBelt at 124, HeadLight at 146 and 39 forward — the lamp). What is in doubt is how
+the stored positions relate to it. The next move is to read the vertex shader the model names
+(`DefaultShader-rs-nl`) rather than to keep proposing rules for it to disagree with: the shader is in
+the cartridge, it is what the hardware runs, and it will say which matrix it multiplies by.

@@ -165,6 +165,23 @@ type BCHVertex struct {
 	Normal [3]float32
 	Color  [4]uint8
 	UV     [3][2]float32
+
+	// Joints index the mesh's Palette; Weights sum to 1 over the influences the
+	// vertex actually has.
+	Joints  [4]uint8
+	Weights [4]float32
+}
+
+// BCHBone is one joint of a model's skeleton. The rotation is an XYZ Euler
+// triple in radians; InvBind is the 3x4 matrix taking a vertex from the model's
+// space into the bone's.
+type BCHBone struct {
+	Name    string
+	Parent  int // -1 for the root
+	Scale   [3]float32
+	Rotate  [3]float32
+	Trans   [3]float32
+	InvBind [3][4]float32
 }
 
 // BCHMesh is one drawable: a triangle list over its own vertices, bound to one
@@ -174,8 +191,15 @@ type BCHMesh struct {
 	Verts         []BCHVertex
 	Indices       []uint32
 
+	// Palette maps this mesh's own bone indices onto the model's skeleton. A
+	// skinned vertex does not name a bone directly: it names a slot in the
+	// small per-draw matrix palette the hardware holds, and the palette names
+	// the bone. Empty when the mesh is not skinned.
+	Palette []int
+
 	HasNormal bool
 	HasColor  bool
+	HasSkin   bool
 	UVCount   int
 
 	// ArrayOffset is where this mesh's vertices start in the extended data
@@ -194,6 +218,7 @@ type BCHModel struct {
 	Transform [3][4]float32 // the model's world matrix, row-major
 	Meshes    []BCHMesh
 	Materials []BCHMaterial // in the model's own material order
+	Bones     []BCHBone     // the skeleton, empty for static geometry
 }
 
 // Model-object field offsets, all from the object's start. The pointers are
@@ -205,7 +230,26 @@ const (
 	bchModelMatDict   = 0x3C
 	bchModelMeshTable = 0x40
 	bchModelMeshCount = 0x44
+	bchModelBoneTable = 0x70
+	bchModelBoneCount = 0x74
 	bchMeshStride     = 0x38
+
+	bchBoneStride  = 0x64
+	bchBoneFlags   = 0x00
+	bchBoneParent  = 0x04 // int16
+	bchBoneScale   = 0x08
+	bchBoneRotate  = 0x14 // XYZ Euler, radians
+	bchBoneTrans   = 0x20
+	bchBoneInvBind = 0x2C // f32[3][4]
+	bchBoneName    = 0x5C
+)
+
+// A face's matrix palette: the bone indices its vertices select between, as
+// u16s at the head of the face structure. Twenty is what the hardware's palette
+// holds, and it is the space the face header reserves before its command list.
+const (
+	bchFacePalette = 0x00
+	bchPaletteMax  = 20
 )
 
 // Mesh field offsets.
@@ -236,15 +280,39 @@ const (
 // (0x2BB/0x2BC) is therefore the file's own statement of what each attribute is,
 // and no attribute order has to be assumed.
 const (
-	bchInPosition = 0
-	bchInNormal   = 1
-	bchInTangent  = 2
-	bchInColor    = 3
-	bchInTexCoord = 4 // ...through 6
+	bchInPosition   = 0
+	bchInNormal     = 1
+	bchInTangent    = 2
+	bchInColor      = 3
+	bchInTexCoord   = 4 // ...through 6
+	bchInBoneIndex  = 7
+	bchInBoneWeight = 8
 )
 
+// attrScale undoes attrValue's normalisation for attributes that are counts
+// rather than fractions: a bone *index* wants the raw byte back.
+func attrScale(typ int) float32 {
+	if typ == 1 {
+		return 255
+	}
+	return 1
+}
+
+// weightScale turns a stored bone weight into a fraction. They are unsigned
+// bytes, and they are **percentages** — a two-influence vertex stores 70 and 30,
+// not 179 and 76. attrValue has already divided by 255, so the remaining factor
+// puts them over 100 instead. The rule is checkable and checked: every skinned
+// vertex's weights sum to one.
+func weightScale(typ int) float32 {
+	if typ == 1 {
+		return 2.55 // 255/100
+	}
+	return 1
+}
+
 // DecodeModel decodes the model a Models-group entry points at.
-func (f *BCH) DecodeModel(e BCHEntry) (*BCHModel, error) {
+func (f *BCH) DecodeModel(e2 BCHEntry) (*BCHModel, error) {
+	e := e2
 	M := e.Offset
 	if !f.inRange(M, 0x48) {
 		return nil, fmt.Errorf("bch: model %q header runs outside the file", e.Name)
@@ -283,6 +351,33 @@ func (f *BCH) DecodeModel(e BCHEntry) (*BCHModel, error) {
 			}
 		}
 		m.Materials = append(m.Materials, mat)
+	}
+
+	boneT := f.main + int64(f.u32(M+bchModelBoneTable))
+	boneN := int64(f.u32(M + bchModelBoneCount))
+	for i := int64(0); i < boneN; i++ {
+		e := boneT + i*bchBoneStride
+		if !f.inRange(e, bchBoneStride) {
+			return nil, fmt.Errorf("bch: model %q bone %d runs outside the file", e2.Name, i)
+		}
+		b := BCHBone{
+			Name:   readCStr(f.raw, f.str+int64(f.u32(e+bchBoneName))),
+			Parent: int(int16(f.u16(e + bchBoneParent))),
+		}
+		for k := 0; k < 3; k++ {
+			b.Scale[k] = f.f32(e + bchBoneScale + int64(k)*4)
+			b.Rotate[k] = f.f32(e + bchBoneRotate + int64(k)*4)
+			b.Trans[k] = f.f32(e + bchBoneTrans + int64(k)*4)
+		}
+		for r := 0; r < 3; r++ {
+			for c := 0; c < 4; c++ {
+				b.InvBind[r][c] = f.f32(e + bchBoneInvBind + int64(r*4+c)*4)
+			}
+		}
+		if b.Parent >= int(boneN) {
+			return nil, fmt.Errorf("bch: model %q bone %q has parent %d of %d", e2.Name, b.Name, b.Parent, boneN)
+		}
+		m.Bones = append(m.Bones, b)
 	}
 
 	meshT := f.main + int64(f.u32(M+bchModelMeshTable))
@@ -334,6 +429,14 @@ func (f *BCH) decodeMesh(e int64) (*BCHMesh, error) {
 		fe := faces + i*bchFaceStride
 		if !f.inRange(fe, bchFaceStride) {
 			return nil, fmt.Errorf("face %d runs outside the file", i)
+		}
+		// The face's matrix palette. A zero entry past the first is the table's
+		// unused tail, not bone 0: the palette is only as long as the mesh's
+		// vertices index into it.
+		if len(sh.Palette) == 0 {
+			for p := int64(0); p < bchPaletteMax; p++ {
+				sh.Palette = append(sh.Palette, int(f.u16(fe+bchFacePalette+p*2)))
+			}
 		}
 		cmds, words := int64(f.u32(fe+bchFaceCmds)), int64(f.u32(fe+bchFaceCmdLen))
 		if err := run(cmds, words); err != nil {
@@ -425,13 +528,32 @@ func (f *BCH) appendFace(sh *BCHMesh, regs *[0x300]uint32, wide bool) error {
 		})
 		off += int64(size) * bchAttrTypeSize[typ]
 	}
-	if off != stride {
-		return fmt.Errorf("attributes sum to %d bytes but the stride is %d", off, stride)
+	// The attributes may fall short of the stride by up to three bytes: a
+	// vertex is padded to a multiple of four. Anything else means the layout
+	// was misread, so the tolerance is exactly the alignment and no more.
+	if (off+3)/4*4 != stride {
+		return fmt.Errorf("attributes sum to %d bytes, which does not pad to the stride of %d", off, stride)
 	}
 
 	if len(sh.Verts) == 0 {
 		sh.ArrayOffset, sh.VertexStride = arr-f.dataX, stride
 	}
+	// Skinning shape: a mesh may carry indices and weights, indices alone
+	// (rigid, one bone per vertex), or neither (rigid, the whole draw on the
+	// palette's first bone). All three occur in one character.
+	hasIndex, hasWeight := false, false
+	for _, a := range attrs {
+		switch a.input {
+		case bchInBoneIndex:
+			hasIndex = true
+		case bchInBoneWeight:
+			hasWeight = true
+		}
+	}
+	if len(sh.Palette) > 0 {
+		sh.HasSkin = true
+	}
+
 	firstVert := uint32(len(sh.Verts))
 	for v := int64(0); v < nVert; v++ {
 		vo := arr + v*stride
@@ -452,12 +574,36 @@ func (f *BCH) appendFace(sh *BCHMesh, regs *[0x300]uint32, wide bool) error {
 					out.Color[k] = uint8(clampf01(vals[k])*255 + 0.5)
 				}
 				sh.HasColor = true
+			case a.input == bchInBoneIndex:
+				for k := 0; k < a.size && k < 4; k++ {
+					out.Joints[k] = uint8(vals[k]*attrScale(a.typ) + 0.5)
+				}
+			case a.input == bchInBoneWeight:
+				for k := 0; k < a.size && k < 4; k++ {
+					out.Weights[k] = vals[k] * weightScale(a.typ)
+				}
 			case a.input >= bchInTexCoord && a.input <= bchInTexCoord+2:
 				set := a.input - bchInTexCoord
 				out.UV[set] = [2]float32{vals[0], vals[1]}
 				if set+1 > sh.UVCount {
 					sh.UVCount = set + 1
 				}
+			}
+		}
+		if !hasWeight {
+			// Rigid: one bone, full weight. With no index attribute either, the
+			// draw rides the palette's first slot.
+			out.Weights[0] = 1
+			if !hasIndex {
+				out.Joints[0] = 0
+			}
+		} else {
+			var sum float32
+			for _, w := range out.Weights {
+				sum += w
+			}
+			if sum < 0.99 || sum > 1.01 {
+				return fmt.Errorf("vertex %d weights %v sum to %g, not 1", v, out.Weights, sum)
 			}
 		}
 		sh.Verts = append(sh.Verts, out)
