@@ -1925,3 +1925,105 @@ and it is now enforced: **one mesh out per name in.**
 
 Two sets, and a count that has to match.
 
+
+## Part XXVIII — The variants stop being a list, and the shadows the game actually casts
+
+Two things the export was doing by hand: naming which of a character's variant
+meshes to draw, and deciding who casts a shadow. Both are written down in the
+cartridge.
+
+### A mesh knows which node it is
+
+Part XXIV shipped the variant set as a list of material names, read off the
+oracle's draw census, because the visibility animations name things like
+`Face00` and a BCH mesh appeared to carry no name at all. It carries an index.
+
+The model header holds a **mesh-node name dictionary at +0x7C** with its count at
++0x80 — for Toad, thirty-one entries reading `Kinopio00`, `EyeAngry`, `EyeBall`,
+`EyeBallBig`, `EyeSad`, `Eyelid00`-`02`, `Face00`-`08`, `HandL00`-`06`,
+`HandR00`-`06`. Exactly the names the visibility animations use. And **mesh
+header +0x04 is a u16 index into it**.
+
+That field was found by its shape rather than by reading bytes hopefully: ten of
+Toad's forty meshes are the fixed body, so the field had to take one value ten
+times over and thirty others once each. One offset in the header does that. The
+cross-check is independent of the search — every variant mesh's *material* is
+named after the node its header points at, twenty-seven of thirty exactly and the
+other three differing only in whether the L in `EyeLid` is capital.
+
+⚠ The dictionary's names sit at `dict+0x18+i*12`, four bytes further in than the
+main header's groups put theirs. The two pointers do not address the same part of
+the structure, and reading this one with the other's offset returns garbage.
+
+### The visibility value is a bitfield, not a boolean
+
+The elements looked simple — a name, a pointer, a count of one, and a `0` or `1`
+behind the pointer — and 336 of the archive's 600 decoded that way. The other 264
+had counts like 196 and 1,539.
+
+They are **one bit per frame**. `+0x0C` is the element's own end frame and `+0x18`
+the number of frames; the bit blocks tile the data section end to end at
+`ceil(frames/32)` words apiece, which is what pins the width and the count
+together. Captain Toad blinks, and that is where it is stored.
+
+The reading proves itself frame by frame: **the number of nodes an animation
+shows never changes over its frames**, across 650 animations and 63,477 frames.
+That is a claim about the decode rather than about one file's habits, because the
+two archives disagree about the number — the opening stage's animations are split
+per part and show one node each, while Toadette's own put every part in one
+animation and show four. A wrong bit order or stride would make either wander.
+
+One trap on the way out: gathering a clip's animations by name prefix. `Walk`
+also prefixes `WalkSlowlyFace`, `WalkSpeedyEye` and `WalkWaterHandL` — sixty-four
+animations instead of four, with whichever was enumerated first deciding the
+face. A visibility animation belongs to the **longest** skeletal clip name that
+prefixes its own, and the archive's own clip list is what resolves it.
+
+### Who casts a shadow is also written down
+
+The obvious thing to do with "can the placed objects cast shadows too" is to add
+their depth-shadow proxies to the caster layer. They all have one. It would have
+been wrong for two of the three.
+
+Every object's `InitExecutor.byml` lists the draw categories it renders into, and
+the depth-shadow pass is one of them:
+
+| object | categories |
+|---|---|
+| `Season1OpeningStepA` (the terrain) | 地形, 撮影用[地形], **デプスシャドウ[地形]**, Ｚプリパス[地形] |
+| `GoalItem` (the star) | アイテム[フォワード], **デプスシャドウ[キャラクター]** |
+| `Kinopio`, `KinopicoNpc` | プレイヤー — and nothing else |
+
+**The characters do not cast a depth shadow.** What they have is an
+`InitShadowMask.byml`: a blob projected beneath them, with its own joint, offset,
+radius, drop length and colour —
+
+    Toad       cylinder, JointRoot, offset y 28, radius 85, drop 600, colour (0.2,0.2,0.2)
+    Toadette   cylinder, JointRoot, offset y 28, radius 75, drop 150
+    the star   ellipsoid, GoalItem, offset y 12, scale 70, drop 100
+
+and that is also why forcing the depth shadow would have failed anyway: the
+stage's shadow bias is 0.0185 of a 4,300-unit range, some eighty world units of
+stand-off tuned for the terrain's coarse shell — most of a 190-unit character.
+
+So the star joins the caster layer, posed at the frame its placement starts (its
+proxy is skinned, unlike the terrain's, so it has to be posed rather than
+copied), and all three get their mask: a disc dropped by ray-casting straight
+down against the stage's own triangles, at the radius and colour the game states.
+Placements now receive the depth shadow too, which they never did.
+
+### And a blend mode that was never written
+
+The first masks came out invisible. They were in the file, at the right place,
+with the right colours — and `alphaMode` was absent, because `glb`'s material
+writer only decided it *inside the branch that adds a texture*. A primitive that
+asks to blend and carries its coverage in COLOR_0 got glTF's default, which is
+OPAQUE: the alpha was written to the file and ignored by every renderer that read
+it. Blending is a property of the material, not of having a texture.
+
+Then they were invisible again, for a duller reason: a disc fanned from a single
+centre vertex to a transparent rim has its alpha fall linearly across the whole
+radius, which averages to a smudge. The mask the game projects is a cylinder,
+which is mostly solid — so the disc now has an opaque core and only the outer
+band fades.
+

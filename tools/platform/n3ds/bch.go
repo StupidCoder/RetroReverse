@@ -198,6 +198,10 @@ type BCHMesh struct {
 	// the bone. Empty when the mesh is not skinned.
 	Palette []int
 
+	// Node is the index of the mesh NODE this mesh belongs to — the thing a
+	// visibility animation switches. Several meshes may share one.
+	Node int
+
 	// SkinMode is the face header's own statement of how the mesh is bound:
 	// BCHSkinSmooth (per-vertex indices and weights), BCHSkinRigid (an index
 	// per vertex, full weight) or BCHSkinNone.
@@ -225,6 +229,12 @@ type BCHModel struct {
 	Meshes    []BCHMesh
 	Materials []BCHMaterial // in the model's own material order
 	Bones     []BCHBone     // the skeleton, empty for static geometry
+
+	// MeshNodes are the model's named mesh nodes, which BCHMesh.Node indexes.
+	// They are what a visibility animation names: a character's nine faces,
+	// seven hands a side and seven eye parts are separate nodes, and one of
+	// each is drawn.
+	MeshNodes []string
 }
 
 // Model-object field offsets, all from the object's start. The pointers are
@@ -239,6 +249,23 @@ const (
 	bchModelBoneTable = 0x70
 	bchModelBoneCount = 0x74
 	bchMeshStride     = 0x38
+
+	// The mesh-node name dictionary and its count. A mesh names its node with a
+	// u16 at bchMeshNode, and the visibility animations name the same strings.
+	//
+	// ⚠ The names sit at dict+0x18+i*12, four bytes further into the dictionary
+	// than the main header's groups put theirs (bchGroupDictNames). The two
+	// pointers do not address the same part of the structure, and reading this
+	// one with the other's offset returns garbage rather than a name. What
+	// pins it is the content: all 31 entries come out as the mesh-node names
+	// the visibility animations use, and every variant mesh's node is the one
+	// its material is named after.
+	bchModelNodeDict  = 0x7C
+	bchModelNodeCount = 0x80
+	bchNodeDictNames  = 0x18
+	bchNodeDictStride = 12
+
+	bchMeshNode = 0x04 // u16
 
 	bchBoneStride  = 0x64
 	bchBoneFlags   = 0x00
@@ -404,12 +431,29 @@ func (f *BCH) DecodeModel(e2 BCHEntry) (*BCHModel, error) {
 		m.Bones = append(m.Bones, b)
 	}
 
+	nodeDict := f.main + int64(f.u32(M+bchModelNodeDict))
+	nodeN := int64(f.u32(M + bchModelNodeCount))
+	for i := int64(0); i < nodeN; i++ {
+		o := nodeDict + bchNodeDictNames + i*bchNodeDictStride
+		if !f.inRange(o, 4) {
+			return nil, fmt.Errorf("bch: model %q mesh-node dictionary runs outside the file", e.Name)
+		}
+		n := readCStr(f.raw, f.str+int64(f.u32(o)))
+		if !printableName(n) {
+			return nil, fmt.Errorf("bch: model %q mesh node %d is not a name (%q)", e.Name, i, n)
+		}
+		m.MeshNodes = append(m.MeshNodes, n)
+	}
+
 	meshT := f.main + int64(f.u32(M+bchModelMeshTable))
 	meshN := int64(f.u32(M + bchModelMeshCount))
 	for i := int64(0); i < meshN; i++ {
 		sh, err := f.decodeMesh(meshT + i*bchMeshStride)
 		if err != nil {
 			return nil, fmt.Errorf("bch: model %q mesh %d: %w", e.Name, i, err)
+		}
+		if sh.Node >= len(m.MeshNodes) {
+			return nil, fmt.Errorf("bch: model %q mesh %d names node %d of %d", e.Name, i, sh.Node, len(m.MeshNodes))
 		}
 		m.Meshes = append(m.Meshes, *sh)
 	}
@@ -422,7 +466,10 @@ func (f *BCH) decodeMesh(e int64) (*BCHMesh, error) {
 	if !f.inRange(e, bchMeshStride) {
 		return nil, fmt.Errorf("mesh header runs outside the file")
 	}
-	sh := &BCHMesh{MaterialIndex: int(f.u16(e + bchMeshMaterial))}
+	sh := &BCHMesh{
+		MaterialIndex: int(f.u16(e + bchMeshMaterial)),
+		Node:          int(f.u16(e + bchMeshNode)),
+	}
 
 	var regs [0x300]uint32
 	run := func(off, words int64) error {
@@ -665,6 +712,21 @@ func (f *BCH) appendFace(sh *BCHMesh, regs *[0x300]uint32, wide bool) error {
 		sh.Indices = append(sh.Indices, firstVert+i)
 	}
 	return nil
+}
+
+// printableName rejects a string that is not one — the check that a dictionary
+// offset was read at the right place rather than pointing into the middle of
+// something.
+func printableName(s string) bool {
+	if s == "" || len(s) > 64 {
+		return false
+	}
+	for _, c := range s {
+		if c < 32 || c > 126 {
+			return false
+		}
+	}
+	return true
 }
 
 // BindPose composes each bone's world matrix down the parent chain, in the pose

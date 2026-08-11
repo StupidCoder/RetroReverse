@@ -162,6 +162,13 @@ func (s *Scene) addMaterial(p *Prim) int {
 	}
 	if p.Additive {
 		extras["blend"] = "additive"
+	}
+	// Blending is a property of the material, not of having a texture. A prim
+	// that asks to blend and carries its coverage in COLOR_0 — a soft-edged
+	// decal, a blob shadow — got no alphaMode at all while this lived inside
+	// the texture branch below, and glTF's default is OPAQUE: the alpha was
+	// written into the file and ignored by every renderer reading it.
+	if p.Blend || p.Additive {
 		mat["alphaMode"] = "BLEND"
 	}
 	if len(extras) > 0 {
@@ -195,7 +202,7 @@ func (s *Scene) addMaterial(p *Prim) int {
 		pbr["baseColorTexture"] = map[string]int{"index": len(s.textures) - 1}
 		switch {
 		case p.Blend || p.Additive:
-			mat["alphaMode"] = "BLEND"
+			// already BLEND
 		case p.Opaque:
 			mat["alphaMode"] = "OPAQUE"
 		default:

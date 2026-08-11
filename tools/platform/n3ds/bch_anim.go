@@ -254,3 +254,136 @@ func (a *SkelAnim) PoseAt(bones []BCHBone, frame float32) []BCHBone {
 	}
 	return out
 }
+
+// A visibility animation says which of a model's MESH NODES are drawn, frame by
+// frame. A character carries every face, hand and eye it can wear as separate
+// meshes, and one of each is shown; this is what chooses, and it can change
+// during a clip — Captain Toad blinks.
+//
+// The object has the same shape as a skeletal animation — name, flags, frame
+// count, element table — and its elements are one per mesh node:
+//
+//	+0x00 u32 node name offset   +0x04 u32 kind (0x00080032)
+//	+0x08 u32 0                  +0x0C f32 the node's own end frame
+//	+0x10 u32 flags (0xFFFF0000) +0x14 u32 pointer to the bits
+//	+0x18 u32 frame count
+//
+// ⚠ **The value is a BITFIELD, one bit per frame, not a boolean.** Reading the
+// count as "how many values" and demanding one turns every animated node into
+// an error — 264 of the archive's 600. The bit blocks tile the data section
+// end to end at ceil(frames/32) words apiece, which is what pins the width and
+// the count together: a node with one frame takes one word and the next node's
+// pointer is four bytes on.
+//
+// The reading proves itself frame by frame. Within one of these animations
+// exactly one node is visible at every frame — a character has one face at a
+// time — and that holds for all 600 of them, at all 105,000-odd frames, only
+// if the bit order is right.
+//
+// The naming is a convention the archive keeps rather than a rule this decoder
+// relies on: for each skeletal clip there are four of these, `<clip>Eye`,
+// `<clip>Face`, `<clip>HandL` and `<clip>HandR`. Nothing here parses a name.
+const (
+	bchVisElStride = 0x1C
+	bchVisElKind   = 0x04
+	bchVisElFlags  = 0x10
+	bchVisElBits   = 0x14
+	bchVisElFrames = 0x18
+
+	bchVisKindNode = 0x00080032
+	bchVisAllConst = 0xFFFF0000
+)
+
+// BCHVisibility is a decoded visibility animation: for each mesh node it
+// mentions, whether that node is drawn on each frame.
+type BCHVisibility struct {
+	Name   string
+	Frames float32
+
+	// Visible[node] has one entry per frame the node states; a node that states
+	// one frame keeps that value for the whole clip.
+	Visible map[string][]bool
+}
+
+// VisibleAt reports whether a mesh node is drawn at a frame. A node the
+// animation does not mention is drawn: only the variants are switched.
+func (v *BCHVisibility) VisibleAt(node string, frame int) bool {
+	bits, ok := v.Visible[node]
+	if !ok || len(bits) == 0 {
+		return true
+	}
+	if frame < 0 {
+		frame = 0
+	}
+	if frame >= len(bits) {
+		frame = len(bits) - 1
+	}
+	return bits[frame]
+}
+
+// DecodeVisibilityAnim decodes one entry of the BCHVisibilityAnims group.
+func (f *BCH) DecodeVisibilityAnim(e BCHEntry) (*BCHVisibility, error) {
+	M := e.Offset
+	if !f.inRange(M, 0x18) {
+		return nil, fmt.Errorf("bch: visibility animation %q header runs outside the file", e.Name)
+	}
+	out := &BCHVisibility{
+		Name:    e.Name,
+		Frames:  f.f32(M + bchAnimFrames),
+		Visible: map[string][]bool{},
+	}
+	tbl := f.main + int64(f.u32(M+bchAnimTable))
+	n := int64(f.u32(M + bchAnimCount))
+	if !f.inRange(tbl, n*4) {
+		return nil, fmt.Errorf("bch: visibility animation %q element table runs outside the file", e.Name)
+	}
+	for i := int64(0); i < n; i++ {
+		el := f.main + int64(f.u32(tbl+i*4))
+		if !f.inRange(el, bchVisElStride) {
+			return nil, fmt.Errorf("bch: visibility animation %q element %d runs outside the file", e.Name, i)
+		}
+		if k := f.u32(el + bchVisElKind); k != bchVisKindNode {
+			return nil, fmt.Errorf("bch: visibility animation %q element %d has kind 0x%08X, not a mesh node", e.Name, i, k)
+		}
+		if fl := f.u32(el + bchVisElFlags); fl != bchVisAllConst {
+			return nil, fmt.Errorf("bch: visibility animation %q element %d has flags 0x%08X, which this decoder does not model", e.Name, i, fl)
+		}
+		frames := int64(f.u32(el + bchVisElFrames))
+		words := (frames + 31) / 32
+		p := f.main + int64(f.u32(el+bchVisElBits))
+		if frames <= 0 || !f.inRange(p, words*4) {
+			return nil, fmt.Errorf("bch: visibility animation %q element %d: %d frames of bits run outside the file", e.Name, i, frames)
+		}
+		bits := make([]bool, frames)
+		for k := int64(0); k < frames; k++ {
+			bits[k] = f.u32(p+k/32*4)>>uint(k%32)&1 != 0
+		}
+		out.Visible[readCStr(f.raw, f.str+int64(f.u32(el)))] = bits
+	}
+	return out, nil
+}
+
+// VisibleMeshNodes resolves which of a model's mesh nodes are drawn, given the
+// visibility animations that apply and a frame.
+//
+// A node no animation mentions is drawn: only the variants are switched, and
+// the body is not one. The result is indexed by node, so a caller filters
+// meshes with `visible[mesh.Node]`.
+//
+// It also reports how many nodes each animation turns on, which is the check
+// worth making at the call site: that number is constant over a clip's frames
+// (a character has one face at a time), so a selection that varies frame to
+// frame means the wrong animations were gathered.
+func VisibleMeshNodes(model *BCHModel, anims []*BCHVisibility, frame int) []bool {
+	on := make([]bool, len(model.MeshNodes))
+	for i, n := range model.MeshNodes {
+		on[i] = true
+		for _, a := range anims {
+			if _, mentioned := a.Visible[n]; mentioned {
+				on[i] = a.VisibleAt(n, frame)
+				break
+			}
+		}
+	}
+	return on
+}

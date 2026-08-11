@@ -86,7 +86,7 @@ func exportStages(ctx *cli.Context) error {
 	// The stage's actors, as objects in their own right: the diorama places
 	// them, and the Studio also lists them on their own so their clips can be
 	// played and looked at.
-	acts, places, err := exportActors(fs, stages[0].stage, ctx.Builder.Path)
+	acts, places, actorCasters, masks, err := exportActors(fs, stages[0].stage, ctx.Builder.Path)
 	if err != nil {
 		return err
 	}
@@ -117,7 +117,7 @@ func exportStages(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		tris, lights, shadow, casters, skipped, err := exportStage(fs, st.stage, out, shadowOut)
+		tris, lights, shadow, casters, skipped, err := exportStage(fs, st.stage, out, shadowOut, actorCasters, masks)
 		if err != nil {
 			return fmt.Errorf("%s: %w", st.stage, err)
 		}

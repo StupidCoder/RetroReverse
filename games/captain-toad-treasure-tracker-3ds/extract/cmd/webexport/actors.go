@@ -23,6 +23,7 @@ package main
 import (
 	"fmt"
 	"image"
+	"math"
 	"strings"
 
 	"retroreverse.com/tools/lib/glb"
@@ -40,15 +41,10 @@ type actor struct {
 	animArc string // an extra archive to take clips from ("" = the object's own)
 	clips   []string
 
-	// visible names the meshes to export by material name. A character carries
-	// every face, hand and eye it can ever wear — nine faces, seven hands a
-	// side — and the game shows one of each, chosen by the visibility
-	// animations beside the skeletal ones. Those name their meshes in terms
-	// this decoder cannot yet bind to a model's meshes, so the set here is the
-	// one the *running game* draws in this scene, read off the oracle's draw
-	// census by matching each draw's vertex-buffer offset to a decoded mesh.
-	// Empty exports every mesh.
-	visible []string
+	// pose is the clip whose visibility animations choose which of the model's
+	// variant meshes are exported — a character carries every face, hand and
+	// eye it can wear, and one of each is drawn. Empty exports every mesh.
+	pose string
 }
 
 var actors = []actor{
@@ -56,22 +52,13 @@ var actors = []actor{
 		id: "kinopio", name: "Captain Toad", object: "Kinopio", model: "Kinopio",
 		animArc: "KinopioAnimationSeason1OpeningStage",
 		clips:   []string{"CourseInRove", "Wait", "Walk", "WaitRove", "GoalPose"},
-		visible: []string{
-			"KinopioRuckMat00", "KinopioMetalMat00", "LampStrap", "KinopioLightMat00",
-			"KinopioBodyMat00", "Kinopio_Skin", "Kinopio_Scarf", "KinopioShoesMat00",
-			"KinopioBuckle00", "KinopioHeadMat00",
-			"Kinopio_HandR02", "Kinopio_HandL02", "Kinopio_Face00", "Kinopio_EyeBall",
-		},
+		pose:    "CourseInRove", // what the stage's DemoObjList starts him in
 	},
 	{
 		id: "kinopico", name: "Toadette", object: "KinopicoNpc", model: "KinopicoNpc",
 		animArc: "KinopioAnimationSeason1OpeningStage",
 		clips:   []string{"KinopicoWaitRove", "KinopicoDemoOpeningSeason1", "KinopicoGoalPose"},
-		visible: []string{
-			"KinopicoMetalMat00", "KinopicoRuckMat00", "KinopicoBodyMat00", "KinopicoHeadMat00",
-			"KinopicoSkinMat00", "KinopicoBodyMat01", "KinopicoShoesMat00", "KinopicoBuckleMat00",
-			"Kinopio_HandR02", "Kinopio_HandL02", "Kinopio_Face00", "Kinopio_EyeBall",
-		},
+		pose:    "KinopicoWaitRove",
 	},
 	{
 		id: "goalitem", name: "Goal Star", object: "GoalItem", model: "GoalItem",
@@ -102,27 +89,35 @@ var characterLights = []schema.Light{
 
 // exportActors writes one GLB per actor and returns the objects and the
 // placements the stage's map asks for.
-func exportActors(fs *n3ds.RomFS, stage string, path func(rel ...string) (string, error)) ([]objectAsset, []schema.Placement, error) {
+func exportActors(fs *n3ds.RomFS, stage string, path func(rel ...string) (string, error)) ([]objectAsset, []schema.Placement, []shadowCaster, []placedMask, error) {
 	places, err := readActorPlacements(fs, stage)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	cache := map[string]*objectArchive{}
 	var objs []objectAsset
 	for _, a := range actors {
 		out, err := path("objects", a.id+".glb")
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 		tris, clips, skinned, err := exportActor(fs, a, out, cache)
 		if err != nil {
-			return nil, nil, fmt.Errorf("%s: %w", a.id, err)
+			return nil, nil, nil, nil, fmt.Errorf("%s: %w", a.id, err)
 		}
 		objs = append(objs, objectAsset{
 			actor: a, file: a.id + ".glb", tris: tris, clips: clips, skinned: skinned,
 		})
 	}
-	return objs, places, nil
+	casters, err := actorShadowCasters(fs, places, cache)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	masks, err := actorShadowMasks(fs, places, cache)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	return objs, places, casters, masks, nil
 }
 
 // objectAsset is one written actor, ready to be registered with the builder.
@@ -163,20 +158,19 @@ func exportActor(fs *n3ds.RomFS, a actor, out string, cache map[string]*objectAr
 		return 0, nil, false, fmt.Errorf("no model named %q", a.model)
 	}
 
-	// Two sets, deliberately. Asking the membership set "is this mesh visible?"
-	// and then striking the name off it makes the set EMPTY once the last one
-	// matches — and an empty set read as "no filter" lets every mesh after that
-	// point through. Toad's list ends at his eyeball, which sits fifth from
-	// last, so he came out wearing all four of his eye variants and three
-	// eyelids at once.
-	want := map[string]bool{}
-	for _, n := range a.visible {
-		want[n] = true
+	// Which of the model's variant meshes are drawn, from the clip's own
+	// visibility animations rather than from a list written here.
+	sources := []*objectArchive{o}
+	if a.animArc != "" {
+		anims, err := loadObject(fs, a.animArc, cache)
+		if err != nil {
+			return 0, nil, false, err
+		}
+		sources = append(sources, anims)
 	}
-	filter := len(want) > 0
-	unused := map[string]bool{}
-	for n := range want {
-		unused[n] = true
+	visible, err := poseVisibility(model, sources, a.pose)
+	if err != nil {
+		return 0, nil, false, fmt.Errorf("pose %q: %w", a.pose, err)
 	}
 
 	s := glb.NewScene()
@@ -185,11 +179,8 @@ func exportActor(fs *n3ds.RomFS, a actor, out string, cache map[string]*objectAr
 	for i := range model.Meshes {
 		sh := &model.Meshes[i]
 		mat := &model.Materials[sh.MaterialIndex]
-		if filter {
-			if !want[mat.Name] {
-				continue
-			}
-			delete(unused, mat.Name)
+		if !visible[sh.Node] {
+			continue
 		}
 		pr, err := actorPrim(sh, mat, model, o.Textures)
 		if err != nil {
@@ -207,24 +198,19 @@ func exportActor(fs *n3ds.RomFS, a actor, out string, cache map[string]*objectAr
 			skinned = true
 		}
 	}
-	for n := range unused {
-		return 0, nil, false, fmt.Errorf("the visible set names %q, which the model does not have", n)
+	// One mesh out per visible node, and no node drawn twice by accident: the
+	// count is the cheap invariant that catches a filter which has stopped
+	// filtering.
+	nodes := 0
+	for _, b := range visible {
+		if b {
+			nodes++
+		}
 	}
-	// The count is the cheap invariant that would have caught the filter
-	// emptying itself: one mesh out per name in, no more.
-	if filter && meshes != len(a.visible) {
-		return 0, nil, false, fmt.Errorf("exported %d meshes for a visible set of %d", meshes, len(a.visible))
+	if meshes < nodes {
+		return 0, nil, false, fmt.Errorf("%d visible mesh nodes produced only %d meshes", nodes, meshes)
 	}
 
-	// Clips come from the object's own archive unless it names another.
-	sources := []*objectArchive{o}
-	if a.animArc != "" {
-		anims, err := loadObject(fs, a.animArc, cache)
-		if err != nil {
-			return 0, nil, false, err
-		}
-		sources = append(sources, anims)
-	}
 	var got []schema.Animation
 	for _, want := range a.clips {
 		found := false
@@ -471,15 +457,466 @@ func merge(a, b n3ds.BYMLDict) n3ds.BYMLDict {
 	return out
 }
 
-func init() {
-	// The visible sets above are written in material-name terms, and a typo in
-	// one would silently export a character with a hole in it; exportActor
-	// checks every name it was given is used, so this is only about the shape.
-	for _, a := range actors {
-		for _, n := range a.visible {
-			if strings.TrimSpace(n) == "" {
-				panic("actors: empty visible mesh name")
+// poseVisibility resolves which of a model's mesh nodes are drawn, from the
+// visibility animations belonging to one clip.
+//
+// A visibility animation belongs to the clip whose name is the LONGEST that
+// prefixes its own. That matters: matching `Walk` by prefix also catches
+// `WalkSlowlyFace`, `WalkSpeedyEye` and `WalkWaterHandL` — sixty-four
+// animations instead of four, and whichever happened to be enumerated first
+// decided the face. The archive's own skeletal clip names are what resolves it,
+// so the rule reads them rather than assuming a suffix vocabulary.
+//
+// The frame is 0: the placement starts its clip there. A clip whose face
+// changes part-way through — Captain Toad blinks — is not represented by a
+// static mesh set, and glTF has no way to say it either: a skinned mesh ignores
+// its node's transform, so the usual scale-to-zero trick cannot switch one off.
+func poseVisibility(model *n3ds.BCHModel, sources []*objectArchive, pose string) ([]bool, error) {
+	if pose == "" {
+		on := make([]bool, len(model.MeshNodes))
+		for i := range on {
+			on[i] = true
+		}
+		return on, nil
+	}
+
+	// Every skeletal clip in these archives, so the longest-prefix rule has
+	// something to be longest among.
+	var clips []string
+	for _, src := range sources {
+		for _, f := range src.BCHs {
+			for _, e := range f.Groups[n3ds.BCHSkeletalAnims] {
+				clips = append(clips, e.Name)
 			}
 		}
 	}
+	owner := func(name string) string {
+		best := ""
+		for _, c := range clips {
+			if strings.HasPrefix(name, c) && len(c) > len(best) {
+				best = c
+			}
+		}
+		return best
+	}
+
+	var anims []*n3ds.BCHVisibility
+	mentioned := map[string]bool{}
+	for _, src := range sources {
+		for _, f := range src.BCHs {
+			for _, e := range f.Groups[n3ds.BCHVisibilityAnims] {
+				v, err := f.DecodeVisibilityAnim(e)
+				if err != nil {
+					return nil, err
+				}
+				for n := range v.Visible {
+					mentioned[n] = true
+				}
+				if owner(e.Name) == pose {
+					anims = append(anims, v)
+				}
+			}
+		}
+	}
+	if len(anims) == 0 {
+		return nil, fmt.Errorf("no visibility animation belongs to it")
+	}
+
+	// Every node any visibility animation in these archives switches has to be
+	// decided by the ones this clip owns, or some variant is left to whatever
+	// the enumeration order happens to be.
+	decided := map[string]bool{}
+	for _, v := range anims {
+		for n := range v.Visible {
+			decided[n] = true
+		}
+	}
+	for n := range mentioned {
+		if decided[n] {
+			continue
+		}
+		for _, mn := range model.MeshNodes {
+			if mn == n {
+				return nil, fmt.Errorf("node %q is switched by some animation but not by this clip's", n)
+			}
+		}
+	}
+
+	// The count of visible nodes is constant over a clip — a character has one
+	// face at a time — so a set that changes with the frame means the wrong
+	// animations were gathered.
+	on := n3ds.VisibleMeshNodes(model, anims, 0)
+	want := 0
+	for _, b := range on {
+		if b {
+			want++
+		}
+	}
+	frames := 0
+	for _, v := range anims {
+		if int(v.Frames) > frames {
+			frames = int(v.Frames)
+		}
+	}
+	for fr := 1; fr <= frames; fr++ {
+		got := 0
+		for _, b := range n3ds.VisibleMeshNodes(model, anims, fr) {
+			if b {
+				got++
+			}
+		}
+		if got != want {
+			return nil, fmt.Errorf("shows %d nodes at frame 0 but %d at frame %d", want, got, fr)
+		}
+	}
+	return on, nil
+}
+
+// shadowCaster is one actor's depth-shadow proxy, baked at the pose its
+// placement starts in and ready to join the stage's caster layer.
+type shadowCaster struct {
+	name string
+	prim glb.Prim
+	pl   schema.Placement
+}
+
+// actorShadowCasters bakes each placed actor's own `_shd` proxy — the coarse
+// model the game renders its depth shadow from — into world-space geometry.
+//
+// The proxies are SKINNED, unlike the terrain's, so they have to be posed
+// rather than copied: a character's shadow is cast by the character standing
+// where it stands, not by its bind pose with its arms out. The pose is frame 0
+// of the clip the placement starts, which is the same frame its visible meshes
+// are chosen at.
+//
+// The shadow pass this feeds is rendered once, so a moving actor's shadow does
+// not follow it. That is the pass's design — the stage and its light are both
+// static — and these actors stand still while they look around.
+func actorShadowCasters(fs *n3ds.RomFS, places []schema.Placement, cache map[string]*objectArchive) ([]shadowCaster, error) {
+	byID := map[string]actor{}
+	for _, a := range actors {
+		byID[a.id] = a
+	}
+	var out []shadowCaster
+	for _, pl := range places {
+		a, ok := byID[pl.Object]
+		if !ok {
+			continue
+		}
+		// Only the objects the game renders into the depth-shadow pass. Its own
+		// InitExecutor says which, and the characters are not among them.
+		raw, err := fs.File("/ObjectData/" + a.object + ".szs")
+		if err != nil {
+			return nil, err
+		}
+		arc, err := n3ds.OpenSZS(raw)
+		if err != nil {
+			return nil, err
+		}
+		casts, err := castsDepthShadow(arc)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", a.id, err)
+		}
+		if !casts {
+			continue
+		}
+		o, err := loadObject(fs, a.object, cache)
+		if err != nil {
+			return nil, err
+		}
+		var proxy *n3ds.BCHModel
+		for _, m := range o.Extra {
+			if strings.HasSuffix(m.Name, "_shd") {
+				proxy = m
+			}
+		}
+		if proxy == nil {
+			continue // an actor with no proxy casts nothing, as in the game
+		}
+		world, err := posedWorld(fs, proxy, a, cache)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", a.id, err)
+		}
+		for i := range proxy.Meshes {
+			sh := &proxy.Meshes[i]
+			pr := glb.Prim{BaseColor: [4]float32{0, 0, 0, 1}, Unlit: true}
+			pr.Positions = posedPositions(proxy, sh, world)
+			pr.Tris = make([][3]uint32, len(sh.Indices)/3)
+			for t := range pr.Tris {
+				pr.Tris[t] = [3]uint32{sh.Indices[t*3], sh.Indices[t*3+1], sh.Indices[t*3+2]}
+			}
+			out = append(out, shadowCaster{name: a.id + "-shadow", prim: pr, pl: pl})
+		}
+	}
+	return out, nil
+}
+
+// posedWorld composes the proxy's skeleton at frame 0 of the actor's pose clip.
+func posedWorld(fs *n3ds.RomFS, proxy *n3ds.BCHModel, a actor, cache map[string]*objectArchive) ([][16]float64, error) {
+	if a.pose == "" {
+		return proxy.BindPose(), nil
+	}
+	sources := []*objectArchive{}
+	o, err := loadObject(fs, a.object, cache)
+	if err != nil {
+		return nil, err
+	}
+	sources = append(sources, o)
+	if a.animArc != "" {
+		an, err := loadObject(fs, a.animArc, cache)
+		if err != nil {
+			return nil, err
+		}
+		sources = append(sources, an)
+	}
+	for _, src := range sources {
+		for _, f := range src.BCHs {
+			for _, e := range f.Groups[n3ds.BCHSkeletalAnims] {
+				if e.Name != a.pose {
+					continue
+				}
+				an, err := f.DecodeSkeletalAnim(e)
+				if err != nil {
+					return nil, err
+				}
+				posed := &n3ds.BCHModel{Bones: an.PoseAt(proxy.Bones, 0)}
+				return posed.BindPose(), nil
+			}
+		}
+	}
+	return proxy.BindPose(), nil
+}
+
+// posedPositions skins one mesh by the rule its own header states — the same
+// two spaces the visible meshes use (tools/platform/n3ds/bchglb).
+func posedPositions(model *n3ds.BCHModel, sh *n3ds.BCHMesh, world [][16]float64) [][3]float32 {
+	out := make([][3]float32, len(sh.Verts))
+	mats := make([][16]float64, len(sh.Palette))
+	for i, b := range sh.Palette {
+		if b < 0 || b >= len(world) {
+			continue
+		}
+		if sh.SkinMode == n3ds.BCHSkinSmooth {
+			mats[i] = mulRow4(world[b], model.Bones[b].InvBind4())
+		} else {
+			mats[i] = world[b]
+		}
+	}
+	for vi, v := range sh.Verts {
+		if len(sh.Palette) == 0 {
+			out[vi] = v.Pos
+			continue
+		}
+		var p [3]float64
+		for k, w := range v.Weights {
+			if w == 0 {
+				continue
+			}
+			m := mats[v.Joints[k]]
+			for r := 0; r < 3; r++ {
+				p[r] += float64(w) * (m[r*4]*float64(v.Pos[0]) + m[r*4+1]*float64(v.Pos[1]) +
+					m[r*4+2]*float64(v.Pos[2]) + m[r*4+3])
+			}
+		}
+		out[vi] = [3]float32{float32(p[0]), float32(p[1]), float32(p[2])}
+	}
+	return out
+}
+
+func mulRow4(a, b [16]float64) [16]float64 {
+	var o [16]float64
+	for r := 0; r < 4; r++ {
+		for c := 0; c < 4; c++ {
+			s := 0.0
+			for k := 0; k < 4; k++ {
+				s += a[r*4+k] * b[k*4+c]
+			}
+			o[r*4+c] = s
+		}
+	}
+	return o
+}
+
+// --- shadows ------------------------------------------------------------
+
+// The draw category an object's InitExecutor.byml lists when it renders into
+// the depth-shadow pass. The stage terrain lists the terrain one; the goal star
+// lists the character one; Captain Toad and Toadette list NEITHER.
+//
+// That is the answer to whether a placed actor casts: the characters do not.
+// What they have instead is an InitShadowMask — a blob projected under them,
+// with its own radius, drop length and colour — which is a different mechanism
+// and the one that puts a shadow under a character in this game.
+const depthShadowCategory = "デプスシャドウ"
+
+// shadowMask is the blob an object drops beneath itself, as its own
+// InitShadowMask.byml configures it. Radius is in world units; DropLength is
+// how far below the joint the game looks for a surface; Colour is the
+// multiplier it tints with.
+type shadowMask struct {
+	joint  string
+	offset [3]float32
+	radius float32
+	drop   float32
+	colour [3]float32
+}
+
+// castsDepthShadow reports whether an object's InitExecutor lists it in the
+// depth-shadow pass.
+func castsDepthShadow(arc *n3ds.SARC) (bool, error) {
+	blob, ok := arc.File("InitExecutor.byml")
+	if !ok {
+		return false, nil
+	}
+	doc, err := n3ds.ParseBYML(blob)
+	if err != nil {
+		return false, err
+	}
+	d, _ := doc.(n3ds.BYMLDict)
+	for _, it := range list(d["Drawer"]) {
+		e, _ := it.(n3ds.BYMLDict)
+		if c, _ := e["CategoryName"].(string); strings.HasPrefix(c, depthShadowCategory) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// readShadowMask reads an object's blob-shadow configuration.
+func readShadowMask(arc *n3ds.SARC) (*shadowMask, error) {
+	blob, ok := arc.File("InitShadowMask.byml")
+	if !ok {
+		return nil, nil
+	}
+	doc, err := n3ds.ParseBYML(blob)
+	if err != nil {
+		return nil, err
+	}
+	d, _ := doc.(n3ds.BYMLDict)
+	arr := list(d["ShadowMaskArray"])
+	if len(arr) == 0 {
+		return nil, nil
+	}
+	m, _ := arr[0].(n3ds.BYMLDict)
+	sm := &shadowMask{
+		joint:  str(m["ActorJointName"]),
+		offset: vec3(m["Offset"]),
+		radius: float32(num(m["Radius"])),
+		drop:   float32(num(m["DropLength"])),
+	}
+	if c, ok := m["Color"].(n3ds.BYMLDict); ok {
+		sm.colour = [3]float32{float32(num(c["R"])), float32(num(c["G"])), float32(num(c["B"]))}
+	}
+	// An ellipsoid mask states its extent as a scale rather than a radius.
+	if s, ok := m["Scale"].(n3ds.BYMLDict); ok {
+		if v := float32(num(s["X"])); v > 0 {
+			sm.radius = v
+		}
+	}
+	if sm.radius <= 0 {
+		return nil, fmt.Errorf("shadow mask %q has no radius", str(m["Name"]))
+	}
+	return sm, nil
+}
+
+func str(v any) string { s, _ := v.(string); return s }
+
+// placedMask is one actor's blob shadow in world space, ready to be dropped
+// onto whatever is beneath it.
+type placedMask struct {
+	name   string
+	centre [3]float32
+	radius float32
+	drop   float32
+	colour [3]float32
+}
+
+// actorShadowMasks resolves each placed actor's blob shadow: where its own
+// InitShadowMask hangs it, in world space.
+//
+// The joint the mask names is posed with the clip the placement starts, so a
+// character crouching drops its shadow lower — and then the placement's own
+// transform puts it in the stage.
+func actorShadowMasks(fs *n3ds.RomFS, places []schema.Placement, cache map[string]*objectArchive) ([]placedMask, error) {
+	byID := map[string]actor{}
+	for _, a := range actors {
+		byID[a.id] = a
+	}
+	var out []placedMask
+	for _, pl := range places {
+		a, ok := byID[pl.Object]
+		if !ok {
+			continue
+		}
+		raw, err := fs.File("/ObjectData/" + a.object + ".szs")
+		if err != nil {
+			return nil, err
+		}
+		arc, err := n3ds.OpenSZS(raw)
+		if err != nil {
+			return nil, err
+		}
+		sm, err := readShadowMask(arc)
+		if err != nil || sm == nil {
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", a.id, err)
+			}
+			continue
+		}
+		o, err := loadObject(fs, a.object, cache)
+		if err != nil {
+			return nil, err
+		}
+		model := o.Model
+		if model == nil {
+			continue
+		}
+		world, err := posedWorld(fs, model, a, cache)
+		if err != nil {
+			return nil, err
+		}
+		// The joint the mask hangs from.
+		local := sm.offset
+		found := false
+		for i, b := range model.Bones {
+			if b.Name != sm.joint {
+				continue
+			}
+			w := world[i]
+			local = [3]float32{
+				float32(w[3]) + sm.offset[0],
+				float32(w[7]) + sm.offset[1],
+				float32(w[11]) + sm.offset[2],
+			}
+			found = true
+			break
+		}
+		if !found {
+			return nil, fmt.Errorf("%s: shadow mask hangs from joint %q, which the model does not have", a.id, sm.joint)
+		}
+		// Into the stage, through the placement's own transform.
+		p := applyPlacement(local, pl)
+		out = append(out, placedMask{
+			name: a.id + "-mask", centre: p, radius: sm.radius, drop: sm.drop, colour: sm.colour,
+		})
+	}
+	return out, nil
+}
+
+// applyPlacement puts a model-space point into the stage, through a placement's
+// rotation and translation.
+func applyPlacement(p [3]float32, pl schema.Placement) [3]float32 {
+	r := vec3f(pl.Rot)
+	const d2r = math.Pi / 180
+	// The map's rotation composes X then Y then Z (eulerXYZ), so the matrix is
+	// Rz·Ry·Rx and the point goes through it in that order.
+	x, y, z := float64(p[0]), float64(p[1]), float64(p[2])
+	sx, cx := math.Sin(float64(r[0])*d2r), math.Cos(float64(r[0])*d2r)
+	y, z = y*cx-z*sx, y*sx+z*cx
+	sy, cy := math.Sin(float64(r[1])*d2r), math.Cos(float64(r[1])*d2r)
+	x, z = x*cy+z*sy, -x*sy+z*cy
+	sz, cz := math.Sin(float64(r[2])*d2r), math.Cos(float64(r[2])*d2r)
+	x, y = x*cz-y*sz, x*sz+y*cz
+	t := vec3f(pl.Pos)
+	return [3]float32{float32(x) + t[0], float32(y) + t[1], float32(z) + t[2]}
 }

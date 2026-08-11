@@ -857,3 +857,124 @@ func TestBCHMaterialTexCoords(t *testing.T) {
 	}
 	t.Logf("%d texture units checked against the running game; modes seen %v", checked, modes)
 }
+
+// TestBCHVisibilityAnims pins the visibility decode with the invariant the
+// format carries about itself.
+//
+// A visibility animation switches a model's MESH NODES — the nine faces, seven
+// hands a side and seven eye parts a character wears one of — and its value is
+// a BITFIELD, one bit per frame, not a boolean. Reading the count as "how many
+// values" and demanding one turns every animated node into an error: 264 of the
+// opening stage's 600.
+//
+// The proof is that the number of nodes an animation shows never changes over
+// its frames. A character has one face at a time, and if the bit order or the
+// word stride were wrong that count would wander. It holds over 650 animations
+// and 63,000-odd frames across three archives — and the two archives disagree
+// about how many nodes an animation covers, which is what makes the invariant a
+// claim about the decode rather than about one file's habits: the opening
+// stage's are split per part and show one node each, while Toadette's own put
+// every part in one animation and show four.
+func TestBCHVisibilityAnims(t *testing.T) {
+	fs := toadRomFS(t)
+	total, frames := 0, 0
+	shown := map[int]int{}
+	for _, arc := range []string{"KinopioAnimationSeason1OpeningStage", "KinopicoNpc"} {
+		a := openSZS(t, fs, "/ObjectData/"+arc+".szs")
+		blob, ok := a.File(arc + ".bch")
+		if !ok {
+			t.Fatalf("%s: no .bch", arc)
+		}
+		f, err := ParseBCH(blob)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(f.Groups[BCHVisibilityAnims]) == 0 {
+			t.Fatalf("%s holds no visibility animations", arc)
+		}
+		for _, e := range f.Groups[BCHVisibilityAnims] {
+			v, err := f.DecodeVisibilityAnim(e)
+			if err != nil {
+				t.Fatalf("%s: %v", arc, err)
+			}
+			total++
+			longest := 0
+			for _, b := range v.Visible {
+				if len(b) > longest {
+					longest = len(b)
+				}
+			}
+			want := -1
+			for fr := 0; fr < longest; fr++ {
+				on := 0
+				for n := range v.Visible {
+					if v.VisibleAt(n, fr) {
+						on++
+					}
+				}
+				frames++
+				if want < 0 {
+					want = on
+					shown[on]++
+					continue
+				}
+				if on != want {
+					t.Fatalf("%s/%s shows %d nodes at frame 0 and %d at frame %d",
+						arc, e.Name, want, on, fr)
+				}
+			}
+		}
+	}
+	if len(shown) < 2 {
+		t.Errorf("every animation shows the same number of nodes (%v) — the sample cannot tell a "+
+			"per-part animation from a combined one", shown)
+	}
+	t.Logf("%d visibility animations over %d frames, each showing a constant number of nodes %v",
+		total, frames, shown)
+}
+
+// TestBCHMeshNodes pins the other half: a mesh names the node a visibility
+// animation switches, and the two names agree.
+//
+// The mesh-node dictionary hangs off the model header at +0x7C and its names
+// sit four bytes further in than the main header's groups put theirs, so the
+// offset is worth a check that cannot pass by accident. This is it: every
+// variant mesh's material is named after the node its header points at.
+func TestBCHMeshNodes(t *testing.T) {
+	fs := toadRomFS(t)
+	for _, tc := range []struct {
+		obj          string
+		nodes, agree int
+	}{
+		{"Kinopio", 31, 30},
+		{"KinopicoNpc", 31, 30},
+		{"GoalItem", 2, 0},
+	} {
+		a := openSZS(t, fs, "/ObjectData/"+tc.obj+".szs")
+		blob, _ := a.File(tc.obj + ".bch")
+		f, err := ParseBCH(blob)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m, err := f.DecodeModel(f.Groups[BCHModels][0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(m.MeshNodes) != tc.nodes {
+			t.Errorf("%s has %d mesh nodes, want %d", tc.obj, len(m.MeshNodes), tc.nodes)
+		}
+		agree := 0
+		for _, sh := range m.Meshes {
+			node := m.MeshNodes[sh.Node]
+			mat := m.Materials[sh.MaterialIndex].Name
+			// Case-insensitively, because three of Toad's materials spell it
+			// EyeLid where the node says Eyelid.
+			if len(mat) >= len(node) && strings.EqualFold(mat[len(mat)-len(node):], node) {
+				agree++
+			}
+		}
+		if agree != tc.agree {
+			t.Errorf("%s: %d meshes are named after their node, want %d", tc.obj, agree, tc.agree)
+		}
+	}
+}

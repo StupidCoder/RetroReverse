@@ -290,6 +290,12 @@ export async function mount(ctx, doc) {
       node.add(inst.node);
       applyTransform(node, pl);
       node.userData.pick = { pl, inst };
+      // A placed object stands in the same light as the layers around it, so it
+      // takes the same shadow. The pass is already built by now — it is
+      // rendered from the caster layer before the placements load — and the
+      // patch is idempotent, which matters because clones share materials with
+      // the prototype they came from.
+      receiveShadows(node, shadowPass);
       stage.scene.add(node);
       roots.push(node);
       placementById.set(pl.id, { pl, inst, node });

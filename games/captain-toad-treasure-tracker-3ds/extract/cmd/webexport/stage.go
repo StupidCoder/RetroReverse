@@ -92,6 +92,16 @@ func readStageMap(fs *n3ds.RomFS, stage string) ([]placement, error) {
 	return out, nil
 }
 
+// vec3f narrows a document's float64 triple back to the float32 the glTF
+// writer takes.
+func vec3f(v []float64) [3]float32 {
+	var o [3]float32
+	for i := 0; i < 3 && i < len(v); i++ {
+		o[i] = float32(v[i])
+	}
+	return o
+}
+
 func vec3(v any) [3]float32 {
 	d, ok := v.(n3ds.BYMLDict)
 	if !ok {
@@ -358,7 +368,7 @@ func eulerXYZ(deg [3]float32) [4]float32 {
 // depth-shadow proxies the same objects carry — the coarse models the game
 // renders its shadow map from. It reports which placed objects had no model
 // archive to load (the characters, effects and markers, which are a later pass).
-func exportStage(fs *n3ds.RomFS, stage, out, shadowOut string) (tris int, lights []schema.Light, shadow *schema.ShadowParams, casters int, skipped []string, err error) {
+func exportStage(fs *n3ds.RomFS, stage, out, shadowOut string, actorCasters []shadowCaster, masks []placedMask) (tris int, lights []schema.Light, shadow *schema.ShadowParams, casters int, skipped []string, err error) {
 	places, err := readStageMap(fs, stage)
 	if err != nil {
 		return 0, nil, nil, 0, nil, err
@@ -372,6 +382,7 @@ func exportStage(fs *n3ds.RomFS, stage, out, shadowOut string) (tris int, lights
 	cache := map[string]*objectArchive{}
 	s := glb.NewScene()
 	casterScene := glb.NewScene()
+	var ground [][3][3]float32
 	miss := map[string]bool{}
 	for _, p := range places {
 		unit := p.Unit
@@ -388,16 +399,35 @@ func exportStage(fs *n3ds.RomFS, stage, out, shadowOut string) (tris int, lights
 			return 0, nil, nil, 0, nil, err
 		}
 		tris += n
+		ground = appendGround(ground, p, o)
 		n, err = addShadowCasters(casterScene, p, o)
 		if err != nil {
 			return 0, nil, nil, 0, nil, err
 		}
 		casters += n
 	}
+	// The placed actors cast too, from the same proxies the game uses. They
+	// join the terrain's caster layer rather than getting one of their own:
+	// the shadow pass renders that layer once, and a shadow is a shadow.
+	for _, c := range actorCasters {
+		node := casterScene.AddNode(c.name, -1,
+			vec3f(c.pl.Pos), eulerXYZ(vec3f(c.pl.Rot)), [3]float32{1, 1, 1})
+		if err := casterScene.AddMesh(node, c.name, []glb.Prim{c.prim}); err != nil {
+			return 0, nil, nil, 0, nil, err
+		}
+		casters += len(c.prim.Tris)
+	}
+
 	for k := range miss {
 		skipped = append(skipped, k)
 	}
 	sort.Strings(skipped)
+	if n, err := addShadowMasks(s, masks, ground); err != nil {
+		return 0, nil, nil, 0, nil, err
+	} else {
+		tris += n
+	}
+
 	if err := s.Write(out, stage); err != nil {
 		return 0, nil, nil, 0, nil, err
 	}
@@ -738,4 +768,141 @@ func srgbToLinear(c float64) float64 {
 		return c / 12.92
 	}
 	return math.Pow((c+0.055)/1.055, 2.4)
+}
+
+// --- blob shadows -------------------------------------------------------
+
+// appendGround collects a placed object's triangles in world space, so a blob
+// shadow can be dropped onto them.
+func appendGround(dst [][3][3]float32, p placement, o *objectArchive) [][3][3]float32 {
+	if o.Model == nil {
+		return dst
+	}
+	rot, t, sc := eulerXYZ(p.Rotate), p.Translate, p.Scale
+	place := func(v [3]float32) [3]float32 {
+		v = [3]float32{v[0] * sc[0], v[1] * sc[1], v[2] * sc[2]}
+		r := rotateByQuat(v, rot)
+		return [3]float32{r[0] + t[0], r[1] + t[1], r[2] + t[2]}
+	}
+	for _, sh := range o.Model.Meshes {
+		for i := 0; i+2 < len(sh.Indices); i += 3 {
+			var tri [3][3]float32
+			for k := 0; k < 3; k++ {
+				tri[k] = place(sh.Verts[sh.Indices[i+k]].Pos)
+			}
+			dst = append(dst, tri)
+		}
+	}
+	return dst
+}
+
+func rotateByQuat(v [3]float32, q [4]float32) [3]float32 {
+	x, y, z, w := float64(q[0]), float64(q[1]), float64(q[2]), float64(q[3])
+	vx, vy, vz := float64(v[0]), float64(v[1]), float64(v[2])
+	// t = 2 * (q.xyz cross v); v' = v + w*t + q.xyz cross t
+	tx, ty, tz := 2*(y*vz-z*vy), 2*(z*vx-x*vz), 2*(x*vy-y*vx)
+	return [3]float32{
+		float32(vx + w*tx + y*tz - z*ty),
+		float32(vy + w*ty + z*tx - x*tz),
+		float32(vz + w*tz + x*ty - y*tx),
+	}
+}
+
+// addShadowMasks drops each actor's blob shadow onto the geometry beneath it.
+//
+// This is the shadow Captain Toad and Toadette actually have. Their
+// InitExecutor.byml does not list them in the depth-shadow pass at all — the
+// terrain does, and the goal star does, and the characters do not — so a
+// character's shadow in this game is a MASK: a cylinder of a stated radius
+// dropped from a named joint, tinted by a stated colour. The numbers here are
+// all the game's: Toad's is radius 85 from JointRoot with a 600-unit drop,
+// Toadette's radius 75 with 150, the star's an ellipsoid of 70 with 100.
+//
+// It is projected the way the game projects it — straight down onto whatever is
+// under it — by ray-casting against the stage's own triangles rather than
+// guessing a floor height. A disc that finds nothing within its drop length is
+// a character standing over a hole, and it is dropped rather than floated.
+func addShadowMasks(s *glb.Scene, masks []placedMask, ground [][3][3]float32) (int, error) {
+	tris := 0
+	for _, m := range masks {
+		y, ok := groundBelow(ground, m.centre, m.drop)
+		if !ok {
+			continue
+		}
+		// A disc with a solid core and a soft rim. Fanning straight from one
+		// centre vertex to a transparent rim makes the alpha fall linearly
+		// across the whole radius, which averages out to a smudge you cannot
+		// see over a bright lawn — the mask the game projects is a cylinder,
+		// which is mostly solid.
+		const segments = 32
+		const core = 0.6 // the fraction of the radius that stays opaque
+		const lift = 1.5 // clear of the surface it lies on, in world units
+		col := [4]uint8{
+			uint8(m.colour[0]*255 + 0.5), uint8(m.colour[1]*255 + 0.5), uint8(m.colour[2]*255 + 0.5), 255}
+		rim := col
+		rim[3] = 0
+
+		pr := glb.Prim{BaseColor: [4]float32{1, 1, 1, 1}, Unlit: true, Blend: true, DoubleSided: true}
+		pr.Positions = append(pr.Positions, [3]float32{0, 0, 0})
+		pr.Colors = append(pr.Colors, col)
+		for i := 0; i < segments; i++ {
+			a := float64(i) / segments * 2 * math.Pi
+			cs, sn := float32(math.Cos(a)), float32(math.Sin(a))
+			pr.Positions = append(pr.Positions,
+				[3]float32{cs * m.radius * core, 0, sn * m.radius * core},
+				[3]float32{cs * m.radius, 0, sn * m.radius})
+			pr.Colors = append(pr.Colors, col, rim)
+		}
+		inner := func(i int) uint32 { return uint32(1 + (i%segments)*2) }
+		outer := func(i int) uint32 { return uint32(2 + (i%segments)*2) }
+		for i := 0; i < segments; i++ {
+			pr.Tris = append(pr.Tris,
+				[3]uint32{0, inner(i), inner(i + 1)},
+				[3]uint32{inner(i), outer(i), outer(i + 1)},
+				[3]uint32{inner(i), outer(i + 1), inner(i + 1)})
+		}
+		tris += len(pr.Tris)
+		node := s.AddNode(m.name, -1,
+			[3]float32{m.centre[0], y + lift, m.centre[2]},
+			[4]float32{0, 0, 0, 1}, [3]float32{1, 1, 1})
+		if err := s.AddMesh(node, m.name, []glb.Prim{pr}); err != nil {
+			return 0, err
+		}
+	}
+	return tris, nil
+}
+
+// groundBelow ray-casts straight down from a point and returns the highest
+// surface within drop units of it.
+func groundBelow(ground [][3][3]float32, p [3]float32, drop float32) (float32, bool) {
+	best, found := float32(0), false
+	for _, t := range ground {
+		y, ok := rayDownHit(t, p[0], p[2])
+		if !ok || y > p[1] || p[1]-y > drop {
+			continue
+		}
+		if !found || y > best {
+			best, found = y, true
+		}
+	}
+	return best, found
+}
+
+// rayDownHit intersects a vertical ray at (x, z) with a triangle, returning the
+// height at which it crosses.
+func rayDownHit(t [3][3]float32, x, z float32) (float32, bool) {
+	ax, az := t[0][0], t[0][2]
+	bx, bz := t[1][0], t[1][2]
+	cx, cz := t[2][0], t[2][2]
+	d := (bz-cz)*(ax-cx) + (cx-bx)*(az-cz)
+	if d == 0 {
+		return 0, false
+	}
+	u := ((bz-cz)*(x-cx) + (cx-bx)*(z-cz)) / d
+	v := ((cz-az)*(x-cx) + (ax-cx)*(z-cz)) / d
+	w := 1 - u - v
+	if u < 0 || v < 0 || w < 0 {
+		return 0, false
+	}
+	return u*t[0][1] + v*t[1][1] + w*t[2][1], true
 }
