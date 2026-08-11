@@ -766,3 +766,94 @@ func meshBoneRadius(sh *BCHMesh, m *BCHModel, world [][16]float64, force int) fl
 	}
 	return worst
 }
+
+// TestBCHMaterialTexCoords pins where a material's texture coordinate state
+// lives, against what the running game programs for Captain Toad's own draws.
+//
+// Neither half is in any command list. The wrap modes sit in a 0x10-byte
+// mapper block per unit at material+0x110, and the matrices are uploaded as
+// vertex-shader float uniforms (c11-c13 for unit 0, c14-c16 for unit 1,
+// c17-c19 for unit 2). Reading the wrap out of the register file instead gives
+// CLAMP_TO_EDGE for every material in the game, which is what an unwritten
+// register reads and not what anything said — see WrapModes.
+//
+// The fixture is the oracle's per-draw texture-unit dump (`bootoracle
+// -gputrace` over work/states/intro.state), whose `param` word carries wrap S
+// in bits 12-14 and wrap T in bits 8-10. All three modes occur, and they are
+// load-bearing: Toad's cap is MIRRORED_REPEAT, his face CLAMP_TO_EDGE and his
+// rucksack REPEAT, so one guessed mode is wrong for most of him.
+func TestBCHMaterialTexCoords(t *testing.T) {
+	fs := toadRomFS(t)
+	// material -> unit -> wrap (S, T) the game programs; a nil entry is a unit
+	// that draw did not bind.
+	want := map[string]map[int][2]PICAWrap{
+		"KinopioRuckMat00":  {1: {WrapRepeat, WrapRepeat}, 2: {WrapRepeat, WrapRepeat}},
+		"KinopioMetalMat00": {1: {WrapClampToEdge, WrapClampToEdge}, 2: {WrapMirroredRepeat, WrapMirroredRepeat}},
+		"LampStrap":         {1: {WrapRepeat, WrapRepeat}},
+		"KinopioLightMat00": {0: {WrapMirroredRepeat, WrapMirroredRepeat}, 1: {WrapRepeat, WrapRepeat}},
+		"KinopioBodyMat00":  {1: {WrapRepeat, WrapRepeat}, 2: {WrapRepeat, WrapRepeat}},
+		"Kinopio_Scarf":     {1: {WrapRepeat, WrapRepeat}},
+		"KinopioShoesMat00": {1: {WrapRepeat, WrapRepeat}},
+		"KinopioHeadMat00":  {1: {WrapMirroredRepeat, WrapMirroredRepeat}, 2: {WrapRepeat, WrapRepeat}},
+		"Kinopio_Face00":    {1: {WrapClampToEdge, WrapClampToEdge}},
+		"Kinopio_EyeBall":   {1: {WrapMirroredRepeat, WrapRepeat}, 2: {WrapMirroredRepeat, WrapRepeat}},
+	}
+	// And the transforms those units apply to the vertex UV, which are not
+	// identities and are what put the spots on the cap and the eyes on the star.
+	wantMatrix := map[string][6]float32{
+		"KinopioHeadMat00": {2, 0, -2, 0, 2, -3},
+		"Kinopio_Face00":   {2, 0, 0, 0, 2, -1},
+		"Kinopio_EyeBall":  {8, 0, 0, 0, 1, 0},
+		"KinopioRuckMat00": {1, 0, 0, 0, 2, 0},
+	}
+
+	a := openSZS(t, fs, "/ObjectData/Kinopio.szs")
+	blob, ok := a.File("Kinopio.bch")
+	if !ok {
+		t.Fatal("no Kinopio.bch")
+	}
+	f, err := ParseBCH(blob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := f.DecodeModel(f.Groups[BCHModels][0])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	modes, checked := map[PICAWrap]int{}, 0
+	for i := range m.Materials {
+		mat := &m.Materials[i]
+		for unit, w := range want[mat.Name] {
+			gs, gt, set := mat.WrapModes(unit)
+			if !set {
+				t.Errorf("material %q unit %d states no wrap", mat.Name, unit)
+				continue
+			}
+			if gs != w[0] || gt != w[1] {
+				t.Errorf("material %q unit %d wrap = %d/%d, the game programs %d/%d",
+					mat.Name, unit, gs, gt, w[0], w[1])
+			}
+			modes[w[0]]++
+			modes[w[1]]++
+			checked++
+		}
+		if w, ok := wantMatrix[mat.Name]; ok {
+			got, set := mat.TexMatrix(bchUnitAlbedo)
+			if !set {
+				t.Errorf("material %q states no texture matrix", mat.Name)
+			} else if got != w {
+				t.Errorf("material %q texture matrix = %v, want %v", mat.Name, got, w)
+			}
+		}
+	}
+	if checked != 16 {
+		t.Errorf("checked %d unit wraps, the fixture has 16", checked)
+	}
+	// The claim is that the mode varies; a fixture where it did not would pass
+	// against any constant.
+	if len(modes) < 3 {
+		t.Errorf("the fixture only exercises %d wrap modes (%v)", len(modes), modes)
+	}
+	t.Logf("%d texture units checked against the running game; modes seen %v", checked, modes)
+}

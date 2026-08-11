@@ -869,6 +869,11 @@ type BCHMaterial struct {
 	WrapS, WrapT [3]PICAWrap
 	wrapSet      [3]bool
 
+	// texMatrix is the affine transform each unit applies to the vertex UV
+	// before sampling: u' = m[0]u + m[1]v + m[2], v' = m[3]u + m[4]v + m[5].
+	texMatrix [3][6]float32
+	texMatSet [3]bool
+
 	// The material's own combiner program, and which of the six stages its
 	// command list actually writes. The distinction matters: PICA registers
 	// latch, so the register file during a draw also holds whatever the
@@ -889,6 +894,15 @@ const (
 	AlphaGreater
 	AlphaGEqual
 )
+
+// TexMatrix returns the affine transform a texture unit applies to the vertex
+// UV, and whether the material states one. Apply it as
+//
+//	u' = m[0]*u + m[1]*v + m[2]
+//	v' = m[3]*u + m[4]*v + m[5]
+func (m *BCHMaterial) TexMatrix(unit int) ([6]float32, bool) {
+	return m.texMatrix[unit], m.texMatSet[unit]
+}
 
 // WrapModes returns the wrap modes the material programs for a texture unit,
 // and whether it programs them at all. A material that never writes the unit's
@@ -929,6 +943,25 @@ func (m *BCHMaterial) AlphaCutoff() (float32, bool) {
 		return float32(m.AlphaRef) / 255, true
 	}
 	return 0, false
+}
+
+// AlbedoUnit is the texture unit carrying the image this material's exported
+// texture is built from: the lowest-numbered unit whose named texture the
+// archive actually holds.
+//
+// It is not always unit 1, though the terrain and the characters make it look
+// that way — their unit 0 is `$shadowmap`, a run-time target no archive holds,
+// so the first real texture is on unit 1. The goal star's sparkles and Toad's
+// headlamp put theirs on unit 0, and assuming unit 1 for them reads a texture
+// matrix that is all zeros, collapsing every UV onto one texel and painting the
+// quad a flat colour.
+func (m *BCHMaterial) AlbedoUnit(textures map[string]*image.NRGBA) int {
+	for u := 0; u < 3; u++ {
+		if textures[m.Names[u]] != nil {
+			return u
+		}
+	}
+	return bchUnitAlbedo
 }
 
 // Texture returns the name of the albedo the material samples — the texture on
@@ -975,6 +1008,54 @@ const (
 	blendOne  = 1
 )
 
+// A material's texture MATRICES are not in its structure at all: it uploads
+// them as vertex-shader float uniforms, three rows each, at c11-c13 for unit 0,
+// c14-c16 for unit 1 and c17-c19 for unit 2. The shader multiplies the vertex's
+// UV by them before sampling.
+//
+// They are load-bearing and they are not identities. Captain Toad's cap runs
+// its UV through `u' = 2u - 2, v' = 2v - 3` — a scale and a whole-texture
+// offset — so ignoring the matrix samples a different part of the mask
+// entirely, and his spots come out in the wrong places or not at all. His face
+// is `2u, 2v - 1`; the goal star's eye is `8u`, which with the mirrored wrap on
+// that unit is how ONE half-eye texture becomes a pair of eyes.
+//
+// This is the same lesson the banner's CGFX taught (uv-set-is-not-a-texture-
+// coord): a vertex UV set is not a texture coordinate until the material's
+// mapper has had its say.
+const (
+	bchMatTexMatrix = 11 // uniform index of unit 0's first row
+	bchMatTexRows   = 3  // uniform rows per unit
+)
+
+// A material's texture mappers: one 0x10-byte block per texture unit, holding
+// the sampler state the engine programs into that unit's parameter register at
+// bind time.
+//
+//	+0x00 ?          +0x01 wrap S      +0x02 wrap T      +0x03 ?
+//	+0x04 ?          +0x08 f32 ?       +0x0C ? ... +0x0F 0xFF
+//
+// ⚠ **The wrap is not in any command list.** Not the material's, not the
+// texture object's (which carries three lists of its own, one per unit, and
+// writes only the dimensions, the address and the format), not the mesh's.
+// Reading it out of the register file gives CLAMP_TO_EDGE for every material in
+// the game, which is what an unwritten register reads and not what anything
+// said.
+//
+// These two bytes are, and it is checked rather than assumed: against the
+// values the running game programs for Captain Toad's own draws — sixteen
+// measurements over three units, read from `bootoracle -gputrace` — every one
+// matches. They are also load-bearing. Toad's cap is MIRRORED_REPEAT and his
+// face is CLAMP_TO_EDGE while his rucksack is REPEAT, so a single guessed mode
+// is wrong for two thirds of him: the spots run off the edge of the cap, and
+// the face tiles.
+const (
+	bchMatMappers   = 0x110
+	bchMatMapStride = 0x10
+	bchMapWrapS     = 0x01
+	bchMapWrapT     = 0x02
+)
+
 // decodeMaterialState runs a material object's command list and reads the
 // output-merger state out of the registers it sets.
 func (f *BCH) decodeMaterialState(obj int64, m *BCHMaterial) error {
@@ -991,10 +1072,37 @@ func (f *BCH) decodeMaterialState(obj int64, m *BCHMaterial) error {
 	}
 	var regs [0x300]uint32
 	var written [0x300]bool
+	uniforms := map[int][4]float32{}
+	var uIdx int
+	var uF32 bool
+	var uBuf []uint32
 	for _, w := range ws {
 		if w.Reg < 0x300 {
 			regs[w.Reg] = w.Value
 			written[w.Reg] = true
+		}
+		// The float-uniform FIFO, decoded exactly as the GPU decodes it: a
+		// config word names the destination and the mode, then the data words
+		// arrive w first (gpu.go's floatUniformWord).
+		switch {
+		case w.Reg == regVshFloatCfg:
+			uIdx, uF32, uBuf = int(w.Value&0xFF), w.Value>>31 != 0, uBuf[:0]
+		case w.Reg >= regVshFloatData && w.Reg < regVshFloatData+8:
+			uBuf = append(uBuf, w.Value)
+			n := 3
+			if uF32 {
+				n = 4
+			}
+			if len(uBuf) == n {
+				if uF32 {
+					uniforms[uIdx] = [4]float32{toF24(f32bits(uBuf[3])), toF24(f32bits(uBuf[2])),
+						toF24(f32bits(uBuf[1])), toF24(f32bits(uBuf[0]))}
+				} else {
+					uniforms[uIdx] = unpackF24x4(uBuf[0], uBuf[1], uBuf[2])
+				}
+				uIdx++
+				uBuf = uBuf[:0]
+			}
 		}
 	}
 	// Which stages the list programs. A stage is this material's if its source
@@ -1006,14 +1114,30 @@ func (f *BCH) decodeMaterialState(obj int64, m *BCHMaterial) error {
 		}
 	}
 	m.tev = tevStateFromRegs(&regs)
+	_ = written
+
+	// The texture matrices, from the uniforms the command list uploads.
 	for u := 0; u < 3; u++ {
-		_, param, _, _ := texUnitRegs(u)
-		// Only a register the material WROTE says anything. An unwritten one
-		// reads zero, and zero is CLAMP_TO_EDGE — a perfectly plausible answer
-		// that would be the decoder's invention, not the material's.
-		m.wrapSet[u] = written[param]
-		m.WrapS[u] = PICAWrap(regs[param] >> 12 & 7)
-		m.WrapT[u] = PICAWrap(regs[param] >> 8 & 7)
+		r0, ok0 := uniforms[bchMatTexMatrix+u*bchMatTexRows]
+		r1, ok1 := uniforms[bchMatTexMatrix+u*bchMatTexRows+1]
+		if !ok0 || !ok1 {
+			continue
+		}
+		m.texMatrix[u] = [6]float32{r0[0], r0[1], r0[3], r1[0], r1[1], r1[3]}
+		m.texMatSet[u] = true
+	}
+
+	for u := int64(0); u < 3; u++ {
+		b := obj + bchMatMappers + u*bchMatMapStride
+		if !f.inRange(b, bchMatMapStride) {
+			return fmt.Errorf("material %q: texture mapper %d runs outside the file", m.Name, u)
+		}
+		ws, wt := PICAWrap(f.raw[b+bchMapWrapS]), PICAWrap(f.raw[b+bchMapWrapT])
+		if ws > WrapMirroredRepeat || wt > WrapMirroredRepeat {
+			return fmt.Errorf("material %q: texture mapper %d has wrap modes %d/%d, which are not modes",
+				m.Name, u, ws, wt)
+		}
+		m.WrapS[u], m.WrapT[u], m.wrapSet[u] = ws, wt, true
 	}
 
 	bf := regs[regBlendFunc]
@@ -1225,6 +1349,7 @@ func (m *BCHMaterial) BakeAlbedo(textures map[string]*image.NRGBA) (*image.NRGBA
 	// something the engine makes at run time and gets the neutral value that
 	// means "not there" — unoccluded for the shadow unit, a flat normal for the
 	// bump unit.
+	albedo := m.AlbedoUnit(textures)
 	var units [3]*image.NRGBA
 	w, h := 0, 0
 	for u := 0; u < 3; u++ {
@@ -1233,11 +1358,8 @@ func (m *BCHMaterial) BakeAlbedo(textures map[string]*image.NRGBA) (*image.NRGBA
 		if img == nil {
 			continue
 		}
-		if img.Bounds().Dx() > w {
-			w = img.Bounds().Dx()
-		}
-		if img.Bounds().Dy() > h {
-			h = img.Bounds().Dy()
+		if u == albedo {
+			w, h = img.Bounds().Dx(), img.Bounds().Dy()
 		}
 	}
 	if w == 0 || h == 0 {
@@ -1245,23 +1367,38 @@ func (m *BCHMaterial) BakeAlbedo(textures map[string]*image.NRGBA) (*image.NRGBA
 		w, h = 1, 1
 	}
 
-	// The units are sampled at a shared coordinate, which is right only because
-	// these meshes carry one UV set — the materials that bind more than one
-	// texture all draw meshes with UVCount 1. A material whose units read
-	// different UV sets would need the mesh's UVs, not a texel grid.
+	// The baked image lives in the ALBEDO unit's texture space, because that is
+	// the space the exported UVs will be in once the albedo unit's own matrix
+	// has been applied to them. The other units read the same vertex UV through
+	// a matrix of their OWN, so their sample position is this texel put back
+	// through the albedo matrix's inverse and forward through theirs.
+	mapToUnit := func(u int, s, t float32) (float32, float32) {
+		a, oka := m.TexMatrix(albedo)
+		b, okb := m.TexMatrix(u)
+		if !oka || !okb || u == albedo {
+			return s, t
+		}
+		iu, iv, ok := invAffine2(a, s, t)
+		if !ok {
+			return s, t
+		}
+		return b[0]*iu + b[1]*iv + b[2], b[3]*iu + b[4]*iv + b[5]
+	}
+
 	neutral := [3]rgba{{255, 255, 255, 255}, {255, 255, 255, 255}, {128, 128, 255, 255}}
 	out := image.NewNRGBA(image.Rect(0, 0, w, h))
 	white := rgba{255, 255, 255, 255}
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			tex := neutral
+			s, t := (float32(x)+0.5)/float32(w), (float32(y)+0.5)/float32(h)
 			for u := 0; u < 3; u++ {
 				img := units[u]
 				if img == nil {
 					continue
 				}
-				ib := img.Bounds()
-				c := img.NRGBAAt(ib.Min.X+x*ib.Dx()/w, ib.Min.Y+y*ib.Dy()/h)
+				su, sv := mapToUnit(u, s, t)
+				c := sampleWrapped(img, su, sv, m.WrapS[u], m.WrapT[u])
 				tex[u] = rgba{int32(c.R), int32(c.G), int32(c.B), int32(c.A)}
 			}
 			r, ok := m.tev.run(white, white, rgba{0, 0, 0, 0}, tex)
@@ -1272,6 +1409,59 @@ func (m *BCHMaterial) BakeAlbedo(textures map[string]*image.NRGBA) (*image.NRGBA
 		}
 	}
 	return out, nil
+}
+
+// invAffine2 inverts the 2x3 affine a texture matrix applies to a UV.
+func invAffine2(m [6]float32, x, y float32) (u, v float32, ok bool) {
+	det := m[0]*m[4] - m[1]*m[3]
+	if det == 0 {
+		return 0, 0, false
+	}
+	x, y = x-m[2], y-m[5]
+	return (m[4]*x - m[1]*y) / det, (m[0]*y - m[3]*x) / det, true
+}
+
+// sampleWrapped reads a texel with the unit's own wrap modes, nearest-neighbour.
+func sampleWrapped(img *image.NRGBA, u, v float32, ws, wt PICAWrap) color.NRGBA {
+	b := img.Bounds()
+	x, okx := wrapTexel(int(math.Floor(float64(u)*float64(b.Dx()))), b.Dx(), ws)
+	y, oky := wrapTexel(int(math.Floor(float64(v)*float64(b.Dy()))), b.Dy(), wt)
+	if !okx || !oky {
+		return color.NRGBA{} // clamp-to-border: outside is the border, and the
+		// engine's border here is transparent black
+	}
+	return img.NRGBAAt(b.Min.X+x, b.Min.Y+y)
+}
+
+func wrapTexel(v, n int, mode PICAWrap) (int, bool) {
+	switch mode {
+	case WrapClampToBorder:
+		if v < 0 || v >= n {
+			return 0, false
+		}
+	case WrapRepeat:
+		v %= n
+		if v < 0 {
+			v += n
+		}
+	case WrapMirroredRepeat:
+		p := 2 * n
+		v %= p
+		if v < 0 {
+			v += p
+		}
+		if v >= n {
+			v = p - 1 - v
+		}
+	default: // clamp to edge
+		if v < 0 {
+			v = 0
+		}
+		if v >= n {
+			v = n - 1
+		}
+	}
+	return v, true
 }
 
 // A scene's lights live in their own `.bch` beside the stage's models — the

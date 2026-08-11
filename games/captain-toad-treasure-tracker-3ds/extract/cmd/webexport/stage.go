@@ -238,11 +238,8 @@ func addObject(s *glb.Scene, p placement, o *objectArchive, lights []schema.Ligh
 			mat := &o.Model.Materials[sh.MaterialIndex]
 			if img := o.Textures[mat.Texture()]; img != nil {
 				pr.Image = img
-				pr.UVs = make([][2]float32, len(sh.Verts))
-				for j, v := range sh.Verts {
-					pr.UVs[j] = [2]float32{v.UV[0][0], 1 - v.UV[0][1]}
-				}
-				pr.WrapS, pr.WrapT = gltfRepeat, gltfRepeat
+				pr.UVs = albedoUVs(&sh, mat, o.Textures)
+				pr.WrapS, pr.WrapT = materialWrap(mat, o.Textures)
 				if err := setAlpha(&pr, mat); err != nil {
 					return 0, err
 				}
@@ -259,7 +256,60 @@ func addObject(s *glb.Scene, p placement, o *objectArchive, lights []schema.Ligh
 	return tris, s.AddMesh(node, p.Unit, prims)
 }
 
-const gltfRepeat = 10497
+// materialWrap gives a material's albedo sampler as glTF wrap enums.
+//
+// It is read from the material's own texture mapper block, and it is not one
+// value for the game: Toad's cap is MIRRORED_REPEAT, his face CLAMP_TO_EDGE and
+// his rucksack REPEAT. A single guessed mode runs the cap's spots off its edge
+// and tiles his face.
+//
+// CLAMP_TO_BORDER has no glTF equivalent — glTF samplers have no border colour —
+// so it becomes CLAMP_TO_EDGE, which agrees with it everywhere the UVs stay
+// inside the texture and differs only in the border's own colour outside.
+func materialWrap(mat *n3ds.BCHMaterial, textures map[string]*image.NRGBA) (s, t int) {
+	ws, wt, ok := mat.WrapModes(mat.AlbedoUnit(textures))
+	if !ok {
+		return gltfRepeat, gltfRepeat
+	}
+	return gltfWrapOrClamp(ws), gltfWrapOrClamp(wt)
+}
+
+// albedoUVs puts a mesh's vertex UVs through the material's own texture matrix
+// for the albedo unit, then flips V for glTF.
+//
+// The matrix is not decoration and it is rarely the identity. Toad's cap is
+// `u' = 2u - 2, v' = 2v - 3`, his face `2u, 2v - 1`, the goal star's eye `8u`.
+// Ignoring it samples a different part of the texture than the game does, which
+// is how a cap loses its spots and a star grows a row of half-eyes.
+//
+// Baking the transform into the UVs rather than emitting KHR_texture_transform
+// is exact here because each exported primitive has exactly one material, so
+// there is one matrix to apply.
+//
+// The V flip commutes with all three wrap modes — for REPEAT and MIRRORED_
+// REPEAT the pattern is symmetric about the texture's edges, and for CLAMP the
+// flip and the clamp are both monotone — so it is safe to do it last.
+func albedoUVs(sh *n3ds.BCHMesh, mat *n3ds.BCHMaterial, textures map[string]*image.NRGBA) [][2]float32 {
+	m, ok := mat.TexMatrix(mat.AlbedoUnit(textures))
+	uvs := make([][2]float32, len(sh.Verts))
+	for j, v := range sh.Verts {
+		u, w := v.UV[0][0], v.UV[0][1]
+		if ok {
+			u, w = m[0]*v.UV[0][0]+m[1]*v.UV[0][1]+m[2], m[3]*v.UV[0][0]+m[4]*v.UV[0][1]+m[5]
+		}
+		uvs[j] = [2]float32{u, 1 - w}
+	}
+	return uvs
+}
+
+func gltfWrapOrClamp(w n3ds.PICAWrap) int {
+	if g, err := w.GLTF(); err == nil {
+		return g
+	}
+	return n3ds.GLTFClamp
+}
+
+const gltfRepeat = n3ds.GLTFRepeat
 
 // setAlpha carries the material's own alpha handling into the glTF material.
 //

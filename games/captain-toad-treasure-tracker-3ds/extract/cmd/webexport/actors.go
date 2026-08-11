@@ -266,30 +266,8 @@ func actorPrim(sh *n3ds.BCHMesh, mat *n3ds.BCHMaterial, model *n3ds.BCHModel, te
 
 	if img != nil {
 		pr.Image = img
-		pr.UVs = make([][2]float32, len(sh.Verts))
-		for j, v := range sh.Verts {
-			pr.UVs[j] = [2]float32{v.UV[0][0], 1 - v.UV[0][1]}
-		}
-		// The wrap the material states, when it states one. None of these
-		// materials does — not one writes its texture unit's parameter
-		// register — so this falls back to REPEAT, which is what the game
-		// programs for the draws the oracle can be asked about (the character
-		// textures come back with wrap 2/2 in their unit-1 parameter word).
-		//
-		// ⚠ That is not the whole story, and the goal star shows where it runs
-		// out: its eye mesh's UVs span u -0.47..4.49, five tiles of a texture
-		// holding ONE eye, which comes out as a row of slots across its face.
-		// A material carries a texture MATRIX as well as a wrap, and this
-		// decoder does not read it yet — see uv-set-is-not-a-texture-coord.
-		pr.WrapS, pr.WrapT = gltfRepeat, gltfRepeat
-		if ws, wt, ok := mat.WrapModes(1); ok {
-			if g, err := ws.GLTF(); err == nil {
-				pr.WrapS = g
-			}
-			if g, err := wt.GLTF(); err == nil {
-				pr.WrapT = g
-			}
-		}
+		pr.UVs = albedoUVs(sh, mat, textures)
+		pr.WrapS, pr.WrapT = materialWrap(mat, textures)
 	}
 	switch {
 	case mat.Additive():

@@ -1809,3 +1809,91 @@ as well as a wrap, and this decoder does not read it yet. See [[uv-set-is-not-a-
 which is the same lesson from the banner: a vertex UV set is not a texture coordinate until the
 material's mapper has had its say.
 
+
+## Part XXVI — Where a texture coordinate actually comes from
+
+The characters were assembled, lit and animated, and still wearing their textures wrongly: Toad's cap
+spots ran off its edge, his and Toadette's faces were a smear, and the goal star had a row of dark
+slots where its eyes belong. Part XXV had narrowed it to "the material carries a texture matrix and
+this decoder does not read it". Both halves turned out to be missing, and neither is where a PICA
+programmer would look first.
+
+### Neither the wrap nor the matrix is in a command list
+
+The BCH stores most render state as PICA register writes, and this decoder reads them with the same
+`DecodePICA` the emulated GPU uses. So the natural place to look for the sampler's wrap mode is the
+texture unit's parameter register — `0x083`/`0x093`/`0x09B`, bits 12-14 and 8-10. **Nothing writes
+it.** Not the material's command list (which writes only the TEV stages, the output merger and some
+shader uniforms), not the mesh's, and not the texture object's — which carries three command lists of
+its own, one per unit, and sets only the dimensions, the address and the format.
+
+Reading it out of the register file anyway produced a clean, plausible, entirely invented answer:
+CLAMP_TO_EDGE, for all 97 materials across three models, because an unwritten register reads zero and
+zero is CLAMP_TO_EDGE. That is [[stored-registers-are-not-read-registers]] for the third time in this
+game, and this time it was caught by asking whether the register had been written before believing
+what it said.
+
+They live in two places the decoder had walked past:
+
+- **the wrap** in a 0x10-byte *texture mapper* block per unit at material **+0x110**, wrap S at +1
+  and wrap T at +2;
+- **the matrix** in the vertex-shader **float uniforms the material uploads** — three rows per unit,
+  c11-c13 for unit 0, c14-c16 for unit 1, c17-c19 for unit 2 — which the shader multiplies the vertex
+  UV by before sampling.
+
+### Found by asking the game, then finding the field that agrees
+
+The material's own draws are observable, so the answer came first and the field second. The oracle's
+per-draw dump prints each texture unit's parameter word, and over Toad's fourteen draws in the intro
+savestate that is **sixteen ground-truth wrap pairs** across three units. With that table in hand,
+scanning the material object for a byte that *is* the wrap finds +0x121 and +0x122 immediately — and
+then the same scan over the other units gives the 0x10 stride.
+
+The first version of that scan found nothing useful and looked like it had: with every material
+holding a distinct byte at a given offset, "this byte predicts the wrap" is true of almost any offset
+and means nothing. The criterion has to be that the same value implies the same wrap, over few enough
+distinct values to be a claim.
+
+### What they were hiding
+
+Neither is a formality:
+
+| material | wrap (unit 1) | matrix |
+|---|---|---|
+| `KinopioRuckMat00` | REPEAT | identity |
+| `KinopioHeadMat00` (the cap) | **MIRRORED_REPEAT** | `u' = 2u − 2, v' = 2v − 3` |
+| `Kinopio_Face00` | **CLAMP_TO_EDGE** | `u' = 2u, v' = 2v − 1` |
+| `Kinopio_EyeBall` | MIRRORED / REPEAT | `u' = 8u` |
+| `GoalItem/Eyes` | MIRRORED / CLAMP_TO_BORDER | `u' = 8u` |
+
+A single guessed mode is wrong for most of a character. And the star's eyes are the clearest case of
+what the pair does together: **one texture holding half an eye**, an 8× scale, and a mirrored wrap —
+which is how eight tiles become four symmetric eyes, of which the mesh uses two. Guessing REPEAT
+tiled the half-eye into a row of slots; guessing CLAMP smeared one across the whole face.
+
+### And one assumption underneath both
+
+Fixing the matrix promptly broke the star's sparkles, which went from cross-shaped flares to solid
+white cards. `bchUnitAlbedo = 1` had been true of everything the decoder had met — the terrain and the
+characters bind `$shadowmap` to unit 0, so their first real texture is on unit 1 — but the sparkles
+and Toad's headlamp put theirs on **unit 0**, and asking a material for unit 1's texture matrix when
+it has none returns all zeros, which collapses every UV onto one texel. The albedo unit is now the
+lowest-numbered unit whose named texture the archive actually holds, which is a question the data can
+answer.
+
+Guarded by `TestBCHMaterialTexCoords`, which checks all sixteen measured wraps and four matrices, and
+fails if the fixture stops exercising all three wrap modes.
+
+### The filtering was already right
+
+The 3DS filters bilinearly, and the Studio was already doing it: both titles' manifests declare
+`texFilter: "linear"`, every exported GLB's samplers declare `magFilter` LINEAR, and the viewer's
+`applyTexFilter` upgrades minification to mipmapped linear on load. The blockiness was the wrap and
+the matrix sampling the wrong texels with hard tile seams, not point sampling.
+
+"linear" rather than "bilinear" is the right one of the two, and the cartridge says so: these textures
+**ship mip chains**. Their pixel blocks do not tile the data section at `w*h*bpp/8` — a 32x32 ETC1
+texture occupies 640 bytes where its base level needs 512 (base plus one level), and a 64x64 one
+occupies 10,880 where it needs 8,192 (base plus three). Only mip 0 is decoded and the viewer generates
+the rest, which is an approximation of the chain the cartridge carries, not a substitute for one.
+
