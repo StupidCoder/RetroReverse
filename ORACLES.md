@@ -54,6 +54,9 @@ operating system (Horizon), a GPU (PICA200, LLE shader + rasteriser), and an aud
 | `-rtshot ADDR:WxH[:FILE]` | decode a tiled render target **straight out of memory**, at the address and dimensions the GPU's own registers name — what the rasteriser drew, *before* any DisplayTransfer moves it. This is what separates "did we rasterise it" from "did it reach the panel", which no counter can: it is how the black-screen chase found that the pixels were landing correctly and were simply being shaded black |
 | `-gxdump DIR` | capture GX commands and every PICA command list. Submitted lists are captured **at submission time** (the game reuses list memory, so capturing later reads garbage); buffers the command processor reaches by a **CMDBUF_JUMP** are captured at execution time — the only moment they exist as a unit — and marked `..chained`. Without those you see roughly 1/200th of what the GPU runs |
 | `-gputrace N` | per-draw summary: vertex fetch, uniforms, first clip positions, the colour/depth targets and dims, the fragment-lighting block, plus **which uniforms are NaN at draw time** — the instrument that found the float24 bug |
+| `-gputracefrom N` | start `-gputrace` at draw N. A frame is tens of thousands of draws and the interesting one is rarely the first |
+| `-gpuuniforms` | add the whole vertex-shader float uniform file (c0–c95) to each traced draw. **The PICA has no matrix-palette registers** — a skinned draw's bone matrices arrive as ordinary float uniforms, three rows each from c25 in the mesh's palette order, so this is the only way to read what the game hands its own shader. It is what settled which space Captain Toad's vertices live in |
+| `-drawcensus FILE` | one compact line per draw — index count, vertex stride, and the attribute→shader-input map — so a mesh decoded from a file can be *located* among a frame's draws before anything is traced in detail |
 
 **Performance** — an oracle nobody can afford to run is an oracle nobody runs; see `PERFORMANCE.md`
 | flag | what it does |
@@ -77,7 +80,10 @@ operating system (Horizon), a GPU (PICA200, LLE shader + rasteriser), and an aud
 **Companion static tools:** `n3dsdump` (containers, RomFS; **`-at OFFSET` names the RomFS file behind
 a traced raw read** — the instrument that showed Captain Toad loads its opening stage but none of its
 object models), `picadump` (`-hist`/`-shader`/`-reg`: decode a captured command list, disassemble the
-vertex shader), `msgtool` (message archives), `bannerdump`.
+vertex shader), `msgtool` (message archives), `bannerdump`, `bchdump` (what a game archive holds:
+models, skeletons and their bind poses, per-mesh vertex counts / strides / matrix palettes, and
+**`-mats`, each material's combiner program** — which is where a character's colours actually are;
+`-texdump` writes its textures), `bchglb` (any model to a GLB, skinned).
 
 ---
 

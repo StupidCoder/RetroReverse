@@ -53,91 +53,10 @@ func (g *GPU) fragment(vcol [4]float32, uv [3][2]float32, uv0w float32, ls *ligh
 		fragSec = rgba{clamp255(sc[0] * 255), clamp255(sc[1] * 255), clamp255(sc[2] * 255), clamp255(sc[3] * 255)}
 	}
 
-	prev := vertex
-
-	// The combiner buffer is delayed by one stage. Stage 0 reads zero (not the
-	// configured buffer colour — that only reaches stage 1), and a stage's
-	// contribution to the buffer is not visible to the stage immediately after
-	// it, but to the one after that. Only the first four stages can write it at
-	// all: the update masks are four bits wide, not six.
-	var buf rgba
-	next := tv.bufColor
-
-	// fetch resolves a TEV source id. It was a closure, called 36 times per fragment;
-	// the sources it selects between are all in hand here, so it is a plain switch.
-	fetch := func(sel uint8) (rgba, bool) {
-		switch sel {
-		case 0: // PrimaryColor: the interpolated vertex colour
-			return vertex, true
-		case 1: // PrimaryFragmentColor: the lighting unit's diffuse output
-			return fragPrim, true
-		case 2: // SecondaryFragmentColor: the lighting unit's specular output
-			return fragSec, true
-		case 3:
-			return tex[0], true
-		case 4:
-			return tex[1], true
-		case 5:
-			return tex[2], true
-		case 13:
-			return buf, true
-		case 15:
-			return prev, true
-		}
-		return rgba{}, false
-	}
-
-	for i := range tv.stages {
-		s := &tv.stages[i]
-
-		var cin [3]rgba
-		for j := 0; j < 3; j++ {
-			o := s.colr[j]
-			src, okf := rgba{}, true
-			if o.src == 14 { // Constant: decoded per stage, not a shared source
-				src = s.konst
-			} else if src, okf = fetch(o.src); !okf {
-				g.m.CPU.Halt("gpu tev: stage %d source %d unimplemented", i, o.src)
-				return 0, 0, 0, 0, false, false
-			}
-			cin[j] = tevColorOperand(src, uint32(o.op))
-		}
-		var ain [3]int32
-		for j := 0; j < 3; j++ {
-			o := s.alph[j]
-			src, okf := rgba{}, true
-			if o.src == 14 {
-				src = s.konst
-			} else if src, okf = fetch(o.src); !okf {
-				g.m.CPU.Halt("gpu tev: stage %d source %d unimplemented", i, o.src)
-				return 0, 0, 0, 0, false, false
-			}
-			ain[j] = tevAlphaOperand(src, uint32(o.op))
-		}
-
-		cr, okc := tevCombine(uint32(s.combC), cin[0].r, cin[1].r, cin[2].r)
-		cg, _ := tevCombine(uint32(s.combC), cin[0].g, cin[1].g, cin[2].g)
-		cb, _ := tevCombine(uint32(s.combC), cin[0].b, cin[1].b, cin[2].b)
-		ca, oka := tevCombine(uint32(s.combA), ain[0], ain[1], ain[2])
-		if !okc || !oka {
-			g.m.CPU.Halt("gpu tev: stage %d combine op unimplemented", i)
-			return 0, 0, 0, 0, false, false
-		}
-
-		out := rgba{
-			clampi(cr<<s.scaleC, 0, 255),
-			clampi(cg<<s.scaleC, 0, 255),
-			clampi(cb<<s.scaleC, 0, 255),
-			clampi(ca<<s.scaleA, 0, 255),
-		}
-		buf = next
-		if s.updC {
-			next.r, next.g, next.b = out.r, out.g, out.b
-		}
-		if s.updA {
-			next.a = out.a
-		}
-		prev = out
+	prev, okr := tv.run(vertex, fragPrim, fragSec, tex)
+	if !okr {
+		g.m.CPU.Halt("gpu tev: a stage uses a source or combine op this model does not implement")
+		return 0, 0, 0, 0, false, false
 	}
 
 	// Alpha test (0x104): bit0 enable, bits 4-6 func, bits 8-15 reference.
@@ -408,4 +327,97 @@ func clampi(v, lo, hi int32) int32 {
 		return hi
 	}
 	return v
+}
+
+// run executes the combiner stages over already-resolved inputs and returns the
+// final colour. It is separated from fragment() because the same six stages are
+// what a *material* means by its own surface: bch.go runs this against a
+// material's own command list, with the lighting inputs neutral, to recover the
+// albedo a texture-plus-constants chain describes. ok=false means a stage names
+// a source or combine op this model does not implement.
+func (t *tevState) run(vertex, fragPrim, fragSec rgba, tex [3]rgba) (rgba, bool) {
+	prev := vertex
+
+	// The combiner buffer is delayed by one stage. Stage 0 reads zero (not the
+	// configured buffer colour — that only reaches stage 1), and a stage's
+	// contribution to the buffer is not visible to the stage immediately after
+	// it, but to the one after that. Only the first four stages can write it at
+	// all: the update masks are four bits wide, not six.
+	var buf rgba
+	next := t.bufColor
+
+	// fetch resolves a TEV source id. It was a closure, called 36 times per fragment;
+	// the sources it selects between are all in hand here, so it is a plain switch.
+	fetch := func(sel uint8) (rgba, bool) {
+		switch sel {
+		case 0: // PrimaryColor: the interpolated vertex colour
+			return vertex, true
+		case 1: // PrimaryFragmentColor: the lighting unit's diffuse output
+			return fragPrim, true
+		case 2: // SecondaryFragmentColor: the lighting unit's specular output
+			return fragSec, true
+		case 3:
+			return tex[0], true
+		case 4:
+			return tex[1], true
+		case 5:
+			return tex[2], true
+		case 13:
+			return buf, true
+		case 15:
+			return prev, true
+		}
+		return rgba{}, false
+	}
+
+	for i := range t.stages {
+		s := &t.stages[i]
+
+		var cin [3]rgba
+		for j := 0; j < 3; j++ {
+			o := s.colr[j]
+			src, okf := rgba{}, true
+			if o.src == 14 { // Constant: decoded per stage, not a shared source
+				src = s.konst
+			} else if src, okf = fetch(o.src); !okf {
+				return rgba{}, false
+			}
+			cin[j] = tevColorOperand(src, uint32(o.op))
+		}
+		var ain [3]int32
+		for j := 0; j < 3; j++ {
+			o := s.alph[j]
+			src, okf := rgba{}, true
+			if o.src == 14 {
+				src = s.konst
+			} else if src, okf = fetch(o.src); !okf {
+				return rgba{}, false
+			}
+			ain[j] = tevAlphaOperand(src, uint32(o.op))
+		}
+
+		cr, okc := tevCombine(uint32(s.combC), cin[0].r, cin[1].r, cin[2].r)
+		cg, _ := tevCombine(uint32(s.combC), cin[0].g, cin[1].g, cin[2].g)
+		cb, _ := tevCombine(uint32(s.combC), cin[0].b, cin[1].b, cin[2].b)
+		ca, oka := tevCombine(uint32(s.combA), ain[0], ain[1], ain[2])
+		if !okc || !oka {
+			return rgba{}, false
+		}
+
+		out := rgba{
+			clampi(cr<<s.scaleC, 0, 255),
+			clampi(cg<<s.scaleC, 0, 255),
+			clampi(cb<<s.scaleC, 0, 255),
+			clampi(ca<<s.scaleA, 0, 255),
+		}
+		buf = next
+		if s.updC {
+			next.r, next.g, next.b = out.r, out.g, out.b
+		}
+		if s.updA {
+			next.a = out.a
+		}
+		prev = out
+	}
+	return prev, true
 }

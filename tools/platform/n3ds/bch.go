@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image"
+	"image/color"
 	"math"
 )
 
@@ -197,6 +198,11 @@ type BCHMesh struct {
 	// the bone. Empty when the mesh is not skinned.
 	Palette []int
 
+	// SkinMode is the face header's own statement of how the mesh is bound:
+	// BCHSkinSmooth (per-vertex indices and weights), BCHSkinRigid (an index
+	// per vertex, full weight) or BCHSkinNone.
+	SkinMode int
+
 	HasNormal bool
 	HasColor  bool
 	HasSkin   bool
@@ -244,12 +250,30 @@ const (
 	bchBoneName    = 0x5C
 )
 
-// A face's matrix palette: the bone indices its vertices select between, as
-// u16s at the head of the face structure. Twenty is what the hardware's palette
-// holds, and it is the space the face header reserves before its command list.
+// A face's matrix palette sits at the head of the face structure: a skinning
+// mode, a bone count, and then that many bone indices, all u16. The reserved
+// space is twenty u16 — what the hardware's palette holds — and the entries
+// past the count are its unused tail.
+//
+// The count is not decoration, and reading the whole reserved block as bones
+// gets every vertex's joint wrong by two slots. The game says so itself: for
+// each of Captain Toad's skinned draws the vertex shader is handed exactly
+// *count* three-row matrices, starting at uniform c25, in this table's order —
+// Toad's rucksack (count 6) uploads c25-c42, his body (count 4) reuses the
+// first four of them, and his scarf (count 3, bones 8/14/18) is handed the
+// rucksack's slots 1-3 verbatim.
 const (
-	bchFacePalette = 0x00
-	bchPaletteMax  = 20
+	bchFaceSkinMode  = 0x00 // u16: 1 = smooth (per-vertex weights), 2 = rigid
+	bchFaceBoneCount = 0x02 // u16
+	bchFacePalette   = 0x04
+	bchPaletteMax    = 18 // the reserved block is 20 u16, two of which are the above
+)
+
+// Skinning modes, as the face header states them.
+const (
+	BCHSkinNone   = 0 // not skinned: the mesh's vertices are the model's own
+	BCHSkinSmooth = 1 // per-vertex bone indices and weights
+	BCHSkinRigid  = 2 // per-vertex bone index, full weight
 )
 
 // Mesh field offsets.
@@ -430,11 +454,21 @@ func (f *BCH) decodeMesh(e int64) (*BCHMesh, error) {
 		if !f.inRange(fe, bchFaceStride) {
 			return nil, fmt.Errorf("face %d runs outside the file", i)
 		}
-		// The face's matrix palette. A zero entry past the first is the table's
-		// unused tail, not bone 0: the palette is only as long as the mesh's
-		// vertices index into it.
-		if len(sh.Palette) == 0 {
-			for p := int64(0); p < bchPaletteMax; p++ {
+		// The face's matrix palette: the header says how long it is, so the
+		// zeros past the end stay out of it rather than becoming bone 0.
+		if i == 0 {
+			sh.SkinMode = int(f.u16(fe + bchFaceSkinMode))
+			n := int64(f.u16(fe + bchFaceBoneCount))
+			if n > bchPaletteMax {
+				return nil, fmt.Errorf("face %d names %d palette bones, more than the %d the block holds",
+					i, n, bchPaletteMax)
+			}
+			switch sh.SkinMode {
+			case BCHSkinNone, BCHSkinSmooth, BCHSkinRigid:
+			default:
+				return nil, fmt.Errorf("face %d has skinning mode %d, which is not one this decoder models", i, sh.SkinMode)
+			}
+			for p := int64(0); p < n; p++ {
 				sh.Palette = append(sh.Palette, int(f.u16(fe+bchFacePalette+p*2)))
 			}
 		}
@@ -606,12 +640,94 @@ func (f *BCH) appendFace(sh *BCHMesh, regs *[0x300]uint32, wide bool) error {
 				return fmt.Errorf("vertex %d weights %v sum to %g, not 1", v, out.Weights, sum)
 			}
 		}
+		// A joint names a palette slot, so it has to be one the palette has.
+		// This is the check that fails loudly if the palette's length were ever
+		// misread — which it was, when the header's mode and count words were
+		// taken for bones and every joint landed two slots off.
+		if len(sh.Palette) > 0 {
+			for k, w := range out.Weights {
+				if w != 0 && int(out.Joints[k]) >= len(sh.Palette) {
+					return fmt.Errorf("vertex %d influence %d names palette slot %d of %d",
+						v, k, out.Joints[k], len(sh.Palette))
+				}
+			}
+		}
 		sh.Verts = append(sh.Verts, out)
 	}
 	for _, i := range idx {
 		sh.Indices = append(sh.Indices, firstVert+i)
 	}
 	return nil
+}
+
+// BindPose composes each bone's world matrix down the parent chain, in the pose
+// the bone table stores. It is the matrix a skinned vertex is posed *out of*:
+// multiplying it by the bone's own inverse-bind matrix gives the identity, which
+// is the invariant the skeleton decode is proved by (TestBCHSkeletonBindPose).
+//
+// Row-major 4x4s, in float64 because composing twenty-odd of them in float32
+// loses more than the residual that check allows.
+func (m *BCHModel) BindPose() [][16]float64 {
+	world := make([][16]float64, len(m.Bones))
+	for i, b := range m.Bones {
+		l := mul4(mul4(trans4(b.Trans), eulerZYX(b.Rotate)), scale4(b.Scale))
+		if b.Parent < 0 || b.Parent >= i {
+			world[i] = l
+			continue
+		}
+		world[i] = mul4(world[b.Parent], l)
+	}
+	return world
+}
+
+func mul4(a, b [16]float64) [16]float64 {
+	var o [16]float64
+	for r := 0; r < 4; r++ {
+		for c := 0; c < 4; c++ {
+			s := 0.0
+			for k := 0; k < 4; k++ {
+				s += a[r*4+k] * b[k*4+c]
+			}
+			o[r*4+c] = s
+		}
+	}
+	return o
+}
+
+func trans4(t [3]float32) [16]float64 {
+	return [16]float64{1, 0, 0, float64(t[0]), 0, 1, 0, float64(t[1]), 0, 0, 1, float64(t[2]), 0, 0, 0, 1}
+}
+
+func scale4(s [3]float32) [16]float64 {
+	return [16]float64{float64(s[0]), 0, 0, 0, 0, float64(s[1]), 0, 0, 0, 0, float64(s[2]), 0, 0, 0, 0, 1}
+}
+
+// eulerZYX builds Rz·Ry·Rx from an XYZ triple in radians — the order the bind
+// pose closes in, and the one a bone's animated rotation composes in too.
+func eulerZYX(r [3]float32) [16]float64 {
+	rot := func(ax int, a float64) [16]float64 {
+		c, s := math.Cos(a), math.Sin(a)
+		switch ax {
+		case 0:
+			return [16]float64{1, 0, 0, 0, 0, c, -s, 0, 0, s, c, 0, 0, 0, 0, 1}
+		case 1:
+			return [16]float64{c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, 0, 0, 0, 1}
+		}
+		return [16]float64{c, -s, 0, 0, s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+	}
+	return mul4(mul4(rot(2, float64(r[2])), rot(1, float64(r[1]))), rot(0, float64(r[0])))
+}
+
+// InvBind4 is a bone's stored inverse-bind matrix as a full row-major 4x4.
+func (b *BCHBone) InvBind4() [16]float64 {
+	var o [16]float64
+	for r := 0; r < 3; r++ {
+		for c := 0; c < 4; c++ {
+			o[r*4+c] = float64(b.InvBind[r][c])
+		}
+	}
+	o[15] = 1
+	return o
 }
 
 // bchAttrTypeSize is the byte width of each PICA attribute component type.
@@ -732,6 +848,14 @@ type BCHMaterial struct {
 	AlphaTest bool  // the alpha test is enabled
 	AlphaFunc uint8 // its comparison, in the PICA's numbering (gpu_tev.go)
 	AlphaRef  uint8 // its reference value
+
+	// The material's own combiner program, and which of the six stages its
+	// command list actually writes. The distinction matters: PICA registers
+	// latch, so the register file during a draw also holds whatever the
+	// *previous* material left in the stages this one does not touch. Only the
+	// file says which stages are this material's.
+	tev    tevState
+	stages int
 }
 
 // PICA alpha-test comparisons, as register 0x104 numbers them.
@@ -822,11 +946,23 @@ func (f *BCH) decodeMaterialState(obj int64, m *BCHMaterial) error {
 		return fmt.Errorf("material %q: %w", m.Name, err)
 	}
 	var regs [0x300]uint32
+	var written [0x300]bool
 	for _, w := range ws {
 		if w.Reg < 0x300 {
 			regs[w.Reg] = w.Value
+			written[w.Reg] = true
 		}
 	}
+	// Which stages the list programs. A stage is this material's if its source
+	// register was written; the ones past that are the register file's history.
+	m.stages = 0
+	for i, base := range tevStageBase {
+		if written[base] {
+			m.stages = i + 1
+		}
+	}
+	m.tev = tevStateFromRegs(&regs)
+
 	bf := regs[regBlendFunc]
 	srcRGB, dstRGB := bf>>16&0xF, bf>>20&0xF
 	srcA, dstA := bf>>24&0xF, bf>>28&0xF
@@ -836,6 +972,88 @@ func (f *BCH) decodeMaterialState(obj int64, m *BCHMaterial) error {
 	m.AlphaFunc = uint8(at >> 4 & 7)
 	m.AlphaRef = uint8(at >> 8)
 	return nil
+}
+
+// Stages is how many combiner stages the material's own command list programs.
+// The register file always holds six; only this many are the material's.
+func (m *BCHMaterial) Stages() int { return m.stages }
+
+// Describe writes the material's combiner program out one stage at a time, in
+// the same terms the running GPU's per-draw dump uses. It is the instrument for
+// answering "where does this surface's colour come from" without guessing.
+func (m *BCHMaterial) Describe() []string {
+	out := make([]string, 0, m.stages)
+	for i := 0; i < m.stages; i++ {
+		s := &m.tev.stages[i]
+		out = append(out, fmt.Sprintf(
+			"rgb %s(%s) %s(%s) %s(%s) %s x%d | a %s(%s) %s(%s) %s(%s) %s x%d | konst (%d,%d,%d,%d) buf=%v/%v",
+			tevSrcName(uint32(s.colr[0].src)), tevCOpName(uint32(s.colr[0].op)),
+			tevSrcName(uint32(s.colr[1].src)), tevCOpName(uint32(s.colr[1].op)),
+			tevSrcName(uint32(s.colr[2].src)), tevCOpName(uint32(s.colr[2].op)),
+			tevOpName(uint32(s.combC)), 1<<s.scaleC,
+			tevSrcName(uint32(s.alph[0].src)), tevAOpName(uint32(s.alph[0].op)),
+			tevSrcName(uint32(s.alph[1].src)), tevAOpName(uint32(s.alph[1].op)),
+			tevSrcName(uint32(s.alph[2].src)), tevAOpName(uint32(s.alph[2].op)),
+			tevOpName(uint32(s.combA)), 1<<s.scaleA,
+			s.konst.r, s.konst.g, s.konst.b, s.konst.a, s.updC, s.updA))
+	}
+	return out
+}
+
+// BakeAlbedo evaluates the material's own combiner over its unit-1 texture and
+// returns the surface colour, unlit.
+//
+// A character's colour is not in its texture. Captain Toad's cap samples a
+// 32x32 black-and-white *mask* and builds the surface from it with two stage
+// constants — `(1-mask) x (242,246,255)` for the white cap, `+ mask x
+// (196,30,25)` for the spots — so binding that texture as an albedo, which is
+// what a decoder does when it stops at the texture name, paints him a black cap
+// with white spots. The colours are in the material, and the material is a
+// program.
+//
+// Running that program with the lighting inputs *neutral* — diffuse white,
+// specular black, vertex colour white — is what "unlit albedo" means for a
+// combiner, and on these materials it reduces exactly: the stages that consume
+// the lighting become identities (`fragpri x prev` with fragpri white is prev),
+// and what survives is the texture-and-constants expression. The lighting is
+// then applied the way the terrain's is, baked per vertex in gamma space.
+//
+// tex2 is sampled at the same coordinate when the chain reads it; a material
+// whose second texture is on a different UV set would need more than that, and
+// none of the characters' do (checked: their colour stages read tex1 only).
+func (m *BCHMaterial) BakeAlbedo(textures map[string]*image.NRGBA) (*image.NRGBA, error) {
+	src := textures[m.Names[bchUnitAlbedo]]
+	if src == nil {
+		// No albedo texture: the chain is constants alone, so one texel says
+		// everything about it.
+		src = image.NewNRGBA(image.Rect(0, 0, 1, 1))
+		src.Set(0, 0, color.NRGBA{255, 255, 255, 255})
+	}
+	nrm := textures[m.Names[bchUnitNormal]]
+	b := src.Bounds()
+	out := image.NewNRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
+	for y := 0; y < b.Dy(); y++ {
+		for x := 0; x < b.Dx(); x++ {
+			c := src.NRGBAAt(b.Min.X+x, b.Min.Y+y)
+			tex := [3]rgba{
+				{255, 255, 255, 255}, // unit 0: the shadow map, unoccluded
+				{int32(c.R), int32(c.G), int32(c.B), int32(c.A)},
+				{128, 128, 255, 255}, // unit 2: a flat normal
+			}
+			if nrm != nil {
+				nb := nrm.Bounds()
+				n := nrm.NRGBAAt(nb.Min.X+x*nb.Dx()/b.Dx(), nb.Min.Y+y*nb.Dy()/b.Dy())
+				tex[2] = rgba{int32(n.R), int32(n.G), int32(n.B), int32(n.A)}
+			}
+			white := rgba{255, 255, 255, 255}
+			r, ok := m.tev.run(white, white, rgba{0, 0, 0, 0}, tex)
+			if !ok {
+				return nil, fmt.Errorf("material %q: its combiner uses a source or op this model does not implement", m.Name)
+			}
+			out.SetNRGBA(x, y, color.NRGBA{uint8(r.r), uint8(r.g), uint8(r.b), uint8(r.a)})
+		}
+	}
+	return out, nil
 }
 
 // A scene's lights live in their own `.bch` beside the stage's models — the

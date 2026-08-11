@@ -47,22 +47,28 @@ type tevState struct {
 	alphaRef  int32
 }
 
-func (g *GPU) tevstate() tevState {
-	var t tevState
-	t.texEnable = g.Regs[0x080]
+func (g *GPU) tevstate() tevState { return tevStateFromRegs(&g.Regs) }
 
-	upd := g.Regs[0x0E0] // buffer-update flags: colour bits 8-11, alpha 12-15
+// tevStateFromRegs decodes the fragment back end out of a PICA register file.
+// It is written against a register file rather than the GPU so that the same
+// decode reads a *material's* command list straight out of an asset (bch.go),
+// which is the only place that says which stages belong to that material.
+func tevStateFromRegs(r *[0x300]uint32) tevState {
+	var t tevState
+	t.texEnable = r[0x080]
+
+	upd := r[0x0E0] // buffer-update flags: colour bits 8-11, alpha 12-15
 	t.bufColor = rgba{
-		int32(g.Regs[0x0FD] & 0xFF), int32(g.Regs[0x0FD] >> 8 & 0xFF),
-		int32(g.Regs[0x0FD] >> 16 & 0xFF), int32(g.Regs[0x0FD] >> 24 & 0xFF),
+		int32(r[0x0FD] & 0xFF), int32(r[0x0FD] >> 8 & 0xFF),
+		int32(r[0x0FD] >> 16 & 0xFF), int32(r[0x0FD] >> 24 & 0xFF),
 	}
 
 	for s := 0; s < 6; s++ {
 		base := tevStageBase[s]
-		src := g.Regs[base]
-		opd := g.Regs[base+1]
-		cmb := g.Regs[base+2]
-		scale := g.Regs[base+4]
+		src := r[base]
+		opd := r[base+1]
+		cmb := r[base+2]
+		scale := r[base+4]
 
 		st := &t.stages[s]
 		for i := 0; i < 3; i++ {
@@ -80,8 +86,8 @@ func (g *GPU) tevstate() tevState {
 		st.scaleC = uint8(scale & 3)
 		st.scaleA = uint8(scale >> 16 & 3)
 		st.konst = rgba{
-			int32(g.Regs[base+3] & 0xFF), int32(g.Regs[base+3] >> 8 & 0xFF),
-			int32(g.Regs[base+3] >> 16 & 0xFF), int32(g.Regs[base+3] >> 24 & 0xFF),
+			int32(r[base+3] & 0xFF), int32(r[base+3] >> 8 & 0xFF),
+			int32(r[base+3] >> 16 & 0xFF), int32(r[base+3] >> 24 & 0xFF),
 		}
 		// Only the first four stages can write the combiner buffer at all: the update
 		// masks are four bits wide, not six.
@@ -92,7 +98,7 @@ func (g *GPU) tevstate() tevState {
 	}
 
 	// Alpha test (0x104): bit0 enable, bits 4-6 func, bits 8-15 reference.
-	at := g.Regs[0x104]
+	at := r[0x104]
 	t.alphaTest = at&1 != 0
 	t.alphaFunc = uint8(at >> 4 & 7)
 	t.alphaRef = int32(at >> 8 & 0xFF)

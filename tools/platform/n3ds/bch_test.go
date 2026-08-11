@@ -551,32 +551,19 @@ func TestBCHSkeletonBindPose(t *testing.T) {
 		if len(m.Bones) == 0 {
 			t.Fatalf("%s has no skeleton", obj)
 		}
-		world := make([][16]float64, len(m.Bones))
 		threeAxis := 0
 		for i, b := range m.Bones {
 			if b.Rotate[0] != 0 && b.Rotate[1] != 0 && b.Rotate[2] != 0 {
 				threeAxis++
 			}
-			l := mul4(mul4(trans4(b.Trans), eulerZYX(b.Rotate)), scale4(b.Scale))
-			if b.Parent < 0 {
-				world[i] = l
-			} else {
-				if b.Parent >= i {
-					t.Fatalf("%s bone %q has parent %d, which is not before it", obj, b.Name, b.Parent)
-				}
-				world[i] = mul4(world[b.Parent], l)
+			if b.Parent >= i {
+				t.Fatalf("%s bone %q has parent %d, which is not before it", obj, b.Name, b.Parent)
 			}
 		}
+		world := m.BindPose()
 		worst := 0.0
 		for i, b := range m.Bones {
-			var ib [16]float64
-			for r := 0; r < 3; r++ {
-				for c := 0; c < 4; c++ {
-					ib[r*4+c] = float64(b.InvBind[r][c])
-				}
-			}
-			ib[15] = 1
-			p := mul4(world[i], ib)
+			p := mul4(world[i], b.InvBind4())
 			for r := 0; r < 4; r++ {
 				for c := 0; c < 4; c++ {
 					want := 0.0
@@ -646,37 +633,116 @@ func TestBCHSkinWeights(t *testing.T) {
 	t.Logf("%d skinned meshes, %d vertex influences, all weights sum to one", skinned, influences)
 }
 
-func mul4(a, b [16]float64) [16]float64 {
-	var o [16]float64
-	for r := 0; r < 4; r++ {
-		for c := 0; c < 4; c++ {
-			s := 0.0
-			for k := 0; k < 4; k++ {
-				s += a[r*4+k] * b[k*4+c]
-			}
-			o[r*4+c] = s
+// TestBCHSkinSpaces pins the thing two sessions could not settle: a character's
+// vertices are not all in one space, and the face header says which.
+//
+// A mesh whose skinning mode is *smooth* stores its vertices in the model's own
+// space, so the skinning matrix is world x invBind — glTF's rule, and the
+// identity at the bind pose. A mesh whose mode is *rigid* stores them in its
+// bone's space, and the matrix is the bone's world matrix, with no inverse bind
+// anywhere. The rule was read out of the running game rather than inferred
+// here; that measurement is written up in tools/platform/n3ds/bchglb.
+//
+// What is checked is that the flesh hangs on the bone it names: assembled at
+// the bind pose by the header's rule, every vertex is nearer to one of its own
+// palette's bones than the same vertex is under the opposite rule. That is a
+// property of every mesh separately, so it does not rest on one specimen, and
+// it holds for all 78 across the two characters.
+//
+// A whole-character bounding box would NOT do here, and the log says why: the
+// all-rigid hypothesis produces a box the right size and shape while scattering
+// the parts inside it. That is the trap this game has sprung before — a
+// measurement can agree with a wrong model when the criterion is too coarse to
+// disagree.
+func TestBCHSkinSpaces(t *testing.T) {
+	fs := toadRomFS(t)
+	for _, obj := range []string{"Kinopio", "KinopicoNpc"} {
+		a := openSZS(t, fs, "/ObjectData/"+obj+".szs")
+		blob, ok := a.File(obj + ".bch")
+		if !ok {
+			t.Fatalf("%s: no .bch", obj)
 		}
+		f, err := ParseBCH(blob)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m, err := f.DecodeModel(f.Groups[BCHModels][0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		world := m.BindPose()
+
+		modes := map[int]int{}
+		tightest, tightName := math.Inf(1), ""
+		checked := 0
+		for _, sh := range m.Meshes {
+			modes[sh.SkinMode]++
+			if len(sh.Palette) == 0 {
+				continue
+			}
+			checked++
+			other := BCHSkinRigid
+			if sh.SkinMode == BCHSkinRigid {
+				other = BCHSkinSmooth
+			}
+			own, alt := meshBoneRadius(&sh, m, world, 0), meshBoneRadius(&sh, m, world, other)
+			if own >= alt {
+				t.Errorf("%s mesh %q (mode %d): its own rule puts it %.1f from its bones, the opposite rule %.1f — the header's mode is not the one that fits",
+					obj, m.Materials[sh.MaterialIndex].Name, sh.SkinMode, own, alt)
+			}
+			if r := alt / own; r < tightest {
+				tightest, tightName = r, m.Materials[sh.MaterialIndex].Name
+			}
+		}
+		if modes[BCHSkinSmooth] == 0 || modes[BCHSkinRigid] == 0 {
+			t.Fatalf("%s uses only one skinning mode (%v) — the two-space claim is not being exercised", obj, modes)
+		}
+		t.Logf("%s: %d meshes (%d smooth, %d rigid) all sit closer to their own bones under the header's mode; tightest margin %.2fx on %q",
+			obj, checked, modes[BCHSkinSmooth], modes[BCHSkinRigid], tightest, tightName)
 	}
-	return o
-}
-func trans4(t [3]float32) [16]float64 {
-	return [16]float64{1, 0, 0, float64(t[0]), 0, 1, 0, float64(t[1]), 0, 0, 1, float64(t[2]), 0, 0, 0, 1}
-}
-func scale4(s [3]float32) [16]float64 {
-	return [16]float64{float64(s[0]), 0, 0, 0, 0, float64(s[1]), 0, 0, 0, 0, float64(s[2]), 0, 0, 0, 0, 1}
 }
 
-// eulerZYX builds Rz·Ry·Rx from an XYZ triple in radians.
-func eulerZYX(r [3]float32) [16]float64 {
-	rot := func(ax int, a float64) [16]float64 {
-		c, s := math.Cos(a), math.Sin(a)
-		switch ax {
-		case 0:
-			return [16]float64{1, 0, 0, 0, 0, c, -s, 0, 0, s, c, 0, 0, 0, 0, 1}
-		case 1:
-			return [16]float64{c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, 0, 0, 0, 1}
-		}
-		return [16]float64{c, -s, 0, 0, s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+// meshBoneRadius assembles a mesh at the bind pose and returns the distance of
+// its furthest vertex from the nearest bone its own palette names. force
+// overrides the mesh's skinning mode, which is how the test states the rule it
+// has to rule out.
+func meshBoneRadius(sh *BCHMesh, m *BCHModel, world [][16]float64, force int) float64 {
+	mode := sh.SkinMode
+	if force != 0 {
+		mode = force
 	}
-	return mul4(mul4(rot(2, float64(r[2])), rot(1, float64(r[1]))), rot(0, float64(r[0])))
+	mats := make([][16]float64, len(sh.Palette))
+	for i, b := range sh.Palette {
+		if mode == BCHSkinRigid {
+			mats[i] = world[b]
+		} else {
+			mats[i] = mul4(world[b], m.Bones[b].InvBind4())
+		}
+	}
+	worst := 0.0
+	for _, v := range sh.Verts {
+		var p [3]float64
+		for k, w := range v.Weights {
+			if w == 0 {
+				continue
+			}
+			mm := mats[v.Joints[k]]
+			for r := 0; r < 3; r++ {
+				p[r] += float64(w) * (mm[r*4]*float64(v.Pos[0]) + mm[r*4+1]*float64(v.Pos[1]) +
+					mm[r*4+2]*float64(v.Pos[2]) + mm[r*4+3])
+			}
+		}
+		best := math.Inf(1)
+		for _, b := range sh.Palette {
+			w := world[b]
+			d := math.Sqrt((p[0]-w[3])*(p[0]-w[3]) + (p[1]-w[7])*(p[1]-w[7]) + (p[2]-w[11])*(p[2]-w[11]))
+			if d < best {
+				best = d
+			}
+		}
+		if best > worst {
+			worst = best
+		}
+	}
+	return worst
 }

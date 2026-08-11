@@ -18,6 +18,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"image/png"
@@ -65,7 +66,10 @@ func main() {
 	loadState := flag.String("loadstate", "", "restore a machine snapshot before running")
 	gxdump := flag.String("gxdump", "", "capture GX commands; write ProcessCommandList buffers to this directory")
 	shot := flag.String("shot", "", "after the run, write the presented framebuffers to <base>_top.png / <base>_bottom.png")
-	gputrace := flag.Int("gputrace", 0, "print a summary of the first N GPU draws")
+	gputrace := flag.Int("gputrace", 0, "print a summary of the next N GPU draws (from -gputracefrom)")
+	gputracefrom := flag.Int("gputracefrom", 0, "start -gputrace at this draw index — a frame is tens of thousands of draws and the interesting one is rarely the first")
+	gpuuniforms := flag.Bool("gpuuniforms", false, "add the full vertex-shader float uniform file (c0-c95) to each -gputrace draw — where a skinned draw's matrix palette lives")
+	drawcensus := flag.String("drawcensus", "", "write one compact line per draw (count, stride, attribute→input map) to this file: how a known mesh is located among a frame's draws")
 	rtshot := flag.String("rtshot", "", "after the run, decode a tiled RGBA8 render target straight from memory: ADDR:WxH[:FILE] (hex addr) — what the GPU drew, before any DisplayTransfer")
 	threads := flag.Bool("threads", false, "after the run, dump thread states and the handle table")
 	hidtrace := flag.Bool("hidtrace", false, "tally reads of the HID shared-memory block by offset, dump after the run")
@@ -104,7 +108,8 @@ func main() {
 		profOut = f
 	}
 
-	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, tracefroms, dumps, *saveState, *loadState, *gxdump, *shot, *rtshot, *gputrace, *threads, *hidtrace, *keys, *keypulse, *touch, *findAscii, *findUtf16, *findWord, pokes, *wav, *dsptrace, *frames, profOut, *profile); err != nil {
+	gt := gpuTrace{draws: *gputrace, from: *gputracefrom, uniforms: *gpuuniforms, census: *drawcensus}
+	if err := run(*image, *steps, *trace, *tracen, *verbose, *svclog, bps, watches, logpcs, tracefroms, dumps, *saveState, *loadState, *gxdump, *shot, *rtshot, gt, *threads, *hidtrace, *keys, *keypulse, *touch, *findAscii, *findUtf16, *findWord, pokes, *wav, *dsptrace, *frames, profOut, *profile); err != nil {
 		fmt.Fprintln(os.Stderr, "bootoracle:", err)
 		os.Exit(1)
 	}
@@ -143,7 +148,17 @@ func utf16Pattern(s string) []byte {
 	return b
 }
 
-func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs, tracefroms, dumps multiFlag, saveState, loadState, gxdump, shot, rtshot string, gputrace int, threads, hidtrace bool, keys string, keypulse int, touch string, findAscii, findUtf16, findWord string, pokes multiFlag, wav string, dsptrace bool, frames int, profOut *os.File, profile bool) error {
+// gpuTrace groups the draw-path instruments. They are three knobs on one
+// question — which draw, and what did the game hand its shader for it — rather
+// than three separate features.
+type gpuTrace struct {
+	draws    int
+	from     int
+	uniforms bool
+	census   string
+}
+
+func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog bool, bps, watches, logpcs, tracefroms, dumps multiFlag, saveState, loadState, gxdump, shot, rtshot string, gt gpuTrace, threads, hidtrace bool, keys string, keypulse int, touch string, findAscii, findUtf16, findWord string, pokes multiFlag, wav string, dsptrace bool, frames int, profOut *os.File, profile bool) error {
 	img, err := os.ReadFile(imagePath)
 	if err != nil {
 		return err
@@ -155,7 +170,19 @@ func run(imagePath, stepsStr string, trace bool, tracen int, verbose, svclog boo
 	m.Verbose = verbose
 	m.SetTrace(trace, tracen)
 	m.GXCapture = gxdump != ""
-	m.GPU().TraceDraws = gputrace
+	m.GPU().TraceDraws = gt.draws
+	m.GPU().TraceFrom = gt.from
+	m.GPU().TraceUniforms = gt.uniforms
+	if gt.census != "" {
+		cf, err := os.Create(gt.census)
+		if err != nil {
+			return err
+		}
+		defer cf.Close()
+		cw := bufio.NewWriter(cf)
+		defer cw.Flush()
+		m.GPU().Census = cw
+	}
 	m.HidTrace = hidtrace
 	m.AudioCapture = wav != ""
 	m.DSPTrace = dsptrace

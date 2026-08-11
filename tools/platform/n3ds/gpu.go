@@ -15,7 +15,10 @@ package n3ds
 // semantics here are the ones the captured Super Mario 3D Land lists exercise,
 // implemented one by one as the game demands them.
 
-import "fmt"
+import (
+	"fmt"
+	"io"
+)
 
 // PICA register ids the interpreter gives side effects to. Pure-state
 // registers (culling, blending, TEV stages, texture config…) are read straight
@@ -157,6 +160,23 @@ type GPU struct {
 	// positions, screen coords) for that many draws — the draw-path
 	// instrument.
 	TraceDraws int
+
+	// TraceFrom skips draws before this index. A frame is tens of thousands of
+	// draws and the interesting one is rarely the first: without it, tracing a
+	// character means printing the whole terrain first.
+	TraceFrom int
+
+	// TraceUniforms adds the full float-uniform file (c0-c95) to each traced
+	// draw. The vertex shader's matrix palette lives there and nowhere else —
+	// the skinning matrices are uploaded as uniforms through 0x2C0/0x2C1, so
+	// this is the only way to read what the game hands its own shader.
+	TraceUniforms bool
+
+	// Census, when non-nil, gets one compact line per draw: enough of the
+	// vertex-fetch configuration to recognise a mesh (its vertex count, stride
+	// and attribute layout) without printing the multi-line trace for all of
+	// them. It is how a known mesh is located among a frame's draws.
+	Census io.Writer
 
 	// texCache holds decoded textures keyed by address/format/size. GX writes
 	// into texture memory (DMA, TextureCopy) invalidate it.

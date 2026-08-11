@@ -44,7 +44,7 @@ type loaderBuf struct {
 
 // draw executes one draw trigger against the current register state.
 func (g *GPU) draw(indexed bool) {
-	if g.TraceDraws > 0 && g.Regs[regLightingEnable]&1 != 0 {
+	if g.TraceDraws > 0 && g.Draws >= g.TraceFrom && g.Regs[regLightingEnable]&1 != 0 {
 		g.dumpLighting()
 		g.dumpFragment()
 	}
@@ -97,7 +97,21 @@ func (g *GPU) draw(indexed bool) {
 	// Shader input map: input register j ← attribute (perm >> 4j) & 0xF.
 	inPerm := uint64(g.Regs[regVshAttrPermL]) | uint64(g.Regs[regVshAttrPermH])<<32
 
-	trace := g.TraceDraws > 0
+	if g.Census != nil {
+		// One line per draw, in the terms a decoded mesh can be matched against:
+		// how many indices it draws, how wide its vertices are, and which shader
+		// inputs its attributes reach. A skinned mesh announces itself here —
+		// inputs 7 and 8 are the bone index and weight.
+		fmt.Fprintf(g.Census, "draw %d indexed=%v count=%d base=0x%08X fmt=%08X/%08X inPerm=%08X_%08X entry=0x%03X",
+			g.Draws, indexed, count, base, g.Regs[regAttrFmtLow], g.Regs[regAttrFmtHigh],
+			g.Regs[regVshAttrPermH], g.Regs[regVshAttrPermL], g.Regs[regVshEntry]&0xFFF)
+		for _, b := range bufs {
+			fmt.Fprintf(g.Census, " | buf off=0x%06X stride=%d comps=%v", b.off, b.stride, comps[b.first:b.first+b.n])
+		}
+		fmt.Fprintln(g.Census)
+	}
+
+	trace := g.TraceDraws > 0 && g.Draws >= g.TraceFrom
 	if trace {
 		g.TraceDraws--
 		tfb := g.fbstate()
@@ -125,8 +139,18 @@ func (g *GPU) draw(indexed bool) {
 			g.Draws, indexed, count, first, base, len(bufs), g.Regs[regPrimConfig]>>8&3,
 			f24bits(g.Regs[regViewportWidth]), f24bits(g.Regs[regViewportHeight]),
 			tfb.colorAddr, tfb.depthAddr, tfb.width, tfb.height, tfb.depthTest, tfb.depthWr)
-		for _, ci := range []int{0, 1, 2, 3, 4, 5, 6, 32, 33, 34, 35, 64, 65} {
-			fmt.Printf("  c%-2d = %v\n", ci, g.Float[ci])
+		if g.TraceUniforms {
+			// The whole uniform file. The skinning matrices are in here: the
+			// hardware has no matrix-palette registers, so a skinned draw's
+			// bone matrices arrive as ordinary float uniforms and can only be
+			// found by reading them all.
+			for ci := range g.Float {
+				fmt.Printf("  c%-2d = %v\n", ci, g.Float[ci])
+			}
+		} else {
+			for _, ci := range []int{0, 1, 2, 3, 4, 5, 6, 32, 33, 34, 35, 64, 65} {
+				fmt.Printf("  c%-2d = %v\n", ci, g.Float[ci])
+			}
 		}
 		var nan []int
 		for ci := range g.Float {
