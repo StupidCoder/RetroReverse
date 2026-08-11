@@ -4416,3 +4416,38 @@ matrixAutoUpdate after their one real compose; billboard nodes already
 drive their own matrix and flag matrixWorldNeedsUpdate, and the
 camera-attached sky moves via its live group node, so both keep
 working frozen.
+
+## Part XLI — the course learns to end at the fog
+
+The Quest was still at 20-30 FPS with the placements instanced, and the
+user named the missing piece: the game never drew its whole course
+either. Its per-segment visibility lists (the cs_bin database, decoded
+in Part XXIX and used since then only to UNION everything reachable)
+assume a camera glued to the road; a walk-in player who can turn around
+wants plain distance. So the course GLB now ships CHUNKED: the world
+descriptors bucket into 300 m grid cells (Sunny Beach: 157 chunk nodes,
+613 primitives where the monolith had 143 — cells split texture
+groups), each node tagged extras {"cull": {x,y,z,r}} with its world
+bounds. World mode culls every chunk wholly beyond fog.far each frame —
+pop-free by construction, since a fragment past far is pure fog colour
+before its chunk vanishes — and reports "chunks N/M" in the session
+status line. The collection self-refreshes once a second because the
+level streams for seconds after the session places (the first cut
+collected at rescan() and saw an empty scene; the draw counter caught
+it: identical calls with culling "on").
+
+The presets drop their fog from the do-nothing 5500/6000 to 320/550,
+coloured per stage from its own sky-dome texture average (a Go helper
+samples the shipped sky GLBs: beach #5f7eda, casino-night #634c5b,
+Metropolis #232629...), so the fog wall reads as haze against that
+stage's horizon. Verified with a 60 m probe fog: the world visibly ends
+at the wall, sky intact, and the per-frame counter drops with it. The
+desktop view intentionally draws all chunks (no fog, no culling) — the
+whole-course browsing view is the Studio's point on a desk.
+
+Alongside: the glb writer now dedupes textures and materials
+document-wide (chunking would have carried one material per primitive —
+613 copies of 136; a canonical-JSON key shares them), the honest
+version of this part's original request to "merge the material groups"
+— the real merge was never available, the monolith's 143 prims already
+sat on 132 distinct textures.

@@ -79,15 +79,19 @@
   }
  ],
  "_fog": [
-  "The game's own scn_env_fog on these stages is exponential at density",
-  "~1.5e-4 \u2014 a clear day, effectively no fog \u2014 but world mode's far-plane",
-  "policy hangs off fog.far (the SM64DS castle preset hit the same wall),",
-  "so this one is black and starts beyond everything visible: it tints",
-  "nothing and exists only to give the mode its far plane."
+  "Distance fog doing double duty: atmosphere AND the render budget. The",
+  "course ships chunked (300 m world-geometry cells, each tagged with its",
+  "bounds), and world mode culls every chunk wholly beyond fog.far \u2014",
+  "pop-free by construction, a fragment past far is pure fog colour",
+  "before its chunk vanishes. The colour is this stage's own sky",
+  "average (sampled from its sky-dome textures), so the fog wall reads",
+  "as haze against the horizon. The game's own scn_env_fog is",
+  "exponential at ~1.5e-4 (a clear day) \u2014 a Quest 3 cannot afford the",
+  "clear day; this trades draw distance for frame rate."
  ],
  "fog": {
-  "color": "#000000",
-  "near": 5500,
-  "far": 6000
+  "color": "#759ce0",
+  "near": 320,
+  "far": 550
  }
 }

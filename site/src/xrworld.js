@@ -283,6 +283,7 @@ export class WorldMode {
     // Read the picker's answer rather than being told: see setVariant.
     const v = this.view?.activeVariant;
     if (v !== undefined && v !== this._variant) this.setVariant(v);
+    this._cullChunks();
     if (this._floor || this._failed) return;
     // Not until the placement has landed: the index is built in content units,
     // and before a fit there is no telling whether the content is even loaded.
@@ -434,12 +435,56 @@ export class WorldMode {
     this._fitSky();
   }
 
+  // _cullChunks drops world-geometry chunks wholly beyond the fog. This is
+  // the walk-in answer to the game's own per-segment visibility lists: the
+  // game culled by track segment, which assumes a camera glued to the road —
+  // a player who can turn around and walk wants plain distance. Culling at
+  // fog.far is pop-free BY CONSTRUCTION: a fragment past far is pure fog
+  // colour before the chunk vanishes. Without a fog there is no invisible
+  // distance, so everything stays on.
+  _cullChunks() {
+    const far = this.cfg.fog?.far;
+    if (!far) return;
+    // Chunked levels (OutRun's courses) tag their world-geometry nodes with
+    // extras {"cull": {x,y,z,r}} — bounds in level units. The level STREAMS
+    // for seconds after the session places (rescan() fires long before the
+    // course GLB lands), so the collection refreshes once a second instead
+    // of trusting any single moment to have seen everything.
+    if ((this._cullTick = (this._cullTick || 0) + 1) % 60 === 1) {
+      this._cullNodes = [];
+      this.stage.scene.traverse((o) => { if (o.userData?.cull) this._cullNodes.push(o); });
+    }
+    const nodes = this._cullNodes;
+    if (!nodes?.length) return;
+    const cam = this.stage.camera.getWorldPosition(this._camTmp ||= new THREE.Vector3());
+    let vis = 0;
+    for (const o of nodes) {
+      const c = o.userData.cull;
+      const e = o.matrixWorld.elements;
+      // Chunk centre in world space, and the rig scale from the matrix (the
+      // bounds are level units; the session may wear a metres-per-unit fit).
+      const wx = e[0] * c.x + e[4] * c.y + e[8] * c.z + e[12];
+      const wy = e[1] * c.x + e[5] * c.y + e[9] * c.z + e[13];
+      const wz = e[2] * c.x + e[6] * c.y + e[10] * c.z + e[14];
+      const s = Math.hypot(e[0], e[1], e[2]);
+      const d = Math.hypot(cam.x - wx, cam.y - wy, cam.z - wz) - c.r * s;
+      if ((o.visible = d <= far)) vis++;
+    }
+    // The status line is the only instrument a headset has: say what the fog
+    // is buying, in the counts that transfer between machines.
+    this._cullNote = `chunks ${vis}/${nodes.length}`;
+  }
+
   get note() {
-    return [this.torch.note, this._skyNote, this._note, this.audio?.note].filter(Boolean).join(' · ');
+    return [this.torch.note, this._skyNote, this._note, this._cullNote, this.audio?.note].filter(Boolean).join(' · ');
   }
 
   dispose() {
     this.stage.updaters.delete(this._step);
+    // The desktop view shares this scene and draws everything: un-hide
+    // whatever the fog culled before handing the content back.
+    for (const o of this._cullNodes || []) o.visible = true;
+    this._cullNodes = null;
     this.audio?.dispose();
     for (const o of this._skyHooked || []) o.onBeforeRender = () => {};
     this._skyHooked = null;

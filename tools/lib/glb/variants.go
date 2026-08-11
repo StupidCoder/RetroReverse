@@ -1,6 +1,7 @@
 package glb
 
 import (
+	"encoding/json"
 	"bytes"
 	"fmt"
 	"image"
@@ -60,21 +61,28 @@ type VariantNode struct {
 	Extras  map[string]any
 }
 
-// sharedTex tracks image/sampler dedupe across every primitive of a document.
+// sharedTex tracks image/sampler/texture/material dedupe across every
+// primitive of a document. Before texture and material dedupe, a chunked
+// course GLB carried one texture record and one material per PRIMITIVE — a
+// few hundred copies of the same 132 — and every copy is renderer state the
+// viewer has to bind.
 type sharedTex struct {
 	images       []map[string]any
 	textures     []map[string]any
 	samplers     []map[string]any
 	samplerIndex map[[2]int]int
+	textureIndex map[[2]int]int
+	matIndex     map[string]int
+	mats         []map[string]any
 	imageIndex   map[image.Image]int
 }
 
 // appendTextured turns one variant's arrays into glTF primitives + materials,
 // appending accessors to b and textures to st. It is the shared body of
 // writeTextured (single-scene) and WriteVariantScenes.
-func appendTextured(b *builder, st *sharedTex, matBase int,
+func appendTextured(b *builder, st *sharedTex,
 	positions [][3]float32, uvs, uv2 [][2]float32, normals [][3]float32, colors [][4]uint8,
-	texGroups []TexturedGroup, colorGroups []TriGroup) (prims, materials []map[string]any, err error) {
+	texGroups []TexturedGroup, colorGroups []TriGroup) (prims []map[string]any, err error) {
 
 	posAcc := b.addPositions(positions)
 	uvAcc := b.addUVs(uvs)
@@ -114,20 +122,25 @@ func appendTextured(b *builder, st *sharedTex, matBase int,
 		if !ok {
 			var png bytes.Buffer
 			if err := encodePNG(&png, g.Image); err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			vi := b.addView(png.Bytes())
 			img = len(st.images)
 			st.imageIndex[g.Image] = img
 			st.images = append(st.images, map[string]any{"bufferView": vi, "mimeType": "image/png"})
 		}
-		st.textures = append(st.textures, map[string]any{"sampler": smp, "source": img})
+		texIdx, ok := st.textureIndex[[2]int{smp, img}]
+		if !ok {
+			texIdx = len(st.textures)
+			st.textureIndex[[2]int{smp, img}] = texIdx
+			st.textures = append(st.textures, map[string]any{"sampler": smp, "source": img})
+		}
 		idx := make([]uint32, 0, len(g.Tris)*3)
 		for _, t := range g.Tris {
 			idx = append(idx, t[0], t[1], t[2])
 		}
 		idxAcc := b.addIndices(idx)
-		prim := primitive(posAcc, idxAcc, 4, matBase+len(materials))
+		prim := primitive(posAcc, idxAcc, 4, 0)
 		attrs := map[string]int{"POSITION": posAcc, "TEXCOORD_0": uvAcc}
 		if uv2Acc >= 0 {
 			attrs["TEXCOORD_1"] = uv2Acc
@@ -143,7 +156,7 @@ func appendTextured(b *builder, st *sharedTex, matBase int,
 		mat := map[string]any{
 			"name": "tex",
 			"pbrMetallicRoughness": map[string]any{
-				"baseColorTexture": map[string]int{"index": len(st.textures) - 1},
+				"baseColorTexture": map[string]int{"index": texIdx},
 				"baseColorFactor":  []float64{1, 1, 1, 1},
 				"metallicFactor":   0,
 				"roughnessFactor":  1,
@@ -179,7 +192,7 @@ func appendTextured(b *builder, st *sharedTex, matBase int,
 		if extras != nil {
 			mat["extras"] = extras
 		}
-		materials = append(materials, mat)
+		prim["material"] = st.material(mat)
 	}
 	for _, g := range colorGroups {
 		if len(g.Tris) == 0 {
@@ -190,7 +203,7 @@ func appendTextured(b *builder, st *sharedTex, matBase int,
 			idx = append(idx, t[0], t[1], t[2])
 		}
 		idxAcc := b.addIndices(idx)
-		prim := primitive(posAcc, idxAcc, 4, matBase+len(materials))
+		prim := primitive(posAcc, idxAcc, 4, 0)
 		if nrmAcc >= 0 {
 			prim["attributes"].(map[string]int)["NORMAL"] = nrmAcc
 		}
@@ -205,9 +218,29 @@ func appendTextured(b *builder, st *sharedTex, matBase int,
 		if extras := groupExtras(g.Additive, g.Sheen, false); extras != nil {
 			mat["extras"] = extras
 		}
-		materials = append(materials, mat)
+		prim["material"] = st.material(mat)
 	}
-	return prims, materials, nil
+	return prims, nil
+}
+
+// material registers a material map, deduplicated by its canonical JSON (Go
+// marshals map keys sorted, so identical materials share one document entry
+// however many primitives use them). The index is document-global.
+func (st *sharedTex) material(mat map[string]any) int {
+	key, err := json.Marshal(mat)
+	if err != nil {
+		panic(fmt.Sprintf("glb: material marshal: %v", err))
+	}
+	if i, ok := st.matIndex[string(key)]; ok {
+		return i
+	}
+	if st.matIndex == nil {
+		st.matIndex = map[string]int{}
+	}
+	i := len(st.mats)
+	st.matIndex[string(key)] = i
+	st.mats = append(st.mats, mat)
+	return i
 }
 
 // groupExtras builds the Retro-X material extras for additive/sheen flags.
@@ -237,9 +270,8 @@ func WriteVariantScenes(path string, variants []ModelVariant) error {
 		return fmt.Errorf("glb: no variants")
 	}
 	b := &builder{}
-	st := &sharedTex{samplerIndex: map[[2]int]int{}, imageIndex: map[image.Image]int{}}
+	st := &sharedTex{samplerIndex: map[[2]int]int{}, imageIndex: map[image.Image]int{}, textureIndex: map[[2]int]int{}, matIndex: map[string]int{}}
 	var meshes, nodes, scenes []map[string]any
-	var materials []map[string]any
 	meshByKey := map[any]int{}
 	addNode := func(n VariantNode) (int, error) {
 		mi := -1
@@ -249,11 +281,10 @@ func WriteVariantScenes(path string, variants []ModelVariant) error {
 			}
 		}
 		if mi < 0 {
-			prims, mats, err := appendTextured(b, st, len(materials), n.Positions, n.UVs, n.UV2, n.Normals, n.Colors, n.TexGroups, n.ColorGroups)
+			prims, err := appendTextured(b, st, n.Positions, n.UVs, n.UV2, n.Normals, n.Colors, n.TexGroups, n.ColorGroups)
 			if err != nil {
 				return -1, err
 			}
-			materials = append(materials, mats...)
 			if len(prims) == 0 {
 				return -1, nil
 			}
@@ -302,7 +333,7 @@ func WriteVariantScenes(path string, variants []ModelVariant) error {
 		"scenes":         scenes,
 		"nodes":          nodes,
 		"meshes":         meshes,
-		"materials":      materials,
+		"materials":      st.mats,
 		"accessors":      b.accessors,
 		"bufferViews":    b.views,
 		"buffers":        []map[string]int{{"byteLength": b.bin.Len()}},

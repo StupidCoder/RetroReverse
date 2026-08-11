@@ -885,7 +885,14 @@ func (p *pmt) buildStageNodes(texs []texInfo, extractPlacements bool) ([]glb.Var
 			return nil, nil, nil, "", walkErr
 		}
 
-		// The world node: every identity-reachable descriptor's batches.
+		// The world geometry: every identity-reachable descriptor's batches —
+		// bucketed into SPATIAL CHUNKS rather than one monolithic node. A
+		// Quest 3 in world mode cannot afford to draw a whole 4 km course
+		// every frame; the game itself never did (it drew per-segment lists
+		// from this very visibility database). Chunk nodes carry their world
+		// bounds in extras {"cull": {x,y,z,r}} so the viewer can drop chunks
+		// beyond the fog — culling at fog.far is pop-free by construction,
+		// because a fragment past far is pure fog colour already.
 		descs := make([]int, 0, len(worldDesc))
 		for d := range worldDesc {
 			descs = append(descs, d)
@@ -902,8 +909,37 @@ func (p *pmt) buildStageNodes(texs []texInfo, extractPlacements bool) ([]glb.Var
 		}
 		nUnref += len(pt.descStart) - len(refd)
 		nWorldDesc += len(descs)
-		wn := pool.node(fmt.Sprintf("part %d", pi), descs, texs)
-		if wn != nil {
+		const chunkSize = 300.0 // metres; the units are metres (Part XXXVIII)
+		chunkOf := map[[2]int][]int{}
+		for _, d := range descs {
+			cx, cz, ok := pool.descCentre(d)
+			key := [2]int{0, 0}
+			if ok {
+				key = [2]int{int(math.Floor(float64(cx) / chunkSize)), int(math.Floor(float64(cz) / chunkSize))}
+			}
+			chunkOf[key] = append(chunkOf[key], d)
+		}
+		ckeys := make([][2]int, 0, len(chunkOf))
+		for k := range chunkOf {
+			ckeys = append(ckeys, k)
+		}
+		sort.Slice(ckeys, func(i, j int) bool {
+			if ckeys[i][0] != ckeys[j][0] {
+				return ckeys[i][0] < ckeys[j][0]
+			}
+			return ckeys[i][1] < ckeys[j][1]
+		})
+		for _, ck := range ckeys {
+			wn := pool.node(fmt.Sprintf("part %d chunk %d,%d", pi, ck[0], ck[1]), chunkOf[ck], texs)
+			if wn == nil {
+				continue
+			}
+			mn, mx := nodesBounds([]glb.VariantNode{*wn})
+			c := [3]float32{(mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, (mn[2] + mx[2]) / 2}
+			r := float32(math.Sqrt(float64((mx[0]-c[0])*(mx[0]-c[0]) + (mx[1]-c[1])*(mx[1]-c[1]) + (mx[2]-c[2])*(mx[2]-c[2]))))
+			wn.Extras = map[string]any{"cull": map[string]any{
+				"x": c[0], "y": c[1], "z": c[2], "r": r,
+			}}
 			out = append(out, *wn)
 		}
 
@@ -1012,6 +1048,42 @@ func newStagePool(p *pmt, pt *part) *stagePool {
 		sp.colors = append(sp.colors, col...)
 	}
 	return sp
+}
+
+// descCentre returns the x/z bounding-box centre of a descriptor's geometry
+// (identity/world space — the world node's descriptors are not instanced),
+// for spatial chunking. ok is false when the descriptor has no vertices.
+func (sp *stagePool) descCentre(enc int) (cx, cz float32, ok bool) {
+	p, pt := sp.p, sp.pt
+	d := enc >> 1
+	var mnx, mxx, mnz, mxz float32
+	for k := pt.descStart[d]; k < pt.descStart[d]+pt.descCount[d]; k++ {
+		b := pt.batches[k]
+		bp := pt.pairs[b.pair]
+		idxCount, _ := indexCount(b.prim, b.prims)
+		for i := uint32(0); i < idxCount; i++ {
+			ix := uint32(u16(p.a, int(bp.ibOff)+int(b.first+i)*2)) + b.baseVtx + sp.vbase[b.pair]
+			pos := sp.positions[ix]
+			if !ok {
+				mnx, mxx, mnz, mxz = pos[0], pos[0], pos[2], pos[2]
+				ok = true
+				continue
+			}
+			if pos[0] < mnx {
+				mnx = pos[0]
+			}
+			if pos[0] > mxx {
+				mxx = pos[0]
+			}
+			if pos[2] < mnz {
+				mnz = pos[2]
+			}
+			if pos[2] > mxz {
+				mxz = pos[2]
+			}
+		}
+	}
+	return (mnx + mxx) / 2, (mnz + mxz) / 2, ok
 }
 
 // node builds a compacted VariantNode from the batches of the given

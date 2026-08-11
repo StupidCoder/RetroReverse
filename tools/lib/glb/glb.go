@@ -564,12 +564,12 @@ func WriteTextured(path string, positions [][3]float32, uvs [][2]float32,
 func writeTextured(path string, positions [][3]float32, uvs [][2]float32,
 	normals [][3]float32, colors [][4]uint8, texGroups []TexturedGroup, colorGroups []TriGroup) error {
 	b := &builder{}
-	st := &sharedTex{samplerIndex: map[[2]int]int{}, imageIndex: map[image.Image]int{}}
-	prims, materials, err := appendTextured(b, st, 0, positions, uvs, nil, normals, colors, texGroups, colorGroups)
+	st := &sharedTex{samplerIndex: map[[2]int]int{}, imageIndex: map[image.Image]int{}, textureIndex: map[[2]int]int{}, matIndex: map[string]int{}}
+	prims, err := appendTextured(b, st, positions, uvs, nil, normals, colors, texGroups, colorGroups)
 	if err != nil {
 		return err
 	}
-	doc := assemble(baseName(path), b, prims, materials)
+	doc := assemble(baseName(path), b, prims, st.mats)
 	if len(st.images) > 0 {
 		doc["images"] = st.images
 		doc["textures"] = st.textures
@@ -641,8 +641,8 @@ func WriteTexturedMorph(path string, positions [][3]float32, uvs [][2]float32,
 	normals [][3]float32, texGroups []TexturedGroup, targets []MorphTarget, clip MorphClip) error {
 
 	b := &builder{}
-	st := &sharedTex{samplerIndex: map[[2]int]int{}, imageIndex: map[image.Image]int{}}
-	prims, materials, err := appendTextured(b, st, 0, positions, uvs, nil, normals, nil, texGroups, nil)
+	st := &sharedTex{samplerIndex: map[[2]int]int{}, imageIndex: map[image.Image]int{}, textureIndex: map[[2]int]int{}, matIndex: map[string]int{}}
+	prims, err := appendTextured(b, st, positions, uvs, nil, normals, nil, texGroups, nil)
 	if err != nil {
 		return err
 	}
@@ -664,7 +664,7 @@ func WriteTexturedMorph(path string, positions [][3]float32, uvs [][2]float32,
 		flat = append(flat, w...)
 	}
 	tAcc, wAcc := b.addScalars(clip.Times), b.addScalars(flat)
-	doc := assemble(baseName(path), b, prims, materials)
+	doc := assemble(baseName(path), b, prims, st.mats)
 	doc["meshes"].([]map[string]any)[0]["weights"] = rest
 	doc["animations"] = []map[string]any{{
 		"name":     clip.Name,
