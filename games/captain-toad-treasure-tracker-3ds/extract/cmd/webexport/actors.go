@@ -432,7 +432,12 @@ func readActorPlacements(fs *n3ds.RomFS, stage string) ([]schema.Placement, erro
 		d, _ := it.(n3ds.BYMLDict)
 		links, _ := d["Links"].(n3ds.BYMLDict)
 		for _, l := range list(links["GoalItem"]) {
-			add("goalitem", l.(n3ds.BYMLDict), "DemoOpeningSeason1", "Goal Star")
+			// No animation on the placement: the star's idle is `Wait`, which
+			// uses a key encoding this decoder still refuses, and the clips it
+			// does have are the opening cutscene and the goal poses — all of
+			// which fly it off its pedestal. It stands where the map puts it,
+			// and its clips are still there to play in the object viewer.
+			add("goalitem", l.(n3ds.BYMLDict), "", "Goal Star")
 		}
 		for _, l := range list(links["PlayerNpc"]) {
 			ld := l.(n3ds.BYMLDict)

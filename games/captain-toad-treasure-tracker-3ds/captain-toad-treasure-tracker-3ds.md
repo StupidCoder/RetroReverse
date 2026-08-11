@@ -2024,6 +2024,30 @@ it. Blending is a property of the material, not of having a texture.
 Then they were invisible again, for a duller reason: a disc fanned from a single
 centre vertex to a transparent rim has its alpha fall linearly across the whole
 radius, which averages to a smudge. The mask the game projects is a cylinder,
-which is mostly solid — so the disc now has an opaque core and only the outer
+which is mostly solid — so the disc has a full-strength core and only the outer
 band fades.
+
+### A shadow is a factor, not a layer of paint
+
+And then it was visible and still wrong. The mask's `Color` is a **multiplier** —
+the game darkens what is under it to a fifth of itself — and an alpha-blended
+grey disc is not that. Alpha blending moves the surface *towards* grey, so it
+lightens dark ground as much as it darkens light ground: over the clover it was
+a pale film, over pale stone a grey coin. Both are wrong for the same reason.
+
+So the disc multiplies: a new Retro-X material blend, `multiply`, which the
+viewer maps to `dst x src` with a decal's polygon offset and no depth write. It
+fades to **white** at the rim rather than to transparent, because multiplying by
+one is what "no shadow here" means.
+
+The colours go out through `srgbToLinear` on the way, for the reason
+[[gamma-space-multiply]] gives: COLOR_0 is linear by glTF's definition and the
+renderer encodes the result back to gamma before blending, which is the space the
+guest multiplies in. Skipping the conversion turns a 0.2 shadow into a 0.48 one.
+
+One consequence worth stating: the goal star's placement now plays no animation.
+Its idle is `Wait`, which uses a key encoding this decoder still refuses, and
+every clip it *does* have — the opening cutscene, the goal poses — flies it off
+its pedestal. It stands where the map puts it, and its clips are still there to
+play in the object viewer.
 

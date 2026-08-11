@@ -725,6 +725,19 @@ export class ObjectLibrary {
           m.depthWrite = false;
           m.needsUpdate = true;
         }
+        if (m.userData?.blend === 'multiply') {
+          // A shadow is a FACTOR, not a layer of paint: dst x src. Blended with
+          // alpha instead, a grey disc lightens dark ground as much as it
+          // darkens light ground. It lies on the surface it shades, so it also
+          // gets a decal's polygon offset and writes no depth.
+          m.transparent = true;
+          m.blending = THREE.MultiplyBlending;
+          m.depthWrite = false;
+          m.polygonOffset = true;
+          m.polygonOffsetFactor = -1;
+          m.polygonOffsetUnits = -1;
+          m.needsUpdate = true;
+        }
         if (m.userData?.blend === 'alpha') {
           // The source hardware's translucent pass: alpha blend with depth
           // writes off (Luigi's Mansion draws its flashlight cone this way).

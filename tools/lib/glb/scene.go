@@ -92,6 +92,11 @@ type Prim struct {
 	Opaque      bool
 	AlphaCutoff float32 // custom MASK cutoff (0 = the default 0.5); the guests' alpha tests often use 1/255
 	Additive    bool    // additive blending: BLEND + Retro-X extras {blend: "additive"}
+	// Multiply blends the primitive INTO what is behind it — dst x src. It is
+	// what a shadow is: a factor, not a layer of paint. An alpha-blended grey
+	// disc lightens dark ground as much as it darkens light ground, which is
+	// wrong wherever the surface is not the shade the artist assumed.
+	Multiply bool
 	WrapS       int     // glTF sampler wrap enums; 0 = REPEAT
 	WrapT       int
 }
@@ -163,12 +168,15 @@ func (s *Scene) addMaterial(p *Prim) int {
 	if p.Additive {
 		extras["blend"] = "additive"
 	}
+	if p.Multiply {
+		extras["blend"] = "multiply"
+	}
 	// Blending is a property of the material, not of having a texture. A prim
 	// that asks to blend and carries its coverage in COLOR_0 — a soft-edged
 	// decal, a blob shadow — got no alphaMode at all while this lived inside
 	// the texture branch below, and glTF's default is OPAQUE: the alpha was
 	// written into the file and ignored by every renderer reading it.
-	if p.Blend || p.Additive {
+	if p.Blend || p.Additive || p.Multiply {
 		mat["alphaMode"] = "BLEND"
 	}
 	if len(extras) > 0 {
@@ -201,7 +209,7 @@ func (s *Scene) addMaterial(p *Prim) int {
 		s.textures = append(s.textures, map[string]any{"sampler": len(s.samplers) - 1, "source": img})
 		pbr["baseColorTexture"] = map[string]int{"index": len(s.textures) - 1}
 		switch {
-		case p.Blend || p.Additive:
+		case p.Blend || p.Additive || p.Multiply:
 			// already BLEND
 		case p.Opaque:
 			mat["alphaMode"] = "OPAQUE"

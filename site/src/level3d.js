@@ -809,6 +809,15 @@ async function applyLayerMaterialExtras(root, ly, game, docPath) {
       m.depthWrite = false;
       m.needsUpdate = true;
     }
+    if (m.userData?.blend === 'multiply') {
+      m.transparent = true;
+      m.blending = THREE.MultiplyBlending;
+      m.depthWrite = false;
+      m.polygonOffset = true;
+      m.polygonOffsetFactor = -1;
+      m.polygonOffsetUnits = -1;
+      m.needsUpdate = true;
+    }
     if (m.userData?.blend === 'alpha') {
       m.transparent = true;
       m.depthWrite = false;
