@@ -829,20 +829,37 @@ func addShadowMasks(s *glb.Scene, masks []placedMask, ground [][3][3]float32) (i
 		if !ok {
 			continue
 		}
-		// A disc with a solid core and a soft rim. Fanning straight from one
-		// centre vertex to a transparent rim makes the alpha fall linearly
-		// across the whole radius, which averages out to a smudge you cannot
-		// see over a bright lawn — the mask the game projects is a cylinder,
-		// which is mostly solid.
+		// A disc with a full-strength core and a fading rim. Fanning straight
+		// from one centre vertex to a clear rim makes the strength fall
+		// linearly across the whole radius, which averages out to a smudge —
+		// the mask the game projects is a cylinder, which is mostly solid.
 		const segments = 32
-		const core = 0.6 // the fraction of the radius that stays opaque
+		const core = 0.6 // the fraction of the radius at full strength
 		const lift = 1.5 // clear of the surface it lies on, in world units
-		col := [4]uint8{
-			uint8(m.colour[0]*255 + 0.5), uint8(m.colour[1]*255 + 0.5), uint8(m.colour[2]*255 + 0.5), 255}
-		rim := col
-		rim[3] = 0
 
-		pr := glb.Prim{BaseColor: [4]float32{1, 1, 1, 1}, Unlit: true, Blend: true, DoubleSided: true}
+		// The mask's colour is a MULTIPLIER — the game darkens what is under it
+		// to a fifth — so the disc multiplies rather than blends, and it fades
+		// to WHITE at its rim rather than to transparent. Multiplying by one is
+		// what "no shadow here" means; fading a grey disc out with alpha
+		// instead lightens dark ground as much as it darkens light ground, and
+		// reads as fog rather than as shade.
+		//
+		// The colours go out through srgbToLinear because COLOR_0 is linear by
+		// glTF's definition and the renderer encodes the result back to gamma
+		// before blending — which is the space the guest multiplies in
+		// (gamma-space-multiply). Skipping it turns a 0.2 shadow into a 0.48.
+		shade := func(f float32) [4]uint8 {
+			var c [4]uint8
+			for i := 0; i < 3; i++ {
+				v := 1 - (1-m.colour[i])*f // f=1 the mask's colour, f=0 white
+				c[i] = uint8(srgbToLinear(clamp01(float64(v)))*255 + 0.5)
+			}
+			c[3] = 255
+			return c
+		}
+		col, rim := shade(1), shade(0)
+
+		pr := glb.Prim{BaseColor: [4]float32{1, 1, 1, 1}, Unlit: true, Multiply: true, DoubleSided: true}
 		pr.Positions = append(pr.Positions, [3]float32{0, 0, 0})
 		pr.Colors = append(pr.Colors, col)
 		for i := 0; i < segments; i++ {

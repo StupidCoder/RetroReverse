@@ -2045,6 +2045,18 @@ The colours go out through `srgbToLinear` on the way, for the reason
 renderer encodes the result back to gamma before blending, which is the space the
 guest multiplies in. Skipping the conversion turns a 0.2 shadow into a 0.48 one.
 
+⚠ **That change shipped in two halves, and the first commit claimed both.** The
+viewer side, the `glb` writer and the writeup went in; the exporter's own edit —
+the one that sets `Multiply` and emits a white rim — was applied with a scripted
+string replacement that no longer matched, because `gofmt` had already collapsed
+a double space in the line it was anchored to. The build passed, the export ran,
+the triangle count did not change, and the shipped GLB still carried the
+alpha-blended disc. The commit message described a change that was not in it.
+A replacement that does not match has to fail loudly, and an artefact has to be
+read back rather than assumed — the mask material's extras and its first vertex
+colours are two lines to check in the GLB, and they say at once which version is
+in it.
+
 One consequence worth stating: the goal star's placement now plays no animation.
 Its idle is `Wait`, which uses a key encoding this decoder still refuses, and
 every clip it *does* have — the opening cutscene, the goal poses — flies it off
