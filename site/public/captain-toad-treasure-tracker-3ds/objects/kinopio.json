@@ -31,5 +31,13 @@
   }
  ],
  "model": "kinopio.glb",
- "skinnedClone": true
+ "skinnedClone": true,
+ "shadowMask": {
+  "joint": "JointRoot",
+  "offset": [0, 28, 0],
+  "radius": 85,
+  "drop": 600,
+  "color": "#333333",
+  "fadeExp": 5
+ }
 }

@@ -11,6 +11,7 @@ import { arSupported, PerfMeter } from './xr.js';
 import { BillboardBatch } from './billboards.js';
 import { buildInstances, disposeInstances } from './instances.js';
 import { rigFromLights, buildShadowMap, receiveShadows } from './shadowmap.js';
+import { createShadowMask } from './shadowmask.js';
 
 export async function mount(ctx, doc) {
   const { stage: el, game, asset, params } = ctx;
@@ -280,6 +281,19 @@ export async function mount(ctx, doc) {
   // ---- placements ---------------------------------------------------------------------
   const lib = new ObjectLibrary(game, signal);
   const placementById = new Map(); // id -> { pl, inst, node }
+  const masks = [];                // blob shadows, projected each frame
+  // What a blob shadow lands on: the level's own base layers. The caster layer
+  // is geometry nobody sees and the placements are the things casting, so
+  // neither belongs in the target list.
+  const shadowGround = () => {
+    const out = [];
+    for (const [id, rec] of layerNodes) {
+      const ly = (doc.scene?.layers || []).find((l) => l.id === id);
+      if (ly?.role === 'shadow' || !rec.group.visible) continue;
+      out.push(rec.group);
+    }
+    return out;
+  };
   const pickables = [];
   const routeById = new Map((doc.routes || []).map((r) => [r.id, r]));
 
@@ -298,6 +312,20 @@ export async function mount(ctx, doc) {
       receiveShadows(node, shadowPass);
       stage.scene.add(node);
       roots.push(node);
+      // A blob shadow belongs to the object and is projected onto the ground
+      // every frame, so it stays on the floor when its caster rises and follows
+      // the joint when the clip moves it. It is NOT parented to the placement:
+      // it lives where the ground is.
+      const mask = createShadowMask(inst.doc.shadowMask);
+      if (mask) {
+        stage.scene.add(mask.mesh);
+        roots.push(mask.mesh);
+        masks.push(mask);
+        stage.updaters.add(() => {
+          mask.mesh.visible = node.visible;
+          if (node.visible) mask.update(node, shadowGround());
+        });
+      }
       placementById.set(pl.id, { pl, inst, node });
       pickables.push(node);
       if (pl.room != null) {
@@ -745,6 +773,7 @@ export async function mount(ctx, doc) {
       // renderer, Stage.dispose() drops the whole context and none of this is
       // observable — which is exactly why it was never here.
       shadowPass?.dispose();
+      for (const m of masks) m.dispose();
       for (const r of roots) disposeScene(r);
       lib.dispose();
       closeCard();

@@ -2063,3 +2063,40 @@ every clip it *does* have — the opening cutscene, the goal poses — flies it 
 its pedestal. It stands where the map puts it, and its clips are still there to
 play in the object viewer.
 
+
+## Part XXIX — A shadow that belongs to the object, and lands on the ground
+
+The blob shadows worked and were built wrong. They were baked into the level
+GLB, as discs the exporter had already positioned — which is a category error
+twice over.
+
+**A shadow belongs to the thing casting it, not to the floor.** The characters
+are *placements*, resolved from the Retro-X document and instantiated by the
+viewer; their shadows were level geometry. Move a character — and the goal
+star's own opening clip flies it off its pedestal — and the shadow stays behind
+on the stone. A baked disc cannot follow a joint either, so an animated skeleton
+drags nothing with it.
+
+**And a mask is projected onto the GROUND, not hung under the caster.** As the
+star rises, the distance between it and the floor grows: the shadow stays where
+the floor is, and weakens. A disc placed once at export time has neither.
+
+So the mask moved into the document as a property of the *object*:
+
+    "shadowMask": {"joint":"JointRoot","offset":[0,28,0],
+                   "radius":85,"drop":600,"color":"#333333","fadeExp":5}
+
+— every number the game's own `InitShadowMask.byml` states — and `site/src/
+shadowmask.js` projects it each frame: find the joint in the instance, offset in
+its space, cast a ray straight down at the level's base layers, put the disc on
+what it hits, and weaken it by `(1 − fallen/drop)^fadeExp`. Past the reach the
+guest states, an object is over a hole or too high and casts nothing.
+
+`fadeExp` is the guest's own `ExpY`. Its sibling `ExpXZ` sits beside it in the
+same struct, is decoded, and is **not** modelled: it presumably shapes the
+blob's spread over the same distance, and an exponent guessed onto a quantity
+guessed is two inventions rather than one.
+
+The level GLB is back to 7,868 triangles — the stage's own geometry and nothing
+else.
+

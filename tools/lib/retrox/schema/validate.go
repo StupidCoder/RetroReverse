@@ -847,6 +847,19 @@ func (c *checker) checkScript(p string, s *Script, layers map[string]bool, place
 
 // ---------------------------------------------------------------------------
 
+// hexColor accepts the "#rrggbb" the documents use for colours.
+func hexColor(s string) bool {
+	if len(s) != 7 || s[0] != '#' {
+		return false
+	}
+	for _, r := range s[1:] {
+		if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'f' || r >= 'A' && r <= 'F') {
+			return false
+		}
+	}
+	return true
+}
+
 func (c *checker) checkObject(p string, o *Object, assets map[string]*Asset) {
 	if o.Name == "" {
 		c.warnf(p, "object has no name")
@@ -866,6 +879,24 @@ func (c *checker) checkObject(p string, o *Object, assets map[string]*Asset) {
 		case "once", "loop", "pingpong", "hold":
 		default:
 			c.errf(p+": animation "+a.ID, "unknown loop mode %q", a.Loop)
+		}
+	}
+
+	if m := o.ShadowMask; m != nil {
+		if m.Radius <= 0 {
+			c.errf(p, "shadowMask needs a positive radius")
+		}
+		if m.Drop <= 0 {
+			c.errf(p, "shadowMask needs a positive drop")
+		}
+		if len(m.Offset) != 0 && len(m.Offset) != 3 {
+			c.errf(p, "shadowMask offset must be [x,y,z]")
+		}
+		if m.Color != "" && !hexColor(m.Color) {
+			c.errf(p, "shadowMask color %q is not #rrggbb", m.Color)
+		}
+		if m.FadeExp < 0 {
+			c.errf(p, "shadowMask fadeExp must not be negative")
 		}
 	}
 

@@ -23,7 +23,6 @@ package main
 import (
 	"fmt"
 	"image"
-	"math"
 	"strings"
 
 	"retroreverse.com/tools/lib/glb"
@@ -89,35 +88,35 @@ var characterLights = []schema.Light{
 
 // exportActors writes one GLB per actor and returns the objects and the
 // placements the stage's map asks for.
-func exportActors(fs *n3ds.RomFS, stage string, path func(rel ...string) (string, error)) ([]objectAsset, []schema.Placement, []shadowCaster, []placedMask, error) {
+func exportActors(fs *n3ds.RomFS, stage string, path func(rel ...string) (string, error)) ([]objectAsset, []schema.Placement, []shadowCaster, error) {
 	places, err := readActorPlacements(fs, stage)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 	cache := map[string]*objectArchive{}
 	var objs []objectAsset
 	for _, a := range actors {
 		out, err := path("objects", a.id+".glb")
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, err
 		}
 		tris, clips, skinned, err := exportActor(fs, a, out, cache)
 		if err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("%s: %w", a.id, err)
+			return nil, nil, nil, fmt.Errorf("%s: %w", a.id, err)
+		}
+		mask, err := objectShadowMask(fs, a)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("%s: %w", a.id, err)
 		}
 		objs = append(objs, objectAsset{
-			actor: a, file: a.id + ".glb", tris: tris, clips: clips, skinned: skinned,
+			actor: a, file: a.id + ".glb", tris: tris, clips: clips, skinned: skinned, mask: mask,
 		})
 	}
 	casters, err := actorShadowCasters(fs, places, cache)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
-	masks, err := actorShadowMasks(fs, places, cache)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	return objs, places, casters, masks, nil
+	return objs, places, casters, nil
 }
 
 // objectAsset is one written actor, ready to be registered with the builder.
@@ -137,6 +136,9 @@ type objectAsset struct {
 	// is what asks for SkeletonUtils.clone instead, and it also keeps the object
 	// out of the instanced-batching path, which drops skinning altogether.
 	skinned bool
+
+	// mask is the blob shadow the object drops, for the viewer to project.
+	mask *schema.ShadowMask
 }
 
 // exportActor writes one actor's GLB: its skeleton, its skinned meshes with the
@@ -759,11 +761,12 @@ const depthShadowCategory = "デプスシャドウ"
 // how far below the joint the game looks for a surface; Colour is the
 // multiplier it tints with.
 type shadowMask struct {
-	joint  string
-	offset [3]float32
-	radius float32
-	drop   float32
-	colour [3]float32
+	joint   string
+	offset  [3]float32
+	radius  float32
+	drop    float32
+	colour  [3]float32
+	fadeExp float64
 }
 
 // castsDepthShadow reports whether an object's InitExecutor lists it in the
@@ -808,6 +811,11 @@ func readShadowMask(arc *n3ds.SARC) (*shadowMask, error) {
 		offset: vec3(m["Offset"]),
 		radius: float32(num(m["Radius"])),
 		drop:   float32(num(m["DropLength"])),
+		// ExpY is the guest's own exponent for how the mask weakens as its
+		// caster rises. ExpXZ sits beside it and is NOT modelled: it presumably
+		// shapes the blob's spread over the same distance, and a guessed
+		// exponent on a guessed quantity is two inventions.
+		fadeExp: num(m["ExpY"]),
 	}
 	if c, ok := m["Color"].(n3ds.BYMLDict); ok {
 		sm.colour = [3]float32{float32(num(c["R"])), float32(num(c["G"])), float32(num(c["B"]))}
@@ -826,102 +834,48 @@ func readShadowMask(arc *n3ds.SARC) (*shadowMask, error) {
 
 func str(v any) string { s, _ := v.(string); return s }
 
-// placedMask is one actor's blob shadow in world space, ready to be dropped
-// onto whatever is beneath it.
-type placedMask struct {
-	name   string
-	centre [3]float32
-	radius float32
-	drop   float32
-	colour [3]float32
-}
-
-// actorShadowMasks resolves each placed actor's blob shadow: where its own
-// InitShadowMask hangs it, in world space.
+// objectShadowMask turns an actor's InitShadowMask into the Retro-X document's
+// own form, for the VIEWER to project.
 //
-// The joint the mask names is posed with the clip the placement starts, so a
-// character crouching drops its shadow lower — and then the placement's own
-// transform puts it in the stage.
-func actorShadowMasks(fs *n3ds.RomFS, places []schema.Placement, cache map[string]*objectArchive) ([]placedMask, error) {
-	byID := map[string]actor{}
-	for _, a := range actors {
-		byID[a.id] = a
+// It is deliberately not baked. A character is a placement, not level geometry,
+// and it moves — Captain Toad's goal star flies off its pedestal during the
+// opening clip. A disc written into the level GLB stays on the stone where the
+// exporter put it. Worse, it stays the same size and darkness however far the
+// caster has risen, when what a mask does is sit on the GROUND under whatever
+// it hangs from and weaken with the distance.
+//
+// So the document carries the joint, the offset, the radius, the reach and the
+// colour, and the viewer drops a ray each frame.
+func objectShadowMask(fs *n3ds.RomFS, a actor) (*schema.ShadowMask, error) {
+	raw, err := fs.File("/ObjectData/" + a.object + ".szs")
+	if err != nil {
+		return nil, err
 	}
-	var out []placedMask
-	for _, pl := range places {
-		a, ok := byID[pl.Object]
-		if !ok {
-			continue
-		}
-		raw, err := fs.File("/ObjectData/" + a.object + ".szs")
-		if err != nil {
-			return nil, err
-		}
-		arc, err := n3ds.OpenSZS(raw)
-		if err != nil {
-			return nil, err
-		}
-		sm, err := readShadowMask(arc)
-		if err != nil || sm == nil {
-			if err != nil {
-				return nil, fmt.Errorf("%s: %w", a.id, err)
-			}
-			continue
-		}
-		o, err := loadObject(fs, a.object, cache)
-		if err != nil {
-			return nil, err
-		}
-		model := o.Model
-		if model == nil {
-			continue
-		}
-		world, err := posedWorld(fs, model, a, cache)
-		if err != nil {
-			return nil, err
-		}
-		// The joint the mask hangs from.
-		local := sm.offset
-		found := false
-		for i, b := range model.Bones {
-			if b.Name != sm.joint {
-				continue
-			}
-			w := world[i]
-			local = [3]float32{
-				float32(w[3]) + sm.offset[0],
-				float32(w[7]) + sm.offset[1],
-				float32(w[11]) + sm.offset[2],
-			}
-			found = true
-			break
-		}
-		if !found {
-			return nil, fmt.Errorf("%s: shadow mask hangs from joint %q, which the model does not have", a.id, sm.joint)
-		}
-		// Into the stage, through the placement's own transform.
-		p := applyPlacement(local, pl)
-		out = append(out, placedMask{
-			name: a.id + "-mask", centre: p, radius: sm.radius, drop: sm.drop, colour: sm.colour,
-		})
+	arc, err := n3ds.OpenSZS(raw)
+	if err != nil {
+		return nil, err
 	}
-	return out, nil
+	sm, err := readShadowMask(arc)
+	if err != nil || sm == nil {
+		return nil, err
+	}
+	return &schema.ShadowMask{
+		Joint:   sm.joint,
+		Offset:  []float64{float64(sm.offset[0]), float64(sm.offset[1]), float64(sm.offset[2])},
+		Radius:  float64(sm.radius),
+		Drop:    float64(sm.drop),
+		Color:   fmt.Sprintf("#%02x%02x%02x", clampByte(sm.colour[0]), clampByte(sm.colour[1]), clampByte(sm.colour[2])),
+		FadeExp: sm.fadeExp,
+	}, nil
 }
 
-// applyPlacement puts a model-space point into the stage, through a placement's
-// rotation and translation.
-func applyPlacement(p [3]float32, pl schema.Placement) [3]float32 {
-	r := vec3f(pl.Rot)
-	const d2r = math.Pi / 180
-	// The map's rotation composes X then Y then Z (eulerXYZ), so the matrix is
-	// Rz·Ry·Rx and the point goes through it in that order.
-	x, y, z := float64(p[0]), float64(p[1]), float64(p[2])
-	sx, cx := math.Sin(float64(r[0])*d2r), math.Cos(float64(r[0])*d2r)
-	y, z = y*cx-z*sx, y*sx+z*cx
-	sy, cy := math.Sin(float64(r[1])*d2r), math.Cos(float64(r[1])*d2r)
-	x, z = x*cy+z*sy, -x*sy+z*cy
-	sz, cz := math.Sin(float64(r[2])*d2r), math.Cos(float64(r[2])*d2r)
-	x, y = x*cz-y*sz, x*sz+y*cz
-	t := vec3f(pl.Pos)
-	return [3]float32{float32(x) + t[0], float32(y) + t[1], float32(z) + t[2]}
+func clampByte(v float32) int {
+	i := int(v*255 + 0.5)
+	if i < 0 {
+		i = 0
+	}
+	if i > 255 {
+		i = 255
+	}
+	return i
 }

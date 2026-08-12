@@ -578,8 +578,50 @@ type Object struct {
 	// wireframe3d
 	Wireframe *Wireframe `json:"wireframe,omitempty"`
 
+	// ShadowMask is the blob shadow the object drops beneath itself.
+	ShadowMask *ShadowMask `json:"shadowMask,omitempty"`
+
 	Stats map[string]any `json:"stats,omitempty"`
 	Props map[string]any `json:"props,omitempty"`
+}
+
+// ShadowMask is a blob shadow that belongs to an OBJECT rather than to the
+// level it stands in, and is projected at run time rather than baked.
+//
+// That distinction is the whole point of it. A character is a placement, not
+// level geometry, and it moves: it is animated, and a viewer may move it. A
+// shadow baked into the level GLB is stuck where the exporter left it, so the
+// first time the thing casting it moves — Captain Toad's goal star flies off
+// its pedestal during the opening — the shadow stays behind on the stone.
+//
+// It is also what several guests actually do. Rather than render a character
+// into a depth-shadow pass, they drop a disc from a named joint onto whatever
+// is under it, at a stated radius, and multiply. Captain Toad's characters are
+// configured exactly that way and are excluded from its depth-shadow pass.
+type ShadowMask struct {
+	// Joint is the node in the model's own hierarchy the mask hangs from; the
+	// mask follows it, so an animated skeleton drags the shadow with it. Empty
+	// means the object's own origin.
+	Joint string `json:"joint,omitempty"`
+
+	// Offset moves it in the joint's space before the drop.
+	Offset []float64 `json:"offset,omitempty"`
+
+	// Radius is the blob's radius in world units, and Drop how far below the
+	// joint to look for a surface. Beyond that the object is over a hole and
+	// casts nothing.
+	Radius float64 `json:"radius"`
+	Drop   float64 `json:"drop"`
+
+	// Color is the factor the surface under it is multiplied by — a shadow is
+	// a multiply, not a layer of grey paint. Default black.
+	Color string `json:"color,omitempty"`
+
+	// FadeExp shapes how the mask weakens as its caster rises off the ground:
+	// the strength is (1 - drop_fraction)^FadeExp, so a high exponent keeps the
+	// shadow solid until the caster is well clear and then lets it go quickly.
+	// 1 is a straight linear fade; 0 or absent means no fade at all.
+	FadeExp float64 `json:"fadeExp,omitempty"`
 }
 
 // ModelVariant names one independent alternate of a model3d — an extra glTF

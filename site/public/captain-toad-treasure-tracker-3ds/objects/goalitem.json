@@ -21,5 +21,13 @@
   }
  ],
  "model": "goalitem.glb",
- "skinnedClone": true
+ "skinnedClone": true,
+ "shadowMask": {
+  "joint": "GoalItem",
+  "offset": [0, 12, 0],
+  "radius": 70,
+  "drop": 100,
+  "color": "#333333",
+  "fadeExp": 4
+ }
 }
