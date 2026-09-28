@@ -1,0 +1,4 @@
+work/
+web/core.js
+web/core.wasm
+__pycache__/
