@@ -183,3 +183,11 @@ static void stateRead(rrstate::Archive&a){requireMachine();a.header(2,1);auto ne
 
 extern "C" const char*rr_source(uint32_t address,int size,uint32_t before,uint32_t expected){text=rrcapture::trace.pixel(address,size,before,expected);return text.c_str();}
 extern "C" const char*rr_resource(uint32_t id,uint32_t offset){text=rrcapture::trace.resourceJSON(id,offset);return text.c_str();}
+
+#include "../../../../browser/core/replay.h"
+static std::vector<uint32_t> replayPixels;
+extern "C" uint32_t*rr_replay_frame(){auto&t=rrcapture::trace;auto&r=rrreplay::replay;int w=machine->gpu.dispW,h=machine->gpu.dispH;replayPixels.resize(w*h);for(int y=0;y<h;y++)for(int x=0;x<w;x++){auto v=t.value(r.memory,(((y+originY)&511)*1024+((x+originX)&1023))*2,2);replayPixels[y*w+x]=0xff000000|((v&31)<<3)|(((v>>5)&31)<<11)|(((v>>10)&31)<<19);}return replayPixels.data();}
+extern "C" const char*rr_replay_begin(){rrreplay::replay.begin();static std::string s;s=rrreplay::replay.info();return s.c_str();}
+extern "C" int rr_replay_seek(uint32_t step){return rrreplay::replay.seek(step);}
+extern "C" const char*rr_replay_info(){static std::string s;s=rrreplay::replay.info();return s.c_str();}
+extern "C" uint32_t rr_replay_for_write(uint32_t id){return rrreplay::replay.forWrite(id);}

@@ -99,3 +99,11 @@ const char*rr_pixel(int x,int y){if(!capBuffer)return "{\"blank\":true,\"contrib
 
 extern "C" const char*rr_source(uint32_t address,int size,uint32_t before,uint32_t expected){reply=rrcapture::trace.pixel(address,size,before,expected);return reply.c_str();}
 extern "C" const char*rr_resource(uint32_t id,uint32_t offset){reply=rrcapture::trace.resourceJSON(id,offset);return reply.c_str();}
+
+#include "../../../../browser/core/replay.h"
+static std::vector<uint32_t> replayPixels;
+extern "C" uint32_t*rr_replay_frame(){auto&t=rrcapture::trace;auto&r=rrreplay::replay;replayPixels.assign(320*240,0xff000000);if(capBuffer)for(int y=0;y<240;y++)for(int x=0;x<320;x++){auto v=t.value(r.memory,capBuffer+(y/2)*320*4+x*4+(y&1)*2,2);v=((v&255)<<8)|(v>>8);auto ex=[](uint32_t a){return (a<<3)|(a>>2);};replayPixels[y*320+x]|=ex(v>>10&31)|(ex(v>>5&31)<<8)|(ex(v&31)<<16);}return replayPixels.data();}
+extern "C" const char*rr_replay_begin(){rrreplay::replay.begin();static std::string s;s=rrreplay::replay.info();return s.c_str();}
+extern "C" int rr_replay_seek(uint32_t step){return rrreplay::replay.seek(step);}
+extern "C" const char*rr_replay_info(){static std::string s;s=rrreplay::replay.info();return s.c_str();}
+extern "C" uint32_t rr_replay_for_write(uint32_t id){return rrreplay::replay.forWrite(id);}

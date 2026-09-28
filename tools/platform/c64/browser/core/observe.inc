@@ -79,6 +79,8 @@ struct Pixel {uint64_t cycle=0;uint32_t graphics=0,control=0,sprites[8]={},point
 constexpr unsigned REF_CAP=100000, GRAPH_CAP=32768, CONTROL_CAP=8192;
 static Ref refs[REF_CAP];static Graphics graphs[GRAPH_CAP];static Control controls[CONTROL_CAP];
 static Pixel captured[392*272];
+static uint32_t replayInitial[392*272],replayPixels[392*272];
+static unsigned replayCursor=0;
 static uint32_t refCount=1,graphCount=1,controlCount=1,overflow=0;
 static uint32_t screenRefs[64],colorRefs[64],pointerRefs[8],spriteBits[8][32],spriteOut[8][2],pendingGraph=0,activeGraph=0,currentControl=0;
 static uint64_t controlCycle=0,captureStart=0,captureEnd=0;
@@ -148,7 +150,7 @@ const char* rr_memory(int space,int address){
  for(int i=0;i<16;i++){if(i)json+=",";json+=std::to_string(valueAt(space,(address&0xfff0)+i));}json+="]}";return json.c_str();
 }
 void rr_capture_begin(){
- using namespace observation;capturing=true;refCount=graphCount=controlCount=1;overflow=0;pendingGraph=activeGraph=currentControl=0;controlCycle=0;captureStart=ctx.cycles;captureEnd=0;captureGeneration=ctx.generation;
+ using namespace observation;for(int y=0;y<272;y++)for(int x=0;x<392;x++)replayInitial[y*392+x]=m6569_color(machine.fb[y*M6569_FRAMEBUFFER_WIDTH+x]&15);capturing=true;refCount=graphCount=controlCount=1;overflow=0;pendingGraph=activeGraph=currentControl=0;controlCycle=0;captureStart=ctx.cycles;captureEnd=0;captureGeneration=ctx.generation;
  memset(captured,0,sizeof captured);memset(screenRefs,0,sizeof screenRefs);memset(colorRefs,0,sizeof colorRefs);memset(pointerRefs,0,sizeof pointerRefs);memset(spriteBits,0,sizeof spriteBits);memset(spriteOut,0,sizeof spriteOut);memset(regCache,0,sizeof regCache);
 }
 void rr_capture_end(){observation::capturing=false;observation::captureEnd=ctx.cycles;}
@@ -170,3 +172,9 @@ const char* rr_pixel(int x,int y){
  for(int i:{0x11,0x16,0x18})add(c.refs[i],"raster-time control");add(c.bank,"raster-time VIC bank control");add(c.bankDDR,"raster-time VIC bank direction");json+="]}";return json.c_str();
 }
 }
+
+extern "C" const char*rr_replay_info(){using namespace observation;json="{\"count\":272,\"cursor\":"+std::to_string(replayCursor)+",\"cacheBytes\":0,\"complete\":"+(overflow?"false":"true")+",\"command\":{\"kind\":\"VIC visible raster line\"}}";return json.c_str();}
+extern "C" const char*rr_replay_begin(){using namespace observation;replayCursor=0;memcpy(replayPixels,replayInitial,sizeof replayPixels);return rr_replay_info();}
+extern "C" int rr_replay_seek(unsigned step){using namespace observation;step=std::min(step,272u);memcpy(replayPixels,replayInitial,sizeof replayPixels);for(unsigned y=0;y<step;y++)for(unsigned x=0;x<392;x++)replayPixels[y*392+x]=m6569_color(captured[y*392+x].color&15);replayCursor=step;return 1;}
+extern "C" uint32_t*rr_replay_frame(){return observation::replayPixels;}
+extern "C" uint32_t rr_replay_for_write(uint32_t y){return std::min(y+1,272u);}

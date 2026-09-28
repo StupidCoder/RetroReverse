@@ -23,7 +23,7 @@ export function pixelCoordinates(rect, width, height, clientX, clientY) {
 }
 const hex = (n, width = 8) =>
     '0x' + (Number(n) >>> 0).toString(16).padStart(width, '0');
-export function createInspector({platform, canvas, send}) {
+export function createInspector({platform, canvas, send, jump}) {
   const $ = id => document.getElementById(id);
   let capture = null, pixels = null, latest = 0, current = null,
       selected = null, rows = [];
@@ -117,6 +117,7 @@ export function createInspector({platform, canvas, send}) {
       b.setAttribute('aria-pressed', String(Number(b.dataset.index) === index));
     const el = $('event-detail');
     el.replaceChildren();
+    if(c.replayStep!==undefined&&jump){const b=document.createElement('button');b.textContent='Show rendering step';b.onclick=()=>jump(c.replayStep);el.append(b);}
     if (platform === 'c64') {
       line(el, 'Role', c.role);
       if (c.missing) {

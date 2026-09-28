@@ -1,0 +1,3 @@
+#include "../core/replay.h"
+#include <cassert>
+int main(){using namespace rrcapture;uint8_t ram[16]={};trace.begin(ram,16);trace.event(1,2,"{\"kind\":\"fill\"}");trace.record(0,0x04030201,4,1,2,1);trace.event(2,2,"{\"kind\":\"rejected\"}");trace.record(0,0,4,2,2,2,4);trace.record(4,9,1,3,4);ram[0]=1;ram[1]=2;ram[2]=3;ram[3]=4;ram[4]=9;trace.end(ram,16);auto&r=rrreplay::replay;r.begin();assert(r.steps.size()==3);while(!r.seek(3,1)){}assert(r.memory==trace.final);assert(r.seek(0));assert(r.memory==trace.initial);assert(r.seek(1));assert(r.memory[0]==1&&r.memory[4]==0);assert(r.seek(3));assert(r.seek(2));assert(r.memory[0]==1&&r.memory[4]==0);assert(r.forWrite(3)==3);assert(!r.checkpoints.empty());}

@@ -1,3 +1,4 @@
+import {createReplay} from './replay.js';
 import {createInspector} from './inspector.js';
 import {platforms} from './platforms.js';
 const $ = id => document.getElementById(id),
@@ -14,7 +15,8 @@ $('help').textContent = config.help;
 $('compat').textContent = config.compat;
 $('tape').hidden = platform !== 'c64';
 const send = (type, data = {}) => {const id=++request;worker?.postMessage({type,session,request:id,...data});return id;};
-const inspector=createInspector({platform,canvas,send});
+const replay=createReplay({canvas,send});
+const inspector=createInspector({platform,canvas,send,jump:step=>replay.seek(step)});
 function controls(on) {
   for (const id of ['run', 'pause', 'reset', 'step', 'save'])
     $(id).disabled = !on;
@@ -71,7 +73,7 @@ function load(stateFile=null) {
     }else if(m.type==='message')$('status').textContent=m.text;
   };
   candidate.onerror=e=>{candidate.terminate();pendingWorker=null;loaded=previousLoaded;controls(loaded);$("pause").disabled=true;$('status').textContent='State/load worker failed: '+e.message+'. Current machine retained.';};
-  inspector.reset();sources.clear();
+  inspector.reset();replay.reset();sources.clear();
   c64Keys.clear();
   lastInput = '';
   loaded = false;
@@ -132,12 +134,13 @@ function load(stateFile=null) {
     } else if(m.type==='capture-progress'){
       $('status').textContent=m.text;$('cancelcapture').hidden=false;
       $('run').disabled=$('step').disabled=$('save').disabled=true;
+    } else if(m.type==='seek'||m.type==='seek-progress'){replay.result(m);
     } else if(m.type==='pixel'||m.type==='source'||m.type==='resource'){inspector.result(m);
     } else if(m.type==='capture-cleared'){
-      inspector.reset();
+      inspector.reset();replay.reset();
       $('capture-note').textContent='Pause to record the next complete display interval.';$('cancelcapture').hidden=true;
     } else if(m.type==='capture'){
-      inspector.setCapture(m);showProfile(m.profile,true);lastTime=performance.now();lastSteps=m.end.steps;lastFrames=m.end.frames;rate='';
+      inspector.setCapture(m);replay.setCapture(m);showProfile(m.profile,true);lastTime=performance.now();lastSteps=m.end.steps;lastFrames=m.end.frames;rate='';
       $('cancelcapture').hidden=true;
       $('capture-note').textContent=`Captured display ${m.start.frames}–${m.end.frames} · ${(m.elapsedMs/1000).toFixed(2)} s capture · longest call ${m.maxCall.toFixed(1)} ms · ${((m.info.bytes+m.checkpointBytes)/1048576).toFixed(1)} MiB evidence/checkpoints${m.info.overflow?' · incomplete: trace limit reached':''}`;
     } else if(m.type==='saved'){
@@ -180,7 +183,7 @@ for (const id of ['run', 'pause', 'step'])
         id === 'pause' ? 'Preparing a complete-frame capture…'
         : id === 'run' ? 'Running local image.'
                        : 'Advancing one display boundary…';
-    if(id==='run'||id==='step'){inspector.reset();release();}
+    if(id==='run'||id==='step'){inspector.reset();replay.reset();release();}
     send(id);
     if (id === 'run')
       canvas.focus();

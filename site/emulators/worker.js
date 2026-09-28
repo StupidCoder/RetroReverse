@@ -20,6 +20,7 @@ async function saveState(){
  paint();send("saved",{bytes:bytes.buffer});
 }
 
+let seekGeneration=0;
 let capture=null,capturing=false,captureGeneration=0,captureProfileStart=null,captureRunMs=0,maxCaptureCall=0;
 function finishCaptureProfile(){
  if(!captureProfileStart)return null;const p=json('_rr_profile');
@@ -172,7 +173,7 @@ async function pump(id, one = false) {
 function coreState(){const n=core._rr_state_save();check(n);if(n>32*1024*1024)throw Error('Capture checkpoint exceeds the 32 MiB budget');const p=core._rr_state_data();return core.HEAPU8.slice(p,p+n);}
 function cancelCapture(){
  if(capturing){core._rr_capture_end();finishCaptureProfile();capturing=false;}
- capture=null;captureGeneration++;send('capture-cleared');
+ capture=null;captureGeneration++;seekGeneration++;send('capture-cleared');
 }
 async function captureNext(){
  running=false;const id=++epoch;cancelCapture();const generation=captureGeneration;capturing=true;captureRunMs=maxCaptureCall=0;captureProfileStart=Object.fromEntries(json('_rr_profile').buckets.map(b=>[b.name,b.ms]));
@@ -194,15 +195,32 @@ async function captureNext(){
    core._rr_capture_begin();
    await boundary('Recording next complete interval.');
    core._rr_capture_end();const captureProfile=finishCaptureProfile();capturing=false;
-   const endState=coreState(),end=status(),info=json('_rr_capture_info');
+   const endState=coreState(),end=status(),info=json('_rr_capture_info'),replay=json('_rr_replay_begin');
    const w=platform==='c64'?392:end.width||320,h=platform==='c64'?272:end.height||240,p=core._rr_frame();
    const pixels=core.HEAPU8.slice(p,p+w*h*4);
+   // Validate visible output rather than assuming every memory space is watched.
+   while(!core._rr_replay_seek(replay.count)){await sleep(0);if(id!==epoch)return;}
+   const rp=core._rr_replay_frame();
+   replay.complete=replay.complete&&pixels.every((v,i)=>core.HEAPU8[rp+i]===v);
+   core._rr_replay_seek(0);
    const frameHash=await digest(pixels);
    if(id!==epoch)return;
    capture={id:generation,startState,endState,start,end,input,width:w,height:h,pixels,info,frameHash};
-   paint();send('capture',{id:generation,start,end,width:w,height:h,info,frameHash,elapsedMs:performance.now()-began,checkpointBytes:startState.length+endState.length,profile:captureProfile,runMs:captureRunMs,maxCall:maxCaptureCall});
+   paint();send('capture',{id:generation,replay,start,end,width:w,height:h,info,frameHash,elapsedMs:performance.now()-began,checkpointBytes:startState.length+endState.length,profile:captureProfile,runMs:captureRunMs,maxCall:maxCaptureCall});
    send('message',{text:info.overflow?'Paused. Capture limit reached; some evidence is missing.':'Paused. A complete display interval is ready to inspect.'});
  }catch(e){if(id===epoch){if(capturing)core._rr_capture_end();finishCaptureProfile();capturing=false;capture=null;paint();send('error',{text:String(e)});}}
+}
+function pixelEvidence(x,y){const p=jsonPixel(x,y);for(const c of p.contributors||[])c.replayStep=core._rr_replay_for_write(platform==='c64'?y:c.id);return p;}
+async function seekReplay(m){
+ if(!capture||capture.id!==m.capture)return;
+ const gen=++seekGeneration,c=capture,began=performance.now();let progress=began;
+ while(!core._rr_replay_seek(m.step)){
+  if(performance.now()-progress>100){progress=performance.now();send('seek-progress',{capture:c.id,request:m.request});}
+  await sleep(0);if(gen!==seekGeneration||capture!==c)return;
+ }
+ if(gen!==seekGeneration||capture!==c)return;
+ const p=core._rr_replay_frame(),pixels=core.HEAPU8.slice(p,p+c.width*c.height*4);
+ send('seek',{capture:c.id,request:m.request,pixels:pixels.buffer,info:json('_rr_replay_info'),elapsedMs:performance.now()-began});
 }
 async function boot(m) {
   bootOptions=m;session=m.session;
@@ -319,8 +337,10 @@ onmessage = async ({data : m}) => {
     }
     if (m.session !== session || !loaded)
       return;
+    if(m.type==='seek'){await seekReplay(m);return;}
+    if(m.type==='cancel-seek'){seekGeneration++;return;}
     if(m.type==='save'){await saveState();return;}
-    if(m.type==='pixel'){if(!capture||m.capture!==capture.id)return;send('pixel',{capture:capture.id,x:m.x,y:m.y,evidence:jsonPixel(m.x,m.y),request:m.request});return;}
+    if(m.type==='pixel'){if(!capture||m.capture!==capture.id)return;send('pixel',{capture:capture.id,x:m.x,y:m.y,evidence:pixelEvidence(m.x,m.y),request:m.request});return;}
     if(m.type==='source'||m.type==='resource'){
       if(!capture||m.capture!==capture.id)return;
       const fn=m.type==='source'?core._rr_source:core._rr_resource;
