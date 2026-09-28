@@ -1,0 +1,108 @@
+[
+  {
+    "capture": {
+      "events": 4452,
+      "writes": 2342966,
+      "overflow": 0,
+      "bytes": 376682041
+    },
+    "heap": 1664679936
+  },
+  {
+    "seconds": 8.258368959,
+    "stateBytes": 73788113,
+    "stateContinuation": true,
+    "replayFinal": true,
+    "replayIsolated": true,
+    "capture": {
+      "events": 4452,
+      "writes": 2342966,
+      "overflow": 0,
+      "bytes": 376682041
+    },
+    "replaySteps": 8632,
+    "profile": {
+      "sampled": false,
+      "buckets": [
+        {
+          "name": "ARM11 / Horizon scheduler",
+          "ms": 49.7773,
+          "longestMs": 1995.66,
+          "tag": 0
+        },
+        {
+          "name": "PICA commands / vertex processing",
+          "ms": 20.118,
+          "longestMs": 971.994,
+          "tag": 0
+        },
+        {
+          "name": "PICA software rasterizer",
+          "ms": 6213.31,
+          "longestMs": 167.332,
+          "tag": 0
+        },
+        {
+          "name": "GX memory / display transfers",
+          "ms": 264.066,
+          "longestMs": 18.3344,
+          "tag": 0
+        },
+        {
+          "name": "DSP HLE mixer",
+          "ms": 1.78092,
+          "longestMs": 0.897667,
+          "tag": 0
+        }
+      ]
+    }
+  },
+  {
+    "workload": "welcome dialog, three display intervals, Node/WASM",
+    "capture": {
+      "events": 11186,
+      "writes": 2909047,
+      "overflow": 0,
+      "bytes": 418012791
+    },
+    "heap": 1568407552,
+    "replaySteps": 24040,
+    "replayFinal": true,
+    "sampledPixelsWithTransferHistory": [
+      [
+        200,
+        120
+      ],
+      [
+        100,
+        100
+      ],
+      [
+        200,
+        400
+      ],
+      [
+        150,
+        300
+      ]
+    ]
+  },
+  {
+    "workload": "Chromium welcome dialog, displays 316\u2013319",
+    "captureSeconds": 5.36,
+    "replaySteps": 23822,
+    "heapMiB": 1637,
+    "pixel": [
+      200,
+      120
+    ],
+    "pixelColor": "#089a00",
+    "pixelReconstruction": true,
+    "historicalSourceReconstruction": true,
+    "historicalSourceKinds": [
+      "GX memory fill",
+      "PICA register write"
+    ],
+    "seekToTransfer": true
+  }
+]

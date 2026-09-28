@@ -5,6 +5,9 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#ifndef RR_CAPTURE_WRITE_CAP
+#define RR_CAPTURE_WRITE_CAP 1048576
+#endif
 namespace rrcapture {
 struct Event {
   uint64_t clock;
@@ -23,7 +26,7 @@ struct Write {
           flags = 0; // 1 written, 2 depth reject, 4 alpha/transparent reject
 };
 struct Recorder {
-  static constexpr size_t WRITE_CAP = 1048576, EVENT_CAP = 16384,
+  static constexpr size_t WRITE_CAP = RR_CAPTURE_WRITE_CAP, EVENT_CAP = 16384,
                           META_CAP = 16 * 1024 * 1024;
   bool active = false, valid = false, rendering = false;
   uint32_t base = 0, current = 0, overflow = 0;

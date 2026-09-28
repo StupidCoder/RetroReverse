@@ -10,7 +10,7 @@ for name,wanted in release['assets'].items():
  assert hashlib.sha256(p.read_bytes()).hexdigest()==wanted,f'Hash mismatch: {p}'
  assert hashlib.sha256((out/name).read_bytes()).hexdigest()==wanted,f'Run package.py after modifying {name}'
  assert p.stat().st_size<=25*1024*1024,f'Asset too large: {p}'
-for slug in ['c64','ps1','n64','3do']:
+for slug in ['c64','ps1','n64','3do','ds','3ds']:
  html=(out/slug/'index.html').read_text();assert f"../releases/{release['id']}/app.js" in html
  assert f"../releases/{release['id']}/style.css" in html
  assert (base/f'cores/{slug}/core.wasm').read_bytes()[:4]==b'\0asm'
@@ -21,4 +21,4 @@ for name in ['app.js','worker.js','media.js','state.js','inspector.js','replay.j
  assert not re.search(r"method\s*:\s*['\"](?:POST|PUT|PATCH)",s),f'Upload path in {name}'
 assert (site/'index.html').is_file();assert 'emulators/' in (site/'src/app.js').read_text()
 assert 'Cache-Control: no-cache' in (site/'_headers').read_text()
-print(f"PASS: release {release['id']}, {len(release['assets'])} pinned assets, firmware hashes, four direct routes and static network contract")
+print(f"PASS: release {release['id']}, {len(release['assets'])} pinned assets, firmware hashes, six direct routes and static network contract")

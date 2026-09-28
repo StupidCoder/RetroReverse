@@ -6,9 +6,11 @@ root=Path(__file__).resolve().parents[3]
 skip={
  'n64_Machine':{'ROM'},'r4300_CPU':{'bus','fetch'},'rsp_CPU':{'regs','DMEM','IMEM'},
  'threedo_diskStream':{'data'}, 'threedo_CvidMovie':{'Frames'},
+ 'arm_CPU':{'bus','wide'}, 'nds_ROM':{'Data'}, 'dsmachine_card':{'rom'}, 'dsmachine_vram':{'pages'},
+ 'n3ds_Machine':{'romfs','romfsRaw','pages','prof'}, 'n3ds_fsFile':{'data'},
  'arm60_CPU':{'bus','SWI'},'threedo_Volume':{'img'},
 }
-for platform in ['n64','threedo']:
+for platform in ['n64','threedo','nds','n3ds']:
  source=(root/f'tools/platform/{platform}/browser/core/generated.cpp').read_text()
  records=[]
  for start in re.finditer(r'struct (\w+)\s*\{',source):
@@ -29,6 +31,8 @@ for platform in ['n64','threedo']:
    if 'std::function' in field:continue
    m=re.search(r'(\w+)\s*(?:\{\})?$',field)
    if not m:raise Exception((name,field))
+   if platform=='n3ds' and (m[1] in {'Census','workers','texCache','dec','decEpoch','shEpoch','decodedAll','prof'}):continue
+   if name.startswith('Anon') and platform=='n3ds':continue
    if m[1] not in skip.get(name,set()):fields.append('v.'+m[1])
   out.append(f'inline void stateFields(rrstate::Archive&a,{name}&v){{a('+','.join(fields)+');}')
  (root/f'tools/platform/{platform}/browser/core/state-fields.h').write_text('\n'.join(out)+'\n')

@@ -10,3 +10,7 @@ assert.deepEqual(decodedColor('n64',0x01f8,2),[248,0,0,255]);
 assert.deepEqual(decodedColor('3do',0x007c,2),[255,0,0,255]);
 assert.deepEqual(decodedColor('n64',0x12345678,4),[120,86,52,255]);
 console.log('Coordinate scaling/letterboxing and modeled scanout colors passed');
+
+assert.deepEqual(decodedColor('ds',0xff332211,4),[17,34,51,255]);
+assert.deepEqual(decodedColor('3ds',0x11223344,4,0),[17,34,51,255]);
+assert.deepEqual(decodedColor('3ds',0x112233,3,1),[17,34,51,255]);

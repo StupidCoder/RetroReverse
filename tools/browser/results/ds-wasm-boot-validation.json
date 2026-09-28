@@ -1,0 +1,50 @@
+{
+  "frames": 1200,
+  "seconds": 186.941687083,
+  "stateBytes": 6813161,
+  "stateContinuation": true,
+  "replayIsolated": true,
+  "replayFinal": true,
+  "capture": {
+    "events": 459,
+    "writes": 295813,
+    "overflow": 0,
+    "bytes": 23125308
+  },
+  "replaySteps": 1311,
+  "profile": {
+    "sampled": false,
+    "buckets": [
+      {
+        "name": "ARM9 / ARM7 and scheduler",
+        "ms": 163890,
+        "longestMs": 33.0598,
+        "tag": 0
+      },
+      {
+        "name": "GX geometry",
+        "ms": 247.814,
+        "longestMs": 0.393084,
+        "tag": 0
+      },
+      {
+        "name": "3D software rasterizer",
+        "ms": 13720.8,
+        "longestMs": 29.3255,
+        "tag": 0
+      },
+      {
+        "name": "2D composition",
+        "ms": 7004.13,
+        "longestMs": 11.5388,
+        "tag": 0
+      },
+      {
+        "name": "DMA",
+        "ms": 946.826,
+        "longestMs": 1.13921,
+        "tag": 0
+      }
+    ]
+  }
+}

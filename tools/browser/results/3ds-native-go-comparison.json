@@ -1,0 +1,16 @@
+{
+  "checkpoints": 181,
+  "cpuRegistersMatch": true,
+  "cpsrMatch": true,
+  "instructionCountMatch": true,
+  "imageHashesDifferAtCheckpoints": 78,
+  "firstImageDifference": {
+    "checkpoint": 58,
+    "bytesCompared": 384000,
+    "differingBytes": 1,
+    "channel": "red",
+    "cppStrict": 0,
+    "go": 8,
+    "nativeContractionMatchesGo": true
+  }
+}

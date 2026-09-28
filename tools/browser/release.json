@@ -9,6 +9,8 @@
   "buildCommand": "python3 tools/browser/build-release.py --emcc /path/to/em++",
   "retainedReleases": 2,
   "optimizationOverrides": {
-    "threedo": "-O3"
+    "threedo": "-O3",
+    "nds": "-O3",
+    "n3ds": "-O3"
   }
 }
