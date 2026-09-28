@@ -89,3 +89,31 @@ accepts a skip input. Burnout's PRX decrypts and its boot executes, but its
 browser gameplay is not validated. The existing HLE, texture and graphics
 coverage limits apply to arbitrary UMD images. Game images and private
 checkpoints are intentionally excluded from the repository and deployment.
+
+## Renderer optimization pass
+
+The follow-up pass retains the generated scalar renderer as a reference and adds:
+
+- Per-draw framebuffer/depth pointers and pixel-format, stencil and blend dispatch.
+  Destination reads are deferred when stencil is disabled and shared by blending
+  and write masks. Depth writes remain before blend reads, preserving buffer aliases.
+- Triangle setup and barycentric reuse with identical floating-point operation
+  order. SIMD handles RGBA filtering/interpolation and neighbouring UV evaluations;
+  no fast-math, approximate reciprocals or relaxed SIMD is enabled.
+- Fixed-size texture loads, inlined sampling and format-specific display conversion.
+  Textures continue to read live storage; no invalidation-sensitive decoded cache.
+
+Three alternating before/after WASM runs of the same dense 120-update checkpoint
+had median times **7.975 s → 6.654 s**, or **1.20× throughput** (15.0 → 18.0 display
+updates/s). These are fresh measurements on the development Mac; compare the
+paired runs, rather than mixing these timings with the earlier session's 9.22 s.
+The CPU, RAM, VRAM and framebuffer proofs match in all six runs. Browser pacing
+and canvas work are outside this Node measurement. Display conversion is separately
+optimized, but no additional browser speedup is included in the 1.20× claim.
+
+Public differential tests compare 6,000 fragment configurations (including aliasing,
+blend/depth/stencil tests, masks, rejected events and ordered memory writes),
+20,000 texture filters, 160 triangles and all four display formats against the
+retained reference. Capture/replay and state-continuation checks use the same
+private gameplay fixture as the original port. Measurements are stored in
+`tools/browser/results/psp-optimization.json`.

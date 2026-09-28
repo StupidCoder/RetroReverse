@@ -789,12 +789,14 @@ void psp_Machine_execGeList(psp_Machine* m,psp_GeList list);
 std::string psp_GeCmdName(uint32_t cmd);
 void psp_Machine_rasterTriClipped(psp_Machine* m,psp_geState* s,psp_vert a,psp_vert b,psp_vert c);
 void psp_Machine_rasterTri(psp_Machine* m,psp_geState* s,psp_vert a,psp_vert b,psp_vert c);
+void psp_Machine_rasterTri_Reference(psp_Machine* m,psp_geState* s,psp_vert a,psp_vert b,psp_vert c);
 void psp_Machine_rasterSprite(psp_Machine* m,psp_geState* s,psp_vert a,psp_vert b);
 std::tuple<uint8_t,uint8_t,uint8_t> psp_applyFog(psp_geState* s,float f,uint8_t r,uint8_t g,uint8_t b);
 std::tuple<float,float> psp_uvAt(psp_geState* s,psp_vert a,psp_vert b,psp_vert c,float area,float px,float py);
 float psp_hypot32(float x,float y);
 uint32_t psp_wrapTexel(int64_t i,uint32_t size,uint32_t clamp);
 std::tuple<uint8_t,uint8_t,uint8_t,uint8_t> psp_modTex(psp_Machine* m,psp_geState* s,float u,float v,float rho,uint8_t r,uint8_t g,uint8_t b,uint8_t a);
+std::tuple<uint8_t,uint8_t,uint8_t,uint8_t> psp_modTex_Reference(psp_Machine* m,psp_geState* s,float u,float v,float rho,uint8_t r,uint8_t g,uint8_t b,uint8_t a);
 std::tuple<uint8_t,uint8_t,uint8_t,uint8_t> psp_Machine_sampleTex(psp_Machine* m,psp_geState* s,uint32_t tx,uint32_t ty);
 std::tuple<uint8_t,uint8_t,uint8_t,uint8_t> psp_Machine_sampleTexLvl(psp_Machine* m,psp_geState* s,uint32_t tx,uint32_t ty,uint32_t lvl);
 std::tuple<uint8_t,uint8_t,uint8_t,uint8_t> psp_Machine_sampleTexLvl_Reference(psp_Machine* m,psp_geState* s,uint32_t tx,uint32_t ty,uint32_t lvl);
@@ -809,6 +811,7 @@ uint32_t psp_blendFactor(uint32_t f,uint8_t sc,uint8_t sa,uint8_t da,uint32_t fi
 uint32_t psp_min32(uint32_t a,uint32_t b);
 uint8_t psp_clamp255(int32_t v);
 void psp_Machine_putPixel(psp_Machine* m,psp_geState* s,int64_t x,int64_t y,float z,uint8_t r,uint8_t g,uint8_t b,uint8_t a);
+void psp_Machine_putPixel_Reference(psp_Machine* m,psp_geState* s,int64_t x,int64_t y,float z,uint8_t r,uint8_t g,uint8_t b,uint8_t a);
 void psp_Machine_storePixel(psp_Machine* m,psp_geState* s,uint32_t base,uint32_t off,uint8_t r,uint8_t g,uint8_t b,uint8_t a);
 uint8_t psp_Machine_dstAlpha(psp_Machine* m,psp_geState* s,uint32_t base,uint32_t off);
 void psp_Machine_storeAlpha(psp_Machine* m,psp_geState* s,uint32_t base,uint32_t off,uint8_t a);
@@ -5149,7 +5152,7 @@ auto t=tmp21[tmp22];psp_Machine_rasterTri(m,s,t[cast<int64_t>(0ULL)],t[cast<int6
 }
 }
 // tools/platform/psp/ge_draw.go:22:1
-void psp_Machine_rasterTri(psp_Machine* m,psp_geState* s,psp_vert a,psp_vert b,psp_vert c){
+void psp_Machine_rasterTri_Reference(psp_Machine* m,psp_geState* s,psp_vert a,psp_vert b,psp_vert c){
 {
 int64_t minX = cast<int64_t>(psp_fmin3(a.x,b.x,c.x));
 int64_t maxX = cast<int64_t>((cast<int64_t>(psp_fmax3(a.x,b.x,c.x)) + cast<int64_t>(1ULL)));
@@ -5345,7 +5348,7 @@ return cast<uint32_t>(i);
 }
 }
 // tools/platform/psp/ge_draw.go:178:1
-std::tuple<uint8_t,uint8_t,uint8_t,uint8_t> psp_modTex(psp_Machine* m,psp_geState* s,float u,float v,float rho,uint8_t r,uint8_t g,uint8_t b,uint8_t a){
+std::tuple<uint8_t,uint8_t,uint8_t,uint8_t> psp_modTex_Reference(psp_Machine* m,psp_geState* s,float u,float v,float rho,uint8_t r,uint8_t g,uint8_t b,uint8_t a){
 {
 if ((((s->texW == cast<uint32_t>(0ULL)) || (s->texH == cast<uint32_t>(0ULL))) || (s->texAddr == cast<uint32_t>(0ULL)))) {
 return {r,g,b,a};
@@ -5798,7 +5801,7 @@ return cast<uint8_t>(v);
 }
 }
 // tools/platform/psp/ge_draw.go:530:1
-void psp_Machine_putPixel(psp_Machine* m,psp_geState* s,int64_t x,int64_t y,float z,uint8_t r,uint8_t g,uint8_t b,uint8_t a){
+void psp_Machine_putPixel_Reference(psp_Machine* m,psp_geState* s,int64_t x,int64_t y,float z,uint8_t r,uint8_t g,uint8_t b,uint8_t a){
 {
 if ((((!s->clearOn) && (((((x < s->scX0) || (x > s->scX1)) || (y < s->scY0)) || (y > s->scY1)))) && (s->scX1 > cast<int64_t>(0ULL)))) {
 psp_Machine_pixelEvent(m,x,y,psp_PixelEvent{{},true,{},{},{},{},r,g,b,a});
@@ -6055,7 +6058,7 @@ return a;
 // tools/platform/psp/ge_patch.go:14:1
 void psp_Machine_drawPatch(psp_Machine* m,psp_geState* s,uint32_t arg,bool spline){
 {rrprof::Scope timing(2,"GE vertices and software rasterizer");
-{rrTextureScope textures(m,s);
+{rrTextureScope textures(m,s); rrFragmentScope fragments(m,s);
 {
 int64_t nu = cast<int64_t>(cast<uint32_t>((arg & cast<uint32_t>(255ULL))));
 int64_t nv = cast<int64_t>(cast<uint32_t>(((shr<uint32_t>(arg,cast<int64_t>(8ULL))) & cast<uint32_t>(255ULL))));
@@ -6879,7 +6882,7 @@ auto i=tmp107;auto v=tmp106[tmp107];go_fmt_Printf(std::string("  v%-3d (%8.2f,%8
 // tools/platform/psp/ge_raster.go:754:1
 void psp_Machine_drawPrim(psp_Machine* m,psp_geState* s,uint32_t arg){
 {rrprof::Scope timing(2,"GE vertices and software rasterizer");
-{rrTextureScope textures(m,s);
+{rrTextureScope textures(m,s); rrFragmentScope fragments(m,s);
 {
 int64_t count = cast<int64_t>(cast<uint32_t>((arg & cast<uint32_t>(65535ULL))));
 uint32_t ptype = cast<uint32_t>(((shr<uint32_t>(arg,cast<int64_t>(16ULL))) & cast<uint32_t>(7ULL)));

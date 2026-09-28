@@ -1005,12 +1005,12 @@ func main() {
 					signature := ret(sig.Results()) + " " + name + "(" + args + ")"
 					protos += signature + ";\n"
 					body := g.block(d.Body)
-					if name == "psp_Machine_sampleTexLvl" {
+					if name == "psp_Machine_sampleTexLvl" || name == "psp_Machine_putPixel" || name == "psp_Machine_rasterTri" || name == "psp_modTex" {
 						signature = strings.Replace(signature, name, name+"_Reference", 1)
 						protos += signature + ";\n"
 					}
 					if name == "psp_Machine_drawPrim" || name == "psp_Machine_drawPatch" {
-						body = "{rrTextureScope textures(m,s);\n" + body + "}\n"
+						body = "{rrTextureScope textures(m,s); rrFragmentScope fragments(m,s);\n" + body + "}\n"
 					}
 
 					if name == "psp_Machine_Read" {

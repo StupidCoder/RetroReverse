@@ -16,3 +16,6 @@ template<class...A>uint32_t psp_Machine_callGuest(psp_Machine*m,uint32_t entry,A
 inline uint16_t psp_u16(psp_Machine*m,uint32_t a){return rrRead(m,a,2);}
 
 #include "texture.h"
+
+#include "fragment.h"
+#include "filter.h"

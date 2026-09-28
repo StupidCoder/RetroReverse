@@ -1,0 +1,290 @@
+{
+  "date": "2026-09-28",
+  "workload": "Private LocoRoco dense first-stage checkpoint, 120 display updates",
+  "runtime": "Node/V8 WASM; alternating before/after runs",
+  "beforeMedianSeconds": 7.97461375,
+  "afterMedianSeconds": 6.654244709,
+  "throughputRatio": 1.1984250803422023,
+  "runs": {
+    "before": [
+      {
+        "seconds": 7.8751975000000005,
+        "proof": {
+          "steps": 2116837106,
+          "frames": 4480,
+          "pc": 142649280,
+          "ram": 318042200,
+          "vram": 1281617587,
+          "rgba": 2607491144
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "Allegrex / VFPU and scheduler",
+              "ms": 602.561,
+              "longestMs": 68.6125,
+              "tag": 0
+            },
+            {
+              "name": "GE command processor",
+              "ms": 13.79,
+              "longestMs": 65.2291,
+              "tag": 0
+            },
+            {
+              "name": "GE vertices and software rasterizer",
+              "ms": 7194.14,
+              "longestMs": 4.09254,
+              "tag": 0
+            },
+            {
+              "name": "Kernel HLE",
+              "ms": 49.6443,
+              "longestMs": 66.4923,
+              "tag": 0
+            },
+            {
+              "name": "UMD file reads",
+              "ms": 1.25796,
+              "longestMs": 0.672333,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "seconds": 7.97461375,
+        "proof": {
+          "steps": 2116837106,
+          "frames": 4480,
+          "pc": 142649280,
+          "ram": 318042200,
+          "vram": 1281617587,
+          "rgba": 2607491144
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "Allegrex / VFPU and scheduler",
+              "ms": 634.144,
+              "longestMs": 74.3899,
+              "tag": 0
+            },
+            {
+              "name": "GE command processor",
+              "ms": 13.8195,
+              "longestMs": 72.7662,
+              "tag": 0
+            },
+            {
+              "name": "GE vertices and software rasterizer",
+              "ms": 7253.86,
+              "longestMs": 8.87558,
+              "tag": 0
+            },
+            {
+              "name": "Kernel HLE",
+              "ms": 53.8343,
+              "longestMs": 73.0883,
+              "tag": 0
+            },
+            {
+              "name": "UMD file reads",
+              "ms": 0.921418,
+              "longestMs": 0.55625,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "seconds": 7.979242666,
+        "proof": {
+          "steps": 2116837106,
+          "frames": 4480,
+          "pc": 142649280,
+          "ram": 318042200,
+          "vram": 1281617587,
+          "rgba": 2607491144
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "Allegrex / VFPU and scheduler",
+              "ms": 611.938,
+              "longestMs": 91.0168,
+              "tag": 0
+            },
+            {
+              "name": "GE command processor",
+              "ms": 13.9158,
+              "longestMs": 89.6055,
+              "tag": 0
+            },
+            {
+              "name": "GE vertices and software rasterizer",
+              "ms": 7286.77,
+              "longestMs": 8.65017,
+              "tag": 0
+            },
+            {
+              "name": "Kernel HLE",
+              "ms": 50.9365,
+              "longestMs": 90.5209,
+              "tag": 0
+            },
+            {
+              "name": "UMD file reads",
+              "ms": 0.921,
+              "longestMs": 0.5585,
+              "tag": 0
+            }
+          ]
+        }
+      }
+    ],
+    "after": [
+      {
+        "seconds": 6.654244709,
+        "proof": {
+          "steps": 2116837106,
+          "frames": 4480,
+          "pc": 142649280,
+          "ram": 318042200,
+          "vram": 1281617587,
+          "rgba": 2607491144
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "Allegrex / VFPU and scheduler",
+              "ms": 615.803,
+              "longestMs": 89.3922,
+              "tag": 0
+            },
+            {
+              "name": "GE command processor",
+              "ms": 13.8348,
+              "longestMs": 88.5189,
+              "tag": 0
+            },
+            {
+              "name": "GE vertices and software rasterizer",
+              "ms": 5961.3,
+              "longestMs": 5.80542,
+              "tag": 0
+            },
+            {
+              "name": "Kernel HLE",
+              "ms": 47.9414,
+              "longestMs": 88.8528,
+              "tag": 0
+            },
+            {
+              "name": "UMD file reads",
+              "ms": 0.992289,
+              "longestMs": 0.596458,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "seconds": 6.681005999999999,
+        "proof": {
+          "steps": 2116837106,
+          "frames": 4480,
+          "pc": 142649280,
+          "ram": 318042200,
+          "vram": 1281617587,
+          "rgba": 2607491144
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "Allegrex / VFPU and scheduler",
+              "ms": 695.273,
+              "longestMs": 56.5958,
+              "tag": 0
+            },
+            {
+              "name": "GE command processor",
+              "ms": 13.5067,
+              "longestMs": 53.211,
+              "tag": 0
+            },
+            {
+              "name": "GE vertices and software rasterizer",
+              "ms": 5906.5,
+              "longestMs": 2.99438,
+              "tag": 0
+            },
+            {
+              "name": "Kernel HLE",
+              "ms": 50.9387,
+              "longestMs": 54.4534,
+              "tag": 0
+            },
+            {
+              "name": "UMD file reads",
+              "ms": 0.973041,
+              "longestMs": 0.585459,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "seconds": 6.578360792,
+        "proof": {
+          "steps": 2116837106,
+          "frames": 4480,
+          "pc": 142649280,
+          "ram": 318042200,
+          "vram": 1281617587,
+          "rgba": 2607491144
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "Allegrex / VFPU and scheduler",
+              "ms": 599.131,
+              "longestMs": 56.7373,
+              "tag": 0
+            },
+            {
+              "name": "GE command processor",
+              "ms": 14.1686,
+              "longestMs": 53.4511,
+              "tag": 0
+            },
+            {
+              "name": "GE vertices and software rasterizer",
+              "ms": 5899.77,
+              "longestMs": 2.94038,
+              "tag": 0
+            },
+            {
+              "name": "Kernel HLE",
+              "ms": 50.2658,
+              "longestMs": 54.6419,
+              "tag": 0
+            },
+            {
+              "name": "UMD file reads",
+              "ms": 0.900748,
+              "longestMs": 0.555166,
+              "tag": 0
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
