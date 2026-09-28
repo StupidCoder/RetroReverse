@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "platform": "amiga",
+  "date": "2026-09-28",
+  "scope": "Local private gameplay checkpoints; no commercial media or states included",
+  "marbleMadness": {
+    "controlsChangeDisplay": true,
+    "frame": 6660,
+    "coreFPS": 308.45735390337063,
+    "nativeParity": true,
+    "capture": {
+      "events": 386,
+      "writes": 340109,
+      "overflow": 0,
+      "bytes": 29921818
+    },
+    "pixels": 88,
+    "sources": 357,
+    "sprites": 0,
+    "replaySteps": 3209,
+    "stateBytes": 2373150
+  },
+  "turrican": {
+    "controlsChangeDisplay": true,
+    "frame": 6260,
+    "coreFPS": 251.24538779419925,
+    "nativeParity": true,
+    "capture": {
+      "events": 486,
+      "writes": 335424,
+      "overflow": 0,
+      "bytes": 29610261
+    },
+    "pixels": 88,
+    "sources": 383,
+    "sprites": 1,
+    "replaySteps": 1113,
+    "stateBytes": 2373150
+  },
+  "browser": {
+    "engine": "Chromium (Codex in-app browser)",
+    "marbleNormal": {
+      "emulatedFramesPerSecond": 49.7,
+      "presentedFramesPerSecond": 50.2
+    },
+    "turricanTurbo": {
+      "emulatedFramesPerSecond": 275.4,
+      "presentedFramesPerSecond": 52.9
+    },
+    "turricanCaptureMilliseconds": 60,
+    "ordinaryWasmMiB": 64,
+    "captureWasmMiB": 93
+  }
+}

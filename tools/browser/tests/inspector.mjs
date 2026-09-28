@@ -21,3 +21,6 @@ assert.deepEqual(decodedColor('psp',0x4321,2,2),[17,34,51,255]);
 assert.deepEqual(decodedColor('psp',0xaa332211,4,3),[17,34,51,255]);
 
 for(const platform of ['gb','gg'])assert.deepEqual(decodedColor(platform,0xff332211,4),[17,34,51,255]);
+
+assert.deepEqual(pixelCoordinates({left:10,top:20,width:500,height:400},640,256,260,220,true),{x:320,y:128});
+assert.deepEqual(decodedColor('amiga',0xff332211,4),[17,34,51,255]);

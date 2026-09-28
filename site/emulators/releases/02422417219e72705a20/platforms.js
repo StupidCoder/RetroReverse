@@ -1,4 +1,25 @@
 export const platforms = {
+  amiga: {
+    name:'Amiga 500',accept:'.adf',hz:7093790/(312*454),
+    help:'Arrows and Space control joystick port 2. Move the mouse over the display; left/right click operate the Amiga mouse. The Mouse speed control helps with Workbench, which moves more slowly than most games. Click the display to use the keyboard. Marble Madness: double-click the disk, then its game icon, then select GO. Turrican: left-click to leave the intro; Fire starts the game.',
+    compat:'Experimental PAL 68000 / OCS machine with 512 KiB chip RAM and 512 KiB slow RAM. Kickstart 1.2 loads automatically. One standard 880 KiB ADF in DF0. Marble Madness and Turrican reach gameplay using their original loaders. Copper, blitter, bitplanes, sprites, CIA timers and floppy DMA are modeled. Chipset arbitration, scanline effects and blitter timing are approximate. Disk writing, extended ADF/IPF, AGA, multi-disk swapping and audio output are not implemented.',
+    buttons:[['↑',1],['↓',2],['←',4],['→',8],['Fire',16],['Mouse left',32],['Mouse right',64]],
+    keys:{ArrowUp:1,ArrowDown:2,ArrowLeft:4,ArrowRight:8,' ':16}
+  },
+  gb: {
+    name:'Game Boy',accept:'.gb',hz:4194304/70224,
+    help:'Arrows move. X / Z are A / B. Enter is Start and Shift is Select. Pause to inspect LCD tile, window and object rendering.',
+    compat:'Original monochrome DMG. ROM-only and MBC1 cartridges, 32 KiB–2 MiB. Starts after the boot ROM; no firmware required. Scanline rendering includes the window, sprites and priorities. Pixel timing, DMA timing and timer edge cases are approximate. Game Boy Color-only and other cartridge mappers are not implemented. Audio output is not yet connected.',
+    buttons:[['↑',4],['↓',8],['←',2],['→',1],['A',16],['B',32],['Start',128],['Select',64]],
+    keys:{ArrowUp:4,ArrowDown:8,ArrowLeft:2,ArrowRight:1,x:16,z:32,Enter:128,Shift:64}
+  },
+  gg: {
+    name:'Game Gear',accept:'.gg',hz:60,
+    help:'Arrows move. Z / X are buttons 1 / 2. Enter is Start. Pause to inspect VDP tile and sprite rendering.',
+    compat:'Sega mapper cartridges, 16 KiB–4 MiB, with optional 512-byte copier header. No firmware required. 192-line Mode 4 tiles, sprites, scrolling and the 160×144 LCD viewport. The inherited Z80 scheduler uses an instruction budget, not cycle-accurate timing. Line interrupts, alternate mappers, cartridge SRAM and link cable are not implemented. Audio output is not yet connected.',
+    buttons:[['↑',1],['↓',2],['←',4],['→',8],['1',16],['2',32],['Start',128]],
+    keys:{ArrowUp:1,ArrowDown:2,ArrowLeft:4,ArrowRight:8,z:16,x:32,Enter:128}
+  },
   psp: {
     name:'PlayStation Portable',accept:'.iso,.cso',hz:60,
     help:'Arrows navigate the D-pad. X / Z / C / V are Cross / Square / Circle / Triangle. Enter is Start, Shift is Select, Q / E are L / R. I J K L move the analog stick. Gamepads provide the analog stick and D-pad separately.',

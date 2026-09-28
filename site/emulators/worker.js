@@ -8,6 +8,7 @@ let profileBase = {}, core, platform, session, loaded = false, running = false,
     epoch = 0, frames = 0, turbo = false, files, maxCall = 0, runMs = 0,
     paintMs = 0, lastPaint = 0;
 const inputQueue = [];
+const appliedKeys=new Set();
 const mediaHashes=new WeakMap();
 function mediaHash(file){if(!mediaHashes.has(file))mediaHashes.set(file,sha256File(file));return mediaHashes.get(file);}
 let saving=false;
@@ -16,7 +17,7 @@ async function identities(){
  if(!mediaIdentity){send("message",{text:"Verifying local media identity…"});mediaIdentity=[];for(const f of files)mediaIdentity.push({name:f.name,size:f.size,sha256:await mediaHash(f)});mediaIdentity.sort((a,b)=>a.name.localeCompare(b.name));}
  return {media:mediaIdentity,firmware:firmwareIdentity,core:coreIdentity,configuration:{compatibility:bootOptions.compatibility!==false,customFirmware:!!bootOptions.firmware?.some(Boolean)}};
 }
-function queueState(){return {...inputs,pulses:[...inputs.pulses],down:[...inputs.down],pending:inputQueue,lastButtons,lastX,lastY,inputSequence,lastInputStep};}
+function queueState(){return {...inputs,appliedKeys:[...appliedKeys],pulses:[...inputs.pulses],down:[...inputs.down],pending:inputQueue,lastButtons,lastX,lastY,inputSequence,lastInputStep};}
 async function saveState(){
  if(saving)return;saving=true;
  try{
@@ -114,9 +115,11 @@ function applyInputs() {
     lastY = m.y;
   }
   if (platform === 'ds'||platform==='3ds')core._rr_touch(m.touch.x,m.touch.y,+m.touch.down);
-  if (platform === 'c64')
-    for (const [code, down] of m.keys)
-      core._rr_key(code, down);
+  if (platform === 'amiga') {const mouse=inputs.mouseForFrame(s.frames);if(mouse.x||mouse.y)core._rr_mouse(mouse.x,mouse.y);}
+  if (platform === 'c64'||platform==='amiga')
+    for (const [code, down] of m.keys){
+      core._rr_key(code, down);if(down)appliedKeys.add(code);else appliedKeys.delete(code);
+    }
   inputSequence = m.sequence;
   lastInputStep = s.steps;
 }
@@ -130,7 +133,7 @@ function tick(one = false) {
   else if (platform === 'n64')
     check(core._rr_run(one ? Math.min(10000, 750000 - status().steps % 750000)
                            : 10000) >= 0);
-  else if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gb'||platform==='gg')check(core._rr_run(10000)>=0);
+  else if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gb'||platform==='gg'||platform==='amiga')check(core._rr_run(10000)>=0);
   else
     check(core._rr_run_slice(10000));
   const ms = performance.now() - start;
@@ -187,10 +190,10 @@ async function captureNext(){
  try{
    await boundary('Finishing current interval.');
    const startState=coreState(),start=status(),input=queueState();
-   const captureStarted=core._rr_capture_begin();if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gb'||platform==='gg')check(captureStarted);
+   const captureStarted=core._rr_capture_begin();if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gb'||platform==='gg'||platform==='amiga')check(captureStarted);
    const captureFields=platform==='ps1'?4:platform==='3ds'?3:platform==='ds'?2:1;
    for(let field=0;field<captureFields;field++)await boundary(captureFields>1?'Recording display and double-buffer producer context.':'Recording next complete interval.');
-   const ended=core._rr_capture_end();if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gb'||platform==='gg')check(ended);const captureProfile=finishCaptureProfile();capturing=false;
+   const ended=core._rr_capture_end();if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gb'||platform==='gg'||platform==='amiga')check(ended);const captureProfile=finishCaptureProfile();capturing=false;
    const endState=coreState(),end=status(),info=json('_rr_capture_info'),replay=json('_rr_replay_begin');
    const w=platform==='c64'?392:end.width||320,h=platform==='c64'?272:end.height||240,p=core._rr_frame();
    const pixels=core.HEAPU8.slice(p,p+w*h*4);
@@ -225,6 +228,7 @@ async function boot(m) {
   platform = m.platform;
   if(restored&&restored.meta.platform!==platform)throw Error("This state belongs to another console");
   inputs = new InputQueue(platforms[platform].hz);
+  if(platform==='amiga')inputs.mouseMask=96;
   if(platform==='ds'||platform==='3ds')inputs.hold=3/platforms[platform].hz;
   session = m.session;
   files = m.files;
@@ -279,6 +283,20 @@ async function boot(m) {
     core.HEAPU8.set(new Uint8Array(await f.arrayBuffer()), core._rr_input());
     check(core._rr_tape(f.size));
     core._rr_trace(0, 0, 0);
+  } else if (platform === 'amiga') {
+    if(f.size!==901120)throw Error('Select a standard 880 KiB ADF disk image');
+    const custom=m.firmware?.[0];let rom;
+    if(custom)rom=new Uint8Array(await custom.arrayBuffer());
+    else {
+      const [entry]=await (await fetch('./firmware/amiga/manifest.json')).json();
+      const response=await fetch('./firmware/amiga/'+entry.file);
+      if(!response.ok)throw Error('Kickstart download failed');
+      rom=new Uint8Array(await response.arrayBuffer());
+      if(await digest(rom)!==entry.sha256)throw Error('Kickstart hash mismatch');
+    }
+    firmwareIdentity=[await digest(rom)];
+    let p=core._rr_firmware(rom.length);check(p);core.HEAPU8.set(rom,p);
+    p=core._rr_input(f.size);check(p);core.HEAPU8.set(new Uint8Array(await f.arrayBuffer()),p);check(core._rr_init(f.size));
   } else if (platform === '3do') {
     if (f.size > 0xffffffff)
       throw Error('Disc exceeds 4 GiB limit');
@@ -328,6 +346,7 @@ async function boot(m) {
     // continuation; a newly pressed physical button creates a new input edge.
     inputs.buttons=0;inputs.x=inputs.y=0;inputs.pulses.clear();inputQueue.length=0;
     if(platform==='c64')for(let k=0;k<256;k++)core._rr_key(k,0);
+    if(platform==='amiga'){for(const code of q.appliedKeys||inputs.down.keys())core._rr_key(code,0);appliedKeys.clear();inputs.mousePending={x:0,y:0};inputs.mouseMask=96;inputs.mouseButtons=0;inputs.mouseButtonEvents=[];inputs.mouseButtonCursor=0;}
     inputs.keys=[];inputs.down.clear();inputs.touch={x:0,y:0,down:false};inputs.touchEvents=[];inputs.touchUntil=0;if(core._rr_touch)core._rr_touch(0,0,0);
   }
   loaded = true;

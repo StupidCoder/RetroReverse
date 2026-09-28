@@ -12,4 +12,5 @@ with tempfile.TemporaryDirectory(prefix='rr-check-') as d:
   out=str(Path(d)/name)
   subprocess.run([clang,'-std=c++20','-O1','-fwrapv','-ffp-contract=off','-Wno-address-of-temporary','-Wno-parentheses-equality',f'tools/browser/tests/{name}.cpp','-o',out]+(['-lz'] if name in ['pixel-psp','fast-psp','pixel-gb','pixel-gg'] else []),cwd=root,check=True)
   subprocess.run([out],cwd=root,check=True)
+subprocess.run(['python3','tools/platform/amiga/browser/build.py','--native-only','--test'],cwd=root,check=True)
 subprocess.run(['python3','tools/browser/check-release.py'],cwd=root,check=True)

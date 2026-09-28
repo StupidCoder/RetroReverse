@@ -46,5 +46,11 @@
     "prompt": "Use case: product-mockup. Asset type: square console selection card for RetroReverse emulator gallery. Create a realistic studio product illustration of an original black Sega Game Gear handheld from 1990, broad horizontal rounded black enclosure, centered recessed blank/off color LCD, black D-pad at left, two blue-gray round action buttons at right, small Start button above them, subtle red green blue oval accents by the Game Gear branding above the screen, speaker slots in the lower right. Three-quarter view from slightly above, entire device centered with generous margins. Pale cool blue-gray background #e9edf3, soft contact shadow, diffused studio light, restrained archival electronics catalog aesthetic matching a set of C64, PlayStation, Game Boy, DS and PSP illustrations. No game imagery, hands, accessories, cables, added captions or watermark. One Game Gear only.",
     "tool": "built-in image_gen",
     "file": "site/emulators/art/gg.png"
+  },
+  {
+    "console": "Amiga 500",
+    "prompt": "Use case: product-mockup. Asset type: RetroReverse emulator landing-page console card. Create a clean museum-catalog product illustration of an original Commodore Amiga 500 computer, the complete beige wedge keyboard computer with its numeric keypad, function-key row, rear ventilation and small Amiga badge. Three-quarter elevated front-left view, entire machine comfortably within the frame. No monitor, no mouse, no cables, no disk, no people. Soft realistic studio lighting, subtle contact shadow on a uniform very pale cool gray-blue surface (#e9edf3), understated photographic 3D illustration matching a collection of vintage console portraits. Square composition, machine centered and filling about 78% of the width; leave generous empty margins above and below so a landscape card crop still shows the complete keyboard. No overlaid title, no watermark.",
+    "tool": "built-in image_gen",
+    "file": "site/emulators/art/amiga.png"
   }
 ]

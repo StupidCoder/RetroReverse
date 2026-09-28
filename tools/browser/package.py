@@ -5,7 +5,7 @@ import hashlib,json,shutil,subprocess
 repo=Path(__file__).resolve().parents[2]
 out=repo/'site/emulators'
 manifest={}
-for slug,platform in [('c64','c64'),('ps1','psx'),('n64','n64'),('3do','threedo'),('ds','nds'),('3ds','n3ds'),('psp','psp'),('gb','gameboy'),('gg','gamegear')]:
+for slug,platform in [('c64','c64'),('ps1','psx'),('n64','n64'),('3do','threedo'),('ds','nds'),('3ds','n3ds'),('psp','psp'),('gb','gameboy'),('gg','gamegear'),('amiga','amiga')]:
  dest=out/'cores'/slug;dest.mkdir(parents=True,exist_ok=True)
  for name in ['core.js','core.wasm']:
   src=repo/f'tools/platform/{platform}/browser/web'/name
@@ -15,7 +15,7 @@ for slug,platform in [('c64','c64'),('ps1','psx'),('n64','n64'),('3do','threedo'
 for p in out.rglob('*'):
  if p.is_file() and p.stat().st_size>25*1024*1024:raise SystemExit(f'Pages asset too large: {p}')
 (out/'build-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
-print('Packaged nine cores; all emulator assets below Pages file limit.')
+print('Packaged ten cores; all emulator assets below Pages file limit.')
 
 # Content-address the complete executable bundle. A page opened before a deploy
 # continues to use matching worker/JS/WASM/firmware rather than mixing versions.
@@ -34,7 +34,7 @@ for name in assets:
  dest=release/name;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(out/name,dest)
 (out/'release.json').write_text(json.dumps({'schema':1,'id':release_id,'previous':previous,'assets':assets},indent=2)+'\n')
 import re
-for slug in ['c64','ps1','n64','3do','ds','3ds','psp','gb','gg']:
+for slug in ['c64','ps1','n64','3do','ds','3ds','psp','gb','gg','amiga']:
  p=out/slug/'index.html';html=p.read_text()
  html=re.sub(r'(?<=src=")[^" ]*/app\.js',f'../releases/{release_id}/app.js',html)
  html=re.sub(r'(?<=href=")[^" ]*/style\.css',f'../releases/{release_id}/style.css',html)

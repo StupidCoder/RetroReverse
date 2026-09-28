@@ -1,0 +1,13 @@
+#pragma once
+#define M68K_EMULATE_010 0
+#define M68K_EMULATE_EC020 0
+#define M68K_EMULATE_020 0
+#define M68K_EMULATE_030 0
+#define M68K_EMULATE_040 0
+#define M68K_EMULATE_INT_ACK 1
+#define M68K_EMULATE_TRACE 1
+#define M68K_EMULATE_PREFETCH 1
+#define M68K_EMULATE_ADDRESS_ERROR 1
+#define M68K_INSTRUCTION_HOOK 1
+#define M68K_EMULATE_RESET 1
+#include "../vendor/musashi/m68kconf.h"

@@ -25,3 +25,11 @@ const handheld = new InputQueue(60);handheld.hold=3/60;
 handheld.enqueue({buttons:1},0);handheld.enqueue({buttons:0},0);
 assert.equal(handheld.drain(2/60).buttons,1);
 assert.equal(handheld.drain(3/60).buttons,0);
+
+const mouse=new InputQueue(50);mouse.enqueue({buttons:32,mouse:{x:300,y:-200}},0);mouse.enqueue({buttons:0},0);
+assert.deepEqual(mouse.mouseForFrame(0),{x:127,y:-127});assert.deepEqual(mouse.mouseForFrame(0),{x:0,y:0});assert.deepEqual(mouse.mouseForFrame(1),{x:127,y:-73});assert.deepEqual(mouse.mouseForFrame(2),{x:46,y:0});assert.equal(mouse.drain(0).buttons,32);assert.equal(mouse.drain(.021).buttons,0);
+assert.throws(()=>mouse.enqueue({mouse:{x:NaN,y:0}},0),/Invalid mouse/);
+
+const clicks=new InputQueue(50);clicks.mouseMask=96;
+for(const buttons of [32,0,32,0])clicks.enqueue({buttons},0);
+assert.equal(clicks.drain(0).buttons,32);assert.equal(clicks.drain(.021).buttons,0);assert.equal(clicks.drain(.041).buttons,32);assert.equal(clicks.drain(.061).buttons,0);

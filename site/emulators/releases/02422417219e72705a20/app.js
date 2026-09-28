@@ -1,6 +1,7 @@
 import {createReplay} from './replay.js';
 import {pixelCoordinates,createInspector} from './inspector.js';
 import {platforms} from './platforms.js';
+import {amigaKeys} from './amiga-input.js';
 const $ = id => document.getElementById(id),
       platform = document.body.dataset.platform, config = platforms[platform],
       canvas = $('screen'), ctx = canvas.getContext('2d');
@@ -109,6 +110,7 @@ function load(stateFile=null) {
       return;
     if (m.type === 'state') {
       const s = m.state;
+      if(platform==='amiga')canvas.classList.toggle('mouse-active',m.running);
       $('help').textContent =
           config.help +
           (m.inputDeferred
@@ -186,13 +188,13 @@ $('load').onclick = () => {
   compatibility = $('compatprofile')?.checked ?? true;
   firmware = platform === 'c64'
                  ? [ 'basic', 'kernal', 'chargen' ].map(id => $(id).files[0])
-                 : null;
+                 : platform==='amiga'?[$('kickstart').files[0]]:null;
   load();
 };
 $('reset').onclick = ()=>load();
 $('cancelcapture').onclick=()=>send('cancel-capture');
 $('save').onclick=()=>{release();controls(false);$('status').textContent='Saving state…';send('save');};
-$('statefile').onchange=()=>{const f=$('statefile').files[0];if(!f)return;if(!selected.length){selected=[...$('files').files];firmware=platform==='c64'?['basic','kernal','chargen'].map(id=>$(id).files[0]):null;compatibility=$('compatprofile')?.checked??true;}load(f);$('statefile').value='';};
+$('statefile').onchange=()=>{const f=$('statefile').files[0];if(!f)return;if(!selected.length){selected=[...$('files').files];firmware=platform==='c64'?['basic','kernal','chargen'].map(id=>$(id).files[0]):platform==='amiga'?[$('kickstart').files[0]]:null;compatibility=$('compatprofile')?.checked??true;}load(f);$('statefile').value='';};
 for (const id of ['run', 'pause', 'step'])
   $(id).onclick = () => {
     $('status').textContent =
@@ -205,10 +207,10 @@ for (const id of ['run', 'pause', 'step'])
       canvas.focus();
   };
 $('turbo').onchange = () => send('turbo', {value : $('turbo').checked});
-$('fullscreen').onclick = () => canvas.requestFullscreen();
+$('fullscreen').onclick = () => (platform==='amiga'?canvas.parentElement:canvas).requestFullscreen();
 $('tapeplay').onclick = () => send('tape', {down : 1});
 $('tapestop').onclick = () => send('tape', {down : 0});
-function input(keys = []) {
+function input(keys = [], mouse = null) {
   if(inspector.isInspecting())return;
   let buttons = 0, x = 0, y = 0;
   for (const {bits = [], ax = 0, ay = 0} of sources.values()) {
@@ -234,9 +236,9 @@ function input(keys = []) {
     y : Math.max(-80, Math.min(80, y))
   },
         key = JSON.stringify(state);
-  if (key !== lastInput || keys.length) {
+  if (key !== lastInput || keys.length || mouse) {
     lastInput = key;
-    send('input', {...state, keys});
+    send('input', {...state, keys, ...(mouse?{mouse}:{})});
   }
 }
 for (const [label, bit] of config.buttons) {
@@ -270,6 +272,12 @@ for (const down of [true, false])
     if(inspector.isInspecting())return;
     if (!loaded || e.repeat || e.metaKey)
       return;
+    if(platform==='amiga'&&amigaKeys[e.code]!==undefined){
+      e.preventDefault();const code=amigaKeys[e.code],bit=config.keys[e.key];
+      if(down)c64Keys.add(code);else c64Keys.delete(code);
+      if(bit!==undefined){if(down)sources.set('key:'+e.code,{bits:[bit]});else sources.delete('key:'+e.code);}
+      input([[code,+down]]);return;
+    }
     const bit = config.keys[e.key] ?? config.keys[e.key.toLowerCase()];
     if (bit !== undefined) {
       e.preventDefault();
@@ -332,7 +340,27 @@ if(platform==='ds'||platform==='3ds'){
  canvas.addEventListener('pointermove',e=>{if(e.pointerId===stylus)pen(e,true);});
  for(const type of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(e.pointerId===stylus){pen(e,false);stylus=null;}});
 }
+if(platform==='amiga'){
+ let last=null,fx=0,fy=0;
+ const buttons=e=>{sources.set('amigaMouse',{bits:[...(e.buttons&1?[32]:[]),...(e.buttons&2?[64]:[])]});input();};
+ canvas.addEventListener('pointerenter',e=>{last={x:e.clientX,y:e.clientY};});
+ canvas.addEventListener('pointerleave',()=>{last=null;});
+ canvas.addEventListener('pointermove',e=>{
+   const previous=last;last={x:e.clientX,y:e.clientY};
+   if(!loaded||inspector.isInspecting()||!previous)return;
+   const rect=canvas.getBoundingClientRect(),speed=Number($('mouse-speed').value);
+   fx+=(e.clientX-previous.x)*320/rect.width*speed;fy+=(e.clientY-previous.y)*256/rect.height*speed;
+   const x=Math.trunc(fx),y=Math.trunc(fy);fx-=x;fy-=y;if(x||y)input([],{x,y});
+ });
+ canvas.addEventListener('pointerdown',e=>{if(!loaded||inspector.isInspecting())return;e.preventDefault();canvas.focus();canvas.setPointerCapture(e.pointerId);buttons(e);});
+ canvas.addEventListener('pointerup',e=>{if(!inspector.isInspecting())buttons(e);});
+ for(const type of ['pointercancel','lostpointercapture'])canvas.addEventListener(type,()=>{sources.delete('amigaMouse');input();});
+ canvas.addEventListener('contextmenu',e=>e.preventDefault());
+}
 const gamepadMaps = {
+ amiga:{0:16,1:32,2:64,12:1,13:2,14:4,15:8},
+ gb:{0:16,1:32,8:64,9:128,12:4,13:8,14:2,15:1},
+ gg:{0:32,1:16,9:128,12:1,13:2,14:4,15:8},
  psp:{0:16384,1:8192,2:32768,3:4096,4:256,5:512,8:1,9:8,12:16,13:64,14:128,15:32},
  '3ds':{0:1,1:2,2:2048,3:1024,4:512,5:256,8:4,9:8,12:64,13:128,14:32,15:16},
  ds:{0:1,1:2,2:2048,3:1024,4:512,5:256,8:4,9:8,12:64,13:128,14:32,15:16},
@@ -411,8 +439,8 @@ function pollPad() {
       sources.set('gamepad:'+p.index,{bits,ax:x,ay:y});
     } else {
       const directions =
-          platform === 'ds' ? [32,16,64,128] : platform === 'ps1' ? [ 128, 32, 16, 64 ]
-          : platform === 'c64'
+          platform === 'gb' ? [2,1,4,8] : platform === 'gg' ? [4,8,1,2] : platform === 'ds' ? [32,16,64,128] : platform === 'ps1' ? [ 128, 32, 16, 64 ]
+          : (platform === 'c64'||platform==='amiga')
               ? [ 4, 8, 1, 2 ]
               : [ 0x10000000, 0x20000000, 0x40000000, 0x80000000 ];
       if (x < -30)

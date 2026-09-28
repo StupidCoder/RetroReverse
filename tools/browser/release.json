@@ -14,6 +14,7 @@
     "n3ds": "-O3",
     "psp": "-O3 -msimd128",
     "gameboy": "-O3",
-    "gamegear": "-O3"
+    "gamegear": "-O3",
+    "amiga": "-O3"
   }
 }
