@@ -506,6 +506,10 @@ func (g *gen) assign(x *ast.AssignStmt) string {
 			return "(void)(" + g.e(x.Rhs[0]) + ");\n"
 		}
 		if x.Tok == token.DEFINE {
+			// Local helpers need no type-erased dispatch or allocated captures.
+			if _, ok := x.Rhs[0].(*ast.FuncLit); ok {
+				return "auto " + l + " = " + g.e(x.Rhs[0]) + ";\n"
+			}
 			return typ(g.t(x.Lhs[0])) + " " + l + " = " + g.e(x.Rhs[0]) + ";\n"
 		}
 		if x.Tok == token.AND_NOT_ASSIGN {
@@ -875,6 +879,12 @@ func main() {
 						args = pre
 					}
 					signature := ret(sig.Results()) + " " + name + "(" + args + ")"
+					// Keep the per-instruction dispatch path together. These helpers are
+					// called millions of times and otherwise spill state across WASM calls.
+					switch name {
+					case "r4300_CPU_Step", "r4300_CPU_translateFetch", "r4300_CPU_Translate", "r4300_CPU_execute", "r4300_CPU_special", "r4300_CPU_loadOp", "r4300_CPU_storeOp", "n64_Machine_tickVI", "r4300_CPU_Interrupt", "r4300_CPU_checkInterrupt", "rsp_CPU_Step", "rsp_CPU_execute", "rsp_CPU_cop2":
+						signature = "__attribute__((always_inline)) inline " + signature
+					}
 					protos += signature + ";\n"
 					body := g.block(d.Body)
 					namedret := ""

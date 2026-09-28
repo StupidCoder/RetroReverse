@@ -7922,11 +7922,11 @@ return ;
 int64_t hofs = cast<int64_t>((cast<int64_t>(dsmachine_engine_reg16(e,cast<uint32_t>(16ULL))) & cast<int64_t>(511ULL)));
 {int64_t x = cast<int64_t>(0ULL);for (;(x < cast<int64_t>(256ULL));x++){
 uint32_t p = e->threeD[cast<int64_t>((cast<int64_t>((y * cast<int64_t>(256ULL))) + cast<int64_t>(((cast<int64_t>((x + hofs))) & cast<int64_t>(255ULL)))))];
-uint8_t a = cast<uint8_t>(cast<uint32_t>((p & cast<uint32_t>(255ULL))));
+uint8_t a = cast<uint8_t>(shr<uint32_t>(p,cast<int64_t>(24ULL)));
 if ((a == cast<uint8_t>(0ULL))) {
 continue;
 }
-auto tmp43 = std::make_tuple(cast<uint32_t>(((shr<uint32_t>(p,cast<int64_t>(24ULL))) & cast<uint32_t>(255ULL))),cast<uint32_t>(((shr<uint32_t>(p,cast<int64_t>(16ULL))) & cast<uint32_t>(255ULL))),cast<uint32_t>(((shr<uint32_t>(p,cast<int64_t>(8ULL))) & cast<uint32_t>(255ULL))));
+auto tmp43 = std::make_tuple(cast<uint32_t>((p & cast<uint32_t>(255ULL))),cast<uint32_t>(((shr<uint32_t>(p,cast<int64_t>(8ULL))) & cast<uint32_t>(255ULL))),cast<uint32_t>(((shr<uint32_t>(p,cast<int64_t>(16ULL))) & cast<uint32_t>(255ULL))));
 uint32_t r = std::get<0>(tmp43);
 uint32_t g = std::get<1>(tmp43);
 uint32_t b = std::get<2>(tmp43);

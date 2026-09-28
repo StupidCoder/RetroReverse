@@ -22,8 +22,8 @@ static void stateRead(rrstate::Archive&a){if(a.bytes.size()<12)throw std::runtim
 #include "../../../../browser/state/api.inc"
 static bool captureSwap=false;
 extern "C" {
-int rr_capture_begin(){try{auto b=rrds::memory(machine);rrcapture::trace.begin(b.data(),b.size());rrds::events.clear();
- machine->OnPoly=[](int64_t cmd){auto&t=rrcapture::trace;rrds::clean();auto m=machine;for(auto&p:m->gpu3d->geom.polys)if(p.cmd==cmd){std::ostringstream s;s<<"{\"kind\":\"GX polygon rasterization\",\"command\":"<<cmd<<",\"POLYGON_ATTR\":"<<p.attr<<",\"TEXIMAGE_PARAM\":"<<p.texParam<<",\"PLTT_BASE\":"<<p.pltt<<",\"vertices\":"<<p.verts.n<<",\"wBuffer\":"<<(p.wbuffer?"true":"false")<<"}";t.event(m->Steps,m->ARM9->cpu->R[15],s.str());break;}};
+int rr_capture_begin(){try{auto b=rrds::memory(machine);rrcapture::trace.begin(b.data(),b.size());rrds::events.clear();rrds::render3DEvents.clear();
+ machine->OnPoly=[](int64_t cmd){auto&t=rrcapture::trace;rrds::clean();auto m=machine;for(auto&p:m->gpu3d->geom.polys)if(p.cmd==cmd){std::ostringstream s;s<<"{\"kind\":\"GX polygon rasterization\",\"command\":"<<cmd<<",\"POLYGON_ATTR\":"<<p.attr<<",\"TEXIMAGE_PARAM\":"<<p.texParam<<",\"PLTT_BASE\":"<<p.pltt<<",\"vertices\":"<<p.verts.n<<",\"wBuffer\":"<<(p.wbuffer?"true":"false")<<"}";rrds::render3DEvents.insert(t.event(m->Steps,m->ARM9->cpu->R[15],s.str()));break;}};
  machine->OnPixel=[](int64_t x,int64_t y,dsmachine_PixelEvent e){auto&t=rrcapture::trace;auto m=machine;uint32_t v=rrds::frag({e.R,e.G,e.B,e.A});t.record(rrds::plane3D+(y*256+x)*4,v,4,m->Steps,m->ARM9->cpu->R[15],t.current,(e.Drawn?1:0)|(e.ZReject?2:0)|(e.AlphaReject?4:0));};return 1;}catch(const std::exception&e){errorText=e.what();return 0;}}
 int rr_capture_end(){machine->OnPoly={};machine->OnPixel={};captureSwap=machine->gpu2d->swap;auto b=rrds::memory(machine);rrcapture::trace.end(b.data(),b.size());return 1;}
 const char*rr_capture_info(){reply=rrcapture::trace.info();return reply.c_str();}
@@ -32,10 +32,12 @@ const char*rr_source(uint32_t address,int size,uint32_t before,uint32_t expected
 const char*rr_resource(uint32_t id,uint32_t offset){reply=rrcapture::trace.resourceJSON(id,offset);return reply.c_str();}
 }
 #include "../../../../browser/core/replay.h"
+// Follow the actual draw target until the final step, which always shows the LCDs.
+static bool replay3DTarget(){auto&r=rrreplay::replay;return r.cursor>0&&r.cursor<r.steps.size()&&rrds::render3DEvents.count(r.steps[r.cursor-1].event);}
 extern "C" {
 const char*rr_replay_begin(){rrreplay::replay.begin();reply=rrreplay::replay.info();return reply.c_str();}
 int rr_replay_seek(uint32_t step){return rrreplay::replay.seek(step);}
-const char*rr_replay_info(){reply=rrreplay::replay.info();return reply.c_str();}
+const char*rr_replay_info(){reply=rrreplay::replay.info();reply.pop_back();reply+=replay3DTarget()?",\"surface\":\"3D render target before 2D composition\"}":",\"surface\":\"Composited LCD outputs\"}";return reply.c_str();}
 uint32_t rr_replay_for_write(uint32_t id){return rrreplay::replay.forWrite(id);}
-uint8_t*rr_replay_frame(){auto&r=rrreplay::replay;pixels.resize(rrds::planeSize*2);if(r.memory.size()<rrds::total)return nullptr;auto first=captureSwap?0:rrds::planeSize;std::memcpy(pixels.data(),r.memory.data()+first,rrds::planeSize);std::memcpy(pixels.data()+rrds::planeSize,r.memory.data()+rrds::planeSize-first,rrds::planeSize);return pixels.data();}
+uint8_t*rr_replay_frame(){auto&r=rrreplay::replay;pixels.resize(rrds::planeSize*2);if(r.memory.size()<rrds::total)return nullptr;auto first=captureSwap?0:rrds::planeSize;std::memcpy(pixels.data(),r.memory.data()+first,rrds::planeSize);std::memcpy(pixels.data()+rrds::planeSize,r.memory.data()+rrds::planeSize-first,rrds::planeSize);if(replay3DTarget())std::memcpy(pixels.data()+(captureSwap?0:rrds::planeSize),r.memory.data()+rrds::plane3D,rrds::planeSize);return pixels.data();}
 }

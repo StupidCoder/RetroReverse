@@ -1,6 +1,7 @@
 # DS and 3DS C++/WASM ports
 
 These are initial-port measurements. See [the subsequent performance refactor](HANDHELD-PERFORMANCE.md) for current results.
+The [DS rendering corrections](DS-RENDERING.md) address the later color-channel and replay-preview bugs.
 
 Both ports join the static Pages release, shared local-media flow, pause/reset,
 keyboard/on-screen/gamepad input, subsystem timings, portable states and pixel

@@ -1,0 +1,567 @@
+{
+  "workload": "Pilotwings 64, identical saved scene, 120 modeled VI intervals",
+  "unit": "modeled VI intervals per wall second (750000 CPU run-loop steps each)",
+  "median": {
+    "before": 13.176848791492835,
+    "after": 23.71092411918916
+  },
+  "speedup": 1.7994381277636937,
+  "exactEndStates": true,
+  "runs": {
+    "before": [
+      {
+        "platform": "n64",
+        "fields": 120,
+        "seconds": 9.052805794999998,
+        "fps": 13.255558852955602,
+        "heap": 67108864,
+        "profile": [
+          {
+            "name": "VR4300 / scheduler remainder",
+            "ms": 3579.9797000000003,
+            "longestMs": 61.3236,
+            "tag": 0
+          },
+          {
+            "name": "RSP",
+            "ms": 3944.909,
+            "longestMs": 53.3004,
+            "tag": 0
+          },
+          {
+            "name": "RDP / software rasterizer",
+            "ms": 1440.4984000000002,
+            "longestMs": 2.41612,
+            "tag": 0
+          }
+        ],
+        "checkpoints": [
+          {
+            "field": 30,
+            "steps": 22500000,
+            "pc": 2149822092,
+            "cpu": 580198478,
+            "rsp": 4233430435,
+            "ram": 2748612752,
+            "dmem": 630783948,
+            "imem": 3332736225,
+            "rspSteps": 180178921,
+            "rdpWords": 3463544,
+            "origin": 895616,
+            "width": 320,
+            "polls": 564
+          },
+          {
+            "field": 60,
+            "steps": 45000000,
+            "pc": 2149822080,
+            "cpu": 1901022324,
+            "rsp": 4079982819,
+            "ram": 166070589,
+            "dmem": 3513739420,
+            "imem": 3332736225,
+            "rspSteps": 221697534,
+            "rdpWords": 4255888,
+            "origin": 895616,
+            "width": 320,
+            "polls": 684
+          },
+          {
+            "field": 90,
+            "steps": 67500000,
+            "pc": 2149822092,
+            "cpu": 3970026248,
+            "rsp": 2424589328,
+            "ram": 1692671653,
+            "dmem": 2538354764,
+            "imem": 3332736225,
+            "rspSteps": 254750896,
+            "rdpWords": 5063359,
+            "origin": 895616,
+            "width": 320,
+            "polls": 804
+          },
+          {
+            "field": 120,
+            "steps": 90000000,
+            "pc": 2149822092,
+            "cpu": 4280148367,
+            "rsp": 4266882250,
+            "ram": 3829051772,
+            "dmem": 209886051,
+            "imem": 3332736225,
+            "rspSteps": 285227547,
+            "rdpWords": 5888549,
+            "origin": 895616,
+            "width": 320,
+            "polls": 924
+          }
+        ],
+        "stateSha256": "25cdb0804e9251a7c57e7e204d061a1aa8698328a7b9248009b099358be3f6fb"
+      },
+      {
+        "platform": "n64",
+        "fields": 120,
+        "seconds": 9.163562289,
+        "fps": 13.09534395199657,
+        "heap": 67108864,
+        "profile": [
+          {
+            "name": "VR4300 / scheduler remainder",
+            "ms": 3514.6996000000004,
+            "longestMs": 61.935,
+            "tag": 0
+          },
+          {
+            "name": "RSP",
+            "ms": 4086.317,
+            "longestMs": 53.7681,
+            "tag": 0
+          },
+          {
+            "name": "RDP / software rasterizer",
+            "ms": 1472.7302,
+            "longestMs": 3.39713,
+            "tag": 0
+          }
+        ],
+        "checkpoints": [
+          {
+            "field": 30,
+            "steps": 22500000,
+            "pc": 2149822092,
+            "cpu": 580198478,
+            "rsp": 4233430435,
+            "ram": 2748612752,
+            "dmem": 630783948,
+            "imem": 3332736225,
+            "rspSteps": 180178921,
+            "rdpWords": 3463544,
+            "origin": 895616,
+            "width": 320,
+            "polls": 564
+          },
+          {
+            "field": 60,
+            "steps": 45000000,
+            "pc": 2149822080,
+            "cpu": 1901022324,
+            "rsp": 4079982819,
+            "ram": 166070589,
+            "dmem": 3513739420,
+            "imem": 3332736225,
+            "rspSteps": 221697534,
+            "rdpWords": 4255888,
+            "origin": 895616,
+            "width": 320,
+            "polls": 684
+          },
+          {
+            "field": 90,
+            "steps": 67500000,
+            "pc": 2149822092,
+            "cpu": 3970026248,
+            "rsp": 2424589328,
+            "ram": 1692671653,
+            "dmem": 2538354764,
+            "imem": 3332736225,
+            "rspSteps": 254750896,
+            "rdpWords": 5063359,
+            "origin": 895616,
+            "width": 320,
+            "polls": 804
+          },
+          {
+            "field": 120,
+            "steps": 90000000,
+            "pc": 2149822092,
+            "cpu": 4280148367,
+            "rsp": 4266882250,
+            "ram": 3829051772,
+            "dmem": 209886051,
+            "imem": 3332736225,
+            "rspSteps": 285227547,
+            "rdpWords": 5888549,
+            "origin": 895616,
+            "width": 320,
+            "polls": 924
+          }
+        ],
+        "stateSha256": "25cdb0804e9251a7c57e7e204d061a1aa8698328a7b9248009b099358be3f6fb"
+      },
+      {
+        "platform": "n64",
+        "fields": 120,
+        "seconds": 9.106881462999995,
+        "fps": 13.176848791492835,
+        "heap": 67108864,
+        "profile": [
+          {
+            "name": "VR4300 / scheduler remainder",
+            "ms": 3722.6159,
+            "longestMs": 82.8988,
+            "tag": 0
+          },
+          {
+            "name": "RSP",
+            "ms": 3811.875,
+            "longestMs": 75.3063,
+            "tag": 0
+          },
+          {
+            "name": "RDP / software rasterizer",
+            "ms": 1480.5635,
+            "longestMs": 2.24825,
+            "tag": 0
+          }
+        ],
+        "checkpoints": [
+          {
+            "field": 30,
+            "steps": 22500000,
+            "pc": 2149822092,
+            "cpu": 580198478,
+            "rsp": 4233430435,
+            "ram": 2748612752,
+            "dmem": 630783948,
+            "imem": 3332736225,
+            "rspSteps": 180178921,
+            "rdpWords": 3463544,
+            "origin": 895616,
+            "width": 320,
+            "polls": 564
+          },
+          {
+            "field": 60,
+            "steps": 45000000,
+            "pc": 2149822080,
+            "cpu": 1901022324,
+            "rsp": 4079982819,
+            "ram": 166070589,
+            "dmem": 3513739420,
+            "imem": 3332736225,
+            "rspSteps": 221697534,
+            "rdpWords": 4255888,
+            "origin": 895616,
+            "width": 320,
+            "polls": 684
+          },
+          {
+            "field": 90,
+            "steps": 67500000,
+            "pc": 2149822092,
+            "cpu": 3970026248,
+            "rsp": 2424589328,
+            "ram": 1692671653,
+            "dmem": 2538354764,
+            "imem": 3332736225,
+            "rspSteps": 254750896,
+            "rdpWords": 5063359,
+            "origin": 895616,
+            "width": 320,
+            "polls": 804
+          },
+          {
+            "field": 120,
+            "steps": 90000000,
+            "pc": 2149822092,
+            "cpu": 4280148367,
+            "rsp": 4266882250,
+            "ram": 3829051772,
+            "dmem": 209886051,
+            "imem": 3332736225,
+            "rspSteps": 285227547,
+            "rdpWords": 5888549,
+            "origin": 895616,
+            "width": 320,
+            "polls": 924
+          }
+        ],
+        "stateSha256": "25cdb0804e9251a7c57e7e204d061a1aa8698328a7b9248009b099358be3f6fb"
+      }
+    ],
+    "after": [
+      {
+        "platform": "n64",
+        "fields": 120,
+        "seconds": 5.052958580000005,
+        "fps": 23.748463024211034,
+        "heap": 67108864,
+        "profile": [
+          {
+            "name": "VR4300 / scheduler remainder",
+            "ms": 2128.3537,
+            "longestMs": 47.4875,
+            "tag": 0
+          },
+          {
+            "name": "RSP",
+            "ms": 1383.6721,
+            "longestMs": 42.1313,
+            "tag": 0
+          },
+          {
+            "name": "RDP / software rasterizer",
+            "ms": 1463.6791,
+            "longestMs": 2.15604,
+            "tag": 0
+          }
+        ],
+        "checkpoints": [
+          {
+            "field": 30,
+            "steps": 22500000,
+            "pc": 2149822092,
+            "cpu": 580198478,
+            "rsp": 4233430435,
+            "ram": 2748612752,
+            "dmem": 630783948,
+            "imem": 3332736225,
+            "rspSteps": 180178921,
+            "rdpWords": 3463544,
+            "origin": 895616,
+            "width": 320,
+            "polls": 564
+          },
+          {
+            "field": 60,
+            "steps": 45000000,
+            "pc": 2149822080,
+            "cpu": 1901022324,
+            "rsp": 4079982819,
+            "ram": 166070589,
+            "dmem": 3513739420,
+            "imem": 3332736225,
+            "rspSteps": 221697534,
+            "rdpWords": 4255888,
+            "origin": 895616,
+            "width": 320,
+            "polls": 684
+          },
+          {
+            "field": 90,
+            "steps": 67500000,
+            "pc": 2149822092,
+            "cpu": 3970026248,
+            "rsp": 2424589328,
+            "ram": 1692671653,
+            "dmem": 2538354764,
+            "imem": 3332736225,
+            "rspSteps": 254750896,
+            "rdpWords": 5063359,
+            "origin": 895616,
+            "width": 320,
+            "polls": 804
+          },
+          {
+            "field": 120,
+            "steps": 90000000,
+            "pc": 2149822092,
+            "cpu": 4280148367,
+            "rsp": 4266882250,
+            "ram": 3829051772,
+            "dmem": 209886051,
+            "imem": 3332736225,
+            "rspSteps": 285227547,
+            "rdpWords": 5888549,
+            "origin": 895616,
+            "width": 320,
+            "polls": 924
+          }
+        ],
+        "stateSha256": "25cdb0804e9251a7c57e7e204d061a1aa8698328a7b9248009b099358be3f6fb"
+      },
+      {
+        "platform": "n64",
+        "fields": 120,
+        "seconds": 5.172871336000001,
+        "fps": 23.19794794911558,
+        "heap": 67108864,
+        "profile": [
+          {
+            "name": "VR4300 / scheduler remainder",
+            "ms": 2226.9113,
+            "longestMs": 48.1244,
+            "tag": 0
+          },
+          {
+            "name": "RSP",
+            "ms": 1393.3683999999998,
+            "longestMs": 42.6728,
+            "tag": 0
+          },
+          {
+            "name": "RDP / software rasterizer",
+            "ms": 1473.3448999999998,
+            "longestMs": 2.4825,
+            "tag": 0
+          }
+        ],
+        "checkpoints": [
+          {
+            "field": 30,
+            "steps": 22500000,
+            "pc": 2149822092,
+            "cpu": 580198478,
+            "rsp": 4233430435,
+            "ram": 2748612752,
+            "dmem": 630783948,
+            "imem": 3332736225,
+            "rspSteps": 180178921,
+            "rdpWords": 3463544,
+            "origin": 895616,
+            "width": 320,
+            "polls": 564
+          },
+          {
+            "field": 60,
+            "steps": 45000000,
+            "pc": 2149822080,
+            "cpu": 1901022324,
+            "rsp": 4079982819,
+            "ram": 166070589,
+            "dmem": 3513739420,
+            "imem": 3332736225,
+            "rspSteps": 221697534,
+            "rdpWords": 4255888,
+            "origin": 895616,
+            "width": 320,
+            "polls": 684
+          },
+          {
+            "field": 90,
+            "steps": 67500000,
+            "pc": 2149822092,
+            "cpu": 3970026248,
+            "rsp": 2424589328,
+            "ram": 1692671653,
+            "dmem": 2538354764,
+            "imem": 3332736225,
+            "rspSteps": 254750896,
+            "rdpWords": 5063359,
+            "origin": 895616,
+            "width": 320,
+            "polls": 804
+          },
+          {
+            "field": 120,
+            "steps": 90000000,
+            "pc": 2149822092,
+            "cpu": 4280148367,
+            "rsp": 4266882250,
+            "ram": 3829051772,
+            "dmem": 209886051,
+            "imem": 3332736225,
+            "rspSteps": 285227547,
+            "rdpWords": 5888549,
+            "origin": 895616,
+            "width": 320,
+            "polls": 924
+          }
+        ],
+        "stateSha256": "25cdb0804e9251a7c57e7e204d061a1aa8698328a7b9248009b099358be3f6fb"
+      },
+      {
+        "platform": "n64",
+        "fields": 120,
+        "seconds": 5.060958375000006,
+        "fps": 23.71092411918916,
+        "heap": 67108864,
+        "profile": [
+          {
+            "name": "VR4300 / scheduler remainder",
+            "ms": 2154.2844999999998,
+            "longestMs": 46.0074,
+            "tag": 0
+          },
+          {
+            "name": "RSP",
+            "ms": 1373.391,
+            "longestMs": 40.9353,
+            "tag": 0
+          },
+          {
+            "name": "RDP / software rasterizer",
+            "ms": 1457.2636000000002,
+            "longestMs": 2.20233,
+            "tag": 0
+          }
+        ],
+        "checkpoints": [
+          {
+            "field": 30,
+            "steps": 22500000,
+            "pc": 2149822092,
+            "cpu": 580198478,
+            "rsp": 4233430435,
+            "ram": 2748612752,
+            "dmem": 630783948,
+            "imem": 3332736225,
+            "rspSteps": 180178921,
+            "rdpWords": 3463544,
+            "origin": 895616,
+            "width": 320,
+            "polls": 564
+          },
+          {
+            "field": 60,
+            "steps": 45000000,
+            "pc": 2149822080,
+            "cpu": 1901022324,
+            "rsp": 4079982819,
+            "ram": 166070589,
+            "dmem": 3513739420,
+            "imem": 3332736225,
+            "rspSteps": 221697534,
+            "rdpWords": 4255888,
+            "origin": 895616,
+            "width": 320,
+            "polls": 684
+          },
+          {
+            "field": 90,
+            "steps": 67500000,
+            "pc": 2149822092,
+            "cpu": 3970026248,
+            "rsp": 2424589328,
+            "ram": 1692671653,
+            "dmem": 2538354764,
+            "imem": 3332736225,
+            "rspSteps": 254750896,
+            "rdpWords": 5063359,
+            "origin": 895616,
+            "width": 320,
+            "polls": 804
+          },
+          {
+            "field": 120,
+            "steps": 90000000,
+            "pc": 2149822092,
+            "cpu": 4280148367,
+            "rsp": 4266882250,
+            "ram": 3829051772,
+            "dmem": 209886051,
+            "imem": 3332736225,
+            "rspSteps": 285227547,
+            "rdpWords": 5888549,
+            "origin": 895616,
+            "width": 320,
+            "polls": 924
+          }
+        ],
+        "stateSha256": "25cdb0804e9251a7c57e7e204d061a1aa8698328a7b9248009b099358be3f6fb"
+      }
+    ]
+  },
+  "replayValidation": {
+    "platform": "n64",
+    "steps": 15523,
+    "maxSeekMs": 1.1940829999999778,
+    "endMatches": true,
+    "arbitrarySeek": true,
+    "liveUnchanged": true,
+    "continuationMatches": true
+  },
+  "vectorCases": 65536,
+  "ubsanPassed": true
+}

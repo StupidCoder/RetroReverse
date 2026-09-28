@@ -640,7 +640,7 @@ constexpr int64_t n64_stepsPerField=750000ULL;
 constexpr int64_t n64_halflinesPerField=525ULL;
 uint64_t r4300_TLBEntry_pairSize(r4300_TLBEntry* e);
 uint64_t r4300_TLBEntry_pageSize(r4300_TLBEntry* e);
-std::tuple<uint32_t,bool> r4300_CPU_Translate(r4300_CPU* c,uint64_t vaddr,bool store);
+__attribute__((always_inline)) inline std::tuple<uint32_t,bool> r4300_CPU_Translate(r4300_CPU* c,uint64_t vaddr,bool store);
 std::tuple<uint32_t,bool> r4300_CPU_tlbTranslate(r4300_CPU* c,uint64_t vaddr,bool store);
 void r4300_CPU_tlbException(r4300_CPU* c,uint64_t vaddr,bool store,bool refill);
 void r4300_CPU_setEntryHiVPN(r4300_CPU* c,uint64_t vaddr);
@@ -674,16 +674,16 @@ uint64_t r4300_sext64(uint64_t v);
 void r4300_CPU_eret(r4300_CPU* c);
 void r4300_CPU_coprocessorUnusable(r4300_CPU* c,uint32_t unit);
 void r4300_CPU_addrError(r4300_CPU* c,uint32_t code,uint64_t vaddr);
-bool r4300_CPU_Interrupt(r4300_CPU* c,bool pending);
-bool r4300_CPU_checkInterrupt(r4300_CPU* c);
+__attribute__((always_inline)) inline bool r4300_CPU_Interrupt(r4300_CPU* c,bool pending);
+__attribute__((always_inline)) inline bool r4300_CPU_checkInterrupt(r4300_CPU* c);
 void r4300_CPU_tickCount(r4300_CPU* c);
-int64_t r4300_CPU_Step(r4300_CPU* c);
-std::tuple<uint32_t,bool> r4300_CPU_translateFetch(r4300_CPU* c,uint64_t vaddr);
+__attribute__((always_inline)) inline int64_t r4300_CPU_Step(r4300_CPU* c);
+__attribute__((always_inline)) inline std::tuple<uint32_t,bool> r4300_CPU_translateFetch(r4300_CPU* c,uint64_t vaddr);
 void r4300_CPU_doBranch(r4300_CPU* c,bool taken,uint64_t target);
 void r4300_CPU_doBranchLikely(r4300_CPU* c,bool taken,uint64_t target);
-void r4300_CPU_execute(r4300_CPU* c,uint32_t w);
+__attribute__((always_inline)) inline void r4300_CPU_execute(r4300_CPU* c,uint32_t w);
 void r4300_CPU_cop2(r4300_CPU* c,uint32_t w,uint32_t rs,uint32_t rt);
-void r4300_CPU_special(r4300_CPU* c,uint32_t w,uint32_t rs,uint32_t rt);
+__attribute__((always_inline)) inline void r4300_CPU_special(r4300_CPU* c,uint32_t w,uint32_t rs,uint32_t rt);
 void r4300_CPU_regimm(r4300_CPU* c,uint32_t w,uint32_t rs,uint32_t rt,uint64_t branchT,uint64_t simm);
 void r4300_CPU_trapIf(r4300_CPU* c,bool cond);
 void r4300_CPU_divSigned(r4300_CPU* c,int32_t a,int32_t b);
@@ -691,8 +691,8 @@ void r4300_CPU_divUnsigned(r4300_CPU* c,uint32_t a,uint32_t b);
 void r4300_CPU_ddivSigned(r4300_CPU* c,int64_t a,int64_t b);
 void r4300_CPU_ddivUnsigned(r4300_CPU* c,uint64_t a,uint64_t b);
 std::tuple<uint64_t,uint64_t> r4300_mul64Signed(int64_t a,int64_t b);
-void r4300_CPU_loadOp(r4300_CPU* c,uint32_t op,uint32_t rs,uint32_t rt,uint64_t simm);
-void r4300_CPU_storeOp(r4300_CPU* c,uint32_t op,uint32_t rs,uint32_t rt,uint64_t simm);
+__attribute__((always_inline)) inline void r4300_CPU_loadOp(r4300_CPU* c,uint32_t op,uint32_t rs,uint32_t rt,uint64_t simm);
+__attribute__((always_inline)) inline void r4300_CPU_storeOp(r4300_CPU* c,uint32_t op,uint32_t rs,uint32_t rt,uint64_t simm);
 std::tuple<uint32_t,bool> r4300_addOv32(uint32_t a,uint32_t b);
 std::tuple<uint32_t,bool> r4300_subOv32(uint32_t a,uint32_t b);
 std::tuple<uint64_t,bool> r4300_addOv64(uint64_t a,uint64_t b);
@@ -756,10 +756,10 @@ void rsp_CPU_wr16(rsp_CPU* c,uint32_t a,uint32_t v);
 uint32_t rsp_CPU_rd32(rsp_CPU* c,uint32_t a);
 void rsp_CPU_wr32(rsp_CPU* c,uint32_t a,uint32_t v);
 void rsp_CPU_set(rsp_CPU* c,uint32_t i,uint32_t v);
-void rsp_CPU_Step(rsp_CPU* c);
+__attribute__((always_inline)) inline void rsp_CPU_Step(rsp_CPU* c);
 uint64_t rsp_CPU_Run(rsp_CPU* c,uint64_t maxSteps);
 void rsp_CPU_doBranch(rsp_CPU* c,bool taken,uint32_t target);
-void rsp_CPU_execute(rsp_CPU* c,uint32_t w);
+__attribute__((always_inline)) inline void rsp_CPU_execute(rsp_CPU* c,uint32_t w);
 void rsp_CPU_special(rsp_CPU* c,uint32_t w,uint32_t rs,uint32_t rt);
 uint32_t rsp_b2u(bool b);
 void rsp_CPU_observeVector(rsp_CPU* c,uint32_t unused0,bool unused1);
@@ -775,7 +775,7 @@ int64_t rsp_s16(uint16_t v);
 int64_t rsp_u16(uint16_t v);
 bool rsp_bit(uint16_t f,uint32_t i);
 void rsp_setBit(uint16_t* f,uint32_t i,bool on);
-void rsp_CPU_cop2(rsp_CPU* c,uint32_t w);
+__attribute__((always_inline)) inline void rsp_CPU_cop2(rsp_CPU* c,uint32_t w);
 uint16_t rsp_CPU_ctrl(rsp_CPU* c,uint32_t i);
 void rsp_CPU_setCtrl(rsp_CPU* c,uint32_t i,uint16_t v);
 uint8_t rsp_CPU_vecByte(rsp_CPU* c,uint32_t r,uint32_t b);
@@ -914,7 +914,7 @@ void n64_Machine_spDMA(n64_Machine* m,uint32_t lenReg,bool toRDRAM);
 void n64_vi_init(n64_vi* v);
 uint32_t n64_Machine_viRead(n64_Machine* m,uint32_t addr);
 void n64_Machine_viWrite(n64_Machine* m,uint32_t addr,uint32_t v);
-void n64_Machine_tickVI(n64_Machine* m);
+__attribute__((always_inline)) inline void n64_Machine_tickVI(n64_Machine* m);
 uint32_t n64_Machine_Origin(n64_Machine* m);
 uint32_t n64_Machine_Width(n64_Machine* m);
 uint32_t n64_Machine_PixelType(n64_Machine* m);
@@ -933,7 +933,7 @@ return divi<uint64_t>(r4300_TLBEntry_pairSize(e),cast<uint64_t>(2ULL));
 }
 }
 // tools/cpu/r4300/cop0.go:58:1
-std::tuple<uint32_t,bool> r4300_CPU_Translate(r4300_CPU* c,uint64_t vaddr,bool store){
+__attribute__((always_inline)) inline std::tuple<uint32_t,bool> r4300_CPU_Translate(r4300_CPU* c,uint64_t vaddr,bool store){
 {
 uint32_t v = cast<uint32_t>(vaddr);
 {
@@ -1387,7 +1387,7 @@ r4300_CPU_Exception(c,code);
 }
 }
 // tools/cpu/r4300/cpu.go:370:1
-bool r4300_CPU_Interrupt(r4300_CPU* c,bool pending){
+__attribute__((always_inline)) inline bool r4300_CPU_Interrupt(r4300_CPU* c,bool pending){
 {
 if (pending) {
 c->COP0[r4300_cop0Cause] |= r4300_causeIP2;
@@ -1399,7 +1399,7 @@ return r4300_CPU_checkInterrupt(c);
 }
 }
 // tools/cpu/r4300/cpu.go:380:1
-bool r4300_CPU_checkInterrupt(r4300_CPU* c){
+__attribute__((always_inline)) inline bool r4300_CPU_checkInterrupt(r4300_CPU* c){
 {
 uint64_t sr = c->COP0[r4300_cop0Status];
 if (((cast<uint64_t>((sr & r4300_statusIE)) == cast<uint64_t>(0ULL)) || (cast<uint64_t>((sr & (cast<uint64_t>((r4300_statusEXL | r4300_statusERL))))) != cast<uint64_t>(0ULL)))) {
@@ -1432,7 +1432,7 @@ c->COP0[r4300_cop0Cause] |= r4300_causeIP7;
 }
 }
 // tools/cpu/r4300/exec.go:19:1
-int64_t r4300_CPU_Step(r4300_CPU* c){
+__attribute__((always_inline)) inline int64_t r4300_CPU_Step(r4300_CPU* c){
 {
 if (c->Halted) {
 return cast<int64_t>(0ULL);
@@ -1459,7 +1459,7 @@ return cast<int64_t>(1ULL);
 }
 }
 // tools/cpu/r4300/exec.go:48:1
-std::tuple<uint32_t,bool> r4300_CPU_translateFetch(r4300_CPU* c,uint64_t vaddr){
+__attribute__((always_inline)) inline std::tuple<uint32_t,bool> r4300_CPU_translateFetch(r4300_CPU* c,uint64_t vaddr){
 {
 if ((cast<uint64_t>((vaddr & cast<uint64_t>(3ULL))) != cast<uint64_t>(0ULL))) {
 r4300_CPU_addrError(c,r4300_excAdEL,vaddr);
@@ -1490,7 +1490,7 @@ c->nextPC += cast<uint64_t>(4ULL);
 }
 }
 // tools/cpu/r4300/exec.go:78:1
-void r4300_CPU_execute(r4300_CPU* c,uint32_t w){
+__attribute__((always_inline)) inline void r4300_CPU_execute(r4300_CPU* c,uint32_t w){
 {
 uint32_t op = shr<uint32_t>(w,cast<int64_t>(26ULL));
 uint32_t rs = cast<uint32_t>(((shr<uint32_t>(w,cast<int64_t>(21ULL))) & cast<uint32_t>(31ULL)));
@@ -1655,7 +1655,7 @@ break;}
 }
 }
 // tools/cpu/r4300/exec.go:216:1
-void r4300_CPU_special(r4300_CPU* c,uint32_t w,uint32_t rs,uint32_t rt){
+__attribute__((always_inline)) inline void r4300_CPU_special(r4300_CPU* c,uint32_t w,uint32_t rs,uint32_t rt){
 {
 uint32_t rd = cast<uint32_t>(((shr<uint32_t>(w,cast<int64_t>(11ULL))) & cast<uint32_t>(31ULL)));
 uint32_t shamt = cast<uint32_t>(((shr<uint32_t>(w,cast<int64_t>(6ULL))) & cast<uint32_t>(31ULL)));
@@ -2046,10 +2046,10 @@ return {hi,lo};
 }
 }
 // tools/cpu/r4300/exec.go:490:1
-void r4300_CPU_loadOp(r4300_CPU* c,uint32_t op,uint32_t rs,uint32_t rt,uint64_t simm){
+__attribute__((always_inline)) inline void r4300_CPU_loadOp(r4300_CPU* c,uint32_t op,uint32_t rs,uint32_t rt,uint64_t simm){
 {
 uint64_t vaddr = cast<uint64_t>((c->R[rs] + simm));
-std::function<std::tuple<uint32_t,bool>(uint64_t)> align = [&](uint64_t n)->std::tuple<uint32_t,bool>{
+auto align = [&](uint64_t n)->std::tuple<uint32_t,bool>{
 if ((cast<uint64_t>((vaddr & (cast<uint64_t>((n - cast<uint64_t>(1ULL)))))) != cast<uint64_t>(0ULL))) {
 r4300_CPU_addrError(c,r4300_excAdEL,vaddr);
 return {cast<uint32_t>(0ULL),false};
@@ -2194,11 +2194,11 @@ break;}
 }
 }
 // tools/cpu/r4300/exec.go:602:1
-void r4300_CPU_storeOp(r4300_CPU* c,uint32_t op,uint32_t rs,uint32_t rt,uint64_t simm){
+__attribute__((always_inline)) inline void r4300_CPU_storeOp(r4300_CPU* c,uint32_t op,uint32_t rs,uint32_t rt,uint64_t simm){
 {
 uint64_t vaddr = cast<uint64_t>((c->R[rs] + simm));
 uint64_t v = c->R[rt];
-std::function<std::tuple<uint32_t,bool>(uint64_t)> align = [&](uint64_t n)->std::tuple<uint32_t,bool>{
+auto align = [&](uint64_t n)->std::tuple<uint32_t,bool>{
 if ((cast<uint64_t>((vaddr & (cast<uint64_t>((n - cast<uint64_t>(1ULL)))))) != cast<uint64_t>(0ULL))) {
 r4300_CPU_addrError(c,r4300_excAdES,vaddr);
 return {cast<uint32_t>(0ULL),false};
@@ -3022,11 +3022,11 @@ double r4300_applyRounding(uint32_t rm,double rounded,int64_t dsign,bool single)
 if (((dsign == cast<int64_t>(0ULL)) || (rm == r4300_roundNearest))) {
 return rounded;
 }
-std::function<double()> up = [&]()->double{
+auto up = [&]()->double{
 return r4300_next(rounded,go_math_Inf(cast<int64_t>(1ULL)),single);
 }
 ;
-std::function<double()> down = [&]()->double{
+auto down = [&]()->double{
 return r4300_next(rounded,go_math_Inf(cast<int64_t>(-cast<int64_t>(1ULL))),single);
 }
 ;
@@ -3400,7 +3400,7 @@ c->R[i] = v;
 }
 }
 // tools/cpu/rsp/cpu.go:146:1
-void rsp_CPU_Step(rsp_CPU* c){
+__attribute__((always_inline)) inline void rsp_CPU_Step(rsp_CPU* c){
 {
 if (c->Halted) {
 return ;
@@ -3433,7 +3433,7 @@ c->nextPC = cast<uint32_t>((target & cast<uint32_t>(4092ULL)));
 }
 }
 // tools/cpu/rsp/cpu.go:181:1
-void rsp_CPU_execute(rsp_CPU* c,uint32_t w){
+__attribute__((always_inline)) inline void rsp_CPU_execute(rsp_CPU* c,uint32_t w){
 {
 uint32_t op = shr<uint32_t>(w,cast<int64_t>(26ULL));
 uint32_t rs = cast<uint32_t>(((shr<uint32_t>(w,cast<int64_t>(21ULL))) & cast<uint32_t>(31ULL)));
@@ -3757,7 +3757,7 @@ else {
 }
 }
 // tools/cpu/rsp/vu.go:118:1
-void rsp_CPU_cop2(rsp_CPU* c,uint32_t w){
+__attribute__((always_inline)) inline void rsp_CPU_cop2(rsp_CPU* c,uint32_t w){
 {
 uint32_t rs = cast<uint32_t>(((shr<uint32_t>(w,cast<int64_t>(21ULL))) & cast<uint32_t>(31ULL)));
 uint32_t rt = cast<uint32_t>(((shr<uint32_t>(w,cast<int64_t>(16ULL))) & cast<uint32_t>(31ULL)));
@@ -5351,7 +5351,7 @@ if ((end <= start)) {
 return ;
 }
 bool xbus = (cast<uint32_t>((get(m->dp,n64_dpStatus) & n64_dpStatusXBusDMEM)) != cast<uint32_t>(0ULL));
-std::function<uint64_t(uint32_t)> read64 = [&](uint32_t addr)->uint64_t{
+auto read64 = [&](uint32_t addr)->uint64_t{
 if (xbus) {
 uint32_t a = cast<uint32_t>((addr & cast<uint32_t>(4088ULL)));
 return be_Uint64(sub(m->DMEM,a,len(m->DMEM)));
@@ -5806,7 +5806,7 @@ uint32_t pSel = std::get<0>(tmp16);
 uint32_t aSel = std::get<1>(tmp16);
 uint32_t mSel = std::get<2>(tmp16);
 uint32_t bSel = std::get<3>(tmp16);
-std::function<n64_rgba(uint32_t)> pick = [&](uint32_t sel)->n64_rgba{
+auto pick = [&](uint32_t sel)->n64_rgba{
 {
 switch(sel){
 case cast<uint32_t>(0ULL):{
@@ -5859,7 +5859,7 @@ default:{
 b = cast<uint32_t>(0ULL);
 break;}
 }}
-std::function<uint32_t(uint32_t,uint32_t)> mix = [&](uint32_t pc,uint32_t mc)->uint32_t{
+auto mix = [&](uint32_t pc,uint32_t mc)->uint32_t{
 uint32_t num = cast<uint32_t>((cast<uint32_t>((pc * a)) + cast<uint32_t>((mc * b))));
 uint32_t den = cast<uint32_t>((a + b));
 if ((den == cast<uint32_t>(0ULL))) {
@@ -6305,7 +6305,7 @@ return {n64_tap3(c11,c01,c10,cast<uint32_t>((cast<uint32_t>(32ULL) - sf)),cast<u
 // tools/platform/n64/rdp_texture.go:123:1
 n64_rgba n64_tap3(n64_rgba base,n64_rgba alongS,n64_rgba alongT,uint32_t sf,uint32_t tf){
 {
-std::function<uint32_t(uint32_t,uint32_t,uint32_t)> ch = [&](uint32_t b,uint32_t s,uint32_t t)->uint32_t{
+auto ch = [&](uint32_t b,uint32_t s,uint32_t t)->uint32_t{
 int32_t v = cast<int32_t>((cast<int32_t>((cast<int32_t>(b) + divi<int32_t>(cast<int32_t>(((cast<int32_t>((cast<int32_t>(s) - cast<int32_t>(b)))) * cast<int32_t>(sf))),cast<int32_t>(32ULL)))) + divi<int32_t>(cast<int32_t>(((cast<int32_t>((cast<int32_t>(t) - cast<int32_t>(b)))) * cast<int32_t>(tf))),cast<int32_t>(32ULL))));
 if ((v < cast<int32_t>(0ULL))) {
 return cast<uint32_t>(0ULL);
@@ -7202,7 +7202,7 @@ m->vi.Regs[cast<uint32_t>((addr & cast<uint32_t>(255ULL)))] = v;
 }
 }
 // tools/platform/n64/vi.go:92:1
-void n64_Machine_tickVI(n64_Machine* m){
+__attribute__((always_inline)) inline void n64_Machine_tickVI(n64_Machine* m){
 {
 m->vi.Acc++;
 if ((m->vi.Acc < n64_stepsPerField)) {

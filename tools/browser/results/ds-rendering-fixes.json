@@ -1,0 +1,99 @@
+{
+  "colorCorrection": "3D AABBGGRR converted explicitly at the 2D compositor; alpha independent of red",
+  "bootPath": {
+    "image": "Super Mario 64 DS (Europe)",
+    "touches": [
+      {
+        "start": 320,
+        "end": 340,
+        "x": 128,
+        "y": 120
+      },
+      {
+        "start": 420,
+        "end": 440,
+        "x": 128,
+        "y": 120
+      },
+      {
+        "start": 1300,
+        "end": 1320,
+        "x": 128,
+        "y": 164
+      },
+      {
+        "start": 1500,
+        "end": 1520,
+        "x": 48,
+        "y": 68
+      }
+    ],
+    "observedFrames": [
+      1200,
+      1400,
+      1550,
+      1850,
+      2600,
+      2800,
+      3000,
+      3500,
+      3800
+    ]
+  },
+  "replayPeach": {
+    "capture": {
+      "events": 1333,
+      "writes": 359284,
+      "overflow": 0,
+      "bytes": 27818692
+    },
+    "replaySteps": 5776,
+    "distinct3DTargets": 3,
+    "finalMatches": true,
+    "backwardSeeks": true,
+    "liveUnchanged": true
+  },
+  "replayLakitu": {
+    "capture": {
+      "events": 1017,
+      "writes": 319145,
+      "overflow": 0,
+      "bytes": 24882010
+    },
+    "replaySteps": 2251,
+    "distinct3DTargets": 4,
+    "finalMatches": true,
+    "backwardSeeks": true,
+    "liveUnchanged": true
+  },
+  "browser": {
+    "capturedDisplays": [
+      2621,
+      2623
+    ],
+    "captureSeconds": 0.13,
+    "replaySteps": 2177,
+    "heapMiB": 124,
+    "verifiedSteps": [
+      1,
+      86,
+      177,
+      2177
+    ],
+    "active3DSurfaceVisible": true,
+    "backwardScrubbingRemovesLaterPolygons": true,
+    "pixel": {
+      "x": 128,
+      "y": 96,
+      "color": "#f7ad00",
+      "exactDisplayMatch": true,
+      "historical3DSourceMatch": true
+    }
+  },
+  "coldBootStateValidation": {
+    "frames": 700,
+    "stateContinuation": true,
+    "replayIsolated": true,
+    "replayFinal": true
+  }
+}

@@ -12,6 +12,6 @@ export function createReplay({canvas,send}) {
  slider.oninput=()=>seek(Number(slider.value));
  highlight.onchange=draw;
  cancel.onclick=()=>{latest=0;send('cancel-seek');cancel.hidden=true;note.textContent='Seek cancelled. The paused machine is unchanged.';slider.value=cursor;};
- function result(m){if(m.capture!==capture||m.request!==latest)return;if(m.type==='seek-progress'){note.textContent='Replaying recorded rendering effects…';return;}cancel.hidden=true;cursor=m.info.cursor;slider.value=cursor;previous=shown;shown=new Uint8ClampedArray(m.pixels);draw();note.textContent=`Step ${cursor.toLocaleString()} / ${count.toLocaleString()} · ${cursor?m.info.command?.kind||'Rendering event':'Pre-existing buffer contents'} · ${m.elapsedMs.toFixed(1)} ms seek · ${(m.info.cacheBytes/1048576).toFixed(1)} MiB replay cache. Pixel inspection refers to the final capture.`;}
+ function result(m){if(m.capture!==capture||m.request!==latest)return;if(m.type==='seek-progress'){note.textContent='Replaying recorded rendering effects…';return;}cancel.hidden=true;cursor=m.info.cursor;slider.value=cursor;previous=shown;shown=new Uint8ClampedArray(m.pixels);draw();note.textContent=`Step ${cursor.toLocaleString()} / ${count.toLocaleString()} · ${cursor?m.info.command?.kind||'Rendering event':'Pre-existing buffer contents'}${m.info.surface?' · '+m.info.surface:''} · ${m.elapsedMs.toFixed(1)} ms seek · ${(m.info.cacheBytes/1048576).toFixed(1)} MiB replay cache. Pixel inspection refers to the final capture.`;}
  return {reset,setCapture,seek,result};
 }

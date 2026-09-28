@@ -26,8 +26,8 @@ package dsmachine
 // (in fact 6-bit) components, and converting to 8-bit early and blending there is a
 // good way to get colours that are close but never equal.
 //
-// Pixels leave here as RGBA8888 packed R<<24 | G<<16 | B<<8 | A — the same packing
-// the 3D engine must use for the frame it hands us in gpu2d.threeD.
+// Pixels leave here as RGBA8888 packed R<<24 | G<<16 | B<<8 | A. The private 3D
+// surface uses R | G<<8 | B<<16 | A<<24; threeDLine converts that input explicitly.
 
 import "time"
 
@@ -92,7 +92,7 @@ var bgKind = [8][4]int{
 type gpu2d struct {
 	a, b engine
 
-	// threeD is the 3D engine's most recent rendered frame: 256x192 pixels, RGBA8888
+	// threeD is the 3D engine's most recent rendered frame: 256x192 pixels, AABBGGRR
 	// with a meaningful alpha byte (0 = nothing was drawn there, 255 = opaque, in
 	// between = a translucent polygon). A nil slice means the 3D engine has not drawn
 	// a frame yet, in which case engine A's BG0 stays empty even with DISPCNT bit 3
@@ -499,11 +499,11 @@ func (e *engine) threeDLine(y int) {
 	hofs := int(e.reg16(rBG0HOFS)) & 0x1FF
 	for x := 0; x < screenW; x++ {
 		p := e.threeD[y*screenW+(x+hofs)&255]
-		a := uint8(p & 0xFF)
+		a := uint8(p >> 24)
 		if a == 0 {
 			continue // nothing was drawn: the layer is transparent here
 		}
-		r, g, b := (p>>24)&0xFF, (p>>16)&0xFF, (p>>8)&0xFF
+		r, g, b := p&0xFF, (p>>8)&0xFF, (p>>16)&0xFF
 		e.bg[0][x] = rgb555(r>>3, g>>3, b>>3)
 		e.bgOK[0][x] = true
 		e.a3D[x] = uint8(uint32(a) * 31 / 255)

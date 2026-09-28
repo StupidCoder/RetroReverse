@@ -1,5 +1,8 @@
 # Nintendo DS browser core
 
+See [color and rendering-replay corrections](../../../browser/docs/DS-RENDERING.md)
+for the 3D/compositor format fix and active-target replay behavior.
+
 The original ARM9/ARM7, cartridge/SPI, DMA/timers, GX rasterizer and two 2D engines
 are translated into C++20. `portgen` is a bounded AST translator for these source
 files, not a general Go compiler. `generated.cpp` is checked in; browser consumers

@@ -36,7 +36,12 @@ function finishCaptureProfile(){
 }
 let inputs, lastButtons = -1, lastX = 0, lastY = 0;
 let inputSequence = 0, lastInputStep = 0;
-const sleep = n => new Promise(r => setTimeout(r, n));
+// Yield to queued input without turning every 8 ms work slice into a nested
+// timer. Timed waits still use setTimeout for the actual emulation pacing.
+const yieldChannel = new MessageChannel(), yieldQueue = [];
+yieldChannel.port1.onmessage = () => yieldQueue.shift()?.();
+const sleep = n => n > 0 ? new Promise(r => setTimeout(r, n)) :
+  new Promise(r => { yieldQueue.push(r); yieldChannel.port2.postMessage(0); });
 const json = fn => JSON.parse(core.UTF8ToString(core[fn]()));
 const jsonPixel=(x,y)=>JSON.parse(core.UTF8ToString(core._rr_pixel(x,y)));
 const send = (type, data = {}) => postMessage({type, session, ...data}, data.pixels ? [data.pixels] : []);
@@ -183,7 +188,7 @@ async function captureNext(){
    await boundary('Finishing current interval.');
    const startState=coreState(),start=status(),input=queueState();
    const captureStarted=core._rr_capture_begin();if(platform==='ds'||platform==='3ds')check(captureStarted);
-   const captureFields=platform==='ps1'?4:platform==='3ds'?3:1;
+   const captureFields=platform==='ps1'?4:platform==='3ds'?3:platform==='ds'?2:1;
    for(let field=0;field<captureFields;field++)await boundary(captureFields>1?'Recording display and double-buffer producer context.':'Recording next complete interval.');
    const ended=core._rr_capture_end();if(platform==='ds'||platform==='3ds')check(ended);const captureProfile=finishCaptureProfile();capturing=false;
    const endState=coreState(),end=status(),info=json('_rr_capture_info'),replay=json('_rr_replay_begin');
