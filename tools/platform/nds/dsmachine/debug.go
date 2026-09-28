@@ -38,9 +38,9 @@ import (
 // carries the colour it would have had. A drawn one carries the colour after blending,
 // which is what actually reached the colour buffer.
 type PixelEvent struct {
-	Drawn                bool
-	ZReject, AlphaReject bool
-	R, G, B, A           uint8 // the DS's six bits per channel, and five of alpha
+	Drawn                          bool
+	ZReject, AlphaReject, IDReject bool
+	R, G, B, A                     uint8 // the DS's six bits per channel, and five of alpha
 }
 
 // gxHalt is the sentinel the command scrubber throws to stop the machine exactly

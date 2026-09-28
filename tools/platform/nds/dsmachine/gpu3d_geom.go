@@ -130,9 +130,10 @@ type geom struct {
 	verts []gxVertex
 	polys []gxPolygon
 
-	posResult [4]int32 // POS_TEST result
-	vecResult [3]int32 // VEC_TEST result
-	wbuffer   bool
+	posResult  [4]int32 // POS_TEST result
+	vecResult  [3]int32 // VEC_TEST result
+	wbuffer    bool
+	manualSort bool // latched for the geometry being built
 
 	// Bring-up counters: how many primitives the assembler produced, and how many the
 	// clipper threw away. "The screen is black" is not a diagnosis; "the assembler made
@@ -467,12 +468,11 @@ func sext(v int32, n uint) int32 {
 }
 
 // unpackRGB5 turns a BGR555 word into three 6-bit channels — the DS's internal
-// colour depth. The five-bit value is doubled rather than replicated, which is what
-// the hardware does, and it means white is 62 and not 63.
+// colour depth. Zero stays zero; all other channels expand to 2*v+1.
 func unpackRGB5(v uint32) [3]int32 {
-	r := int32(v&0x1F) * 2
-	g := int32((v>>5)&0x1F) * 2
-	b := int32((v>>10)&0x1F) * 2
+	r := int32(color5to6(uint8(v & 0x1F)))
+	g := int32(color5to6(uint8((v >> 5) & 0x1F)))
+	b := int32(color5to6(uint8((v >> 10) & 0x1F)))
 	return [3]int32{r, g, b}
 }
 

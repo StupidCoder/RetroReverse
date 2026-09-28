@@ -282,4 +282,5 @@ func (g *gpu3d) vblank(m *Machine) {
 	g.swaps++
 	g.render(m)
 	g.geom.beginFrame()
+	g.geom.manualSort = g.swapMode&1 != 0
 }

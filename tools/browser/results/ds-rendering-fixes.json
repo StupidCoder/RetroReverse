@@ -95,5 +95,40 @@
     "stateContinuation": true,
     "replayIsolated": true,
     "replayFinal": true
+  },
+  "transparencyFollowup": {
+    "coldBootFrames": 3500,
+    "textureAlphaBlend": true,
+    "perFragmentDepthWrites": true,
+    "opaqueFirst": true,
+    "stableYSort": true,
+    "manualTranslucentOrdering": true,
+    "samePolygonIDSuppression": true,
+    "replayPeach": {
+      "capture": {
+        "events": 1333,
+        "writes": 359284,
+        "overflow": 0,
+        "bytes": 27818692
+      },
+      "replaySteps": 5776,
+      "distinct3DTargets": 3,
+      "finalMatches": true,
+      "backwardSeeks": true,
+      "liveUnchanged": true
+    },
+    "replayLakitu": {
+      "capture": {
+        "events": 1017,
+        "writes": 319145,
+        "overflow": 0,
+        "bytes": 24882010
+      },
+      "replaySteps": 2251,
+      "distinct3DTargets": 4,
+      "finalMatches": true,
+      "backwardSeeks": true,
+      "liveUnchanged": true
+    }
   }
 }

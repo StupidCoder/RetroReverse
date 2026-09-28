@@ -17,14 +17,14 @@ uint8_t*rr_frame(){pixels=frame(machine);return pixels.data();}
 }
 #include "state.h"
 static std::vector<std::shared_ptr<void>> stateOwners;
-static void stateWrite(rrstate::Archive&a){rrDSStateVersion=2;a.header(5,2);a(machine);}
-static void stateRead(rrstate::Archive&a){if(a.bytes.size()<12)throw std::runtime_error("Truncated DS state");rrDSStateVersion=uint32_t(a.bytes[8])|uint32_t(a.bytes[9])<<8|uint32_t(a.bytes[10])<<16|uint32_t(a.bytes[11])<<24;if(rrDSStateVersion!=1&&rrDSStateVersion!=2)throw std::runtime_error("Unsupported DS state version");a.header(5,rrDSStateVersion);dsmachine_Machine*next=nullptr;a(next);a.finish();rebindState(next,cartridge);bindFrameBoundary(next);machine=next;stateOwners=std::move(a.owned);}
+static void stateWrite(rrstate::Archive&a){rrDSStateVersion=3;a.header(5,3);a(machine);}
+static void stateRead(rrstate::Archive&a){if(a.bytes.size()<12)throw std::runtime_error("Truncated DS state");rrDSStateVersion=uint32_t(a.bytes[8])|uint32_t(a.bytes[9])<<8|uint32_t(a.bytes[10])<<16|uint32_t(a.bytes[11])<<24;if(rrDSStateVersion<1||rrDSStateVersion>3)throw std::runtime_error("Unsupported DS state version");a.header(5,rrDSStateVersion);dsmachine_Machine*next=nullptr;a(next);a.finish();rebindState(next,cartridge);bindFrameBoundary(next);machine=next;stateOwners=std::move(a.owned);}
 #include "../../../../browser/state/api.inc"
 static bool captureSwap=false;
 extern "C" {
 int rr_capture_begin(){try{auto b=rrds::memory(machine);rrcapture::trace.begin(b.data(),b.size());rrds::events.clear();rrds::render3DEvents.clear();
  machine->OnPoly=[](int64_t cmd){auto&t=rrcapture::trace;rrds::clean();auto m=machine;for(auto&p:m->gpu3d->geom.polys)if(p.cmd==cmd){std::ostringstream s;s<<"{\"kind\":\"GX polygon rasterization\",\"command\":"<<cmd<<",\"POLYGON_ATTR\":"<<p.attr<<",\"TEXIMAGE_PARAM\":"<<p.texParam<<",\"PLTT_BASE\":"<<p.pltt<<",\"vertices\":"<<p.verts.n<<",\"wBuffer\":"<<(p.wbuffer?"true":"false")<<"}";rrds::render3DEvents.insert(t.event(m->Steps,m->ARM9->cpu->R[15],s.str()));break;}};
- machine->OnPixel=[](int64_t x,int64_t y,dsmachine_PixelEvent e){auto&t=rrcapture::trace;auto m=machine;uint32_t v=rrds::frag({e.R,e.G,e.B,e.A});t.record(rrds::plane3D+(y*256+x)*4,v,4,m->Steps,m->ARM9->cpu->R[15],t.current,(e.Drawn?1:0)|(e.ZReject?2:0)|(e.AlphaReject?4:0));};return 1;}catch(const std::exception&e){errorText=e.what();return 0;}}
+ machine->OnPixel=[](int64_t x,int64_t y,dsmachine_PixelEvent e){auto&t=rrcapture::trace;auto m=machine;uint32_t v=rrds::frag({e.R,e.G,e.B,e.A});t.record(rrds::plane3D+(y*256+x)*4,v,4,m->Steps,m->ARM9->cpu->R[15],t.current,(e.Drawn?1:0)|(e.ZReject?2:0)|(e.AlphaReject?4:0)|(e.IDReject?8:0));};return 1;}catch(const std::exception&e){errorText=e.what();return 0;}}
 int rr_capture_end(){machine->OnPoly={};machine->OnPixel={};captureSwap=machine->gpu2d->swap;auto b=rrds::memory(machine);rrcapture::trace.end(b.data(),b.size());return 1;}
 const char*rr_capture_info(){reply=rrcapture::trace.info();return reply.c_str();}
 const char*rr_pixel(int x,int y){if(x<0||x>=256||y<0||y>=384)return "{\"error\":\"Outside captured display\"}";int engine=(y<192)?!captureSwap:captureSwap;reply=rrcapture::trace.pixel(engine*rrds::planeSize+((y%192)*256+x)*4,4);return reply.c_str();}

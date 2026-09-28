@@ -271,7 +271,9 @@ func (c *core) ioWrite(a uint32, v byte) {
 			c.writeTimerCtrl(n, uint16(w>>16))
 		}
 	case base >= 0x04000320 && base < 0x040006A4 && c.arm9:
-		if lane == 3 {
+		// Rendering registers accept byte and halfword writes. Only command
+		// ports must wait for the complete 32-bit FIFO word.
+		if base < regGXFIFO || lane == 3 {
 			m.gpu3d.writeReg(base, w)
 		}
 	case base >= 0x04000000 && base < 0x04000070, base >= 0x04001000 && base < 0x04001070:

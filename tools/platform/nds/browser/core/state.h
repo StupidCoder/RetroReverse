@@ -3,7 +3,7 @@
 inline void stateFields(rrstate::Archive&a,image_Point&v){a(v.X,v.Y);}
 inline void stateFields(rrstate::Archive&a,image_Rectangle&v){a(v.Min,v.Max);}
 inline void stateFields(rrstate::Archive&a,image_RGBA&v){a(v.Pix,v.Stride,v.Rect);}
-inline uint32_t rrDSStateVersion=2;
+inline uint32_t rrDSStateVersion=3;
 #include "state-fields.h"
 inline void rebindState(dsmachine_Machine*m,Slice<uint8_t>rom){
  if(!m||!m->ARM9||!m->ARM7||!m->ARM9->cpu||!m->ARM7->cpu||!m->cd||!m->spi||!m->vram||!m->gpu2d||!m->gpu3d||m->ram.n!=4194304||m->swram.n!=32768||m->pal.n!=2048||m->oam.n!=2048||m->spi->firmware.n!=262144||m->vid.line<0||m->vid.line>=263)throw std::runtime_error("Invalid DS machine state");

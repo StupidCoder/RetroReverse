@@ -173,6 +173,7 @@ type geomState struct {
 	VX1, VY1, VX2, VY2   int32
 	Polys                []polySave
 	WBuffer              bool
+	ManualSort           bool
 }
 
 // vtxSave and polySave are gob-encodable mirrors of the geometry engine's internal
@@ -459,8 +460,8 @@ func toGeomState(g *geom) geomState {
 		Diffuse: g.diffuse, Ambient: g.ambient, Specular: g.specular, Emission: g.emission,
 		Shininess: g.shininess,
 		VX1:       g.viewX1, VY1: g.viewY1, VX2: g.viewX2, VY2: g.viewY2,
-		WBuffer: g.wbuffer,
-		Strip:   saveVerts(g.strip),
+		WBuffer: g.wbuffer, ManualSort: g.manualSort,
+		Strip: saveVerts(g.strip),
 	}
 	gs.Polys = make([]polySave, len(g.polys))
 	for i, p := range g.polys {
@@ -493,6 +494,7 @@ func fromGeomState(g *geom, gs *geomState) {
 	g.shininess = gs.Shininess
 	g.viewX1, g.viewY1, g.viewX2, g.viewY2 = gs.VX1, gs.VY1, gs.VX2, gs.VY2
 	g.wbuffer = gs.WBuffer
+	g.manualSort = gs.ManualSort
 	g.strip = loadVerts(gs.Strip)
 	g.polys = g.polys[:0]
 	for _, p := range gs.Polys {

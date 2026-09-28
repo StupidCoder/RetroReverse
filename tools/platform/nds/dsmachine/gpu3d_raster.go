@@ -52,8 +52,9 @@ type rfrag struct {
 // to the 2D engine. The buffers are the rasteriser's alone: the DS's 3D engine
 // composites nothing itself, it just produces a layer.
 type raster struct {
-	col   [rastW * rastH]rfrag
-	depth [rastW * rastH]uint32
+	col     [rastW * rastH]rfrag
+	depth   [rastW * rastH]uint32
+	transID [rastW * rastH]uint8 // last translucent polygon ID, 0xff for none
 
 	frame []uint32 // RGBA8888, 256x192, alpha 0 where nothing was drawn
 }
@@ -62,6 +63,7 @@ func (r *raster) reset() {
 	for i := range r.col {
 		r.col[i] = rfrag{}
 		r.depth[i] = 0xFFFFFF
+		r.transID[i] = 0xff
 	}
 	if r.frame == nil {
 		r.frame = make([]uint32, rastW*rastH)
@@ -108,7 +110,7 @@ func (g *gpu3d) render(m *Machine) {
 
 	g.clear(m, disp3d)
 
-	for i := range g.geom.polys {
+	for _, i := range g.renderOrder() {
 		if m.OnPoly != nil {
 			m.OnPoly(g.geom.polys[i].cmd)
 		}
@@ -134,6 +136,71 @@ func (g *gpu3d) render(m *Machine) {
 		}
 		copy(m.gpu2d.threeD, g.rast.frame)
 	}
+}
+
+// renderOrder implements the DS's opaque-first, stable Y ordering. Textures with
+// fractional alpha belong to the translucent group even with polygon alpha 31.
+// Sort indices, leaving the geometry and debugger command identities untouched.
+func (g *gpu3d) renderOrder() []int {
+	n := len(g.geom.polys)
+	order := make([]int, n)
+	scratch := make([]int, n)
+	keys := make([]uint32, n)
+	for i, p := range g.geom.polys {
+		order[i] = i
+		a, format := (p.attr>>16)&31, (p.texParam>>26)&7
+		trans := (a > 0 && a < 31) || format == 1 || format == 6
+		if trans {
+			keys[i] = 1 << 16
+		}
+		if trans && g.geom.manualSort {
+			continue
+		}
+		lo, hi := 255, 0
+		for _, v := range p.verts {
+			if v.w == 0 {
+				continue
+			}
+			y := int(191 - (float64(v.y)/float64(v.w)+1)*float64(g.geom.viewY2-g.geom.viewY1+1)/2 - float64(g.geom.viewY1))
+			if y < 0 {
+				y = 0
+			}
+			if y > 255 {
+				y = 255
+			}
+			if y < lo {
+				lo = y
+			}
+			if y > hi {
+				hi = y
+			}
+		}
+		keys[i] |= uint32(hi<<8 | lo)
+	}
+	// A stable merge sort avoids quadratic work on the 2048-polygon limit.
+	for width := 1; width < n; width *= 2 {
+		for start := 0; start < n; start += width * 2 {
+			mid, end := start+width, start+width*2
+			if mid > n {
+				mid = n
+			}
+			if end > n {
+				end = n
+			}
+			a, b := start, mid
+			for dst := start; dst < end; dst++ {
+				if a < mid && (b == end || keys[order[a]] <= keys[order[b]]) {
+					scratch[dst] = order[a]
+					a++
+				} else {
+					scratch[dst] = order[b]
+					b++
+				}
+			}
+		}
+		order, scratch = scratch, order
+	}
+	return order
 }
 
 // publish converts the 6/6/6/5 colour buffer into the RGBA8888 the 2D engine blends.
@@ -170,7 +237,7 @@ func (g *gpu3d) clear(m *Machine, disp3d uint32) {
 	cc := g.regs[regCLEARCOLOR]
 	r5, g5, b5 := int32(cc&0x1F), int32((cc>>5)&0x1F), int32((cc>>10)&0x1F)
 	ca := uint8((cc >> 16) & 0x1F)
-	c := rfrag{r: uint8(r5 * 2), g: uint8(g5 * 2), b: uint8(b5 * 2), a: ca}
+	c := rfrag{r: color5to6(uint8(r5)), g: color5to6(uint8(g5)), b: color5to6(uint8(b5)), a: ca}
 
 	d := (g.regs[regCLEARDEPTH] & 0x7FFF) * 0x200
 	d += 0x1FF
@@ -178,6 +245,7 @@ func (g *gpu3d) clear(m *Machine, disp3d uint32) {
 	for i := range g.rast.col {
 		g.rast.col[i] = c
 		g.rast.depth[i] = d
+		g.rast.transID[i] = 0xff
 	}
 }
 
@@ -403,9 +471,8 @@ type polyState struct {
 	hasTex  bool
 	mode    uint32 // POLYGON_ATTR bits 4-5
 	alpha   uint8  // 0..31
-	trans   bool   // 1..30: blended against the colour buffer
 	depthEq bool   // POLYGON_ATTR bit 14: test "equal" rather than "less"
-	depthWr bool   // write depth (always for opaque; bit 11 for translucent)
+	depthWr bool   // allow depth writes for translucent fragments (bit 11)
 	wbuf    bool
 
 	blend   bool // DISP3DCNT bit 3
@@ -438,11 +505,8 @@ func (g *gpu3d) polyState(m *Machine, p *gxPolygon, disp3d uint32) polyState {
 		st.alpha = 31
 		m.note("3D: wireframe polygons (POLYGON_ATTR alpha 0) approximated by span-edge pixels")
 	}
-	st.trans = st.alpha < 31
-	// Translucent polygons do not write depth unless POLYGON_ATTR bit 11 asks them to.
-	// This is what lets a game draw a window and still see the wall behind it through a
-	// second translucent pane; forcing the write turns overlapping glass opaque-black.
-	st.depthWr = !st.trans || p.attr&(1<<11) != 0
+	// Opacity is determined after texture shading, separately for every fragment.
+	st.depthWr = p.attr&(1<<11) != 0
 
 	if disp3d&1 != 0 { // DISP3DCNT bit 0: texture mapping enabled at all
 		st.tex, st.hasTex = texStateOf(p)
@@ -454,7 +518,7 @@ func (g *gpu3d) polyState(m *Machine, p *gxPolygon, disp3d uint32) polyState {
 			w := g.regs[0x04000380+uint32(i/2)*4]
 			c := uint16(w >> (16 * uint(i&1)))
 			st.toon[i] = [3]uint8{
-				uint8((c & 0x1F) * 2), uint8(((c >> 5) & 0x1F) * 2), uint8(((c >> 10) & 0x1F) * 2),
+				color5to6(uint8(c & 31)), color5to6(uint8((c >> 5) & 31)), color5to6(uint8((c >> 10) & 31)),
 			}
 		}
 	}
@@ -542,21 +606,21 @@ func (g *gpu3d) shade(m *Machine, st *polyState, p *gxPolygon, f rvert, idx int)
 		s := int(f.s * w) // 12.4 fixed point: sixteenths of a texel
 		t := int(f.t * w)
 		tr, tg, tb, ta, ok := g.sampleTex(m, &st.tex, s>>4, t>>4)
-		if !ok {
+		if !ok && st.mode != 1 {
 			reject(false, true) // a transparent texel is not drawn at all, and writes no depth
 			return
 		}
 		switch st.mode {
 		case 0: // modulation: texture * vertex colour, and the alphas multiply too
-			cr = uint8((int(tr)*int(vr) + 31) / 63)
-			cg = uint8((int(tg)*int(vg) + 31) / 63)
-			cb = uint8((int(tb)*int(vb) + 31) / 63)
-			ca = uint8((int(ta)*int(st.alpha) + 15) / 31)
+			cr = modulate6(tr, vr)
+			cg = modulate6(tg, vg)
+			cb = modulate6(tb, vb)
+			ca = uint8(((int(ta)+1)*(int(st.alpha)+1) - 1) >> 5)
 		case 1: // decal: the texture's alpha chooses between texture and vertex colour,
 			// rather than scaling it. The polygon's own alpha is kept.
-			cr = uint8((int(tr)*int(ta) + int(vr)*(31-int(ta))) / 31)
-			cg = uint8((int(tg)*int(ta) + int(vg)*(31-int(ta))) / 31)
-			cb = uint8((int(tb)*int(ta) + int(vb)*(31-int(ta))) / 31)
+			cr = decal6(tr, vr, ta)
+			cg = decal6(tg, vg, ta)
+			cb = decal6(tb, vb, ta)
 			ca = st.alpha
 		case 2: // toon / highlight
 			cr, cg, cb, ca = st.toonShade(tr, tg, tb, ta, vr)
@@ -576,17 +640,25 @@ func (g *gpu3d) shade(m *Machine, st *polyState, p *gxPolygon, f rvert, idx int)
 		return
 	}
 
+	// Fragments from the same translucent polygon group blend only once.
+	id := uint8((p.attr >> 24) & 63)
+	if ca < 31 && g.rast.transID[idx] == id {
+		if m.OnPixel != nil {
+			m.OnPixel(idx%rastW, idx/rastW, PixelEvent{IDReject: true})
+		}
+		return
+	}
 	dst := g.rast.col[idx]
 	out := rfrag{r: cr, g: cg, b: cb, a: ca}
 
-	if st.trans && st.blend && dst.a != 0 {
+	if ca < 31 && st.blend && dst.a != 0 {
 		// Translucent: blend against what the 3D engine has already drawn. Note the
 		// destination here is the 3D colour buffer, not the 2D layers — the DS composites
 		// the finished 3D layer with the backgrounds afterwards, and a translucent polygon
 		// over empty 3D space stays translucent all the way to the 2D blender.
 		a := int(ca)
 		mix := func(s, d uint8) uint8 {
-			return uint8((int(s)*a + int(d)*(31-a)) / 31)
+			return uint8((int(s)*(a+1) + int(d)*(31-a)) >> 5)
 		}
 		out.r = mix(cr, dst.r)
 		out.g = mix(cg, dst.g)
@@ -595,12 +667,14 @@ func (g *gpu3d) shade(m *Machine, st *polyState, p *gxPolygon, f rvert, idx int)
 			out.a = dst.a // the blend keeps the greater alpha, as the hardware does
 		}
 	}
-	// With DISP3DCNT bit 3 clear the blender is off and a translucent polygon is simply
-	// written opaque — that is the hardware's behaviour, not a shortcut.
+	// With blending disabled the source RGBA replaces the destination.
 
 	m.prof.frags++
 	g.rast.col[idx] = out
-	if st.depthWr {
+	if ca < 31 {
+		g.rast.transID[idx] = id
+	}
+	if ca == 31 || st.depthWr {
 		g.rast.depth[idx] = depth
 	}
 	if m.OnPixel != nil {
@@ -618,14 +692,14 @@ func (g *gpu3d) shade(m *Machine, st *polyState, p *gxPolygon, f rvert, idx int)
 // is how Mario's cel-shaded rim appears.
 func (st *polyState) toonShade(tr, tg, tb, ta, vr uint8) (uint8, uint8, uint8, uint8) {
 	tc := st.toon[vr>>1] // 6-bit red down to the table's 32 entries
-	a := uint8((int(ta)*int(st.alpha) + 15) / 31)
+	a := uint8(((int(ta)+1)*(int(st.alpha)+1) - 1) >> 5)
 	if !st.toonHi {
-		return uint8((int(tr)*int(tc[0]) + 31) / 63),
-			uint8((int(tg)*int(tc[1]) + 31) / 63),
-			uint8((int(tb)*int(tc[2]) + 31) / 63), a
+		return modulate6(tr, tc[0]),
+			modulate6(tg, tc[1]),
+			modulate6(tb, tc[2]), a
 	}
 	add := func(t, v, h uint8) uint8 {
-		c := (int(t)*int(v)+31)/63 + int(h)
+		c := int(modulate6(t, v)) + int(h)
 		if c > 63 {
 			c = 63
 		}
@@ -724,10 +798,10 @@ func wrapTex(v, size int, repeat, flip bool) int {
 }
 
 // rastBGR555 turns a palette halfword into the engine's six-bit channels. The five-bit
-// value is doubled, exactly as unpackRGB5 does for vertex colours — the two must agree
+// value is expanded, exactly as unpackRGB5 does for vertex colours — the two must agree
 // or a modulated texture will not match a flat-coloured one.
 func rastBGR555(c uint16) (uint8, uint8, uint8) {
-	return uint8((c & 0x1F) * 2), uint8(((c >> 5) & 0x1F) * 2), uint8(((c >> 10) & 0x1F) * 2)
+	return color5to6(uint8(c & 31)), color5to6(uint8((c >> 5) & 31)), color5to6(uint8((c >> 10) & 31))
 }
 
 // sampleTex fetches one texel. It returns six-bit colour, five-bit alpha, and whether
@@ -886,7 +960,27 @@ func rastMix555(a, b uint16, wa, wb, shift int) (uint8, uint8, uint8) {
 		if v > 31 {
 			v = 31
 		}
-		return uint8(v * 2)
+		return color5to6(uint8(v))
 	}
 	return ch(0), ch(1), ch(2)
+}
+
+// DS color expansion keeps black at zero; nonzero five-bit channels gain a low bit.
+func color5to6(v uint8) uint8 {
+	if v == 0 {
+		return 0
+	}
+	return v*2 + 1
+}
+func modulate6(texture, vertex uint8) uint8 {
+	return uint8(((int(texture)+1)*(int(vertex)+1) - 1) >> 6)
+}
+func decal6(texture, vertex, alpha uint8) uint8 {
+	if alpha == 0 {
+		return vertex
+	}
+	if alpha == 31 {
+		return texture
+	}
+	return uint8((int(texture)*int(alpha) + int(vertex)*(31-int(alpha))) >> 5)
 }

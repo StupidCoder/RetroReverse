@@ -38,5 +38,9 @@ for platform in ['n64','threedo','nds','n3ds']:
   if platform=='nds' and name=='dsmachine_core':
    fields.remove('v.wfi')
    tail='if(!a.reading||rrDSStateVersion>=2)a(v.wfi);'
+  if platform=='nds' and name in {'dsmachine_geom','dsmachine_raster'}:
+   extra='v.manualSort' if name=='dsmachine_geom' else 'v.transID'
+   fields.remove(extra)
+   tail+='if(!a.reading||rrDSStateVersion>=3)a('+extra+');'
   out.append(f'inline void stateFields(rrstate::Archive&a,{name}&v){{a('+','.join(fields)+');'+tail+'}')
  (root/f'tools/platform/{platform}/browser/core/state-fields.h').write_text('\n'.join(out)+'\n')

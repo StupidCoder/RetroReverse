@@ -325,6 +325,8 @@ export function createInspector({platform, canvas, send, jump}) {
                                 c.drawn ? ''
                                 : c.depthRejected
                                     ? ' · depth rejected'
+                                    : c.idRejected
+                                    ? ' · same translucent polygon ID'
                                     : ' · transparent/alpha rejected'}`;
       b.onclick = () => showEvent(c, index);
       $('contributors').append(b);

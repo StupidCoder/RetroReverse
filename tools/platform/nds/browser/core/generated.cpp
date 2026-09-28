@@ -216,6 +216,7 @@ struct dsmachine_PixelEvent{
 bool Drawn{};
 bool ZReject{};
 bool AlphaReject{};
+bool IDReject{};
 uint8_t R{};
 uint8_t G{};
 uint8_t B{};
@@ -345,6 +346,7 @@ Slice<dsmachine_gxPolygon> polys{};
 std::array<int32_t,4> posResult{};
 std::array<int32_t,3> vecResult{};
 bool wbuffer{};
+bool manualSort{};
 int64_t nEmit{};
 int64_t nClipped{};
 };
@@ -357,6 +359,7 @@ uint8_t a{};
 struct dsmachine_raster{
 std::array<dsmachine_rfrag,49152> col{};
 std::array<uint32_t,49152> depth{};
+std::array<uint8_t,49152> transID{};
 Slice<uint32_t> frame{};
 };
 struct dsmachine_gpu3d{
@@ -407,7 +410,6 @@ dsmachine_texState tex{};
 bool hasTex{};
 uint32_t mode{};
 uint8_t alpha{};
-bool trans{};
 bool depthEq{};
 bool depthWr{};
 bool wbuf{};
@@ -563,7 +565,7 @@ struct Anon0{uint32_t Addr{};int64_t Len{};std::string Mnem{};std::string Text{}
 struct Anon1{std::array<uint32_t,16> R{};bool N{};bool Z{};bool C{};bool V{};bool Q{};uint32_t GE{};bool Thumb{};bool BigEndian{};bool IRQDisable{};bool FIQDisable{};uint32_t Mode{};arm_Variant Arch{};arm_vfpState VFP{};bool exclValid{};uint32_t exclAddr{};std::array<uint32_t,6> bankR13{};std::array<uint32_t,6> bankR14{};std::array<uint32_t,6> bankSPSR{};std::array<uint32_t,5> fiqR8_12{};std::array<uint32_t,5> usrR8_12{};std::function<bool(arm_CPU*,uint32_t)> SWI{};std::function<void(arm_CPU*,bool,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t*)> Coproc{};dsmachine_bus* bus{};dsmachine_bus* wide{};bool Halted{};std::string HaltReason{};uint64_t Instrs{};uint32_t cur{};bool branched{};};
 struct Anon10{dsmachine_core* c{};};
 struct Anon11{Slice<uint8_t> rom{};std::array<uint8_t,8> cmd{};uint32_t ctrl{};Slice<uint8_t> buf{};int64_t pos{};bool owner9{};std::function<void(std::array<uint8_t,8>,uint32_t,int64_t)> OnXfer{};};
-struct Anon12{bool Drawn{};bool ZReject{};bool AlphaReject{};uint8_t R{};uint8_t G{};uint8_t B{};uint8_t A{};};
+struct Anon12{bool Drawn{};bool ZReject{};bool AlphaReject{};bool IDReject{};uint8_t R{};uint8_t G{};uint8_t B{};uint8_t A{};};
 struct Anon13{};
 struct Anon14{std::string Name{};uint32_t Base{};uint32_t Size{};};
 struct Anon15{uint32_t src{};uint32_t dst{};uint32_t ctrl{};uint32_t count{};uint32_t csrc{};uint32_t cdst{};uint32_t crem{};bool active{};};
@@ -575,11 +577,11 @@ struct Anon2{std::array<uint32_t,6> R13{};std::array<uint32_t,6> R14{};std::arra
 struct Anon20{std::array<int32_t,16> m{};};
 struct Anon21{int64_t x{};int64_t y{};int64_t z{};int64_t w{};int32_t r{};int32_t g{};int32_t b{};int32_t s{};int32_t t{};};
 struct Anon22{Slice<dsmachine_gxVertex> verts{};uint32_t attr{};uint32_t texParam{};uint32_t pltt{};bool wbuffer{};int64_t cmd{};};
-struct Anon23{int64_t mode{};dsmachine_mtx proj{};dsmachine_mtx pos{};dsmachine_mtx vec{};dsmachine_mtx tex{};std::array<dsmachine_mtx,1> projStack{};std::array<dsmachine_mtx,1> texStack{};std::array<dsmachine_mtx,32> posStack{};std::array<dsmachine_mtx,32> vecStack{};int64_t sp{};int64_t projSP{};int64_t texSP{};bool clipDirty{};dsmachine_mtx clipMtx{};bool begun{};int64_t primMode{};Slice<dsmachine_gxVertex> strip{};int64_t stripLen{};std::array<int32_t,3> lastVtx{};std::array<int32_t,3> color{};int32_t texS{};int32_t texT{};uint32_t attr{};uint32_t attrNext{};uint32_t texParam{};uint32_t pltt{};std::array<std::array<int32_t,3>,4> lightVec{};std::array<std::array<int32_t,3>,4> lightColor{};std::array<int32_t,3> diffuse{};std::array<int32_t,3> ambient{};std::array<int32_t,3> specular{};std::array<int32_t,3> emission{};std::array<uint8_t,128> shininess{};int32_t viewX1{};int32_t viewY1{};int32_t viewX2{};int32_t viewY2{};Slice<dsmachine_gxVertex> verts{};Slice<dsmachine_gxPolygon> polys{};std::array<int32_t,4> posResult{};std::array<int32_t,3> vecResult{};bool wbuffer{};int64_t nEmit{};int64_t nClipped{};};
+struct Anon23{int64_t mode{};dsmachine_mtx proj{};dsmachine_mtx pos{};dsmachine_mtx vec{};dsmachine_mtx tex{};std::array<dsmachine_mtx,1> projStack{};std::array<dsmachine_mtx,1> texStack{};std::array<dsmachine_mtx,32> posStack{};std::array<dsmachine_mtx,32> vecStack{};int64_t sp{};int64_t projSP{};int64_t texSP{};bool clipDirty{};dsmachine_mtx clipMtx{};bool begun{};int64_t primMode{};Slice<dsmachine_gxVertex> strip{};int64_t stripLen{};std::array<int32_t,3> lastVtx{};std::array<int32_t,3> color{};int32_t texS{};int32_t texT{};uint32_t attr{};uint32_t attrNext{};uint32_t texParam{};uint32_t pltt{};std::array<std::array<int32_t,3>,4> lightVec{};std::array<std::array<int32_t,3>,4> lightColor{};std::array<int32_t,3> diffuse{};std::array<int32_t,3> ambient{};std::array<int32_t,3> specular{};std::array<int32_t,3> emission{};std::array<uint8_t,128> shininess{};int32_t viewX1{};int32_t viewY1{};int32_t viewX2{};int32_t viewY2{};Slice<dsmachine_gxVertex> verts{};Slice<dsmachine_gxPolygon> polys{};std::array<int32_t,4> posResult{};std::array<int32_t,3> vecResult{};bool wbuffer{};bool manualSort{};int64_t nEmit{};int64_t nClipped{};};
 struct Anon24{uint8_t r{};uint8_t g{};uint8_t b{};uint8_t a{};};
-struct Anon25{std::array<dsmachine_rfrag,49152> col{};std::array<uint32_t,49152> depth{};Slice<uint32_t> frame{};};
+struct Anon25{std::array<dsmachine_rfrag,49152> col{};std::array<uint32_t,49152> depth{};std::array<uint8_t,49152> transID{};Slice<uint32_t> frame{};};
 struct Anon26{double x{};double y{};double depth{};double iw{};double w{};double r{};double g{};double b{};double s{};double t{};};
-struct Anon27{dsmachine_texState tex{};bool hasTex{};uint32_t mode{};uint8_t alpha{};bool trans{};bool depthEq{};bool depthWr{};bool wbuf{};bool blend{};bool toonHi{};bool alphaTe{};uint8_t alphaRf{};std::array<std::array<uint8_t,3>,32> toon{};bool wireframe{};};
+struct Anon27{dsmachine_texState tex{};bool hasTex{};uint32_t mode{};uint8_t alpha{};bool depthEq{};bool depthWr{};bool wbuf{};bool blend{};bool toonHi{};bool alphaTe{};uint8_t alphaRf{};std::array<std::array<uint8_t,3>,32> toon{};bool wireframe{};};
 struct Anon28{uint32_t base{};uint32_t pal{};int64_t sizeS{};int64_t sizeT{};uint32_t format{};bool repeatS{};bool repeatT{};bool flipS{};bool flipT{};bool color0{};};
 struct Anon29{Slice<uint8_t> ram{};Slice<uint8_t> swram{};Slice<uint8_t> pal{};Slice<uint8_t> oam{};dsmachine_vram* vram{};dsmachine_card* cd{};dsmachine_spibus* spi{};dsmachine_gpu2d* gpu2d{};dsmachine_gpu3d* gpu3d{};dsmachine_video vid{};dsmachine_divider div{};dsmachine_sqrter sqrt{};dsmachine_profiler prof{};uint32_t powcnt{};uint32_t keys{};uint8_t wramcnt{};dsmachine_ipc ipc{};dsmachine_core* ARM9{};dsmachine_core* ARM7{};uint64_t Steps{};Slice<std::string> Log{};Map<std::string,bool> logSeen{};Map<uint32_t,bool> visited{};std::function<void(std::string,uint8_t,uint32_t)> SyncTrace{};std::function<void(bool,uint32_t)> OnStep{};std::function<void(bool,bool,uint32_t,uint32_t,uint32_t)> OnIO{};std::function<void(bool,uint32_t,uint8_t,uint32_t)> OnWrite{};std::function<void(bool,uint32_t,uint32_t,uint32_t)> OnIRQ{};std::function<void(bool,uint32_t,uint8_t,uint32_t)> OnRead{};std::function<void(int64_t,int64_t,dsmachine_PixelEvent)> OnPixel{};std::function<void(int64_t)> OnPoly{};Map<uint32_t,bool> bps{};bool stop{};bool stopped{};uint32_t stoppedPC{};std::function<void()> OnFrame{};};
 struct Anon3{uint32_t bit{};std::string name{};};
@@ -1172,6 +1174,7 @@ dsmachine_gxVertex dsmachine_lerpVertex(dsmachine_gxVertex a,dsmachine_gxVertex 
 void dsmachine_raster_reset(dsmachine_raster* r);
 dsmachine_rvert dsmachine_lerpRV(dsmachine_rvert a,dsmachine_rvert b,double u);
 void dsmachine_gpu3d_render(dsmachine_gpu3d* g,dsmachine_Machine* m);
+Slice<int64_t> dsmachine_gpu3d_renderOrder(dsmachine_gpu3d* g);
 void dsmachine_raster_publish(dsmachine_raster* r);
 uint8_t dsmachine_c6to8(uint8_t v);
 uint8_t dsmachine_a5to8(uint8_t v);
@@ -1188,6 +1191,9 @@ std::tuple<uint8_t,uint8_t,uint8_t> dsmachine_rastBGR555(uint16_t c);
 std::tuple<uint8_t,uint8_t,uint8_t,uint8_t,bool> dsmachine_gpu3d_sampleTex(dsmachine_gpu3d* g,dsmachine_Machine* m,dsmachine_texState* st,int64_t s,int64_t t);
 std::tuple<uint8_t,uint8_t,uint8_t,uint8_t,bool> dsmachine_gpu3d_sampleCompressed(dsmachine_gpu3d* g,dsmachine_Machine* m,dsmachine_texState* st,int64_t s,int64_t t);
 std::tuple<uint8_t,uint8_t,uint8_t> dsmachine_rastMix555(uint16_t a,uint16_t b,int64_t wa,int64_t wb,int64_t shift);
+uint8_t dsmachine_color5to6(uint8_t v);
+uint8_t dsmachine_modulate6(uint8_t texture,uint8_t vertex);
+uint8_t dsmachine_decal6(uint8_t texture,uint8_t vertex,uint8_t alpha);
 std::tuple<uint32_t,bool> dsmachine_ParseKeys(std::string s);
 void dsmachine_Machine_SetKeys(dsmachine_Machine* m,uint32_t mask);
 uint32_t dsmachine_Machine_keyinput(dsmachine_Machine* m);
@@ -8911,6 +8917,7 @@ g->lastPolys = len(g->geom.polys);
 g->swaps++;
 dsmachine_gpu3d_render(g,m);
 dsmachine_geom_beginFrame(&(g->geom));
+g->geom.manualSort = (cast<uint32_t>((g->swapMode & cast<uint32_t>(1ULL))) != cast<uint32_t>(0ULL));
 }
 }
 // tools/platform/nds/dsmachine/gpu3d_geom.go:23:1
@@ -8951,7 +8958,7 @@ return shr<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(
 return {c(cast<int64_t>(0ULL)),c(cast<int64_t>(1ULL)),c(cast<int64_t>(2ULL)),c(cast<int64_t>(3ULL))};
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_geom.go:143:1
+// tools/platform/nds/dsmachine/gpu3d_geom.go:144:1
 void dsmachine_geom_reset(dsmachine_geom* g){
 {
 auto tmp90 = std::make_tuple(dsmachine_identity(),dsmachine_identity(),dsmachine_identity(),dsmachine_identity());
@@ -8966,20 +8973,20 @@ g->viewY2 = std::get<1>(tmp91);
 g->attrNext = cast<uint32_t>(0ULL);
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_geom.go:150:1
+// tools/platform/nds/dsmachine/gpu3d_geom.go:151:1
 void dsmachine_geom_beginFrame(dsmachine_geom* g){
 {
 g->verts = sub(g->verts,0,cast<int64_t>(0ULL));
 g->polys = sub(g->polys,0,cast<int64_t>(0ULL));
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_geom.go:155:1
+// tools/platform/nds/dsmachine/gpu3d_geom.go:156:1
 int64_t dsmachine_geom_stackDepth(dsmachine_geom* g){
 {
 return g->sp;
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_geom.go:160:1
+// tools/platform/nds/dsmachine/gpu3d_geom.go:161:1
 dsmachine_mtx dsmachine_geom_clip(dsmachine_geom* g){
 {
 if (g->clipDirty) {
@@ -8989,7 +8996,7 @@ g->clipDirty = false;
 return g->clipMtx;
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_geom.go:169:1
+// tools/platform/nds/dsmachine/gpu3d_geom.go:170:1
 int32_t dsmachine_geom_vecMtx3x3(dsmachine_geom* g,uint32_t i){
 {
 auto tmp92 = std::make_tuple(divi<uint32_t>(i,cast<uint32_t>(3ULL)),modi<uint32_t>(i,cast<uint32_t>(3ULL)));
@@ -8998,7 +9005,7 @@ uint32_t col = std::get<1>(tmp92);
 return g->vec.m[cast<uint32_t>((cast<uint32_t>((row * cast<uint32_t>(4ULL))) + col))];
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_geom.go:177:1
+// tools/platform/nds/dsmachine/gpu3d_geom.go:178:1
 Slice<dsmachine_mtx*> dsmachine_geom_current(dsmachine_geom* g){
 {
 {
@@ -9018,7 +9025,7 @@ break;}
 }}
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_geom.go:191:1
+// tools/platform/nds/dsmachine/gpu3d_geom.go:192:1
 void dsmachine_gpu3d_exec(dsmachine_gpu3d* g,uint8_t cmd,Slice<uint32_t> p){
 rrprof::Scope measured(1,"GX geometry");
 {
@@ -9307,7 +9314,7 @@ break;}
 }}
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_geom.go:452:1
+// tools/platform/nds/dsmachine/gpu3d_geom.go:453:1
 void dsmachine_geom_applyMatrix(dsmachine_geom* g,bool load,dsmachine_mtx n){
 {
 {auto&& tmp102 = dsmachine_geom_current(g);
@@ -9322,7 +9329,7 @@ else {
 g->clipDirty = true;
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_geom.go:464:1
+// tools/platform/nds/dsmachine/gpu3d_geom.go:465:1
 int32_t dsmachine_sext(int32_t v,uint64_t n){
 {
 uint64_t sh = cast<uint64_t>((cast<uint64_t>(32ULL) - n));
@@ -9332,9 +9339,9 @@ return shr<int32_t>(shl<int32_t>(v,sh),sh);
 // tools/platform/nds/dsmachine/gpu3d_geom.go:472:1
 std::array<int32_t,3> dsmachine_unpackRGB5(uint32_t v){
 {
-int32_t r = cast<int32_t>((cast<int32_t>(cast<uint32_t>((v & cast<uint32_t>(31ULL)))) * cast<int32_t>(2ULL)));
-int32_t g = cast<int32_t>((cast<int32_t>(cast<uint32_t>(((shr<uint32_t>(v,cast<int64_t>(5ULL))) & cast<uint32_t>(31ULL)))) * cast<int32_t>(2ULL)));
-int32_t b = cast<int32_t>((cast<int32_t>(cast<uint32_t>(((shr<uint32_t>(v,cast<int64_t>(10ULL))) & cast<uint32_t>(31ULL)))) * cast<int32_t>(2ULL)));
+int32_t r = cast<int32_t>(dsmachine_color5to6(cast<uint8_t>(cast<uint32_t>((v & cast<uint32_t>(31ULL))))));
+int32_t g = cast<int32_t>(dsmachine_color5to6(cast<uint8_t>(cast<uint32_t>(((shr<uint32_t>(v,cast<int64_t>(5ULL))) & cast<uint32_t>(31ULL))))));
+int32_t b = cast<int32_t>(dsmachine_color5to6(cast<uint8_t>(cast<uint32_t>(((shr<uint32_t>(v,cast<int64_t>(10ULL))) & cast<uint32_t>(31ULL))))));
 return std::array<int32_t,3>{r,g,b};
 }
 }
@@ -9599,13 +9606,14 @@ return cast<int32_t>(cast<int64_t>((cast<int64_t>(x) + shr<int64_t>(cast<int64_t
 return dsmachine_gxVertex{li(a.x,b.x),li(a.y,b.y),li(a.z,b.z),li(a.w,b.w),li32(a.r,b.r),li32(a.g,b.g),li32(a.b,b.b),li32(a.s,b.s),li32(a.t,b.t)};
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:61:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:62:1
 void dsmachine_raster_reset(dsmachine_raster* r){
 {
 {auto&& tmp118 = r->col;
 for(int64_t tmp119=0;tmp119<len(tmp118);++tmp119){
 auto i=tmp119;r->col[i] = dsmachine_rfrag{};
 r->depth[i] = cast<uint32_t>(16777215ULL);
+r->transID[i] = cast<uint8_t>(255ULL);
 }}
 if ((!r->frame)) {
 r->frame = Slice<uint32_t>::make(cast<int64_t>(49152ULL));
@@ -9616,7 +9624,7 @@ auto i=tmp121;r->frame[i] = cast<uint32_t>(0ULL);
 }}
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:89:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:91:1
 dsmachine_rvert dsmachine_lerpRV(dsmachine_rvert a,dsmachine_rvert b,double u){
 {
 auto l = [&](double x,double y)->double{
@@ -9626,7 +9634,7 @@ return (x + (((y - x)) * u));
 return dsmachine_rvert{l(a.x,b.x),l(a.y,b.y),l(a.depth,b.depth),l(a.iw,b.iw),l(a.w,b.w),l(a.r,b.r),l(a.g,b.g),l(a.b,b.b),l(a.s,b.s),l(a.t,b.t)};
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:100:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:102:1
 void dsmachine_gpu3d_render(dsmachine_gpu3d* g,dsmachine_Machine* m){
 rrprof::Scope measured(2,"3D software rasterizer");
 {
@@ -9640,9 +9648,9 @@ m->prof.raster += go_time_Since(t0);
 m->prof.polys += len(g->geom.polys);
 uint32_t disp3d = get(m->ARM9->io,cast<uint32_t>(67108960ULL));
 dsmachine_gpu3d_clear(g,m,disp3d);
-{auto&& tmp123 = g->geom.polys;
+{auto&& tmp123 = dsmachine_gpu3d_renderOrder(g);
 for(int64_t tmp124=0;tmp124<len(tmp123);++tmp124){
-auto i=tmp124;if (bool(m->OnPoly)) {
+auto i=tmp123[tmp124];if (bool(m->OnPoly)) {
 m->OnPoly(g->geom.polys[i].cmd);
 }
 dsmachine_gpu3d_drawPoly(g,m,(&g->geom.polys[i]),disp3d);
@@ -9665,15 +9673,91 @@ gcopy(m->gpu2d->threeD,g->rast.frame);
 }
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:142:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:144:1
+Slice<int64_t> dsmachine_gpu3d_renderOrder(dsmachine_gpu3d* g){
+{
+int64_t n = len(g->geom.polys);
+Slice<int64_t> order = Slice<int64_t>::make(n);
+Slice<int64_t> scratch = Slice<int64_t>::make(n);
+Slice<uint32_t> keys = Slice<uint32_t>::make(n);
+{auto&& tmp125 = g->geom.polys;
+for(int64_t tmp126=0;tmp126<len(tmp125);++tmp126){
+auto i=tmp126;auto p=tmp125[tmp126];order[i] = i;
+auto tmp127 = std::make_tuple(cast<uint32_t>(((shr<uint32_t>(p.attr,cast<int64_t>(16ULL))) & cast<uint32_t>(31ULL))),cast<uint32_t>(((shr<uint32_t>(p.texParam,cast<int64_t>(26ULL))) & cast<uint32_t>(7ULL))));
+uint32_t a = std::get<0>(tmp127);
+uint32_t format = std::get<1>(tmp127);
+bool trans = (((((a > cast<uint32_t>(0ULL)) && (a < cast<uint32_t>(31ULL)))) || (format == cast<uint32_t>(1ULL))) || (format == cast<uint32_t>(6ULL)));
+if (trans) {
+keys[i] = cast<uint32_t>(65536ULL);
+}
+if ((trans && g->geom.manualSort)) {
+continue;
+}
+auto tmp128 = std::make_tuple(cast<int64_t>(255ULL),cast<int64_t>(0ULL));
+int64_t lo = std::get<0>(tmp128);
+int64_t hi = std::get<1>(tmp128);
+{auto&& tmp129 = p.verts;
+for(int64_t tmp130=0;tmp130<len(tmp129);++tmp130){
+auto v=tmp129[tmp130];if ((v.w == cast<int64_t>(0ULL))) {
+continue;
+}
+int64_t y = cast<int64_t>(((cast<double>(191ULL) - (((((cast<double>(v.y) / cast<double>(v.w)) + cast<double>(1ULL))) * cast<double>(cast<int32_t>((cast<int32_t>((g->geom.viewY2 - g->geom.viewY1)) + cast<int32_t>(1ULL))))) / cast<double>(2ULL))) - cast<double>(g->geom.viewY1)));
+if ((y < cast<int64_t>(0ULL))) {
+y = cast<int64_t>(0ULL);
+}
+if ((y > cast<int64_t>(255ULL))) {
+y = cast<int64_t>(255ULL);
+}
+if ((y < lo)) {
+lo = y;
+}
+if ((y > hi)) {
+hi = y;
+}
+}}
+keys[i] |= cast<uint32_t>(cast<int64_t>((shl<int64_t>(hi,cast<int64_t>(8ULL)) | lo)));
+}}
+{int64_t width = cast<int64_t>(1ULL);for (;(width < n);width *= cast<int64_t>(2ULL)){
+{int64_t start = cast<int64_t>(0ULL);for (;(start < n);start += cast<int64_t>((width * cast<int64_t>(2ULL)))){
+auto tmp131 = std::make_tuple(cast<int64_t>((start + width)),cast<int64_t>((start + cast<int64_t>((width * cast<int64_t>(2ULL))))));
+int64_t mid = std::get<0>(tmp131);
+int64_t end = std::get<1>(tmp131);
+if ((mid > n)) {
+mid = n;
+}
+if ((end > n)) {
+end = n;
+}
+auto tmp132 = std::make_tuple(start,mid);
+int64_t a = std::get<0>(tmp132);
+int64_t b = std::get<1>(tmp132);
+{int64_t dst = start;for (;(dst < end);dst++){
+if (((a < mid) && (((b == end) || (keys[order[a]] <= keys[order[b]]))))) {
+scratch[dst] = order[a];
+a++;
+}
+else {
+scratch[dst] = order[b];
+b++;
+}
+}
+}}
+}auto tmp133 = std::make_tuple(scratch,order);
+order = std::get<0>(tmp133);
+scratch = std::get<1>(tmp133);
+}
+}return order;
+}
+}
+// tools/platform/nds/dsmachine/gpu3d_raster.go:209:1
 void dsmachine_raster_publish(dsmachine_raster* r){
 {
 if ((!r->frame)) {
 r->frame = Slice<uint32_t>::make(cast<int64_t>(49152ULL));
 }
-{auto&& tmp125 = r->col;
-for(int64_t tmp126=0;tmp126<len(tmp125);++tmp126){
-auto i=tmp126;auto c=tmp125[tmp126];if ((c.a == cast<uint8_t>(0ULL))) {
+{auto&& tmp134 = r->col;
+for(int64_t tmp135=0;tmp135<len(tmp134);++tmp135){
+auto i=tmp135;auto c=tmp134[tmp135];if ((c.a == cast<uint8_t>(0ULL))) {
 r->frame[i] = cast<uint32_t>(0ULL);
 rrds::publish(r,i);
 continue;
@@ -9683,42 +9767,43 @@ rrds::publish(r,i);
 }}
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:156:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:223:1
 uint8_t dsmachine_c6to8(uint8_t v){
 {
 return cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(v) * cast<int64_t>(255ULL))) + cast<int64_t>(31ULL)))),cast<int64_t>(63ULL)));
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:157:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:224:1
 uint8_t dsmachine_a5to8(uint8_t v){
 {
 return cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(v) * cast<int64_t>(255ULL))) + cast<int64_t>(15ULL)))),cast<int64_t>(31ULL)));
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:165:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:232:1
 void dsmachine_gpu3d_clear(dsmachine_gpu3d* g,dsmachine_Machine* m,uint32_t disp3d){
 {
 if ((cast<uint32_t>((disp3d & cast<uint32_t>(16384ULL))) != cast<uint32_t>(0ULL))) {
 dsmachine_Machine_note(m,std::string("3D: clear-image / rear-plane bitmap enabled (DISP3DCNT bit 14) \342\200\224 not implemented, clearing to CLEAR_COLOR instead",115));
 }
 uint32_t cc = get(g->regs,cast<uint32_t>(67109712ULL));
-auto tmp127 = std::make_tuple(cast<int32_t>(cast<uint32_t>((cc & cast<uint32_t>(31ULL)))),cast<int32_t>(cast<uint32_t>(((shr<uint32_t>(cc,cast<int64_t>(5ULL))) & cast<uint32_t>(31ULL)))),cast<int32_t>(cast<uint32_t>(((shr<uint32_t>(cc,cast<int64_t>(10ULL))) & cast<uint32_t>(31ULL)))));
-int32_t r5 = std::get<0>(tmp127);
-int32_t g5 = std::get<1>(tmp127);
-int32_t b5 = std::get<2>(tmp127);
+auto tmp136 = std::make_tuple(cast<int32_t>(cast<uint32_t>((cc & cast<uint32_t>(31ULL)))),cast<int32_t>(cast<uint32_t>(((shr<uint32_t>(cc,cast<int64_t>(5ULL))) & cast<uint32_t>(31ULL)))),cast<int32_t>(cast<uint32_t>(((shr<uint32_t>(cc,cast<int64_t>(10ULL))) & cast<uint32_t>(31ULL)))));
+int32_t r5 = std::get<0>(tmp136);
+int32_t g5 = std::get<1>(tmp136);
+int32_t b5 = std::get<2>(tmp136);
 uint8_t ca = cast<uint8_t>(cast<uint32_t>(((shr<uint32_t>(cc,cast<int64_t>(16ULL))) & cast<uint32_t>(31ULL))));
-dsmachine_rfrag c = dsmachine_rfrag{cast<uint8_t>(cast<int32_t>((r5 * cast<int32_t>(2ULL)))),cast<uint8_t>(cast<int32_t>((g5 * cast<int32_t>(2ULL)))),cast<uint8_t>(cast<int32_t>((b5 * cast<int32_t>(2ULL)))),ca};
+dsmachine_rfrag c = dsmachine_rfrag{dsmachine_color5to6(cast<uint8_t>(r5)),dsmachine_color5to6(cast<uint8_t>(g5)),dsmachine_color5to6(cast<uint8_t>(b5)),ca};
 uint32_t d = cast<uint32_t>(((cast<uint32_t>((get(g->regs,cast<uint32_t>(67109716ULL)) & cast<uint32_t>(32767ULL)))) * cast<uint32_t>(512ULL)));
 d += cast<uint32_t>(511ULL);
-{auto&& tmp128 = g->rast.col;
-for(int64_t tmp129=0;tmp129<len(tmp128);++tmp129){
-auto i=tmp129;g->rast.col[i] = c;
+{auto&& tmp137 = g->rast.col;
+for(int64_t tmp138=0;tmp138<len(tmp137);++tmp138){
+auto i=tmp138;g->rast.col[i] = c;
 g->rast.depth[i] = d;
+g->rast.transID[i] = cast<uint8_t>(255ULL);
 }}
 rrds::clear3D(g,m);
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:185:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:253:1
 void dsmachine_gpu3d_drawPoly(dsmachine_gpu3d* g,dsmachine_Machine* m,dsmachine_gxPolygon* p,uint32_t disp3d){
 {
 if ((len(p->verts) < cast<int64_t>(3ULL))) {
@@ -9729,21 +9814,21 @@ if ((mode == cast<uint32_t>(3ULL))) {
 dsmachine_Machine_note(m,std::string("3D: shadow polygon (POLYGON_ATTR mode 3) skipped \342\200\224 shadow volumes not implemented",83));
 return ;
 }
-auto tmp130 = std::make_tuple(cast<int64_t>(g->geom.viewX1),cast<int64_t>(g->geom.viewY1));
-int64_t vx1 = std::get<0>(tmp130);
-int64_t vy1 = std::get<1>(tmp130);
-auto tmp131 = std::make_tuple(cast<int64_t>(g->geom.viewX2),cast<int64_t>(g->geom.viewY2));
-int64_t vx2 = std::get<0>(tmp131);
-int64_t vy2 = std::get<1>(tmp131);
+auto tmp139 = std::make_tuple(cast<int64_t>(g->geom.viewX1),cast<int64_t>(g->geom.viewY1));
+int64_t vx1 = std::get<0>(tmp139);
+int64_t vy1 = std::get<1>(tmp139);
+auto tmp140 = std::make_tuple(cast<int64_t>(g->geom.viewX2),cast<int64_t>(g->geom.viewY2));
+int64_t vx2 = std::get<0>(tmp140);
+int64_t vy2 = std::get<1>(tmp140);
 int64_t vw = cast<int64_t>((cast<int64_t>((vx2 - vx1)) + cast<int64_t>(1ULL)));
 int64_t vh = cast<int64_t>((cast<int64_t>((vy2 - vy1)) + cast<int64_t>(1ULL)));
 if (((vw <= cast<int64_t>(0ULL)) || (vh <= cast<int64_t>(0ULL)))) {
 return ;
 }
 Slice<dsmachine_rvert> verts = Slice<dsmachine_rvert>::make(cast<int64_t>(0ULL),len(p->verts));
-{auto&& tmp132 = p->verts;
-for(int64_t tmp133=0;tmp133<len(tmp132);++tmp133){
-auto v=tmp132[tmp133];double w = cast<double>(v.w);
+{auto&& tmp141 = p->verts;
+for(int64_t tmp142=0;tmp142<len(tmp141);++tmp142){
+auto v=tmp141[tmp142];double w = cast<double>(v.w);
 if ((v.w == cast<int64_t>(0ULL))) {
 return ;
 }
@@ -9770,9 +9855,9 @@ if (((!drawBack) && (!drawFront))) {
 return ;
 }
 double area={};
-{auto&& tmp134 = verts;
-for(int64_t tmp135=0;tmp135<len(tmp134);++tmp135){
-auto i=tmp135;int64_t j = modi<int64_t>((cast<int64_t>((i + cast<int64_t>(1ULL)))),len(verts));
+{auto&& tmp143 = verts;
+for(int64_t tmp144=0;tmp144<len(tmp143);++tmp144){
+auto i=tmp144;int64_t j = modi<int64_t>((cast<int64_t>((i + cast<int64_t>(1ULL)))),len(verts));
 area += ((verts[i].x * verts[j].y) - (verts[j].x * verts[i].y));
 }}
 bool front = (area < cast<double>(0ULL));
@@ -9785,9 +9870,9 @@ return ;
 if (((!front) && (!drawBack))) {
 return ;
 }
-auto tmp136 = std::make_tuple(vx1,vx2);
-int64_t clipX0 = std::get<0>(tmp136);
-int64_t clipX1 = std::get<1>(tmp136);
+auto tmp145 = std::make_tuple(vx1,vx2);
+int64_t clipX0 = std::get<0>(tmp145);
+int64_t clipX1 = std::get<1>(tmp145);
 int64_t clipY0 = cast<int64_t>((cast<int64_t>(191ULL) - vy2));
 int64_t clipY1 = cast<int64_t>((cast<int64_t>(191ULL) - vy1));
 if ((clipX0 < cast<int64_t>(0ULL))) {
@@ -9802,12 +9887,12 @@ clipY0 = cast<int64_t>(0ULL);
 if ((clipY1 > cast<int64_t>(191ULL))) {
 clipY1 = cast<int64_t>(191ULL);
 }
-auto tmp137 = std::make_tuple(verts[cast<int64_t>(0ULL)].y,verts[cast<int64_t>(0ULL)].y);
-double minY = std::get<0>(tmp137);
-double maxY = std::get<1>(tmp137);
-{auto&& tmp138 = sub(verts,cast<int64_t>(1ULL),len(verts));
-for(int64_t tmp139=0;tmp139<len(tmp138);++tmp139){
-auto v=tmp138[tmp139];if ((v.y < minY)) {
+auto tmp146 = std::make_tuple(verts[cast<int64_t>(0ULL)].y,verts[cast<int64_t>(0ULL)].y);
+double minY = std::get<0>(tmp146);
+double maxY = std::get<1>(tmp146);
+{auto&& tmp147 = sub(verts,cast<int64_t>(1ULL),len(verts));
+for(int64_t tmp148=0;tmp148<len(tmp147);++tmp148){
+auto v=tmp147[tmp148];if ((v.y < minY)) {
 minY = v.y;
 }
 if ((v.y > maxY)) {
@@ -9828,21 +9913,21 @@ double yc = (cast<double>(y) + 0.5);
 bool have={};
 dsmachine_rvert left={};
 dsmachine_rvert right={};
-{auto&& tmp140 = verts;
-for(int64_t tmp141=0;tmp141<len(tmp140);++tmp141){
-auto i=tmp141;auto tmp142 = std::make_tuple(verts[i],verts[modi<int64_t>((cast<int64_t>((i + cast<int64_t>(1ULL)))),len(verts))]);
-dsmachine_rvert a = std::get<0>(tmp142);
-dsmachine_rvert b = std::get<1>(tmp142);
+{auto&& tmp149 = verts;
+for(int64_t tmp150=0;tmp150<len(tmp149);++tmp150){
+auto i=tmp150;auto tmp151 = std::make_tuple(verts[i],verts[modi<int64_t>((cast<int64_t>((i + cast<int64_t>(1ULL)))),len(verts))]);
+dsmachine_rvert a = std::get<0>(tmp151);
+dsmachine_rvert b = std::get<1>(tmp151);
 if ((a.y == b.y)) {
 continue;
 }
-auto tmp143 = std::make_tuple(a,b);
-dsmachine_rvert lo = std::get<0>(tmp143);
-dsmachine_rvert hi = std::get<1>(tmp143);
+auto tmp152 = std::make_tuple(a,b);
+dsmachine_rvert lo = std::get<0>(tmp152);
+dsmachine_rvert hi = std::get<1>(tmp152);
 if ((lo.y > hi.y)) {
-auto tmp144 = std::make_tuple(hi,lo);
-lo = std::get<0>(tmp144);
-hi = std::get<1>(tmp144);
+auto tmp153 = std::make_tuple(hi,lo);
+lo = std::get<0>(tmp153);
+hi = std::get<1>(tmp153);
 }
 if (((yc < lo.y) || (yc >= hi.y))) {
 continue;
@@ -9850,10 +9935,10 @@ continue;
 double u = (((yc - lo.y)) / ((hi.y - lo.y)));
 dsmachine_rvert s = dsmachine_lerpRV(lo,hi,u);
 if ((!have)) {
-auto tmp145 = std::make_tuple(s,s,true);
-left = std::get<0>(tmp145);
-right = std::get<1>(tmp145);
-have = std::get<2>(tmp145);
+auto tmp154 = std::make_tuple(s,s,true);
+left = std::get<0>(tmp154);
+right = std::get<1>(tmp154);
+have = std::get<2>(tmp154);
 }
 else if ((s.x < left.x)) {
 left = s;
@@ -9900,7 +9985,7 @@ dsmachine_gpu3d_shade(g,m,(&st),p,f,cast<int64_t>((cast<int64_t>((y * cast<int64
 }}
 }}
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:421:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:488:1
 dsmachine_polyState dsmachine_gpu3d_polyState(dsmachine_gpu3d* g,dsmachine_Machine* m,dsmachine_gxPolygon* p,uint32_t disp3d){
 {
 dsmachine_polyState st={};
@@ -9917,29 +10002,28 @@ st.wireframe = true;
 st.alpha = cast<uint8_t>(31ULL);
 dsmachine_Machine_note(m,std::string("3D: wireframe polygons (POLYGON_ATTR alpha 0) approximated by span-edge pixels",78));
 }
-st.trans = (st.alpha < cast<uint8_t>(31ULL));
-st.depthWr = ((!st.trans) || (cast<uint32_t>((p->attr & cast<uint32_t>(2048ULL))) != cast<uint32_t>(0ULL)));
+st.depthWr = (cast<uint32_t>((p->attr & cast<uint32_t>(2048ULL))) != cast<uint32_t>(0ULL));
 if ((cast<uint32_t>((disp3d & cast<uint32_t>(1ULL))) != cast<uint32_t>(0ULL))) {
-auto tmp146 = dsmachine_texStateOf(p);
-st.tex = std::get<0>(tmp146);
-st.hasTex = std::get<1>(tmp146);
+auto tmp155 = dsmachine_texStateOf(p);
+st.tex = std::get<0>(tmp155);
+st.hasTex = std::get<1>(tmp155);
 }
 if ((st.mode == cast<uint32_t>(2ULL))) {
 {int64_t i = cast<int64_t>(0ULL);for (;(i < cast<int64_t>(32ULL));i++){
 uint32_t w = get(g->regs,cast<uint32_t>((cast<uint32_t>(67109760ULL) + cast<uint32_t>((cast<uint32_t>(divi<int64_t>(i,cast<int64_t>(2ULL))) * cast<uint32_t>(4ULL))))));
 uint16_t c = cast<uint16_t>(shr<uint32_t>(w,(cast<uint64_t>((cast<uint64_t>(16ULL) * cast<uint64_t>(cast<int64_t>((i & cast<int64_t>(1ULL)))))))));
-st.toon[i] = std::array<uint8_t,3>{cast<uint8_t>(cast<uint16_t>(((cast<uint16_t>((c & cast<uint16_t>(31ULL)))) * cast<uint16_t>(2ULL)))),cast<uint8_t>(cast<uint16_t>(((cast<uint16_t>(((shr<uint16_t>(c,cast<int64_t>(5ULL))) & cast<uint16_t>(31ULL)))) * cast<uint16_t>(2ULL)))),cast<uint8_t>(cast<uint16_t>(((cast<uint16_t>(((shr<uint16_t>(c,cast<int64_t>(10ULL))) & cast<uint16_t>(31ULL)))) * cast<uint16_t>(2ULL))))};
+st.toon[i] = std::array<uint8_t,3>{dsmachine_color5to6(cast<uint8_t>(cast<uint16_t>((c & cast<uint16_t>(31ULL))))),dsmachine_color5to6(cast<uint8_t>(cast<uint16_t>(((shr<uint16_t>(c,cast<int64_t>(5ULL))) & cast<uint16_t>(31ULL))))),dsmachine_color5to6(cast<uint8_t>(cast<uint16_t>(((shr<uint16_t>(c,cast<int64_t>(10ULL))) & cast<uint16_t>(31ULL)))))};
 }
 }}
 return st;
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:466:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:530:1
 void dsmachine_gpu3d_shade(dsmachine_gpu3d* g,dsmachine_Machine* m,dsmachine_polyState* st,dsmachine_gxPolygon* p,dsmachine_rvert f,int64_t idx){
 {
 auto reject = [&](bool z,bool a)->void{
 if (bool(m->OnPixel)) {
-m->OnPixel(modi<int64_t>(idx,cast<int64_t>(256ULL)),divi<int64_t>(idx,cast<int64_t>(256ULL)),dsmachine_PixelEvent{{},z,a,{},{},{},{}});
+m->OnPixel(modi<int64_t>(idx,cast<int64_t>(256ULL)),divi<int64_t>(idx,cast<int64_t>(256ULL)),dsmachine_PixelEvent{{},z,a,{},{},{},{},{}});
 }
 }
 ;
@@ -9986,53 +10070,53 @@ return ;
 uint8_t vr = dsmachine_rastClamp63((f.r * w));
 uint8_t vg = dsmachine_rastClamp63((f.g * w));
 uint8_t vb = dsmachine_rastClamp63((f.b * w));
-auto tmp147 = std::make_tuple(vr,vg,vb);
-uint8_t cr = std::get<0>(tmp147);
-uint8_t cg = std::get<1>(tmp147);
-uint8_t cb = std::get<2>(tmp147);
+auto tmp156 = std::make_tuple(vr,vg,vb);
+uint8_t cr = std::get<0>(tmp156);
+uint8_t cg = std::get<1>(tmp156);
+uint8_t cb = std::get<2>(tmp156);
 uint8_t ca = st->alpha;
 if (st->hasTex) {
 int64_t s = cast<int64_t>((f.s * w));
 int64_t t = cast<int64_t>((f.t * w));
-auto tmp148 = dsmachine_gpu3d_sampleTex(g,m,(&st->tex),shr<int64_t>(s,cast<int64_t>(4ULL)),shr<int64_t>(t,cast<int64_t>(4ULL)));
-uint8_t tr = std::get<0>(tmp148);
-uint8_t tg = std::get<1>(tmp148);
-uint8_t tb = std::get<2>(tmp148);
-uint8_t ta = std::get<3>(tmp148);
-bool ok = std::get<4>(tmp148);
-if ((!ok)) {
+auto tmp157 = dsmachine_gpu3d_sampleTex(g,m,(&st->tex),shr<int64_t>(s,cast<int64_t>(4ULL)),shr<int64_t>(t,cast<int64_t>(4ULL)));
+uint8_t tr = std::get<0>(tmp157);
+uint8_t tg = std::get<1>(tmp157);
+uint8_t tb = std::get<2>(tmp157);
+uint8_t ta = std::get<3>(tmp157);
+bool ok = std::get<4>(tmp157);
+if (((!ok) && (st->mode != cast<uint32_t>(1ULL)))) {
 reject(false,true);
 return ;
 }
 {
 switch(st->mode){
 case cast<uint32_t>(0ULL):{
-cr = cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(tr) * cast<int64_t>(vr))) + cast<int64_t>(31ULL)))),cast<int64_t>(63ULL)));
-cg = cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(tg) * cast<int64_t>(vg))) + cast<int64_t>(31ULL)))),cast<int64_t>(63ULL)));
-cb = cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(tb) * cast<int64_t>(vb))) + cast<int64_t>(31ULL)))),cast<int64_t>(63ULL)));
-ca = cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(ta) * cast<int64_t>(st->alpha))) + cast<int64_t>(15ULL)))),cast<int64_t>(31ULL)));
+cr = dsmachine_modulate6(tr,vr);
+cg = dsmachine_modulate6(tg,vg);
+cb = dsmachine_modulate6(tb,vb);
+ca = cast<uint8_t>(shr<int64_t>((cast<int64_t>((cast<int64_t>(((cast<int64_t>((cast<int64_t>(ta) + cast<int64_t>(1ULL)))) * (cast<int64_t>((cast<int64_t>(st->alpha) + cast<int64_t>(1ULL)))))) - cast<int64_t>(1ULL)))),cast<int64_t>(5ULL)));
 break;}
 case cast<uint32_t>(1ULL):{
-cr = cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(tr) * cast<int64_t>(ta))) + cast<int64_t>((cast<int64_t>(vr) * (cast<int64_t>((cast<int64_t>(31ULL) - cast<int64_t>(ta))))))))),cast<int64_t>(31ULL)));
-cg = cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(tg) * cast<int64_t>(ta))) + cast<int64_t>((cast<int64_t>(vg) * (cast<int64_t>((cast<int64_t>(31ULL) - cast<int64_t>(ta))))))))),cast<int64_t>(31ULL)));
-cb = cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(tb) * cast<int64_t>(ta))) + cast<int64_t>((cast<int64_t>(vb) * (cast<int64_t>((cast<int64_t>(31ULL) - cast<int64_t>(ta))))))))),cast<int64_t>(31ULL)));
+cr = dsmachine_decal6(tr,vr,ta);
+cg = dsmachine_decal6(tg,vg,ta);
+cb = dsmachine_decal6(tb,vb,ta);
 ca = st->alpha;
 break;}
 case cast<uint32_t>(2ULL):{
-auto tmp149 = dsmachine_polyState_toonShade(st,tr,tg,tb,ta,vr);
-cr = std::get<0>(tmp149);
-cg = std::get<1>(tmp149);
-cb = std::get<2>(tmp149);
-ca = std::get<3>(tmp149);
+auto tmp158 = dsmachine_polyState_toonShade(st,tr,tg,tb,ta,vr);
+cr = std::get<0>(tmp158);
+cg = std::get<1>(tmp158);
+cb = std::get<2>(tmp158);
+ca = std::get<3>(tmp158);
 break;}
 }}
 }
 else if ((st->mode == cast<uint32_t>(2ULL))) {
-auto tmp150 = dsmachine_polyState_toonShade(st,cast<uint8_t>(63ULL),cast<uint8_t>(63ULL),cast<uint8_t>(63ULL),cast<uint8_t>(31ULL),vr);
-cr = std::get<0>(tmp150);
-cg = std::get<1>(tmp150);
-cb = std::get<2>(tmp150);
-ca = std::get<3>(tmp150);
+auto tmp159 = dsmachine_polyState_toonShade(st,cast<uint8_t>(63ULL),cast<uint8_t>(63ULL),cast<uint8_t>(63ULL),cast<uint8_t>(31ULL),vr);
+cr = std::get<0>(tmp159);
+cg = std::get<1>(tmp159);
+cb = std::get<2>(tmp159);
+ca = std::get<3>(tmp159);
 }
 if ((ca == cast<uint8_t>(0ULL))) {
 reject(false,true);
@@ -10042,12 +10126,19 @@ if ((st->alphaTe && (ca <= st->alphaRf))) {
 reject(false,true);
 return ;
 }
+uint8_t id = cast<uint8_t>(cast<uint32_t>(((shr<uint32_t>(p->attr,cast<int64_t>(24ULL))) & cast<uint32_t>(63ULL))));
+if (((ca < cast<uint8_t>(31ULL)) && (g->rast.transID[idx] == id))) {
+if (bool(m->OnPixel)) {
+m->OnPixel(modi<int64_t>(idx,cast<int64_t>(256ULL)),divi<int64_t>(idx,cast<int64_t>(256ULL)),dsmachine_PixelEvent{{},{},{},true,{},{},{},{}});
+}
+return ;
+}
 dsmachine_rfrag dst = g->rast.col[idx];
 dsmachine_rfrag out = dsmachine_rfrag{cr,cg,cb,ca};
-if (((st->trans && st->blend) && (dst.a != cast<uint8_t>(0ULL)))) {
+if ((((ca < cast<uint8_t>(31ULL)) && st->blend) && (dst.a != cast<uint8_t>(0ULL)))) {
 int64_t a = cast<int64_t>(ca);
 auto mix = [&](uint8_t s,uint8_t d)->uint8_t{
-return cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(s) * a)) + cast<int64_t>((cast<int64_t>(d) * (cast<int64_t>((cast<int64_t>(31ULL) - a)))))))),cast<int64_t>(31ULL)));
+return cast<uint8_t>(shr<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(s) * (cast<int64_t>((a + cast<int64_t>(1ULL)))))) + cast<int64_t>((cast<int64_t>(d) * (cast<int64_t>((cast<int64_t>(31ULL) - a)))))))),cast<int64_t>(5ULL)));
 }
 ;
 out.r = mix(cr,dst.r);
@@ -10059,24 +10150,27 @@ out.a = dst.a;
 }
 m->prof.frags++;
 g->rast.col[idx] = out;
-if (st->depthWr) {
+if ((ca < cast<uint8_t>(31ULL))) {
+g->rast.transID[idx] = id;
+}
+if (((ca == cast<uint8_t>(31ULL)) || st->depthWr)) {
 g->rast.depth[idx] = depth;
 }
 if (bool(m->OnPixel)) {
-m->OnPixel(modi<int64_t>(idx,cast<int64_t>(256ULL)),divi<int64_t>(idx,cast<int64_t>(256ULL)),dsmachine_PixelEvent{true,{},{},out.r,out.g,out.b,out.a});
+m->OnPixel(modi<int64_t>(idx,cast<int64_t>(256ULL)),divi<int64_t>(idx,cast<int64_t>(256ULL)),dsmachine_PixelEvent{true,{},{},{},out.r,out.g,out.b,out.a});
 }
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:619:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:693:1
 std::tuple<uint8_t,uint8_t,uint8_t,uint8_t> dsmachine_polyState_toonShade(dsmachine_polyState* st,uint8_t tr,uint8_t tg,uint8_t tb,uint8_t ta,uint8_t vr){
 {
 std::array<uint8_t,3> tc = st->toon[shr<uint8_t>(vr,cast<int64_t>(1ULL))];
-uint8_t a = cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(ta) * cast<int64_t>(st->alpha))) + cast<int64_t>(15ULL)))),cast<int64_t>(31ULL)));
+uint8_t a = cast<uint8_t>(shr<int64_t>((cast<int64_t>((cast<int64_t>(((cast<int64_t>((cast<int64_t>(ta) + cast<int64_t>(1ULL)))) * (cast<int64_t>((cast<int64_t>(st->alpha) + cast<int64_t>(1ULL)))))) - cast<int64_t>(1ULL)))),cast<int64_t>(5ULL)));
 if ((!st->toonHi)) {
-return {cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(tr) * cast<int64_t>(tc[cast<int64_t>(0ULL)]))) + cast<int64_t>(31ULL)))),cast<int64_t>(63ULL))),cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(tg) * cast<int64_t>(tc[cast<int64_t>(1ULL)]))) + cast<int64_t>(31ULL)))),cast<int64_t>(63ULL))),cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(tb) * cast<int64_t>(tc[cast<int64_t>(2ULL)]))) + cast<int64_t>(31ULL)))),cast<int64_t>(63ULL))),a};
+return {dsmachine_modulate6(tr,tc[cast<int64_t>(0ULL)]),dsmachine_modulate6(tg,tc[cast<int64_t>(1ULL)]),dsmachine_modulate6(tb,tc[cast<int64_t>(2ULL)]),a};
 }
 auto add = [&](uint8_t t,uint8_t v,uint8_t h)->uint8_t{
-int64_t c = cast<int64_t>((divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(t) * cast<int64_t>(v))) + cast<int64_t>(31ULL)))),cast<int64_t>(63ULL)) + cast<int64_t>(h)));
+int64_t c = cast<int64_t>((cast<int64_t>(dsmachine_modulate6(t,v)) + cast<int64_t>(h)));
 if ((c > cast<int64_t>(63ULL))) {
 c = cast<int64_t>(63ULL);
 }
@@ -10086,7 +10180,7 @@ return cast<uint8_t>(c);
 return {add(tr,vr,tc[cast<int64_t>(0ULL)]),add(tg,vr,tc[cast<int64_t>(1ULL)]),add(tb,vr,tc[cast<int64_t>(2ULL)]),a};
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:637:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:711:1
 uint8_t dsmachine_rastClamp63(double v){
 {
 if ((v < cast<double>(0ULL))) {
@@ -10098,7 +10192,7 @@ return cast<uint8_t>(63ULL);
 return cast<uint8_t>((v + 0.5));
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:647:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:721:1
 double dsmachine_rastCeil(double v){
 {
 double i = cast<double>(cast<int64_t>(v));
@@ -10108,7 +10202,7 @@ i++;
 return i;
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:676:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:750:1
 std::tuple<dsmachine_texState,bool> dsmachine_texStateOf(dsmachine_gxPolygon* p){
 {
 dsmachine_texState st={};
@@ -10134,7 +10228,7 @@ st.pal = shl<uint32_t>(base,cast<int64_t>(4ULL));
 return {st,true};
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:709:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:783:1
 int64_t dsmachine_wrapTex(int64_t v,int64_t size,bool repeat,bool flip){
 {
 if ((!repeat)) {
@@ -10153,13 +10247,13 @@ return cast<int64_t>((mask - (cast<int64_t>((v & mask)))));
 return cast<int64_t>((v & mask));
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:729:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:803:1
 std::tuple<uint8_t,uint8_t,uint8_t> dsmachine_rastBGR555(uint16_t c){
 {
-return {cast<uint8_t>(cast<uint16_t>(((cast<uint16_t>((c & cast<uint16_t>(31ULL)))) * cast<uint16_t>(2ULL)))),cast<uint8_t>(cast<uint16_t>(((cast<uint16_t>(((shr<uint16_t>(c,cast<int64_t>(5ULL))) & cast<uint16_t>(31ULL)))) * cast<uint16_t>(2ULL)))),cast<uint8_t>(cast<uint16_t>(((cast<uint16_t>(((shr<uint16_t>(c,cast<int64_t>(10ULL))) & cast<uint16_t>(31ULL)))) * cast<uint16_t>(2ULL))))};
+return {dsmachine_color5to6(cast<uint8_t>(cast<uint16_t>((c & cast<uint16_t>(31ULL))))),dsmachine_color5to6(cast<uint8_t>(cast<uint16_t>(((shr<uint16_t>(c,cast<int64_t>(5ULL))) & cast<uint16_t>(31ULL))))),dsmachine_color5to6(cast<uint8_t>(cast<uint16_t>(((shr<uint16_t>(c,cast<int64_t>(10ULL))) & cast<uint16_t>(31ULL)))))};
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:736:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:810:1
 std::tuple<uint8_t,uint8_t,uint8_t,uint8_t,bool> dsmachine_gpu3d_sampleTex(dsmachine_gpu3d* g,dsmachine_Machine* m,dsmachine_texState* st,int64_t s,int64_t t){
 {
 s = dsmachine_wrapTex(s,st->sizeS,st->repeatS,st->flipS);
@@ -10172,10 +10266,10 @@ uint8_t b = dsmachine_vram_read8(m->vram,cast<int64_t>(4ULL),cast<uint32_t>((st-
 uint32_t idx = cast<uint32_t>(cast<uint8_t>((b & cast<uint8_t>(31ULL))));
 uint32_t a3 = cast<uint32_t>(shr<uint8_t>(b,cast<int64_t>(5ULL)));
 uint8_t a = cast<uint8_t>(cast<uint32_t>(((shl<uint32_t>(a3,cast<int64_t>(2ULL))) | (shr<uint32_t>(a3,cast<int64_t>(1ULL))))));
-auto tmp151 = dsmachine_rastBGR555(dsmachine_vram_read16(m->vram,cast<int64_t>(5ULL),cast<uint32_t>((st->pal + cast<uint32_t>((idx * cast<uint32_t>(2ULL)))))));
-uint8_t r = std::get<0>(tmp151);
-uint8_t gg = std::get<1>(tmp151);
-uint8_t bb = std::get<2>(tmp151);
+auto tmp160 = dsmachine_rastBGR555(dsmachine_vram_read16(m->vram,cast<int64_t>(5ULL),cast<uint32_t>((st->pal + cast<uint32_t>((idx * cast<uint32_t>(2ULL)))))));
+uint8_t r = std::get<0>(tmp160);
+uint8_t gg = std::get<1>(tmp160);
+uint8_t bb = std::get<2>(tmp160);
 return {r,gg,bb,a,(a != cast<uint8_t>(0ULL))};
 break;}
 case cast<uint32_t>(2ULL):{
@@ -10184,10 +10278,10 @@ uint32_t idx = cast<uint32_t>((cast<uint32_t>(shr<uint8_t>(b,(cast<uint32_t>((ca
 if (((idx == cast<uint32_t>(0ULL)) && st->color0)) {
 return {cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),false};
 }
-auto tmp152 = dsmachine_rastBGR555(dsmachine_vram_read16(m->vram,cast<int64_t>(5ULL),cast<uint32_t>((st->pal + cast<uint32_t>((idx * cast<uint32_t>(2ULL)))))));
-uint8_t r = std::get<0>(tmp152);
-uint8_t gg = std::get<1>(tmp152);
-uint8_t bb = std::get<2>(tmp152);
+auto tmp161 = dsmachine_rastBGR555(dsmachine_vram_read16(m->vram,cast<int64_t>(5ULL),cast<uint32_t>((st->pal + cast<uint32_t>((idx * cast<uint32_t>(2ULL)))))));
+uint8_t r = std::get<0>(tmp161);
+uint8_t gg = std::get<1>(tmp161);
+uint8_t bb = std::get<2>(tmp161);
 return {r,gg,bb,cast<uint8_t>(31ULL),true};
 break;}
 case cast<uint32_t>(3ULL):{
@@ -10196,10 +10290,10 @@ uint32_t idx = cast<uint32_t>((cast<uint32_t>(shr<uint8_t>(b,(cast<uint32_t>((ca
 if (((idx == cast<uint32_t>(0ULL)) && st->color0)) {
 return {cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),false};
 }
-auto tmp153 = dsmachine_rastBGR555(dsmachine_vram_read16(m->vram,cast<int64_t>(5ULL),cast<uint32_t>((st->pal + cast<uint32_t>((idx * cast<uint32_t>(2ULL)))))));
-uint8_t r = std::get<0>(tmp153);
-uint8_t gg = std::get<1>(tmp153);
-uint8_t bb = std::get<2>(tmp153);
+auto tmp162 = dsmachine_rastBGR555(dsmachine_vram_read16(m->vram,cast<int64_t>(5ULL),cast<uint32_t>((st->pal + cast<uint32_t>((idx * cast<uint32_t>(2ULL)))))));
+uint8_t r = std::get<0>(tmp162);
+uint8_t gg = std::get<1>(tmp162);
+uint8_t bb = std::get<2>(tmp162);
 return {r,gg,bb,cast<uint8_t>(31ULL),true};
 break;}
 case cast<uint32_t>(4ULL):{
@@ -10207,10 +10301,10 @@ uint32_t idx = cast<uint32_t>(dsmachine_vram_read8(m->vram,cast<int64_t>(4ULL),c
 if (((idx == cast<uint32_t>(0ULL)) && st->color0)) {
 return {cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),false};
 }
-auto tmp154 = dsmachine_rastBGR555(dsmachine_vram_read16(m->vram,cast<int64_t>(5ULL),cast<uint32_t>((st->pal + cast<uint32_t>((idx * cast<uint32_t>(2ULL)))))));
-uint8_t r = std::get<0>(tmp154);
-uint8_t gg = std::get<1>(tmp154);
-uint8_t bb = std::get<2>(tmp154);
+auto tmp163 = dsmachine_rastBGR555(dsmachine_vram_read16(m->vram,cast<int64_t>(5ULL),cast<uint32_t>((st->pal + cast<uint32_t>((idx * cast<uint32_t>(2ULL)))))));
+uint8_t r = std::get<0>(tmp163);
+uint8_t gg = std::get<1>(tmp163);
+uint8_t bb = std::get<2>(tmp163);
 return {r,gg,bb,cast<uint8_t>(31ULL),true};
 break;}
 case cast<uint32_t>(5ULL):{
@@ -10220,10 +10314,10 @@ case cast<uint32_t>(6ULL):{
 uint8_t b = dsmachine_vram_read8(m->vram,cast<int64_t>(4ULL),cast<uint32_t>((st->base + i)));
 uint32_t idx = cast<uint32_t>(cast<uint8_t>((b & cast<uint8_t>(7ULL))));
 uint8_t a = cast<uint8_t>(shr<uint8_t>(b,cast<int64_t>(3ULL)));
-auto tmp155 = dsmachine_rastBGR555(dsmachine_vram_read16(m->vram,cast<int64_t>(5ULL),cast<uint32_t>((st->pal + cast<uint32_t>((idx * cast<uint32_t>(2ULL)))))));
-uint8_t r = std::get<0>(tmp155);
-uint8_t gg = std::get<1>(tmp155);
-uint8_t bb = std::get<2>(tmp155);
+auto tmp164 = dsmachine_rastBGR555(dsmachine_vram_read16(m->vram,cast<int64_t>(5ULL),cast<uint32_t>((st->pal + cast<uint32_t>((idx * cast<uint32_t>(2ULL)))))));
+uint8_t r = std::get<0>(tmp164);
+uint8_t gg = std::get<1>(tmp164);
+uint8_t bb = std::get<2>(tmp164);
 return {r,gg,bb,a,(a != cast<uint8_t>(0ULL))};
 break;}
 case cast<uint32_t>(7ULL):{
@@ -10231,17 +10325,17 @@ uint16_t c = dsmachine_vram_read16(m->vram,cast<int64_t>(4ULL),cast<uint32_t>((s
 if ((cast<uint16_t>((c & cast<uint16_t>(32768ULL))) == cast<uint16_t>(0ULL))) {
 return {cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),false};
 }
-auto tmp156 = dsmachine_rastBGR555(c);
-uint8_t r = std::get<0>(tmp156);
-uint8_t gg = std::get<1>(tmp156);
-uint8_t bb = std::get<2>(tmp156);
+auto tmp165 = dsmachine_rastBGR555(c);
+uint8_t r = std::get<0>(tmp165);
+uint8_t gg = std::get<1>(tmp165);
+uint8_t bb = std::get<2>(tmp165);
 return {r,gg,bb,cast<uint8_t>(31ULL),true};
 break;}
 }}
 return {cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),false};
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:820:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:894:1
 std::tuple<uint8_t,uint8_t,uint8_t,uint8_t,bool> dsmachine_gpu3d_sampleCompressed(dsmachine_gpu3d* g,dsmachine_Machine* m,dsmachine_texState* st,int64_t s,int64_t t){
 {
 int64_t blocksW = divi<int64_t>(st->sizeS,cast<int64_t>(4ULL));
@@ -10267,17 +10361,17 @@ case cast<uint16_t>(0ULL):{
 if ((idx == cast<uint32_t>(3ULL))) {
 return {cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),false};
 }
-auto tmp157 = dsmachine_rastBGR555(raw(idx));
-uint8_t r = std::get<0>(tmp157);
-uint8_t gg = std::get<1>(tmp157);
-uint8_t bb = std::get<2>(tmp157);
+auto tmp166 = dsmachine_rastBGR555(raw(idx));
+uint8_t r = std::get<0>(tmp166);
+uint8_t gg = std::get<1>(tmp166);
+uint8_t bb = std::get<2>(tmp166);
 return {r,gg,bb,cast<uint8_t>(31ULL),true};
 break;}
 case cast<uint16_t>(2ULL):{
-auto tmp158 = dsmachine_rastBGR555(raw(idx));
-uint8_t r = std::get<0>(tmp158);
-uint8_t gg = std::get<1>(tmp158);
-uint8_t bb = std::get<2>(tmp158);
+auto tmp167 = dsmachine_rastBGR555(raw(idx));
+uint8_t r = std::get<0>(tmp167);
+uint8_t gg = std::get<1>(tmp167);
+uint8_t bb = std::get<2>(tmp167);
 return {r,gg,bb,cast<uint8_t>(31ULL),true};
 break;}
 case cast<uint16_t>(1ULL):{
@@ -10287,17 +10381,17 @@ case cast<uint32_t>(3ULL):{
 return {cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),false};
 break;}
 case cast<uint32_t>(2ULL):{
-auto tmp159 = dsmachine_rastMix555(raw(cast<uint32_t>(0ULL)),raw(cast<uint32_t>(1ULL)),cast<int64_t>(1ULL),cast<int64_t>(1ULL),cast<int64_t>(1ULL));
-uint8_t r = std::get<0>(tmp159);
-uint8_t gg = std::get<1>(tmp159);
-uint8_t bb = std::get<2>(tmp159);
+auto tmp168 = dsmachine_rastMix555(raw(cast<uint32_t>(0ULL)),raw(cast<uint32_t>(1ULL)),cast<int64_t>(1ULL),cast<int64_t>(1ULL),cast<int64_t>(1ULL));
+uint8_t r = std::get<0>(tmp168);
+uint8_t gg = std::get<1>(tmp168);
+uint8_t bb = std::get<2>(tmp168);
 return {r,gg,bb,cast<uint8_t>(31ULL),true};
 break;}
 default:{
-auto tmp160 = dsmachine_rastBGR555(raw(idx));
-uint8_t r = std::get<0>(tmp160);
-uint8_t gg = std::get<1>(tmp160);
-uint8_t bb = std::get<2>(tmp160);
+auto tmp169 = dsmachine_rastBGR555(raw(idx));
+uint8_t r = std::get<0>(tmp169);
+uint8_t gg = std::get<1>(tmp169);
+uint8_t bb = std::get<2>(tmp169);
 return {r,gg,bb,cast<uint8_t>(31ULL),true};
 break;}
 }}
@@ -10306,24 +10400,24 @@ default:{
 {
 switch(idx){
 case cast<uint32_t>(2ULL):{
-auto tmp161 = dsmachine_rastMix555(raw(cast<uint32_t>(0ULL)),raw(cast<uint32_t>(1ULL)),cast<int64_t>(5ULL),cast<int64_t>(3ULL),cast<int64_t>(3ULL));
-uint8_t r = std::get<0>(tmp161);
-uint8_t gg = std::get<1>(tmp161);
-uint8_t bb = std::get<2>(tmp161);
+auto tmp170 = dsmachine_rastMix555(raw(cast<uint32_t>(0ULL)),raw(cast<uint32_t>(1ULL)),cast<int64_t>(5ULL),cast<int64_t>(3ULL),cast<int64_t>(3ULL));
+uint8_t r = std::get<0>(tmp170);
+uint8_t gg = std::get<1>(tmp170);
+uint8_t bb = std::get<2>(tmp170);
 return {r,gg,bb,cast<uint8_t>(31ULL),true};
 break;}
 case cast<uint32_t>(3ULL):{
-auto tmp162 = dsmachine_rastMix555(raw(cast<uint32_t>(0ULL)),raw(cast<uint32_t>(1ULL)),cast<int64_t>(3ULL),cast<int64_t>(5ULL),cast<int64_t>(3ULL));
-uint8_t r = std::get<0>(tmp162);
-uint8_t gg = std::get<1>(tmp162);
-uint8_t bb = std::get<2>(tmp162);
+auto tmp171 = dsmachine_rastMix555(raw(cast<uint32_t>(0ULL)),raw(cast<uint32_t>(1ULL)),cast<int64_t>(3ULL),cast<int64_t>(5ULL),cast<int64_t>(3ULL));
+uint8_t r = std::get<0>(tmp171);
+uint8_t gg = std::get<1>(tmp171);
+uint8_t bb = std::get<2>(tmp171);
 return {r,gg,bb,cast<uint8_t>(31ULL),true};
 break;}
 default:{
-auto tmp163 = dsmachine_rastBGR555(raw(idx));
-uint8_t r = std::get<0>(tmp163);
-uint8_t gg = std::get<1>(tmp163);
-uint8_t bb = std::get<2>(tmp163);
+auto tmp172 = dsmachine_rastBGR555(raw(idx));
+uint8_t r = std::get<0>(tmp172);
+uint8_t gg = std::get<1>(tmp172);
+uint8_t bb = std::get<2>(tmp172);
 return {r,gg,bb,cast<uint8_t>(31ULL),true};
 break;}
 }}
@@ -10331,7 +10425,7 @@ break;}
 }}
 }
 }
-// tools/platform/nds/dsmachine/gpu3d_raster.go:881:1
+// tools/platform/nds/dsmachine/gpu3d_raster.go:955:1
 std::tuple<uint8_t,uint8_t,uint8_t> dsmachine_rastMix555(uint16_t a,uint16_t b,int64_t wa,int64_t wb,int64_t shift){
 {
 auto ch = [&](uint64_t n)->uint8_t{
@@ -10341,25 +10435,52 @@ int64_t v = shr<int64_t>((cast<int64_t>((cast<int64_t>((ca * wa)) + cast<int64_t
 if ((v > cast<int64_t>(31ULL))) {
 v = cast<int64_t>(31ULL);
 }
-return cast<uint8_t>(cast<int64_t>((v * cast<int64_t>(2ULL))));
+return dsmachine_color5to6(cast<uint8_t>(v));
 }
 ;
 return {ch(cast<uint64_t>(0ULL)),ch(cast<uint64_t>(1ULL)),ch(cast<uint64_t>(2ULL))};
+}
+}
+// tools/platform/nds/dsmachine/gpu3d_raster.go:969:1
+uint8_t dsmachine_color5to6(uint8_t v){
+{
+if ((v == cast<uint8_t>(0ULL))) {
+return cast<uint8_t>(0ULL);
+}
+return cast<uint8_t>((cast<uint8_t>((v * cast<uint8_t>(2ULL))) + cast<uint8_t>(1ULL)));
+}
+}
+// tools/platform/nds/dsmachine/gpu3d_raster.go:975:1
+uint8_t dsmachine_modulate6(uint8_t texture,uint8_t vertex){
+{
+return cast<uint8_t>(shr<int64_t>((cast<int64_t>((cast<int64_t>(((cast<int64_t>((cast<int64_t>(texture) + cast<int64_t>(1ULL)))) * (cast<int64_t>((cast<int64_t>(vertex) + cast<int64_t>(1ULL)))))) - cast<int64_t>(1ULL)))),cast<int64_t>(6ULL)));
+}
+}
+// tools/platform/nds/dsmachine/gpu3d_raster.go:978:1
+uint8_t dsmachine_decal6(uint8_t texture,uint8_t vertex,uint8_t alpha){
+{
+if ((alpha == cast<uint8_t>(0ULL))) {
+return vertex;
+}
+if ((alpha == cast<uint8_t>(31ULL))) {
+return texture;
+}
+return cast<uint8_t>(shr<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(texture) * cast<int64_t>(alpha))) + cast<int64_t>((cast<int64_t>(vertex) * (cast<int64_t>((cast<int64_t>(31ULL) - cast<int64_t>(alpha))))))))),cast<int64_t>(5ULL)));
 }
 }
 // tools/platform/nds/dsmachine/input.go:46:1
 std::tuple<uint32_t,bool> dsmachine_ParseKeys(std::string s){
 {
 uint32_t mask={};
-{auto&& tmp164 = go_strings_Split(s,std::string(",",1));
-for(int64_t tmp165=0;tmp165<len(tmp164);++tmp165){
-auto f=tmp164[tmp165];f = go_strings_ToLower(go_strings_TrimSpace(f));
+{auto&& tmp173 = go_strings_Split(s,std::string(",",1));
+for(int64_t tmp174=0;tmp174<len(tmp173);++tmp174){
+auto f=tmp173[tmp174];f = go_strings_ToLower(go_strings_TrimSpace(f));
 if ((f == std::string("",0))) {
 continue;
 }
-auto tmp166 = lookup(dsmachine_keyNames,f);
-uint32_t k = std::get<0>(tmp166);
-bool ok = std::get<1>(tmp166);
+auto tmp175 = lookup(dsmachine_keyNames,f);
+uint32_t k = std::get<0>(tmp175);
+bool ok = std::get<1>(tmp175);
 if ((!ok)) {
 return {cast<uint32_t>(0ULL),false};
 }
@@ -10409,9 +10530,9 @@ return c->m->ARM9;
 uint32_t dsmachine_core_ioRead(dsmachine_core* c,uint32_t a){
 {
 dsmachine_Machine* m = c->m;
-auto tmp167 = dsmachine_core_ioReadReg(c,a);
-uint32_t v = std::get<0>(tmp167);
-bool ok = std::get<1>(tmp167);
+auto tmp176 = dsmachine_core_ioReadReg(c,a);
+uint32_t v = std::get<0>(tmp176);
+bool ok = std::get<1>(tmp176);
 if (bool(m->OnIO)) {
 m->OnIO(c->arm9,false,a,v,c->cpu->R[cast<int64_t>(15ULL)]);
 }
@@ -10457,14 +10578,14 @@ case cast<uint32_t>(67109248ULL):{
 uint32_t in={};
 uint32_t out={};
 if (c->arm9) {
-auto tmp168 = std::make_tuple(cast<uint32_t>(m->ipc.sync7),cast<uint32_t>(m->ipc.sync9));
-in = std::get<0>(tmp168);
-out = std::get<1>(tmp168);
+auto tmp177 = std::make_tuple(cast<uint32_t>(m->ipc.sync7),cast<uint32_t>(m->ipc.sync9));
+in = std::get<0>(tmp177);
+out = std::get<1>(tmp177);
 }
 else {
-auto tmp169 = std::make_tuple(cast<uint32_t>(m->ipc.sync9),cast<uint32_t>(m->ipc.sync7));
-in = std::get<0>(tmp169);
-out = std::get<1>(tmp169);
+auto tmp178 = std::make_tuple(cast<uint32_t>(m->ipc.sync9),cast<uint32_t>(m->ipc.sync7));
+in = std::get<0>(tmp178);
+out = std::get<1>(tmp178);
 }
 return {cast<uint32_t>((cast<uint32_t>((in | shl<uint32_t>(out,cast<int64_t>(8ULL)))) | cast<uint32_t>((get(c->io,cast<uint32_t>(67109248ULL)) & cast<uint32_t>(24576ULL))))),true};
 break;}
@@ -10545,7 +10666,7 @@ else if ((((a >= cast<uint32_t>(67109888ULL)) && (a < cast<uint32_t>(67110176ULL
 return {get(c->io,a),true};
 }
 }
-tmp170:;
+tmp179:;
 return {get(c->io,a),false};
 }
 }
@@ -10672,7 +10793,7 @@ dsmachine_core_writeTimerCtrl(c,n,cast<uint16_t>(shr<uint32_t>(w,cast<int64_t>(1
 }
 }
 else if ((((base >= cast<uint32_t>(67109664ULL)) && (base < cast<uint32_t>(67110564ULL))) && c->arm9)){
-if ((lane == cast<uint32_t>(3ULL))) {
+if (((base < cast<uint32_t>(67109888ULL)) || (lane == cast<uint32_t>(3ULL)))) {
 dsmachine_gpu3d_writeReg(m->gpu3d,base,w);
 }
 }
@@ -10689,10 +10810,10 @@ dsmachine_Machine_note(m,std::string("%s: wrote unmodelled I/O 0x%08X = 0x%08X",
 }
 }
 }
-tmp171:;
+tmp180:;
 }
 }
-// tools/platform/nds/dsmachine/io.go:293:1
+// tools/platform/nds/dsmachine/io.go:295:1
 int64_t dsmachine_vramBankIndex(uint32_t a){
 {
 if ((a <= cast<uint32_t>(67109446ULL))) {
@@ -10701,7 +10822,7 @@ return cast<int64_t>(cast<uint32_t>((a - cast<uint32_t>(67109440ULL))));
 return cast<int64_t>((cast<int64_t>(cast<uint32_t>((a - cast<uint32_t>(67109448ULL)))) + cast<int64_t>(7ULL)));
 }
 }
-// tools/platform/nds/dsmachine/io.go:310:1
+// tools/platform/nds/dsmachine/io.go:312:1
 uint32_t dsmachine_half64(uint64_t v,uint32_t off){
 {
 if ((off == cast<uint32_t>(0ULL))) {
@@ -10710,7 +10831,7 @@ return cast<uint32_t>(v);
 return cast<uint32_t>(shr<uint64_t>(v,cast<int64_t>(32ULL)));
 }
 }
-// tools/platform/nds/dsmachine/io.go:317:1
+// tools/platform/nds/dsmachine/io.go:319:1
 uint64_t dsmachine_setHalf64(uint64_t v,uint32_t off,uint32_t w){
 {
 if ((off == cast<uint32_t>(0ULL))) {
@@ -10719,7 +10840,7 @@ return cast<uint64_t>(((v & ~(cast<uint64_t>(4294967295ULL))) | cast<uint64_t>(w
 return cast<uint64_t>((cast<uint64_t>((v & cast<uint64_t>(4294967295ULL))) | shl<uint64_t>(cast<uint64_t>(w),cast<int64_t>(32ULL))));
 }
 }
-// tools/platform/nds/dsmachine/io.go:324:1
+// tools/platform/nds/dsmachine/io.go:326:1
 uint32_t dsmachine_Machine_divRead(dsmachine_Machine* m,uint32_t a){
 {
 {
@@ -10736,10 +10857,10 @@ else {
 return dsmachine_half64(m->div.rem,cast<uint32_t>((a - cast<uint32_t>(67109544ULL))));
 }
 }
-tmp172:;
+tmp181:;
 }
 }
-// tools/platform/nds/dsmachine/io.go:337:1
+// tools/platform/nds/dsmachine/io.go:339:1
 void dsmachine_Machine_divWrite(dsmachine_Machine* m,uint32_t a,uint32_t w){
 {
 {
@@ -10753,11 +10874,11 @@ else {
 return ;
 }
 }
-tmp173:;
+tmp182:;
 dsmachine_divider_run(&(m->div));
 }
 }
-// tools/platform/nds/dsmachine/io.go:351:1
+// tools/platform/nds/dsmachine/io.go:353:1
 uint32_t dsmachine_core_dmaRead(dsmachine_core* c,uint32_t a){
 {
 int64_t n = divi<int64_t>(cast<int64_t>(cast<uint32_t>((a - cast<uint32_t>(67109040ULL)))),cast<int64_t>(12ULL));
@@ -10778,7 +10899,7 @@ break;}
 }}
 }
 }
-// tools/platform/nds/dsmachine/io.go:366:1
+// tools/platform/nds/dsmachine/io.go:368:1
 void dsmachine_core_dmaWrite(dsmachine_core* c,uint32_t a,uint32_t w,uint32_t lane){
 {
 int64_t n = divi<int64_t>(cast<int64_t>(cast<uint32_t>((a - cast<uint32_t>(67109040ULL)))),cast<int64_t>(12ULL));
@@ -10803,7 +10924,7 @@ break;}
 }}
 }
 }
-// tools/platform/nds/dsmachine/io.go:387:1
+// tools/platform/nds/dsmachine/io.go:389:1
 Slice<uint32_t>* dsmachine_core_sendQ(dsmachine_core* c){
 {
 if (c->arm9) {
@@ -10812,7 +10933,7 @@ return (&c->m->ipc.to7);
 return (&c->m->ipc.to9);
 }
 }
-// tools/platform/nds/dsmachine/io.go:394:1
+// tools/platform/nds/dsmachine/io.go:396:1
 Slice<uint32_t>* dsmachine_core_recvQ(dsmachine_core* c){
 {
 if (c->arm9) {
@@ -10821,7 +10942,7 @@ return (&c->m->ipc.to9);
 return (&c->m->ipc.to7);
 }
 }
-// tools/platform/nds/dsmachine/io.go:401:1
+// tools/platform/nds/dsmachine/io.go:403:1
 void dsmachine_core_fifoSend(dsmachine_core* c,uint32_t v){
 {
 if ((cast<uint32_t>((get(c->io,cast<uint32_t>(67109252ULL)) & cast<uint32_t>(32768ULL))) == cast<uint32_t>(0ULL))) {
@@ -10838,7 +10959,7 @@ dsmachine_core_raise(o,cast<uint32_t>(262144ULL));
 }
 }
 }
-// tools/platform/nds/dsmachine/io.go:416:1
+// tools/platform/nds/dsmachine/io.go:418:1
 uint32_t dsmachine_core_fifoRecv(dsmachine_core* c){
 {
 Slice<uint32_t>* q = dsmachine_core_recvQ(c);
@@ -10857,12 +10978,12 @@ dsmachine_core_raise(o,cast<uint32_t>(131072ULL));
 return v;
 }
 }
-// tools/platform/nds/dsmachine/io.go:433:1
+// tools/platform/nds/dsmachine/io.go:435:1
 uint16_t dsmachine_core_fifoCnt(dsmachine_core* c){
 {
-auto tmp174 = std::make_tuple((*dsmachine_core_sendQ(c)),(*dsmachine_core_recvQ(c)));
-Slice<uint32_t> send = std::get<0>(tmp174);
-Slice<uint32_t> recv = std::get<1>(tmp174);
+auto tmp183 = std::make_tuple((*dsmachine_core_sendQ(c)),(*dsmachine_core_recvQ(c)));
+Slice<uint32_t> send = std::get<0>(tmp183);
+Slice<uint32_t> recv = std::get<1>(tmp183);
 uint16_t v = cast<uint16_t>((cast<uint16_t>(get(c->io,cast<uint32_t>(67109252ULL))) & cast<uint16_t>(48132ULL)));
 if ((len(send) == cast<int64_t>(0ULL))) {
 v |= cast<uint16_t>(1ULL);
@@ -10879,7 +11000,7 @@ v |= cast<uint16_t>(512ULL);
 return v;
 }
 }
-// tools/platform/nds/dsmachine/io.go:451:1
+// tools/platform/nds/dsmachine/io.go:453:1
 void dsmachine_core_fifoCntWrite(dsmachine_core* c,uint16_t v){
 {
 if ((cast<uint16_t>((v & cast<uint16_t>(8ULL))) != cast<uint16_t>(0ULL))) {
@@ -10925,9 +11046,9 @@ void dsmachine_copyInto(dsmachine_Machine* m,dsmachine_core* c,uint32_t addr,Sli
 {
 dsmachine_bus bStorage = dsmachine_bus{c};
 dsmachine_bus* b = &bStorage;
-{auto&& tmp175 = data;
-for(int64_t tmp176=0;tmp176<len(tmp175);++tmp176){
-auto i=tmp176;auto v=tmp175[tmp176];dsmachine_bus_Write(b,cast<uint32_t>((addr + cast<uint32_t>(i))),v);
+{auto&& tmp184 = data;
+for(int64_t tmp185=0;tmp185<len(tmp184);++tmp185){
+auto i=tmp185;auto v=tmp184[tmp185];dsmachine_bus_Write(b,cast<uint32_t>((addr + cast<uint32_t>(i))),v);
 }}
 }
 }
@@ -10981,9 +11102,9 @@ c = m->ARM9;
 dsmachine_bus bStorage = dsmachine_bus{c};
 dsmachine_bus* b = &bStorage;
 Slice<uint8_t> out = Slice<uint8_t>::make(n);
-{auto&& tmp177 = out;
-for(int64_t tmp178=0;tmp178<len(tmp177);++tmp178){
-auto i=tmp178;out[i] = dsmachine_bus_Read(b,cast<uint32_t>((addr + cast<uint32_t>(i))));
+{auto&& tmp186 = out;
+for(int64_t tmp187=0;tmp187<len(tmp186);++tmp187){
+auto i=tmp187;out[i] = dsmachine_bus_Read(b,cast<uint32_t>((addr + cast<uint32_t>(i))));
 }}
 return out;
 }
@@ -10997,9 +11118,9 @@ c = m->ARM9;
 }
 dsmachine_bus bStorage = dsmachine_bus{c};
 dsmachine_bus* b = &bStorage;
-{auto&& tmp179 = data;
-for(int64_t tmp180=0;tmp180<len(tmp179);++tmp180){
-auto i=tmp180;auto v=tmp179[tmp180];dsmachine_bus_Write(b,cast<uint32_t>((addr + cast<uint32_t>(i))),v);
+{auto&& tmp188 = data;
+for(int64_t tmp189=0;tmp189<len(tmp188);++tmp189){
+auto i=tmp189;auto v=tmp188[tmp189];dsmachine_bus_Write(b,cast<uint32_t>((addr + cast<uint32_t>(i))),v);
 }}
 }
 }
@@ -11137,19 +11258,19 @@ int64_t den={};
 {
 switch(mode){
 case cast<uint32_t>(0ULL):{
-auto tmp181 = std::make_tuple(cast<int64_t>(cast<int32_t>(cast<uint32_t>(d->numer))),cast<int64_t>(cast<int32_t>(cast<uint32_t>(d->denom))));
-num = std::get<0>(tmp181);
-den = std::get<1>(tmp181);
+auto tmp190 = std::make_tuple(cast<int64_t>(cast<int32_t>(cast<uint32_t>(d->numer))),cast<int64_t>(cast<int32_t>(cast<uint32_t>(d->denom))));
+num = std::get<0>(tmp190);
+den = std::get<1>(tmp190);
 break;}
 case cast<uint32_t>(1ULL):{
-auto tmp182 = std::make_tuple(cast<int64_t>(d->numer),cast<int64_t>(cast<int32_t>(cast<uint32_t>(d->denom))));
-num = std::get<0>(tmp182);
-den = std::get<1>(tmp182);
+auto tmp191 = std::make_tuple(cast<int64_t>(d->numer),cast<int64_t>(cast<int32_t>(cast<uint32_t>(d->denom))));
+num = std::get<0>(tmp191);
+den = std::get<1>(tmp191);
 break;}
 default:{
-auto tmp183 = std::make_tuple(cast<int64_t>(d->numer),cast<int64_t>(d->denom));
-num = std::get<0>(tmp183);
-den = std::get<1>(tmp183);
+auto tmp192 = std::make_tuple(cast<int64_t>(d->numer),cast<int64_t>(d->denom));
+num = std::get<0>(tmp192);
+den = std::get<1>(tmp192);
 break;}
 }}
 if ((den == cast<int64_t>(0ULL))) {
@@ -11172,9 +11293,9 @@ d->result = cast<uint64_t>(18446744073709551615ULL);
 return ;
 }
 if (((num == cast<int64_t>(-9223372036854775808ULL)) && (den == cast<int64_t>(-1ULL)))) {
-auto tmp184 = std::make_tuple(cast<uint64_t>(num),cast<uint64_t>(0ULL));
-d->result = std::get<0>(tmp184);
-d->rem = std::get<1>(tmp184);
+auto tmp193 = std::make_tuple(cast<uint64_t>(num),cast<uint64_t>(0ULL));
+d->result = std::get<0>(tmp193);
+d->rem = std::get<1>(tmp193);
 return ;
 }
 d->result = cast<uint64_t>(divi<int64_t>(num,den));
@@ -11217,15 +11338,15 @@ dsmachine_profiler_reset(&(m->prof),m);
 void dsmachine_profiler_reset(dsmachine_profiler* p,dsmachine_Machine* m){
 {
 p->frameStart = go_time_Now();
-auto tmp185 = std::make_tuple(cast<time_Duration>(0ULL),cast<time_Duration>(0ULL),cast<time_Duration>(0ULL),cast<time_Duration>(0ULL));
-p->geom = std::get<0>(tmp185);
-p->raster = std::get<1>(tmp185);
-p->compose = std::get<2>(tmp185);
-p->dma = std::get<3>(tmp185);
-auto tmp186 = std::make_tuple(cast<int64_t>(0ULL),cast<int64_t>(0ULL),cast<int64_t>(0ULL));
-p->polys = std::get<0>(tmp186);
-p->frags = std::get<1>(tmp186);
-p->xfers = std::get<2>(tmp186);
+auto tmp194 = std::make_tuple(cast<time_Duration>(0ULL),cast<time_Duration>(0ULL),cast<time_Duration>(0ULL),cast<time_Duration>(0ULL));
+p->geom = std::get<0>(tmp194);
+p->raster = std::get<1>(tmp194);
+p->compose = std::get<2>(tmp194);
+p->dma = std::get<3>(tmp194);
+auto tmp195 = std::make_tuple(cast<int64_t>(0ULL),cast<int64_t>(0ULL),cast<int64_t>(0ULL));
+p->polys = std::get<0>(tmp195);
+p->frags = std::get<1>(tmp195);
+p->xfers = std::get<2>(tmp195);
 p->cmdStart = m->gpu3d->count;
 }
 }
@@ -11272,10 +11393,10 @@ m->visited = Map<uint32_t,bool>{};
 uint64_t lastProgress = m->Steps;
 uint64_t prevSig = dsmachine_Machine_progressSig(m);
 int64_t prevPages = len(m->visited);
-auto tmp187 = std::make_tuple(false,false,cast<uint32_t>(0ULL));
-m->stop = std::get<0>(tmp187);
-m->stopped = std::get<1>(tmp187);
-m->stoppedPC = std::get<2>(tmp187);
+auto tmp196 = std::make_tuple(false,false,cast<uint32_t>(0ULL));
+m->stop = std::get<0>(tmp196);
+m->stopped = std::get<1>(tmp196);
+m->stoppedPC = std::get<2>(tmp196);
 uint64_t end = cast<uint64_t>((m->Steps + budget));
 {;for (;(m->Steps < end);){
 dsmachine_Machine_startLine(m);
@@ -11312,9 +11433,9 @@ break;
 if ((!hb)) {
 dsmachine_Machine_hblankNow(m);
 }
-{auto&& tmp188 = dsmachine_Machine_cores(m);
-for(int64_t tmp189=0;tmp189<len(tmp188);++tmp189){
-auto c=tmp188[tmp189];dsmachine_core_tickTimers(c,cast<int64_t>(2130ULL));
+{auto&& tmp197 = dsmachine_Machine_cores(m);
+for(int64_t tmp198=0;tmp198<len(tmp197);++tmp198){
+auto c=tmp197[tmp198];dsmachine_core_tickTimers(c,cast<int64_t>(2130ULL));
 }}
 if (m->ARM9->cpu->Halted) {
 res.Reason = (std::string("ARM9 halted: ",13) + m->ARM9->cpu->HaltReason);
@@ -11326,9 +11447,9 @@ break;
 }
 uint64_t sig = dsmachine_Machine_progressSig(m);
 if (((sig != prevSig) || (len(m->visited) != prevPages))) {
-auto tmp190 = std::make_tuple(sig,len(m->visited));
-prevSig = std::get<0>(tmp190);
-prevPages = std::get<1>(tmp190);
+auto tmp199 = std::make_tuple(sig,len(m->visited));
+prevSig = std::get<0>(tmp199);
+prevPages = std::get<1>(tmp199);
 lastProgress = m->Steps;
 }
 else if ((cast<uint64_t>((m->Steps - lastProgress)) > cast<uint64_t>(24000000ULL))) {
@@ -11339,9 +11460,9 @@ break;
 }if ((res.Reason == std::string("",0))) {
 res.Reason = go_fmt_Sprintf(std::string("step budget (%d) reached",24),budget);
 }
-auto tmp191 = std::make_tuple(m->Steps,m->vid.frames);
-res.Steps = std::get<0>(tmp191);
-res.Frames = std::get<1>(tmp191);
+auto tmp200 = std::make_tuple(m->Steps,m->vid.frames);
+res.Steps = std::get<0>(tmp200);
+res.Frames = std::get<1>(tmp200);
 return res;
 }
 }
@@ -11370,21 +11491,21 @@ m->OnStep(c->arm9,pc);
 }
 if (c->arm9) {
 if (m->bps.size() && get(m->bps,pc)) {
-auto tmp192 = std::make_tuple(true,true,pc);
-m->stop = std::get<0>(tmp192);
-m->stopped = std::get<1>(tmp192);
-m->stoppedPC = std::get<2>(tmp192);
+auto tmp201 = std::make_tuple(true,true,pc);
+m->stop = std::get<0>(tmp201);
+m->stopped = std::get<1>(tmp201);
+m->stoppedPC = std::get<2>(tmp201);
 return ;
 }
 if ((pc >> 8) != lastPage) { lastPage=pc >> 8; m->visited[lastPage]=true; }
 if (milestones.size()) {
 {
-auto tmp193 = lookup(milestones,pc);
-bool ok = std::get<1>(tmp193);
+auto tmp202 = lookup(milestones,pc);
+bool ok = std::get<1>(tmp202);
 if (ok) {
 {
-auto tmp194 = lookup(hit,pc);
-bool seen = std::get<1>(tmp194);
+auto tmp203 = lookup(hit,pc);
+bool seen = std::get<1>(tmp203);
 if ((!seen)) {
 (*hit.p)[pc] = cast<uint64_t>((m->Steps + cast<uint64_t>(i)));
 }
@@ -11482,10 +11603,10 @@ return std::string("running",7);
 // tools/platform/nds/dsmachine/run.go:331:1
 int64_t dsmachine_Machine_runInstrs(dsmachine_Machine* m,int64_t n){
 {
-auto tmp195 = std::make_tuple(false,false,cast<uint32_t>(0ULL));
-m->stop = std::get<0>(tmp195);
-m->stopped = std::get<1>(tmp195);
-m->stoppedPC = std::get<2>(tmp195);
+auto tmp204 = std::make_tuple(false,false,cast<uint32_t>(0ULL));
+m->stop = std::get<0>(tmp204);
+m->stopped = std::get<1>(tmp204);
+m->stoppedPC = std::get<2>(tmp204);
 if ((!m->visited)) {
 m->visited = Map<uint32_t,bool>{};
 }
@@ -11503,7 +11624,7 @@ prev(arm9,pc);
 }
 }
 ;
-auto tmp196=defer([&](){[&]()->void{
+auto tmp205=defer([&](){[&]()->void{
 m->OnStep = prev;
 }
 ();});
@@ -11519,9 +11640,9 @@ std::tuple<image_RGBA*,image_RGBA*> dsmachine_Machine_Screens(dsmachine_Machine*
 image_RGBA* top{};
 image_RGBA* bottom{};
 {
-auto tmp197 = dsmachine_gpu2d_screens(m->gpu2d);
-Slice<uint32_t> t = std::get<0>(tmp197);
-Slice<uint32_t> b = std::get<1>(tmp197);
+auto tmp206 = dsmachine_gpu2d_screens(m->gpu2d);
+Slice<uint32_t> t = std::get<0>(tmp206);
+Slice<uint32_t> b = std::get<1>(tmp206);
 return {dsmachine_toImage(t),dsmachine_toImage(b)};
 }
 }
@@ -11548,9 +11669,9 @@ int64_t b{};
 {
 auto count = [&](Slice<uint32_t> px)->int64_t{
 int64_t n = cast<int64_t>(0ULL);
-{auto&& tmp198 = px;
-for(int64_t tmp199=0;tmp199<len(tmp198);++tmp199){
-auto v=tmp198[tmp199];if ((cast<uint32_t>((v & cast<uint32_t>(4294967040ULL))) != cast<uint32_t>(0ULL))) {
+{auto&& tmp207 = px;
+for(int64_t tmp208=0;tmp208<len(tmp207);++tmp208){
+auto v=tmp207[tmp208];if ((cast<uint32_t>((v & cast<uint32_t>(4294967040ULL))) != cast<uint32_t>(0ULL))) {
 n++;
 }
 }}
@@ -11588,9 +11709,9 @@ us[cast<int64_t>(2ULL)] = cast<uint8_t>(4ULL);
 us[cast<int64_t>(3ULL)] = cast<uint8_t>(7ULL);
 us[cast<int64_t>(4ULL)] = cast<uint8_t>(4ULL);
 Slice<uint16_t> name = go_utf16_Encode(cast<Slice<int32_t>>(std::string("RETRO",5)));
-{auto&& tmp200 = name;
-for(int64_t tmp201=0;tmp201<len(tmp200);++tmp201){
-auto i=tmp201;auto r=tmp200[tmp201];le_PutUint16(sub(us,cast<int64_t>((cast<int64_t>(6ULL) + cast<int64_t>((i * cast<int64_t>(2ULL))))),len(us)),r);
+{auto&& tmp209 = name;
+for(int64_t tmp210=0;tmp210<len(tmp209);++tmp210){
+auto i=tmp210;auto r=tmp209[tmp210];le_PutUint16(sub(us,cast<int64_t>((cast<int64_t>(6ULL) + cast<int64_t>((i * cast<int64_t>(2ULL))))),len(us)),r);
 }}
 le_PutUint16(sub(us,cast<int64_t>(26ULL),len(us)),cast<uint16_t>(len(name)));
 le_PutUint16(sub(us,cast<int64_t>(80ULL),len(us)),cast<uint16_t>(0ULL));
@@ -11603,9 +11724,9 @@ le_PutUint16(sub(us,cast<int64_t>(96ULL),len(us)),cast<uint16_t>(3303ULL));
 us[cast<int64_t>(98ULL)] = cast<uint8_t>(224ULL);
 us[cast<int64_t>(99ULL)] = cast<uint8_t>(158ULL);
 le_PutUint16(sub(us,cast<int64_t>(100ULL),len(us)),cast<uint16_t>(32841ULL));
-{auto&& tmp202 = Slice<int64_t>{cast<int64_t>(261632ULL),cast<int64_t>(261888ULL)};
-for(int64_t tmp203=0;tmp203<len(tmp202);++tmp203){
-auto i=tmp203;auto off=tmp202[tmp203];std::array<uint8_t,256> blk = us;
+{auto&& tmp211 = Slice<int64_t>{cast<int64_t>(261632ULL),cast<int64_t>(261888ULL)};
+for(int64_t tmp212=0;tmp212<len(tmp211);++tmp212){
+auto i=tmp212;auto off=tmp211[tmp212];std::array<uint8_t,256> blk = us;
 le_PutUint16(sub(blk,cast<int64_t>(112ULL),len(blk)),cast<uint16_t>(i));
 le_PutUint16(sub(blk,cast<int64_t>(114ULL),len(blk)),nds_CRC16(sub(blk,cast<int64_t>(0ULL),cast<int64_t>(112ULL))));
 gcopy(sub(f,off,len(f)),sub(blk,0,len(blk)));
@@ -11615,10 +11736,10 @@ gcopy(sub(f,off,len(f)),sub(blk,0,len(blk)));
 // tools/platform/nds/dsmachine/spi.go:130:1
 void dsmachine_Machine_SetTouch(dsmachine_Machine* m,int64_t x,int64_t y,bool down){
 {
-auto tmp204 = std::make_tuple(x,y,down);
-m->spi->touchX = std::get<0>(tmp204);
-m->spi->touchY = std::get<1>(tmp204);
-m->spi->touchDown = std::get<2>(tmp204);
+auto tmp213 = std::make_tuple(x,y,down);
+m->spi->touchX = std::get<0>(tmp213);
+m->spi->touchY = std::get<1>(tmp213);
+m->spi->touchDown = std::get<2>(tmp213);
 }
 }
 // tools/platform/nds/dsmachine/spi.go:135:1
@@ -11640,9 +11761,9 @@ return ;
 }
 int64_t dev = cast<int64_t>((cast<int64_t>(shr<uint32_t>(cnt,cast<int64_t>(8ULL))) & cast<int64_t>(3ULL)));
 if ((dev != s->dev)) {
-auto tmp205 = std::make_tuple(dev,cast<int64_t>(0ULL));
-s->dev = std::get<0>(tmp205);
-s->phase = std::get<1>(tmp205);
+auto tmp214 = std::make_tuple(dev,cast<int64_t>(0ULL));
+s->dev = std::get<0>(tmp214);
+s->phase = std::get<1>(tmp214);
 }
 if ((s->phase == cast<int64_t>(0ULL))) {
 s->cmd = v;
@@ -11693,7 +11814,7 @@ s->addr++;
 return b;
 }
 }
-tmp206:;
+tmp215:;
 break;}
 case cast<uint8_t>(5ULL):{
 return cast<uint8_t>(0ULL);
@@ -11768,9 +11889,9 @@ return (cast<uint16_t>((t->ctrl & cast<uint16_t>(64ULL))) != cast<uint16_t>(0ULL
 void dsmachine_core_tickTimers(dsmachine_core* c,int64_t cycles){
 {
 int64_t carry={};
-{auto&& tmp207 = c->timers;
-for(int64_t tmp208=0;tmp208<len(tmp207);++tmp208){
-auto n=tmp208;dsmachine_timer* t = (&c->timers[n]);
+{auto&& tmp216 = c->timers;
+for(int64_t tmp217=0;tmp217<len(tmp216);++tmp217){
+auto n=tmp217;dsmachine_timer* t = (&c->timers[n]);
 if ((!dsmachine_timer_enabled(t))) {
 carry = cast<int64_t>(0ULL);
 continue;
@@ -11847,18 +11968,18 @@ v->line = cast<int64_t>(0ULL);
 v->frames++;
 }
 v->hblank = false;
-{auto&& tmp209 = dsmachine_Machine_cores(m);
-for(int64_t tmp210=0;tmp210<len(tmp209);++tmp210){
-auto c=tmp209[tmp210];if (((v->line == dsmachine_core_vcountMatch(c)) && (cast<uint32_t>((get(c->io,cast<uint32_t>(67108868ULL)) & cast<uint32_t>(32ULL))) != cast<uint32_t>(0ULL)))) {
+{auto&& tmp218 = dsmachine_Machine_cores(m);
+for(int64_t tmp219=0;tmp219<len(tmp218);++tmp219){
+auto c=tmp218[tmp219];if (((v->line == dsmachine_core_vcountMatch(c)) && (cast<uint32_t>((get(c->io,cast<uint32_t>(67108868ULL)) & cast<uint32_t>(32ULL))) != cast<uint32_t>(0ULL)))) {
 dsmachine_core_raise(c,cast<uint32_t>(4ULL));
 }
 }}
 {
 switch(v->line){
 case cast<int64_t>(192ULL):{
-{auto&& tmp211 = dsmachine_Machine_cores(m);
-for(int64_t tmp212=0;tmp212<len(tmp211);++tmp212){
-auto c=tmp211[tmp212];if ((cast<uint32_t>((get(c->io,cast<uint32_t>(67108868ULL)) & cast<uint32_t>(8ULL))) != cast<uint32_t>(0ULL))) {
+{auto&& tmp220 = dsmachine_Machine_cores(m);
+for(int64_t tmp221=0;tmp221<len(tmp220);++tmp221){
+auto c=tmp220[tmp221];if ((cast<uint32_t>((get(c->io,cast<uint32_t>(67108868ULL)) & cast<uint32_t>(8ULL))) != cast<uint32_t>(0ULL))) {
 dsmachine_core_raise(c,cast<uint32_t>(1ULL));
 }
 }}
@@ -11877,9 +11998,9 @@ break;}
 void dsmachine_Machine_hblankNow(dsmachine_Machine* m){
 {
 m->vid.hblank = true;
-{auto&& tmp213 = dsmachine_Machine_cores(m);
-for(int64_t tmp214=0;tmp214<len(tmp213);++tmp214){
-auto c=tmp213[tmp214];if ((cast<uint32_t>((get(c->io,cast<uint32_t>(67108868ULL)) & cast<uint32_t>(16ULL))) != cast<uint32_t>(0ULL))) {
+{auto&& tmp222 = dsmachine_Machine_cores(m);
+for(int64_t tmp223=0;tmp223<len(tmp222);++tmp223){
+auto c=tmp222[tmp223];if ((cast<uint32_t>((get(c->io,cast<uint32_t>(67108868ULL)) & cast<uint32_t>(16ULL))) != cast<uint32_t>(0ULL))) {
 dsmachine_core_raise(c,cast<uint32_t>(2ULL));
 }
 }}
@@ -11904,9 +12025,9 @@ c->if_ |= src;
 dsmachine_vram* dsmachine_newVRAM(){
 {
 dsmachine_vram* v = arenaNew(dsmachine_vram{});
-{auto&& tmp215 = v->bank;
-for(int64_t tmp216=0;tmp216<len(tmp215);++tmp216){
-auto i=tmp216;v->bank[i] = Slice<uint8_t>::make(dsmachine_bankSizes[i]);
+{auto&& tmp224 = v->bank;
+for(int64_t tmp225=0;tmp225<len(tmp224);++tmp225){
+auto i=tmp225;v->bank[i] = Slice<uint8_t>::make(dsmachine_bankSizes[i]);
 }}
 {int64_t s = cast<int64_t>(0ULL);for (;(s < cast<int64_t>(11ULL));s++){
 v->pages[s] = Slice<Slice<Slice<uint8_t>>>::make(divi<int64_t>(dsmachine_spaceSize[s],cast<int64_t>(8192ULL)));
@@ -11928,9 +12049,9 @@ dsmachine_vram_remap(v);
 void dsmachine_vram_remap(dsmachine_vram* v){
 {
 {int64_t s = cast<int64_t>(0ULL);for (;(s < cast<int64_t>(11ULL));s++){
-{auto&& tmp217 = v->pages[s];
-for(int64_t tmp218=0;tmp218<len(tmp217);++tmp218){
-auto p=tmp218;v->pages[s][p] = sub(v->pages[s][p],0,cast<int64_t>(0ULL));
+{auto&& tmp226 = v->pages[s];
+for(int64_t tmp227=0;tmp227<len(tmp226);++tmp227){
+auto p=tmp227;v->pages[s][p] = sub(v->pages[s][p],0,cast<int64_t>(0ULL));
 }}
 }
 }{int64_t b = cast<int64_t>(0ULL);for (;(b < cast<int64_t>(9ULL));b++){
@@ -11940,10 +12061,10 @@ continue;
 }
 int64_t mst = cast<int64_t>(cast<uint8_t>((cnt & cast<uint8_t>(7ULL))));
 int64_t ofs = cast<int64_t>((cast<int64_t>(shr<uint8_t>(cnt,cast<int64_t>(3ULL))) & cast<int64_t>(3ULL)));
-auto tmp219 = dsmachine_bankTarget(b,mst,ofs);
-int64_t space = std::get<0>(tmp219);
-int64_t off = std::get<1>(tmp219);
-bool ok = std::get<2>(tmp219);
+auto tmp228 = dsmachine_bankTarget(b,mst,ofs);
+int64_t space = std::get<0>(tmp228);
+int64_t off = std::get<1>(tmp228);
+bool ok = std::get<2>(tmp228);
 if ((!ok)) {
 continue;
 }
@@ -12122,9 +12243,9 @@ if ((cast<int64_t>(p) >= len(v->pages[space]))) {
 return ;
 }
 uint32_t i = modi<uint32_t>(off,cast<uint32_t>(8192ULL));
-{auto&& tmp220 = v->pages[space][p];
-for(int64_t tmp221=0;tmp221<len(tmp220);++tmp221){
-auto r=tmp220[tmp221];if ((cast<int64_t>(i) < len(r))) {
+{auto&& tmp229 = v->pages[space][p];
+for(int64_t tmp230=0;tmp230<len(tmp229);++tmp230){
+auto r=tmp229[tmp230];if ((cast<int64_t>(i) < len(r))) {
 r[i] = b;
 }
 }}
@@ -12171,7 +12292,7 @@ else if (((a >= cast<uint32_t>(106954752ULL)) && (a < cast<uint32_t>(109051904UL
 return {cast<int64_t>(3ULL),cast<uint32_t>(((cast<uint32_t>((a - cast<uint32_t>(106954752ULL)))) & cast<uint32_t>(131071ULL))),true};
 }
 }
-tmp222:;
+tmp231:;
 return {cast<int64_t>(0ULL),cast<uint32_t>(0ULL),false};
 }
 }
