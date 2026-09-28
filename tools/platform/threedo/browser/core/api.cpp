@@ -89,3 +89,8 @@ uint8_t *rr_frame() {
   return pixels.data();
 }
 }
+#include "state.h"
+static std::vector<std::shared_ptr<void>> stateOwners;
+static void stateWrite(rrstate::Archive&a){a.header(4,1);a(machine,totalSteps,runContext);}
+static void stateRead(rrstate::Archive&a){a.header(4,1);threedo_Machine*next=nullptr;uint64_t ticks=0;RunContext context;a(next,ticks,context);a.finish();if(!next)throw std::runtime_error("Missing machine");rebindState(next);stateOwners=std::move(a.owned);machine=next;totalSteps=ticks;runContext=std::move(context);fileEntries.clear();discCache.clear();}
+#include "../../../../browser/state/api.inc"

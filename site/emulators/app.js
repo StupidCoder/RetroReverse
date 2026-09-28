@@ -15,7 +15,7 @@ $('tape').hidden = platform !== 'c64';
 const send = (type, data = {}) =>
     worker?.postMessage({type, session, request : ++request, ...data});
 function controls(on) {
-  for (const id of ['run', 'pause', 'reset', 'step'])
+  for (const id of ['run', 'pause', 'reset', 'step', 'save'])
     $(id).disabled = !on;
 }
 function showProfile(p) {
@@ -45,13 +45,31 @@ function showProfile(p) {
           ? 'Sampled chip ticks (1 in 1,021). Sample-only milliseconds and exclusive shares; timer overhead affects tiny samples.'
           : 'Exclusive wall time since the previous update. CPU remainder includes uninstrumented devices and scheduling. Idle time and display copies excluded.';
 }
-function load() {
+let pendingWorker;
+function load(stateFile=null) {
+  if(stateFile instanceof Event)stateFile=null;
   if (!selected.length) {
     $('status').textContent = 'Select a game image first.';
     return;
   }
-  worker?.terminate();
-  session++;
+  pendingWorker?.terminate();
+  send('pause');
+  const previousWorker=worker, previousLoaded=loaded, nextSession=session+1;
+  const candidate=new Worker('../worker.js',{type:'module'});pendingWorker=candidate;
+  let bufferedState;
+  candidate.onmessage=({data:m})=>{
+    if(pendingWorker!==candidate||m.session!==nextSession)return;
+    if(m.type==='state'){bufferedState=m;return;}
+    if(m.type==='ready'){
+      previousWorker?.terminate();worker=candidate;session=nextSession;pendingWorker=null;
+      candidate.onmessage=handleMessage;loaded=true;
+      handleMessage({data:m});if(bufferedState)handleMessage({data:bufferedState});
+    }else if(m.type==='error'){
+      candidate.terminate();pendingWorker=null;loaded=previousLoaded;controls(loaded);$("pause").disabled=true;
+      $('status').textContent=m.text+' Current machine retained.';
+    }else if(m.type==='message')$('status').textContent=m.text;
+  };
+  candidate.onerror=e=>{candidate.terminate();pendingWorker=null;loaded=previousLoaded;controls(loaded);$("pause").disabled=true;$('status').textContent='State/load worker failed: '+e.message+'. Current machine retained.';};
   sources.clear();
   c64Keys.clear();
   lastInput = '';
@@ -64,8 +82,8 @@ function load() {
   $('profile').replaceChildren();
   $('profile-note').textContent='Run the machine to measure subsystem timings.';
   $('status').textContent = 'Loading local image…';
-  worker = new Worker('../worker.js', {type : 'module'});
-  worker.onmessage = ({data : m}) => {
+  function handleMessage({data : m}) {
+    if(pendingWorker)return;
     if (m.session !== session)
       return;
     if (m.type === 'state') {
@@ -108,6 +126,9 @@ function load() {
         $('step').disabled = m.running;
         $('pause').disabled = !m.running;
       }
+    } else if(m.type==='saved'){
+      const url=URL.createObjectURL(new Blob([m.bytes],{type:'application/octet-stream'}));
+      const a=document.createElement('a');a.href=url;a.download=platform+'-'+Date.now()+'.rrstate';a.textContent='Download state';$('status').replaceChildren(document.createTextNode('State ready. Machine paused. '),a);a.click();setTimeout(()=>URL.revokeObjectURL(url),300000);
     } else if (m.type === 'slow') {
       console.warn('Long emulation slice', JSON.stringify(m));
     } else if (m.type === 'ready') {
@@ -125,11 +146,7 @@ function load() {
       }
     }
   };
-  worker.onerror = e => {
-    $('status').textContent = 'Worker error: ' + e.message;
-    controls(false);
-  };
-  send('load', {platform, files : selected, firmware, compatibility});
+  candidate.postMessage({type:'load',session:nextSession,platform,files:selected,firmware,compatibility,stateFile});
 }
 $('load').onclick = () => {
   selected = [...$('files').files ];
@@ -139,7 +156,9 @@ $('load').onclick = () => {
                  : null;
   load();
 };
-$('reset').onclick = load;
+$('reset').onclick = ()=>load();
+$('save').onclick=()=>{release();$('status').textContent='Saving state…';send('save');};
+$('statefile').onchange=()=>{const f=$('statefile').files[0];if(!f)return;if(!selected.length){selected=[...$('files').files];firmware=platform==='c64'?['basic','kernal','chargen'].map(id=>$(id).files[0]):null;compatibility=$('compatprofile')?.checked??true;}load(f);$('statefile').value='';};
 for (const id of ['run', 'pause', 'step'])
   $(id).onclick = () => {
     $('status').textContent =

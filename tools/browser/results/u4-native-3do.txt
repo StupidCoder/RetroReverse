@@ -1,0 +1,5 @@
+0 7341409 bytes OK
+1 7523222 bytes OK
+60 10044656 bytes OK
+300 9859738 bytes OK
+900 9519274 bytes OK

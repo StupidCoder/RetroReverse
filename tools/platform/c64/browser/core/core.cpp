@@ -136,3 +136,13 @@ const char* rr_events(){
  event_json[pos++]=']';event_json[pos]=0;return event_json;
 }
 }
+#include "../../../../browser/state/archive.h"
+#include "state-fields.h"
+static void contextFields(rrstate::Archive&a,Context&v){a(v.cycles,v.sequence,v.pulse,v.remaining,v.frames,v.pc,v.play,v.synthetic);}
+static void stateWrite(rrstate::Archive&a){a.header(1,1);a(machine);contextFields(a,ctx);}
+static void stateRead(rrstate::Archive&a){
+ a.header(1,1);auto next=std::make_unique<c64_t>(machine);Context context=ctx;a(*next);contextFields(a,context);a.finish();
+ if(context.pulse>pulse_count||next->audio.num_samples<1||next->audio.num_samples>C64_MAX_AUDIO_SAMPLES||next->audio.sample_pos<0||next->audio.sample_pos>=next->audio.num_samples)throw std::runtime_error("Invalid C64 state");
+ machine=*next;ctx=context;_c64_update_memory_map(&machine);observation::reset();tracing=false;audio_count=0;event_count=dropped=0;for(auto&cp:checkpoints)cp.valid=false;
+}
+#include "../../../../browser/state/api.inc"

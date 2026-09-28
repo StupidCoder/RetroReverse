@@ -1,3 +1,4 @@
+import {packState, unpackState, digest} from './state.js';
 import {InputQueue} from './input.js';
 import {selectMedia, sha256File} from './media.js';
 import {platforms} from './platforms.js';
@@ -6,6 +7,19 @@ let profileBase = {}, core, platform, session, loaded = false, running = false,
     epoch = 0, frames = 0, turbo = false, files, maxCall = 0, runMs = 0,
     paintMs = 0, lastPaint = 0;
 const inputQueue = [];
+let bootOptions, firmwareIdentity=[], mediaIdentity, coreIdentity;
+async function identities(){
+ if(!mediaIdentity){send("message",{text:"Verifying local media identity…"});mediaIdentity=[];for(const f of files)mediaIdentity.push({name:f.name,size:f.size,sha256:await sha256File(f)});mediaIdentity.sort((a,b)=>a.name.localeCompare(b.name));}
+ return {media:mediaIdentity,firmware:firmwareIdentity,core:coreIdentity,configuration:{compatibility:bootOptions.compatibility!==false,customFirmware:!!bootOptions.firmware?.some(Boolean)}};
+}
+function queueState(){return {...inputs,pulses:[...inputs.pulses],down:[...inputs.down],pending:inputQueue,lastButtons,lastX,lastY,inputSequence,lastInputStep};}
+async function saveState(){
+ running=false;++epoch;const identity=await identities();
+ const n=core._rr_state_save();check(n);const p=core._rr_state_data();
+ const bytes=await packState({format:1,platform,...identity,input:queueState()},core.HEAPU8.slice(p,p+n));
+ paint();send("saved",{bytes:bytes.buffer});
+}
+
 let inputs, lastButtons = -1, lastX = 0, lastY = 0;
 let inputSequence = 0, lastInputStep = 0;
 const sleep = n => new Promise(r => setTimeout(r, n));
@@ -149,7 +163,10 @@ async function pump(id, one = false) {
   }
 }
 async function boot(m) {
+  bootOptions=m;session=m.session;
+  const restored=m.stateFile?await unpackState(m.stateFile):null;
   platform = m.platform;
+  if(restored&&restored.meta.platform!==platform)throw Error("This state belongs to another console");
   inputs = new InputQueue(platforms[platform].hz);
   session = m.session;
   files = m.files;
@@ -158,6 +175,7 @@ async function boot(m) {
   send('message', {text : 'Loading emulator…'});
   const factory = (await import(`./cores/${platform}/core.js`)).default;
   core = await factory();
+  coreIdentity=(await (await fetch('./build-manifest.json')).json())[platform+'/core.wasm'];
   const f = await selectMedia(files);
   if (platform === 'c64') {
     const custom = m.firmware?.some(Boolean);
@@ -186,6 +204,7 @@ async function boot(m) {
         throw Error('Firmware hash mismatch');
       roms.push(new Uint8Array(b));
     }
+    firmwareIdentity=await Promise.all(roms.map(b=>digest(b)));
     let pos = core._rr_input();
     for (const b of roms) {
       core.HEAPU8.set(b, pos);
@@ -229,10 +248,25 @@ async function boot(m) {
   profileBase =
       Object.fromEntries((core._rr_profile ? json('_rr_profile').buckets : [])
                              .map(b => [b.name, b.ms]));
+  if(restored){
+    const identity=await identities();
+    for(const key of ['media','firmware','core','configuration'])
+      if(JSON.stringify(identity[key])!==JSON.stringify(restored.meta[key]))throw Error('State '+key+' does not match. Reselect the original game, firmware and compatibility settings.');
+    const p=core._rr_state_input(restored.payload.length);check(p);core.HEAPU8.set(restored.payload,p);check(core._rr_state_load(restored.payload.length));
+    const q=restored.meta.input;
+    if(!q||!Array.isArray(q.keys)||q.keys.length>4096||!Array.isArray(q.pending)||q.pending.length>4096)throw Error('Invalid saved input queue');
+    Object.assign(inputs,q,{pulses:new Map(q.pulses),down:new Map(q.down)});
+    inputQueue.push(...q.pending);lastButtons=q.lastButtons;lastX=q.lastX;lastY=q.lastY;inputSequence=q.inputSequence;lastInputStep=q.lastInputStep;
+    // Saved events remain part of the state. Release host-held controls before
+    // continuation; a newly pressed physical button creates a new input edge.
+    inputs.buttons=0;inputs.x=inputs.y=0;inputs.pulses.clear();inputQueue.length=0;
+    if(platform==='c64')for(let k=0;k<256;k++)core._rr_key(k,0);
+    inputs.keys=[];inputs.down.clear();
+  }
   loaded = true;
   paint();
   send('ready', {
-    text : f.name + ' loaded. ' + (core.compatProfile || '') + ' Press Run.'
+    text : (restored?'State restored, paused. ':'') + f.name + ' loaded. ' + (core.compatProfile || '') + ' Press Run.'
   });
 }
 onmessage = async ({data : m}) => {
@@ -243,6 +277,7 @@ onmessage = async ({data : m}) => {
     }
     if (m.session !== session || !loaded)
       return;
+    if(m.type==='save'){await saveState();return;}
     if (m.type === 'run' || m.type === 'step') {
       if (running)
         return;

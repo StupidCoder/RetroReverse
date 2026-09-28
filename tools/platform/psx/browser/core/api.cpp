@@ -255,3 +255,7 @@ const char *rr_diagnostics() {
   return text.c_str();
 }
 }
+#include "state.h"
+static void stateWrite(rrstate::Archive&a){requireMachine();a.header(2,1);a(*machine);}
+static void stateRead(rrstate::Archive&a){requireMachine();a.header(2,1);auto next=std::make_unique<Machine>();a(*next);a.finish();validateState(*next);next->disc=machine->disc;clearCapture();machine=std::move(next);for(auto&s:saved)s.reset();}
+#include "../../../../browser/state/api.inc"
