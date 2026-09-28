@@ -141,7 +141,8 @@ function showLanding() {
   head.innerHTML = `<h1>RetroReverse</h1>
     <p>Games taken apart from their original ROM and disc images and rebuilt entirely
     from the binaries — maps, objects, models, cutscenes and music, no emulation.
-    Everything below is served as <a href="https://github.com/StupidCoder/RetroReverse/blob/main/RETROX.md" style="color:var(--accent)">Retro-X</a> data.</p>`;
+    Everything below is served as <a href="https://github.com/StupidCoder/RetroReverse/blob/main/RETROX.md" style="color:var(--accent)">Retro-X</a> data.</p>
+    <p><a href="emulators/" style="color:var(--accent)">Emulators</a> — run and explore games from local images.</p>`;
   landing.appendChild(head);
 
   const grid = document.createElement('div');

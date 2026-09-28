@@ -82,9 +82,7 @@ current URL to share exactly what you're looking at.
 
 ## Deploy
 
-Pushed to GitHub Pages by [`.github/workflows/pages.yml`](../.github/workflows/pages.yml),
-which uploads this folder as the Pages artifact (no build step). Set the repository's Pages
-source to **GitHub Actions**.
+Hosted on Cloudflare Pages. Pushes to the repository are picked up automatically by the existing Pages integration. The emulator area lives in `emulators/`; package its prebuilt WASM artifacts with `python3 tools/browser/package.py` from the repository root. Game images are supplied locally by visitors. C64 firmware is included under `emulators/firmware/c64/`, with pinned provenance in its manifest.
 
 ## Sonic level viewer
 

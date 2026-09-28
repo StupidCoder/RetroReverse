@@ -1,0 +1,10 @@
+{
+  "c64/core.js": "da156add98ff160c72d10e3c5a2d19471dc1dd864c8a511d35fb58ceeb062b1f",
+  "c64/core.wasm": "151d557caca5def918f8ea3bb76727eb0ff5c360606c0c49cfe20e37fd428f94",
+  "ps1/core.js": "aca620a622f9a52f2583fb4eaf1ca3804b0bc1c9e555db6aaf9c22f129af49e9",
+  "ps1/core.wasm": "1ac4eeedaf001ad180bec223d038e30a274f0724a1e99188000ef70d2b155d9a",
+  "n64/core.js": "89fb9bece7f9822f40cf6147c3f3b7b5bf649ba89ac240b8c74a64bac8f04d62",
+  "n64/core.wasm": "3c17712d4d0baf036e8628e4d323d993345ccf14d0e5e9ee975fc9f4c432831a",
+  "3do/core.js": "c36fe618bdd313128a706d3ae8c86d63f6a88ed1fa8b55a230d4ba02f21d1ee2",
+  "3do/core.wasm": "ffe73fd56a2eedfbbeba22c4599fa05eacab8691dd7603296df57e8755d48f29"
+}

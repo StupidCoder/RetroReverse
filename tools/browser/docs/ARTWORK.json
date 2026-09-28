@@ -1,0 +1,22 @@
+[
+  {
+    "console": "C64",
+    "prompt": "Use case: product-mockup. Create a square editorial product illustration for a retro emulator console selector: a recognizable original beige Commodore 64 breadbin keyboard computer, three-quarter view from slightly above, complete device centered with generous empty space around edges. Carefully detailed keycaps, brown function keys at right, dark keyboard recess, small rainbow badge. No monitor, no peripherals, no cables, no decorative text or labels. Clean physical industrial-design study, subtly painterly realistic materials, soft broad studio lighting and soft contact shadow on a uniform cool pale blue-gray background #e9edf3. Restrained archival electronics catalog aesthetic. Not cartoon, not pixel art. This is one of a coordinated set of four console images.",
+    "tool": "built-in image_gen"
+  },
+  {
+    "console": "PS1",
+    "prompt": "Use case: product-mockup. Square editorial product illustration for a retro emulator console selector. Recognizable original 1994 Sony PlayStation gray console, circular top-loading disc lid, round power/reset/open buttons, two controller ports and two memory-card slots visible on front, three-quarter view from slightly above. Complete device centered with generous empty space around all edges. No controller, cables, monitor or added lettering. Clean physical industrial-design study, subtly painterly realistic materials, soft broad studio lighting, soft contact shadow on a uniform cool pale blue-gray background #e9edf3. Restrained archival electronics catalog aesthetic, matching a beige C64 illustration in the same set. Not cartoon or pixel art.",
+    "tool": "built-in image_gen"
+  },
+  {
+    "console": "N64",
+    "prompt": "Use case: product-mockup. Square editorial product illustration for a retro emulator console selector. Recognizable original charcoal Nintendo 64 console, rounded raised central cartridge slot with empty slot lid, four circular controller ports on front, small multicolor N64 badge, power slider and red reset button. Three-quarter view from slightly above. Complete device centered with generous empty space around edges. No controllers, cables, cartridge, monitor, or added lettering. Clean physical industrial-design study, subtly painterly realistic materials, soft broad studio lighting and soft contact shadow on uniform cool pale blue-gray background #e9edf3. Restrained archival electronics catalog aesthetic matching a beige C64 and gray PlayStation set. Not cartoon or pixel art.",
+    "tool": "built-in image_gen"
+  },
+  {
+    "console": "3DO",
+    "prompt": "Use case: product-mockup. Square editorial product illustration for a retro emulator console selector. Recognizable original Panasonic FZ-1 3DO REAL console: broad black rectangular early-1990s hi-fi-style enclosure, front-loading horizontal CD drawer, layered front fascia, small power button and green indicator, narrow vent grilles, subtle 3DO mark. Three-quarter view from slightly above, complete device centered with generous empty space around edges. No controllers, cables, discs, monitor or added lettering. Clean physical industrial-design study, subtly painterly realistic materials, soft broad studio lighting and soft contact shadow on uniform cool pale blue-gray background #e9edf3. Restrained archival electronics catalog aesthetic matching a beige C64, gray PlayStation and charcoal N64 set. Not cartoon or pixel art.",
+    "tool": "built-in image_gen"
+  }
+]
