@@ -7,5 +7,8 @@
   "pagesBuildCommand": "python3 tools/browser/check-release.py",
   "deployment": "Existing Cloudflare Pages Git integration on main; no server functions",
   "buildCommand": "python3 tools/browser/build-release.py --emcc /path/to/em++",
-  "retainedReleases": 2
+  "retainedReleases": 2,
+  "optimizationOverrides": {
+    "threedo": "-O3"
+  }
 }

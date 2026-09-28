@@ -1,7 +1,8 @@
 import fs from 'node:fs';
+import {pathToFileURL} from 'node:url';
 import assert from 'node:assert/strict';
 export async function loadCore(platform,path){
-const base=new URL('../../../site/emulators/cores/'+platform+'/',import.meta.url);
+const base=process.env.CORE_DIR?pathToFileURL(process.env.CORE_DIR.replace(/\/$/,'')+'/'):new URL('../../../site/emulators/cores/'+platform+'/',import.meta.url);
 const factory=(await import(new URL('core.js',base))).default;
 const core=await factory({wasmBinary:fs.readFileSync(new URL('core.wasm',base))});
 const bytes=fs.readFileSync(path);

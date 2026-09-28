@@ -93,7 +93,7 @@ function applyInputs() {
   const time = platform === 'c64'   ? s.steps / 985248
                : platform === 'n64' ? s.steps / 45000000
                : platform === 'ps1' ? s.steps / 15000000
-                                    : s.frames / 30;
+                                    : s.inputSeconds ?? s.frames / 30;
   for (const m of inputQueue.splice(0))
     inputs.enqueue(m, time);
   const m = inputs.drain(time);
@@ -133,7 +133,7 @@ function tick(one = false) {
 }
 async function pump(id, one = false) {
   const position = s => platform === 'c64' ? s.steps / 985248
-      : s.frames / platforms[platform].hz;
+      : s.seconds ?? s.frames / platforms[platform].hz;
   const clock=new FrameClock(performance.now(),position(status()),turbo);
   let boundary=status().frames;
   while(running&&id===epoch){
@@ -283,9 +283,9 @@ async function boot(m) {
           '0828e6f43e527f5a11b85b02aa5cd1d0ed93bad03c318d5b6fa735e5e3c9715c';
     }
     check(core._rr_init_config(f.size, +profile));
-    core.deferInput = profile;
+    core.deferInput = false;
     core.compatProfile =
-        profile ? 'Need for Speed: VBL mirror and intro input compatibility'
+        profile ? 'Need for Speed: VBL mirror and Cinepak movie HLE'
                 : 'Generic Portfolio boot';
   } else if (platform === 'ps1') {
     if (f.size > 0xffffffff)

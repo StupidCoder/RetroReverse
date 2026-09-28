@@ -1,3 +1,4 @@
+// C++ hot paths specialized by optimize.py.
 #include "../../../../browser/core/capture.h"
 // RR_CAPTURE_INSTRUMENTED
 #include "../../../../browser/core/profile.h"
@@ -758,8 +759,8 @@ color_RGBA threedo_rgb555(uint16_t v);
 uint32_t threedo_bitReader_read(threedo_bitReader* br,int64_t n);
 std::tuple<image_RGBA*,Error> threedo_Cel_Image(threedo_Cel* c);
 std::tuple<uint16_t,uint8_t> threedo_Cel_ppmp(threedo_Cel* c,uint16_t pix,uint32_t amv);
-void threedo_Cel_decodePacked(threedo_Cel* c,std::function<void(int64_t,int64_t,uint32_t)> set);
-void threedo_Cel_decodeUnpacked(threedo_Cel* c,std::function<void(int64_t,int64_t,uint32_t)> set);
+template<class Put> void threedo_Cel_decodePacked(threedo_Cel* c,Put&& set);
+template<class Put> void threedo_Cel_decodeUnpacked(threedo_Cel* c,Put&& set);
 std::tuple<threedo_CvidMovie*,Error> threedo_DemuxStream(Slice<uint8_t> data);
 threedo_CvidDecoder* threedo_NewCvidDecoder(int64_t w,int64_t h);
 image_RGBA* threedo_CvidDecoder_Frame(threedo_CvidDecoder* d);
@@ -814,7 +815,7 @@ uint32_t threedo_Machine_createScreenGroup(threedo_Machine* m,uint32_t itemArray
 uint32_t threedo_Machine_pixelAddress(threedo_Machine* m,int32_t itemNum,uint32_t x,uint32_t y);
 uint32_t threedo_Machine_drawCels(threedo_Machine* m,int32_t bitmapItem,uint32_t ccb);
 bool threedo_Machine_drawOneCel(threedo_Machine* m,threedo_gfxBitmap bm,uint32_t ccb,uint32_t flags,uint32_t src,uint32_t plutPtr);
-void threedo_Machine_decodeLRForm16(threedo_Machine* m,threedo_Cel* c,uint32_t src,std::function<void(int64_t,int64_t,uint32_t)> set);
+template<class Put> void threedo_Machine_decodeLRForm16(threedo_Machine* m,threedo_Cel* c,uint32_t src,Put&& set);
 std::tuple<uint16_t,uint32_t,bool> threedo_Machine_decodePixel(threedo_Machine* m,threedo_Cel* cel,uint32_t v,uint32_t flags,bool bgnd);
 void threedo_Machine_blendPixel(threedo_Machine* m,threedo_gfxBitmap bm,int64_t x,int64_t y,uint16_t pix,uint32_t amv,uint32_t pixc,uint32_t flags);
 uint32_t threedo_pdv(uint32_t n);
@@ -2181,7 +2182,7 @@ else {
 addr -= off;
 }
 }
-std::function<void()> writeback = [&]()->void{
+auto writeback = [&]()->void{
 if ((p == cast<uint32_t>(0ULL))) {
 if ((u == cast<uint32_t>(1ULL))) {
 base += off;
@@ -2419,7 +2420,7 @@ if ((len(data) < cast<int64_t>(128ULL))) {
 return {{},go_fmt_Errorf(std::string("threedo: AIF too small (%d bytes)",33),len(data))};
 }
 threedo_AIF* a = arenaNew(threedo_AIF{threedo_be32at(data,cast<int64_t>(0ULL)),{},{},threedo_be32at(data,cast<int64_t>(16ULL)),threedo_be32at(data,cast<int64_t>(20ULL)),threedo_be32at(data,cast<int64_t>(24ULL)),threedo_be32at(data,cast<int64_t>(32ULL)),threedo_be32at(data,cast<int64_t>(40ULL)),threedo_be32at(data,cast<int64_t>(48ULL)),data});
-std::function<bool(uint32_t)> isBranchOrNOP = [&](uint32_t w)->bool{
+auto isBranchOrNOP = [&](uint32_t w)->bool{
 return ((w == threedo_aifNOP) || (shr<uint32_t>(w,cast<int64_t>(24ULL)) == cast<uint32_t>(235ULL)));
 }
 ;
@@ -2744,21 +2745,18 @@ return color_RGBA{cast<uint8_t>((shl<uint8_t>(r,cast<int64_t>(3ULL)) | shr<uint8
 }
 // tools/platform/threedo/cel.go:152:1
 uint32_t threedo_bitReader_read(threedo_bitReader* br,int64_t n){
-{
-uint32_t v={};
-for (int64_t i = cast<int64_t>(0ULL);(i < n);i++){
-int64_t bytIdx = shr<int64_t>(br->pos,cast<int64_t>(3ULL));
-if ((bytIdx >= len(br->data))) {
-br->pos++;
-v = shl<uint32_t>(v,cast<int64_t>(1ULL));
-continue;
-}
-int64_t bit = cast<int64_t>((cast<int64_t>(7ULL) - (cast<int64_t>((br->pos & cast<int64_t>(7ULL))))));
-v = cast<uint32_t>((shl<uint32_t>(v,cast<int64_t>(1ULL)) | cast<uint32_t>(cast<uint8_t>(((shr<uint8_t>(br->data[bytIdx],cast<uint64_t>(bit))) & cast<uint8_t>(1ULL))))));
-br->pos++;
-}
-return v;
-}
+  if(n<=0)return 0;
+  if(br->pos<0)throw std::runtime_error("negative bit position");
+  uint32_t value=0;
+  // At most five byte loads for a 32-bit token, rather than one load per bit.
+  while(n>0){
+    const int take=int(std::min<int64_t>(n,8-(br->pos&7)));
+    const auto byte=br->pos>>3;
+    const uint32_t v=byte<br->data.n?br->data.p[byte]:0;
+    value=(value<<take)|((v>>(8-(br->pos&7)-take))&((1u<<take)-1));
+    br->pos+=take;n-=take;
+  }
+  return value;
 }
 // tools/platform/threedo/cel.go:190:1
 std::tuple<image_RGBA*,Error> threedo_Cel_Image(threedo_Cel* c){
@@ -2768,7 +2766,7 @@ return {{},go_fmt_Errorf(std::string("threedo: implausible cel size %dx%d",35),c
 }
 image_RGBA* img = go_image_NewRGBA(go_image_Rect(cast<int64_t>(0ULL),cast<int64_t>(0ULL),c->Width,c->Height));
 bool bgnd = (cast<uint32_t>((c->Flags & threedo_ccbBGND)) != cast<uint32_t>(0ULL));
-std::function<void(int64_t,int64_t,uint32_t)> set = [&](int64_t x,int64_t y,uint32_t v)->void{
+auto set = [&](int64_t x,int64_t y,uint32_t v)->void{
 if (((x < cast<int64_t>(0ULL)) || (x >= c->Width))) {
 return ;
 }
@@ -2917,7 +2915,7 @@ uint32_t second={};
 if ((s2 == cast<uint32_t>(1ULL))) {
 second = shr<uint32_t>(avf,dv3);
 }
-std::function<uint16_t(uint32_t)> scale = [&](uint32_t ch)->uint16_t{
+auto scale = [&](uint32_t ch)->uint16_t{
 uint32_t first={};
 {
 switch(ms){
@@ -2951,7 +2949,7 @@ return {cast<uint16_t>((cast<uint16_t>((shl<uint16_t>(r,cast<int64_t>(10ULL)) | 
 }
 }
 // tools/platform/threedo/cel.go:379:1
-void threedo_Cel_decodePacked(threedo_Cel* c,std::function<void(int64_t,int64_t,uint32_t)> set){
+template<class Put> void threedo_Cel_decodePacked(threedo_Cel* c,Put&& set){
 {
 int64_t offBytes = cast<int64_t>(1ULL);
 if ((c->BPP >= cast<int64_t>(8ULL))) {
@@ -3007,7 +3005,7 @@ pos = next;
 }
 }
 // tools/platform/threedo/cel.go:435:1
-void threedo_Cel_decodeUnpacked(threedo_Cel* c,std::function<void(int64_t,int64_t,uint32_t)> set){
+template<class Put> void threedo_Cel_decodeUnpacked(threedo_Cel* c,Put&& set){
 {
 int64_t woffset={};
 if ((c->BPP >= cast<int64_t>(8ULL))) {
@@ -3179,7 +3177,7 @@ nbytes = cast<int64_t>(4ULL);
 }
 bool flagged = (cast<uint16_t>((cid & cast<uint16_t>(256ULL))) != cast<uint16_t>(0ULL));
 int64_t d = cast<int64_t>(0ULL);
-std::function<bool(int64_t)> read = [&](int64_t i)->bool{
+auto read = [&](int64_t i)->bool{
 if ((cast<int64_t>((d + nbytes)) > len(data))) {
 return false;
 }
@@ -3228,7 +3226,7 @@ void threedo_CvidDecoder_decodeVectors(threedo_CvidDecoder* d,uint16_t cid,Slice
 uint32_t flag={};
 uint32_t mask={};
 int64_t pos = cast<int64_t>(0ULL);
-std::function<bool()> need = [&]()->bool{
+auto need = [&]()->bool{
 mask = shr<uint32_t>(mask,cast<int64_t>(1ULL));
 if ((mask == cast<uint32_t>(0ULL))) {
 if ((cast<int64_t>((pos + cast<int64_t>(4ULL))) > len(data))) {
@@ -4128,7 +4126,10 @@ auto tmp64 = std::make_tuple(cast<uint8_t>(shr<uint16_t>(val,cast<int64_t>(8ULL)
 uint8_t hi = std::get<0>(tmp64);
 uint8_t lo = std::get<1>(tmp64);
 uint32_t end = cast<uint32_t>((dest + bytes));
-for (uint32_t a = dest;(cast<uint32_t>((a + cast<uint32_t>(1ULL))) < end);a += cast<uint32_t>(2ULL)){
+if(!m->OnWrite&&dest>=0x200000&&dest<0x300000&&bytes<=0x300000-dest){
+ auto p=m->vram.p+dest-0x200000;
+ for(uint32_t i=0;i+1<bytes;i+=2){p[i]=hi;p[i+1]=lo;}
+}else for (uint32_t a = dest;(cast<uint32_t>((a + cast<uint32_t>(1ULL))) < end);a += cast<uint32_t>(2ULL)){
 threedo_Machine_Write(m,a,hi);
 threedo_Machine_Write(m,cast<uint32_t>((a + cast<uint32_t>(1ULL))),lo);
 }
@@ -4452,10 +4453,14 @@ if ((max > cast<int64_t>(1048576ULL))) {
 max = cast<int64_t>(1048576ULL);
 }
 Slice<uint8_t> data = Slice<uint8_t>::make(max);
-{auto&& tmp78 = data;
-for(int64_t tmp79=0;tmp79<len(tmp78);++tmp79){
-auto i=tmp79;data[i] = threedo_Machine_Read(m,cast<uint32_t>((src + cast<uint32_t>(i))));
-}}
+const uint8_t* source=nullptr;
+if(!m->OnRead){
+ if(src<0x200000&&uint64_t(max)<=0x200000-src)source=m->dram.p+src;
+ else if(src>=0x200000&&src<0x300000&&uint64_t(max)<=0x300000-src)source=m->vram.p+src-0x200000;
+ else if(src>=0x400000&&src<0x800000&&uint64_t(max)<=0x800000-src)source=m->imem.p+src-0x400000;
+}
+if(source)std::memcpy(data.p,source,max);
+else for(int64_t i=0;i<max;i++)data[i]=threedo_Machine_Read(m,src+uint32_t(i));
 cel->PDAT = data;
 if(rrcapture::trace.active&&rrcapture::trace.current)rrcapture::trace.events[rrcapture::trace.current-1].resource=rrcapture::trace.resource(data.p,data.n);
 if ((cel->Coded && (plutPtr != cast<uint32_t>(0ULL)))) {
@@ -4463,7 +4468,7 @@ for (int64_t i = cast<int64_t>(0ULL);(i < cast<int64_t>(32ULL));i++){
 cel->PLUT = append(cel->PLUT,cast<uint16_t>((shl<uint16_t>(cast<uint16_t>(threedo_Machine_Read(m,cast<uint32_t>((plutPtr + cast<uint32_t>(cast<int64_t>((i * cast<int64_t>(2ULL)))))))),cast<int64_t>(8ULL)) | cast<uint16_t>(threedo_Machine_Read(m,cast<uint32_t>((cast<uint32_t>((plutPtr + cast<uint32_t>(cast<int64_t>((i * cast<int64_t>(2ULL)))))) + cast<uint32_t>(1ULL))))))));
 }
 }
-std::function<std::tuple<int64_t,int64_t>(int64_t,int64_t)> mapCorner = [&](int64_t c,int64_t r)->std::tuple<int64_t,int64_t>{
+auto mapCorner = [&](int64_t c,int64_t r)->std::tuple<int64_t,int64_t>{
 int64_t hdxr = cast<int64_t>((hdx + cast<int64_t>((r * hddx))));
 int64_t hdyr = cast<int64_t>((hdy + cast<int64_t>((r * hddy))));
 return {cast<int64_t>((cast<int64_t>((xPos + cast<int64_t>((r * vdx)))) + cast<int64_t>((c * (shr<int64_t>(hdxr,cast<int64_t>(4ULL))))))),cast<int64_t>((cast<int64_t>((yPos + cast<int64_t>((r * vdy)))) + cast<int64_t>((c * (shr<int64_t>(hdyr,cast<int64_t>(4ULL)))))))};
@@ -4475,7 +4480,7 @@ int64_t written = cast<int64_t>(0ULL);
 int64_t calls={};
 int64_t clearN={};
 int64_t offN={};
-std::function<void(int64_t,int64_t,uint32_t)> put = [&](int64_t sx,int64_t sy,uint32_t v)->void{
+auto put = [&](int64_t sx,int64_t sy,uint32_t v)->void{
 calls++;
 if(rrcapture::trace.active){auto&t=rrcapture::trace;t.u=sx;t.v=sy;t.texel=v;t.palette=plutPtr;
  t.source=cel->Packed?0:lrform?src+uint32_t((sy/2)*(cel->Width/2)*4+sx*4+(sy&1)*2):src+uint32_t(sy*((cel->Width*cel->BPP+31)/32)*4+(sx*cel->BPP)/8);}
@@ -4510,7 +4515,7 @@ int64_t y1 = std::get<1>(tmp84);
 auto tmp85 = mapCorner(c,cast<int64_t>((r + cast<int64_t>(1ULL))));
 int64_t xv = std::get<0>(tmp85);
 int64_t yv = std::get<1>(tmp85);
-std::function<int64_t(int64_t,int64_t)> edgeSteps = [&](int64_t dx,int64_t dy)->int64_t{
+auto edgeSteps = [&](int64_t dx,int64_t dy)->int64_t{
 int64_t span = dx;
 if ((span < cast<int64_t>(0ULL))) {
 span = cast<int64_t>(-span);
@@ -4530,6 +4535,14 @@ return steps;
 ;
 int64_t stepsH = edgeSteps(cast<int64_t>((x1 - x0)),cast<int64_t>((y1 - y0)));
 int64_t stepsV = edgeSteps(cast<int64_t>((xv - x0)),cast<int64_t>((yv - y0)));
+if(stepsH==1&&stepsV==1&&!m->CelDebug){
+ const auto x=x0>>16,y=y0>>16;
+ if(x<0||y<0||x>=bm.w||y>=bm.h){offN++;return;}
+ if(transparent){auto&t=rrcapture::trace;uint32_t a=bm.buf+uint32_t((y/2)*bm.w*4+x*4+(y&1)*2);t.record(a,0,2,m->CPU->Instrs,m->CPU->cur,t.current,4);return;}
+ if(rrcapture::trace.active)rrcapture::trace.texel=pix;
+ threedo_Machine_blendPixel(m,bm,x,y,pix,amv,pixc,flags);written++;return;
+}
+
 for (int64_t t = cast<int64_t>(cast<int64_t>(0ULL));(t < stepsV);t++){
 int64_t bx = cast<int64_t>((x0 + divi<int64_t>(cast<int64_t>(((cast<int64_t>((xv - x0))) * t)),stepsV)));
 int64_t by = cast<int64_t>((y0 + divi<int64_t>(cast<int64_t>(((cast<int64_t>((yv - y0))) * t)),stepsV)));
@@ -4586,7 +4599,7 @@ return true;
 }
 }
 // tools/platform/threedo/graphicsfolio.go:546:1
-void threedo_Machine_decodeLRForm16(threedo_Machine* m,threedo_Cel* c,uint32_t src,std::function<void(int64_t,int64_t,uint32_t)> set){
+template<class Put> void threedo_Machine_decodeLRForm16(threedo_Machine* m,threedo_Cel* c,uint32_t src,Put&& set){
 {
 int64_t cols = divi<int64_t>(c->Width,cast<int64_t>(2ULL));
 for (int64_t lp = cast<int64_t>(0ULL);(lp < c->Height);lp++){
@@ -4674,8 +4687,9 @@ uint32_t s2 = cast<uint32_t>(((shr<uint32_t>(word,cast<int64_t>(6ULL))) & cast<u
 uint32_t avf = cast<uint32_t>(((shr<uint32_t>(word,cast<int64_t>(1ULL))) & cast<uint32_t>(31ULL)));
 uint32_t dv2 = cast<uint32_t>((word & cast<uint32_t>(1ULL)));
 if (((((((!s1) && (ms == cast<uint32_t>(0ULL))) && (s2 == cast<uint32_t>(0ULL))) && (dv2 == cast<uint32_t>(0ULL))) && (mxf == cast<uint32_t>(7ULL))) && (dv1 == cast<uint32_t>(3ULL)))) {
-threedo_Machine_Write(m,a,cast<uint8_t>(shr<uint16_t>(pix,cast<int64_t>(8ULL))));
-threedo_Machine_Write(m,cast<uint32_t>((a + cast<uint32_t>(1ULL))),cast<uint8_t>(pix));
+if(!m->OnWrite&&a>=0x200000&&a<0x2fffff){auto p=m->vram.p+a-0x200000;p[0]=pix>>8;p[1]=pix;}
+else {threedo_Machine_Write(m,a,cast<uint8_t>(shr<uint16_t>(pix,cast<int64_t>(8ULL))));
+threedo_Machine_Write(m,cast<uint32_t>((a + cast<uint32_t>(1ULL))),cast<uint8_t>(pix));}
 threedo_Machine_celPixel(m,bm,x,y,pix);
 return ;
 }
@@ -4755,7 +4769,7 @@ c2g = std::get<1>(tmp93);
 c2b = std::get<2>(tmp93);
 break;}
 }}
-std::function<uint32_t(uint32_t)> clampOr = [&](uint32_t v)->uint32_t{
+auto clampOr = [&](uint32_t v)->uint32_t{
 if ((!clip)) {
 return cast<uint32_t>((v & cast<uint32_t>(31ULL)));
 }
@@ -5327,7 +5341,7 @@ uint32_t threedo_Machine_kprintf(threedo_Machine* m){
 arm60_CPU* c = m->CPU;
 std::string format = threedo_Machine_readCStr(m,arm60_CPU_Reg(c,cast<uint32_t>(0ULL)));
 int64_t argi = cast<int64_t>(0ULL);
-std::function<uint32_t()> nextArg = [&]()->uint32_t{
+auto nextArg = [&]()->uint32_t{
 uint32_t v={};
 {
 switch(argi){
@@ -6082,6 +6096,7 @@ c = cast<uint16_t>((cast<uint16_t>((shl<uint16_t>(cast<uint16_t>(shr<uint8_t>(im
 }
 m->vram[o] = cast<uint8_t>(shr<uint16_t>(c,cast<int64_t>(8ULL)));
 m->vram[cast<uint32_t>((o + cast<uint32_t>(1ULL)))] = cast<uint8_t>(c);
+if(rrcapture::trace.active)rrcapture::trace.record(0x200000+o,uint32_t(c>>8)|uint32_t(c&255)<<8,2,m->CPU->Instrs,m->CPU->cur,rrcapture::trace.current);
 }
 }
 }
@@ -6589,7 +6604,7 @@ total += cast<int64_t>(go_time_Since(p->runStart));
 p->runStart = go_time_Now();
 }
 p->frameNs = cast<int64_t>(0ULL);
-std::function<double(int64_t)> ms = [&](int64_t ns)->double{
+auto ms = [&](int64_t ns)->double{
 return (cast<double>(ns) / 1e6);
 }
 ;

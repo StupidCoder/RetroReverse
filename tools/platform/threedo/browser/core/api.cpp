@@ -69,7 +69,7 @@ const char *rr_proof() {
 }
 const char *rr_status() {
   std::ostringstream s;
-  s << "{\"frame\":" << machine->frame << ",\"steps\":" << totalSteps
+  s << "{\"frame\":" << machine->frame << ",\"seconds\":" << presentationSeconds << ",\"inputSeconds\":" << movieSeconds+machine->vblank/60.0 << ",\"movieHLE\":" << (movieActive(machine)?"true":"false") << ",\"steps\":" << totalSteps
     << ",\"pc\":" << machine->CPU->R[15] << ",\"discBytes\":" << discBytesRead
     << ",\"discReads\":" << discReads << "}";
   reply = s.str();
@@ -82,8 +82,8 @@ uint8_t *rr_frame() {
 }
 #include "state.h"
 static std::vector<std::shared_ptr<void>> stateOwners;
-static void stateWrite(rrstate::Archive&a){a.header(4,1);a(machine,totalSteps,runContext);}
-static void stateRead(rrstate::Archive&a){a.header(4,1);threedo_Machine*next=nullptr;uint64_t ticks=0;RunContext context;a(next,ticks,context);a.finish();if(!next)throw std::runtime_error("Missing machine");rebindState(next);stateOwners=std::move(a.owned);machine=next;totalSteps=ticks;runContext=std::move(context);fileEntries.clear();discCache.clear();}
+static void stateWrite(rrstate::Archive&a){a.header(4,2);a(machine,totalSteps,runContext,presentationSeconds,movieSeconds);}
+static void stateRead(rrstate::Archive&a){const bool legacy=a.bytes.size()>=12&&a.bytes[8]==1;a.header(4,legacy?1:2);threedo_Machine*next=nullptr;uint64_t ticks=0;RunContext context;a(next,ticks,context);if(!next)throw std::runtime_error("Missing machine");if(legacy&&next->movieQueue.n)throw std::runtime_error("Legacy movie state unsupported");double seconds=next->frame/30.0;double movies=0;if(!legacy)a(seconds,movies);a.finish();rebindState(next);presentationSeconds=seconds;movieSeconds=movies;stateOwners=std::move(a.owned);machine=next;totalSteps=ticks;runContext=std::move(context);fileEntries.clear();discCache.clear();}
 #include "../../../../browser/state/api.inc"
 static uint32_t capBuffer=0;static threedo_CelDraw capCel{};
 extern "C" {

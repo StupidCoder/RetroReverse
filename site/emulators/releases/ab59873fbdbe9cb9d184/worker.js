@@ -10,6 +10,7 @@ let profileBase = {}, core, platform, session, loaded = false, running = false,
 const inputQueue = [];
 const mediaHashes=new WeakMap();
 function mediaHash(file){if(!mediaHashes.has(file))mediaHashes.set(file,sha256File(file));return mediaHashes.get(file);}
+let saving=false;
 let bootOptions, firmwareIdentity=[], mediaIdentity, coreIdentity;
 async function identities(){
  if(!mediaIdentity){send("message",{text:"Verifying local media identity…"});mediaIdentity=[];for(const f of files)mediaIdentity.push({name:f.name,size:f.size,sha256:await mediaHash(f)});mediaIdentity.sort((a,b)=>a.name.localeCompare(b.name));}
@@ -17,10 +18,13 @@ async function identities(){
 }
 function queueState(){return {...inputs,pulses:[...inputs.pulses],down:[...inputs.down],pending:inputQueue,lastButtons,lastX,lastY,inputSequence,lastInputStep};}
 async function saveState(){
+ if(saving)return;saving=true;
+ try{
  cancelCapture();running=false;++epoch;const identity=await identities();
  const n=core._rr_state_save();check(n);const p=core._rr_state_data();
  const bytes=await packState({format:1,platform,...identity,input:queueState()},core.HEAPU8.slice(p,p+n));
- paint();send("saved",{bytes:bytes.buffer});
+ send("saved",{bytes:bytes.buffer});
+ }finally{saving=false;paint();}
 }
 
 let seekGeneration=0;
@@ -78,7 +82,7 @@ function paint() {
     paintMs,
     heap : core.HEAPU8.length,
     inputDeferred : platform === '3do' && core.deferInput && s.frames < 300,
-    capturing,
+    capturing,saving,
     profile : readProfile()
   });
 }
@@ -89,7 +93,7 @@ function applyInputs() {
   const time = platform === 'c64'   ? s.steps / 985248
                : platform === 'n64' ? s.steps / 45000000
                : platform === 'ps1' ? s.steps / 15000000
-                                    : s.frames / 30;
+                                    : s.inputSeconds ?? s.frames / 30;
   for (const m of inputQueue.splice(0))
     inputs.enqueue(m, time);
   const m = inputs.drain(time);
@@ -129,7 +133,7 @@ function tick(one = false) {
 }
 async function pump(id, one = false) {
   const position = s => platform === 'c64' ? s.steps / 985248
-      : s.frames / platforms[platform].hz;
+      : s.seconds ?? s.frames / platforms[platform].hz;
   const clock=new FrameClock(performance.now(),position(status()),turbo);
   let boundary=status().frames;
   while(running&&id===epoch){
@@ -279,9 +283,9 @@ async function boot(m) {
           '0828e6f43e527f5a11b85b02aa5cd1d0ed93bad03c318d5b6fa735e5e3c9715c';
     }
     check(core._rr_init_config(f.size, +profile));
-    core.deferInput = profile;
+    core.deferInput = false;
     core.compatProfile =
-        profile ? 'Need for Speed: VBL mirror and intro input compatibility'
+        profile ? 'Need for Speed: VBL mirror and Cinepak movie HLE'
                 : 'Generic Portfolio boot';
   } else if (platform === 'ps1') {
     if (f.size > 0xffffffff)
@@ -328,6 +332,7 @@ onmessage = async ({data : m}) => {
     }
     if (m.session !== session || !loaded)
       return;
+    if(saving&&!['input','turbo','hold'].includes(m.type)){send('message',{text:'Finishing the state save…'});return;}
     if(m.type==='seek'){await seekReplay(m);return;}
     if(m.type==='cancel-seek'){seekGeneration++;return;}
     if(m.type==='save'){await saveState();return;}

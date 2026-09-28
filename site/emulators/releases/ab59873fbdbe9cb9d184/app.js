@@ -6,7 +6,7 @@ const $ = id => document.getElementById(id),
       canvas = $('screen'), ctx = canvas.getContext('2d');
 let worker, session = 0, request = 0, selected = [], firmware = null,
             compatibility = true, loaded = false;
-let lastSteps = null, lastFrames = 0, lastTime = performance.now(), rate = '',
+let lastSeconds = 0, lastSteps = null, lastFrames = 0, lastTime = performance.now(), rate = '',
     lastProfile = {}, profileTime = 0;
 let pendingFrame=null,presentationScheduled=false,presentedCount=0,presentedAt=performance.now(),presentedRate=0,lastCopyMs=0;
 function present(m){
@@ -115,12 +115,12 @@ function load(stateFile=null) {
                : '');
       queuePresentation(m);
       const copyMs=lastCopyMs;
-      if(lastSteps===null){lastSteps=s.steps;lastFrames=s.frames;lastTime=performance.now();}
+      if(lastSteps===null){lastSteps=s.steps;lastFrames=s.frames;lastSeconds=s.seconds??0;lastTime=performance.now();}
       const now = performance.now(), dt = (now - lastTime) / 1000;
       if (dt > .5) {
         const ratio = platform === 'c64'
                           ? (s.steps - lastSteps) / 985248 / dt
-                          : (s.frames - lastFrames) / config.hz / dt;
+                          : s.seconds!==undefined ? (s.seconds-lastSeconds)/dt : (s.frames - lastFrames) / config.hz / dt;
         rate = `${(ratio * 100).toFixed(0)}% ${
             platform === 'c64' ? 'PAL speed' : 'nominal display rate'} · ${
             ((s.frames - lastFrames) / dt).toFixed(1)} ${
@@ -130,6 +130,7 @@ function load(stateFile=null) {
             platform === 'c64' ? 'cycles' : 'steps'}/s`;
         lastTime = now;
         lastFrames = s.frames;
+        lastSeconds = s.seconds??0;
         lastSteps = s.steps;
       }
       $('metrics').textContent = `${m.running ? 'Running' : 'Paused'} · ${
@@ -138,9 +139,10 @@ function load(stateFile=null) {
           m.maxCall.toFixed(1)} ms · canvas copy ${copyMs.toFixed(1)} ms`;
       showProfile(m.profile);
       if (loaded) {
-        $('run').disabled = m.running||m.capturing;
-        $('step').disabled = m.running||m.capturing;
-        $('save').disabled = m.capturing;
+        $('reset').disabled = !!m.saving;
+        $('run').disabled = m.running||m.capturing||m.saving;
+        $('step').disabled = m.running||m.capturing||m.saving;
+        $('save').disabled = m.capturing||m.saving;
         $('pause').disabled = !m.running&&!m.capturing;
         $('cancelcapture').hidden=!m.capturing;
       }
@@ -153,7 +155,7 @@ function load(stateFile=null) {
       inspector.reset();replay.reset();
       $('capture-note').textContent='Pause to record the next complete display interval.';$('cancelcapture').hidden=true;
     } else if(m.type==='capture'){
-      inspector.setCapture(m);replay.setCapture(m);showProfile(m.profile,true);lastTime=performance.now();lastSteps=m.end.steps;lastFrames=m.end.frames;rate='';
+      inspector.setCapture(m);replay.setCapture(m);showProfile(m.profile,true);lastTime=performance.now();lastSteps=m.end.steps;lastFrames=m.end.frames;lastSeconds=m.end.seconds??0;rate='';
       $('cancelcapture').hidden=true;
       $('capture-note').textContent=`Captured display ${m.start.frames}–${m.end.frames} · ${(m.elapsedMs/1000).toFixed(2)} s capture · longest call ${m.maxCall.toFixed(1)} ms · ${((m.info.bytes+m.checkpointBytes)/1048576).toFixed(1)} MiB evidence/checkpoints${m.info.overflow?' · incomplete: trace limit reached':''}`;
     } else if(m.type==='saved'){
@@ -188,7 +190,7 @@ $('load').onclick = () => {
 };
 $('reset').onclick = ()=>load();
 $('cancelcapture').onclick=()=>send('cancel-capture');
-$('save').onclick=()=>{release();$('status').textContent='Saving state…';send('save');};
+$('save').onclick=()=>{release();controls(false);$('status').textContent='Saving state…';send('save');};
 $('statefile').onchange=()=>{const f=$('statefile').files[0];if(!f)return;if(!selected.length){selected=[...$('files').files];firmware=platform==='c64'?['basic','kernal','chargen'].map(id=>$(id).files[0]):null;compatibility=$('compatprofile')?.checked??true;}load(f);$('statefile').value='';};
 for (const id of ['run', 'pause', 'step'])
   $(id).onclick = () => {

@@ -20,6 +20,7 @@ auto& ri=context.ri;
 auto& unstickTries=context.unstickTries;
 auto& stallSwitches=context.stallSwitches;
 for (;(steps < maxSteps);){
+if(m->MovieHLE && m->moviePos<m->movieQueue.n)return threedo_Result{steps-initial,m->CPU->R[15],"movie pending"};
 if (m->StopRequested) {
 m->StopRequested = false;
 return threedo_Result{steps-initial,arm60_CPU_Reg(m->CPU,cast<uint32_t>(15ULL)),std::string("stop requested",14)};

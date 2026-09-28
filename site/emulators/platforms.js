@@ -74,7 +74,7 @@ export const platforms = {
     help :
         'Arrows steer/navigate. X / Z / C are A / B / C. Enter is Start, Space is X. Q / E shift down / up in Need for Speed.',
     compat :
-        'ARM60, Portfolio OS HLE and software cel rendering. Native movie playback is retained. OS coverage and game compatibility remain experimental.',
+        'ARM60, Portfolio OS HLE and software cel rendering. The known Need for Speed profile uses Cinepak movie HLE; generic images retain the native player. OS coverage and game compatibility remain experimental.',
     buttons : [
       [ '↑', 0x40000000 ], [ '↓', 0x80000000 ], [ '←', 0x10000000 ],
       [ '→', 0x20000000 ], [ 'A', 0x08000000 ], [ 'B', 0x04000000 ],

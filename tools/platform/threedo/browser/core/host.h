@@ -1,6 +1,7 @@
 #pragma once
 #include "generated.cpp"
 #include "slice.h"
+#include "movie.h"
 inline RunContext runContext;
 struct DiscChunk {
   int64_t base;
@@ -86,6 +87,7 @@ std::tuple<threedo_Volume *, Error> threedo_Open(Slice<uint8_t> data) {
 inline threedo_Machine *boot(bool nfsProfile = true) {
   arenaClear();
   runContext = {};
+  presentationSeconds=movieSeconds=0;
   fileEntries.clear();
   discCache.clear();
   discClock = discBytesRead = discReads = totalSteps = 0;
@@ -99,7 +101,7 @@ inline threedo_Machine *boot(bool nfsProfile = true) {
   auto m = threedo_NewMachine();
   m->PaceFields = true;
   m->StallTolerance = 8;
-  m->MovieHLE = false;
+  m->MovieHLE = nfsProfile;
   m->NoStreams = false;
   threedo_Machine_SetVolume(m, vol);
   if (nfsProfile) threedo_Machine_SetVBLMirror(m, 0x42734);
@@ -109,25 +111,23 @@ inline threedo_Machine *boot(bool nfsProfile = true) {
 }
 inline uint64_t runSlice(threedo_Machine *m, uint64_t budget) {
   rrprof::Scope clock(0,"ARM60 / scheduler remainder");
+  if(presentMovie(m))return 0;
+  const auto oldFrame=m->frame;
   // Normal execution keeps bounded diagnostic history; guest state is untouched.
   if(m->SWICalls.n>65536)m->SWICalls=sub(m->SWICalls,m->SWICalls.n-32768,m->SWICalls.n);
   if(m->KernelCalls.n>65536)m->KernelCalls=sub(m->KernelCalls,m->KernelCalls.n-32768,m->KernelCalls.n);
   auto r=threedo_Machine_RunSlice(m,budget,runContext);
   totalSteps+=r.Steps;
-  if(r.Reason!="step budget reached") {
+  presentationSeconds+=(m->frame-oldFrame)/30.0;
+  if(r.Reason!="step budget reached"&&r.Reason!="movie pending") {
     runContext={};
     if(r.Reason!="stop requested") throw std::runtime_error(r.Reason);
   }
   return r.Steps;
 }
 inline void nextFrame(threedo_Machine *m) {
-  auto before = m->frame;
-  auto r = threedo_Machine_Run(m, 400000000);
-  totalSteps += r.Steps;
-  if (m->CPU->Halted)
-    throw std::runtime_error(m->CPU->HaltReason);
-  if (m->frame == before)
-    throw std::runtime_error("No new frame: " + r.Reason);
+  auto before=m->frame;uint64_t steps=0;
+  while(m->frame==before){steps+=runSlice(m,10000);if(steps>400000000)throw std::runtime_error("No new display within budget");}
 }
 inline uint32_t hashBytes(const uint8_t *p, size_t n) {
   uint32_t h = 2166136261;

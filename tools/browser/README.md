@@ -39,6 +39,7 @@ file-I/O adaptations, then regenerate the resumable scheduler before building:
 ```sh
 python3 tools/browser/instrument.py
 python3 tools/browser/capture-instrument.py
+python3 tools/platform/threedo/browser/optimize.py
 python3 tools/browser/state/generate.py
 python3 tools/platform/threedo/browser/slice.py
 ```
@@ -79,3 +80,5 @@ Native C64 tests need `-Wno-address-of-temporary`; translated cores can use
 
 Console illustrations were generated with the built-in image generator. Their
 four exact prompts are in `docs/ARTWORK.json`; assets are in `site/emulators/art/`.
+
+The 3DO hot-path and movie playback refactor is documented in `docs/3DO-PERFORMANCE.md`.

@@ -5,7 +5,7 @@ from pathlib import Path
 root=Path(__file__).resolve().parents[3]
 skip={
  'n64_Machine':{'ROM'},'r4300_CPU':{'bus','fetch'},'rsp_CPU':{'regs','DMEM','IMEM'},
- 'threedo_diskStream':{'data'},
+ 'threedo_diskStream':{'data'}, 'threedo_CvidMovie':{'Frames'},
  'arm60_CPU':{'bus','SWI'},'threedo_Volume':{'img'},
 }
 for platform in ['n64','threedo']:

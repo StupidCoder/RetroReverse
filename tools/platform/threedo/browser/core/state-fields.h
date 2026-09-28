@@ -9,7 +9,7 @@ inline void stateFields(rrstate::Archive&a,threedo_AIF&v){a(v.Decompress,v.SelfR
 inline void stateFields(rrstate::Archive&a,threedo_audioEvent&v){a(v.cue,v.time);}
 inline void stateFields(rrstate::Archive&a,threedo_Cel&v){a(v.Flags,v.PRE0,v.PRE1,v.PIXC,v.Width,v.Height,v.BPP,v.Packed,v.Coded,v.PLUT,v.PDAT);}
 inline void stateFields(rrstate::Archive&a,threedo_bitReader&v){a(v.data,v.pos);}
-inline void stateFields(rrstate::Archive&a,threedo_CvidMovie&v){a(v.Width,v.Height,v.Codec,v.FPS,v.HeaderRate,v.Frames,v.Durations,v.Times);}
+inline void stateFields(rrstate::Archive&a,threedo_CvidMovie&v){a(v.Width,v.Height,v.Codec,v.FPS,v.HeaderRate,v.Durations,v.Times);}
 inline void stateFields(rrstate::Archive&a,threedo_cvidVec&v){a(v.y,v.u,v.v);}
 inline void stateFields(rrstate::Archive&a,threedo_CvidDecoder&v){a(v.W,v.H,v.img,v.v1,v.v4);}
 inline void stateFields(rrstate::Archive&a,threedo_CelDraw&v){a(v.Index,v.CCB,v.Flags,v.Src,v.PLUT,v.XPos,v.YPos,v.HDX,v.HDY,v.VDX,v.VDY,v.HDDX,v.HDDY,v.PIXC,v.PRE0,v.PRE1,v.BPP,v.Width,v.Height,v.Packed,v.Coded,v.LRForm,v.Bitmap,v.BitmapW,v.BitmapH);}
