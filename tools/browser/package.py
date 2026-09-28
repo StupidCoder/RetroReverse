@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Package existing WASM builds into the site's static emulator subtree."""
 from pathlib import Path
-import hashlib,json,shutil
+import hashlib,json,shutil,subprocess
 repo=Path(__file__).resolve().parents[2]
 out=repo/'site/emulators'
 manifest={}
@@ -26,7 +26,10 @@ for pattern in ['*.js','style.css','build-manifest.json','cores/**/*','firmware/
 release_id=hashlib.sha256(json.dumps(assets,sort_keys=True,separators=(',',':')).encode()).hexdigest()[:20]
 release=out/'releases'/release_id
 old=json.loads((out/'release.json').read_text()) if (out/'release.json').is_file() else {}
-previous=old.get('previous') if old.get('id')==release_id else old.get('id')
+try:
+ committed=json.loads(subprocess.check_output(['git','show','HEAD:site/emulators/release.json'],cwd=repo,stderr=subprocess.DEVNULL))
+except (subprocess.CalledProcessError,json.JSONDecodeError):committed=old
+previous=committed.get('previous') if committed.get('id')==release_id else committed.get('id')
 for name in assets:
  dest=release/name;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(out/name,dest)
 (out/'release.json').write_text(json.dumps({'schema':1,'id':release_id,'previous':previous,'assets':assets},indent=2)+'\n')

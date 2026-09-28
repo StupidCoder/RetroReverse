@@ -138,9 +138,10 @@ function load(stateFile=null) {
           m.maxCall.toFixed(1)} ms · canvas copy ${copyMs.toFixed(1)} ms`;
       showProfile(m.profile);
       if (loaded) {
-        $('run').disabled = m.running||m.capturing;
-        $('step').disabled = m.running||m.capturing;
-        $('save').disabled = m.capturing;
+        $('reset').disabled = !!m.saving;
+        $('run').disabled = m.running||m.capturing||m.saving;
+        $('step').disabled = m.running||m.capturing||m.saving;
+        $('save').disabled = m.capturing||m.saving;
         $('pause').disabled = !m.running&&!m.capturing;
         $('cancelcapture').hidden=!m.capturing;
       }
@@ -188,7 +189,7 @@ $('load').onclick = () => {
 };
 $('reset').onclick = ()=>load();
 $('cancelcapture').onclick=()=>send('cancel-capture');
-$('save').onclick=()=>{release();$('status').textContent='Saving state…';send('save');};
+$('save').onclick=()=>{release();controls(false);$('status').textContent='Saving state…';send('save');};
 $('statefile').onchange=()=>{const f=$('statefile').files[0];if(!f)return;if(!selected.length){selected=[...$('files').files];firmware=platform==='c64'?['basic','kernal','chargen'].map(id=>$(id).files[0]):null;compatibility=$('compatprofile')?.checked??true;}load(f);$('statefile').value='';};
 for (const id of ['run', 'pause', 'step'])
   $(id).onclick = () => {

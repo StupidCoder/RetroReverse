@@ -1,5 +1,6 @@
 import {loadCore} from './wasm-harness.mjs';import fs from 'node:fs';import assert from 'node:assert/strict';
 const [platform,path,statePath]=process.argv.slice(2),duration=Number(process.env.SOAK_SECONDS||1800)*1000,initial=fs.readFileSync(statePath);
+const captureFields=Number(process.env.CAPTURE_FIELDS||1),capturePeriod=Number(process.env.CAPTURE_PERIOD_MS||30000);
 let c,iterations=0,captures=0,restores=0,resets=0,maxHeap=0;
 const json=fn=>JSON.parse(c.UTF8ToString(c[fn]())),frame=()=>{let s=json('_rr_status');return platform==='c64'?s.frames:platform==='ps1'?s.fields:platform==='n64'?Math.floor(s.steps/750000):s.frame;};
 const restore=b=>{c.HEAPU8.set(b,c._rr_state_input(b.length));assert.equal(c._rr_state_load(b.length),1);restores++;};
@@ -13,9 +14,9 @@ while(performance.now()-start<duration){
  if(now>=nextReset){c=null;globalThis.gc?.();c=await loadCore(platform,path);restore(initial);resets++;nextReset+=300000;}
  if(now>=nextRestore){restore(initial);nextRestore+=60000;}
  const until=performance.now()+20;do{tick();iterations++;}while(performance.now()<until);
- if(now>=nextCapture){next();c._rr_capture_begin();next();c._rr_capture_end();const b=save(),i=json('_rr_replay_begin');for(const at of [i.count,0,Math.floor(i.count/2),i.count])while(!c._rr_replay_seek(at)){};assert.deepEqual(save(),b);captures++;nextCapture+=30000;}
+ if(now>=nextCapture){next();c._rr_capture_begin();for(let field=0;field<captureFields;field++)next();c._rr_capture_end();const b=save(),i=json('_rr_replay_begin');for(const at of [i.count,0,Math.floor(i.count/2),i.count])while(!c._rr_replay_seek(at)){};assert.deepEqual(save(),b);captures++;nextCapture+=capturePeriod;}
  maxHeap=Math.max(maxHeap,c.HEAPU8.length);
  if(now-lastLog>=60000){lastLog=now;globalThis.gc?.();console.log(JSON.stringify({platform,seconds:Math.round(now/1000),captures,restores,resets,heap:c.HEAPU8.length,rss:process.memoryUsage().rss}));}
  await new Promise(r=>setTimeout(r,20));
 }
-console.log(JSON.stringify({platform,complete:true,seconds:(performance.now()-start)/1000,iterations,captures,restores,resets,maxHeap,rss:process.memoryUsage().rss}));
+console.log(JSON.stringify({platform,complete:true,captureFields,seconds:(performance.now()-start)/1000,iterations,captures,restores,resets,maxHeap,rss:process.memoryUsage().rss}));

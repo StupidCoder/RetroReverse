@@ -10,6 +10,7 @@ let profileBase = {}, core, platform, session, loaded = false, running = false,
 const inputQueue = [];
 const mediaHashes=new WeakMap();
 function mediaHash(file){if(!mediaHashes.has(file))mediaHashes.set(file,sha256File(file));return mediaHashes.get(file);}
+let saving=false;
 let bootOptions, firmwareIdentity=[], mediaIdentity, coreIdentity;
 async function identities(){
  if(!mediaIdentity){send("message",{text:"Verifying local media identity…"});mediaIdentity=[];for(const f of files)mediaIdentity.push({name:f.name,size:f.size,sha256:await mediaHash(f)});mediaIdentity.sort((a,b)=>a.name.localeCompare(b.name));}
@@ -17,10 +18,13 @@ async function identities(){
 }
 function queueState(){return {...inputs,pulses:[...inputs.pulses],down:[...inputs.down],pending:inputQueue,lastButtons,lastX,lastY,inputSequence,lastInputStep};}
 async function saveState(){
+ if(saving)return;saving=true;
+ try{
  cancelCapture();running=false;++epoch;const identity=await identities();
  const n=core._rr_state_save();check(n);const p=core._rr_state_data();
  const bytes=await packState({format:1,platform,...identity,input:queueState()},core.HEAPU8.slice(p,p+n));
- paint();send("saved",{bytes:bytes.buffer});
+ send("saved",{bytes:bytes.buffer});
+ }finally{saving=false;paint();}
 }
 
 let seekGeneration=0;
@@ -78,7 +82,7 @@ function paint() {
     paintMs,
     heap : core.HEAPU8.length,
     inputDeferred : platform === '3do' && core.deferInput && s.frames < 300,
-    capturing,
+    capturing,saving,
     profile : readProfile()
   });
 }
@@ -328,6 +332,7 @@ onmessage = async ({data : m}) => {
     }
     if (m.session !== session || !loaded)
       return;
+    if(saving&&!['input','turbo','hold'].includes(m.type)){send('message',{text:'Finishing the state save…'});return;}
     if(m.type==='seek'){await seekReplay(m);return;}
     if(m.type==='cancel-seek'){seekGeneration++;return;}
     if(m.type==='save'){await saveState();return;}

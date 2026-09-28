@@ -10,6 +10,7 @@ let profileBase = {}, core, platform, session, loaded = false, running = false,
 const inputQueue = [];
 const mediaHashes=new WeakMap();
 function mediaHash(file){if(!mediaHashes.has(file))mediaHashes.set(file,sha256File(file));return mediaHashes.get(file);}
+let saving=false;
 let bootOptions, firmwareIdentity=[], mediaIdentity, coreIdentity;
 async function identities(){
  if(!mediaIdentity){send("message",{text:"Verifying local media identity…"});mediaIdentity=[];for(const f of files)mediaIdentity.push({name:f.name,size:f.size,sha256:await mediaHash(f)});mediaIdentity.sort((a,b)=>a.name.localeCompare(b.name));}
@@ -17,10 +18,13 @@ async function identities(){
 }
 function queueState(){return {...inputs,pulses:[...inputs.pulses],down:[...inputs.down],pending:inputQueue,lastButtons,lastX,lastY,inputSequence,lastInputStep};}
 async function saveState(){
+ if(saving)return;saving=true;
+ try{
  cancelCapture();running=false;++epoch;const identity=await identities();
  const n=core._rr_state_save();check(n);const p=core._rr_state_data();
  const bytes=await packState({format:1,platform,...identity,input:queueState()},core.HEAPU8.slice(p,p+n));
- paint();send("saved",{bytes:bytes.buffer});
+ send("saved",{bytes:bytes.buffer});
+ }finally{saving=false;paint();}
 }
 
 let seekGeneration=0;
@@ -78,7 +82,7 @@ function paint() {
     paintMs,
     heap : core.HEAPU8.length,
     inputDeferred : platform === '3do' && core.deferInput && s.frames < 300,
-    capturing,
+    capturing,saving,
     profile : readProfile()
   });
 }
@@ -177,7 +181,8 @@ async function captureNext(){
    await boundary('Finishing current interval.');
    const startState=coreState(),start=status(),input=queueState();
    core._rr_capture_begin();
-   await boundary('Recording next complete interval.');
+   const captureFields=platform==='ps1'?4:1;
+   for(let field=0;field<captureFields;field++)await boundary(platform==='ps1'?'Recording display and double-buffer producer context.':'Recording next complete interval.');
    core._rr_capture_end();const captureProfile=finishCaptureProfile();capturing=false;
    const endState=coreState(),end=status(),info=json('_rr_capture_info'),replay=json('_rr_replay_begin');
    const w=platform==='c64'?392:end.width||320,h=platform==='c64'?272:end.height||240,p=core._rr_frame();
@@ -207,6 +212,7 @@ async function seekReplay(m){
  send('seek',{capture:c.id,request:m.request,pixels:pixels.buffer,info:json('_rr_replay_info'),elapsedMs:performance.now()-began});
 }
 async function boot(m) {
+  const bootBegan=performance.now();
   bootOptions=m;session=m.session;
   const restored=m.stateFile?await unpackState(m.stateFile):null;
   platform = m.platform;
@@ -315,7 +321,7 @@ async function boot(m) {
   loaded = true;
   paint();
   send('ready', {
-    text : (restored?'State restored, paused. ':'') + f.name + ' loaded. ' + (core.compatProfile || '') + ' Press Run.'
+    text : (restored?'State restored, paused. ':'') + f.name + ' loaded. ' + (core.compatProfile || '') + ' Ready in '+((performance.now()-bootBegan)/1000).toFixed(2)+' s. Press Run.'
   });
 }
 onmessage = async ({data : m}) => {
@@ -326,6 +332,7 @@ onmessage = async ({data : m}) => {
     }
     if (m.session !== session || !loaded)
       return;
+    if(saving&&!['input','turbo','hold'].includes(m.type)){send('message',{text:'Finishing the state save…'});return;}
     if(m.type==='seek'){await seekReplay(m);return;}
     if(m.type==='cancel-seek'){seekGeneration++;return;}
     if(m.type==='save'){await saveState();return;}

@@ -4,6 +4,7 @@ from pathlib import Path
 import hashlib,json,re
 root=Path(__file__).resolve().parents[2];site=root/'site';out=site/'emulators'
 release=json.loads((out/'release.json').read_text());base=out/'releases'/release['id']
+if release.get('previous'):assert (out/'releases'/release['previous']/'worker.js').is_file(),'Previous published bundle missing'
 for name,wanted in release['assets'].items():
  p=base/name;assert p.is_file(),f'Missing {p}'
  assert hashlib.sha256(p.read_bytes()).hexdigest()==wanted,f'Hash mismatch: {p}'
