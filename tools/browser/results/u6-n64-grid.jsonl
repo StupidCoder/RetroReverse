@@ -1,0 +1,3 @@
+{"platform":"n64","point":0,"frame":2,"info":{"events":2751,"writes":179603,"overflow":0,"bytes":26690585},"sampledPixels":{"complete":85,"missing":0},"sourceChecks":0}
+{"platform":"n64","point":1,"frame":4,"info":{"events":2736,"writes":179934,"overflow":0,"bytes":26705418},"sampledPixels":{"complete":85,"missing":0},"sourceChecks":0}
+{"platform":"n64","point":2,"frame":6,"info":{"events":2739,"writes":179056,"overflow":0,"bytes":26645581},"sampledPixels":{"complete":85,"missing":0},"sourceChecks":0}

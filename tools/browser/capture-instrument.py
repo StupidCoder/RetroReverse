@@ -32,3 +32,27 @@ needle='cel->PDAT = data;'
 if 'trace.resource(data.p,data.n)' not in s:
  s=s.replace(needle,needle+'\nif(rrcapture::trace.active&&rrcapture::trace.current)rrcapture::trace.events[rrcapture::trace.current-1].resource=rrcapture::trace.resource(data.p,data.n);')
  p.write_text(s)
+s=p.read_text()
+marker='auto tmp80 = threedo_Machine_decodePixel(m,cel,v,flags,bgnd);'
+if 't.sourceBefore=lrform' not in s:
+ s=s.replace(marker,'''if(rrcapture::trace.active){auto&t=rrcapture::trace;
+ t.sourceBefore=lrform?t.writes.size():(t.current?t.events[t.current-1].sourceBefore:0);
+ t.paletteBefore=t.current?t.events[t.current-1].sourceBefore:0;t.paletteValue=0;
+ if(lrform)t.sourceValue=((v>>8)&255)|((v&255)<<8);
+ else if(!cel->Packed&&t.source>=src&&uint64_t(t.source-src)+2<=uint64_t(data.n))t.sourceValue=uint32_t(data[t.source-src])|(uint32_t(data[t.source-src+1])<<8);
+}
+'''+marker)
+ s=s.replace('if(rrcapture::trace.active)rrcapture::trace.palette+=idx*2;', 'if(rrcapture::trace.active){rrcapture::trace.palette+=idx*2;rrcapture::trace.paletteValue=(uint32_t(cel->PLUT[idx])>>8)|((uint32_t(cel->PLUT[idx])&255)<<8);}')
+ p.write_text(s)
+# N64: retain the last filter tap's TMEM/TLUT location. The filtered texel remains
+# separately recorded by OnPixel; this is not misrepresented as the sole tap.
+p=root/'tools/platform/n64/browser/core/generated.cpp';s=p.read_text()
+if '// RR_TMEM_EVIDENCE' not in s:
+ s='#include "../../../../browser/core/capture.h"\n// RR_TMEM_EVIDENCE\n'+s
+ target='uint32_t row = cast<uint32_t>((cast<uint32_t>((t->TMem * cast<uint32_t>(8ULL))) + cast<uint32_t>((cast<uint32_t>((ty * t->Line)) * cast<uint32_t>(8ULL)))));'
+ assert target in s
+ s=s.replace(target,target+'\nif(rrcapture::trace.active){auto&tr=rrcapture::trace;tr.source=n64_swizzle(row+((sx*(4u<<t->Size))/8),ty)&4095;tr.palette=0;tr.sourceValue=n64_rdp_tmem16(r,tr.source);}')
+ target='uint16_t n64_rdp_tlut(n64_rdp* r,uint32_t i){\n{'
+ assert target in s
+ s=s.replace(target,target+'\nif(rrcapture::trace.active){rrcapture::trace.palette=0x800+((i&255)*8);}')
+ p.write_text(s)

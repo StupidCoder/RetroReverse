@@ -4479,6 +4479,12 @@ std::function<void(int64_t,int64_t,uint32_t)> put = [&](int64_t sx,int64_t sy,ui
 calls++;
 if(rrcapture::trace.active){auto&t=rrcapture::trace;t.u=sx;t.v=sy;t.texel=v;t.palette=plutPtr;
  t.source=cel->Packed?0:lrform?src+uint32_t((sy/2)*(cel->Width/2)*4+sx*4+(sy&1)*2):src+uint32_t(sy*((cel->Width*cel->BPP+31)/32)*4+(sx*cel->BPP)/8);}
+if(rrcapture::trace.active){auto&t=rrcapture::trace;
+ t.sourceBefore=lrform?t.writes.size():(t.current?t.events[t.current-1].sourceBefore:0);
+ t.paletteBefore=t.current?t.events[t.current-1].sourceBefore:0;t.paletteValue=0;
+ if(lrform)t.sourceValue=((v>>8)&255)|((v&255)<<8);
+ else if(!cel->Packed&&t.source>=src&&uint64_t(t.source-src)+2<=uint64_t(data.n))t.sourceValue=uint32_t(data[t.source-src])|(uint32_t(data[t.source-src+1])<<8);
+}
 auto tmp80 = threedo_Machine_decodePixel(m,cel,v,flags,bgnd);
 uint16_t pix = std::get<0>(tmp80);
 uint32_t amv = std::get<1>(tmp80);
@@ -4630,7 +4636,7 @@ break;}
 if ((cast<int64_t>(idx) >= len(cel->PLUT))) {
 return {cast<uint16_t>(0ULL),amv,true};
 }
-if(rrcapture::trace.active)rrcapture::trace.palette+=idx*2;
+if(rrcapture::trace.active){rrcapture::trace.palette+=idx*2;rrcapture::trace.paletteValue=(uint32_t(cel->PLUT[idx])>>8)|((uint32_t(cel->PLUT[idx])&255)<<8);}
 uint16_t raw = cel->PLUT[idx];
 uint16_t color = cast<uint16_t>((raw & cast<uint16_t>(32767ULL)));
 if (((color == cast<uint16_t>(0ULL)) && (!bgnd))) {

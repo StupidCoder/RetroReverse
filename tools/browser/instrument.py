@@ -8,7 +8,7 @@ for system,hooks in {
  'threedo':{'threedo_Machine_swi':(5,'Portfolio SWI'),'threedo_Machine_serviceKernelCall':(1,'Portfolio HLE'),'threedo_Machine_drawOneCel':(2,'Cel software rasterizer'),'threedo_Machine_flashClearRange':(3,'Flash clear')}}.items():
  p=root/f'tools/platform/{system}/browser/core/generated.cpp';s=p.read_text()
  include='#include "../../../../browser/core/profile.h"\n'
- if not s.startswith(include):s=include+s
+ if include not in s:s=include+s
  for fn,(bucket,name) in hooks.items():
   pattern=r'(^[^\n;]*\b'+fn+r'\([^\n]*\)\{)(?!\nrrprof::Scope)'
   s=re.sub(pattern,lambda m:m[0]+f'\nrrprof::Scope rrclock({bucket},"{name}");',s,flags=re.M)

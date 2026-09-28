@@ -38,6 +38,8 @@ file-I/O adaptations, then regenerate the resumable scheduler before building:
 
 ```sh
 python3 tools/browser/instrument.py
+python3 tools/browser/capture-instrument.py
+python3 tools/browser/state/generate.py
 python3 tools/platform/threedo/browser/slice.py
 ```
 
@@ -58,8 +60,17 @@ The C++ slice drivers in `tests/` take local reference images; they compare
 machine-state hashes across execution budgets. `results/` contains the recorded
 checkpoints, not game data. See `docs/U0-CONTRACTS.md`, `docs/U1-ACCEPTANCE.md`,
 `docs/U2-ACCEPTANCE.md`, and `docs/U3-ACCEPTANCE.md` for the implementation and
-remaining compatibility/validation limits. Save-state files, automatic provenance
-capture, pixel selection and rendering replay belong to U4 and later.
+remaining compatibility/validation limits. U4–U6 now add portable states, automatic
+Pause capture and a shared pixel inspector. See `docs/U4-ACCEPTANCE.md`,
+`docs/U5-ACCEPTANCE.md`, and `docs/U6-ACCEPTANCE.md`. Rendering replay is U7.
+
+Additional checks: `node tools/browser/tests/inspector.mjs`, the four
+`tests/pixel-*.cpp` native drivers, and `tests/capture-wasm.mjs PLATFORM IMAGE`.
+Set `NATIVE_STATE` to a local raw native checkpoint and `PIXEL_GRID=1` for
+85 sampled pixels per interval. `scene-c64.cpp` and `scene-3do.cpp` produce
+reference-game checkpoints from local media; never publish those checkpoints.
+Native C64 tests need `-Wno-address-of-temporary`; translated cores can use
+`-Wno-parentheses-equality`.
 
 Console illustrations were generated with the built-in image generator. Their
 four exact prompts are in `docs/ARTWORK.json`; assets are in `site/emulators/art/`.

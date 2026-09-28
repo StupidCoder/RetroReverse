@@ -18,22 +18,8 @@ static std::unique_ptr<Machine> saved[4];
 static std::vector<u32> frame;
 static std::string text, error;
 static u32 generation = 0;
-struct Command {
-  u32 pc;
-  u64 step;
-  std::vector<u32> words;
-  u32 writes = 0;
-};
-struct PixelWrite {
-  u32 command, previous;
-  u16 value;
-};
-static std::vector<Command> commands;
-static std::vector<PixelWrite> writes;
-static std::vector<u32> last(1024 * 512);
 static bool capturing = false, captured = false;
-static u32 overflow = 0, originX = 0, originY = 0;
-static constexpr size_t COMMAND_CAP = 16384, WRITE_CAP = 2 * 1024 * 1024;
+static u32 originX = 0, originY = 0;
 static void clearCapture() {
   if (machine) {
     machine->gpu.onCommand = {};
@@ -165,7 +151,7 @@ int rr_restore(int slot) {
 }
 int rr_capture_begin() {
  return guard([&](){requireMachine();clearCapture();auto&t=rrcapture::trace;t.begin((uint8_t*)machine->gpu.vram.data(),1024*512*2);capturing=true;
- machine->gpu.onCommand=[](const std::vector<u32>&w){auto&t=rrcapture::trace;t.source=t.palette=t.texel=0;t.u=t.v=0;std::ostringstream o;o<<"{\"kind\":\"GPU command\",\"words\":[";for(size_t i=0;i<w.size();i++){if(i)o<<',';o<<w[i];}o<<"],\"textureDepth\":"<<machine->gpu.texDepth<<",\"drawX\":"<<machine->gpu.offX<<",\"drawY\":"<<machine->gpu.offY<<"}";t.event(machine->cpu.steps,machine->cpu.cur,o.str());};
+ machine->gpu.onCommand=[](const std::vector<u32>&w){auto&t=rrcapture::trace;t.source=t.palette=t.texel=0;t.u=t.v=0;auto op=w.empty()?0:w[0]>>24;bool hasSource=(op>=0x20&&op<0x40&&(op&4))||(op>=0x60&&op<0x80&&(op&4))||(op>=0x80&&op<0xa0);const char*kind=op==2?"GPU fill":op>=0x20&&op<0x40?"GPU polygon":op>=0x60&&op<0x80?"GPU rectangle":op>=0x80&&op<0xa0?"VRAM copy":op>=0xa0&&op<0xc0?"CPU/DMA VRAM upload":"GPU command";std::ostringstream o;o<<"{\"kind\":\""<<kind<<"\",\"hasSource\":"<<(hasSource?"true":"false")<<",\"words\":[";for(size_t i=0;i<w.size();i++){if(i)o<<',';o<<w[i];}o<<"],\"textureDepth\":"<<machine->gpu.texDepth<<",\"drawX\":"<<machine->gpu.offX<<",\"drawY\":"<<machine->gpu.offY<<"}";t.event(machine->cpu.steps,machine->cpu.cur,o.str());};
  machine->gpu.onPixel=[](int x,int y,u16 value){auto&t=rrcapture::trace;t.record((y*1024+x)*2,value,2,machine->cpu.steps,machine->cpu.cur,t.current);};
  if(machine->gpu.imgPx)t.event(machine->cpu.steps,machine->cpu.cur,"{\"kind\":\"GPU transfer already in progress at capture start\"}");
  return 1;});
@@ -194,3 +180,6 @@ const char *rr_diagnostics() {
 static void stateWrite(rrstate::Archive&a){requireMachine();a.header(2,1);a(*machine);}
 static void stateRead(rrstate::Archive&a){requireMachine();a.header(2,1);auto next=std::make_unique<Machine>();a(*next);a.finish();validateState(*next);next->disc=machine->disc;clearCapture();machine=std::move(next);for(auto&s:saved)s.reset();}
 #include "../../../../browser/state/api.inc"
+
+extern "C" const char*rr_source(uint32_t address,int size,uint32_t before,uint32_t expected){text=rrcapture::trace.pixel(address,size,before,expected);return text.c_str();}
+extern "C" const char*rr_resource(uint32_t id,uint32_t offset){text=rrcapture::trace.resourceJSON(id,offset);return text.c_str();}

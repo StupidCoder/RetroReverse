@@ -96,3 +96,6 @@ int rr_capture_end(){machine->OnWrite={};machine->OnCel={};machine->OnPixel={};m
 const char*rr_capture_info(){reply=rrcapture::trace.info();return reply.c_str();}
 const char*rr_pixel(int x,int y){if(!capBuffer)return "{\"blank\":true,\"contributors\":[],\"complete\":true}";if(x<0||y<0||x>=320||y>=240)return "{\"error\":\"Outside captured display\"}";reply=rrcapture::trace.pixel(capBuffer+(y/2)*320*4+x*4+(y&1)*2,2);return reply.c_str();}
 }
+
+extern "C" const char*rr_source(uint32_t address,int size,uint32_t before,uint32_t expected){reply=rrcapture::trace.pixel(address,size,before,expected);return reply.c_str();}
+extern "C" const char*rr_resource(uint32_t id,uint32_t offset){reply=rrcapture::trace.resourceJSON(id,offset);return reply.c_str();}

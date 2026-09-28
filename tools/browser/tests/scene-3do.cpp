@@ -1,0 +1,3 @@
+#include "../../platform/threedo/browser/core/host.h"
+#include "../../platform/threedo/browser/core/state.h"
+int main(int argc,char**argv){if(argc!=4)return 2;nativeDisc(argv[1]);auto m=boot();std::ifstream f(argv[2]);std::unordered_map<uint64_t,uint32_t> pad;uint64_t n;uint32_t b;while(f>>n>>b)pad[n]=b;for(uint64_t i=0;i<1200;i++){if(pad.count(i))threedo_Machine_SendPadEvent(m,pad[i]);auto before=m->frame;do{runSlice(m,10000);}while(m->frame==before||m->StopRequested);}rrstate::Archive a;a.header(4,1);a(m,totalSteps,runContext);std::ofstream out(argv[3],std::ios::binary);out.write((char*)a.bytes.data(),a.bytes.size());std::cout<<proof(m)<<'\n';}

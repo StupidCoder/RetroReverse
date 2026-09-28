@@ -1,3 +1,5 @@
+#include "../../../../browser/core/capture.h"
+// RR_TMEM_EVIDENCE
 #include "../../../../browser/core/profile.h"
 #include "runtime.h"
 struct r4300_TLBEntry;
@@ -6248,6 +6250,7 @@ return cast<uint16_t>((shl<uint16_t>(cast<uint16_t>(n64_rdp_tmem(r,off)),cast<in
 // tools/platform/n64/rdp_texture.go:68:1
 uint16_t n64_rdp_tlut(n64_rdp* r,uint32_t i){
 {
+if(rrcapture::trace.active){rrcapture::trace.palette=0x800+((i&255)*8);}
 return n64_rdp_tmem16(r,cast<uint32_t>((n64_tlutBase + cast<uint32_t>((i * cast<uint32_t>(8ULL))))));
 }
 }
@@ -6332,6 +6335,7 @@ n64_rdp* r = (&m->rdp);
 uint32_t sx = n64_texCoord(s,t->MaskS,t->CMS,shr<uint32_t>(t->SL,cast<int64_t>(2ULL)),shr<uint32_t>(t->SH,cast<int64_t>(2ULL)));
 uint32_t ty = n64_texCoord(tt,t->MaskT,t->CMT,shr<uint32_t>(t->TL,cast<int64_t>(2ULL)),shr<uint32_t>(t->TH,cast<int64_t>(2ULL)));
 uint32_t row = cast<uint32_t>((cast<uint32_t>((t->TMem * cast<uint32_t>(8ULL))) + cast<uint32_t>((cast<uint32_t>((ty * t->Line)) * cast<uint32_t>(8ULL)))));
+if(rrcapture::trace.active){auto&tr=rrcapture::trace;tr.source=n64_swizzle(row+((sx*(4u<<t->Size))/8),ty)&4095;tr.palette=0;tr.sourceValue=n64_rdp_tmem16(r,tr.source);}
 {
 if (((t->Format == n64_fmtRGBA) && (t->Size == n64_size16))){
 return {n64_fromRGBA16(n64_rdp_tmem16(r,n64_swizzle(cast<uint32_t>((row + cast<uint32_t>((sx * cast<uint32_t>(2ULL))))),ty))),true};

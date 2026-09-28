@@ -1,3 +1,4 @@
+import {createInspector} from './inspector.js';
 import {platforms} from './platforms.js';
 const $ = id => document.getElementById(id),
       platform = document.body.dataset.platform, config = platforms[platform],
@@ -12,19 +13,19 @@ $('files').accept = config.accept;
 $('help').textContent = config.help;
 $('compat').textContent = config.compat;
 $('tape').hidden = platform !== 'c64';
-const send = (type, data = {}) =>
-    worker?.postMessage({type, session, request : ++request, ...data});
+const send = (type, data = {}) => {const id=++request;worker?.postMessage({type,session,request:id,...data});return id;};
+const inspector=createInspector({platform,canvas,send});
 function controls(on) {
   for (const id of ['run', 'pause', 'reset', 'step', 'save'])
     $(id).disabled = !on;
 }
-function showProfile(p) {
-  if (!p || performance.now() - profileTime < 500)
+function showProfile(p, captureWork=false) {
+  if (!p || (!captureWork&&performance.now() - profileTime < 500))
     return;
   profileTime = performance.now();
   const rows = p.buckets.map(b => {
-    const ms = Math.max(0, b.ms - (lastProfile[b.name] || 0));
-    lastProfile[b.name] = b.ms;
+    const ms = captureWork?b.ms:Math.max(0, b.ms - (lastProfile[b.name] || 0));
+    if(!captureWork)lastProfile[b.name] = b.ms;
     return {...b, ms};
   }),
         total = rows.reduce((n, b) => n + b.ms, 0);
@@ -42,8 +43,8 @@ function showProfile(p) {
   }));
   $('profile-note').textContent =
       p.sampled
-          ? 'Sampled chip ticks (1 in 1,021). Sample-only milliseconds and exclusive shares; timer overhead affects tiny samples.'
-          : 'Exclusive wall time since the previous update. CPU remainder includes uninstrumented devices and scheduling. Idle time and display copies excluded.';
+          ? (captureWork?'Capture work. ':'')+'Sampled chip ticks (1 in 1,021). Sample-only milliseconds and exclusive shares; timer overhead affects tiny samples.'
+          : (captureWork?'Capture work only. ':'')+'Exclusive wall time since the previous update. CPU remainder includes uninstrumented devices and scheduling. Idle time and display copies excluded.';
 }
 let pendingWorker;
 function load(stateFile=null) {
@@ -70,7 +71,7 @@ function load(stateFile=null) {
     }else if(m.type==='message')$('status').textContent=m.text;
   };
   candidate.onerror=e=>{candidate.terminate();pendingWorker=null;loaded=previousLoaded;controls(loaded);$("pause").disabled=true;$('status').textContent='State/load worker failed: '+e.message+'. Current machine retained.';};
-  sources.clear();
+  inspector.reset();sources.clear();
   c64Keys.clear();
   lastInput = '';
   loaded = false;
@@ -131,11 +132,14 @@ function load(stateFile=null) {
     } else if(m.type==='capture-progress'){
       $('status').textContent=m.text;$('cancelcapture').hidden=false;
       $('run').disabled=$('step').disabled=$('save').disabled=true;
+    } else if(m.type==='pixel'||m.type==='source'||m.type==='resource'){inspector.result(m);
     } else if(m.type==='capture-cleared'){
+      inspector.reset();
       $('capture-note').textContent='Pause to record the next complete display interval.';$('cancelcapture').hidden=true;
     } else if(m.type==='capture'){
+      inspector.setCapture(m);showProfile(m.profile,true);lastTime=performance.now();lastSteps=m.end.steps;lastFrames=m.end.frames;rate='';
       $('cancelcapture').hidden=true;
-      $('capture-note').textContent=`Captured display ${m.start.frames}–${m.end.frames} · ${(m.elapsedMs/1000).toFixed(2)} s capture · ${((m.info.bytes+m.checkpointBytes)/1048576).toFixed(1)} MiB evidence/checkpoints${m.info.overflow?' · incomplete: trace limit reached':''}`;
+      $('capture-note').textContent=`Captured display ${m.start.frames}–${m.end.frames} · ${(m.elapsedMs/1000).toFixed(2)} s capture · longest call ${m.maxCall.toFixed(1)} ms · ${((m.info.bytes+m.checkpointBytes)/1048576).toFixed(1)} MiB evidence/checkpoints${m.info.overflow?' · incomplete: trace limit reached':''}`;
     } else if(m.type==='saved'){
       const url=URL.createObjectURL(new Blob([m.bytes],{type:'application/octet-stream'}));
       const a=document.createElement('a');a.href=url;a.download=platform+'-'+Date.now()+'.rrstate';a.textContent='Download state';$('status').replaceChildren(document.createTextNode('State ready. Machine paused. '),a);a.click();setTimeout(()=>URL.revokeObjectURL(url),300000);
@@ -176,6 +180,7 @@ for (const id of ['run', 'pause', 'step'])
         id === 'pause' ? 'Preparing a complete-frame capture…'
         : id === 'run' ? 'Running local image.'
                        : 'Advancing one display boundary…';
+    if(id==='run'||id==='step'){inspector.reset();release();}
     send(id);
     if (id === 'run')
       canvas.focus();
@@ -185,6 +190,7 @@ $('fullscreen').onclick = () => canvas.requestFullscreen();
 $('tapeplay').onclick = () => send('tape', {down : 1});
 $('tapestop').onclick = () => send('tape', {down : 0});
 function input(keys = []) {
+  if(inspector.isInspecting())return;
   let buttons = 0, x = 0, y = 0;
   for (const {bits = [], ax = 0, ay = 0} of sources.values()) {
     x += ax;
@@ -241,6 +247,7 @@ for (const [label, bit] of config.buttons) {
 }
 for (const down of [true, false])
   canvas.addEventListener(down ? 'keydown' : 'keyup', e => {
+    if(inspector.isInspecting())return;
     if (!loaded || e.repeat || e.metaKey)
       return;
     const bit = config.keys[e.key] ?? config.keys[e.key.toLowerCase()];
@@ -347,7 +354,7 @@ const axis = v =>
 function pollPad() {
   const pads = [...(navigator.getGamepads?.() || []) ].filter(Boolean),
         p = pads.find(p => p.mapping === 'standard');
-  const allowed = loaded && document.hasFocus() && !document.hidden &&
+  const allowed = loaded && !inspector.isInspecting() && document.hasFocus() && !document.hidden &&
                   (document.activeElement === canvas ||
                    $('pad').contains(document.activeElement));
   for (const key of sources.keys())
