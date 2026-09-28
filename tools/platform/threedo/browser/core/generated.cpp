@@ -1,3 +1,5 @@
+#include "../../../../browser/core/capture.h"
+// RR_CAPTURE_INSTRUMENTED
 #include "../../../../browser/core/profile.h"
 #include "runtime.h"
 struct arm60_Inst;
@@ -4404,6 +4406,7 @@ return cast<uint32_t>(0ULL);
 // tools/platform/threedo/graphicsfolio.go:351:1
 bool threedo_Machine_drawOneCel(threedo_Machine* m,threedo_gfxBitmap bm,uint32_t ccb,uint32_t flags,uint32_t src,uint32_t plutPtr){
 rrprof::Scope rrclock(2,"Cel software rasterizer");
+rrcapture::RenderScope traceRendering;
 {
 if ((src == cast<uint32_t>(0ULL))) {
 return false;
@@ -4454,6 +4457,7 @@ for(int64_t tmp79=0;tmp79<len(tmp78);++tmp79){
 auto i=tmp79;data[i] = threedo_Machine_Read(m,cast<uint32_t>((src + cast<uint32_t>(i))));
 }}
 cel->PDAT = data;
+if(rrcapture::trace.active&&rrcapture::trace.current)rrcapture::trace.events[rrcapture::trace.current-1].resource=rrcapture::trace.resource(data.p,data.n);
 if ((cel->Coded && (plutPtr != cast<uint32_t>(0ULL)))) {
 for (int64_t i = cast<int64_t>(0ULL);(i < cast<int64_t>(32ULL));i++){
 cel->PLUT = append(cel->PLUT,cast<uint16_t>((shl<uint16_t>(cast<uint16_t>(threedo_Machine_Read(m,cast<uint32_t>((plutPtr + cast<uint32_t>(cast<int64_t>((i * cast<int64_t>(2ULL)))))))),cast<int64_t>(8ULL)) | cast<uint16_t>(threedo_Machine_Read(m,cast<uint32_t>((cast<uint32_t>((plutPtr + cast<uint32_t>(cast<int64_t>((i * cast<int64_t>(2ULL)))))) + cast<uint32_t>(1ULL))))))));
@@ -4473,13 +4477,15 @@ int64_t clearN={};
 int64_t offN={};
 std::function<void(int64_t,int64_t,uint32_t)> put = [&](int64_t sx,int64_t sy,uint32_t v)->void{
 calls++;
+if(rrcapture::trace.active){auto&t=rrcapture::trace;t.u=sx;t.v=sy;t.texel=v;t.palette=plutPtr;
+ t.source=cel->Packed?0:lrform?src+uint32_t((sy/2)*(cel->Width/2)*4+sx*4+(sy&1)*2):src+uint32_t(sy*((cel->Width*cel->BPP+31)/32)*4+(sx*cel->BPP)/8);}
 auto tmp80 = threedo_Machine_decodePixel(m,cel,v,flags,bgnd);
 uint16_t pix = std::get<0>(tmp80);
 uint32_t amv = std::get<1>(tmp80);
 bool transparent = std::get<2>(tmp80);
 if (transparent) {
 clearN++;
-return ;
+if(!rrcapture::trace.active)return ;
 }
 if ((m->PerspTint && persp)) {
 auto tmp81 = std::make_tuple(cast<uint16_t>(31775ULL),cast<uint32_t>(73ULL));
@@ -4534,6 +4540,8 @@ continue;
 if (((m->CelDebug && (x == cast<int64_t>(m->ProbeX))) && (y == cast<int64_t>(m->ProbeY)))) {
 m->CelDebugLog = append(m->CelDebugLog,go_fmt_Sprintf(std::string("PROBE (%d,%d) hit by cel src=%08X %dbpp %dx%d pos=(%d,%d) HD=(%X,%X) VD=(%X,%X) lrform=%v flags=%08X",100),x,y,src,cel->BPP,cel->Width,cel->Height,cast<int64_t>(shr<int64_t>(xPos,cast<int64_t>(16ULL))),cast<int64_t>(shr<int64_t>(yPos,cast<int64_t>(16ULL))),hdx,hdy,vdx,vdy,lrform,flags));
 }
+if(transparent){auto&t=rrcapture::trace;uint32_t a=bm.buf+uint32_t((y/2)*bm.w*4+x*4+(y&1)*2);t.record(a,0,2,m->CPU->Instrs,m->CPU->cur,t.current,4);continue;}
+if(rrcapture::trace.active)rrcapture::trace.texel=pix;
 threedo_Machine_blendPixel(m,bm,x,y,pix,amv,pixc,flags);
 written++;
 }
@@ -4622,6 +4630,7 @@ break;}
 if ((cast<int64_t>(idx) >= len(cel->PLUT))) {
 return {cast<uint16_t>(0ULL),amv,true};
 }
+if(rrcapture::trace.active)rrcapture::trace.palette+=idx*2;
 uint16_t raw = cel->PLUT[idx];
 uint16_t color = cast<uint16_t>((raw & cast<uint16_t>(32767ULL)));
 if (((color == cast<uint16_t>(0ULL)) && (!bgnd))) {

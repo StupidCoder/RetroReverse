@@ -14,16 +14,18 @@ async function identities(){
 }
 function queueState(){return {...inputs,pulses:[...inputs.pulses],down:[...inputs.down],pending:inputQueue,lastButtons,lastX,lastY,inputSequence,lastInputStep};}
 async function saveState(){
- running=false;++epoch;const identity=await identities();
+ cancelCapture();running=false;++epoch;const identity=await identities();
  const n=core._rr_state_save();check(n);const p=core._rr_state_data();
  const bytes=await packState({format:1,platform,...identity,input:queueState()},core.HEAPU8.slice(p,p+n));
  paint();send("saved",{bytes:bytes.buffer});
 }
 
+let capture=null,capturing=false,captureGeneration=0;
 let inputs, lastButtons = -1, lastX = 0, lastY = 0;
 let inputSequence = 0, lastInputStep = 0;
 const sleep = n => new Promise(r => setTimeout(r, n));
 const json = fn => JSON.parse(core.UTF8ToString(core[fn]()));
+const jsonPixel=(x,y)=>JSON.parse(core.UTF8ToString(core._rr_pixel(x,y)));
 const send = (type, data = {}) => postMessage({type, session, ...data});
 const error = () => core.UTF8ToString(core._rr_error());
 function check(ok) {
@@ -67,6 +69,7 @@ function paint() {
     paintMs,
     heap : core.HEAPU8.length,
     inputDeferred : platform === '3do' && core.deferInput && s.frames < 300,
+    capturing,
     profile : readProfile()
   });
 }
@@ -161,6 +164,41 @@ async function pump(id, one = false) {
     paint();
     send('message',{text:one?'Paused at the next display boundary.':'Paused.'});
   }
+}
+function coreState(){const n=core._rr_state_save();check(n);if(n>32*1024*1024)throw Error('Capture checkpoint exceeds the 32 MiB budget');const p=core._rr_state_data();return core.HEAPU8.slice(p,p+n);}
+function cancelCapture(){
+ if(capturing){core._rr_capture_end();capturing=false;}
+ capture=null;captureGeneration++;send('capture-cleared');
+}
+async function captureNext(){
+ running=false;const id=++epoch;cancelCapture();const generation=captureGeneration;capturing=true;
+ const began=performance.now();let lastProgress=0;
+ send('capture-progress',{text:'Finishing the current display interval…',generation});
+ const boundary=async phase=>{
+   const first=status().frames;
+   while(status().frames===first){
+     if(id!==epoch)throw Error('Capture cancelled');
+     const start=performance.now();do{tick(true);}while(status().frames===first&&performance.now()-start<8);
+     if(performance.now()-lastProgress>250){lastProgress=performance.now();send('capture-progress',{text:phase+' '+((performance.now()-began)/1000).toFixed(1)+' s',generation});}
+     await sleep(0);
+   }
+   if(id!==epoch)throw Error('Capture cancelled');
+ };
+ try{
+   await boundary('Finishing current interval.');
+   const startState=coreState(),start=status(),input=queueState();
+   core._rr_capture_begin();
+   await boundary('Recording next complete interval.');
+   core._rr_capture_end();capturing=false;
+   const endState=coreState(),end=status(),info=json('_rr_capture_info');
+   const w=platform==='c64'?392:end.width||320,h=platform==='c64'?272:end.height||240,p=core._rr_frame();
+   const pixels=core.HEAPU8.slice(p,p+w*h*4);
+   const frameHash=await digest(pixels);
+   if(id!==epoch)return;
+   capture={id:generation,startState,endState,start,end,input,width:w,height:h,pixels,info,frameHash};
+   paint();send('capture',{id:generation,start,end,width:w,height:h,info,frameHash,elapsedMs:performance.now()-began,checkpointBytes:startState.length+endState.length});
+   send('message',{text:info.overflow?'Paused. Capture limit reached; some evidence is missing.':'Paused. A complete display interval is ready to inspect.'});
+ }catch(e){if(id===epoch){if(capturing)core._rr_capture_end();capturing=false;capture=null;paint();send('error',{text:String(e)});}}
 }
 async function boot(m) {
   bootOptions=m;session=m.session;
@@ -278,19 +316,19 @@ onmessage = async ({data : m}) => {
     if (m.session !== session || !loaded)
       return;
     if(m.type==='save'){await saveState();return;}
+    if(m.type==='pixel'){if(!capture||m.capture!==capture.id)return;send('pixel',{capture:capture.id,x:m.x,y:m.y,evidence:jsonPixel(m.x,m.y),request:m.request});return;}
+    if(m.type==='cancel-capture'||m.type==='hold'){running=false;++epoch;cancelCapture();paint();send('message',{text:'Paused.'});return;}
     if (m.type === 'run' || m.type === 'step') {
       if (running)
         return;
-      running = true;
+      cancelCapture();running = true;
       await pump(++epoch, m.type === 'step');
     } else if (m.type === 'pause') {
-      running = false;
-      ++epoch;
-      paint();
-      send('message', {text : 'Paused.'});
+      await captureNext();
     } else if (m.type === 'turbo')
       turbo = m.value;
     else if (m.type === 'input') {
+      if(capturing)return;
       if (inputQueue.length >= 4096)
         throw Error('Input queue overflow');
       inputQueue.push(m);

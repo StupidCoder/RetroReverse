@@ -1,3 +1,4 @@
+#include "../../../../browser/core/capture.h"
 #include "proof.h"
 #include <memory>
 #include <emscripten.h>
@@ -38,7 +39,7 @@ static void clearCapture() {
     machine->gpu.onCommand = {};
     machine->gpu.onPixel = {};
   }
-  capturing = captured = false;
+  capturing = captured = false;rrcapture::trace.active=rrcapture::trace.valid=false;
 }
 static void requireMachine() {
   if (!machine)
@@ -163,83 +164,17 @@ int rr_restore(int slot) {
   });
 }
 int rr_capture_begin() {
-  return guard([&]() {
-    requireMachine();
-    clearCapture();
-    commands.clear();
-    writes.clear();
-    writes.push_back({0, 0, 0});
-    std::fill(last.begin(), last.end(), 0);
-    overflow = 0;
-    capturing = true;
-    machine->gpu.onCommand = [](const std::vector<u32> &w) {
-      if (commands.size() == COMMAND_CAP) {
-        overflow++;
-        return;
-      }
-      commands.push_back({machine->cpu.cur, machine->cpu.steps, w, 0});
-    };
-    machine->gpu.onPixel = [](int x, int y, u16 value) {
-      if (commands.empty() || overflow)
-        return;
-      auto id = u32(commands.size());
-      commands.back().writes++;
-      if (writes.size() == WRITE_CAP) {
-        overflow++;
-        return;
-      }
-      u32 at = y * 1024 + x;
-      writes.push_back({id, last[at], value});
-      last[at] = u32(writes.size() - 1);
-    };
-    return 1;
-  });
+ return guard([&](){requireMachine();clearCapture();auto&t=rrcapture::trace;t.begin((uint8_t*)machine->gpu.vram.data(),1024*512*2);capturing=true;
+ machine->gpu.onCommand=[](const std::vector<u32>&w){auto&t=rrcapture::trace;t.source=t.palette=t.texel=0;t.u=t.v=0;std::ostringstream o;o<<"{\"kind\":\"GPU command\",\"words\":[";for(size_t i=0;i<w.size();i++){if(i)o<<',';o<<w[i];}o<<"],\"textureDepth\":"<<machine->gpu.texDepth<<",\"drawX\":"<<machine->gpu.offX<<",\"drawY\":"<<machine->gpu.offY<<"}";t.event(machine->cpu.steps,machine->cpu.cur,o.str());};
+ machine->gpu.onPixel=[](int x,int y,u16 value){auto&t=rrcapture::trace;t.record((y*1024+x)*2,value,2,machine->cpu.steps,machine->cpu.cur,t.current);};
+ if(machine->gpu.imgPx)t.event(machine->cpu.steps,machine->cpu.cur,"{\"kind\":\"GPU transfer already in progress at capture start\"}");
+ return 1;});
 }
-int rr_capture_end() {
-  return guard([&]() {
-    requireMachine();
-    if (!capturing)
-      throw std::runtime_error("No capture is active");
-    machine->gpu.onCommand = {};
-    machine->gpu.onPixel = {};
-    capturing = false;
-    captured = true;
-    originX = machine->gpu.offX;
-    originY = machine->gpu.offY;
-    return int(commands.size());
-  });
-}
-const char *rr_pixel(int x, int y) {
-  std::ostringstream s;
-  if (!captured || x < 0 || y < 0 || x >= machine->gpu.dispW || y >= machine->gpu.dispH)
-    return "{\"error\":\"Capture a drawing frame before selecting a pixel\"}";
-  u32 vx = (x + originX) & 1023, vy = (y + originY) & 511;
-  s << "{\"x\":" << x << ",\"y\":" << y << ",\"vramX\":" << vx << ",\"vramY\":" << vy
-    << ",\"overflow\":" << overflow << ",\"commands\":" << commands.size() << ",\"history\":[";
-  bool comma = false;
-  std::vector<u32> chain;
-  u32 cursor = last[vy * 1024 + vx];
-  for (; cursor && chain.size() < 512; cursor = writes[cursor].previous)
-    chain.push_back(cursor);
-  std::reverse(chain.begin(), chain.end());
-  for (u32 i : chain) {
-    const auto &p = writes[i];
-    const auto &c = commands[p.command - 1];
-    if (comma)
-      s << ",";
-    comma = true;
-    s << "{\"command\":" << p.command << ",\"pc\":" << c.pc << ",\"step\":" << c.step
-      << ",\"value\":" << p.value << ",\"writes\":" << c.writes << ",\"words\":[";
-    for (size_t j = 0; j < c.words.size(); j++) {
-      if (j)
-        s << ",";
-      s << c.words[j];
-    }
-    s << "]}";
-  }
-  s << "],\"historyLimit\":512,\"truncated\":" << (cursor ? "true" : "false") << "}";
-  text = s.str();
-  return text.c_str();
+int rr_capture_end(){return guard([&](){requireMachine();machine->gpu.onCommand={};machine->gpu.onPixel={};capturing=false;captured=true;originX=machine->gpu.dispX;originY=machine->gpu.dispY;rrcapture::trace.end((uint8_t*)machine->gpu.vram.data(),1024*512*2);return int(rrcapture::trace.events.size());});}
+const char* rr_capture_info(){text=rrcapture::trace.info();return text.c_str();}
+const char* rr_pixel(int x,int y){
+ if(!captured||x<0||y<0||x>=machine->gpu.dispW||y>=machine->gpu.dispH)return "{\"error\":\"Select a captured display pixel\"}";
+ text=rrcapture::trace.pixel((((y+originY)&511)*1024+((x+originX)&1023))*2,2);return text.c_str();
 }
 const char *rr_diagnostics() {
   requireMachine();

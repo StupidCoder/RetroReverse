@@ -7,7 +7,8 @@ available). U3 provides shared controls, subsystem timings and resumable 3DO
 execution. Physical-controller validation remains open because none is attached.
 See `tools/browser/docs/U1-ACCEPTANCE.md`, `U2-ACCEPTANCE.md`, and
 `U3-ACCEPTANCE.md` for measured checks and limitations. U4 now provides portable states with native/WASM continuation checks; see
-`tools/browser/docs/U4-ACCEPTANCE.md`. U5/U6 are in progress.
+`tools/browser/docs/U4-ACCEPTANCE.md`. U5 provides bounded complete-interval capture and cancellation; see
+`tools/browser/docs/U5-ACCEPTANCE.md`. U6 is in progress.
 
 
 Status: implementation started, 2026-09-28. U0 contracts are recorded in `tools/browser/docs/U0-CONTRACTS.md`; subsequent acceptance results are tracked per milestone.

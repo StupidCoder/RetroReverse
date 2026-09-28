@@ -1,0 +1,3 @@
+{"platform":"ps1","point":0,"frame":2002,"info":{"events":1032,"writes":344400,"overflow":0,"bytes":22589122},"sampledPixels":{"complete":5,"missing":0}}
+{"platform":"ps1","point":1,"frame":2004,"info":{"events":985,"writes":343451,"overflow":0,"bytes":22528866},"sampledPixels":{"complete":5,"missing":0}}
+{"platform":"ps1","point":2,"frame":2006,"info":{"events":1123,"writes":346401,"overflow":0,"bytes":22712533},"sampledPixels":{"complete":5,"missing":0}}

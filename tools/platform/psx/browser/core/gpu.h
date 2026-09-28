@@ -1,3 +1,4 @@
+#include "../../../../browser/core/capture.h"
 #include "../../../../browser/core/profile.h"
 #pragma once
 #include "gte.h"
@@ -176,7 +177,7 @@ struct GPU {
           dy = (fifo[2] >> 16) & 511, w = fifo[3] & 1023, h = (fifo[3] >> 16) & 511;
       for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++)
-          store((dx + x) & 1023, (dy + y) & 511, vram[((sy + y) & 511) * W + ((sx + x) & 1023)]);
+          {int source=((sy+y)&511)*W+((sx+x)&1023);auto&t=rrcapture::trace;if(t.active){t.source=source*2;t.palette=0;t.texel=vram[source];t.u=sx+x;t.v=sy+y;}store((dx+x)&1023,(dy+y)&511,vram[source]);}
     } else if (op >= 0xa0 && op <= 0xbf) {
       imgX = fifo[1] & 1023;
       imgY = (fifo[1] >> 16) & 511;
@@ -216,18 +217,12 @@ struct GPU {
            (std::min(((t >> 10) & 31) * b >> 7, 31) << 10) | (t & 0x8000);
   }
   u16 texel(int u, int v, u32 clut) const {
-    u &= 255;
-    v &= 255;
-    u = (u & ~(texWinMX * 8)) | ((texWinOX & texWinMX) * 8);
-    v = (v & ~(texWinMY * 8)) | ((texWinOY & texWinMY) * 8);
-    int cb = ((clut >> 6) & 511) * W + (clut & 63) * 16;
-    if (texDepth < 2) {
-      int div = texDepth ? 2 : 4, shift = texDepth ? (u & 1) * 8 : (u & 3) * 4,
-          mask = texDepth ? 255 : 15;
-      u16 w = vram[((texPageY + v) & 511) * W + ((texPageX + u / div) & 1023)];
-      return vram[(cb + ((w >> shift) & mask)) & (W * H - 1)];
-    }
-    return vram[((texPageY + v) & 511) * W + ((texPageX + u) & 1023)];
+    u &= 255;v &= 255;
+    u=(u&~(texWinMX*8))|((texWinOX&texWinMX)*8);v=(v&~(texWinMY*8))|((texWinOY&texWinMY)*8);
+    int cb=((clut>>6)&511)*W+(clut&63)*16,addr,pal=-1;
+    if(texDepth<2){int div=texDepth?2:4,shift=texDepth?(u&1)*8:(u&3)*4,mask=texDepth?255:15;addr=((texPageY+v)&511)*W+((texPageX+u/div)&1023);pal=(cb+((vram[addr]>>shift)&mask))&(W*H-1);}
+    else addr=((texPageY+v)&511)*W+((texPageX+u)&1023);
+    u16 value=vram[pal<0?addr:pal];auto&t=rrcapture::trace;if(t.active){t.source=addr*2;t.palette=pal<0?0:pal*2;t.texel=value;t.u=u;t.v=v;}return value;
   }
   void tri(Vert a, Vert b, Vert c, bool textured, u32 clut) {
     i64 area = edge(a.x, a.y, b.x, b.y, c.x, c.y);
@@ -259,8 +254,7 @@ struct GPU {
           int u = int((w0 * a.u + w1 * b.u + w2 * c.u) / area),
               v = int((w0 * a.v + w1 * b.v + w2 * c.v) / area);
           u16 t = texel(u, v, clut);
-          if (!t)
-            continue;
+          if (!t){auto&tr=rrcapture::trace;if(tr.active)tr.record((y*W+x)*2,0,2,0,0,tr.current,4);continue;}
           px = modulate(t, r, g, bb);
         } else
           px = (r >> 3) | ((g >> 3) << 5) | ((bb >> 3) << 10);
@@ -329,8 +323,7 @@ struct GPU {
         u16 out = flat;
         if (textured) {
           out = texel(u0 + px - x0, v0 + py - y0, clut);
-          if (!out)
-            continue;
+          if (!out){auto&tr=rrcapture::trace;if(tr.active)tr.record((py*W+px)*2,0,2,0,0,tr.current,4);continue;}
           if (!(op & 1))
             out = modulate(out, col & 255, (col >> 8) & 255, (col >> 16) & 255);
         }

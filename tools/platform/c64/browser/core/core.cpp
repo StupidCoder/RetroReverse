@@ -146,3 +146,4 @@ static void stateRead(rrstate::Archive&a){
  machine=*next;ctx=context;_c64_update_memory_map(&machine);observation::reset();tracing=false;audio_count=0;event_count=dropped=0;for(auto&cp:checkpoints)cp.valid=false;
 }
 #include "../../../../browser/state/api.inc"
+extern "C" const char* rr_capture_info(){static std::string s;s="{\"events\":"+std::to_string(observation::refCount)+",\"writes\":"+std::to_string(observation::graphCount)+",\"overflow\":"+std::to_string(observation::overflow)+",\"bytes\":"+std::to_string(sizeof(observation::captured)+observation::refCount*sizeof(observation::Ref)+observation::graphCount*sizeof(observation::Graphics)+observation::controlCount*sizeof(observation::Control))+"}";return s.c_str();}

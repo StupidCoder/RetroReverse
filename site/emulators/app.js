@@ -53,7 +53,7 @@ function load(stateFile=null) {
     return;
   }
   pendingWorker?.terminate();
-  send('pause');
+  send('hold');
   const previousWorker=worker, previousLoaded=loaded, nextSession=session+1;
   const candidate=new Worker('../worker.js',{type:'module'});pendingWorker=candidate;
   let bufferedState;
@@ -122,10 +122,20 @@ function load(stateFile=null) {
           m.maxCall.toFixed(1)} ms · canvas copy ${copyMs.toFixed(1)} ms`;
       showProfile(m.profile);
       if (loaded) {
-        $('run').disabled = m.running;
-        $('step').disabled = m.running;
-        $('pause').disabled = !m.running;
+        $('run').disabled = m.running||m.capturing;
+        $('step').disabled = m.running||m.capturing;
+        $('save').disabled = m.capturing;
+        $('pause').disabled = !m.running&&!m.capturing;
+        $('cancelcapture').hidden=!m.capturing;
       }
+    } else if(m.type==='capture-progress'){
+      $('status').textContent=m.text;$('cancelcapture').hidden=false;
+      $('run').disabled=$('step').disabled=$('save').disabled=true;
+    } else if(m.type==='capture-cleared'){
+      $('capture-note').textContent='Pause to record the next complete display interval.';$('cancelcapture').hidden=true;
+    } else if(m.type==='capture'){
+      $('cancelcapture').hidden=true;
+      $('capture-note').textContent=`Captured display ${m.start.frames}–${m.end.frames} · ${(m.elapsedMs/1000).toFixed(2)} s capture · ${((m.info.bytes+m.checkpointBytes)/1048576).toFixed(1)} MiB evidence/checkpoints${m.info.overflow?' · incomplete: trace limit reached':''}`;
     } else if(m.type==='saved'){
       const url=URL.createObjectURL(new Blob([m.bytes],{type:'application/octet-stream'}));
       const a=document.createElement('a');a.href=url;a.download=platform+'-'+Date.now()+'.rrstate';a.textContent='Download state';$('status').replaceChildren(document.createTextNode('State ready. Machine paused. '),a);a.click();setTimeout(()=>URL.revokeObjectURL(url),300000);
@@ -157,12 +167,13 @@ $('load').onclick = () => {
   load();
 };
 $('reset').onclick = ()=>load();
+$('cancelcapture').onclick=()=>send('cancel-capture');
 $('save').onclick=()=>{release();$('status').textContent='Saving state…';send('save');};
 $('statefile').onchange=()=>{const f=$('statefile').files[0];if(!f)return;if(!selected.length){selected=[...$('files').files];firmware=platform==='c64'?['basic','kernal','chargen'].map(id=>$(id).files[0]):null;compatibility=$('compatprofile')?.checked??true;}load(f);$('statefile').value='';};
 for (const id of ['run', 'pause', 'step'])
   $(id).onclick = () => {
     $('status').textContent =
-        id === 'pause' ? 'Pausing at the next execution boundary…'
+        id === 'pause' ? 'Preparing a complete-frame capture…'
         : id === 'run' ? 'Running local image.'
                        : 'Advancing one display boundary…';
     send(id);
@@ -282,7 +293,7 @@ window.addEventListener('blur', release);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     release();
-    send('pause');
+    send('hold');
   }
 });
 const gamepadMaps = {
