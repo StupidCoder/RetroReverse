@@ -1,4 +1,11 @@
 export const platforms = {
+  psp: {
+    name:'PlayStation Portable',accept:'.iso,.cso',hz:60,
+    help:'Arrows navigate the D-pad. X / Z / C / V are Cross / Square / Circle / Triangle. Enter is Start, Shift is Select, Q / E are L / R. I J K L move the analog stick. Gamepads provide the analog stick and D-pad separately.',
+    compat:'ISO and CSO v1 UMD images with 2048-byte sectors, up to 4 GiB. Allegrex / VFPU, kernel HLE and software GE rendering. No system firmware required. PRX encryption support covers the tags used by LocoRoco and Burnout Legends. Other games may stop at unsupported imports or graphics features. MPEG video and audio playback are not implemented. Video intervals can appear black until they finish or the game accepts a skip button. Use browser save states to preserve progress.',
+    buttons:[['↑',16],['↓',64],['←',128],['→',32],['Cross',16384],['Square',32768],['Circle',8192],['Triangle',4096],['Start',8],['Select',1],['L',256],['R',512]],
+    keys:{ArrowUp:16,ArrowDown:64,ArrowLeft:128,ArrowRight:32,x:16384,z:32768,c:8192,v:4096,Enter:8,Shift:1,q:256,e:512,i:'up',k:'down',j:'left',l:'right'}
+  },
   "3ds": {
     name:'Nintendo 3DS',accept:'.cci,.3ds',hz:60,
     help:'Arrows move the circle pad and D-pad. X / Z are A / B, C / V are X / Y. Enter is Start, Shift is Select, Q / E are L / R. Click or drag the lower screen to use the stylus. Pause to inspect either screen.',

@@ -23,7 +23,7 @@ struct Write {
            paletteBefore = 0;
   int32_t u = 0, v = 0, depth = 0;
   uint8_t size = 0,
-          flags = 0; // 1 written, 2 depth reject, 4 alpha/transparent reject, 8 repeated polygon ID
+          flags = 0; // 1 written, 2 depth reject, 4 alpha/transparent reject, 8 repeated polygon ID, 16 stencil, 32 scissor, 64 write mask
 };
 struct Recorder {
   static constexpr size_t WRITE_CAP = RR_CAPTURE_WRITE_CAP, EVENT_CAP = 16384,
@@ -194,6 +194,9 @@ struct Recorder {
         << ",\"depthRejected\":" << ((w.flags & 2) ? "true" : "false")
         << ",\"alphaRejected\":" << ((w.flags & 4) ? "true" : "false")
         << ",\"idRejected\":" << ((w.flags & 8) ? "true" : "false")
+        << ",\"stencilRejected\":" << ((w.flags & 16) ? "true" : "false")
+        << ",\"scissorRejected\":" << ((w.flags & 32) ? "true" : "false")
+        << ",\"maskRejected\":" << ((w.flags & 64) ? "true" : "false")
         << ",\"depth\":" << w.depth << ",\"sourceAddress\":" << w.source
         << ",\"paletteAddress\":" << w.palette << ",\"texel\":" << w.texel
         << ",\"sourceValue\":" << w.sourceValue

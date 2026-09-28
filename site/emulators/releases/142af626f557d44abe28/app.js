@@ -333,6 +333,7 @@ if(platform==='ds'||platform==='3ds'){
  for(const type of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(e.pointerId===stylus){pen(e,false);stylus=null;}});
 }
 const gamepadMaps = {
+ psp:{0:16384,1:8192,2:32768,3:4096,4:256,5:512,8:1,9:8,12:16,13:64,14:128,15:32},
  '3ds':{0:1,1:2,2:2048,3:1024,4:512,5:256,8:4,9:8,12:64,13:128,14:32,15:16},
  ds:{0:1,1:2,2:2048,3:1024,4:512,5:256,8:4,9:8,12:64,13:128,14:32,15:16},
   c64 : {0 : 16, 12 : 1, 13 : 2, 14 : 4, 15 : 8},
@@ -406,7 +407,7 @@ function pollPad() {
       if (axis(p.axes[3]) > 30)
         bits.push(4);
       sources.set('gamepad:' + p.index, {bits, ax : x, ay : y});
-    } else if(platform==='3ds'){
+    } else if(platform==='3ds'||platform==='psp'){
       sources.set('gamepad:'+p.index,{bits,ax:x,ay:y});
     } else {
       const directions =

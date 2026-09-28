@@ -105,7 +105,7 @@ function applyInputs() {
   if (m.buttons !== lastButtons || m.x !== lastX || m.y !== lastY) {
     if (platform === 'c64')
       core._rr_joystick(2, m.buttons);
-    else if (platform === 'n64'||platform==='3ds')
+    else if (platform === 'n64'||platform==='3ds'||platform==='psp')
       core._rr_pad(m.buttons, m.x, m.y);
     else
       core._rr_pad(platform === 'ps1' ? (~m.buttons) & 65535 : m.buttons);
@@ -130,7 +130,7 @@ function tick(one = false) {
   else if (platform === 'n64')
     check(core._rr_run(one ? Math.min(10000, 750000 - status().steps % 750000)
                            : 10000) >= 0);
-  else if(platform==='ds'||platform==='3ds')check(core._rr_run(10000)>=0);
+  else if(platform==='ds'||platform==='3ds'||platform==='psp')check(core._rr_run(10000)>=0);
   else
     check(core._rr_run_slice(10000));
   const ms = performance.now() - start;
@@ -165,7 +165,7 @@ async function pump(id, one = false) {
   }
   if(id===epoch){running=false;paint();send('message',{text:one?'Paused at the next display boundary.':'Paused.'});}
 }
-function coreState(){const n=core._rr_state_save();check(n);const limit=platform==='3ds'?128:32;if(n>limit*1024*1024)throw Error(`Capture checkpoint exceeds the ${limit} MiB budget`);const p=core._rr_state_data();return core.HEAPU8.slice(p,p+n);}
+function coreState(){const n=core._rr_state_save();check(n);const limit=(platform==='3ds'||platform==='psp')?128:32;if(n>limit*1024*1024)throw Error(`Capture checkpoint exceeds the ${limit} MiB budget`);const p=core._rr_state_data();return core.HEAPU8.slice(p,p+n);}
 function cancelCapture(){
  if(capturing){core._rr_capture_end();finishCaptureProfile();capturing=false;}
  capture=null;captureGeneration++;seekGeneration++;send('capture-cleared');
@@ -187,10 +187,10 @@ async function captureNext(){
  try{
    await boundary('Finishing current interval.');
    const startState=coreState(),start=status(),input=queueState();
-   const captureStarted=core._rr_capture_begin();if(platform==='ds'||platform==='3ds')check(captureStarted);
+   const captureStarted=core._rr_capture_begin();if(platform==='ds'||platform==='3ds'||platform==='psp')check(captureStarted);
    const captureFields=platform==='ps1'?4:platform==='3ds'?3:platform==='ds'?2:1;
    for(let field=0;field<captureFields;field++)await boundary(captureFields>1?'Recording display and double-buffer producer context.':'Recording next complete interval.');
-   const ended=core._rr_capture_end();if(platform==='ds'||platform==='3ds')check(ended);const captureProfile=finishCaptureProfile();capturing=false;
+   const ended=core._rr_capture_end();if(platform==='ds'||platform==='3ds'||platform==='psp')check(ended);const captureProfile=finishCaptureProfile();capturing=false;
    const endState=coreState(),end=status(),info=json('_rr_capture_info'),replay=json('_rr_replay_begin');
    const w=platform==='c64'?392:end.width||320,h=platform==='c64'?272:end.height||240,p=core._rr_frame();
    const pixels=core.HEAPU8.slice(p,p+w*h*4);
@@ -295,7 +295,7 @@ async function boot(m) {
     core.compatProfile =
         profile ? 'Need for Speed: VBL mirror and Cinepak movie HLE'
                 : 'Generic Portfolio boot';
-  } else if (platform === 'ps1') {
+  } else if (platform === 'ps1'||platform==='psp') {
     if (f.size > 0xffffffff)
       throw Error('Disc exceeds 4 GiB limit');
     core.discFile = f;

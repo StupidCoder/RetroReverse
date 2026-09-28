@@ -1,0 +1,229 @@
+{
+  "date": "2026-09-28",
+  "workload": "LocoRoco first stage, private locally supplied CSO",
+  "dense": {
+    "native": {
+      "seconds": 6.21007,
+      "frames": 120,
+      "proof": {
+        "steps": 2116837106,
+        "frames": 4480,
+        "pc": 142649280,
+        "ram": 318042200,
+        "vram": 1281617587,
+        "rgba": 2607491144
+      }
+    },
+    "wasmNode": {
+      "seconds": 9.218094541000001,
+      "proof": {
+        "steps": 2116837106,
+        "frames": 4480,
+        "pc": 142649280,
+        "ram": 318042200,
+        "vram": 1281617587,
+        "rgba": 2607491144
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "Allegrex / VFPU and scheduler",
+            "ms": 717.784,
+            "longestMs": 76.7475,
+            "tag": 0
+          },
+          {
+            "name": "GE command processor",
+            "ms": 18.3843,
+            "longestMs": 75.5473,
+            "tag": 0
+          },
+          {
+            "name": "GE vertices and software rasterizer",
+            "ms": 8402.25,
+            "longestMs": 4.60675,
+            "tag": 0
+          },
+          {
+            "name": "Kernel HLE",
+            "ms": 58.0332,
+            "longestMs": 75.9562,
+            "tag": 0
+          },
+          {
+            "name": "UMD file reads",
+            "ms": 1.08787,
+            "longestMs": 0.545708,
+            "tag": 0
+          }
+        ]
+      }
+    },
+    "chromeWithoutAttachedAutomation": {
+      "complete": true,
+      "seconds": 9.3045,
+      "proof": {
+        "steps": 2116837106,
+        "frames": 4480,
+        "pc": 142649280,
+        "ram": 318042200,
+        "vram": 1281617587,
+        "rgba": 2607491144
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "Allegrex / VFPU and scheduler",
+            "ms": 820.1,
+            "longestMs": 77.3,
+            "tag": 0
+          },
+          {
+            "name": "GE command processor",
+            "ms": 20.7,
+            "longestMs": 73.8,
+            "tag": 0
+          },
+          {
+            "name": "GE vertices and software rasterizer",
+            "ms": 7853.5,
+            "longestMs": 4.3,
+            "tag": 0
+          },
+          {
+            "name": "Kernel HLE",
+            "ms": 72.7,
+            "longestMs": 74.5,
+            "tag": 0
+          },
+          {
+            "name": "UMD file reads",
+            "ms": 20,
+            "longestMs": 2.4,
+            "tag": 0
+          },
+          {
+            "name": "Display conversion",
+            "ms": 485.6,
+            "longestMs": 5.6,
+            "tag": 0
+          }
+        ]
+      }
+    },
+    "chromeUnderAutomation": {
+      "seconds": 62.0463,
+      "frames": 120,
+      "proof": {
+        "steps": 2116837106,
+        "frames": 4480,
+        "pc": 142649280,
+        "ram": 318042200,
+        "vram": 1281617587,
+        "rgba": 2607491144
+      }
+    }
+  },
+  "openingStage": {
+    "beforeAdditionalTextureFastPath": {
+      "seconds": 5.126990792000001,
+      "proof": {
+        "steps": 2026129571,
+        "frames": 3688,
+        "pc": 142649280,
+        "ram": 3422384609,
+        "vram": 813064463,
+        "rgba": 3936269762
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "Allegrex / VFPU and scheduler",
+            "ms": 552.039,
+            "longestMs": 50.4458,
+            "tag": 0
+          },
+          {
+            "name": "GE command processor",
+            "ms": 11.6104,
+            "longestMs": 49.5781,
+            "tag": 0
+          },
+          {
+            "name": "GE vertices and software rasterizer",
+            "ms": 4505.33,
+            "longestMs": 9.59287,
+            "tag": 0
+          },
+          {
+            "name": "Kernel HLE",
+            "ms": 43.8248,
+            "longestMs": 49.973,
+            "tag": 0
+          }
+        ]
+      }
+    },
+    "afterAdditionalTextureFastPath": {
+      "seconds": 4.885921000000001,
+      "proof": {
+        "steps": 2026129571,
+        "frames": 3688,
+        "pc": 142649280,
+        "ram": 3422384609,
+        "vram": 813064463,
+        "rgba": 3936269762
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "Allegrex / VFPU and scheduler",
+            "ms": 563.163,
+            "longestMs": 56.3231,
+            "tag": 0
+          },
+          {
+            "name": "GE command processor",
+            "ms": 11.8282,
+            "longestMs": 54.8419,
+            "tag": 0
+          },
+          {
+            "name": "GE vertices and software rasterizer",
+            "ms": 4251.05,
+            "longestMs": 14.244,
+            "tag": 0
+          },
+          {
+            "name": "Kernel HLE",
+            "ms": 45.2637,
+            "longestMs": 55.7544,
+            "tag": 0
+          }
+        ]
+      }
+    }
+  },
+  "validation": {
+    "publicCryptoAndCSO": true,
+    "allSixTextureFormatsMatchReference": true,
+    "nativeWasmColdBootMatch": true,
+    "nativeWasmContinuationMatch": true,
+    "captureEvents": 8852,
+    "captureWrites": 1209452,
+    "captureOverflow": 0,
+    "replayFinalMatches": true,
+    "backwardForwardSeeksRepeatable": true,
+    "replayLeavesLiveStateUnchanged": true,
+    "stateContinuationMatches": true
+  },
+  "limits": [
+    "No MPEG/AVC or audio decoding",
+    "Burnout gameplay not validated",
+    "No per-texel ancestry or offscreen-target viewer"
+  ]
+}

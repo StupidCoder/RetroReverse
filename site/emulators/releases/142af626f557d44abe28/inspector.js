@@ -1,4 +1,12 @@
 export function decodedColor(platform, value, size, format) {
+  if(platform==='psp'){
+    if(format===3)return [value&255,value>>>8&255,value>>>16&255,255];
+    const e5=n=>Math.floor(n*255/31),e6=n=>Math.floor(n*255/63);
+    if(format===0)return [e5(value&31),e6(value>>>5&63),e5(value>>>11&31),255];
+    if(format===1)return [e5(value&31),e5(value>>>5&31),e5(value>>>10&31),255];
+    if(format===2)return [(value&15)*17,(value>>>4&15)*17,(value>>>8&15)*17,255];
+    return null;
+  }
   if(platform==='3ds'){
     if(format===0)return [value>>>24,value>>>16&255,value>>>8&255,255];
     if(format===1)return [value>>>16&255,value>>>8&255,value&255,255];
@@ -325,7 +333,13 @@ export function createInspector({platform, canvas, send, jump}) {
                                 c.drawn ? ''
                                 : c.depthRejected
                                     ? ' · depth rejected'
-                                    : ' · transparent/alpha rejected'}`;
+                                    : c.idRejected
+                                    ? ' · same translucent polygon ID'
+                                    : c.stencilRejected ? ' · stencil rejected'
+                                    : c.scissorRejected ? ' · scissor rejected'
+                                    : c.maskRejected ? ' · write masked'
+                                    : c.alphaRejected ? ' · transparent/alpha rejected'
+                                    : ' · rejected'}`;
       b.onclick = () => showEvent(c, index);
       $('contributors').append(b);
     });

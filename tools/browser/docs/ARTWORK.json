@@ -28,5 +28,11 @@
     "console": "3DS",
     "prompt": "Use case: product-mockup. Create a square editorial product illustration for the RetroReverse emulator console selector. Recognizable original aqua-blue Nintendo 3DS handheld, open clamshell, black upper bezel with wide dark inactive screen and small camera, lower narrower dark resistive touch screen, gray circle pad above D-pad on left and four face buttons on right. Original 2011 model, not XL or New 3DS. Three-quarter view from slightly above, complete device centered with generous empty space on all edges. No hands, game art, cables, accessories, text labels or decorative lettering. Clean physical industrial-design study, subtly painterly realistic plastic, soft broad studio lighting and soft contact shadow on a uniform cool pale blue-gray background #e9edf3. Restrained archival electronics catalog aesthetic matching a beige Commodore 64, gray PlayStation, charcoal N64, black Panasonic 3DO and silver original DS product illustration set. Not cartoon, not pixel art.",
     "tool": "built-in image_gen"
+  },
+  {
+    "console": "PSP",
+    "prompt": "Use case: product-mockup. Asset type: square console selection card for RetroReverse emulator gallery. Create a realistic studio product illustration of a black original Sony PlayStation Portable PSP-1000 handheld console, seen from slightly above at a gentle three-quarter angle, centered fully visible with generous margins. Wide black widescreen blank/off display, cross-shaped D-pad on left, small analog nub lower left, four symbol face buttons right, narrow control buttons below display, silver rim. Pale cool gray studio background, soft contact shadow, soft diffused light and accurate plastic/glass materials. No game imagery, no cables, no hands, no added text, no watermark. Match a clean museum catalog photograph style. Single PSP only.",
+    "tool": "built-in image_gen",
+    "file": "site/emulators/art/psp.png"
   }
 ]
