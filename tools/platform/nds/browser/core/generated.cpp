@@ -520,6 +520,7 @@ uint32_t handlerBase{};
 Map<uint32_t,uint32_t> io{};
 uint32_t lastRecv{};
 int64_t sleep{};
+bool wfi{};
 };
 struct dsmachine_Profile{
 double TotalMs{};
@@ -582,7 +583,7 @@ struct Anon27{dsmachine_texState tex{};bool hasTex{};uint32_t mode{};uint8_t alp
 struct Anon28{uint32_t base{};uint32_t pal{};int64_t sizeS{};int64_t sizeT{};uint32_t format{};bool repeatS{};bool repeatT{};bool flipS{};bool flipT{};bool color0{};};
 struct Anon29{Slice<uint8_t> ram{};Slice<uint8_t> swram{};Slice<uint8_t> pal{};Slice<uint8_t> oam{};dsmachine_vram* vram{};dsmachine_card* cd{};dsmachine_spibus* spi{};dsmachine_gpu2d* gpu2d{};dsmachine_gpu3d* gpu3d{};dsmachine_video vid{};dsmachine_divider div{};dsmachine_sqrter sqrt{};dsmachine_profiler prof{};uint32_t powcnt{};uint32_t keys{};uint8_t wramcnt{};dsmachine_ipc ipc{};dsmachine_core* ARM9{};dsmachine_core* ARM7{};uint64_t Steps{};Slice<std::string> Log{};Map<std::string,bool> logSeen{};Map<uint32_t,bool> visited{};std::function<void(std::string,uint8_t,uint32_t)> SyncTrace{};std::function<void(bool,uint32_t)> OnStep{};std::function<void(bool,bool,uint32_t,uint32_t,uint32_t)> OnIO{};std::function<void(bool,uint32_t,uint8_t,uint32_t)> OnWrite{};std::function<void(bool,uint32_t,uint32_t,uint32_t)> OnIRQ{};std::function<void(bool,uint32_t,uint8_t,uint32_t)> OnRead{};std::function<void(int64_t,int64_t,dsmachine_PixelEvent)> OnPixel{};std::function<void(int64_t)> OnPoly{};Map<uint32_t,bool> bps{};bool stop{};bool stopped{};uint32_t stoppedPC{};std::function<void()> OnFrame{};};
 struct Anon3{uint32_t bit{};std::string name{};};
-struct Anon30{dsmachine_Machine* m{};arm_CPU* cpu{};std::string name{};bool arm9{};Slice<uint8_t> itcm{};uint32_t itcmBase{};Slice<uint8_t> dtcm{};uint32_t dtcmBase{};Slice<uint8_t> low{};Slice<uint8_t> wram7{};std::array<dsmachine_dmaChan,4> dma{};std::array<dsmachine_timer,4> timers{};bool ime{};uint32_t ie{};uint32_t if_{};bool waiting{};uint32_t waitMask{};bool waitAny{};uint32_t handlerBase{};Map<uint32_t,uint32_t> io{};uint32_t lastRecv{};int64_t sleep{};};
+struct Anon30{dsmachine_Machine* m{};arm_CPU* cpu{};std::string name{};bool arm9{};Slice<uint8_t> itcm{};uint32_t itcmBase{};Slice<uint8_t> dtcm{};uint32_t dtcmBase{};Slice<uint8_t> low{};Slice<uint8_t> wram7{};std::array<dsmachine_dmaChan,4> dma{};std::array<dsmachine_timer,4> timers{};bool ime{};uint32_t ie{};uint32_t if_{};bool waiting{};uint32_t waitMask{};bool waitAny{};uint32_t handlerBase{};Map<uint32_t,uint32_t> io{};uint32_t lastRecv{};int64_t sleep{};bool wfi{};};
 struct Anon31{uint8_t sync9{};uint8_t sync7{};Slice<uint32_t> to7{};Slice<uint32_t> to9{};};
 struct Anon32{uint32_t cnt{};uint64_t numer{};uint64_t denom{};uint64_t result{};uint64_t rem{};};
 struct Anon33{uint32_t cnt{};uint64_t param{};uint32_t result{};};
@@ -1242,7 +1243,7 @@ dsmachine_Profile dsmachine_Machine_FrameProfile(dsmachine_Machine* m);
 dsmachine_Result dsmachine_Machine_Run(dsmachine_Machine* m,uint64_t budget,int64_t quantum,Map<uint32_t,std::string> milestones);
 dsmachine_Result dsmachine_Machine_RunFrames(dsmachine_Machine* m,uint64_t n,uint64_t budget,int64_t quantum);
 dsmachine_Result dsmachine_Machine_run(dsmachine_Machine* m,uint64_t budget,int64_t quantum,Map<uint32_t,std::string> milestones,uint64_t untilFrame);
-void dsmachine_Machine_runQuantum(dsmachine_Machine* m,dsmachine_core* c,int64_t n,Map<uint32_t,std::string> milestones,Map<uint32_t,uint64_t> hit);
+void dsmachine_Machine_runQuantum(dsmachine_Machine* m,dsmachine_core* c,int64_t n,const Map<uint32_t,std::string>& milestones,const Map<uint32_t,uint64_t>& hit);
 void dsmachine_Machine_deliver(dsmachine_Machine* m,dsmachine_core* c);
 void dsmachine_core_biosIRQExit(dsmachine_core* c);
 uint64_t dsmachine_Machine_progressSig(dsmachine_Machine* m);
@@ -1618,7 +1619,7 @@ arm_Inst arm_decodeSignedMul(uint32_t w,arm_Inst in){
 uint32_t op = cast<uint32_t>(((shr<uint32_t>(w,cast<int64_t>(21ULL))) & cast<uint32_t>(15ULL)));
 uint32_t x = cast<uint32_t>(((shr<uint32_t>(w,cast<int64_t>(5ULL))) & cast<uint32_t>(1ULL)));
 uint32_t y = cast<uint32_t>(((shr<uint32_t>(w,cast<int64_t>(6ULL))) & cast<uint32_t>(1ULL)));
-std::function<uint8_t(uint32_t)> bt = [&](uint32_t b)->uint8_t{
+auto bt = [&](uint32_t b)->uint8_t{
 if ((b == cast<uint32_t>(0ULL))) {
 return cast<uint8_t>(66ULL);
 }
@@ -2399,7 +2400,7 @@ else {
 addr -= off;
 }
 }
-std::function<void()> writeback = [&]()->void{
+auto writeback = [&]()->void{
 if ((p == cast<uint32_t>(0ULL))) {
 if ((u == cast<uint32_t>(1ULL))) {
 base += off;
@@ -2488,7 +2489,7 @@ else {
 addr -= off;
 }
 }
-std::function<void()> writeback = [&]()->void{
+auto writeback = [&]()->void{
 if ((p == cast<uint32_t>(0ULL))) {
 if ((u == cast<uint32_t>(1ULL))) {
 base += off;
@@ -3644,7 +3645,7 @@ arm_CPU_Halt(c,std::string("unimplemented parallel arithmetic 0x%08X (class %d) 
 return true;
 break;}
 }}
-std::function<uint32_t(uint32_t,uint64_t)> half = [&](uint32_t v,uint64_t h)->uint32_t{
+auto half = [&](uint32_t v,uint64_t h)->uint32_t{
 return cast<uint32_t>(((shr<uint32_t>(v,(cast<uint64_t>((cast<uint64_t>(16ULL) * h))))) & cast<uint32_t>(65535ULL)));
 }
 ;
@@ -5646,7 +5647,7 @@ vd = std::get<0>(tmp95);
 vn = std::get<1>(tmp95);
 vm = std::get<2>(tmp95);
 }
-std::function<void(std::function<float(float,float)>,std::function<double(double,double)>)> binop = [&](std::function<float(float,float)> f32,std::function<double(double,double)> f64)->void{
+auto binop = [&](std::function<float(float,float)> f32,std::function<double(double,double)> f64)->void{
 if (single) {
 arm_CPU_sSet(c,vd,f32(arm_CPU_sGet(c,vn),arm_CPU_sGet(c,vm)));
 }
@@ -6224,7 +6225,7 @@ return {{},go_fmt_Errorf(std::string("nds: not an LZ77 stream (type 0x%02X)",37)
 int64_t size = cast<int64_t>(shr<uint32_t>(le_Uint32(data),cast<int64_t>(8ULL)));
 Slice<uint8_t> out = Slice<uint8_t>::make(cast<int64_t>(0ULL),size);
 int64_t p = cast<int64_t>(4ULL);
-std::function<std::tuple<uint8_t,Error>()> next = [&]()->std::tuple<uint8_t,Error>{
+auto next = [&]()->std::tuple<uint8_t,Error>{
 if ((p >= len(data))) {
 return {cast<uint8_t>(0ULL),go_fmt_Errorf(std::string("nds: LZ77 input truncated",25))};
 }
@@ -6347,7 +6348,7 @@ if ((len(data) < cast<int64_t>(512ULL))) {
 return {nds_Header{},go_errors_New(std::string("nds: image shorter than a 0x200 header",38))};
 }
 binary_littleEndian le = go_binary_LittleEndian;
-std::function<std::string(int64_t,int64_t)> str = [&](int64_t off,int64_t n)->std::string{
+auto str = [&](int64_t off,int64_t n)->std::string{
 return go_strings_TrimRight(cast<std::string>(sub(data,off,cast<int64_t>((off + n)))),std::string("\000",1));
 }
 ;
@@ -6782,6 +6783,10 @@ bit = shr<uint64_t>(bit,cast<int64_t>(2ULL));
 std::function<void(arm_CPU*,bool,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t*)> dsmachine_cp15(dsmachine_core* c){
 {
 return [=](arm_CPU* cpu,bool load,uint32_t cp,uint32_t op1,uint32_t crn,uint32_t crm,uint32_t op2,uint32_t* rd)->void{
+if (((((((!load) && (cp == cast<uint32_t>(15ULL))) && (op1 == cast<uint32_t>(0ULL))) && (crn == cast<uint32_t>(7ULL))) && (crm == cast<uint32_t>(0ULL))) && (op2 == cast<uint32_t>(4ULL)))) {
+c->wfi = true;
+return ;
+}
 if (((load || (crn != cast<uint32_t>(9ULL))) || (crm != cast<uint32_t>(1ULL)))) {
 return ;
 }
@@ -6943,7 +6948,7 @@ break;}
 }
 }
 // tools/platform/nds/dsmachine/bus.go:98:1
-uint8_t dsmachine_bus_Read(dsmachine_bus* b,uint32_t a){
+uint8_t dsmachine_bus_ReadReference(dsmachine_bus* b,uint32_t a){
 {
 dsmachine_core* c = b->c;
 uint8_t v = dsmachine_bus_read(b,a);
@@ -6978,7 +6983,7 @@ return cast<uint8_t>(0ULL);
 }
 }
 // tools/platform/nds/dsmachine/bus.go:121:1
-void dsmachine_bus_Write(dsmachine_bus* b,uint32_t a,uint8_t v){
+void dsmachine_bus_WriteReference(dsmachine_bus* b,uint32_t a,uint8_t v){
 {
 dsmachine_core* c = b->c;
 if (bool(c->m->OnWrite)) {
@@ -7060,7 +7065,7 @@ dsmachine_vram_write8(v,space,off,b);
 }
 }
 // tools/platform/nds/dsmachine/bus.go:185:1
-uint16_t dsmachine_bus_Read16(dsmachine_bus* b,uint32_t a){
+uint16_t dsmachine_bus_Read16Reference(dsmachine_bus* b,uint32_t a){
 {
 if ((shr<uint32_t>(a,cast<int64_t>(24ULL)) == cast<uint32_t>(4ULL))) {
 uint16_t v = cast<uint16_t>(shr<uint32_t>(dsmachine_core_ioRead(b->c,(a & ~(cast<uint32_t>(3ULL)))),(cast<uint32_t>((cast<uint32_t>(8ULL) * (cast<uint32_t>((a & cast<uint32_t>(2ULL)))))))));
@@ -7071,7 +7076,7 @@ return cast<uint16_t>((cast<uint16_t>(dsmachine_bus_Read(b,a)) | shl<uint16_t>(c
 }
 }
 // tools/platform/nds/dsmachine/bus.go:194:1
-uint32_t dsmachine_bus_Read32(dsmachine_bus* b,uint32_t a){
+uint32_t dsmachine_bus_Read32Reference(dsmachine_bus* b,uint32_t a){
 {
 if ((shr<uint32_t>(a,cast<int64_t>(24ULL)) == cast<uint32_t>(4ULL))) {
 uint32_t v = dsmachine_core_ioRead(b->c,a);
@@ -7090,14 +7095,14 @@ b->c->m->OnRead(b->c->arm9,a,v,b->c->cpu->R[cast<int64_t>(15ULL)]);
 }
 }
 // tools/platform/nds/dsmachine/bus.go:212:1
-void dsmachine_bus_Write16(dsmachine_bus* b,uint32_t a,uint16_t v){
+void dsmachine_bus_Write16Reference(dsmachine_bus* b,uint32_t a,uint16_t v){
 {
 dsmachine_bus_Write(b,a,cast<uint8_t>(v));
 dsmachine_bus_Write(b,cast<uint32_t>((a + cast<uint32_t>(1ULL))),cast<uint8_t>(shr<uint16_t>(v,cast<int64_t>(8ULL))));
 }
 }
 // tools/platform/nds/dsmachine/bus.go:217:1
-void dsmachine_bus_Write32(dsmachine_bus* b,uint32_t a,uint32_t v){
+void dsmachine_bus_Write32Reference(dsmachine_bus* b,uint32_t a,uint32_t v){
 {
 {uint32_t i = cast<uint32_t>(0ULL);for (;(i < cast<uint32_t>(4ULL));i++){
 dsmachine_bus_Write(b,cast<uint32_t>((a + i)),cast<uint8_t>(shr<uint32_t>(v,(cast<uint32_t>((cast<uint32_t>(8ULL) * i))))));
@@ -8939,7 +8944,7 @@ acc += cast<int64_t>((cast<int64_t>(a.m[cast<int64_t>((cast<int64_t>((i * cast<i
 // tools/platform/nds/dsmachine/gpu3d_geom.go:45:1
 std::tuple<int64_t,int64_t,int64_t,int64_t> dsmachine_mtx_apply(dsmachine_mtx a,int64_t x,int64_t y,int64_t z,int64_t w){
 {
-std::function<int64_t(int64_t)> c = [&](int64_t j)->int64_t{
+auto c = [&](int64_t j)->int64_t{
 return shr<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>((x * cast<int64_t>(a.m[cast<int64_t>((cast<int64_t>(0ULL) + j))]))) + cast<int64_t>((y * cast<int64_t>(a.m[cast<int64_t>((cast<int64_t>(4ULL) + j))]))))) + cast<int64_t>((z * cast<int64_t>(a.m[cast<int64_t>((cast<int64_t>(8ULL) + j))]))))) + cast<int64_t>((w * cast<int64_t>(a.m[cast<int64_t>((cast<int64_t>(12ULL) + j))])))))),cast<int64_t>(12ULL));
 }
 ;
@@ -9583,11 +9588,11 @@ if ((den == cast<int64_t>(0ULL))) {
 return a;
 }
 int64_t t = divi<int64_t>((shl<int64_t>(da,cast<int64_t>(12ULL))),den);
-std::function<int64_t(int64_t,int64_t)> li = [&](int64_t x,int64_t y)->int64_t{
+auto li = [&](int64_t x,int64_t y)->int64_t{
 return cast<int64_t>((x + shr<int64_t>(cast<int64_t>(((cast<int64_t>((y - x))) * t)),cast<int64_t>(12ULL))));
 }
 ;
-std::function<int32_t(int32_t,int32_t)> li32 = [&](int32_t x,int32_t y)->int32_t{
+auto li32 = [&](int32_t x,int32_t y)->int32_t{
 return cast<int32_t>(cast<int64_t>((cast<int64_t>(x) + shr<int64_t>(cast<int64_t>(((cast<int64_t>((cast<int64_t>(y) - cast<int64_t>(x)))) * t)),cast<int64_t>(12ULL)))));
 }
 ;
@@ -9614,7 +9619,7 @@ auto i=tmp121;r->frame[i] = cast<uint32_t>(0ULL);
 // tools/platform/nds/dsmachine/gpu3d_raster.go:89:1
 dsmachine_rvert dsmachine_lerpRV(dsmachine_rvert a,dsmachine_rvert b,double u){
 {
-std::function<double(double,double)> l = [&](double x,double y)->double{
+auto l = [&](double x,double y)->double{
 return (x + (((y - x)) * u));
 }
 ;
@@ -9932,7 +9937,7 @@ return st;
 // tools/platform/nds/dsmachine/gpu3d_raster.go:466:1
 void dsmachine_gpu3d_shade(dsmachine_gpu3d* g,dsmachine_Machine* m,dsmachine_polyState* st,dsmachine_gxPolygon* p,dsmachine_rvert f,int64_t idx){
 {
-std::function<void(bool,bool)> reject = [&](bool z,bool a)->void{
+auto reject = [&](bool z,bool a)->void{
 if (bool(m->OnPixel)) {
 m->OnPixel(modi<int64_t>(idx,cast<int64_t>(256ULL)),divi<int64_t>(idx,cast<int64_t>(256ULL)),dsmachine_PixelEvent{{},z,a,{},{},{},{}});
 }
@@ -10041,7 +10046,7 @@ dsmachine_rfrag dst = g->rast.col[idx];
 dsmachine_rfrag out = dsmachine_rfrag{cr,cg,cb,ca};
 if (((st->trans && st->blend) && (dst.a != cast<uint8_t>(0ULL)))) {
 int64_t a = cast<int64_t>(ca);
-std::function<uint8_t(uint8_t,uint8_t)> mix = [&](uint8_t s,uint8_t d)->uint8_t{
+auto mix = [&](uint8_t s,uint8_t d)->uint8_t{
 return cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(s) * a)) + cast<int64_t>((cast<int64_t>(d) * (cast<int64_t>((cast<int64_t>(31ULL) - a)))))))),cast<int64_t>(31ULL)));
 }
 ;
@@ -10070,7 +10075,7 @@ uint8_t a = cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int6
 if ((!st->toonHi)) {
 return {cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(tr) * cast<int64_t>(tc[cast<int64_t>(0ULL)]))) + cast<int64_t>(31ULL)))),cast<int64_t>(63ULL))),cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(tg) * cast<int64_t>(tc[cast<int64_t>(1ULL)]))) + cast<int64_t>(31ULL)))),cast<int64_t>(63ULL))),cast<uint8_t>(divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(tb) * cast<int64_t>(tc[cast<int64_t>(2ULL)]))) + cast<int64_t>(31ULL)))),cast<int64_t>(63ULL))),a};
 }
-std::function<uint8_t(uint8_t,uint8_t,uint8_t)> add = [&](uint8_t t,uint8_t v,uint8_t h)->uint8_t{
+auto add = [&](uint8_t t,uint8_t v,uint8_t h)->uint8_t{
 int64_t c = cast<int64_t>((divi<int64_t>((cast<int64_t>((cast<int64_t>((cast<int64_t>(t) * cast<int64_t>(v))) + cast<int64_t>(31ULL)))),cast<int64_t>(63ULL)) + cast<int64_t>(h)));
 if ((c > cast<int64_t>(63ULL))) {
 c = cast<int64_t>(63ULL);
@@ -10252,7 +10257,7 @@ palIdxAddr += cast<uint32_t>(65536ULL);
 uint16_t info = dsmachine_vram_read16(m->vram,cast<int64_t>(4ULL),palIdxAddr);
 uint32_t palAddr = cast<uint32_t>((st->pal + cast<uint32_t>((cast<uint32_t>(cast<uint16_t>((info & cast<uint16_t>(16383ULL)))) * cast<uint32_t>(4ULL)))));
 uint16_t mode = shr<uint16_t>(info,cast<int64_t>(14ULL));
-std::function<uint16_t(uint32_t)> raw = [&](uint32_t n)->uint16_t{
+auto raw = [&](uint32_t n)->uint16_t{
 return dsmachine_vram_read16(m->vram,cast<int64_t>(5ULL),cast<uint32_t>((palAddr + cast<uint32_t>((n * cast<uint32_t>(2ULL))))));
 }
 ;
@@ -10329,7 +10334,7 @@ break;}
 // tools/platform/nds/dsmachine/gpu3d_raster.go:881:1
 std::tuple<uint8_t,uint8_t,uint8_t> dsmachine_rastMix555(uint16_t a,uint16_t b,int64_t wa,int64_t wb,int64_t shift){
 {
-std::function<uint8_t(uint64_t)> ch = [&](uint64_t n)->uint8_t{
+auto ch = [&](uint64_t n)->uint8_t{
 int64_t ca = cast<int64_t>(cast<uint16_t>(((shr<uint16_t>(a,(cast<uint64_t>((cast<uint64_t>(5ULL) * n))))) & cast<uint16_t>(31ULL))));
 int64_t cb = cast<int64_t>(cast<uint16_t>(((shr<uint16_t>(b,(cast<uint64_t>((cast<uint64_t>(5ULL) * n))))) & cast<uint16_t>(31ULL))));
 int64_t v = shr<int64_t>((cast<int64_t>((cast<int64_t>((ca * wa)) + cast<int64_t>((cb * wb))))),cast<uint64_t>(shift));
@@ -10883,7 +10888,7 @@ if ((cast<uint16_t>((v & cast<uint16_t>(8ULL))) != cast<uint16_t>(0ULL))) {
 c->io[cast<uint32_t>(67109252ULL)] = cast<uint32_t>(v);
 }
 }
-// tools/platform/nds/dsmachine/machine.go:180:1
+// tools/platform/nds/dsmachine/machine.go:181:1
 dsmachine_Machine* dsmachine_New(nds_ROM* rom,uint32_t dtcm9Base){
 {
 dsmachine_Machine* m = arenaNew(dsmachine_Machine{Slice<uint8_t>::make(cast<int64_t>(4194304ULL)),Slice<uint8_t>::make(cast<int64_t>(32768ULL)),Slice<uint8_t>::make(cast<int64_t>(2048ULL)),Slice<uint8_t>::make(cast<int64_t>(2048ULL)),dsmachine_newVRAM(),arenaNew(dsmachine_card{rom->Data,{},{},{},{},{},{}}),dsmachine_newSPI(),{},{},{},{},{},{},{},{},{},{},{},{},{},{},Map<std::string,bool>{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}});
@@ -10891,7 +10896,7 @@ m->gpu2d = dsmachine_newGPU2D();
 m->gpu3d = dsmachine_newGPU3D();
 m->vid.line = cast<int64_t>(262ULL);
 m->wramcnt = cast<uint8_t>(3ULL);
-dsmachine_core* a9 = arenaNew(dsmachine_core{m,{},std::string("ARM9",4),true,Slice<uint8_t>::make(cast<int64_t>(32768ULL)),cast<uint32_t>(33521664ULL),{},{},{},{},{},{},{},{},{},{},{},{},{},Map<uint32_t,uint32_t>{},{},{}});
+dsmachine_core* a9 = arenaNew(dsmachine_core{m,{},std::string("ARM9",4),true,Slice<uint8_t>::make(cast<int64_t>(32768ULL)),cast<uint32_t>(33521664ULL),{},{},{},{},{},{},{},{},{},{},{},{},{},Map<uint32_t,uint32_t>{},{},{},{}});
 if ((dtcm9Base != cast<uint32_t>(0ULL))) {
 a9->dtcm = Slice<uint8_t>::make(cast<int64_t>(16384ULL));
 a9->dtcmBase = dtcm9Base;
@@ -10904,7 +10909,7 @@ a9->cpu->SWI = dsmachine_biosSWI(a9);
 a9->cpu->Coproc = dsmachine_cp15(a9);
 dsmachine_copyInto(m,a9,rom->Header.ARM9RAMAddr,nds_ROM_ARM9(rom));
 m->ARM9 = a9;
-dsmachine_core* a7 = arenaNew(dsmachine_core{m,{},std::string("ARM7",4),false,{},{},{},{},Slice<uint8_t>::make(cast<int64_t>(16384ULL)),Slice<uint8_t>::make(cast<int64_t>(65536ULL)),{},{},{},{},{},{},{},{},cast<uint32_t>(58785792ULL),Map<uint32_t,uint32_t>{},{},{}});
+dsmachine_core* a7 = arenaNew(dsmachine_core{m,{},std::string("ARM7",4),false,{},{},{},{},Slice<uint8_t>::make(cast<int64_t>(16384ULL)),Slice<uint8_t>::make(cast<int64_t>(65536ULL)),{},{},{},{},{},{},{},{},cast<uint32_t>(58785792ULL),Map<uint32_t,uint32_t>{},{},{},{}});
 a7->cpu = arm_NewCPU(arenaNew(dsmachine_bus{a7}));
 a7->cpu->Mode = cast<uint32_t>(19ULL);
 a7->cpu->R[cast<int64_t>(15ULL)] = rom->Header.ARM7Entry;
@@ -10915,7 +10920,7 @@ dsmachine_Machine_directBoot(m,rom);
 return m;
 }
 }
-// tools/platform/nds/dsmachine/machine.go:242:1
+// tools/platform/nds/dsmachine/machine.go:243:1
 void dsmachine_copyInto(dsmachine_Machine* m,dsmachine_core* c,uint32_t addr,Slice<uint8_t> data){
 {
 dsmachine_bus bStorage = dsmachine_bus{c};
@@ -10926,19 +10931,19 @@ auto i=tmp176;auto v=tmp175[tmp176];dsmachine_bus_Write(b,cast<uint32_t>((addr +
 }}
 }
 }
-// tools/platform/nds/dsmachine/machine.go:250:1
+// tools/platform/nds/dsmachine/machine.go:251:1
 uint32_t dsmachine_Machine_ARM9PC(dsmachine_Machine* m){
 {
 return m->ARM9->cpu->R[cast<int64_t>(15ULL)];
 }
 }
-// tools/platform/nds/dsmachine/machine.go:251:1
+// tools/platform/nds/dsmachine/machine.go:252:1
 uint32_t dsmachine_Machine_ARM7PC(dsmachine_Machine* m){
 {
 return m->ARM7->cpu->R[cast<int64_t>(15ULL)];
 }
 }
-// tools/platform/nds/dsmachine/machine.go:254:1
+// tools/platform/nds/dsmachine/machine.go:255:1
 std::tuple<uint8_t,uint8_t> dsmachine_Machine_SyncNibbles(dsmachine_Machine* m){
 uint8_t arm9{};
 uint8_t arm7{};
@@ -10946,7 +10951,7 @@ uint8_t arm7{};
 return {m->ipc.sync9,m->ipc.sync7};
 }
 }
-// tools/platform/nds/dsmachine/machine.go:257:1
+// tools/platform/nds/dsmachine/machine.go:258:1
 std::tuple<int64_t,int64_t> dsmachine_Machine_FifoLens(dsmachine_Machine* m){
 int64_t to7{};
 int64_t to9{};
@@ -10954,19 +10959,19 @@ int64_t to9{};
 return {len(m->ipc.to7),len(m->ipc.to9)};
 }
 }
-// tools/platform/nds/dsmachine/machine.go:261:1
+// tools/platform/nds/dsmachine/machine.go:262:1
 uint64_t dsmachine_Machine_Frame(dsmachine_Machine* m){
 {
 return m->vid.frames;
 }
 }
-// tools/platform/nds/dsmachine/machine.go:262:1
+// tools/platform/nds/dsmachine/machine.go:263:1
 int64_t dsmachine_Machine_Line(dsmachine_Machine* m){
 {
 return m->vid.line;
 }
 }
-// tools/platform/nds/dsmachine/machine.go:266:1
+// tools/platform/nds/dsmachine/machine.go:267:1
 Slice<uint8_t> dsmachine_Machine_Snapshot(dsmachine_Machine* m,bool arm9,uint32_t addr,uint32_t n){
 {
 dsmachine_core* c = m->ARM7;
@@ -10983,7 +10988,7 @@ auto i=tmp178;out[i] = dsmachine_bus_Read(b,cast<uint32_t>((addr + cast<uint32_t
 return out;
 }
 }
-// tools/platform/nds/dsmachine/machine.go:281:1
+// tools/platform/nds/dsmachine/machine.go:282:1
 void dsmachine_Machine_Poke(dsmachine_Machine* m,bool arm9,uint32_t addr,Slice<uint8_t> data){
 {
 dsmachine_core* c = m->ARM7;
@@ -10998,7 +11003,7 @@ auto i=tmp180;auto v=tmp179[tmp180];dsmachine_bus_Write(b,cast<uint32_t>((addr +
 }}
 }
 }
-// tools/platform/nds/dsmachine/machine.go:293:1
+// tools/platform/nds/dsmachine/machine.go:294:1
 std::array<uint32_t,16> dsmachine_Machine_Regs(dsmachine_Machine* m,bool arm9){
 {
 if (arm9) {
@@ -11007,7 +11012,7 @@ return m->ARM9->cpu->R;
 return m->ARM7->cpu->R;
 }
 }
-// tools/platform/nds/dsmachine/machine.go:302:1
+// tools/platform/nds/dsmachine/machine.go:303:1
 bool dsmachine_Machine_Thumb(dsmachine_Machine* m,bool arm9){
 {
 if (arm9) {
@@ -11016,7 +11021,7 @@ return m->ARM9->cpu->Thumb;
 return m->ARM7->cpu->Thumb;
 }
 }
-// tools/platform/nds/dsmachine/machine.go:312:1
+// tools/platform/nds/dsmachine/machine.go:313:1
 std::tuple<uint32_t,uint32_t,bool> dsmachine_Machine_IRQState(dsmachine_Machine* m,bool arm9){
 uint32_t ie{};
 uint32_t if_{};
@@ -11029,7 +11034,7 @@ c = m->ARM9;
 return {c->ie,c->if_,c->ime};
 }
 }
-// tools/platform/nds/dsmachine/machine.go:321:1
+// tools/platform/nds/dsmachine/machine.go:322:1
 bool dsmachine_Machine_Parked(dsmachine_Machine* m,bool arm9){
 {
 if (arm9) {
@@ -11038,7 +11043,7 @@ return m->ARM9->waiting;
 return m->ARM7->waiting;
 }
 }
-// tools/platform/nds/dsmachine/machine.go:328:1
+// tools/platform/nds/dsmachine/machine.go:329:1
 void dsmachine_Machine_onFrame(dsmachine_Machine* m){
 {
 if (bool(m->OnFrame)) {
@@ -11046,7 +11051,7 @@ m->OnFrame();
 }
 }
 }
-// tools/platform/nds/dsmachine/machine.go:345:1
+// tools/platform/nds/dsmachine/machine.go:346:1
 bool dsmachine_Machine_IRQDisabled(dsmachine_Machine* m,bool arm9){
 {
 if (arm9) {
@@ -11055,13 +11060,13 @@ return m->ARM9->cpu->IRQDisable;
 return m->ARM7->cpu->IRQDisable;
 }
 }
-// tools/platform/nds/dsmachine/machine.go:354:1
+// tools/platform/nds/dsmachine/machine.go:355:1
 uint32_t dsmachine_Machine_Reg(dsmachine_Machine* m,uint32_t a){
 {
 return get(m->ARM9->io,(a & ~(cast<uint32_t>(3ULL))));
 }
 }
-// tools/platform/nds/dsmachine/machine.go:358:1
+// tools/platform/nds/dsmachine/machine.go:359:1
 int64_t dsmachine_Machine_Sleep(dsmachine_Machine* m,bool arm9){
 {
 if (arm9) {
@@ -11070,13 +11075,13 @@ return m->ARM9->sleep;
 return m->ARM7->sleep;
 }
 }
-// tools/platform/nds/dsmachine/machine.go:368:1
+// tools/platform/nds/dsmachine/machine.go:369:1
 void dsmachine_Machine_OnCardXfer(dsmachine_Machine* m,std::function<void(std::array<uint8_t,8>,uint32_t,int64_t)> f){
 {
 m->cd->OnXfer = f;
 }
 }
-// tools/platform/nds/dsmachine/machine.go:375:1
+// tools/platform/nds/dsmachine/machine.go:376:1
 std::tuple<int64_t,int64_t> dsmachine_Machine_GX(dsmachine_Machine* m){
 int64_t polys{};
 int64_t swaps{};
@@ -11084,13 +11089,13 @@ int64_t swaps{};
 return {m->gpu3d->lastPolys,m->gpu3d->swaps};
 }
 }
-// tools/platform/nds/dsmachine/machine.go:381:1
+// tools/platform/nds/dsmachine/machine.go:382:1
 std::array<int64_t,256> dsmachine_Machine_GXHist(dsmachine_Machine* m){
 {
 return m->gpu3d->cmdHist;
 }
 }
-// tools/platform/nds/dsmachine/machine.go:386:1
+// tools/platform/nds/dsmachine/machine.go:387:1
 std::tuple<int64_t,int64_t> dsmachine_Machine_GXClip(dsmachine_Machine* m){
 int64_t emitted{};
 int64_t clipped{};
@@ -11098,25 +11103,25 @@ int64_t clipped{};
 return {m->gpu3d->geom.nEmit,m->gpu3d->geom.nClipped};
 }
 }
-// tools/platform/nds/dsmachine/machine.go:391:1
+// tools/platform/nds/dsmachine/machine.go:392:1
 uint32_t dsmachine_Machine_Reg7(dsmachine_Machine* m,uint32_t a){
 {
 return get(m->ARM7->io,(a & ~(cast<uint32_t>(3ULL))));
 }
 }
-// tools/platform/nds/dsmachine/machine.go:394:1
+// tools/platform/nds/dsmachine/machine.go:395:1
 Map<uint32_t,uint32_t> dsmachine_Machine_GXRegs(dsmachine_Machine* m){
 {
 return m->gpu3d->regs;
 }
 }
-// tools/platform/nds/dsmachine/machine.go:398:1
+// tools/platform/nds/dsmachine/machine.go:399:1
 void dsmachine_Machine_OnGXCmd(dsmachine_Machine* m,std::function<void(uint8_t,Slice<uint32_t>)> f){
 {
 m->gpu3d->OnCmd = f;
 }
 }
-// tools/platform/nds/dsmachine/machine.go:402:1
+// tools/platform/nds/dsmachine/machine.go:403:1
 uint16_t dsmachine_Machine_VRAMTexPal(dsmachine_Machine* m,uint32_t off){
 {
 return dsmachine_vram_read16(m->vram,cast<int64_t>(5ULL),off);
@@ -11229,7 +11234,7 @@ dsmachine_Profile dsmachine_Machine_FrameProfile(dsmachine_Machine* m){
 {
 dsmachine_profiler* p = (&m->prof);
 time_Duration total = go_time_Since(p->frameStart);
-std::function<double(time_Duration)> ms = [&](time_Duration d)->double{
+auto ms = [&](time_Duration d)->double{
 return (cast<double>(time_Duration_Nanoseconds(d)) / 1e6);
 }
 ;
@@ -11255,6 +11260,7 @@ return dsmachine_Machine_run(m,budget,quantum,{},cast<uint64_t>((m->vid.frames +
 }
 // tools/platform/nds/dsmachine/run.go:51:1
 dsmachine_Result dsmachine_Machine_run(dsmachine_Machine* m,uint64_t budget,int64_t quantum,Map<uint32_t,std::string> milestones,uint64_t untilFrame){
+static Map<uint32_t,std::string> noMilestones; static Map<uint32_t,uint64_t> noHits;
 {
 dsmachine_Result res = dsmachine_Result{{},{},{},Map<uint32_t,uint64_t>{}};
 if ((quantum <= cast<int64_t>(0ULL))) {
@@ -11290,7 +11296,7 @@ hb = true;
 dsmachine_Machine_deliver(m,m->ARM9);
 dsmachine_Machine_deliver(m,m->ARM7);
 dsmachine_Machine_runQuantum(m,m->ARM9,quantum,milestones,res.ARM9Milest);
-dsmachine_Machine_runQuantum(m,m->ARM7,divi<int64_t>(quantum,cast<int64_t>(2ULL)),{},{});
+dsmachine_Machine_runQuantum(m,m->ARM7,divi<int64_t>(quantum,cast<int64_t>(2ULL)),noMilestones,noHits);
 m->Steps += cast<uint64_t>(quantum);
 if (((m->ARM9->cpu->Halted || m->ARM7->cpu->Halted) || m->stop)) {
 break;
@@ -11340,9 +11346,10 @@ return res;
 }
 }
 // tools/platform/nds/dsmachine/run.go:148:1
-void dsmachine_Machine_runQuantum(dsmachine_Machine* m,dsmachine_core* c,int64_t n,Map<uint32_t,std::string> milestones,Map<uint32_t,uint64_t> hit){
+void dsmachine_Machine_runQuantum(dsmachine_Machine* m,dsmachine_core* c,int64_t n,const Map<uint32_t,std::string>& milestones,const Map<uint32_t,uint64_t>& hit){
+uint32_t lastPage = UINT32_MAX;
 {
-if (c->waiting) {
+if ((c->waiting || c->wfi)) {
 return ;
 }
 if ((c->sleep > cast<int64_t>(0ULL))) {
@@ -11350,7 +11357,7 @@ c->sleep -= n;
 return ;
 }
 {int64_t i = cast<int64_t>(0ULL);for (;(i < n);i++){
-if ((((c->waiting || (c->sleep > cast<int64_t>(0ULL))) || c->cpu->Halted) || m->stop)) {
+if (((((c->waiting || c->wfi) || (c->sleep > cast<int64_t>(0ULL))) || c->cpu->Halted) || m->stop)) {
 return ;
 }
 if ((c->cpu->R[cast<int64_t>(15ULL)] == cast<uint32_t>(4294905856ULL))) {
@@ -11362,15 +11369,15 @@ if (bool(m->OnStep)) {
 m->OnStep(c->arm9,pc);
 }
 if (c->arm9) {
-if (get(m->bps,pc)) {
+if (m->bps.size() && get(m->bps,pc)) {
 auto tmp192 = std::make_tuple(true,true,pc);
 m->stop = std::get<0>(tmp192);
 m->stopped = std::get<1>(tmp192);
 m->stoppedPC = std::get<2>(tmp192);
 return ;
 }
-m->visited[shr<uint32_t>(pc,cast<int64_t>(8ULL))] = true;
-if (bool(milestones)) {
+if ((pc >> 8) != lastPage) { lastPage=pc >> 8; m->visited[lastPage]=true; }
+if (milestones.size()) {
 {
 auto tmp193 = lookup(milestones,pc);
 bool ok = std::get<1>(tmp193);
@@ -11379,7 +11386,7 @@ if (ok) {
 auto tmp194 = lookup(hit,pc);
 bool seen = std::get<1>(tmp194);
 if ((!seen)) {
-hit[pc] = cast<uint64_t>((m->Steps + cast<uint64_t>(i)));
+(*hit.p)[pc] = cast<uint64_t>((m->Steps + cast<uint64_t>(i)));
 }
 }
 }
@@ -11396,6 +11403,12 @@ void dsmachine_Machine_deliver(dsmachine_Machine* m,dsmachine_core* c){
 uint32_t pending = cast<uint32_t>((c->ie & c->if_));
 if (((pending == cast<uint32_t>(0ULL)) || (!c->ime))) {
 return ;
+}
+if (c->wfi) {
+c->wfi = false;
+if (c->cpu->IRQDisable) {
+return ;
+}
 }
 if (c->waiting) {
 if ((((!c->waitAny) && (c->waitMask != cast<uint32_t>(0ULL))) && (cast<uint32_t>((pending & c->waitMask)) == cast<uint32_t>(0ULL)))) {
@@ -11430,7 +11443,7 @@ dsmachine_bus_w32(b,cast<uint32_t>((sp + cast<uint32_t>(20ULL))),c->cpu->R[cast<
 c->cpu->R[cast<int64_t>(14ULL)] = cast<uint32_t>(4294905856ULL);
 }
 }
-// tools/platform/nds/dsmachine/run.go:275:1
+// tools/platform/nds/dsmachine/run.go:283:1
 void dsmachine_core_biosIRQExit(dsmachine_core* c){
 {
 dsmachine_bus bStorage = dsmachine_bus{c};
@@ -11448,13 +11461,13 @@ arm_CPU_SetCPSR(c->cpu,spsr);
 c->cpu->R[cast<int64_t>(15ULL)] = cast<uint32_t>((lr - cast<uint32_t>(4ULL)));
 }
 }
-// tools/platform/nds/dsmachine/run.go:302:1
+// tools/platform/nds/dsmachine/run.go:310:1
 uint64_t dsmachine_Machine_progressSig(dsmachine_Machine* m){
 {
 return cast<uint64_t>((cast<uint64_t>((cast<uint64_t>((cast<uint64_t>((cast<uint64_t>((shl<uint64_t>(cast<uint64_t>(m->ipc.sync9),cast<int64_t>(1ULL)) ^ shl<uint64_t>(cast<uint64_t>(m->ipc.sync7),cast<int64_t>(5ULL)))) ^ shl<uint64_t>(cast<uint64_t>(len(m->ipc.to7)),cast<int64_t>(8ULL)))) ^ shl<uint64_t>(cast<uint64_t>(len(m->ipc.to9)),cast<int64_t>(12ULL)))) ^ shl<uint64_t>(cast<uint64_t>(m->ARM9->if_),cast<int64_t>(16ULL)))) ^ shl<uint64_t>(cast<uint64_t>(m->ARM7->if_),cast<int64_t>(32ULL))));
 }
 }
-// tools/platform/nds/dsmachine/run.go:308:1
+// tools/platform/nds/dsmachine/run.go:316:1
 std::string dsmachine_parkState(dsmachine_core* c){
 {
 if (c->waiting) {
@@ -11466,7 +11479,7 @@ return go_fmt_Sprintf(std::string("IntrWait 0x%X",13),c->waitMask);
 return std::string("running",7);
 }
 }
-// tools/platform/nds/dsmachine/run.go:323:1
+// tools/platform/nds/dsmachine/run.go:331:1
 int64_t dsmachine_Machine_runInstrs(dsmachine_Machine* m,int64_t n){
 {
 auto tmp195 = std::make_tuple(false,false,cast<uint32_t>(0ULL));
@@ -11533,7 +11546,7 @@ std::tuple<int64_t,int64_t> dsmachine_Machine_EngineStats(dsmachine_Machine* m){
 int64_t a{};
 int64_t b{};
 {
-std::function<int64_t(Slice<uint32_t>)> count = [&](Slice<uint32_t> px)->int64_t{
+auto count = [&](Slice<uint32_t> px)->int64_t{
 int64_t n = cast<int64_t>(0ULL);
 {auto&& tmp198 = px;
 for(int64_t tmp199=0;tmp199<len(tmp198);++tmp199){
@@ -12084,7 +12097,7 @@ uint32_t p = divi<uint32_t>(off,cast<uint32_t>(8192ULL));
 if ((cast<int64_t>(p) >= len(v->pages[space]))) {
 return cast<uint8_t>(0ULL);
 }
-Slice<Slice<uint8_t>> refs = v->pages[space][p];
+const auto& refs = v->pages[space][p];
 if ((len(refs) == cast<int64_t>(0ULL))) {
 return cast<uint8_t>(0ULL);
 }
@@ -12162,3 +12175,5 @@ tmp222:;
 return {cast<int64_t>(0ULL),cast<uint32_t>(0ULL),false};
 }
 }
+
+#include "fast.h"

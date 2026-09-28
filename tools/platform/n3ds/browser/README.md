@@ -46,3 +46,7 @@ CORE_DIR="$PWD/tools/platform/n3ds/browser/web" node tools/platform/n3ds/browser
 The test writes temporary checkpoints under `/private/tmp`. `--resume` reuses its
 own preceding checkpoint for capture iteration. It is a developer option, not a
 runtime game workaround. See `tools/browser/docs/HANDHELD-PORTS.md` for evidence.
+
+The renderer now keeps local helper functions as concrete C++ lambdas and borrows
+non-escaping render-target views. See `tools/browser/docs/HANDHELD-PERFORMANCE.md`
+for before/after measurements and validation.

@@ -12,8 +12,16 @@ export class InputQueue {
     this.down = new Map();
     this.cursor = 0;
     this.sequence = 0;
+    this.touch={x:0,y:0,down:false};this.touchEvents=[];this.touchUntil=0;
   }
   enqueue(m, time) {
+    if(m.touch){
+      const t=m.touch;if(!Number.isFinite(t.x)||!Number.isFinite(t.y))throw Error('Invalid touch coordinate');
+      const at=t.down?time:Math.max(time,this.touchUntil);
+      if(t.down)this.touchUntil=time+this.hold;
+      if(this.touchEvents.length>=4096)throw Error('Touch queue overflow');
+      this.touchEvents.push({at,x:Math.trunc(t.x),y:Math.trunc(t.y),down:!!t.down});
+    }
     const next = m.buttons >>> 0;
     for (let i = 0; i < 32; i++) {
       const bit = (2 ** i) >>> 0;
@@ -49,7 +57,9 @@ export class InputQueue {
       const k = this.keys.shift();
       keys.push([ k.code, k.down ]);
     }
+    while(this.touchEvents.length&&this.touchEvents[0].at<=time)this.touch=this.touchEvents.shift();
     return {
+      touch:this.touch,
       buttons : buttons >>> 0,
       x : this.x,
       y : this.y,

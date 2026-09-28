@@ -36,7 +36,12 @@ function finishCaptureProfile(){
 }
 let inputs, lastButtons = -1, lastX = 0, lastY = 0;
 let inputSequence = 0, lastInputStep = 0;
-const sleep = n => new Promise(r => setTimeout(r, n));
+// Yield to queued input without turning every 8 ms work slice into a nested
+// timer. Timed waits still use setTimeout for the actual emulation pacing.
+const yieldChannel = new MessageChannel(), yieldQueue = [];
+yieldChannel.port1.onmessage = () => yieldQueue.shift()?.();
+const sleep = n => n > 0 ? new Promise(r => setTimeout(r, n)) :
+  new Promise(r => { yieldQueue.push(r); yieldChannel.port2.postMessage(0); });
 const json = fn => JSON.parse(core.UTF8ToString(core[fn]()));
 const jsonPixel=(x,y)=>JSON.parse(core.UTF8ToString(core._rr_pixel(x,y)));
 const send = (type, data = {}) => postMessage({type, session, ...data}, data.pixels ? [data.pixels] : []);

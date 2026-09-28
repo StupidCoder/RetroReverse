@@ -36,7 +36,12 @@ function finishCaptureProfile(){
 }
 let inputs, lastButtons = -1, lastX = 0, lastY = 0;
 let inputSequence = 0, lastInputStep = 0;
-const sleep = n => new Promise(r => setTimeout(r, n));
+// Yield to queued input without turning every 8 ms work slice into a nested
+// timer. Timed waits still use setTimeout for the actual emulation pacing.
+const yieldChannel = new MessageChannel(), yieldQueue = [];
+yieldChannel.port1.onmessage = () => yieldQueue.shift()?.();
+const sleep = n => n > 0 ? new Promise(r => setTimeout(r, n)) :
+  new Promise(r => { yieldQueue.push(r); yieldChannel.port2.postMessage(0); });
 const json = fn => JSON.parse(core.UTF8ToString(core[fn]()));
 const jsonPixel=(x,y)=>JSON.parse(core.UTF8ToString(core._rr_pixel(x,y)));
 const send = (type, data = {}) => postMessage({type, session, ...data}, data.pixels ? [data.pixels] : []);
@@ -93,14 +98,14 @@ function applyInputs() {
   const time = platform === 'c64'   ? s.steps / 985248
                : platform === 'n64' ? s.steps / 45000000
                : platform === 'ps1' ? s.steps / 15000000
-                                    : s.inputSeconds ?? s.frames / 30;
+                                    : s.inputSeconds ?? s.frames / platforms[platform].hz;
   for (const m of inputQueue.splice(0))
     inputs.enqueue(m, time);
   const m = inputs.drain(time);
   if (m.buttons !== lastButtons || m.x !== lastX || m.y !== lastY) {
     if (platform === 'c64')
       core._rr_joystick(2, m.buttons);
-    else if (platform === 'n64')
+    else if (platform === 'n64'||platform==='3ds')
       core._rr_pad(m.buttons, m.x, m.y);
     else
       core._rr_pad(platform === 'ps1' ? (~m.buttons) & 65535 : m.buttons);
@@ -108,6 +113,7 @@ function applyInputs() {
     lastX = m.x;
     lastY = m.y;
   }
+  if (platform === 'ds'||platform==='3ds')core._rr_touch(m.touch.x,m.touch.y,+m.touch.down);
   if (platform === 'c64')
     for (const [code, down] of m.keys)
       core._rr_key(code, down);
@@ -124,6 +130,7 @@ function tick(one = false) {
   else if (platform === 'n64')
     check(core._rr_run(one ? Math.min(10000, 750000 - status().steps % 750000)
                            : 10000) >= 0);
+  else if(platform==='ds'||platform==='3ds')check(core._rr_run(10000)>=0);
   else
     check(core._rr_run_slice(10000));
   const ms = performance.now() - start;
@@ -158,7 +165,7 @@ async function pump(id, one = false) {
   }
   if(id===epoch){running=false;paint();send('message',{text:one?'Paused at the next display boundary.':'Paused.'});}
 }
-function coreState(){const n=core._rr_state_save();check(n);if(n>32*1024*1024)throw Error('Capture checkpoint exceeds the 32 MiB budget');const p=core._rr_state_data();return core.HEAPU8.slice(p,p+n);}
+function coreState(){const n=core._rr_state_save();check(n);const limit=platform==='3ds'?128:32;if(n>limit*1024*1024)throw Error(`Capture checkpoint exceeds the ${limit} MiB budget`);const p=core._rr_state_data();return core.HEAPU8.slice(p,p+n);}
 function cancelCapture(){
  if(capturing){core._rr_capture_end();finishCaptureProfile();capturing=false;}
  capture=null;captureGeneration++;seekGeneration++;send('capture-cleared');
@@ -180,10 +187,10 @@ async function captureNext(){
  try{
    await boundary('Finishing current interval.');
    const startState=coreState(),start=status(),input=queueState();
-   core._rr_capture_begin();
-   const captureFields=platform==='ps1'?4:1;
-   for(let field=0;field<captureFields;field++)await boundary(platform==='ps1'?'Recording display and double-buffer producer context.':'Recording next complete interval.');
-   core._rr_capture_end();const captureProfile=finishCaptureProfile();capturing=false;
+   const captureStarted=core._rr_capture_begin();if(platform==='ds'||platform==='3ds')check(captureStarted);
+   const captureFields=platform==='ps1'?4:platform==='3ds'?3:1;
+   for(let field=0;field<captureFields;field++)await boundary(captureFields>1?'Recording display and double-buffer producer context.':'Recording next complete interval.');
+   const ended=core._rr_capture_end();if(platform==='ds'||platform==='3ds')check(ended);const captureProfile=finishCaptureProfile();capturing=false;
    const endState=coreState(),end=status(),info=json('_rr_capture_info'),replay=json('_rr_replay_begin');
    const w=platform==='c64'?392:end.width||320,h=platform==='c64'?272:end.height||240,p=core._rr_frame();
    const pixels=core.HEAPU8.slice(p,p+w*h*4);
@@ -218,6 +225,7 @@ async function boot(m) {
   platform = m.platform;
   if(restored&&restored.meta.platform!==platform)throw Error("This state belongs to another console");
   inputs = new InputQueue(platforms[platform].hz);
+  if(platform==='ds'||platform==='3ds')inputs.hold=3/platforms[platform].hz;
   session = m.session;
   files = m.files;
   if (!files?.length)
@@ -292,6 +300,9 @@ async function boot(m) {
       throw Error('Disc exceeds 4 GiB limit');
     core.discFile = f;
     check(core._rr_init_file(f.size) > 0);
+  } else if(platform==='ds'||platform==='3ds'){
+    const limit=platform==='ds'?512:1024;if(f.size>limit*1024*1024)throw Error(`Cartridge exceeds ${limit} MiB`);
+    const b=await f.arrayBuffer(),p=core._rr_input(b.byteLength);check(p);core.HEAPU8.set(new Uint8Array(b),p);check(core._rr_init(b.byteLength));
   } else {
     if (f.size > 64 * 1024 * 1024 || f.size % 4)
       throw Error('N64 image must be aligned to 4 bytes and at most 64 MiB');
@@ -310,13 +321,13 @@ async function boot(m) {
     const p=core._rr_state_input(restored.payload.length);check(p);core.HEAPU8.set(restored.payload,p);check(core._rr_state_load(restored.payload.length));
     const q=restored.meta.input;
     if(!q||!Array.isArray(q.keys)||q.keys.length>4096||!Array.isArray(q.pending)||q.pending.length>4096)throw Error('Invalid saved input queue');
-    Object.assign(inputs,q,{pulses:new Map(q.pulses),down:new Map(q.down)});
+    Object.assign(inputs,q,{hold:inputs.hold,pulses:new Map(q.pulses),down:new Map(q.down)});
     inputQueue.push(...q.pending);lastButtons=q.lastButtons;lastX=q.lastX;lastY=q.lastY;inputSequence=q.inputSequence;lastInputStep=q.lastInputStep;
     // Saved events remain part of the state. Release host-held controls before
     // continuation; a newly pressed physical button creates a new input edge.
     inputs.buttons=0;inputs.x=inputs.y=0;inputs.pulses.clear();inputQueue.length=0;
     if(platform==='c64')for(let k=0;k<256;k++)core._rr_key(k,0);
-    inputs.keys=[];inputs.down.clear();
+    inputs.keys=[];inputs.down.clear();inputs.touch={x:0,y:0,down:false};inputs.touchEvents=[];inputs.touchUntil=0;if(core._rr_touch)core._rr_touch(0,0,0);
   }
   loaded = true;
   paint();

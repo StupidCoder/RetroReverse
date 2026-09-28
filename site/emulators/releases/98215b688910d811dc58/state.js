@@ -22,6 +22,6 @@ export async function unpackState(file) {
   const actual=await crypto.subtle.digest('SHA-256',b.subarray(0,-32));
   if(hex(actual)!==hex(b.subarray(-32)))throw Error('State integrity check failed');
   const meta=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(b.subarray(12,12+n)));
-  if(meta.format!==1||!['c64','ps1','n64','3do'].includes(meta.platform))throw Error('Unsupported state format');
+  if(meta.format!==1||!['c64','ps1','n64','3do','ds','3ds'].includes(meta.platform))throw Error('Unsupported state format');
   return {meta,payload:b.slice(12+n,-32)};
 }

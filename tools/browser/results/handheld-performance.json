@@ -1,0 +1,841 @@
+{
+  "method": "Three isolated Node/WASM runs per variant, identical private checkpoint, three-frame warmup then restore. Execution only; proof/state/loading excluded.",
+  "platforms": {
+    "ds": {
+      "before": [
+        {
+          "platform": "ds",
+          "frames": 120,
+          "seconds": 17.294260126999998,
+          "fps": 6.938718344628957,
+          "heap": 67108864,
+          "profile": [
+            {
+              "name": "ARM9 / ARM7 and scheduler",
+              "ms": 14395.154,
+              "longestMs": 19.2217,
+              "tag": 0
+            },
+            {
+              "name": "GX geometry",
+              "ms": 239.22423,
+              "longestMs": 0.279292,
+              "tag": 0
+            },
+            {
+              "name": "3D software rasterizer",
+              "ms": 1732.8030999999999,
+              "longestMs": 17.6123,
+              "tag": 0
+            },
+            {
+              "name": "2D composition",
+              "ms": 528.6659999999999,
+              "longestMs": 8.31992,
+              "tag": 0
+            },
+            {
+              "name": "DMA",
+              "ms": 335.43672000000004,
+              "longestMs": 1.07671,
+              "tag": 0
+            }
+          ],
+          "checkpoints": [
+            {
+              "frame": 30,
+              "steps": 825740160,
+              "frames": 736,
+              "arm9": 2576438243,
+              "arm7": 1970681550,
+              "ram": 1420926605,
+              "rgba": 486351379
+            },
+            {
+              "frame": 60,
+              "steps": 859443840,
+              "frames": 766,
+              "arm9": 4214969455,
+              "arm7": 3277358533,
+              "ram": 1143664241,
+              "rgba": 2950263733
+            },
+            {
+              "frame": 90,
+              "steps": 893147520,
+              "frames": 796,
+              "arm9": 2653149866,
+              "arm7": 348487678,
+              "ram": 3708880658,
+              "rgba": 1176214364
+            },
+            {
+              "frame": 120,
+              "steps": 926851200,
+              "frames": 826,
+              "arm9": 2576438243,
+              "arm7": 4110813414,
+              "ram": 4072608257,
+              "rgba": 1364122757
+            }
+          ],
+          "stateSha256": "88596284551ba5ea2627bd003706c07f4b011ec104cc7863f5fc3f9927c70343"
+        },
+        {
+          "platform": "ds",
+          "frames": 120,
+          "seconds": 17.040057456000003,
+          "fps": 7.042229775918191,
+          "heap": 67108864,
+          "profile": [
+            {
+              "name": "ARM9 / ARM7 and scheduler",
+              "ms": 14218.863,
+              "longestMs": 18.8291,
+              "tag": 0
+            },
+            {
+              "name": "GX geometry",
+              "ms": 236.47528,
+              "longestMs": 0.262084,
+              "tag": 0
+            },
+            {
+              "name": "3D software rasterizer",
+              "ms": 1660.9650000000001,
+              "longestMs": 17.1208,
+              "tag": 0
+            },
+            {
+              "name": "2D composition",
+              "ms": 535.3702000000001,
+              "longestMs": 9.22442,
+              "tag": 0
+            },
+            {
+              "name": "DMA",
+              "ms": 329.31314,
+              "longestMs": 0.992916,
+              "tag": 0
+            }
+          ],
+          "checkpoints": [
+            {
+              "frame": 30,
+              "steps": 825740160,
+              "frames": 736,
+              "arm9": 2576438243,
+              "arm7": 1970681550,
+              "ram": 1420926605,
+              "rgba": 486351379
+            },
+            {
+              "frame": 60,
+              "steps": 859443840,
+              "frames": 766,
+              "arm9": 4214969455,
+              "arm7": 3277358533,
+              "ram": 1143664241,
+              "rgba": 2950263733
+            },
+            {
+              "frame": 90,
+              "steps": 893147520,
+              "frames": 796,
+              "arm9": 2653149866,
+              "arm7": 348487678,
+              "ram": 3708880658,
+              "rgba": 1176214364
+            },
+            {
+              "frame": 120,
+              "steps": 926851200,
+              "frames": 826,
+              "arm9": 2576438243,
+              "arm7": 4110813414,
+              "ram": 4072608257,
+              "rgba": 1364122757
+            }
+          ],
+          "stateSha256": "e65daa40a8f8fab7bc8427da9b9090748845b91aa727e5b2c88f947f3e3318a3"
+        },
+        {
+          "platform": "ds",
+          "frames": 120,
+          "seconds": 16.938464661999998,
+          "fps": 7.084467358438323,
+          "heap": 67108864,
+          "profile": [
+            {
+              "name": "ARM9 / ARM7 and scheduler",
+              "ms": 14063.520999999999,
+              "longestMs": 19.7945,
+              "tag": 0
+            },
+            {
+              "name": "GX geometry",
+              "ms": 239.74539,
+              "longestMs": 0.312584,
+              "tag": 0
+            },
+            {
+              "name": "3D software rasterizer",
+              "ms": 1716.9564,
+              "longestMs": 17.6654,
+              "tag": 0
+            },
+            {
+              "name": "2D composition",
+              "ms": 531.3955,
+              "longestMs": 8.00896,
+              "tag": 0
+            },
+            {
+              "name": "DMA",
+              "ms": 331.326,
+              "longestMs": 0.982167,
+              "tag": 0
+            }
+          ],
+          "checkpoints": [
+            {
+              "frame": 30,
+              "steps": 825740160,
+              "frames": 736,
+              "arm9": 2576438243,
+              "arm7": 1970681550,
+              "ram": 1420926605,
+              "rgba": 486351379
+            },
+            {
+              "frame": 60,
+              "steps": 859443840,
+              "frames": 766,
+              "arm9": 4214969455,
+              "arm7": 3277358533,
+              "ram": 1143664241,
+              "rgba": 2950263733
+            },
+            {
+              "frame": 90,
+              "steps": 893147520,
+              "frames": 796,
+              "arm9": 2653149866,
+              "arm7": 348487678,
+              "ram": 3708880658,
+              "rgba": 1176214364
+            },
+            {
+              "frame": 120,
+              "steps": 926851200,
+              "frames": 826,
+              "arm9": 2576438243,
+              "arm7": 4110813414,
+              "ram": 4072608257,
+              "rgba": 1364122757
+            }
+          ],
+          "stateSha256": "791ebfbdcbfb2870c7fdf2e9d59ccf2594ea46af36d04d349943f811cc299e78"
+        }
+      ],
+      "beforeMedianFPS": 7.042229775918191,
+      "after": [
+        {
+          "platform": "ds",
+          "frames": 120,
+          "seconds": 2.192019880000001,
+          "fps": 54.74402905506493,
+          "heap": 67108864,
+          "profile": [
+            {
+              "name": "ARM9 / ARM7 and scheduler",
+              "ms": 497.7704,
+              "longestMs": 9.33979,
+              "tag": 0
+            },
+            {
+              "name": "GX geometry",
+              "ms": 229.36424,
+              "longestMs": 0.282708,
+              "tag": 0
+            },
+            {
+              "name": "3D software rasterizer",
+              "ms": 747.5873,
+              "longestMs": 9.01842,
+              "tag": 0
+            },
+            {
+              "name": "2D composition",
+              "ms": 386.8969,
+              "longestMs": 6.61321,
+              "tag": 0
+            },
+            {
+              "name": "DMA",
+              "ms": 286.36798000000005,
+              "longestMs": 1.07692,
+              "tag": 0
+            }
+          ],
+          "checkpoints": [
+            {
+              "frame": 30,
+              "steps": 825740160,
+              "frames": 736,
+              "arm9": 989298722,
+              "arm7": 1970681550,
+              "ram": 180098769,
+              "rgba": 486351379
+            },
+            {
+              "frame": 60,
+              "steps": 859443840,
+              "frames": 766,
+              "arm9": 989298722,
+              "arm7": 3277358533,
+              "ram": 329926813,
+              "rgba": 2950263733
+            },
+            {
+              "frame": 90,
+              "steps": 893147520,
+              "frames": 796,
+              "arm9": 989298722,
+              "arm7": 348487678,
+              "ram": 3708880658,
+              "rgba": 1176214364
+            },
+            {
+              "frame": 120,
+              "steps": 926851200,
+              "frames": 826,
+              "arm9": 989298722,
+              "arm7": 4110813414,
+              "ram": 4072608257,
+              "rgba": 1364122757
+            }
+          ],
+          "stateSha256": "ca281b69b30f0ee541e489706ce453a87cb939bb69a025761d04efb8da6084d0"
+        },
+        {
+          "platform": "ds",
+          "frames": 120,
+          "seconds": 2.2039970459999987,
+          "fps": 54.446533954202074,
+          "heap": 67108864,
+          "profile": [
+            {
+              "name": "ARM9 / ARM7 and scheduler",
+              "ms": 504.8288,
+              "longestMs": 9.16725,
+              "tag": 0
+            },
+            {
+              "name": "GX geometry",
+              "ms": 227.84180999999998,
+              "longestMs": 0.277334,
+              "tag": 0
+            },
+            {
+              "name": "3D software rasterizer",
+              "ms": 750.0769,
+              "longestMs": 8.87333,
+              "tag": 0
+            },
+            {
+              "name": "2D composition",
+              "ms": 385.1762,
+              "longestMs": 6.65637,
+              "tag": 0
+            },
+            {
+              "name": "DMA",
+              "ms": 291.99870000000004,
+              "longestMs": 1.02379,
+              "tag": 0
+            }
+          ],
+          "checkpoints": [
+            {
+              "frame": 30,
+              "steps": 825740160,
+              "frames": 736,
+              "arm9": 989298722,
+              "arm7": 1970681550,
+              "ram": 180098769,
+              "rgba": 486351379
+            },
+            {
+              "frame": 60,
+              "steps": 859443840,
+              "frames": 766,
+              "arm9": 989298722,
+              "arm7": 3277358533,
+              "ram": 329926813,
+              "rgba": 2950263733
+            },
+            {
+              "frame": 90,
+              "steps": 893147520,
+              "frames": 796,
+              "arm9": 989298722,
+              "arm7": 348487678,
+              "ram": 3708880658,
+              "rgba": 1176214364
+            },
+            {
+              "frame": 120,
+              "steps": 926851200,
+              "frames": 826,
+              "arm9": 989298722,
+              "arm7": 4110813414,
+              "ram": 4072608257,
+              "rgba": 1364122757
+            }
+          ],
+          "stateSha256": "bd0efc63e464ec34572dedd70490e76f1edd26526eff0e2157133789a413ef3f"
+        },
+        {
+          "platform": "ds",
+          "frames": 120,
+          "seconds": 2.2174750810000012,
+          "fps": 54.11560248329119,
+          "heap": 67108864,
+          "profile": [
+            {
+              "name": "ARM9 / ARM7 and scheduler",
+              "ms": 502.1882,
+              "longestMs": 9.17771,
+              "tag": 0
+            },
+            {
+              "name": "GX geometry",
+              "ms": 229.04054,
+              "longestMs": 0.266541,
+              "tag": 0
+            },
+            {
+              "name": "3D software rasterizer",
+              "ms": 762.7089,
+              "longestMs": 8.89312,
+              "tag": 0
+            },
+            {
+              "name": "2D composition",
+              "ms": 390.7426,
+              "longestMs": 6.72008,
+              "tag": 0
+            },
+            {
+              "name": "DMA",
+              "ms": 288.39682999999997,
+              "longestMs": 1.00392,
+              "tag": 0
+            }
+          ],
+          "checkpoints": [
+            {
+              "frame": 30,
+              "steps": 825740160,
+              "frames": 736,
+              "arm9": 989298722,
+              "arm7": 1970681550,
+              "ram": 180098769,
+              "rgba": 486351379
+            },
+            {
+              "frame": 60,
+              "steps": 859443840,
+              "frames": 766,
+              "arm9": 989298722,
+              "arm7": 3277358533,
+              "ram": 329926813,
+              "rgba": 2950263733
+            },
+            {
+              "frame": 90,
+              "steps": 893147520,
+              "frames": 796,
+              "arm9": 989298722,
+              "arm7": 348487678,
+              "ram": 3708880658,
+              "rgba": 1176214364
+            },
+            {
+              "frame": 120,
+              "steps": 926851200,
+              "frames": 826,
+              "arm9": 989298722,
+              "arm7": 4110813414,
+              "ram": 4072608257,
+              "rgba": 1364122757
+            }
+          ],
+          "stateSha256": "46311da3b31d332d511f5fa80dd500a502805238d6f457a0ea6f2f6068bac589"
+        }
+      ],
+      "afterMedianFPS": 54.446533954202074,
+      "speedup": 7.731433890497153
+    },
+    "3ds": {
+      "before": [
+        {
+          "platform": "3ds",
+          "frames": 30,
+          "seconds": 33.765357541,
+          "fps": 0.8884845944122503,
+          "heap": 1050017792,
+          "profile": [
+            {
+              "name": "ARM11 / Horizon scheduler",
+              "ms": 253.89579999999998,
+              "longestMs": 890.067,
+              "tag": 0
+            },
+            {
+              "name": "PICA commands / vertex processing",
+              "ms": 39.588319999999996,
+              "longestMs": 888.772,
+              "tag": 0
+            },
+            {
+              "name": "PICA software rasterizer",
+              "ms": 32590.89,
+              "longestMs": 127.704,
+              "tag": 0
+            },
+            {
+              "name": "GX memory / display transfers",
+              "ms": 873.4581,
+              "longestMs": 11.0961,
+              "tag": 0
+            },
+            {
+              "name": "DSP HLE mixer",
+              "ms": 1.31841,
+              "longestMs": 0.47175,
+              "tag": 0
+            }
+          ],
+          "checkpoints": [
+            {
+              "frame": 30,
+              "steps": 1646348878,
+              "frames": 341,
+              "cpu": 948794905,
+              "cpsr": 536871007,
+              "ram": 1832675494,
+              "rgba": 2789987151
+            }
+          ],
+          "stateSha256": "926eebd3f41c2ceb7fa7fecc20bd682a64fcc1d00a3690d9151e756f7c5b5474"
+        },
+        {
+          "platform": "3ds",
+          "frames": 30,
+          "seconds": 33.20197928999999,
+          "fps": 0.9035605901072173,
+          "heap": 1050017792,
+          "profile": [
+            {
+              "name": "ARM11 / Horizon scheduler",
+              "ms": 260.38739999999996,
+              "longestMs": 808.617,
+              "tag": 0
+            },
+            {
+              "name": "PICA commands / vertex processing",
+              "ms": 40.95351,
+              "longestMs": 807.327,
+              "tag": 0
+            },
+            {
+              "name": "PICA software rasterizer",
+              "ms": 32027.84,
+              "longestMs": 111.496,
+              "tag": 0
+            },
+            {
+              "name": "GX memory / display transfers",
+              "ms": 865.2078,
+              "longestMs": 10.4649,
+              "tag": 0
+            },
+            {
+              "name": "DSP HLE mixer",
+              "ms": 1.347452,
+              "longestMs": 0.378375,
+              "tag": 0
+            }
+          ],
+          "checkpoints": [
+            {
+              "frame": 30,
+              "steps": 1646348878,
+              "frames": 341,
+              "cpu": 948794905,
+              "cpsr": 536871007,
+              "ram": 1832675494,
+              "rgba": 2789987151
+            }
+          ],
+          "stateSha256": "926eebd3f41c2ceb7fa7fecc20bd682a64fcc1d00a3690d9151e756f7c5b5474"
+        },
+        {
+          "platform": "3ds",
+          "frames": 30,
+          "seconds": 33.56057454199999,
+          "fps": 0.8939060313897772,
+          "heap": 1050017792,
+          "profile": [
+            {
+              "name": "ARM11 / Horizon scheduler",
+              "ms": 262.4009,
+              "longestMs": 834.712,
+              "tag": 0
+            },
+            {
+              "name": "PICA commands / vertex processing",
+              "ms": 40.906169999999996,
+              "longestMs": 833.754,
+              "tag": 0
+            },
+            {
+              "name": "PICA software rasterizer",
+              "ms": 32373.35,
+              "longestMs": 112.009,
+              "tag": 0
+            },
+            {
+              "name": "GX memory / display transfers",
+              "ms": 876.2554,
+              "longestMs": 10.3371,
+              "tag": 0
+            },
+            {
+              "name": "DSP HLE mixer",
+              "ms": 1.3513320000000002,
+              "longestMs": 0.369833,
+              "tag": 0
+            }
+          ],
+          "checkpoints": [
+            {
+              "frame": 30,
+              "steps": 1646348878,
+              "frames": 341,
+              "cpu": 948794905,
+              "cpsr": 536871007,
+              "ram": 1832675494,
+              "rgba": 2789987151
+            }
+          ],
+          "stateSha256": "926eebd3f41c2ceb7fa7fecc20bd682a64fcc1d00a3690d9151e756f7c5b5474"
+        }
+      ],
+      "beforeMedianFPS": 0.8939060313897772,
+      "after": [
+        {
+          "platform": "3ds",
+          "frames": 30,
+          "seconds": 6.5003072940000015,
+          "fps": 4.6151664287765275,
+          "heap": 1049886720,
+          "profile": [
+            {
+              "name": "ARM11 / Horizon scheduler",
+              "ms": 217.09120000000001,
+              "longestMs": 171.907,
+              "tag": 0
+            },
+            {
+              "name": "PICA commands / vertex processing",
+              "ms": 34.945460000000004,
+              "longestMs": 160.55,
+              "tag": 0
+            },
+            {
+              "name": "PICA software rasterizer",
+              "ms": 5355.9839999999995,
+              "longestMs": 30.518,
+              "tag": 0
+            },
+            {
+              "name": "GX memory / display transfers",
+              "ms": 883.8317,
+              "longestMs": 12.6938,
+              "tag": 0
+            },
+            {
+              "name": "DSP HLE mixer",
+              "ms": 1.5045449999999998,
+              "longestMs": 0.36525,
+              "tag": 0
+            }
+          ],
+          "checkpoints": [
+            {
+              "frame": 30,
+              "steps": 1646348878,
+              "frames": 341,
+              "cpu": 948794905,
+              "cpsr": 536871007,
+              "ram": 1832675494,
+              "rgba": 2789987151
+            }
+          ],
+          "stateSha256": "926eebd3f41c2ceb7fa7fecc20bd682a64fcc1d00a3690d9151e756f7c5b5474"
+        },
+        {
+          "platform": "3ds",
+          "frames": 30,
+          "seconds": 6.453791041999996,
+          "fps": 4.648430636313747,
+          "heap": 1049886720,
+          "profile": [
+            {
+              "name": "ARM11 / Horizon scheduler",
+              "ms": 207.42069999999998,
+              "longestMs": 175.512,
+              "tag": 0
+            },
+            {
+              "name": "PICA commands / vertex processing",
+              "ms": 34.54142,
+              "longestMs": 174.805,
+              "tag": 0
+            },
+            {
+              "name": "PICA software rasterizer",
+              "ms": 5346.614,
+              "longestMs": 32.8151,
+              "tag": 0
+            },
+            {
+              "name": "GX memory / display transfers",
+              "ms": 858.0142,
+              "longestMs": 11.1674,
+              "tag": 0
+            },
+            {
+              "name": "DSP HLE mixer",
+              "ms": 1.259253,
+              "longestMs": 0.382125,
+              "tag": 0
+            }
+          ],
+          "checkpoints": [
+            {
+              "frame": 30,
+              "steps": 1646348878,
+              "frames": 341,
+              "cpu": 948794905,
+              "cpsr": 536871007,
+              "ram": 1832675494,
+              "rgba": 2789987151
+            }
+          ],
+          "stateSha256": "926eebd3f41c2ceb7fa7fecc20bd682a64fcc1d00a3690d9151e756f7c5b5474"
+        },
+        {
+          "platform": "3ds",
+          "frames": 30,
+          "seconds": 6.617770246999999,
+          "fps": 4.533248946440797,
+          "heap": 1049886720,
+          "profile": [
+            {
+              "name": "ARM11 / Horizon scheduler",
+              "ms": 232.8607,
+              "longestMs": 156.555,
+              "tag": 0
+            },
+            {
+              "name": "PICA commands / vertex processing",
+              "ms": 38.65582,
+              "longestMs": 155.699,
+              "tag": 0
+            },
+            {
+              "name": "PICA software rasterizer",
+              "ms": 5467.751,
+              "longestMs": 22.4047,
+              "tag": 0
+            },
+            {
+              "name": "GX memory / display transfers",
+              "ms": 869.8909000000001,
+              "longestMs": 11.2543,
+              "tag": 0
+            },
+            {
+              "name": "DSP HLE mixer",
+              "ms": 1.364041,
+              "longestMs": 0.346917,
+              "tag": 0
+            }
+          ],
+          "checkpoints": [
+            {
+              "frame": 30,
+              "steps": 1646348878,
+              "frames": 341,
+              "cpu": 948794905,
+              "cpsr": 536871007,
+              "ram": 1832675494,
+              "rgba": 2789987151
+            }
+          ],
+          "stateSha256": "926eebd3f41c2ceb7fa7fecc20bd682a64fcc1d00a3690d9151e756f7c5b5474"
+        }
+      ],
+      "afterMedianFPS": 4.6151664287765275,
+      "speedup": 5.162921231889684
+    }
+  },
+  "validation": {
+    "ds": {
+      "checkpoints": 1201,
+      "stylusInput": true,
+      "nativeOptimizedEqualsUnoptimizedWithWFI": true,
+      "wasmMatchesNativeAllFrames": true,
+      "goCPUAndMappedRAMMatchAllFrames": true,
+      "goImageDifferencesAlsoPresentInUnoptimizedCpp": [
+        915
+      ],
+      "stateContinuation": true,
+      "captureReplayAndIsolation": true
+    },
+    "3ds": {
+      "baselineAndOptimizedCheckpointsAndFullStateHashesEqual": true,
+      "coldBoot": true,
+      "stateContinuation": true,
+      "captureReplayAndIsolation": true
+    }
+  },
+  "browser": {
+    "ds": {
+      "beforeUpdatesPerSecond": 4.1,
+      "afterObservedUpdatesPerSecond": [
+        31.4,
+        38.6
+      ],
+      "captureSeconds": 0.14,
+      "replaySteps": 3423,
+      "pixelReconstruction": true,
+      "historicalSource": true,
+      "seek": true
+    },
+    "3ds": {
+      "afterUpdatesPerSecond": 4.6,
+      "afterPresentedImagesPerSecond": 2.2,
+      "captureSeconds": 2.41,
+      "replaySteps": 24040,
+      "captureHeapMiB": 1717,
+      "pixelReconstruction": true,
+      "historicalSource": true,
+      "seek": true
+    }
+  }
+}

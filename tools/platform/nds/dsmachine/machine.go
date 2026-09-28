@@ -162,7 +162,8 @@ type core struct {
 	io          map[uint32]uint32 // the register file (and the last value written)
 	lastRecv    uint32            // last word popped from the recv FIFO
 
-	sleep int // WaitByLoop budget: skip this core while > 0
+	sleep int  // WaitByLoop budget: skip this core while > 0
+	wfi   bool // CP15 hardware wait; wake on the IRQ line, obey CPSR.I on dispatch
 }
 
 // ipc is the shared IPCSYNC mailbox and the two directional FIFOs.

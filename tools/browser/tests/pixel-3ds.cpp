@@ -1,6 +1,7 @@
 #include "../../platform/n3ds/browser/core/api.cpp"
 #include <cassert>
 int main(){
+ auto backing=Slice<uint8_t>{1,2,3,4};auto borrowed=borrowSub(backing,1,3);assert(!borrowed.owner&&borrowed.n==2);borrowed[0]=9;assert(backing[1]==9);bool bounds=false;try{borrowSub(backing,3,5);}catch(const std::exception&){bounds=true;}assert(bounds);
  assert(n3ds_f24bits(0x3f0000)==1);assert(n3ds_toF24(std::numeric_limits<float>::quiet_NaN())==0);
  assert(go_utf16_Decode(Slice<uint16_t>{0xd83d,0xde00})[0]==0x1f600);
  machine=arenaNew(n3ds_Machine{});machine->CPU=arm_NewCPU(machine);machine->gpu=n3ds_newGPU(machine);auto r=n3ds_Machine_mapRegion(machine,"vram",0x1f000000,Slice<uint8_t>::make(240*400*4));machine->screenFB[0]={0,0x1f000000,0x1f000000,240*4,0,0,true};

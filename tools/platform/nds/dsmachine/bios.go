@@ -254,6 +254,12 @@ func isqrt(v uint64) uint32 {
 // hardware, not behaviour.
 func cp15(c *core) func(*arm.CPU, bool, uint32, uint32, uint32, uint32, uint32, *uint32) {
 	return func(cpu *arm.CPU, load bool, cp, op1, crn, crm, op2 uint32, rd *uint32) {
+		// ARM946E-S TRM, CP15 c7: MCR p15,0,Rd,c7,c0,4 stops the
+		// processor until IRQ/debug assertion. It is not a cache-operation NOP.
+		if !load && cp == 15 && op1 == 0 && crn == 7 && crm == 0 && op2 == 4 {
+			c.wfi = true
+			return
+		}
 		if load || crn != 9 || crm != 1 {
 			return
 		}

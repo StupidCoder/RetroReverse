@@ -34,5 +34,9 @@ for platform in ['n64','threedo','nds','n3ds']:
    if platform=='n3ds' and (m[1] in {'Census','workers','texCache','dec','decEpoch','shEpoch','decodedAll','prof'}):continue
    if name.startswith('Anon') and platform=='n3ds':continue
    if m[1] not in skip.get(name,set()):fields.append('v.'+m[1])
-  out.append(f'inline void stateFields(rrstate::Archive&a,{name}&v){{a('+','.join(fields)+');}')
+  tail=''
+  if platform=='nds' and name=='dsmachine_core':
+   fields.remove('v.wfi')
+   tail='if(!a.reading||rrDSStateVersion>=2)a(v.wfi);'
+  out.append(f'inline void stateFields(rrstate::Archive&a,{name}&v){{a('+','.join(fields)+');'+tail+'}')
  (root/f'tools/platform/{platform}/browser/core/state-fields.h').write_text('\n'.join(out)+'\n')

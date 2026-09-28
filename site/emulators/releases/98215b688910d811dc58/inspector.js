@@ -1,4 +1,14 @@
-export function decodedColor(platform, value, size) {
+export function decodedColor(platform, value, size, format) {
+  if(platform==='3ds'){
+    if(format===0)return [value>>>24,value>>>16&255,value>>>8&255,255];
+    if(format===1)return [value>>>16&255,value>>>8&255,value&255,255];
+    const expand5=n=>(n<<3)|(n>>>2);
+    if(format===2)return [expand5(value>>>11&31),((value>>>5&63)<<2)|(value>>>9&3),expand5(value&31),255];
+    if(format===3)return [expand5(value>>>11&31),expand5(value>>>6&31),expand5(value>>>1&31),255];
+    if(format===4)return [(value>>>12&15)*17,(value>>>8&15)*17,(value>>>4&15)*17,255];
+    return null;
+  }
+  if(platform==='ds')return [value&255,value>>>8&255,value>>>16&255,value>>>24];
   if (platform === 'ps1')
     return [
       (value & 31) << 3, ((value >>> 5) & 31) << 3, ((value >>> 10) & 31) << 3,
@@ -86,13 +96,13 @@ export function createInspector({platform, canvas, send, jump}) {
     p.append(strong, document.createTextNode(String(value)));
     parent.append(p);
   }
-  function sourceButton(parent, label, address, before, expected) {
+  function sourceButton(parent, label, address, before, expected, size = 2) {
     const b = document.createElement('button');
     b.textContent = label;
     b.onclick = () => {
       const id =
           send('source',
-               {capture : capture.id, address, size : 2, before, expected});
+               {capture : capture.id, address, size, before, expected});
       pending($('source-detail'), 'Reading historical source…');
       latest = id;
     };
@@ -174,6 +184,10 @@ export function createInspector({platform, canvas, send, jump}) {
         sourceButton(el, 'Follow palette history', c.paletteAddress,
                      c.paletteBefore, c.paletteValue);
       }
+    }
+    if ((platform === 'ds' || platform === '3ds') && c.command?.hasSource) {
+      line(el, 'Captured source surface', hex(c.sourceAddress));
+      sourceButton(el, 'Follow source history', c.sourceAddress, c.sourceBefore, c.sourceValue, 4);
     }
     if (platform === '3do' && c.command?.kind === 'Cel / CCB') {
       line(el, 'CCB', hex(c.command.ccb));
@@ -282,7 +296,7 @@ export function createInspector({platform, canvas, send, jump}) {
               ? 'Recorded writes reconstruct the final stored bytes'
               : 'Incomplete history: final bytes differ or the capture limit was reached');
       if (!p.blank) {
-        const reconstructed = decodedColor(platform, p.reconstructed, p.size);
+        const reconstructed = decodedColor(platform, p.reconstructed, p.size, p.displayFormat);
         line(
             el, 'Scanout color',
             reconstructed?.every((n, i) => n === rgba[i])

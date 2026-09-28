@@ -567,6 +567,12 @@ func (g *gen) assign(x *ast.AssignStmt) string {
 		}
 		l := g.lhs(x.Lhs[0])
 		if x.Tok == token.DEFINE {
+			if g.function == "dsmachine_vram_read8" && l == "refs" {
+				return "const auto& " + l + " = " + g.e(x.Rhs[0]) + ";\n"
+			}
+			if _, ok := x.Rhs[0].(*ast.FuncLit); ok {
+				return "auto " + l + " = " + g.e(x.Rhs[0]) + ";\n"
+			}
 			// Reviewed non-escaping renderer temporaries. Their source byte slices
 			// must die with this draw/scanline, not remain in the session arena.
 			t := typ(g.t(x.Lhs[0]))
@@ -974,7 +980,15 @@ func main() {
 						args = pre
 					}
 					signature := ret(sig.Results()) + " " + name + "(" + args + ")"
+					if name == "dsmachine_Machine_runQuantum" {
+						signature = strings.ReplaceAll(signature, "Map<uint32_t,std::string> milestones", "const Map<uint32_t,std::string>& milestones")
+						signature = strings.ReplaceAll(signature, "Map<uint32_t,uint64_t> hit", "const Map<uint32_t,uint64_t>& hit")
+					}
 					protos += signature + ";\n"
+					switch name {
+					case "dsmachine_bus_Read", "dsmachine_bus_Read16", "dsmachine_bus_Read32", "dsmachine_bus_Write", "dsmachine_bus_Write16", "dsmachine_bus_Write32":
+						signature = strings.Replace(signature, name+"(", name+"Reference(", 1)
+					}
 					body := g.block(d.Body)
 					pre := ""
 					switch name {
@@ -993,6 +1007,17 @@ func main() {
 						body = body[:len(body)-2] + "rrds::clear3D(g,m);\n}\n"
 					}
 					body = pre + body
+					if name == "dsmachine_Machine_run" {
+						body = "static Map<uint32_t,std::string> noMilestones; static Map<uint32_t,uint64_t> noHits;\n" + body
+						body = strings.ReplaceAll(body, "quantum,cast<int64_t>(2ULL)),{},{});", "quantum,cast<int64_t>(2ULL)),noMilestones,noHits);")
+					}
+
+					if name == "dsmachine_Machine_runQuantum" {
+						body = "uint32_t lastPage = UINT32_MAX;\n" + strings.ReplaceAll(body, "hit[pc]", "(*hit.p)[pc]")
+						body = strings.ReplaceAll(body, "if (get(m->bps,pc))", "if (m->bps.size() && get(m->bps,pc))")
+						body = strings.ReplaceAll(body, "m->visited[shr<uint32_t>(pc,cast<int64_t>(8ULL))] = true;", "if ((pc >> 8) != lastPage) { lastPage=pc >> 8; m->visited[lastPage]=true; }")
+						body = strings.ReplaceAll(body, "if (bool(milestones))", "if (milestones.size())")
+					}
 					namedret := ""
 					for i := 0; i < sig.Results().Len(); i++ {
 						v := sig.Results().At(i)
@@ -1006,6 +1031,6 @@ func main() {
 		}
 	}
 	_ = sort.Strings
-	out += "\n#include \"adapters-decl.h\"\n" + globals + protos + "\n#include \"adapters.h\"\n" + bodies
+	out += "\n#include \"adapters-decl.h\"\n" + globals + protos + "\n#include \"adapters.h\"\n" + bodies + "\n#include \"fast.h\"\n"
 	must(os.WriteFile("tools/platform/nds/browser/core/generated.cpp", []byte(out), 0644))
 }

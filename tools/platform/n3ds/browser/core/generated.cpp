@@ -2208,7 +2208,7 @@ arm_Inst arm_decodeSignedMul(uint32_t w,arm_Inst in){
 uint32_t op = cast<uint32_t>(((shr<uint32_t>(w,cast<int64_t>(21ULL))) & cast<uint32_t>(15ULL)));
 uint32_t x = cast<uint32_t>(((shr<uint32_t>(w,cast<int64_t>(5ULL))) & cast<uint32_t>(1ULL)));
 uint32_t y = cast<uint32_t>(((shr<uint32_t>(w,cast<int64_t>(6ULL))) & cast<uint32_t>(1ULL)));
-std::function<uint8_t(uint32_t)> bt = [&](uint32_t b)->uint8_t{
+auto bt = [&](uint32_t b)->uint8_t{
 if ((b == cast<uint32_t>(0ULL))) {
 return cast<uint8_t>(66ULL);
 }
@@ -2989,7 +2989,7 @@ else {
 addr -= off;
 }
 }
-std::function<void()> writeback = [&]()->void{
+auto writeback = [&]()->void{
 if ((p == cast<uint32_t>(0ULL))) {
 if ((u == cast<uint32_t>(1ULL))) {
 base += off;
@@ -3078,7 +3078,7 @@ else {
 addr -= off;
 }
 }
-std::function<void()> writeback = [&]()->void{
+auto writeback = [&]()->void{
 if ((p == cast<uint32_t>(0ULL))) {
 if ((u == cast<uint32_t>(1ULL))) {
 base += off;
@@ -4234,7 +4234,7 @@ arm_CPU_Halt(c,std::string("unimplemented parallel arithmetic 0x%08X (class %d) 
 return true;
 break;}
 }}
-std::function<uint32_t(uint32_t,uint64_t)> half = [&](uint32_t v,uint64_t h)->uint32_t{
+auto half = [&](uint32_t v,uint64_t h)->uint32_t{
 return cast<uint32_t>(((shr<uint32_t>(v,(cast<uint64_t>((cast<uint64_t>(16ULL) * h))))) & cast<uint32_t>(65535ULL)));
 }
 ;
@@ -6236,7 +6236,7 @@ vd = std::get<0>(tmp95);
 vn = std::get<1>(tmp95);
 vm = std::get<2>(tmp95);
 }
-std::function<void(std::function<float(float,float)>,std::function<double(double,double)>)> binop = [&](std::function<float(float,float)> f32,std::function<double(double,double)> f64)->void{
+auto binop = [&](std::function<float(float,float)> f32,std::function<double(double,double)> f64)->void{
 if (single) {
 arm_CPU_sSet(c,vd,f32(arm_CPU_sGet(c,vn),arm_CPU_sGet(c,vm)));
 }
@@ -7812,7 +7812,7 @@ int64_t idx = cast<int64_t>(cast<uint8_t>(((shr<uint8_t>(hdr,cast<int64_t>(4ULL)
 auto tmp52 = std::make_tuple(cast<int32_t>(s->AdpcmCoeffs[cast<int64_t>((idx * cast<int64_t>(2ULL)))]),cast<int32_t>(s->AdpcmCoeffs[cast<int64_t>((cast<int64_t>((idx * cast<int64_t>(2ULL))) + cast<int64_t>(1ULL)))]));
 int32_t c1 = std::get<0>(tmp52);
 int32_t c2 = std::get<1>(tmp52);
-std::function<int16_t(int32_t)> decode = [&](int32_t nibble)->int16_t{
+auto decode = [&](int32_t nibble)->int16_t{
 if ((nibble >= cast<int32_t>(8ULL))) {
 nibble -= cast<int32_t>(16ULL);
 }
@@ -8079,11 +8079,11 @@ std::tuple<n3ds_ExHeader*,Error> n3ds_ParseExHeader(Slice<uint8_t> b){
 if ((len(b) < cast<int64_t>(512ULL))) {
 return {{},go_fmt_Errorf(std::string("n3ds: ExHeader too short (%d bytes, want >= 0x200)",50),len(b))};
 }
-std::function<uint32_t(int64_t)> u32 = [&](int64_t off)->uint32_t{
+auto u32 = [&](int64_t off)->uint32_t{
 return le_Uint32(sub(b,off,len(b)));
 }
 ;
-std::function<n3ds_CodeSegInfo(int64_t)> seg = [&](int64_t off)->n3ds_CodeSegInfo{
+auto seg = [&](int64_t off)->n3ds_CodeSegInfo{
 return n3ds_CodeSegInfo{u32(off),u32(cast<int64_t>((off + cast<int64_t>(4ULL)))),u32(cast<int64_t>((off + cast<int64_t>(8ULL))))};
 }
 ;
@@ -9212,7 +9212,7 @@ uint8_t idx = std::get<0>(tmp113);
 float delta = std::get<1>(tmp113);
 distAtten = n3ds_GPU_lutLookup(g,cast<int64_t>((cast<int64_t>(16ULL) + l->index)),idx,delta);
 }
-std::function<float(uint64_t,int64_t)> lut = [&](uint64_t field,int64_t t)->float{
+auto lut = [&](uint64_t field,int64_t t)->float{
 uint32_t in = cast<uint32_t>((shr<uint32_t>(ls->lutIn,field) & cast<uint32_t>(7ULL)));
 bool abs = (cast<uint32_t>((shr<uint32_t>(ls->lutAbs,(cast<uint64_t>((field + cast<uint64_t>(1ULL))))) & cast<uint32_t>(1ULL))) == cast<uint32_t>(0ULL));
 float c={};
@@ -9963,7 +9963,7 @@ g->outs = Slice<n3ds_vsOut>::make(count);
 Slice<n3ds_vsOut> outs = sub(g->outs,0,count);
 int64_t entry = cast<int64_t>(cast<uint32_t>((g->Regs[cast<int64_t>(698ULL)] & cast<uint32_t>(4095ULL))));
 int64_t maxIn = cast<int64_t>((cast<int64_t>(cast<uint32_t>((g->Regs[cast<int64_t>(697ULL)] & cast<uint32_t>(15ULL)))) + cast<int64_t>(1ULL)));
-std::function<bool(uint32_t,std::array<std::array<float,4>,16>*,std::array<std::array<float,4>,16>*,std::array<std::array<float,4>,16>*)> shadeVertex = [&](uint32_t i,std::array<std::array<float,4>,16>* vin,std::array<std::array<float,4>,16>* vout,std::array<std::array<float,4>,16>* attrs)->bool{
+auto shadeVertex = [&](uint32_t i,std::array<std::array<float,4>,16>* vin,std::array<std::array<float,4>,16>* vout,std::array<std::array<float,4>,16>* attrs)->bool{
 uint32_t vi = cast<uint32_t>((first + i));
 if (indexed) {
 if (idx16) {
@@ -10091,7 +10091,7 @@ n3ds_tevState tev = n3ds_GPU_tevstate(g);
 uint32_t prim = cast<uint32_t>((shr<uint32_t>(g->Regs[cast<int64_t>(606ULL)],cast<int64_t>(8ULL)) & cast<uint32_t>(3ULL)));
 int64_t n = len(outs);
 Slice<n3ds_rasterTri> tris = sub(g->tris,0,cast<int64_t>(0ULL));
-std::function<void(int64_t,int64_t,int64_t)> emit = [&](int64_t a,int64_t b,int64_t c)->void{
+auto emit = [&](int64_t a,int64_t b,int64_t c)->void{
 {
 auto tmp157 = n3ds_GPU_setupTri(g,(&outs[a]),(&outs[b]),(&outs[c]),(&fb));
 n3ds_rasterTri t = std::get<0>(tmp157);
@@ -10408,7 +10408,7 @@ if (((((((!((a->pos[cast<int64_t>(3ULL)] > cast<float>(0.00000000000000000e+00))
 g->RejectedTris++;
 return {t,false};
 }
-std::function<n3ds_scrVert(n3ds_vsOut*)> toScreen = [&](n3ds_vsOut* v)->n3ds_scrVert{
+auto toScreen = [&](n3ds_vsOut* v)->n3ds_scrVert{
 float iw = cast<float>((cast<float>(1.00000000000000000e+00) / v->pos[cast<int64_t>(3ULL)]));
 return n3ds_scrVert{cast<float>(((cast<float>((cast<float>((v->pos[cast<int64_t>(0ULL)] * iw)) + cast<float>(1.00000000000000000e+00)))) * fb->vpHalfW)),cast<float>(((cast<float>((cast<float>((v->pos[cast<int64_t>(1ULL)] * iw)) + cast<float>(1.00000000000000000e+00)))) * fb->vpHalfH)),cast<float>((v->pos[cast<int64_t>(2ULL)] * iw)),iw,v->color,v->uv,v->uv0w,v->quat,v->view};
 }
@@ -10467,7 +10467,7 @@ int64_t maxX = std::get<1>(tmp178);
 auto tmp179 = std::make_tuple(yLo,yHi);
 int64_t minY = std::get<0>(tmp179);
 int64_t maxY = std::get<1>(tmp179);
-std::function<float(float,float,float,float,float,float)> edge = n3ds_edgeFn;
+auto edge = n3ds_edgeFn;
 {int64_t y = minY;for (;(y < maxY);y++){
 uint32_t ty = cast<uint32_t>(cast<int64_t>((cast<int64_t>((cast<int64_t>(fb->height) - cast<int64_t>(1ULL))) - y)));
 {int64_t x = minX;for (;(x < maxX);x++){
@@ -10502,7 +10502,7 @@ st->depthKilled++;
 n3ds_GPU_pixelEvent(g,cast<uint32_t>(x),ty,n3ds_PixelEvent{{},true,{},{},{},{},{}});
 continue;
 }
-std::function<float(float,float,float)> pc = [&](float a0,float a1,float a2)->float{
+auto pc = [&](float a0,float a1,float a2)->float{
 return cast<float>(((cast<float>((cast<float>((cast<float>((cast<float>((l0 * a0)) * v0->iw)) + cast<float>((cast<float>((l1 * a1)) * v1->iw)))) + cast<float>((cast<float>((l2 * a2)) * v2->iw))))) / iw));
 }
 ;
@@ -10568,7 +10568,7 @@ return true;
 }
 uint32_t old={};
 if (bool(fb->depthBuf)) {
-Slice<uint8_t> d = sub(fb->depthBuf,cast<uint32_t>((fb->depthOff32 + off)),len(fb->depthBuf));
+Slice<uint8_t> d = borrowSub(fb->depthBuf,cast<uint32_t>((fb->depthOff32 + off)),len(fb->depthBuf));
 old = cast<uint32_t>((cast<uint32_t>((cast<uint32_t>(d[cast<int64_t>(0ULL)]) | shl<uint32_t>(cast<uint32_t>(d[cast<int64_t>(1ULL)]),cast<int64_t>(8ULL)))) | shl<uint32_t>(cast<uint32_t>(d[cast<int64_t>(2ULL)]),cast<int64_t>(16ULL))));
 }
 else {
@@ -10613,7 +10613,7 @@ return ;
 }
 uint32_t nv = cast<uint32_t>(cast<float>((depth * cast<float>(1.67772150000000000e+07))));
 if (bool(fb->depthBuf)) {
-Slice<uint8_t> d = sub(fb->depthBuf,cast<uint32_t>((fb->depthOff32 + off)),len(fb->depthBuf));
+Slice<uint8_t> d = borrowSub(fb->depthBuf,cast<uint32_t>((fb->depthOff32 + off)),len(fb->depthBuf));
 auto tmp183 = std::make_tuple(cast<uint8_t>(nv),cast<uint8_t>(shr<uint32_t>(nv,cast<int64_t>(8ULL))),cast<uint8_t>(shr<uint32_t>(nv,cast<int64_t>(16ULL))));
 d[cast<int64_t>(0ULL)] = std::get<0>(tmp183);
 d[cast<int64_t>(1ULL)] = std::get<1>(tmp183);
@@ -10635,7 +10635,7 @@ uint8_t db={};
 uint8_t dg={};
 uint8_t dr={};
 if (bool(fb->colorBuf)) {
-dst = sub(fb->colorBuf,cast<uint32_t>((fb->colorOff + off)),len(fb->colorBuf));
+dst = borrowSub(fb->colorBuf,cast<uint32_t>((fb->colorOff + off)),len(fb->colorBuf));
 auto tmp184 = std::make_tuple(dst[cast<int64_t>(0ULL)],dst[cast<int64_t>(1ULL)],dst[cast<int64_t>(2ULL)],dst[cast<int64_t>(3ULL)]);
 da = std::get<0>(tmp184);
 db = std::get<1>(tmp184);
@@ -11549,7 +11549,7 @@ uint32_t fdC = std::get<1>(tmp223);
 auto tmp224 = std::make_tuple(cast<uint32_t>((shr<uint32_t>(cfg,cast<int64_t>(24ULL)) & cast<uint32_t>(15ULL))),cast<uint32_t>((shr<uint32_t>(cfg,cast<int64_t>(28ULL)) & cast<uint32_t>(15ULL))));
 uint32_t fsA = std::get<0>(tmp224);
 uint32_t fdA = std::get<1>(tmp224);
-std::function<std::tuple<int32_t,int32_t,int32_t>(uint32_t,int32_t,int32_t,int32_t,int32_t,bool)> factor = [&](uint32_t code,int32_t s,int32_t d,int32_t sA,int32_t dA,bool isA)->std::tuple<int32_t,int32_t,int32_t>{
+auto factor = [&](uint32_t code,int32_t s,int32_t d,int32_t sA,int32_t dA,bool isA)->std::tuple<int32_t,int32_t,int32_t>{
 uint32_t cc = g->Regs[cast<int64_t>(259ULL)];
 auto tmp225 = std::make_tuple(cast<int32_t>(cast<uint32_t>((cc & cast<uint32_t>(255ULL)))),cast<int32_t>(cast<uint32_t>((shr<uint32_t>(cc,cast<int64_t>(8ULL)) & cast<uint32_t>(255ULL)))),cast<int32_t>(cast<uint32_t>((shr<uint32_t>(cc,cast<int64_t>(16ULL)) & cast<uint32_t>(255ULL)))));
 int32_t cr = std::get<0>(tmp225);
@@ -11618,7 +11618,7 @@ arm_CPU_Halt(g->m->CPU,std::string("gpu: blend factor %d unimplemented",34),code
 return {cast<int32_t>(0ULL),cast<int32_t>(0ULL),cast<int32_t>(0ULL)};
 }
 ;
-std::function<int32_t(uint32_t,int32_t,int32_t,int32_t,int32_t)> apply = [&](uint32_t eq,int32_t s,int32_t d,int32_t fs,int32_t fd)->int32_t{
+auto apply = [&](uint32_t eq,int32_t s,int32_t d,int32_t fs,int32_t fd)->int32_t{
 {
 switch(eq){
 case cast<uint32_t>(0ULL):{
@@ -11706,7 +11706,7 @@ std::tuple<n3ds_rgba,bool> n3ds_tevState_run(n3ds_tevState* t,n3ds_rgba vertex,n
 n3ds_rgba prev = vertex;
 n3ds_rgba buf={};
 n3ds_rgba next = t->bufColor;
-std::function<std::tuple<n3ds_rgba,bool>(uint8_t)> fetch = [&](uint8_t sel)->std::tuple<n3ds_rgba,bool>{
+auto fetch = [&](uint8_t sel)->std::tuple<n3ds_rgba,bool>{
 {
 switch(sel){
 case cast<uint8_t>(0ULL):{
@@ -11999,7 +11999,7 @@ return {img,true};
 time_Time t = n3ds_Machine_profStart(g->m);
 auto tmp252=defer([&](){n3ds_Machine_profEnd(g->m,cast<int64_t>(3ULL),t);});
 n3ds_texImage* img = rrNewTexture(n3ds_texImage{w,h,Slice<uint8_t>::make(cast<uint32_t>((cast<uint32_t>((w * h)) * cast<uint32_t>(4ULL))))});
-std::function<void(uint32_t,uint32_t,uint8_t,uint8_t,uint8_t,uint8_t)> put = [&](uint32_t x,uint32_t y,uint8_t r,uint8_t gr,uint8_t b,uint8_t a)->void{
+auto put = [&](uint32_t x,uint32_t y,uint8_t r,uint8_t gr,uint8_t b,uint8_t a)->void{
 uint32_t p = cast<uint32_t>(((cast<uint32_t>((cast<uint32_t>((y * w)) + x))) * cast<uint32_t>(4ULL)));
 auto tmp253 = std::make_tuple(r,gr,b,a);
 img->pix[p] = std::get<0>(tmp253);
@@ -12796,7 +12796,7 @@ if ((((m->HidPulse > cast<int64_t>(0ULL)) && (cur != cast<uint32_t>(0ULL))) && (
 cur = cast<uint32_t>(0ULL);
 }
 m->hidPrevButtons = cur;
-std::function<void(uint32_t)> writeHeader = [&](uint32_t sb)->void{
+auto writeHeader = [&](uint32_t sb)->void{
 uint32_t base = cast<uint32_t>((m->hidSharedAddr + sb));
 n3ds_Machine_WriteWord(m,cast<uint32_t>((base + cast<uint32_t>(0ULL))),cast<uint32_t>(tick));
 n3ds_Machine_WriteWord(m,cast<uint32_t>((base + cast<uint32_t>(4ULL))),cast<uint32_t>(shr<uint64_t>(tick,cast<int64_t>(32ULL))));
@@ -14029,7 +14029,7 @@ c->Version = le_Uint16(sub(h,cast<int64_t>(18ULL),len(h)));
 c->ProgramID = le_Uint64(sub(h,cast<int64_t>(24ULL),len(h)));
 c->ProductCode = cast<std::string>(n3ds_trimNul(sub(h,cast<int64_t>(80ULL),cast<int64_t>(96ULL))));
 c->ExHeaderSize = cast<int64_t>(le_Uint32(sub(h,cast<int64_t>(128ULL),len(h))));
-std::function<n3ds_region(int64_t)> rd = [&](int64_t off)->n3ds_region{
+auto rd = [&](int64_t off)->n3ds_region{
 return n3ds_region{cast<int64_t>((cast<int64_t>(le_Uint32(sub(h,off,len(h)))) * c->MediaUnitSize)),cast<int64_t>((cast<int64_t>(le_Uint32(sub(h,cast<int64_t>((off + cast<int64_t>(4ULL))),len(h)))) * c->MediaUnitSize))};
 }
 ;
@@ -14281,7 +14281,7 @@ return n3ds_DecodePICAInto({},buf);
 // tools/platform/n3ds/pica.go:50:1
 std::tuple<Slice<n3ds_PICAWrite>,Error> n3ds_DecodePICAInto(Slice<n3ds_PICAWrite> dst,Slice<uint8_t> buf){
 {
-std::function<uint32_t(uint32_t)> word = [&](uint32_t off)->uint32_t{
+auto word = [&](uint32_t off)->uint32_t{
 return cast<uint32_t>((cast<uint32_t>((cast<uint32_t>((cast<uint32_t>(buf[off]) | shl<uint32_t>(cast<uint32_t>(buf[cast<uint32_t>((off + cast<uint32_t>(1ULL)))]),cast<int64_t>(8ULL)))) | shl<uint32_t>(cast<uint32_t>(buf[cast<uint32_t>((off + cast<uint32_t>(2ULL)))]),cast<int64_t>(16ULL)))) | shl<uint32_t>(cast<uint32_t>(buf[cast<uint32_t>((off + cast<uint32_t>(3ULL)))]),cast<int64_t>(24ULL))));
 }
 ;
@@ -14419,7 +14419,7 @@ total += cast<int64_t>(go_time_Since(p->runStart));
 p->runStart = go_time_Now();
 }
 p->frameNs = cast<int64_t>(0ULL);
-std::function<double(int64_t)> ms = [&](int64_t ns)->double{
+auto ms = [&](int64_t ns)->double{
 return cast<double>((cast<double>(ns) / cast<double>(1.00000000000000000e+06)));
 }
 ;
@@ -14532,7 +14532,7 @@ if ((hl != cast<uint32_t>(40ULL))) {
 return {{},go_fmt_Errorf(std::string("romfs: level-3 header length 0x%x at offset 0x%x, want 0x%x \342\200\224 IVFC level walk mislanded",89),hl,off,cast<int64_t>(40ULL))};
 }
 }
-std::function<uint32_t(int64_t)> u32 = [&](int64_t o)->uint32_t{
+auto u32 = [&](int64_t o)->uint32_t{
 return le_Uint32(sub(l3,o,len(l3)));
 }
 ;
@@ -14573,7 +14573,7 @@ if ((cast<int64_t>((cast<int64_t>(dirOff) + cast<int64_t>(24ULL))) > len(dirMeta
 return go_fmt_Errorf(std::string("romfs: directory entry at 0x%x runs past the metadata table",59),dirOff);
 }
 Slice<uint8_t> d = sub(dirMeta,dirOff,len(dirMeta));
-std::function<uint32_t(int64_t)> u32 = [&](int64_t o)->uint32_t{
+auto u32 = [&](int64_t o)->uint32_t{
 return le_Uint32(sub(d,o,len(d)));
 }
 ;
@@ -15887,7 +15887,7 @@ std::tuple<uint64_t,bool> n3ds_Machine_soonestSleeper(n3ds_Machine* m){
 {
 uint64_t soonest={};
 bool found = false;
-std::function<void(uint64_t)> at = [&](uint64_t tick)->void{
+auto at = [&](uint64_t tick)->void{
 if (((!found) || (tick < soonest))) {
 auto tmp427 = std::make_tuple(tick,true);
 soonest = std::get<0>(tmp427);

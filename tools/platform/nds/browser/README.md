@@ -39,3 +39,8 @@ The optional `touch` sequence is for the tested European Super Mario 64 DS image
 The core and UI contain no title-specific boot script. An unfamiliar NDS image is
 accepted, subject to the original emulator's device coverage. See
 `tools/browser/docs/HANDHELD-PORTS.md` for measured results and limitations.
+
+Performance work and the ARM9 CP15 WFI correction are documented in
+`tools/browser/docs/HANDHELD-PERFORMANCE.md`. `core/fast.h` contains bounded bus
+fast paths; the generator retains reference bus functions for regression checks.
+Raw states are version 2 (WFI included), with development version-1 import.

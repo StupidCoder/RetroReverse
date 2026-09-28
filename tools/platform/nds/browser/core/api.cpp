@@ -17,8 +17,8 @@ uint8_t*rr_frame(){pixels=frame(machine);return pixels.data();}
 }
 #include "state.h"
 static std::vector<std::shared_ptr<void>> stateOwners;
-static void stateWrite(rrstate::Archive&a){a.header(5,1);a(machine);}
-static void stateRead(rrstate::Archive&a){a.header(5,1);dsmachine_Machine*next=nullptr;a(next);a.finish();rebindState(next,cartridge);bindFrameBoundary(next);machine=next;stateOwners=std::move(a.owned);}
+static void stateWrite(rrstate::Archive&a){rrDSStateVersion=2;a.header(5,2);a(machine);}
+static void stateRead(rrstate::Archive&a){if(a.bytes.size()<12)throw std::runtime_error("Truncated DS state");rrDSStateVersion=uint32_t(a.bytes[8])|uint32_t(a.bytes[9])<<8|uint32_t(a.bytes[10])<<16|uint32_t(a.bytes[11])<<24;if(rrDSStateVersion!=1&&rrDSStateVersion!=2)throw std::runtime_error("Unsupported DS state version");a.header(5,rrDSStateVersion);dsmachine_Machine*next=nullptr;a(next);a.finish();rebindState(next,cartridge);bindFrameBoundary(next);machine=next;stateOwners=std::move(a.owned);}
 #include "../../../../browser/state/api.inc"
 static bool captureSwap=false;
 extern "C" {

@@ -36,7 +36,7 @@ inline void stateFields(rrstate::Archive&a,dsmachine_profiler&v){a(v.on,v.frameS
 inline void stateFields(rrstate::Archive&a,dsmachine_ipc&v){a(v.sync9,v.sync7,v.to7,v.to9);}
 inline void stateFields(rrstate::Archive&a,dsmachine_Machine&v){a(v.ram,v.swram,v.pal,v.oam,v.vram,v.cd,v.spi,v.gpu2d,v.gpu3d,v.vid,v.div,v.sqrt,v.prof,v.powcnt,v.keys,v.wramcnt,v.ipc,v.ARM9,v.ARM7,v.Steps,v.Log,v.logSeen,v.visited,v.bps,v.stop,v.stopped,v.stoppedPC);}
 inline void stateFields(rrstate::Archive&a,dsmachine_timer&v){a(v.counter,v.reload,v.ctrl,v.frac);}
-inline void stateFields(rrstate::Archive&a,dsmachine_core&v){a(v.m,v.cpu,v.name,v.arm9,v.itcm,v.itcmBase,v.dtcm,v.dtcmBase,v.low,v.wram7,v.dma,v.timers,v.ime,v.ie,v.if_,v.waiting,v.waitMask,v.waitAny,v.handlerBase,v.io,v.lastRecv,v.sleep);}
+inline void stateFields(rrstate::Archive&a,dsmachine_core&v){a(v.m,v.cpu,v.name,v.arm9,v.itcm,v.itcmBase,v.dtcm,v.dtcmBase,v.low,v.wram7,v.dma,v.timers,v.ime,v.ie,v.if_,v.waiting,v.waitMask,v.waitAny,v.handlerBase,v.io,v.lastRecv,v.sleep);if(!a.reading||rrDSStateVersion>=2)a(v.wfi);}
 inline void stateFields(rrstate::Archive&a,dsmachine_Profile&v){a(v.TotalMs,v.GeometryMs,v.RasterMs,v.ComposeMs,v.DMAMs,v.CPUMs,v.Commands,v.Polygons,v.Fragments,v.DMAXfers,v.Frames);}
 inline void stateFields(rrstate::Archive&a,dsmachine_Result&v){a(v.Steps,v.Frames,v.Reason,v.ARM9Milest);}
 inline void stateFields(rrstate::Archive&a,dsmachine_spibus&v){a(v.firmware,v.dev,v.phase,v.cmd,v.addr,v.out,v.chanSel,v.resultIdx,v.touchX,v.touchY,v.touchDown);}
@@ -65,7 +65,7 @@ inline void stateFields(rrstate::Archive&a,Anon27&v){a(v.tex,v.hasTex,v.mode,v.a
 inline void stateFields(rrstate::Archive&a,Anon28&v){a(v.base,v.pal,v.sizeS,v.sizeT,v.format,v.repeatS,v.repeatT,v.flipS,v.flipT,v.color0);}
 inline void stateFields(rrstate::Archive&a,Anon29&v){a(v.ram,v.swram,v.pal,v.oam,v.vram,v.cd,v.spi,v.gpu2d,v.gpu3d,v.vid,v.div,v.sqrt,v.prof,v.powcnt,v.keys,v.wramcnt,v.ipc,v.ARM9,v.ARM7,v.Steps,v.Log,v.logSeen,v.visited,v.bps,v.stop,v.stopped,v.stoppedPC);}
 inline void stateFields(rrstate::Archive&a,Anon3&v){a(v.bit,v.name);}
-inline void stateFields(rrstate::Archive&a,Anon30&v){a(v.m,v.cpu,v.name,v.arm9,v.itcm,v.itcmBase,v.dtcm,v.dtcmBase,v.low,v.wram7,v.dma,v.timers,v.ime,v.ie,v.if_,v.waiting,v.waitMask,v.waitAny,v.handlerBase,v.io,v.lastRecv,v.sleep);}
+inline void stateFields(rrstate::Archive&a,Anon30&v){a(v.m,v.cpu,v.name,v.arm9,v.itcm,v.itcmBase,v.dtcm,v.dtcmBase,v.low,v.wram7,v.dma,v.timers,v.ime,v.ie,v.if_,v.waiting,v.waitMask,v.waitAny,v.handlerBase,v.io,v.lastRecv,v.sleep,v.wfi);}
 inline void stateFields(rrstate::Archive&a,Anon31&v){a(v.sync9,v.sync7,v.to7,v.to9);}
 inline void stateFields(rrstate::Archive&a,Anon32&v){a(v.cnt,v.numer,v.denom,v.result,v.rem);}
 inline void stateFields(rrstate::Archive&a,Anon33&v){a(v.cnt,v.param,v.result);}

@@ -1,5 +1,7 @@
 # DS and 3DS C++/WASM ports
 
+These are initial-port measurements. See [the subsequent performance refactor](HANDHELD-PERFORMANCE.md) for current results.
+
 Both ports join the static Pages release, shared local-media flow, pause/reset,
 keyboard/on-screen/gamepad input, subsystem timings, portable states and pixel
 inspection / rendering replay. They require no server or separately installed

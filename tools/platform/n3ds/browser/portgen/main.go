@@ -608,6 +608,16 @@ func (g *gen) assign(x *ast.AssignStmt) string {
 		}
 		l := g.lhs(x.Lhs[0])
 		if x.Tok == token.DEFINE {
+			// Local lambdas and direct function aliases need no type erasure.
+			// Large captures otherwise allocate a std::function per fragment.
+			if _, ok := x.Rhs[0].(*ast.FuncLit); ok {
+				return "auto " + l + " = " + g.e(x.Rhs[0]) + ";\n"
+			}
+			if ident, ok := x.Rhs[0].(*ast.Ident); ok {
+				if _, ok := g.u.info.Uses[ident].(*types.Func); ok {
+					return "auto " + l + " = " + g.e(x.Rhs[0]) + ";\n"
+				}
+			}
 			// Reviewed non-escaping renderer temporaries. Their source byte slices
 			// must die with this draw/scanline, not remain in the session arena.
 			t := typ(g.t(x.Lhs[0]))
@@ -1056,6 +1066,9 @@ func main() {
 						body = strings.ReplaceAll(body, "n3ds_decodeETC1A4(data,cast<int64_t>(w),cast<int64_t>(h))->Pix", "rrDecodeETC(data,w,h,true)")
 					}
 					body = pre + body
+					if name == "n3ds_GPU_depthCompare" || name == "n3ds_GPU_depthWrite" || name == "n3ds_GPU_writePixel" {
+						body = strings.ReplaceAll(body, "sub(fb->", "borrowSub(fb->")
+					}
 					namedret := ""
 					for i := 0; i < sig.Results().Len(); i++ {
 						v := sig.Results().At(i)

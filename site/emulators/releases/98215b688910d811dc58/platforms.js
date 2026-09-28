@@ -1,4 +1,18 @@
 export const platforms = {
+  "3ds": {
+    name:'Nintendo 3DS',accept:'.cci,.3ds',hz:60,
+    help:'Arrows move the circle pad and D-pad. X / Z are A / B, C / V are X / Y. Enter is Start, Shift is Select, Q / E are L / R. Click or drag the lower screen to use the stylus. Pause to inspect either screen.',
+    compat:'Decrypted CCI / NCSD cartridge images, at most 1 GiB. ARM11 + Horizon HLE and software PICA200 rendering. No system firmware required. Encrypted images, CIA packages and unsupported GPU features are rejected. Compatibility inherits the experimental Go core. Audio output and stereoscopic display are not exposed.',
+    buttons:[['↑',64],['↓',128],['←',32],['→',16],['A',1],['B',2],['X',1024],['Y',2048],['Start',8],['Select',4],['L',512],['R',256]],
+    keys:{ArrowUp:64,ArrowDown:128,ArrowLeft:32,ArrowRight:16,x:1,z:2,c:1024,v:2048,Enter:8,Shift:4,q:512,e:256}
+  },
+  ds: {
+    name:'Nintendo DS',accept:'.nds',hz:60,
+    help:'Arrows move. X / Z are A / B, C / V are X / Y. Enter is Start, Shift is Select, Q / E are L / R. Click or drag the lower screen to use the stylus. Pause to inspect either screen.',
+    compat:'ARM9 / ARM7, synthetic firmware and BIOS HLE, two 2D engines and software 3D. Compatibility inherits the experimental Go core; audio, display capture, fog and edge marking remain incomplete.',
+    buttons:[['↑',64],['↓',128],['←',32],['→',16],['A',1],['B',2],['X',1024],['Y',2048],['Start',8],['Select',4],['L',512],['R',256]],
+    keys:{ArrowUp:64,ArrowDown:128,ArrowLeft:32,ArrowRight:16,x:1,z:2,c:1024,v:2048,Enter:8,Shift:4,q:512,e:256}
+  },
   c64 : {
     name : 'Commodore 64',
     accept : '.tap',

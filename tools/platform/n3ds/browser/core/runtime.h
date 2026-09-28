@@ -5,6 +5,11 @@
 template<class T,size_t N>std::ostream&operator<<(std::ostream&o,const std::array<T,N>&a){o<<'[';for(auto v:a)o<<v<<' ';return o<<']';}
 #include "../../../nds/browser/core/runtime.h"
 struct sync_WaitGroup{};
+// Only used for non-escaping render-target views while the draw owns the memory.
+template<class T>Slice<T>borrowSub(const Slice<T>&s,int64_t lo,int64_t hi){
+ if(lo<0||hi<lo||hi>s.c)throw std::runtime_error("slice bounds");
+ Slice<T>v;v.p=s.p+lo;v.n=hi-lo;v.c=s.c-lo;return v;
+}
 
 struct n3ds_workPool{};
 using image_NRGBA=image_RGBA;using color_NRGBA=color_RGBA;

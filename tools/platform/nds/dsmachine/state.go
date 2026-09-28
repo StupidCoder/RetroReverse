@@ -130,6 +130,7 @@ type coreState struct {
 	HandlerBase uint32
 	LastRecv    uint32
 	Sleep       int
+	WFI         bool
 }
 
 type dmaChanState struct {
@@ -341,6 +342,7 @@ func coreSnapshot(c *core) coreState {
 		IME: c.ime, IE: c.ie, IF: c.if_,
 		Waiting: c.waiting, WaitMask: c.waitMask, WaitAny: c.waitAny,
 		HandlerBase: c.handlerBase, LastRecv: c.lastRecv, Sleep: c.sleep,
+		WFI: c.wfi,
 	}
 	for k, v := range c.io {
 		cs.IO[k] = v
@@ -443,6 +445,7 @@ func coreRestore(c *core, cs *coreState) {
 	c.ime, c.ie, c.if_ = cs.IME, cs.IE, cs.IF
 	c.waiting, c.waitMask, c.waitAny = cs.Waiting, cs.WaitMask, cs.WaitAny
 	c.handlerBase, c.lastRecv, c.sleep = cs.HandlerBase, cs.LastRecv, cs.Sleep
+	c.wfi = cs.WFI
 }
 
 func toGeomState(g *geom) geomState {

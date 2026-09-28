@@ -146,7 +146,7 @@ func (m *Machine) run(budget uint64, quantum int, milestones map[uint32]string, 
 // runQuantum steps one core up to n instructions, unless it is parked in an
 // interrupt wait (then it does nothing until the scheduler delivers an IRQ).
 func (m *Machine) runQuantum(c *core, n int, milestones map[uint32]string, hit map[uint32]uint64) {
-	if c.waiting {
+	if c.waiting || c.wfi {
 		return
 	}
 	if c.sleep > 0 { // in a WaitByLoop delay: let wall-time pass for the other core
@@ -154,7 +154,7 @@ func (m *Machine) runQuantum(c *core, n int, milestones map[uint32]string, hit m
 		return
 	}
 	for i := 0; i < n; i++ {
-		if c.waiting || c.sleep > 0 || c.cpu.Halted || m.stop {
+		if c.waiting || c.wfi || c.sleep > 0 || c.cpu.Halted || m.stop {
 			return
 		}
 		if c.cpu.R[15] == biosIRQReturn {
@@ -218,6 +218,14 @@ func (m *Machine) deliver(c *core) {
 	pending := c.ie & c.if_
 	if pending == 0 || !c.ime {
 		return
+	}
+	// Hardware WFI wakes even when CPSR.I masks exception entry. BIOS
+	// IntrWait is a separate software wait and retains its existing semantics.
+	if c.wfi {
+		c.wfi = false
+		if c.cpu.IRQDisable {
+			return
+		}
 	}
 	if c.waiting {
 		// Wake only for the sources actually waited on (Halt waits for any).

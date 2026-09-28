@@ -1,5 +1,5 @@
 import {createReplay} from './replay.js';
-import {createInspector} from './inspector.js';
+import {pixelCoordinates,createInspector} from './inspector.js';
 import {platforms} from './platforms.js';
 const $ = id => document.getElementById(id),
       platform = document.body.dataset.platform, config = platforms[platform],
@@ -27,6 +27,7 @@ function queuePresentation(m){
 }
 const sources = new Map(), c64Keys = new Set();
 let lastInput = '', gamepadLabel = '';
+let inputTouch={x:0,y:0,down:false};
 $('files').accept = config.accept;
 $('help').textContent = config.help;
 $('compat').textContent = config.compat;
@@ -227,6 +228,7 @@ function input(keys = []) {
     }
   }
   const state = {
+    ...((platform==='ds'||platform==='3ds')?{touch:inputTouch}:{}),
     buttons : buttons >>> 0,
     x : Math.max(-80, Math.min(80, x)),
     y : Math.max(-80, Math.min(80, y))
@@ -309,6 +311,7 @@ for (const down of [true, false])
     }
   });
 function release() {
+  inputTouch={...inputTouch,down:false};
   sources.clear();
   input([...c64Keys ].map(code => [code, 0]));
   c64Keys.clear();
@@ -321,7 +324,17 @@ document.addEventListener('visibilitychange', () => {
     send('hold');
   }
 });
+if(platform==='ds'||platform==='3ds'){
+ let stylus=null;const screenHeight=platform==='ds'?192:240,screenWidth=platform==='ds'?256:320,left=platform==='ds'?0:40;
+ const point=e=>{const p=pixelCoordinates(canvas.getBoundingClientRect(),canvas.width,canvas.height,e.clientX,e.clientY);return p&&p.y>=screenHeight&&p.x>=left&&p.x<left+screenWidth?{x:p.x-left,y:p.y-screenHeight}:null;};
+ const pen=(e,down)=>{if(!loaded||inspector.isInspecting())return;const p=point(e);if(down&&!p)return;e.preventDefault();inputTouch={x:p?.x??inputTouch.x,y:p?.y??inputTouch.y,down};input();};
+ canvas.addEventListener('pointerdown',e=>{if(!point(e)||inspector.isInspecting())return;stylus=e.pointerId;canvas.setPointerCapture(stylus);canvas.focus();pen(e,true);});
+ canvas.addEventListener('pointermove',e=>{if(e.pointerId===stylus)pen(e,true);});
+ for(const type of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(e.pointerId===stylus){pen(e,false);stylus=null;}});
+}
 const gamepadMaps = {
+ '3ds':{0:1,1:2,2:2048,3:1024,4:512,5:256,8:4,9:8,12:64,13:128,14:32,15:16},
+ ds:{0:1,1:2,2:2048,3:1024,4:512,5:256,8:4,9:8,12:64,13:128,14:32,15:16},
   c64 : {0 : 16, 12 : 1, 13 : 2, 14 : 4, 15 : 8},
   ps1 : {
     0 : 16384,
@@ -393,9 +406,11 @@ function pollPad() {
       if (axis(p.axes[3]) > 30)
         bits.push(4);
       sources.set('gamepad:' + p.index, {bits, ax : x, ay : y});
+    } else if(platform==='3ds'){
+      sources.set('gamepad:'+p.index,{bits,ax:x,ay:y});
     } else {
       const directions =
-          platform === 'ps1' ? [ 128, 32, 16, 64 ]
+          platform === 'ds' ? [32,16,64,128] : platform === 'ps1' ? [ 128, 32, 16, 64 ]
           : platform === 'c64'
               ? [ 4, 8, 1, 2 ]
               : [ 0x10000000, 0x20000000, 0x40000000, 0x80000000 ];
