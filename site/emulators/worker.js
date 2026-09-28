@@ -130,7 +130,7 @@ function tick(one = false) {
   else if (platform === 'n64')
     check(core._rr_run(one ? Math.min(10000, 750000 - status().steps % 750000)
                            : 10000) >= 0);
-  else if(platform==='ds'||platform==='3ds'||platform==='psp')check(core._rr_run(10000)>=0);
+  else if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gb'||platform==='gg')check(core._rr_run(10000)>=0);
   else
     check(core._rr_run_slice(10000));
   const ms = performance.now() - start;
@@ -187,10 +187,10 @@ async function captureNext(){
  try{
    await boundary('Finishing current interval.');
    const startState=coreState(),start=status(),input=queueState();
-   const captureStarted=core._rr_capture_begin();if(platform==='ds'||platform==='3ds'||platform==='psp')check(captureStarted);
+   const captureStarted=core._rr_capture_begin();if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gb'||platform==='gg')check(captureStarted);
    const captureFields=platform==='ps1'?4:platform==='3ds'?3:platform==='ds'?2:1;
    for(let field=0;field<captureFields;field++)await boundary(captureFields>1?'Recording display and double-buffer producer context.':'Recording next complete interval.');
-   const ended=core._rr_capture_end();if(platform==='ds'||platform==='3ds'||platform==='psp')check(ended);const captureProfile=finishCaptureProfile();capturing=false;
+   const ended=core._rr_capture_end();if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gb'||platform==='gg')check(ended);const captureProfile=finishCaptureProfile();capturing=false;
    const endState=coreState(),end=status(),info=json('_rr_capture_info'),replay=json('_rr_replay_begin');
    const w=platform==='c64'?392:end.width||320,h=platform==='c64'?272:end.height||240,p=core._rr_frame();
    const pixels=core.HEAPU8.slice(p,p+w*h*4);
@@ -300,8 +300,9 @@ async function boot(m) {
       throw Error('Disc exceeds 4 GiB limit');
     core.discFile = f;
     check(core._rr_init_file(f.size) > 0);
-  } else if(platform==='ds'||platform==='3ds'){
-    const limit=platform==='ds'?512:1024;if(f.size>limit*1024*1024)throw Error(`Cartridge exceeds ${limit} MiB`);
+  } else if(platform==='ds'||platform==='3ds'||platform==='gb'||platform==='gg'){
+    const limit=platform==='gb'?2:platform==='gg'?4:platform==='ds'?512:1024;
+    if(f.size>limit*1024*1024+(platform==='gg'?512:0))throw Error(`Cartridge exceeds ${limit} MiB`);
     const b=await f.arrayBuffer(),p=core._rr_input(b.byteLength);check(p);core.HEAPU8.set(new Uint8Array(b),p);check(core._rr_init(b.byteLength));
   } else {
     if (f.size > 64 * 1024 * 1024 || f.size % 4)

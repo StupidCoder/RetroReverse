@@ -19,3 +19,5 @@ assert.deepEqual(decodedColor('psp',0x03bf,2,0),[255,117,0,255]);
 assert.deepEqual(decodedColor('psp',0x7c1f,2,1),[255,0,255,255]);
 assert.deepEqual(decodedColor('psp',0x4321,2,2),[17,34,51,255]);
 assert.deepEqual(decodedColor('psp',0xaa332211,4,3),[17,34,51,255]);
+
+for(const platform of ['gb','gg'])assert.deepEqual(decodedColor(platform,0xff332211,4),[17,34,51,255]);

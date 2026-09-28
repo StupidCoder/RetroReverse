@@ -82,3 +82,5 @@ Console illustrations were generated with the built-in image generator. Their
 four exact prompts are in `docs/ARTWORK.json`; assets are in `site/emulators/art/`.
 
 The 3DO hot-path and movie playback refactor is documented in `docs/3DO-PERFORMANCE.md`.
+
+Game Boy and Game Gear ports are documented in `docs/GB-GG-PORTS.md`.

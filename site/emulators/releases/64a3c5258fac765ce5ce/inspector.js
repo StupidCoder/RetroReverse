@@ -16,7 +16,7 @@ export function decodedColor(platform, value, size, format) {
     if(format===4)return [(value>>>12&15)*17,(value>>>8&15)*17,(value>>>4&15)*17,255];
     return null;
   }
-  if(platform==='ds')return [value&255,value>>>8&255,value>>>16&255,value>>>24];
+  if(platform==='ds'||platform==='gb'||platform==='gg')return [value&255,value>>>8&255,value>>>16&255,value>>>24];
   if (platform === 'ps1')
     return [
       (value & 31) << 3, ((value >>> 5) & 31) << 3, ((value >>> 10) & 31) << 3,
@@ -166,15 +166,16 @@ export function createInspector({platform, canvas, send, jump}) {
     line(el, 'Memory', `${hex(c.address)} (${c.size} bytes)`);
     line(el, c.drawn ? 'Stored bytes' : 'Rejected candidate',
          c.drawn ? `${hex(c.before)} → ${hex(c.after)}`
-         : c.depthRejected ? 'Depth test'
+         : c.depthRejected ? (platform==='gb'||platform==='gg'?'Background priority':'Depth test')
+         : c.idRejected && (platform==='gb'||platform==='gg') ? 'Lower object priority'
                            : 'Alpha / transparent texel');
-    line(el, c.event ? 'Submission PC' : 'Writer PC',
+    line(el, c.event ? (platform==='gb'||platform==='gg'?'CPU PC at scanline rendering':'Submission PC') : 'Writer PC',
          hex(c.submissionPC ?? c.pc));
     line(el, 'Clock', c.clock || c.submissionClock || 0);
     if (c.event)
       line(
           el, 'Origin limit',
-          'Submission does not identify the instruction that built the command data.');
+          platform==='gb'||platform==='gg'?'The video hardware renders automatically. Follow source history to locate CPU writes.':'Submission does not identify the instruction that built the command data.');
     if (c.command?.pixc !== undefined)
       line(el, 'PIXC', hex(c.command.pixc));
     if (c.command?.otherModes)
@@ -182,6 +183,13 @@ export function createInspector({platform, canvas, send, jump}) {
     if (c.command?.hasSource||c.command?.kind==='Cel / CCB') {
       line(el, 'Sampled texel', hex(c.texel));
       line(el, 'Texture coordinate', `${c.u}, ${c.v}`);
+    }
+    if ((platform==='gb'||platform==='gg') && c.command?.hasSource) {
+      line(el,'Scanline',c.command.scanline);
+      if(c.command.object>=0)line(el,'Object index',c.command.object);
+      line(el,'Tile row',hex(c.sourceAddress));
+      sourceButton(el,'Follow tile writes',c.sourceAddress,c.sourceBefore,c.sourceValue,platform==='gb'?2:4);
+      if(c.paletteAddress)sourceButton(el,'Follow palette writes',c.paletteAddress,c.paletteBefore,c.paletteValue,platform==='gb'?1:2);
     }
     if (platform === 'ps1' && c.event && c.command?.hasSource) {
       line(el, 'Texture/copy source', hex(c.sourceAddress));
@@ -332,9 +340,9 @@ export function createInspector({platform, canvas, send, jump}) {
                           : `${c.id}. ${c.command?.kind || 'Memory write'}${
                                 c.drawn ? ''
                                 : c.depthRejected
-                                    ? ' · depth rejected'
+                                    ? (platform==='gb'||platform==='gg'?' · behind background':' · depth rejected')
                                     : c.idRejected
-                                    ? ' · same translucent polygon ID'
+                                    ? (platform==='gb'||platform==='gg'?' · lower object priority':' · same translucent polygon ID')
                                     : c.stencilRejected ? ' · stencil rejected'
                                     : c.scissorRejected ? ' · scissor rejected'
                                     : c.maskRejected ? ' · write masked'

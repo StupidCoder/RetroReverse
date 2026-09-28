@@ -333,6 +333,8 @@ if(platform==='ds'||platform==='3ds'){
  for(const type of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(e.pointerId===stylus){pen(e,false);stylus=null;}});
 }
 const gamepadMaps = {
+ gb:{0:16,1:32,8:64,9:128,12:4,13:8,14:2,15:1},
+ gg:{0:32,1:16,9:128,12:1,13:2,14:4,15:8},
  psp:{0:16384,1:8192,2:32768,3:4096,4:256,5:512,8:1,9:8,12:16,13:64,14:128,15:32},
  '3ds':{0:1,1:2,2:2048,3:1024,4:512,5:256,8:4,9:8,12:64,13:128,14:32,15:16},
  ds:{0:1,1:2,2:2048,3:1024,4:512,5:256,8:4,9:8,12:64,13:128,14:32,15:16},
@@ -411,7 +413,7 @@ function pollPad() {
       sources.set('gamepad:'+p.index,{bits,ax:x,ay:y});
     } else {
       const directions =
-          platform === 'ds' ? [32,16,64,128] : platform === 'ps1' ? [ 128, 32, 16, 64 ]
+          platform === 'gb' ? [2,1,4,8] : platform === 'gg' ? [4,8,1,2] : platform === 'ds' ? [32,16,64,128] : platform === 'ps1' ? [ 128, 32, 16, 64 ]
           : platform === 'c64'
               ? [ 4, 8, 1, 2 ]
               : [ 0x10000000, 0x20000000, 0x40000000, 0x80000000 ];

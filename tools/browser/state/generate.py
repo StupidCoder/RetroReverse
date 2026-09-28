@@ -4,6 +4,9 @@ import re
 from pathlib import Path
 root=Path(__file__).resolve().parents[3]
 skip={
+ 'sm83_CPU':{'bus'}, 'z80_CPU':{'bus'},
+ 'gameboy_Machine':{'rom','PCHist','WatchPCs'},
+ 'gamegear_Machine':{'rom','PCHist','RAMWatchPCs','WatchPCs','CapLog'}, 'gamegear_VDP':{'CRAMLineLog'},
  'allegrex_CPU':{'bus'},'psp_Machine':{'ram','vol','prof','Profile','GeLists','Log','logSeen'},'psp_Volume':{'src'},'psp_Image':{'closer'},
  'n64_Machine':{'ROM'},'r4300_CPU':{'bus','fetch'},'rsp_CPU':{'regs','DMEM','IMEM'},
  'threedo_diskStream':{'data'}, 'threedo_CvidMovie':{'Frames'},
@@ -11,7 +14,7 @@ skip={
  'n3ds_Machine':{'romfs','romfsRaw','pages','prof'}, 'n3ds_fsFile':{'data'},
  'arm60_CPU':{'bus','SWI'},'threedo_Volume':{'img'},
 }
-for platform in ['n64','threedo','nds','n3ds','psp']:
+for platform in ['n64','threedo','nds','n3ds','psp','gameboy','gamegear']:
  source=(root/f'tools/platform/{platform}/browser/core/generated.cpp').read_text()
  records=[]
  for start in re.finditer(r'struct (\w+)\s*\{',source):

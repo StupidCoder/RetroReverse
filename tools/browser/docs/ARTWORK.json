@@ -34,5 +34,17 @@
     "prompt": "Use case: product-mockup. Asset type: square console selection card for RetroReverse emulator gallery. Create a realistic studio product illustration of a black original Sony PlayStation Portable PSP-1000 handheld console, seen from slightly above at a gentle three-quarter angle, centered fully visible with generous margins. Wide black widescreen blank/off display, cross-shaped D-pad on left, small analog nub lower left, four symbol face buttons right, narrow control buttons below display, silver rim. Pale cool gray studio background, soft contact shadow, soft diffused light and accurate plastic/glass materials. No game imagery, no cables, no hands, no added text, no watermark. Match a clean museum catalog photograph style. Single PSP only.",
     "tool": "built-in image_gen",
     "file": "site/emulators/art/psp.png"
+  },
+  {
+    "console": "Game Boy",
+    "prompt": "Use case: product-mockup. Asset type: square console selection card for RetroReverse emulator gallery. Create a realistic studio product illustration of an original 1989 Nintendo Game Boy DMG-01 handheld, light warm-gray plastic, dark gray screen bezel surrounding a blank muted olive-green LCD, black D-pad, two burgundy round A/B buttons on right, small gray Start and Select buttons, diagonal speaker grille near lower right. Three-quarter view from slightly above, entire device centered with generous margins. Pale cool blue-gray background #e9edf3, soft contact shadow, diffused studio light, restrained archival electronics catalog aesthetic matching a set of C64, PlayStation, DS and PSP illustrations. No game imagery, hands, accessories, cables, added captions or watermark. One Game Boy only.",
+    "tool": "built-in image_gen",
+    "file": "site/emulators/art/gb.png"
+  },
+  {
+    "console": "Game Gear",
+    "prompt": "Use case: product-mockup. Asset type: square console selection card for RetroReverse emulator gallery. Create a realistic studio product illustration of an original black Sega Game Gear handheld from 1990, broad horizontal rounded black enclosure, centered recessed blank/off color LCD, black D-pad at left, two blue-gray round action buttons at right, small Start button above them, subtle red green blue oval accents by the Game Gear branding above the screen, speaker slots in the lower right. Three-quarter view from slightly above, entire device centered with generous margins. Pale cool blue-gray background #e9edf3, soft contact shadow, diffused studio light, restrained archival electronics catalog aesthetic matching a set of C64, PlayStation, Game Boy, DS and PSP illustrations. No game imagery, hands, accessories, cables, added captions or watermark. One Game Gear only.",
+    "tool": "built-in image_gen",
+    "file": "site/emulators/art/gg.png"
   }
 ]

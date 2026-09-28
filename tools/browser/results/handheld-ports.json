@@ -1,0 +1,66 @@
+{
+  "date": "2026-09-28",
+  "host": "Development Mac; Node/V8 WASM, no canvas or pacing in timed region",
+  "gb": {
+    "platform": "gb",
+    "frames": 600,
+    "seconds": 0.303433334,
+    "updatesPerSecond": 1977.3700934255298,
+    "boot": {
+      "steps": 9043142,
+      "frames": 600,
+      "pc": 663,
+      "memory": 3436706073,
+      "rgba": 3835444956
+    },
+    "capture": {
+      "events": 177,
+      "writes": 46518,
+      "overflow": 0,
+      "bytes": 4035894
+    },
+    "replaySteps": 327,
+    "stateBytes": 234046,
+    "checks": {
+      "nativeWasm": true,
+      "sourcePixelReconstruction": true,
+      "replayMatches": true,
+      "replaySeeksRepeatable": true,
+      "replayLeavesStateUntouched": true,
+      "stateContinuation": true
+    },
+    "nativeBootSeconds": 0.132529,
+    "wasmBytes": 249236
+  },
+  "gg": {
+    "platform": "gg",
+    "frames": 1200,
+    "seconds": 1.3628889160000002,
+    "updatesPerSecond": 880.4826174109114,
+    "boot": {
+      "steps": 36000000,
+      "frames": 1200,
+      "pc": 811,
+      "memory": 2840271747,
+      "rgba": 3525734510
+    },
+    "capture": {
+      "events": 385,
+      "writes": 48276,
+      "overflow": 0,
+      "bytes": 4179490
+    },
+    "replaySteps": 627,
+    "stateBytes": 213353,
+    "checks": {
+      "nativeWasm": true,
+      "sourcePixelReconstruction": true,
+      "replayMatches": true,
+      "replaySeeksRepeatable": true,
+      "replayLeavesStateUntouched": true,
+      "stateContinuation": true
+    },
+    "nativeBootSeconds": null,
+    "wasmBytes": 251069
+  }
+}
