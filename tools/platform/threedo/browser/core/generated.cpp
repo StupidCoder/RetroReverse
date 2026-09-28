@@ -1,3 +1,4 @@
+#include "../../../../browser/core/profile.h"
 #include "runtime.h"
 struct arm60_Inst;
 struct arm60_CPU;
@@ -3713,6 +3714,8 @@ void threedo_Machine_closeDiskStream(threedo_Machine* m,uint32_t handle){
 auto tmp42 = lookup(m->streams,handle);
 bool ok = std::get<1>(tmp42);
 if (ok) {
+// Release closed stream buffers; only the tiny arena token survives reset.
+if(auto stream=get(m->streams,handle))stream->data={};
 removeKey(m->streams,handle);
 threedo_heap_freeBlock(m->dheap,handle);
 }
@@ -4115,6 +4118,7 @@ return c;
 }
 // tools/platform/threedo/graphicsfolio.go:76:1
 void threedo_Machine_flashClearRange(threedo_Machine* m,uint32_t dest,uint32_t bytes,uint16_t val){
+rrprof::Scope rrclock(3,"Flash clear");
 {
 m->celCnt.clears++;
 auto tmp63=defer([&](){threedo_Machine_profEnd(m,threedo_bucketClear,threedo_Machine_profStart(m));});
@@ -4399,6 +4403,7 @@ return cast<uint32_t>(0ULL);
 }
 // tools/platform/threedo/graphicsfolio.go:351:1
 bool threedo_Machine_drawOneCel(threedo_Machine* m,threedo_gfxBitmap bm,uint32_t ccb,uint32_t flags,uint32_t src,uint32_t plutPtr){
+rrprof::Scope rrclock(2,"Cel software rasterizer");
 {
 if ((src == cast<uint32_t>(0ULL))) {
 return false;
@@ -4952,7 +4957,7 @@ return {cast<int32_t>(0ULL),cast<int32_t>(0ULL)};
 }
 }
 // tools/platform/threedo/io.go:315:1
-std::tuple<int32_t,int32_t> threedo_Machine_fileDeviceIO(threedo_Machine* m,std::string name,uint32_t cmd,uint32_t offset,uint32_t sendBuf,uint32_t sendLen,uint32_t buf,uint32_t length){
+std::tuple<int32_t,int32_t> threedo_Machine_fileDeviceIOLegacy(threedo_Machine* m,std::string name,uint32_t cmd,uint32_t offset,uint32_t sendBuf,uint32_t sendLen,uint32_t buf,uint32_t length){
 {
 auto tmp95 = threedo_Machine_fileData(m,name);
 Slice<uint8_t> data = std::get<0>(tmp95);
@@ -5891,6 +5896,7 @@ return poked;
 }
 // tools/platform/threedo/machine.go:617:1
 bool threedo_Machine_swi(threedo_Machine* m,arm60_CPU* c,uint32_t comment){
+rrprof::Scope rrclock(5,"Portfolio SWI",true,comment);
 {
 m->celCnt.swis++;
 auto tmp134=defer([&](){threedo_Machine_profEnd(m,threedo_bucketSWI,threedo_Machine_profStart(m));});
@@ -6755,6 +6761,7 @@ return threedo_Result{steps,arm60_CPU_Reg(m->CPU,cast<uint32_t>(15ULL)),std::str
 }
 // tools/platform/threedo/run.go:202:1
 void threedo_Machine_serviceKernelCall(threedo_Machine* m,uint32_t pc){
+rrprof::Scope rrclock(1,"Portfolio HLE");
 {
 m->celCnt.folios++;
 auto tmp180 = std::make_tuple(threedo_Machine_profStart(m),threedo_Machine_profGfxNs(m),m->prof.gen);

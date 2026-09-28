@@ -1,3 +1,4 @@
+#include "../../../../browser/core/profile.h"
 #pragma once
 #include <algorithm>
 #include <array>
@@ -190,6 +191,7 @@ struct GTE {
     pushColor();
   }
   void command(u32 cmd) {
+    rrprof::Scope clock(1,"GTE");
     ctrl[31] = 0;
     int sf = (cmd & (1 << 19)) ? 12 : 0;
     bool lm = cmd & (1 << 10);

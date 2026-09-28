@@ -1,5 +1,15 @@
 # Browser Frame Observatory — unified Pages release
 
+Implementation update (2026-09-28): U0/U1 are committed and pushed. U2 import
+and boot paths are implemented; broader-game compatibility acceptance remains
+open (Elite imports but renders incorrectly; no second PS1/N64/3DO title was
+available). U3 provides shared controls, subsystem timings and resumable 3DO
+execution. Physical-controller validation remains open because none is attached.
+See `tools/browser/docs/U1-ACCEPTANCE.md`, `U2-ACCEPTANCE.md`, and
+`U3-ACCEPTANCE.md` for measured checks and limitations. U4 and later are not part
+of this implementation pass.
+
+
 Status: implementation started, 2026-09-28. U0 contracts are recorded in `tools/browser/docs/U0-CONTRACTS.md`; subsequent acceptance results are tracked per milestone.
 
 This is the next release target after the four C++/WASM prototypes. Preserve the existing RetroReverse site in `site/`, including its extracted game assets, explanations, viewers and deep links. Add the emulator area alongside it; do not replace the current site or reorganize its content in this release. The emulator area supersedes only the separate emulator development pages. The earlier [educational-debugger plan](EDUCATIONAL-DEBUGGER-PLAN.md) remains the record of the Fort Apocalypse lessons and performance investigation; preserve its existing work and evidence.

@@ -549,7 +549,12 @@ void c64_reset(c64_t* sys) {
     m6581_reset(&sys->sid);
 }
 
+#ifndef RR_PROFILE_BEGIN
+#define RR_PROFILE_BEGIN
+#define RR_PROFILE_CALL(id,name,expr) (expr)
+#endif
 static uint64_t _c64_tick(c64_t* sys, uint64_t pins) {
+    RR_PROFILE_BEGIN;
     // FIXME: move datasette and floppy tick to end
     if (sys->c1530.valid) {
         c1530_tick(&sys->c1530);
@@ -559,7 +564,7 @@ static uint64_t _c64_tick(c64_t* sys, uint64_t pins) {
     }
 
     // tick the CPU
-    pins = m6502_tick(&sys->cpu, pins);
+    pins = RR_PROFILE_CALL(1,"6510 CPU",m6502_tick(&sys->cpu, pins));
     const uint16_t addr = M6502_GET_ADDR(pins);
 
     // those pins are set each tick by the CIAs and VIC
@@ -618,7 +623,7 @@ static uint64_t _c64_tick(c64_t* sys, uint64_t pins) {
 #endif
     // tick the SID
     {
-        sid_pins = m6581_tick(&sys->sid, sid_pins);
+        sid_pins = RR_PROFILE_CALL(4,"SID",m6581_tick(&sys->sid, sid_pins));
         if (sid_pins & M6581_SAMPLE) {
             // new audio sample ready
             sys->audio.sample_buffer[sys->audio.sample_pos++] = sys->sid.sample;
@@ -655,7 +660,7 @@ static uint64_t _c64_tick(c64_t* sys, uint64_t pins) {
         if (sys->cas_port & C64_CASPORT_READ) {
             cia1_pins |= M6526_FLAG;
         }
-        cia1_pins = m6526_tick(&sys->cia_1, cia1_pins);
+        cia1_pins = RR_PROFILE_CALL(3,"CIA timers / I/O",m6526_tick(&sys->cia_1, cia1_pins));
         const uint8_t kbd_lines = ~M6526_GET_PA(cia1_pins);
         kbd_set_active_lines(&sys->kbd, kbd_lines);
         if (cia1_pins & M6502_IRQ) {
@@ -689,7 +694,7 @@ static uint64_t _c64_tick(c64_t* sys, uint64_t pins) {
     */
     {
         M6526_SET_PAB(cia2_pins, 0xFF, 0xFF);
-        cia2_pins = m6526_tick(&sys->cia_2, cia2_pins);
+        cia2_pins = RR_PROFILE_CALL(3,"CIA timers / I/O",m6526_tick(&sys->cia_2, cia2_pins));
         sys->vic_bank_select = ((~M6526_GET_PA(cia2_pins))&3)<<14;
         if (cia2_pins & M6502_IRQ) {
             pins |= M6502_NMI;
@@ -713,7 +718,7 @@ static uint64_t _c64_tick(c64_t* sys, uint64_t pins) {
         this goes active during a badline, but is not checked
     */
     {
-        vic_pins = m6569_tick(&sys->vic, vic_pins);
+        vic_pins = RR_PROFILE_CALL(2,"VIC-II",m6569_tick(&sys->vic, vic_pins));
         pins |= (vic_pins & (M6502_IRQ|M6502_RDY|M6510_AEC));
         if ((vic_pins & (M6569_CS|M6569_RW)) == (M6569_CS|M6569_RW)) {
             pins = M6502_COPY_DATA(pins, vic_pins);

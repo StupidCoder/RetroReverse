@@ -6,6 +6,10 @@
 #include <string>
 #include <cstddef>
 #include "observe.h"
+#include "../../../../browser/core/profile.h"
+static uint64_t profileCycle=0;
+#define RR_PROFILE_BEGIN bool rrSample=(++profileCycle%1021)==0; rrprof::Scope rrTick(0,"Bus / glue remainder",rrSample)
+#define RR_PROFILE_CALL(id,name,expr) ([&](){rrprof::Scope clock(id,name,rrSample);return (expr);}())
 #define CHIPS_IMPL
 #include "../vendor/chips/chips_common.h"
 #include "../vendor/chips/m6502.h"
@@ -22,7 +26,7 @@
 #include "core.h"
 
 namespace {
-constexpr int MAX_PULSES=524288, EVENT_CAP=8192;
+constexpr int MAX_PULSES=2*1024*1024, EVENT_CAP=8192;
 static c64_t machine;
 struct Context {uint64_t cycles=0,sequence=0;uint32_t pulse=0,remaining=0,frames=0;uint16_t pc=0;bool play=false,synthetic=false;uint32_t generation=0;};
 static Context ctx;
@@ -49,6 +53,7 @@ static int stopReason=0;
 }
 #include "observe.inc"
 extern "C" {
+const char* rr_profile(){return rrprof::json(true);}
 uint8_t* rr_input(){return input;}
 const char* rr_error(){return error;}
 uint8_t* rr_ram(){return machine.ram;}

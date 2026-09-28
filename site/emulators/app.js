@@ -1,15 +1,374 @@
 import {platforms} from './platforms.js';
-const $=id=>document.getElementById(id),platform=document.body.dataset.platform,config=platforms[platform],canvas=$('screen'),ctx=canvas.getContext('2d');
-let worker,session=0,request=0,selected=[],loaded=false,held=new Set(),lastSteps=0,lastFrames=0,lastTime=performance.now();
-$('files').accept=config.accept;$('help').textContent=config.help;$('compat').textContent=config.compat;$('tape').hidden=platform!=='c64';
-const send=(type,data={})=>worker?.postMessage({type,session,request:++request,...data});
-function controls(on){for(const id of ['run','pause','reset','step'])$(id).disabled=!on;}
-function load(){if(!selected.length){$('status').textContent='Select a game image first.';return;}worker?.terminate();session++;held.clear();loaded=false;controls(false);$('status').textContent='Loading local image…';worker=new Worker('../worker.js',{type:'module'});worker.onmessage=({data:m})=>{if(m.session!==session)return;if(m.type==='state'){const s=m.state;canvas.width=m.width;canvas.height=m.height;ctx.putImageData(new ImageData(new Uint8ClampedArray(m.pixels),m.width,m.height),0,0);const now=performance.now(),dt=(now-lastTime)/1000;let rate='';if(dt>.5){rate=` · ${((s.frames-lastFrames)/dt).toFixed(1)} display updates/s · ${((s.steps-lastSteps)/dt/1e6).toFixed(2)}M steps/s`;lastTime=now;lastFrames=s.frames;lastSteps=s.steps;}$('metrics').textContent=`Display ${s.frames.toLocaleString()} · ${(s.steps/1e6).toFixed(2)}M steps · ${(m.heap/1048576).toFixed(0)} MiB heap · longest call ${m.maxCall.toFixed(1)} ms${rate}`;if(loaded){$('run').disabled=m.running;$('step').disabled=m.running;}}else if(m.type==='ready'){loaded=true;controls(true);$('status').textContent=m.text;lastSteps=lastFrames=0;lastTime=performance.now();}else if(m.type==='message'||m.type==='error'){$('status').textContent=m.text;if(m.type==='error'){controls(loaded);}}};worker.onerror=e=>{$('status').textContent='Worker error: '+e.message;controls(false);};send('load',{platform,files:selected,firmware:platform==='c64'?['basic','kernal','chargen'].map(id=>$(id).files[0]):null});}
-$('load').onclick=()=>{selected=[...$('files').files];load();};$('reset').onclick=load;
-for(const id of ['run','pause','step'])$(id).onclick=()=>{if(id==='pause')$('status').textContent='Pausing at the next execution boundary…';send(id);};
-$('turbo').onchange=()=>send('turbo',{value:$('turbo').checked});$('fullscreen').onclick=()=>canvas.requestFullscreen();$('tapeplay').onclick=()=>send('tape',{down:1});$('tapestop').onclick=()=>send('tape',{down:0});
-function input(keys=[]){let buttons=0;for(const v of held)if(typeof v==='number')buttons|=v;send('input',{buttons:buttons>>>0,x:(held.has('right')?80:0)-(held.has('left')?80:0),y:(held.has('up')?80:0)-(held.has('down')?80:0),keys});}
-for(const [label,bit]of config.buttons){const b=document.createElement('button');b.textContent=label;b.onpointerdown=e=>{b.setPointerCapture(e.pointerId);held.add(bit);input();};b.onpointerup=b.onpointercancel=b.onlostpointercapture=()=>{held.delete(bit);input();};$('pad').append(b);}
-const c64Keys=new Set();
-for(const down of [true,false])canvas.addEventListener(down?'keydown':'keyup',e=>{if(!loaded)return;const bit=config.keys[e.key]??config.keys[e.key.toLowerCase()];if(bit!==undefined){e.preventDefault();if(down)held.add(bit);else held.delete(bit);input();}else if(platform==='c64'){const code=e.key==='Enter'?13:e.key==='Backspace'?1:e.key.length===1?e.key.toUpperCase().charCodeAt(0):0;if(code){e.preventDefault();if(down)c64Keys.add(code);else c64Keys.delete(code);input([[code,+down]]);}}});
-function release(){held.clear();input([...c64Keys].map(code=>[code,0]));c64Keys.clear();}canvas.onblur=release;window.addEventListener('blur',release);document.addEventListener('visibilitychange',()=>{if(document.hidden){release();send('pause');}});
+const $ = id => document.getElementById(id),
+      platform = document.body.dataset.platform, config = platforms[platform],
+      canvas = $('screen'), ctx = canvas.getContext('2d');
+let worker, session = 0, request = 0, selected = [], firmware = null,
+            compatibility = true, loaded = false;
+let lastSteps = 0, lastFrames = 0, lastTime = performance.now(), rate = '',
+    lastProfile = {}, profileTime = 0;
+const sources = new Map(), c64Keys = new Set();
+let lastInput = '', gamepadLabel = '';
+$('files').accept = config.accept;
+$('help').textContent = config.help;
+$('compat').textContent = config.compat;
+$('tape').hidden = platform !== 'c64';
+const send = (type, data = {}) =>
+    worker?.postMessage({type, session, request : ++request, ...data});
+function controls(on) {
+  for (const id of ['run', 'pause', 'reset', 'step'])
+    $(id).disabled = !on;
+}
+function showProfile(p) {
+  if (!p || performance.now() - profileTime < 500)
+    return;
+  profileTime = performance.now();
+  const rows = p.buckets.map(b => {
+    const ms = Math.max(0, b.ms - (lastProfile[b.name] || 0));
+    lastProfile[b.name] = b.ms;
+    return {...b, ms};
+  }),
+        total = rows.reduce((n, b) => n + b.ms, 0);
+  if (!total)
+    return;
+  $('profile').replaceChildren(...rows.map(b => {
+    const tr = document.createElement('tr');
+    for (const v
+             of [b.name, b.ms.toFixed(2), (100 * b.ms / total).toFixed(1)]) {
+      const td = document.createElement('td');
+      td.textContent = v;
+      tr.append(td);
+    }
+    return tr;
+  }));
+  $('profile-note').textContent =
+      p.sampled
+          ? 'Sampled chip ticks (1 in 1,021). Sample-only milliseconds and exclusive shares; timer overhead affects tiny samples.'
+          : 'Exclusive wall time since the previous update. CPU remainder includes uninstrumented devices and scheduling. Idle time and display copies excluded.';
+}
+function load() {
+  if (!selected.length) {
+    $('status').textContent = 'Select a game image first.';
+    return;
+  }
+  worker?.terminate();
+  session++;
+  sources.clear();
+  c64Keys.clear();
+  lastInput = '';
+  loaded = false;
+  controls(false);
+  lastProfile = {};
+  profileTime = 0;
+  rate = '';
+  lastSteps = lastFrames = 0;
+  $('profile').replaceChildren();
+  $('profile-note').textContent='Run the machine to measure subsystem timings.';
+  $('status').textContent = 'Loading local image…';
+  worker = new Worker('../worker.js', {type : 'module'});
+  worker.onmessage = ({data : m}) => {
+    if (m.session !== session)
+      return;
+    if (m.type === 'state') {
+      const s = m.state;
+      $('help').textContent =
+          config.help +
+          (m.inputDeferred
+               ? ' Known-image profile: controls are queued until intro initialization finishes at display 300.'
+               : '');
+      canvas.width = m.width;
+      canvas.height = m.height;
+      const copyStart = performance.now();
+      ctx.putImageData(
+          new ImageData(new Uint8ClampedArray(m.pixels), m.width, m.height), 0,
+          0);
+      const copyMs = performance.now() - copyStart;
+      const now = performance.now(), dt = (now - lastTime) / 1000;
+      if (dt > .5) {
+        const ratio = platform === 'c64'
+                          ? (s.steps - lastSteps) / 985248 / dt
+                          : (s.frames - lastFrames) / config.hz / dt;
+        rate = `${(ratio * 100).toFixed(0)}% ${
+            platform === 'c64' ? 'PAL speed' : 'nominal display rate'} · ${
+            ((s.frames - lastFrames) / dt).toFixed(1)} ${
+            platform === 'ps1' || platform === 'n64' ? 'synthetic fields'
+                                                     : 'display updates'}/s · ${
+            ((s.steps - lastSteps) / dt / 1e6).toFixed(2)}M ${
+            platform === 'c64' ? 'cycles' : 'steps'}/s`;
+        lastTime = now;
+        lastFrames = s.frames;
+        lastSteps = s.steps;
+      }
+      $('metrics').textContent = `${m.running ? 'Running' : 'Paused'} · ${
+          rate||'no execution yet'} · display ${s.frames.toLocaleString()} · ${
+          (m.heap / 1048576).toFixed(0)} MiB WASM · longest execution slice ${
+          m.maxCall.toFixed(1)} ms · canvas copy ${copyMs.toFixed(1)} ms`;
+      showProfile(m.profile);
+      if (loaded) {
+        $('run').disabled = m.running;
+        $('step').disabled = m.running;
+        $('pause').disabled = !m.running;
+      }
+    } else if (m.type === 'slow') {
+      console.warn('Long emulation slice', JSON.stringify(m));
+    } else if (m.type === 'ready') {
+      loaded = true;
+      controls(true);
+      $('pause').disabled = true;
+      $('status').textContent = m.text;
+      lastTime = performance.now();
+      send('turbo', {value : $('turbo').checked});
+    } else if (m.type === 'message' || m.type === 'error') {
+      $('status').textContent = m.text;
+      if (m.type === 'error') {
+        controls(loaded);
+        $('pause').disabled = true;
+      }
+    }
+  };
+  worker.onerror = e => {
+    $('status').textContent = 'Worker error: ' + e.message;
+    controls(false);
+  };
+  send('load', {platform, files : selected, firmware, compatibility});
+}
+$('load').onclick = () => {
+  selected = [...$('files').files ];
+  compatibility = $('compatprofile')?.checked ?? true;
+  firmware = platform === 'c64'
+                 ? [ 'basic', 'kernal', 'chargen' ].map(id => $(id).files[0])
+                 : null;
+  load();
+};
+$('reset').onclick = load;
+for (const id of ['run', 'pause', 'step'])
+  $(id).onclick = () => {
+    $('status').textContent =
+        id === 'pause' ? 'Pausing at the next execution boundary…'
+        : id === 'run' ? 'Running local image.'
+                       : 'Advancing one display boundary…';
+    send(id);
+    if (id === 'run')
+      canvas.focus();
+  };
+$('turbo').onchange = () => send('turbo', {value : $('turbo').checked});
+$('fullscreen').onclick = () => canvas.requestFullscreen();
+$('tapeplay').onclick = () => send('tape', {down : 1});
+$('tapestop').onclick = () => send('tape', {down : 0});
+function input(keys = []) {
+  let buttons = 0, x = 0, y = 0;
+  for (const {bits = [], ax = 0, ay = 0} of sources.values()) {
+    x += ax;
+    y += ay;
+    for (const v of bits) {
+      if (typeof v === 'number')
+        buttons |= v;
+      else if (v === 'left')
+        x -= 80;
+      else if (v === 'right')
+        x += 80;
+      else if (v === 'up')
+        y += 80;
+      else if (v === 'down')
+        y -= 80;
+    }
+  }
+  const state = {
+    buttons : buttons >>> 0,
+    x : Math.max(-80, Math.min(80, x)),
+    y : Math.max(-80, Math.min(80, y))
+  },
+        key = JSON.stringify(state);
+  if (key !== lastInput || keys.length) {
+    lastInput = key;
+    send('input', {...state, keys});
+  }
+}
+for (const [label, bit] of config.buttons) {
+  const b = document.createElement('button');
+  b.textContent = label;
+  b.onpointerdown = e => {
+    e.preventDefault();
+    b.setPointerCapture(e.pointerId);
+    sources.set('touch:' + e.pointerId, {bits : [ bit ]});
+    input();
+  };
+  b.onpointerup = b.onpointercancel = b.onlostpointercapture = e => {
+    sources.delete('touch:' + e.pointerId);
+    input();
+  };
+  b.onkeydown = e => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      sources.set('button:' + label, {bits : [ bit ]});
+      input();
+    }
+  };
+  b.onkeyup = b.onblur = () => {
+    sources.delete('button:' + label);
+    input();
+  };
+  $('pad').append(b);
+}
+for (const down of [true, false])
+  canvas.addEventListener(down ? 'keydown' : 'keyup', e => {
+    if (!loaded || e.repeat || e.metaKey)
+      return;
+    const bit = config.keys[e.key] ?? config.keys[e.key.toLowerCase()];
+    if (bit !== undefined) {
+      e.preventDefault();
+      if (down)
+        sources.set('key:' + e.code, {bits : [ bit ]});
+      else
+        sources.delete('key:' + e.code);
+      if (platform === 'c64' && e.key === ' ') {
+        if (down)
+          c64Keys.add(32);
+        else
+          c64Keys.delete(32);
+        input([ [ 32, +down ] ]);
+      } else
+        input();
+    } else if (platform === 'c64') {
+      const special = {
+        Enter : 13,
+        Backspace : 1,
+        Insert : 16,
+        Home : e.shiftKey ? 2 : 12,
+        Escape : e.shiftKey ? 7 : 3,
+        PageUp : 255,
+        Control : 14,
+        Alt : 15
+      };
+      const code = special[e.key] ??
+                   (/^F[1-8]$/.test(e.key) ? 240 + Number(e.key.slice(1))
+                    : e.key.length === 1   ? e.key.toUpperCase().charCodeAt(0)
+                                           : 0);
+      if (code && code < 256) {
+        e.preventDefault();
+        if (down)
+          c64Keys.add(code);
+        else
+          c64Keys.delete(code);
+        input([ [ code, +down ] ]);
+      }
+    }
+  });
+function release() {
+  sources.clear();
+  input([...c64Keys ].map(code => [code, 0]));
+  c64Keys.clear();
+}
+canvas.onblur = release;
+window.addEventListener('blur', release);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    release();
+    send('pause');
+  }
+});
+const gamepadMaps = {
+  c64 : {0 : 16, 12 : 1, 13 : 2, 14 : 4, 15 : 8},
+  ps1 : {
+    0 : 16384,
+    1 : 8192,
+    2 : 32768,
+    3 : 4096,
+    4 : 1024,
+    5 : 2048,
+    6 : 256,
+    7 : 512,
+    8 : 1,
+    9 : 8,
+    12 : 16,
+    13 : 64,
+    14 : 128,
+    15 : 32
+  },
+  n64 : {
+    0 : 32768,
+    1 : 16384,
+    4 : 32,
+    5 : 16,
+    6 : 8192,
+    9 : 4096,
+    12 : 2048,
+    13 : 1024,
+    14 : 512,
+    15 : 256
+  },
+  '3do' : {
+    0 : 0x08000000,
+    1 : 0x04000000,
+    2 : 0x02000000,
+    3 : 0x00800000,
+    4 : 0x00200000,
+    5 : 0x00400000,
+    9 : 0x01000000,
+    12 : 0x40000000,
+    13 : 0x80000000,
+    14 : 0x10000000,
+    15 : 0x20000000
+  }
+};
+const axis = v =>
+    Math.abs(v || 0) < .18
+        ? 0
+        : Math.round(Math.sign(v) * (Math.abs(v) - .18) / .82 * 80);
+function pollPad() {
+  const pads = [...(navigator.getGamepads?.() || []) ].filter(Boolean),
+        p = pads.find(p => p.mapping === 'standard');
+  const allowed = loaded && document.hasFocus() && !document.hidden &&
+                  (document.activeElement === canvas ||
+                   $('pad').contains(document.activeElement));
+  for (const key of sources.keys())
+    if (key.startsWith('gamepad:'))
+      sources.delete(key);
+  if (p && allowed) {
+    const bits = Object.entries(gamepadMaps[platform])
+                     .filter(([ i ]) => p.buttons[i]?.pressed)
+                     .map(([, v ]) => v),
+          x = axis(p.axes[0]), y = -axis(p.axes[1]);
+    if (platform === 'n64') {
+      if (axis(p.axes[2]) < -30)
+        bits.push(2);
+      if (axis(p.axes[2]) > 30)
+        bits.push(1);
+      if (axis(p.axes[3]) < -30)
+        bits.push(8);
+      if (axis(p.axes[3]) > 30)
+        bits.push(4);
+      sources.set('gamepad:' + p.index, {bits, ax : x, ay : y});
+    } else {
+      const directions =
+          platform === 'ps1' ? [ 128, 32, 16, 64 ]
+          : platform === 'c64'
+              ? [ 4, 8, 1, 2 ]
+              : [ 0x10000000, 0x20000000, 0x40000000, 0x80000000 ];
+      if (x < -30)
+        bits.push(directions[0]);
+      if (x > 30)
+        bits.push(directions[1]);
+      if (y > 30)
+        bits.push(directions[2]);
+      if (y < -30)
+        bits.push(directions[3]);
+      sources.set('gamepad:' + p.index, {bits});
+    }
+  }
+  const label =
+      p ? `${p.id} · standard mapping · left stick/D-pad movement · ${
+              platform === 'n64' ? 'right stick C buttons · '
+                                 : ''}18% stick dead zone · ${
+              allowed ? 'active' : 'click display to enable'}`
+      : pads.length
+          ? 'Non-standard gamepad: use keyboard/on-screen controls.'
+          : 'No gamepad connected · keyboard and on-screen controls available';
+  if (label !== gamepadLabel) {
+    $('device').textContent = label;
+    gamepadLabel = label;
+  }
+  if (loaded)
+    input();
+  requestAnimationFrame(pollPad);
+}
+requestAnimationFrame(pollPad);

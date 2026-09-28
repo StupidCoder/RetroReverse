@@ -90,10 +90,21 @@ template <class T> Slice<T> append(Slice<T> s, T v) {
   s.p[s.n++] = v;
   return s;
 }
+// Go's append(slice, other...) copies the range in bulk and permits overlap.
+// Appending one byte at a time needlessly copied shared_ptr owners for every
+// byte of every movie file, making a small guest READ a multi-second host call.
 template <class T> Slice<T> append(Slice<T> s, Slice<T> v) {
-  for (auto x : v)
-    s = append(s, x);
-  return s;
+  const auto count=v.n;
+  if(count>s.c-s.n){
+    int64_t capacity=std::max<int64_t>(8,s.c);
+    while(capacity<s.n+count) capacity*=2;
+    auto z=Slice<T>::make(s.n,capacity);gcopy(z,s);s=z;
+  }
+  if(count){
+    if constexpr(std::is_trivially_copyable_v<T>)std::memmove(s.p+s.n,v.p,count*sizeof(T));
+    else {std::vector<T> copy(v.begin(),v.end());std::copy(copy.begin(),copy.end(),s.p+s.n);}
+  }
+  s.n+=count;return s;
 }
 template <class K, class V> struct Map {
   std::shared_ptr<std::unordered_map<K, V>> p = std::make_shared<std::unordered_map<K, V>>();

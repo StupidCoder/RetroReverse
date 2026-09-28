@@ -16,8 +16,10 @@ additional commercial PS1/N64/3DO images are not available in this checkout.
 - N64: three byte orders, region boot flag, CIC 6102 and libdragon IPL3 accepted.
   Other IPL3 variants give a specific error rather than using the wrong seed.
 - 3DO: bounded cached local File slices. Generic Opera LaunchMe AIF discovery;
-  no unconditional NFS VBL mirror in the shared app. Full incremental SHA-256
+  no unconditional NFS VBL mirror or input gate in the shared app. Full incremental SHA-256
   enables and names that compatibility profile only for the original NFS image.
+  The user can disable it before loading. It includes the inherited VBL mirror
+  and queues early controller input until display 300 for this image only.
   HLE is still incomplete; arbitrary executables/other OS versions may fail.
 
 Validation: SHA-256 against Node crypto at padding/chunk boundaries; CUE positive
@@ -33,3 +35,9 @@ compatibility. Execution errors are distinct from successful media import.
 
 PS1 ABI reference: https://psx-spx.consoledev.net/ps1/kernelbios/misc-functions/
 and https://psx-spx.consoledev.net/ps1/kernelbios/interrupt-exception-handling/.
+
+U3 follow-up: Elite's 801,536-pulse PAL tape was additionally imported and run
+from reset with ordinary LOAD/RUN keyboard input. This exposed and removed the
+old 524,288-pulse cap (the existing 2 MiB TAP-file limit remains). The tape
+finishes but the resulting display is corrupted, so Elite is **not** a passing
+compatibility result. State observations: `../results/u2-elite.jsonl`.

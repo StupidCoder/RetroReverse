@@ -16,6 +16,7 @@ void rr_trace(int enabled,int pc_lo,int pc_hi);
 const char* rr_status();
 const char* rr_events();
 const char* rr_error();
+const char* rr_profile();
 uint8_t* rr_ram();
 uint32_t rr_bus();
 int rr_bus_flags();

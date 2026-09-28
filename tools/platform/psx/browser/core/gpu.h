@@ -1,3 +1,4 @@
+#include "../../../../browser/core/profile.h"
 #pragma once
 #include "gte.h"
 #include <functional>
@@ -151,6 +152,7 @@ struct GPU {
     }
   }
   void exec() {
+    rrprof::Scope clock(2,"GPU / software rasterizer");
     commands++;
     for (u32 w : fifo)
       for (int j = 0; j < 4; j++)

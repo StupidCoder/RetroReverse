@@ -100,3 +100,10 @@ and zoom is cheap). Drag to pan, scroll to zoom. Toggle layers:
 > verified at the data-contract level (the exporter output is checked against the
 > `cmd/levelmap` render pixel-for-pixel, and the JSON/atlas indices are validated) but not
 > yet run in a browser — please try it and report anything that needs fixing.
+
+## Browser emulators
+
+The existing site links to `/emulators/`, containing C64, PS1, N64 and 3DO WASM
+emulators. Game images are selected locally; C64 firmware is hosted with the
+app. Build and validation instructions are in [tools/browser/README.md](../tools/browser/README.md).
+Use that directory's preview server when testing the emulator profiling headers.

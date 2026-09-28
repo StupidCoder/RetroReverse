@@ -31,12 +31,14 @@ int rr_init(uint32_t n) {
     return 0;
   }
 }
+const char* rr_profile(){return rrprof::json();}
 int rr_run(uint32_t n) {
   try {
     if (!machine)
       throw std::runtime_error("No cartridge loaded");
     if (n > 50000)
       throw std::runtime_error("Run slice too large");
+    rrprof::Scope clock(0,"VR4300 / scheduler remainder");
     auto r = n64_Machine_Run(machine, n);
     steps += r.Steps;
     if (machine->CPU->Halted)

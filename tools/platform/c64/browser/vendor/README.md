@@ -19,3 +19,9 @@ The included c1530/c1541/m6522 headers are required by c64.h's declarations; flo
 
 
 C4 also adds optional `RR_*` observation hooks in `chips/m6569.h` and `systems/c64.h`. With no observer they compile to no-ops. They report actual video fetches/shifter output/pixels and CPU writes, without replacing device behavior. The VIC write hook runs inside `_m6569_write`, after that cycle's rendering, to preserve the correct historical register version. CPU RAM/color hooks run before mutation to retain the old byte. CIA2 output-pin latency is handled in the observer. The unchanged authentic C3 schedule and targeted UBSan tests check that these hooks do not alter machine output.
+
+U3 adds optional `RR_PROFILE_BEGIN` / `RR_PROFILE_CALL` hooks in `systems/c64.h`.
+They sample one in 1,021 chip ticks for exclusive host-time measurements. With
+no profiler defined they evaluate the original chip call unchanged. Sampling
+and timer overhead are labeled in the shared UI. Firmware remains outside this
+vendor directory, in `site/emulators/firmware/c64/`.

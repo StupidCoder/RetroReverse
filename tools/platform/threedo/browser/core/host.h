@@ -1,5 +1,7 @@
 #pragma once
 #include "generated.cpp"
+#include "slice.h"
+inline RunContext runContext;
 struct DiscChunk {
   int64_t base;
   Slice<uint8_t> bytes;
@@ -12,7 +14,7 @@ inline Slice<uint8_t> readDisc(uint64_t offset, size_t n) {
   if (offset > discSize || n > discSize - offset)
     throw std::runtime_error("Disc read beyond image");
   auto b = Slice<uint8_t>::make(n);
-  discRead(offset, b.p, n);
+  { rrprof::Scope clock(4,"Disc I/O"); discRead(offset, b.p, n); }
   discBytesRead += n;
   discReads++;
   return b;
@@ -43,10 +45,11 @@ std::tuple<Slice<uint8_t>, Error> threedo_Volume_block(threedo_Volume *v, int64_
   auto off = (n - base) * v->stride + v->dataOff;
   return {sub(chunk->bytes, off, off + 2048), {}};
 }
+#include "fileio.h"
 inline threedo_Volume *openDisc() {
   auto v = arenaNew(threedo_Volume{});
   auto head = readDisc(0, 32);
-  if (discSize >= 2352 && discSize % 2352 == 0) {
+  if (discSize >= 2352 && discSize % 2352 == 0 && head[0] == 0 && head[1] == 255 && head[11] == 0) {
     v->stride = 2352;
     v->dataOff = head[15] == 1 ? 16 : head[15] == 2 ? 24 : 0;
     if (!v->dataOff)
@@ -82,6 +85,8 @@ std::tuple<threedo_Volume *, Error> threedo_Open(Slice<uint8_t> data) {
 }
 inline threedo_Machine *boot(bool nfsProfile = true) {
   arenaClear();
+  runContext = {};
+  fileEntries.clear();
   discCache.clear();
   discClock = discBytesRead = discReads = totalSteps = 0;
   auto vol = openDisc();
@@ -101,6 +106,19 @@ inline threedo_Machine *boot(bool nfsProfile = true) {
   threedo_Machine_LoadAIF(m, a);
   m->OnDisplay = [](threedo_Machine *m, uint64_t, uint32_t) { m->StopRequested = true; };
   return m;
+}
+inline uint64_t runSlice(threedo_Machine *m, uint64_t budget) {
+  rrprof::Scope clock(0,"ARM60 / scheduler remainder");
+  // Normal execution keeps bounded diagnostic history; guest state is untouched.
+  if(m->SWICalls.n>65536)m->SWICalls=sub(m->SWICalls,m->SWICalls.n-32768,m->SWICalls.n);
+  if(m->KernelCalls.n>65536)m->KernelCalls=sub(m->KernelCalls,m->KernelCalls.n-32768,m->KernelCalls.n);
+  auto r=threedo_Machine_RunSlice(m,budget,runContext);
+  totalSteps+=r.Steps;
+  if(r.Reason!="step budget reached") {
+    runContext={};
+    if(r.Reason!="stop requested") throw std::runtime_error(r.Reason);
+  }
+  return r.Steps;
 }
 inline void nextFrame(threedo_Machine *m) {
   auto before = m->frame;

@@ -1,3 +1,4 @@
+#include "../../../../browser/core/profile.h"
 #include "runtime.h"
 struct r4300_TLBEntry;
 struct r4300_CPU;
@@ -5336,6 +5337,7 @@ return t;
 }
 // tools/platform/n64/rdp.go:199:1
 void n64_Machine_runRDP(n64_Machine* m){
+rrprof::Scope rrclock(2,"RDP / software rasterizer");
 {
 auto tmp13 = std::make_tuple(get(m->dp,n64_dpCurrent),get(m->dp,n64_dpEnd));
 uint32_t start = std::get<0>(tmp13);
@@ -7071,6 +7073,7 @@ n64_Machine_runRSP(m);
 }
 // tools/platform/n64/sp.go:162:1
 void n64_Machine_runRSP(n64_Machine* m){
+rrprof::Scope rrclock(1,"RSP");
 {
 if (m->rspRunning) {
 return ;

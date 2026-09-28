@@ -48,6 +48,12 @@ int rr_init_config(uint32_t size, int nfsProfile) {
   }
 }
 int rr_init(uint32_t size) { return rr_init_config(size, 1); }
+int rr_run_slice(uint32_t n) {
+  try { if(!machine || n>50000) throw std::runtime_error("Invalid execution slice");
+    runSlice(machine,n); return 1;
+  } catch(const std::exception&e){errorText=e.what();return 0;}
+}
+const char* rr_profile(){return rrprof::json();}
 int rr_run() {
   try {
     if (!machine)

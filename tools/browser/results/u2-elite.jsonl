@@ -1,0 +1,2 @@
+{"schema":1,"cycle":204000000,"pc":825,"a":16,"x":8,"y":255,"s":231,"p":23,"pulse":332913,"pulseCount":801536,"remaining":197,"frames":10378,"raster":159,"timer":4022,"bank":23,"motor":true,"prepared":false,"ramHash":1608489913,"frameHash":4213412251,"events":0,"dropped":0,"generation":2}
+{"schema":1,"cycle":504800000,"pc":36702,"a":4,"x":224,"y":255,"s":220,"p":20,"pulse":801536,"pulseCount":801536,"remaining":0,"frames":25681,"raster":226,"timer":36394,"bank":23,"motor":true,"prepared":false,"ramHash":1689724780,"frameHash":4288740195,"events":0,"dropped":0,"generation":2}

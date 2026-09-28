@@ -91,12 +91,14 @@ int rr_init_file(uint32_t n) {
     generation++; return 1;
   });
 }
+const char* rr_profile(){return rrprof::json();}
 int rr_run(int n, int stopField) {
   return guard([&]() {
     requireMachine();
     if (n < 1 || n > 250000)
       throw std::runtime_error("Instruction budget must be 1–250,000");
     captured = false;
+    rrprof::Scope clock(0,"R3000A / devices remainder");
     return int(machine->run(n, stopField));
   });
 }

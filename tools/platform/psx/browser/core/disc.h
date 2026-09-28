@@ -26,6 +26,7 @@ struct Disc {
     size_t base = (size_t(n) / 64) * 64 * stride;
     if (base != cacheBase) {
       cache.resize(std::min(size_t(64 * stride), imageSize - base));
+      rrprof::Scope clock(3,"Disc I/O");
       reader(base, cache.data(), cache.size());
       cacheBase = base;
     }
@@ -35,7 +36,7 @@ struct Disc {
     if (n < 17 * 2048 || n > 0xffffffffULL)
       throw std::runtime_error("Expected a data-track BIN/ISO between 34 KiB and 4 GiB");
     imageSize = n;
-    if (n % 2352 == 0) {
+    if (n % 2352 == 0 && p[0] == 0 && p[1] == 255 && p[11] == 0) {
       stride = 2352;
       if (p[15] != 1 && p[15] != 2)
         throw std::runtime_error("Unsupported raw CD sector mode");
