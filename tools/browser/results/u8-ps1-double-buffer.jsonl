@@ -1,0 +1,3 @@
+{"platform":"ps1","point":0,"frame":2005,"info":{"events":2017,"writes":687851,"overflow":0,"bytes":53012237},"sampledPixels":{"complete":85,"missing":0},"sourceChecks":207}
+{"platform":"ps1","point":1,"frame":2011,"info":{"events":2204,"writes":691685,"overflow":0,"bytes":53316987},"sampledPixels":{"complete":85,"missing":0},"sourceChecks":223}
+{"platform":"ps1","point":2,"frame":2017,"info":{"events":2058,"writes":692950,"overflow":0,"bytes":53383491},"sampledPixels":{"complete":85,"missing":0},"sourceChecks":202}

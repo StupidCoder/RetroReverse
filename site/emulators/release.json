@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "id": "37b64f03fbeff1f1dc2d",
+  "previous": "e96e7c0276c736ba7ab4",
+  "assets": {
+    "inspector.js": "6ca546b01f0270faf1cbbc72dd9287f03cf1006aee844917df7dd7365fde50ef",
+    "media.js": "7fc61e41c330e110cd99c03c6ff42c9d68c1bff39c6803862da1f357c58102e0",
+    "worker.js": "f81c1c4268d7d6eb359795cf683781f3c64eba880a079f74691c6cd3c796f3ae",
+    "platforms.js": "10e4cc744825a73d7e0ab1197b34c5a3e784c5c4e82a4cd7bf4114fff8acd085",
+    "pacing.js": "1589d269a9bc11e3178135161077c64f7373d7c6530283a1d49cb8b24cd12477",
+    "state.js": "c414250c66da7314b9edb46dc73257652c8d11aa4c203e8d9b336e1aa02b60a6",
+    "replay.js": "c8b1e7036b16697a8e6352b5483d37292a5e36ccf898391d3c78df2703311dd8",
+    "app.js": "7352fd7282c267f030c25ceaa65fa4ed0e1b06c918fcaaf043e3620205ab6287",
+    "input.js": "412ed067bee9fe0bcc21209b6855affecad8b2a0fd5f2b68fe97873bd5ebfd17",
+    "style.css": "fcd282478720b50c7b84eca2bebcc2cbc1482369d407fd021bc17eec36dc144d",
+    "build-manifest.json": "70aa9c36e9225b78271447c323daa452031f5e9f742a3f07b2441eee9657d791",
+    "cores/c64/core.js": "6d9ad243a574b61404a13cadcbdca5d99632706ebde4c1ac4d7f95734cf05ab5",
+    "cores/c64/core.wasm": "6427d8937ba4fa041766b6e01d23594e74c947132c7a736f81519a45fff59255",
+    "cores/n64/core.js": "220e6f70b757df7428980058fc9f5dcd5cb274147f7a96893879816b837695ca",
+    "cores/n64/core.wasm": "96d6eb90be1db22e10d9c6b6fecc153098f18704794cb6bdada17f7a7568edf7",
+    "cores/3do/core.js": "7c6f118f7d62c87853e40689cf034c2ae27d38511525ebc29ee7c9bfb3bee16c",
+    "cores/3do/core.wasm": "1ee533c7e3cd5c4f0ec9b568a4c32cf7ae6bb2c8b4e7ee2821d1bda2dcd0e132",
+    "cores/ps1/core.js": "cba25d8d7f43ae0f037d6da8d21a2889bb4788ec79ce5ccc264047597096f206",
+    "cores/ps1/core.wasm": "274ba9b5fe604d4f59661c2e7a8e8b3d7315880695184077a51dba59137f213a",
+    "firmware/c64/basic.rom": "89878cea0a268734696de11c4bae593eaaa506465d2029d619c0e0cbccdfa62d",
+    "firmware/c64/chargen.rom": "fd0d53b8480e86163ac98998976c72cc58d5dd8eb824ed7b829774e74213b420",
+    "firmware/c64/kernal.rom": "83c60d47047d7beab8e5b7bf6f67f80daa088b7a6a27de0d7e016f6484042721",
+    "firmware/c64/manifest.json": "53f2503664abac69f814af930576c0e3976f106bc00b4941c1444bac215c83ed"
+  }
+}

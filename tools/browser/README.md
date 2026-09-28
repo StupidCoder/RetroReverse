@@ -62,7 +62,12 @@ checkpoints, not game data. See `docs/U0-CONTRACTS.md`, `docs/U1-ACCEPTANCE.md`,
 `docs/U2-ACCEPTANCE.md`, and `docs/U3-ACCEPTANCE.md` for the implementation and
 remaining compatibility/validation limits. U4–U6 now add portable states, automatic
 Pause capture and a shared pixel inspector. See `docs/U4-ACCEPTANCE.md`,
-`docs/U5-ACCEPTANCE.md`, and `docs/U6-ACCEPTANCE.md`. Rendering replay is U7.
+`docs/U5-ACCEPTANCE.md`, and `docs/U6-ACCEPTANCE.md`. Rendering replay is implemented in U7. See `docs/U7-ACCEPTANCE.md`,
+`docs/U8-RELEASE.md` and `docs/FRAME-PACING.md` for release checks and pacing.
+
+Use `python3 tools/browser/build-release.py --emcc /path/to/em++` for the
+pinned release rebuild, `python3 tools/browser/check.py` for the public CI suite,
+and `python3 tools/browser/check-release.py` for a fast artifact audit.
 
 Additional checks: `node tools/browser/tests/inspector.mjs`, the four
 `tests/pixel-*.cpp` native drivers, and `tests/capture-wasm.mjs PLATFORM IMAGE`.

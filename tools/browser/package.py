@@ -16,3 +16,28 @@ for p in out.rglob('*'):
  if p.is_file() and p.stat().st_size>25*1024*1024:raise SystemExit(f'Pages asset too large: {p}')
 (out/'build-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
 print('Packaged four cores; all emulator assets below Pages file limit.')
+
+# Content-address the complete executable bundle. A page opened before a deploy
+# continues to use matching worker/JS/WASM/firmware rather than mixing versions.
+assets={}
+for pattern in ['*.js','style.css','build-manifest.json','cores/**/*','firmware/**/*']:
+ for p in out.glob(pattern):
+  if p.is_file():assets[p.relative_to(out).as_posix()]=hashlib.sha256(p.read_bytes()).hexdigest()
+release_id=hashlib.sha256(json.dumps(assets,sort_keys=True,separators=(',',':')).encode()).hexdigest()[:20]
+release=out/'releases'/release_id
+old=json.loads((out/'release.json').read_text()) if (out/'release.json').is_file() else {}
+previous=old.get('previous') if old.get('id')==release_id else old.get('id')
+for name in assets:
+ dest=release/name;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(out/name,dest)
+(out/'release.json').write_text(json.dumps({'schema':1,'id':release_id,'previous':previous,'assets':assets},indent=2)+'\n')
+import re
+for slug in ['c64','ps1','n64','3do']:
+ p=out/slug/'index.html';html=p.read_text()
+ html=re.sub(r'(?<=src=")[^" ]*/app\.js',f'../releases/{release_id}/app.js',html)
+ html=re.sub(r'(?<=href=")[^" ]*/style\.css',f'../releases/{release_id}/style.css',html)
+ p.write_text(html)
+# Keep the prior executable bundle for already-open pages. Existing game assets
+# and explanation URLs outside this managed directory are never changed.
+for p in (out/'releases').iterdir():
+ if p.is_dir() and p.name not in {release_id,previous}:shutil.rmtree(p)
+print(f'Content-addressed release {release_id}')
