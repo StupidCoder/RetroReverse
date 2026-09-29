@@ -88,3 +88,5 @@ Game Boy and Game Gear ports are documented in `docs/GB-GG-PORTS.md`.
 The new Amiga 500 chipset model and Marble Madness/Turrican validation are documented in `docs/AMIGA-PORT.md`.
 
 The experimental PS2 and GameCube ports, rendering-capture scope, performance measurements, and reproduction commands are documented in `docs/PS2-GC-PORTS.md`.
+
+Game Boy Advance and Dreamcast ports, optimization measurements, media formats and capture limits are documented in `docs/GBA-DC-PORTS.md`.

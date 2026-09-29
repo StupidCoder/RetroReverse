@@ -27,3 +27,8 @@ assert.deepEqual(decodedColor('amiga',0xff332211,4),[17,34,51,255]);
 
 assert.deepEqual(decodedColor('ps2',0x80332211,4),[17,34,51,255]);
 assert.equal(decodedColor('gc',0x11223344,4,'EFB RGBA'),null);
+
+assert.deepEqual(decodedColor('gba',0xff123456,4),[18,52,86,255]);
+assert.deepEqual(decodedColor('dc',0x7c00,2,0),[248,0,0,255]);
+assert.deepEqual(decodedColor('dc',0x07e0,2,1),[0,252,0,255]);
+assert.deepEqual(decodedColor('dc',0x123456,3,2),[18,52,86,255]);

@@ -165,14 +165,26 @@ func exportState(platform, path string, m any) {
 		id = 12
 	}
 	var h [8]byte
+	version := uint32(2)
+	if platform == "gba" {
+		id = 13
+		version = 1
+	}
+	if platform == "dc" {
+		id = 14
+		version = 1
+	}
 	binary.LittleEndian.PutUint32(h[:4], id)
-	binary.LittleEndian.PutUint32(h[4:], 2)
+	binary.LittleEndian.PutUint32(h[4:], version)
 	e.b = append(e.b, h[:]...)
 	e.value(reflect.ValueOf(m))
 	v := reflect.ValueOf(m).Elem()
 	names := []string{"RAM", "ARAM"}
 	if platform == "ps2" {
 		names = []string{"ram"}
+	}
+	if platform == "gba" || platform == "dc" {
+		names = nil
 	}
 	for _, n := range names {
 		s := v.FieldByName(n)

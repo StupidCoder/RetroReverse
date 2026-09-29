@@ -1,0 +1,796 @@
+{
+  "date": "2026-09-29",
+  "host": "macOS-26.5.2-arm64-arm-64bit",
+  "method": "Alternating before/after fresh Node processes, 3 samples per variant, restored identical checkpoints, 10,000-instruction host slices, capture off. Core throughput excludes canvas and worker delivery. Private media is not distributed.",
+  "baseline": "Initial C++/WASM ports before checked direct reads, GBA per-line priorities and Dreamcast texture/field-timer optimizations.",
+  "gba": {
+    "platform": "gba",
+    "state": "title-go.state",
+    "node": "v24.19.0",
+    "arch": "arm64",
+    "fields": 300,
+    "repeats": 3,
+    "hashes": {
+      "before": "60627e056690f2eb92e5dd00ad40aaa0a9c0abdafcb5ee468db218a7e16b96c4",
+      "after": "9f6a8a0255e8f99e630566bb57adf05086efcc61798456f02425aa91d3c27b0d"
+    },
+    "beforeMs": 909.403,
+    "afterMs": 576.786584,
+    "speedup": 1.5766715544826198,
+    "samples": [
+      {
+        "variant": "before",
+        "repeat": 0,
+        "platform": "gba",
+        "fields": 300,
+        "ms": 928.2276670000001,
+        "fps": 323.1965719892725,
+        "heapBytes": 67108864,
+        "proof": {
+          "steps": 56880512,
+          "instrs": 16347091,
+          "frames": 600,
+          "pc": 50348844,
+          "ram": 1690802201,
+          "iwram": 34720565,
+          "vram": 2957765994,
+          "rgba": 38915215
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "ARM7 and scheduler",
+              "ms": 420.096,
+              "longestMs": 1.53792,
+              "tag": 0
+            },
+            {
+              "name": "PPU scanline composition",
+              "ms": 488.263,
+              "longestMs": 0.684292,
+              "tag": 0
+            },
+            {
+              "name": "DMA",
+              "ms": 2.03961,
+              "longestMs": 0.04225,
+              "tag": 0
+            },
+            {
+              "name": "Audio synthesis",
+              "ms": 2.12934,
+              "longestMs": 0.030625,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "variant": "after",
+        "repeat": 0,
+        "platform": "gba",
+        "fields": 300,
+        "ms": 575.767667,
+        "fps": 521.0434993043817,
+        "heapBytes": 67108864,
+        "proof": {
+          "steps": 56880512,
+          "instrs": 16347091,
+          "frames": 600,
+          "pc": 50348844,
+          "ram": 1690802201,
+          "iwram": 34720565,
+          "vram": 2957765994,
+          "rgba": 38915215
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "ARM7 and scheduler",
+              "ms": 284.693,
+              "longestMs": 1.29046,
+              "tag": 0
+            },
+            {
+              "name": "PPU scanline composition",
+              "ms": 273.067,
+              "longestMs": 0.251417,
+              "tag": 0
+            },
+            {
+              "name": "DMA",
+              "ms": 1.29739,
+              "longestMs": 0.024459,
+              "tag": 0
+            },
+            {
+              "name": "Audio synthesis",
+              "ms": 2.2952,
+              "longestMs": 0.057542,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "variant": "after",
+        "repeat": 1,
+        "platform": "gba",
+        "fields": 300,
+        "ms": 576.786584,
+        "fps": 520.1230547345741,
+        "heapBytes": 67108864,
+        "proof": {
+          "steps": 56880512,
+          "instrs": 16347091,
+          "frames": 600,
+          "pc": 50348844,
+          "ram": 1690802201,
+          "iwram": 34720565,
+          "vram": 2957765994,
+          "rgba": 38915215
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "ARM7 and scheduler",
+              "ms": 284.835,
+              "longestMs": 1.27229,
+              "tag": 0
+            },
+            {
+              "name": "PPU scanline composition",
+              "ms": 274.065,
+              "longestMs": 0.251417,
+              "tag": 0
+            },
+            {
+              "name": "DMA",
+              "ms": 1.28128,
+              "longestMs": 0.023833,
+              "tag": 0
+            },
+            {
+              "name": "Audio synthesis",
+              "ms": 2.21919,
+              "longestMs": 0.076167,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "variant": "before",
+        "repeat": 1,
+        "platform": "gba",
+        "fields": 300,
+        "ms": 908.452583,
+        "fps": 330.2318751841779,
+        "heapBytes": 67108864,
+        "proof": {
+          "steps": 56880512,
+          "instrs": 16347091,
+          "frames": 600,
+          "pc": 50348844,
+          "ram": 1690802201,
+          "iwram": 34720565,
+          "vram": 2957765994,
+          "rgba": 38915215
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "ARM7 and scheduler",
+              "ms": 411.309,
+              "longestMs": 1.31079,
+              "tag": 0
+            },
+            {
+              "name": "PPU scanline composition",
+              "ms": 477.982,
+              "longestMs": 0.247417,
+              "tag": 0
+            },
+            {
+              "name": "DMA",
+              "ms": 1.9953,
+              "longestMs": 0.042042,
+              "tag": 0
+            },
+            {
+              "name": "Audio synthesis",
+              "ms": 2.20452,
+              "longestMs": 0.047208,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "variant": "before",
+        "repeat": 2,
+        "platform": "gba",
+        "fields": 300,
+        "ms": 909.403,
+        "fps": 329.88674987876664,
+        "heapBytes": 67108864,
+        "proof": {
+          "steps": 56880512,
+          "instrs": 16347091,
+          "frames": 600,
+          "pc": 50348844,
+          "ram": 1690802201,
+          "iwram": 34720565,
+          "vram": 2957765994,
+          "rgba": 38915215
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "ARM7 and scheduler",
+              "ms": 412.861,
+              "longestMs": 1.29275,
+              "tag": 0
+            },
+            {
+              "name": "PPU scanline composition",
+              "ms": 477.267,
+              "longestMs": 0.225291,
+              "tag": 0
+            },
+            {
+              "name": "DMA",
+              "ms": 2.0144,
+              "longestMs": 0.042583,
+              "tag": 0
+            },
+            {
+              "name": "Audio synthesis",
+              "ms": 2.28317,
+              "longestMs": 0.067125,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "variant": "after",
+        "repeat": 2,
+        "platform": "gba",
+        "fields": 300,
+        "ms": 577.216959,
+        "fps": 519.7352491509176,
+        "heapBytes": 67108864,
+        "proof": {
+          "steps": 56880512,
+          "instrs": 16347091,
+          "frames": 600,
+          "pc": 50348844,
+          "ram": 1690802201,
+          "iwram": 34720565,
+          "vram": 2957765994,
+          "rgba": 38915215
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "ARM7 and scheduler",
+              "ms": 284.505,
+              "longestMs": 1.26079,
+              "tag": 0
+            },
+            {
+              "name": "PPU scanline composition",
+              "ms": 274.495,
+              "longestMs": 0.251416,
+              "tag": 0
+            },
+            {
+              "name": "DMA",
+              "ms": 1.32087,
+              "longestMs": 0.024542,
+              "tag": 0
+            },
+            {
+              "name": "Audio synthesis",
+              "ms": 2.36151,
+              "longestMs": 0.119334,
+              "tag": 0
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "dc": {
+    "platform": "dc",
+    "state": "drive-go.state",
+    "node": "v24.19.0",
+    "arch": "arm64",
+    "fields": 60,
+    "repeats": 3,
+    "hashes": {
+      "before": "0d7d5a3daae5da1b6e846bf8d0f93055a1a0e7931c34e0584034290c30847a50",
+      "after": "462e0faa425371d517ffd27a5e535174eca5e9eb6b672d07c0bb0414cf423c47"
+    },
+    "beforeMs": 6963.553042,
+    "afterMs": 5292.273625,
+    "speedup": 1.3157961087093262,
+    "samples": [
+      {
+        "variant": "before",
+        "repeat": 0,
+        "platform": "dc",
+        "fields": 60,
+        "ms": 6963.553042,
+        "fps": 8.616291085616176,
+        "heapBytes": 134217728,
+        "proof": {
+          "steps": 19199344255,
+          "frames": 5760,
+          "pc": 202736668,
+          "ram": 1535493192,
+          "vram": 3194646573,
+          "aica": 2898147524,
+          "rgba": 3552377401
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "SH-4 / ARM7 and devices",
+              "ms": 5212.51,
+              "longestMs": 37.8214,
+              "tag": 0
+            },
+            {
+              "name": "PowerVR software rasterizer",
+              "ms": 1656.48,
+              "longestMs": 37.1319,
+              "tag": 0
+            },
+            {
+              "name": "AICA synthesis",
+              "ms": 6.95526,
+              "longestMs": 0.041834,
+              "tag": 0
+            },
+            {
+              "name": "Disc file reads",
+              "ms": 0.480917,
+              "longestMs": 0.092709,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "variant": "after",
+        "repeat": 0,
+        "platform": "dc",
+        "fields": 60,
+        "ms": 5292.273625,
+        "fps": 11.33728228196062,
+        "heapBytes": 134217728,
+        "proof": {
+          "steps": 19199344255,
+          "frames": 5760,
+          "pc": 202736668,
+          "ram": 1535493192,
+          "vram": 3194646573,
+          "aica": 2898147524,
+          "rgba": 3552377401
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "SH-4 / ARM7 and devices",
+              "ms": 3670.67,
+              "longestMs": 37.2123,
+              "tag": 0
+            },
+            {
+              "name": "PowerVR software rasterizer",
+              "ms": 1529.47,
+              "longestMs": 36.4484,
+              "tag": 0
+            },
+            {
+              "name": "AICA synthesis",
+              "ms": 7.35766,
+              "longestMs": 0.046041,
+              "tag": 0
+            },
+            {
+              "name": "Disc file reads",
+              "ms": 0.584458,
+              "longestMs": 0.13275,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "variant": "after",
+        "repeat": 1,
+        "platform": "dc",
+        "fields": 60,
+        "ms": 5269.227209,
+        "fps": 11.386869007568734,
+        "heapBytes": 134217728,
+        "proof": {
+          "steps": 19199344255,
+          "frames": 5760,
+          "pc": 202736668,
+          "ram": 1535493192,
+          "vram": 3194646573,
+          "aica": 2898147524,
+          "rgba": 3552377401
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "SH-4 / ARM7 and devices",
+              "ms": 3653.39,
+              "longestMs": 35.6297,
+              "tag": 0
+            },
+            {
+              "name": "PowerVR software rasterizer",
+              "ms": 1525.44,
+              "longestMs": 35.0081,
+              "tag": 0
+            },
+            {
+              "name": "AICA synthesis",
+              "ms": 6.95021,
+              "longestMs": 0.065708,
+              "tag": 0
+            },
+            {
+              "name": "Disc file reads",
+              "ms": 0.489502,
+              "longestMs": 0.092709,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "variant": "before",
+        "repeat": 1,
+        "platform": "dc",
+        "fields": 60,
+        "ms": 6985.237333,
+        "fps": 8.589543510074463,
+        "heapBytes": 134217728,
+        "proof": {
+          "steps": 19199344255,
+          "frames": 5760,
+          "pc": 202736668,
+          "ram": 1535493192,
+          "vram": 3194646573,
+          "aica": 2898147524,
+          "rgba": 3552377401
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "SH-4 / ARM7 and devices",
+              "ms": 5212.19,
+              "longestMs": 52.1339,
+              "tag": 0
+            },
+            {
+              "name": "PowerVR software rasterizer",
+              "ms": 1677.93,
+              "longestMs": 51.5917,
+              "tag": 0
+            },
+            {
+              "name": "AICA synthesis",
+              "ms": 7.10666,
+              "longestMs": 0.04225,
+              "tag": 0
+            },
+            {
+              "name": "Disc file reads",
+              "ms": 0.453706,
+              "longestMs": 0.091416,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "variant": "before",
+        "repeat": 2,
+        "platform": "dc",
+        "fields": 60,
+        "ms": 6908.5205829999995,
+        "fps": 8.684927442735535,
+        "heapBytes": 134217728,
+        "proof": {
+          "steps": 19199344255,
+          "frames": 5760,
+          "pc": 202736668,
+          "ram": 1535493192,
+          "vram": 3194646573,
+          "aica": 2898147524,
+          "rgba": 3552377401
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "SH-4 / ARM7 and devices",
+              "ms": 5167.96,
+              "longestMs": 37.9421,
+              "tag": 0
+            },
+            {
+              "name": "PowerVR software rasterizer",
+              "ms": 1649.55,
+              "longestMs": 37.2177,
+              "tag": 0
+            },
+            {
+              "name": "AICA synthesis",
+              "ms": 6.95391,
+              "longestMs": 0.043584,
+              "tag": 0
+            },
+            {
+              "name": "Disc file reads",
+              "ms": 0.47971,
+              "longestMs": 0.078167,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "variant": "after",
+        "repeat": 2,
+        "platform": "dc",
+        "fields": 60,
+        "ms": 5292.79025,
+        "fps": 11.33617565895418,
+        "heapBytes": 134217728,
+        "proof": {
+          "steps": 19199344255,
+          "frames": 5760,
+          "pc": 202736668,
+          "ram": 1535493192,
+          "vram": 3194646573,
+          "aica": 2898147524,
+          "rgba": 3552377401
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "SH-4 / ARM7 and devices",
+              "ms": 3669.34,
+              "longestMs": 35.6772,
+              "tag": 0
+            },
+            {
+              "name": "PowerVR software rasterizer",
+              "ms": 1530.42,
+              "longestMs": 35.0495,
+              "tag": 0
+            },
+            {
+              "name": "AICA synthesis",
+              "ms": 7.66245,
+              "longestMs": 0.102917,
+              "tag": 0
+            },
+            {
+              "name": "Disc file reads",
+              "ms": 0.476084,
+              "longestMs": 0.085458,
+              "tag": 0
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "capture": {
+    "gba": [
+      {
+        "platform": "gba",
+        "info": {
+          "events": 39040,
+          "writes": 87759,
+          "overflow": 0,
+          "bytes": 16732598
+        },
+        "replay": {
+          "count": 39051,
+          "cursor": 0,
+          "cacheBytes": 0,
+          "complete": true
+        },
+        "proof": {
+          "steps": 28520960,
+          "instrs": 4015153,
+          "frames": 301,
+          "pc": 134929818,
+          "ram": 2837001387,
+          "iwram": 244645453,
+          "vram": 1839818126,
+          "rgba": 2103023477
+        }
+      },
+      {
+        "pass": true,
+        "platform": "gba",
+        "explained": 24,
+        "complete": 24,
+        "stateBytes": 558579
+      }
+    ],
+    "dc": [
+      {
+        "platform": "dc",
+        "info": {
+          "events": 18426,
+          "writes": 875771,
+          "overflow": 0,
+          "bytes": 93107006
+        },
+        "replay": {
+          "count": 18570,
+          "cursor": 0,
+          "cacheBytes": 0,
+          "complete": true
+        },
+        "proof": {
+          "steps": 19009350430,
+          "frames": 5703,
+          "pc": 202736668,
+          "ram": 3693555061,
+          "vram": 440188137,
+          "aica": 2535079394,
+          "rgba": 543071185
+        }
+      },
+      {
+        "pass": true,
+        "platform": "dc",
+        "explained": 208,
+        "complete": 208,
+        "stateBytes": 27953953
+      }
+    ]
+  },
+  "soak": {
+    "gba": {
+      "pass": true,
+      "platform": "gba",
+      "fields": 600,
+      "budgetMiB": 128,
+      "samples": [
+        {
+          "frame": 360,
+          "heapBytes": 67108864
+        },
+        {
+          "frame": 420,
+          "heapBytes": 67108864
+        },
+        {
+          "frame": 480,
+          "heapBytes": 67108864
+        },
+        {
+          "frame": 540,
+          "heapBytes": 67108864
+        },
+        {
+          "frame": 600,
+          "heapBytes": 67108864
+        },
+        {
+          "frame": 660,
+          "heapBytes": 67108864
+        },
+        {
+          "frame": 720,
+          "heapBytes": 67108864
+        },
+        {
+          "frame": 780,
+          "heapBytes": 67108864
+        },
+        {
+          "frame": 840,
+          "heapBytes": 67108864
+        },
+        {
+          "frame": 900,
+          "heapBytes": 67108864
+        }
+      ],
+      "proof": {
+        "steps": 85334912,
+        "instrs": 21333807,
+        "frames": 900,
+        "pc": 134929852,
+        "ram": 2908283360,
+        "iwram": 1020946971,
+        "vram": 2957765994,
+        "rgba": 1272102331
+      }
+    },
+    "dc": {
+      "pass": true,
+      "platform": "dc",
+      "fields": 600,
+      "budgetMiB": 256,
+      "samples": [
+        {
+          "frame": 5760,
+          "heapBytes": 134217728
+        },
+        {
+          "frame": 5820,
+          "heapBytes": 134217728
+        },
+        {
+          "frame": 5880,
+          "heapBytes": 134217728
+        },
+        {
+          "frame": 5940,
+          "heapBytes": 134217728
+        },
+        {
+          "frame": 6000,
+          "heapBytes": 134217728
+        },
+        {
+          "frame": 6060,
+          "heapBytes": 134217728
+        },
+        {
+          "frame": 6120,
+          "heapBytes": 134217728
+        },
+        {
+          "frame": 6180,
+          "heapBytes": 134217728
+        },
+        {
+          "frame": 6240,
+          "heapBytes": 134217728
+        },
+        {
+          "frame": 6300,
+          "heapBytes": 134217728
+        }
+      ],
+      "proof": {
+        "steps": 20999285755,
+        "frames": 6300,
+        "pc": 202730544,
+        "ram": 2701174118,
+        "vram": 759690166,
+        "aica": 192226676,
+        "rgba": 147194993
+      }
+    }
+  }
+}

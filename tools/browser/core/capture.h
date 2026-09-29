@@ -153,30 +153,41 @@ struct Recorder {
     return o.str();
   }
   std::string pixel(uint32_t address, int size, uint32_t before = 0xffffffff,
-                    uint32_t sourceExpected = 0) const {
+                    uint32_t sourceExpected = 0,
+                    const uint32_t *byteAddresses = nullptr) const {
     if (!valid || address < base || size < 1 || size > 4 ||
         uint64_t(address - base) + size > final.size())
       return "{\"error\":\"No captured memory at this pixel\"}";
+    // Some scanout formats cross interleaved VRAM banks within one pixel.
+    const auto at = [&](int i) { return byteAddresses ? byteAddresses[i] : address + i; };
+    for (int i = 0; i < size; i++)
+      if (at(i) < base || uint64_t(at(i) - base) >= final.size())
+        return "{\"error\":\"No captured memory at this pixel\"}";
+    const auto sampled = [&](const std::vector<uint8_t>& b) {
+      uint32_t v = 0;
+      for (int i = 0; i < size; i++) v |= value(b, at(i), 1) << (i * 8);
+      return v;
+    };
     std::ostringstream o;
-    auto expected = before == 0xffffffff ? value(final, address, size)
+    auto expected = before == 0xffffffff ? sampled(final)
                                          : sourceExpected,
-         observed = value(shadow, address, size);
+         observed = sampled(shadow);
     if (before != 0xffffffff) {
-      observed = value(initial, address, size);
+      observed = sampled(initial);
       for (size_t i = 0; i < std::min<size_t>(before, writes.size()); i++) {
         const auto &w = writes[i];
         if (!(w.flags & 1))
           continue;
         for (int j = 0; j < w.size; j++)
-          if (w.address + j >= address && w.address + j < address + size) {
-            auto shift = (w.address + j - address) * 8;
+          for (int k = 0; k < size; k++) if (w.address + j == at(k)) {
+            auto shift = k * 8;
             observed = (observed & ~(255u << shift)) |
                        (((w.after >> (j * 8)) & 255) << shift);
           }
       }
     }
     o << "{\"address\":" << address << ",\"size\":" << size
-      << ",\"initial\":" << value(initial, address, size)
+      << ",\"initial\":" << sampled(initial)
       << ",\"final\":" << expected << ",\"reconstructed\":" << observed
       << ",\"complete\":"
       << (!overflow && expected == observed ? "true" : "false")
@@ -184,9 +195,10 @@ struct Recorder {
     size_t count = 0, matched = 0;
     for (size_t i = 0; i < std::min<size_t>(before, writes.size()); i++) {
       const auto &w = writes[i];
-      if (uint64_t(w.address) + w.size <= address ||
-          w.address >= uint64_t(address) + size)
-        continue;
+      bool overlaps = false;
+      for (int k = 0; k < size; k++)
+        overlaps |= at(k) >= w.address && uint64_t(at(k)) < uint64_t(w.address) + w.size;
+      if (!overlaps) continue;
       matched++;
       if (count >= 512)
         continue;

@@ -26,6 +26,10 @@ func check(e error) {
 	}
 }
 func main() {
+	if os.Args[1] == "gba" || os.Args[1] == "dc" {
+		runAdvance()
+		return
+	}
 	if os.Args[1] == "ps2" {
 		runPS2()
 		return

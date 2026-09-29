@@ -63,6 +63,16 @@ var platform = "gc"
 
 func selected(dir, n string) bool {
 	switch filepath.Base(dir) {
+	case "arm":
+		return n != "disasm.go"
+	case "sh4":
+		return n != "disasm.go"
+	case "gba":
+		return n == "rom.go"
+	case "gbamachine":
+		return n != "state.go" && n != "screen.go"
+	case "dc":
+		return n != "state.go" && n != "disc.go" && n != "aica_wav.go" && n != "debug.go"
 	case "gekko", "gcdsp":
 		return true
 	case "r5900", "mips", "vu":
@@ -174,6 +184,12 @@ func typ(t types.Type) string {
 			if t.Obj().Pkg() != nil && t.Obj().Pkg().Path() == "hash" {
 				return "SHA1*"
 			}
+			if t.Obj().Pkg() != nil && t.Obj().Pkg().Name() == "arm" {
+				if platform == "gba" {
+					return "gbamachine_bus*"
+				}
+				return "dc_armBus*"
+			}
 			if t.Obj().Name() == "Coprocessor2" {
 				if t.Obj().Pkg().Name() == "mips" {
 					return "RRNullGTE*"
@@ -184,6 +200,9 @@ func typ(t types.Type) string {
 				return "RRNullGTE*"
 			}
 			if t.Obj().Name() == "BlockSource" || (t.Obj().Pkg() != nil && t.Obj().Pkg().Name() == "io") {
+				if platform == "dc" && t.Obj().Name() == "BlockSource" {
+					return "dc_Disc*"
+				}
 				return "LocalSource*"
 			}
 			if t.Obj().Pkg() != nil && t.Obj().Pkg().Name() == "mips" {
@@ -504,8 +523,18 @@ func (g *gen) call(x *ast.CallExpr) string {
 					name = "hash_" + s.Sel.Name
 				} else if s.Sel.Name == "ReadBlock" {
 					name = "localSource_ReadBlock"
+					if platform == "dc" {
+						name = "dc_Disc_ReadBlock"
+					}
 				} else {
-					if o.Pkg() != nil && o.Pkg().Name() == "gcdsp" {
+					if o.Pkg() != nil && o.Pkg().Name() == "arm" {
+						if platform == "gba" {
+							name = "gbamachine_bus_" + s.Sel.Name
+						} else {
+							name = "dc_armBus_" + s.Sel.Name
+							r = "*(" + r + ")"
+						}
+					} else if o.Pkg() != nil && o.Pkg().Name() == "gcdsp" {
 						name = "gc_dspBus_" + s.Sel.Name
 					} else if o.Pkg() != nil && o.Pkg().Name() == "mips" {
 						name = "ps2_IOP_" + s.Sel.Name
@@ -698,6 +727,20 @@ func (g *gen) st(s ast.Stmt) string {
 			if idx, ok := lhs.(*ast.IndexExpr); ok {
 				target := g.e(idx.X)
 				at := g.e(idx.Index)
+				if platform == "dc" {
+					owner := "m"
+					if target == "st->m->VRAM" {
+						owner = "st->m"
+					}
+					if target == "m->VRAM" || target == "st->m->VRAM" || (target == "b" && strings.HasPrefix(g.function, "dc_Machine_Write")) {
+						out += "if(rrcapture::trace.active)rrDCWrite(" + owner + "," + target + "," + at + ");\n"
+					}
+				}
+				if platform == "gba" && strings.HasPrefix(g.function, "gbamachine_bus_") {
+					if target == "mem" || target == "m->pal" || target == "m->vram" || target == "m->oam" {
+						out += "if(rrcapture::trace.active)rrGBAMemWrite(b->m," + target + "," + at + ");\n"
+					}
+				}
 				if platform == "ps2" && target == "gs->vram" {
 					out += "if(rrcapture::trace.active)rrGSWrite(gs," + at + ");\n"
 				}
@@ -939,6 +982,8 @@ func (g *gen) decl(d *ast.GenDecl, global bool) string {
 }
 
 var skips = map[string]bool{
+	"arm_CPU_Halt": true, "arm_NewCPU": true, "arm_CPU_read16": true, "arm_CPU_read32aligned": true, "arm_CPU_write16": true, "arm_CPU_write32aligned": true, "gba_Parse": true, "gbamachine_Machine_note": true, "gbamachine_Machine_WriteWAV": true,
+	"sh4_Inst_set": true, "sh4_NewCPU": true, "sh4_CPU_Halt": true, "sh4_CPU_fetchInstr": true, "dc_Machine_logf": true,
 	"gekko_NewCPU": true, "gekko_CPU_Halt": true, "gekko_CPU_fetch": true,
 	"gcdsp_CPU_Halt": true, "gcdsp_CPU_Clone": true, "gekko_Inst_set": true, "gc_Machine_logf": true, "gc_Machine_note": true,
 	"r5900_NewCPU": true, "mips_NewCPU": true, "r5900_CPU_Halt": true, "mips_CPU_Halt": true, "vu_VU_halt": true,
@@ -952,6 +997,7 @@ var skips = map[string]bool{
 // Keep the translated implementations available for differential tests. The
 // corresponding fast.h implements narrowly scoped, behavior-preserving paths.
 var fastFunctions = map[string]bool{
+	"gbamachine_bus_Read16": true, "dc_Machine_Fetch16": true, "dc_Machine_read32i": true, "dc_Machine_read16i": true, "dc_armBus_Read32": true, "dc_twiddle": true, "dc_Machine_tickField": true,
 	"gc_Machine_Fetch32":  true,
 	"gekko_CPU_Translate": true,
 	"gc_gpu_tevstate":     true,
@@ -974,15 +1020,25 @@ func main() {
 	if len(os.Args) > 1 {
 		platform = os.Args[1]
 	}
-	if platform != "gc" && platform != "ps2" {
-		panic("expected gc or ps2")
+	if platform != "gc" && platform != "ps2" && platform != "gba" && platform != "dc" {
+		panic("expected gc, ps2, gba or dc")
 	}
-	_, err := (imp{}).Import("retroreverse.com/tools/platform/" + platform)
+	path := platform
+	if platform == "gba" {
+		path = "gba/gbamachine"
+	}
+	_, err := (imp{}).Import("retroreverse.com/tools/platform/" + path)
 	must(err)
 	out := "#include \"runtime.h\"\n"
 	units := []*unit{pkgs["retroreverse.com/tools/cpu/gekko"], pkgs["retroreverse.com/tools/cpu/gcdsp"], pkgs["retroreverse.com/tools/platform/gc"]}
 	if platform == "ps2" {
 		units = []*unit{pkgs["retroreverse.com/tools/cpu/r5900"], pkgs["retroreverse.com/tools/cpu/mips"], pkgs["retroreverse.com/tools/cpu/vu"], pkgs["retroreverse.com/tools/lib/iso9660"], pkgs["retroreverse.com/tools/platform/ps2"]}
+	}
+	if platform == "gba" {
+		units = []*unit{pkgs["retroreverse.com/tools/cpu/arm"], pkgs["retroreverse.com/tools/platform/gba"], pkgs["retroreverse.com/tools/platform/gba/gbamachine"]}
+	}
+	if platform == "dc" {
+		units = []*unit{pkgs["retroreverse.com/tools/cpu/arm"], pkgs["retroreverse.com/tools/cpu/sh4"], pkgs["retroreverse.com/tools/lib/iso9660"], pkgs["retroreverse.com/tools/platform/dc"]}
 	}
 	named := []*types.Named{}
 	for _, u := range units {
@@ -1052,6 +1108,9 @@ func main() {
 				for i := 0; i < u.NumFields(); i++ {
 					v := u.Field(i)
 					out += typ(v.Type()) + " " + id(v.Name()) + "{};\n"
+				}
+				if n == "dc_Machine" {
+					out += "uint32_t rrLastTotal{},rrLinePeriod{};\n"
 				}
 				if n == "ps2_Machine" {
 					out += "uint64_t rrVblAcc{},rrIopAcc{};\n"
@@ -1184,7 +1243,7 @@ func main() {
 						signature = strings.Replace(signature, name+"(", name+"_reference(", 1)
 						protos += signature + ";\n"
 					}
-					body := g.block(d.Body)
+					body := advanceBody(name, g.block(d.Body))
 					if name == "ps2_GS_count" {
 						body = strings.ReplaceAll(body, "gs->drawCensus[what]++;", "auto&count=(*gs->drawCensus.p)[what]; ++count; if(auto*entry=gs->rrFeatures.recording)entry->record(count);")
 					}
@@ -1212,6 +1271,13 @@ func main() {
 					if name == "ps2_Machine_Fetch32" {
 						body = "{const uint32_t p=addr&0x1fffffffu;if(p+3u<32u*1024*1024){uint32_t value;std::memcpy(&value,m->ram.p+p,4);return value;}\n" + body + "}\n"
 					}
+					if strings.HasPrefix(name, "gbamachine_") && name != "gbamachine_biosSWI" {
+						body = strings.ReplaceAll(body, "gbamachine_bus* b = arenaNew(gbamachine_bus{m});", "gbamachine_bus busStorage{m}; auto*b=&busStorage;")
+					}
+					if name == "gbamachine_biosSWI" {
+						body = strings.ReplaceAll(body, "[&]", "[=]")
+						body = strings.Replace(body, "gbamachine_bus* b = arenaNew(gbamachine_bus{m});\nreturn [=](arm_CPU* c,uint32_t comment)->bool{", "return [m](arm_CPU* c,uint32_t comment)->bool{gbamachine_bus busStorage{m};auto*b=&busStorage;", 1)
+					}
 					if name == "ps2_Machine_ensureVIF" {
 						body = strings.ReplaceAll(body, "[&]", "[=]")
 					}
@@ -1219,10 +1285,13 @@ func main() {
 					if name == "ps2_GS_imageData" || name == "ps2_GS_localCopy" {
 						body = "{auto restore=rrGSTransfer(gs,\"" + name + "\");\n" + body + "}\n"
 					}
+					if name == "dc_Machine_renderFrame" {
+						body = "{rrconsole::EventScope restore(rrcapture::trace.current);\n" + body + "}\n"
+					}
 					if name == "gc_gpu_clearEFB" {
 						body = "{auto restore=rrEFBClear(g);\n" + body + "}\n"
 					}
-					scopes := map[string]string{"ps2_Machine_Run": "0,\"EE / IOP and scheduler\"", "ps2_vif_runVU": "1,\"Vector units\"", "ps2_vif_feed": "2,\"VIF / DMA\"", "ps2_GS_imageData": "3,\"GS transfers\"", "gc_Machine_Run": "0,\"Gekko and devices\"", "gc_gpu_feed": "1,\"GX command processor\"", "gc_gpu_drawPrimitive": "2,\"Vertices and transforms\"", "gc_gpu_copyDisplay": "4,\"Pixel engine copies\""}
+					scopes := map[string]string{"gbamachine_Machine_run": "0,\"ARM7 and scheduler\"", "gbamachine_ppu_renderLine": "1,\"PPU scanline composition\"", "gbamachine_Machine_dmaRun": "2,\"DMA\"", "gbamachine_apu_mixCycles": "3,\"Audio synthesis\"", "dc_Machine_Run": "0,\"SH-4 / ARM7 and devices\"", "dc_Machine_renderFrame": "1,\"PowerVR software rasterizer\"", "dc_biosHLE_execGD": "2,\"GD-ROM HLE\"", "dc_Machine_mixSample": "3,\"AICA synthesis\"", "ps2_Machine_Run": "0,\"EE / IOP and scheduler\"", "ps2_vif_runVU": "1,\"Vector units\"", "ps2_vif_feed": "2,\"VIF / DMA\"", "ps2_GS_imageData": "3,\"GS transfers\"", "gc_Machine_Run": "0,\"Gekko and devices\"", "gc_gpu_feed": "1,\"GX command processor\"", "gc_gpu_drawPrimitive": "2,\"Vertices and transforms\"", "gc_gpu_copyDisplay": "4,\"Pixel engine copies\""}
 					// Count complete GS draws here, including target/sampler setup and
 					// diagnostics, instead of attributing them to their VU/GIF caller.
 					for _, draw := range []string{"ps2_GS_point", "ps2_GS_line", "ps2_GS_sprite", "ps2_GS_triangle"} {

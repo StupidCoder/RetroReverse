@@ -66,5 +66,19 @@
     "mode": "generate",
     "file": "site/emulators/art/gc.png",
     "prompt": "Use case: product-mockup. Asset: square console selection card for RetroReverse educational emulator gallery. A faithful indigo Nintendo GameCube console alone, three-quarter view from above showing front and right side. Recognizable cube shape, circular gray top-loading disc lid, four controller ports across light gray front, two memory card slots below, black carrying handle peeking behind. Clean realistic 3D product illustration, soft studio light, matte indigo textured plastic, pale cool gray background, subtle contact shadow, centered with generous even margins. Console occupies about 70 percent of image. No controller, no cable, no props, no caption or extra typography. Square image."
+  },
+  {
+    "console": "Game Boy Advance",
+    "tool": "built-in image_gen",
+    "mode": "generate",
+    "file": "site/emulators/art/gba.png",
+    "prompt": "Use case: product-mockup. Asset: square console selection card for RetroReverse educational emulator gallery. A faithful original indigo Nintendo Game Boy Advance handheld, alone, gently elevated three-quarter view showing the front. Wide horizontal rounded purple shell with curved grips, blank dark LCD with dark gray bezel, black D-pad at left, two dark gray circular A and B buttons at right, small Start and Select buttons below-left screen, speaker holes below-right. Clean realistic 3D product illustration, soft studio light, matte indigo plastic, pale cool gray-blue background #e9edf3, subtle contact shadow, centered with generous even margins. Entire handheld occupies about 75 percent of width. No game imagery, no hands, no accessories, no caption, no watermark. Square image."
+  },
+  {
+    "console": "Dreamcast",
+    "tool": "built-in image_gen",
+    "mode": "generate",
+    "file": "site/emulators/art/dc.png",
+    "prompt": "Use case: product-mockup. Asset: square console selection card for RetroReverse educational emulator gallery. A faithful original white Sega Dreamcast console alone, three-quarter view from above showing the front and right side. Compact square white/light-gray body, large circular top-loading disc lid with subtle orange Dreamcast swirl, four controller ports across front, round power and open buttons on top near corners, small orange status light. Clean realistic 3D product illustration, soft studio light, matte light gray plastic, pale cool gray-blue background #e9edf3, subtle contact shadow, centered with generous even margins. Entire console occupies about 70 percent of image. No controller, no cable, no props, no caption or added typography, no watermark. Square image."
   }
 ]

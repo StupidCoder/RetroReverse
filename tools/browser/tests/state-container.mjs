@@ -6,4 +6,4 @@ for(const i of [0,8,20,bytes.length-33,bytes.length-1]){const b=bytes.slice();b[
 await assert.rejects(()=>unpackState(new Blob([bytes.slice(0,-1)])));
 console.log('State container round trip, corruption and truncation checks passed');
 
-for(const platform of ['gb','gg','gc','ps2']){const b=await packState({format:1,platform},new Uint8Array([4,5,6]));assert.equal((await unpackState(new Blob([b]))).meta.platform,platform);}
+for(const platform of ['gb','gg','gc','ps2','gba','dc']){const b=await packState({format:1,platform},new Uint8Array([4,5,6]));assert.equal((await unpackState(new Blob([b]))).meta.platform,platform);}
