@@ -22,3 +22,5 @@ static void stateRead(rrstate::Archive&a){a.header(13,1);gbamachine_Machine*next
 #include "../../../../browser/state/api.inc"
 
 #include "capture.h"
+
+#include "memory.h"

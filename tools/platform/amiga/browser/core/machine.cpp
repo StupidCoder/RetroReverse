@@ -31,6 +31,11 @@ void Machine::reset(const std::vector<uint8_t> &firmware,
 }
 uint8_t Machine::read8(uint32_t a) {
   a &= 0xffffff;
+  if(rrmem::active){
+    if((overlay&&a<0x80000)||a>=0xf80000){unsigned off=(a>=0xf80000?a-0xf80000:a)%rom.size();rrmem::access(cycles,2,off,rom[off],1,1,pc,a);}
+    else if(a<0x200000)rrmem::access(cycles,0,a&(CHIP-1),ram[a&(CHIP-1)],1,1,pc,a);
+    else if(a>=0xc00000&&a<0xc00000+SLOW)rrmem::access(cycles,1,a-0xc00000,slow[a-0xc00000],1,1,pc,a);
+  }
   if (a < 0x200000) {
     if (overlay && a < 0x80000)
       return rom[a % rom.size()];
@@ -62,11 +67,13 @@ void Machine::write8(uint32_t a, uint8_t v) {
   a &= 0xffffff;
   if (a < 0x200000) {
     captureWrite(a & (CHIP - 1), v, 1, cycles, pc);
+    rrmem::access(cycles,0,a&(CHIP-1),v,1,2,pc,a);
     ram[a & (CHIP - 1)] = v;
     return;
   }
   if (a >= 0xc00000 && a < 0xc00000 + SLOW) {
     captureWrite(CHIP + a - 0xc00000, v, 1, cycles, pc);
+    rrmem::access(cycles,1,a-0xc00000,v,1,2,pc,a);
     slow[a - 0xc00000] = v;
     return;
   }

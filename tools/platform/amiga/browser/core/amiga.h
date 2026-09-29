@@ -76,10 +76,13 @@ struct Machine {
   void write16(uint32_t a, uint16_t v);
   void write32(uint32_t a, uint32_t v);
   uint16_t chip16(uint32_t a) const {
+    rrmem::access(cycles,0,a&(CHIP-1),ram[a&(CHIP-1)]|uint32_t(ram[(a+1)&(CHIP-1)])<<8,2,9,pc,a);
     return uint16_t(ram[a & (CHIP - 1)]) << 8 | ram[(a + 1) & (CHIP - 1)];
   }
   void chipWrite(uint32_t a, uint16_t v) {
     a &= CHIP - 1;
+    rrmem::access(cycles,0,a,v>>8,1,10,pc,a);
+    rrmem::access(cycles,0,(a+1)&(CHIP-1),v&255,1,10,pc,a+1);
     captureWrite(a, swapped(v), 2, cycles, pc, hardwareEvent);
     ram[a] = v >> 8;
     ram[(a + 1) & (CHIP - 1)] = v;

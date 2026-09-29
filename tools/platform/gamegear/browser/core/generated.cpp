@@ -225,9 +225,10 @@ c->intReq = b;
 }
 // tools/cpu/z80/cpu.go:68:1
 uint8_t z80_CPU_read(z80_CPU* c,uint16_t a){
-{
+{auto value = [&]()->uint8_t {
 return gamegear_Machine_Read(c->bus,a);
 }
+(); rrAfterRead(c->bus,a,value); return value;}
 }
 // tools/cpu/z80/cpu.go:69:1
 void z80_CPU_write(z80_CPU* c,uint16_t a,uint8_t v){

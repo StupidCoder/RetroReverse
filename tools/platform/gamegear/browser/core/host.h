@@ -36,8 +36,15 @@ inline void rrAdvance(Machine*m){
 inline void rrPad(Machine*m,uint32_t buttons){m->PadDC=~buttons;m->Pad00=buttons&128?0x7f:0xff;}
 inline double rrSeconds(Machine*){return double(rrgg::timing.cycles)/3579545;}
 inline std::vector<uint8_t>rrMemoryImage(Machine*m){std::vector<uint8_t>b(rrhh::memorySize);std::memcpy(b.data()+0xc000,m->ram.data(),8192);std::memcpy(b.data()+0x10000,m->VDP.VRAM.data(),16384);std::memcpy(b.data()+0x14000,m->VDP.CRAM.data(),64);std::memcpy(b.data()+0x14040,m->VDP.Regs.data(),16);rrhh::includeFrame(b);return b;}
-inline void rrAfterWrite(Machine*m,uint16_t a,uint8_t){if(a>=0xc000)rrhh::memoryWrite(0xc000+(a&0x1fff),m->ram[a&0x1fff]);}
+inline void rrAfterWrite(Machine*m,uint16_t a,uint8_t){if(a>=0xc000)rrmem::access(rrgg::timing.cycles,0,a&8191,m->ram[a&8191],1,2,rrhh::video.pc,a);if(a>=0xc000)rrhh::memoryWrite(0xc000+(a&0x1fff),m->ram[a&0x1fff]);}
 inline void rrAfterPort(Machine*m,uint16_t port,uint8_t value){auto&v=m->VDP;
  if(uint8_t(port)==0xbe){auto a=uint16_t(v.addr-1);if(v.code==3)rrhh::memoryWrite(0x14000+(a&63),v.CRAM[a&63]);else rrhh::memoryWrite(0x10000+(a&16383),v.VRAM[a&16383]);}
  else if(uint8_t(port)==0xbf&&!v.latched&&v.code==2)rrhh::memoryWrite(0x14040+(value&15),v.Regs[value&15]);
+}
+
+inline void rrAfterRead(Machine*m,uint16_t a,uint8_t v){
+ if(!rrmem::active)return;
+ auto [off,ram]=gamegear_FileOffset(m->slot,a);
+ if(ram)rrmem::access(rrgg::timing.cycles,0,a&8191,v,1,1,rrhh::video.pc,a);
+ else if(off<m->rom.n)rrmem::access(rrgg::timing.cycles,3+off/16384,off%16384,v,1,1,rrhh::video.pc,a);
 }

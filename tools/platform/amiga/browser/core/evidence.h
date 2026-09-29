@@ -2,6 +2,7 @@
 #include "../../../../browser/core/capture.h"
 #include "../../../../browser/core/profile.h"
 #include "../../../../browser/core/replay.h"
+#include "../../../../browser/core/memory.h"
 namespace rramiga {
 constexpr uint32_t registerBase = 0x100000, frameBase = 0x110000,
                    captureSize = frameBase + 640 * 256 * 4;

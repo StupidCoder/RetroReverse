@@ -1024,6 +1024,9 @@ func main() {
 						signature = strings.Replace(signature, name, name+"_Reference", 1)
 						protos += signature + ";\n"
 					}
+					if name == "z80_CPU_read" {
+						body = "{auto value = [&]()->uint8_t " + body + "(); rrAfterRead(c->bus,a,value); return value;}\n"
+					}
 					if name == platform+"_Machine_Write" {
 						body = "{auto writtenAddress=a; auto writtenValue=v;\n" + body + "rrAfterWrite(m,writtenAddress,writtenValue);\n}\n"
 					}

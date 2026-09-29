@@ -249,6 +249,7 @@ void Machine::diskTick() {
   diskClock -= 224;
   if (loadedTrack != cylinder * 2 + side)
     prepareTrack();
+  const unsigned consumedWord=trackIndex;
   uint16_t word = track[trackIndex++];
   if (trackIndex >= track.size()) {
     trackIndex = 0;
@@ -274,6 +275,14 @@ void Machine::diskTick() {
           "{\"kind\":\"Floppy DMA\",\"origin\":\"disk\",\"track\":" +
               std::to_string(loadedTrack) + "}");
     hardwareEvent = diskEvent;
+  }
+  // prepareTrack's payload layout is known: two odd/even MFM runs per sector.
+  // Attribute only payload words, never gaps, sync words or headers, to ADF bytes.
+  if(consumedWord>=166&&consumedWord<166+11*544){
+    unsigned sector=(consumedWord-166)/544,within=(consumedWord-166)%544;
+    if(within>=32){unsigned off=(loadedTrack*11+sector)*512+((within-32)%256)/2*4;
+      rrmem::access(cycles,3,off,word,4,17,pc,diskPtr);
+    }
   }
   chipWrite(diskPtr, word);
   diskPtr += 2;

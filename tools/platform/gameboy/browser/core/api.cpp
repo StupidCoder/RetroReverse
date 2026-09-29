@@ -3,3 +3,5 @@
 #include "../../../../browser/handheld/api.inc"
 
 #include "raster-api.h"
+
+#include "memory.h"

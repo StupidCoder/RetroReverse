@@ -41,7 +41,7 @@ subprocess.run([cxx, *flags, '-std=c++20', *sources,
                 str(root / 'core/native.cpp'), *objects,
                 '-o', str(root / 'work/amiga-native')], check=True)
 if args.test:
-    for test in ['pixel-amiga', 'raster-amiga']:
+    for test in ['pixel-amiga', 'raster-amiga', 'memory-amiga']:
         output = str(root / 'work' / test)
         subprocess.run([cxx, *flags, '-std=c++20', *sources,
                         str(root.parents[2] / ('browser/tests/' + test + '.cpp')),
@@ -50,7 +50,7 @@ if args.test:
 
 if not args.native_only:
     objects = compile_cpu(str(Path(args.emcc).with_name('emcc')), 'wasm-')
-    exports = ('input firmware init run pad mouse key error status proof profile '
+    exports = ('inspect_regions inspect_data activity_begin activity_end activity_count activity_dropped activity_data input firmware init run pad mouse key error status proof profile '
                'frame state_input state_save state_data state_load capture_begin '
                'capture_end capture_info pixel source resource replay_begin '
                'replay_seek replay_info replay_frame replay_for_write raster_info raster_seek '

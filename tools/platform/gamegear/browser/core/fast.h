@@ -37,8 +37,8 @@ inline void gamegear_Machine_Out(gamegear_Machine*m,uint16_t port,uint8_t value)
    auto address=v.addr;v.latched=false;v.readBuf=value;v.addr=(address+1)&0x3fff;
    if(v.code==3){
     if(!(address&1))rrgg::timing.cramLow=value;
-    else {unsigned a=address&62;v.CRAM[a]=rrgg::timing.cramLow;v.CRAM[a+1]=value&15;v.CRAMWrites++;rrhh::memoryWrite(0x14000+a,v.CRAM[a]|uint16_t(v.CRAM[a+1])<<8,2);}
-   }else {address&=0x3fff;v.VRAM[address]=value;v.Writes[address>>10]++;rrhh::memoryWrite(0x10000+address,value);}
+    else {unsigned a=address&62;v.CRAM[a]=rrgg::timing.cramLow;v.CRAM[a+1]=value&15;v.CRAMWrites++;rrmem::access(rrgg::timing.cycles,2,a,v.CRAM[a]|uint32_t(v.CRAM[a+1])<<8,2,2,rrhh::video.pc,port);rrhh::memoryWrite(0x14000+a,v.CRAM[a]|uint16_t(v.CRAM[a+1])<<8,2);}
+   }else {address&=0x3fff;v.VRAM[address]=value;v.Writes[address>>10]++;rrmem::access(rrgg::timing.cycles,1,address,value,1,2,rrhh::video.pc,port);rrhh::memoryWrite(0x10000+address,value);}
   }
  }else if(p>=0x40&&p<0x80)gamegear_PSG_Write(&m->PSG,value);
 }

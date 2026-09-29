@@ -9,6 +9,7 @@
 #include <vector>
 #include <sstream>
 #include "observe.h"
+#include "../../../../browser/core/memory.h"
 #include "../../../../browser/core/profile.h"
 static uint64_t profileCycle=0;
 #define RR_PROFILE_BEGIN bool rrSample=(++profileCycle%1021)==0; rrprof::Scope rrTick(0,"Bus / glue remainder",rrSample)
@@ -56,6 +57,7 @@ static int stopReason=0;
 }
 #include "observe.inc"
 #include "raster.inc"
+#include "memory.inc"
 extern "C" {
 const char* rr_profile(){return rrprof::json(true);}
 uint8_t* rr_input(){return input;}
@@ -118,7 +120,13 @@ int rr_run(int ticks,int stop_kind,int target){
   if(ctx.cycles%985==0)kbd_update(&machine.kbd,1000);
   const auto pins=machine.pins;const uint16_t address=M6502_GET_ADDR(pins);const uint8_t value=M6502_GET_DATA(pins);
   if((pins&M6502_RW)&&!(pins&M6502_SYNC))observation::read(address,value);
-  if(edge)record(0,0,0);
+  if(edge){record(0,0,0);rrmem::access(ctx.cycles,5,ctx.pulse-1,durations[ctx.pulse-1],1,17,ctx.pc,0);}
+  if(rrmem::active&&(pins&M6502_RW)&&!(pins&M6502_RDY)){
+   const int space=observation::cpuSpace(address);unsigned region=0,off=address;
+   if(space==1){region=4;off=address&1023;}
+   else if(space==3){region=address>=0xe000?2:address>=0xd000?3:1;off=address-(region==2?0xe000:region==3?0xd000:0xa000);}
+   if(space!=2)rrmem::access(ctx.cycles,region,off,value,1,pins&M6502_SYNC?4:1,ctx.pc,address);
+  }
   const bool selected=ctx.pc>=trace_lo&&ctx.pc<=trace_hi;
   if(selected){if(pins&M6502_SYNC)record(1,address,value);else if(!(pins&M6502_RW))record(3,address,value);else if(address>=0xdc00&&address<=0xddff)record(2,address,value);else if(observation::traceReads)record(4,address,value);}
   if(!(pins&M6502_SYNC))leftBoundary=true;

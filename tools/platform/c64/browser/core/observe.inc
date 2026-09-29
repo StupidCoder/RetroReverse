@@ -63,6 +63,7 @@ static void instruction(){
 }
 static void read(uint16_t a,uint8_t v){history.readCycle=ctx.cycles;history.readAddress=a;history.readValue=v;history.readSpace=cpuSpace(a);}
 void write(int space,uint16_t address,uint8_t value){
+ if(space==0||space==1)rrmem::access(ctx.cycles+1,space==0?0:4,space==0?address:address&1023,value,1,2,ctx.pc,address);
  const unsigned k=key(space,address);if(k>=CELLS)return;
  Write w;w.cycle=ctx.cycles+1;w.instructionCycle=history.instructionCycle;w.pc=ctx.pc;w.address=address;w.space=space;
  w.interrupt=machine.cpu.brk_flags&(M6502_BRK_IRQ|M6502_BRK_NMI);

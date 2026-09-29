@@ -107,3 +107,50 @@ The existing site links to `/emulators/`, containing C64, PS1, N64 and 3DO WASM
 emulators. Game images are selected locally; C64 firmware is hosted with the
 app. Build and validation instructions are in [tools/browser/README.md](../tools/browser/README.md).
 Use that directory's preview server when testing the emulator profiling headers.
+
+## Memory inspector
+
+Load a local game and choose **Memory** to pause at the current execution boundary.
+The hex pane and physical-storage bitmap stay linked: click a bank or RAM area to
+jump, use arrow/Page Up/Page Down keys in the hex pane, or enter a physical address
+or explicit `rom-5:3430` bank offset. ROM rows show file offsets; RAM rows show their
+base addresses. CPU aliases are labeled separately, including partial GG windows.
+
+| Core | Physical snapshots | Recorded activity |
+|---|---|---|
+| GG | RAM, VRAM, CRAM, every ROM bank | CPU reads (including fetches), RAM and video-port writes |
+| GB | WRAM, VRAM, OAM, HRAM, cartridge RAM and ROM banks | Not yet available |
+| GBA | EWRAM, IWRAM, VRAM, palette, OAM, EEPROM, ROM chunks | Not yet available |
+| C64 | Underlying RAM, BASIC/KERNAL/character ROM, color RAM, tape | CPU memory accesses and consumed tape pulses; optional fetches |
+| Amiga | Chip/slow RAM, Kickstart, every ADF track/side | CPU and chip DMA accesses; MFM payload consumption attributed to sectors |
+
+Other cores show an explicit unavailable message. Hardware I/O inspection is not
+implemented using live register reads. Display-chip reads are not generally traced;
+the workspace describes the coverage of each supported recorder.
+
+**Record & run** advances the machine for the selected maximum duration, stopping
+earlier at 524,288 events. Replay/scrubbing reconstructs historical bytes from an
+immutable initial snapshot and actual writes, without changing the paused machine.
+**Resume game** continues from the live endpoint, not the historical cursor.
+Truncation is explicit. Recordings are bounded windows, not an unlimited rewind
+history; a new snapshot or recording replaces the prior recording. CPU mapping
+details describe the start snapshot, while events resolve physical banks at access time.
+
+For Fort, start the normal `LOAD` / tape playback flow in Play, then use Memory to
+record an interval. The tape bitmap encodes pulse duration and highlights consumed
+pulses; selecting it opens the corresponding raw TAP bytes. ADF rows are grouped by
+cylinder/side, with 11 sectors per track. Sector highlights identify the underlying
+payload bits being consumed as encoded MFM, not a fictitious decoded-byte DMA copy.
+
+Exact-hash annotations cover the documented Sonic GG and Fort tape revisions.
+Sonic map spans are read from its actual act descriptors and split at ROM bank
+boundaries. Unknown revisions still expose hardware regions without guessed labels.
+Game-phase descriptions are documentation, not automatic phase detection.
+
+Pause now freezes the machine. Use **Capture rendering** for the previous
+pause-and-capture behavior of the Render workspace.
+
+Run `node tools/browser/tests/memory.mjs` for media-free model/service checks and
+`node tools/browser/tests/memory-wasm.mjs <platform> <local-image>` for optional
+WASM validation. The native GG/C64/Amiga memory tests are included in
+`python3 tools/browser/check.py` alongside the existing rendering checks.

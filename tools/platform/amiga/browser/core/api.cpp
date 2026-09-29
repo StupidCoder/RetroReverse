@@ -209,3 +209,5 @@ uint8_t *rr_replay_frame() {
 }
 
 #include "inspection-api.h"
+
+#include "memory.h"
