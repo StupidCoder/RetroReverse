@@ -1,0 +1,208 @@
+{
+  "release": "c3ee74a092115c319b04",
+  "publicRegressionSuite": "passed",
+  "nativeAndWASMDifferentialTests": "passed",
+  "captureChecks": {
+    "gc": [
+      {
+        "platform": "gc",
+        "info": {
+          "events": 47351,
+          "writes": 4398815,
+          "overflow": 0,
+          "bytes": 401641388,
+          "xfb": 5744736,
+          "copies": [
+            {
+              "dst": 5744736,
+              "before": 4060895
+            }
+          ]
+        },
+        "replay": {
+          "count": 47351,
+          "cursor": 0,
+          "cacheBytes": 0,
+          "complete": true
+        },
+        "proof": {
+          "steps": 7313401702,
+          "frames": 903,
+          "pc": 1280,
+          "ram": 2252928185,
+          "rgba": 674487376
+        }
+      },
+      {
+        "pass": true,
+        "platform": "gc",
+        "explained": 208,
+        "complete": 208,
+        "stateBytes": 44703088
+      }
+    ],
+    "ps2": [
+      {
+        "platform": "ps2",
+        "info": {
+          "events": 97388,
+          "writes": 5271376,
+          "overflow": 0,
+          "bytes": 515822720
+        },
+        "replay": {
+          "count": 97388,
+          "cursor": 0,
+          "cacheBytes": 0,
+          "complete": true
+        },
+        "proof": {
+          "steps": 9151040578,
+          "frames": 9151,
+          "pc": 7480284,
+          "ram": 2156245310,
+          "vram": 2646949360,
+          "rgba": 2758051367
+        }
+      },
+      {
+        "pass": true,
+        "platform": "ps2",
+        "explained": 78,
+        "complete": 78,
+        "stateBytes": 42898427
+      }
+    ]
+  },
+  "soakChecks": {
+    "gc": {
+      "pass": true,
+      "platform": "gc",
+      "fields": 600,
+      "budgetMiB": 256,
+      "samples": [
+        {
+          "frame": 960,
+          "heapBytes": 193331200
+        },
+        {
+          "frame": 1020,
+          "heapBytes": 193331200
+        },
+        {
+          "frame": 1080,
+          "heapBytes": 193331200
+        },
+        {
+          "frame": 1140,
+          "heapBytes": 193331200
+        },
+        {
+          "frame": 1200,
+          "heapBytes": 193331200
+        },
+        {
+          "frame": 1260,
+          "heapBytes": 193331200
+        },
+        {
+          "frame": 1320,
+          "heapBytes": 193331200
+        },
+        {
+          "frame": 1380,
+          "heapBytes": 193331200
+        },
+        {
+          "frame": 1440,
+          "heapBytes": 193331200
+        },
+        {
+          "frame": 1500,
+          "heapBytes": 193331200
+        }
+      ],
+      "proof": {
+        "steps": 12149101702,
+        "frames": 1500,
+        "pc": 1280,
+        "ram": 3699754447,
+        "rgba": 3607609717
+      }
+    },
+    "ps2": {
+      "pass": true,
+      "platform": "ps2",
+      "fields": 600,
+      "budgetMiB": 256,
+      "samples": [
+        {
+          "frame": 9207,
+          "heapBytes": 193331200
+        },
+        {
+          "frame": 9267,
+          "heapBytes": 193331200
+        },
+        {
+          "frame": 9327,
+          "heapBytes": 193331200
+        },
+        {
+          "frame": 9387,
+          "heapBytes": 193331200
+        },
+        {
+          "frame": 9447,
+          "heapBytes": 193331200
+        },
+        {
+          "frame": 9507,
+          "heapBytes": 193331200
+        },
+        {
+          "frame": 9567,
+          "heapBytes": 193331200
+        },
+        {
+          "frame": 9627,
+          "heapBytes": 193331200
+        },
+        {
+          "frame": 9687,
+          "heapBytes": 193331200
+        },
+        {
+          "frame": 9747,
+          "heapBytes": 193331200
+        }
+      ],
+      "proof": {
+        "steps": 9747041466,
+        "frames": 9747,
+        "pc": 7372652,
+        "ram": 363158653,
+        "vram": 1473746860,
+        "rgba": 4285815074
+      }
+    }
+  },
+  "nativeProofs": {
+    "gc": {
+      "steps": 7775101702,
+      "frames": 960,
+      "pc": 1280,
+      "ram": 1248033418,
+      "rgba": 934521841
+    },
+    "ps2": {
+      "steps": 9207040578,
+      "frames": 9207,
+      "pc": 7480480,
+      "ram": 3069613019,
+      "vram": 2959245253,
+      "rgba": 2692625148
+    }
+  },
+  "browserAcceptance": "Not completed: in-app file chooser timed out without selecting the disc; native-picker fallback unavailable. Local updated page loaded successfully."
+}

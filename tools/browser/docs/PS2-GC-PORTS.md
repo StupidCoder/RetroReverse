@@ -1,5 +1,9 @@
 # PS2 and GameCube browser ports
 
+The subsequent [optimization pass](PS2-GC-OPTIMIZATION.md) improves throughput
+by 13–48% in the measured scenes and corrects PS2 profiling attribution. The
+performance table below records the original porting session.
+
 Both ports translate RetroReverse's existing Go emulators to C++20 and WASM.
 They do not embed PCSX2, Dolphin, or another third-party console emulator.
 The Go emulators remain the reference and retain their own compatibility limits.

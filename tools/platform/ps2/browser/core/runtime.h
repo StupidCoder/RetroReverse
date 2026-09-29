@@ -39,3 +39,22 @@ inline Slice<std::string>go_strings_Fields(std::string s){Slice<std::string>o;st
 // The hang heuristic asks only whether <=6 distinct PCs occurred. Once the
 // seventh is seen its answer is fixed; no hash map or later insertions needed.
 struct RRSpinSet{std::array<uint32_t,7>pc{};int64_t n=0;void add(uint32_t p){if(n==7)return;for(int i=0;i<n;i++)if(pc[i]==p)return;pc[n++]=p;}int64_t size()const{return n;}};
+
+// Host-only memoization of diagnostic labels. The counters themselves remain in
+// drawCensus and in save states. Unordered-map rehash preserves value pointers;
+// retaining/checking the owning map also handles replacement of the census.
+struct RRGSFeatureEntry {
+  std::array<uint64_t,6> key{};
+  std::array<int64_t*,8> counts{};
+  unsigned size=0;
+  bool valid=false;
+  void record(int64_t&count){
+    if(size==counts.size())throw std::runtime_error("GS feature cache capacity exceeded");
+    counts[size++]=&count;
+  }
+};
+struct RRGSFeatureCache {
+  std::shared_ptr<std::unordered_map<std::string,int64_t>> owner;
+  std::array<RRGSFeatureEntry,2> entries{};
+  RRGSFeatureEntry*recording=nullptr;
+};

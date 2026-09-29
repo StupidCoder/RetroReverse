@@ -949,6 +949,21 @@ var skips = map[string]bool{
 	"gc_gpu_rasterWorkers": true, "gc_gpu_fill": true, "gc_gpu_dumpTex0Once": true, "gc_siLog": true,
 }
 
+// Keep the translated implementations available for differential tests. The
+// corresponding fast.h implements narrowly scoped, behavior-preserving paths.
+var fastFunctions = map[string]bool{
+	"gc_Machine_Fetch32":  true,
+	"gekko_CPU_Translate": true,
+	"gc_gpu_tevstate":     true,
+	"gc_gpu_shade":        true,
+	"ps2_GS_noteFeatures": true,
+	"ps2_addrPSMT8":       true,
+	"ps2_addrPSMT4":       true,
+	"ps2_addrPSMCT32":     true,
+	"ps2_addrPSMZ32":      true,
+	"ps2_gsSampler_at":    true,
+}
+
 func funcname(o *types.Func) string {
 	if o.Type().(*types.Signature).Recv() != nil {
 		return methodname(o)
@@ -1040,6 +1055,15 @@ func main() {
 				}
 				if n == "ps2_Machine" {
 					out += "uint64_t rrVblAcc{},rrIopAcc{};\n"
+				}
+				if n == "ps2_GS" {
+					out += "RRGSFeatureCache rrFeatures{};\n"
+				}
+				if n == "gc_tevStage" {
+					out += "RRTevOperands rrOperands{};\n"
+				}
+				if n == "gc_tevState" {
+					out += "bool rrPrepared{};\n"
 				}
 				if n == "gc_idleSnap" || n == "ps2_idleSnap" || n == "r5900_Quad" || n == "ps2_iopBinding" || n == "ps2_sifRPCKey" {
 					out += "bool operator==(const " + n + "&)const=default;\n"
@@ -1156,7 +1180,14 @@ func main() {
 						signature = strings.ReplaceAll(signature, "gc_texState tx", "const gc_texState& tx")
 					}
 					protos += signature + ";\n"
+					if fastFunctions[name] {
+						signature = strings.Replace(signature, name+"(", name+"_reference(", 1)
+						protos += signature + ";\n"
+					}
 					body := g.block(d.Body)
+					if name == "ps2_GS_count" {
+						body = strings.ReplaceAll(body, "gs->drawCensus[what]++;", "auto&count=(*gs->drawCensus.p)[what]; ++count; if(auto*entry=gs->rrFeatures.recording)entry->record(count);")
+					}
 					// Samplers live only for one synchronous draw. Keeping Go's
 					// escaping pointer in the lifetime arena leaked one per primitive.
 					if name == "ps2_GS_sampler" {
@@ -1192,6 +1223,11 @@ func main() {
 						body = "{auto restore=rrEFBClear(g);\n" + body + "}\n"
 					}
 					scopes := map[string]string{"ps2_Machine_Run": "0,\"EE / IOP and scheduler\"", "ps2_vif_runVU": "1,\"Vector units\"", "ps2_vif_feed": "2,\"VIF / DMA\"", "ps2_GS_imageData": "3,\"GS transfers\"", "gc_Machine_Run": "0,\"Gekko and devices\"", "gc_gpu_feed": "1,\"GX command processor\"", "gc_gpu_drawPrimitive": "2,\"Vertices and transforms\"", "gc_gpu_copyDisplay": "4,\"Pixel engine copies\""}
+					// Count complete GS draws here, including target/sampler setup and
+					// diagnostics, instead of attributing them to their VU/GIF caller.
+					for _, draw := range []string{"ps2_GS_point", "ps2_GS_line", "ps2_GS_sprite", "ps2_GS_triangle"} {
+						scopes[draw] = "4,\"GS software rasterizer\""
+					}
 					if scope := scopes[name]; scope != "" {
 						body = "{rrprof::Scope timing(" + scope + ");\n" + body + "}\n"
 					}
@@ -1212,6 +1248,7 @@ func main() {
 	}
 	_ = sort.Strings
 	out += "\n#include \"adapters-decl.h\"\n" + protos + globals + "\n#include \"adapters.h\"\n" + bodies
+	out += "\n#include \"fast.h\"\n"
 	// Temporary endian spans cannot escape these scalar readers/writers.
 	for _, fn := range []string{"be_Uint32", "be_PutUint32", "le_Uint32", "le_PutUint32", "gc_be32", "gc_be16", "gc_writeBE32", "gc_writeBE16", "ps2_le32gs", "ps2_le32", "ps2_le64", "iso9660_le32", "vu_le64m", "gc_readComponent"} {
 		out = strings.ReplaceAll(out, fn+"(sub(", fn+"(rrBorrow(")

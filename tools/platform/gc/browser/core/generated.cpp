@@ -510,6 +510,7 @@ std::array<float,3> konstC{};
 float konstA{};
 uint32_t cdest{};
 uint32_t adest{};
+RRTevOperands rrOperands{};
 };
 struct gc_texState{
 int64_t format{};
@@ -530,6 +531,7 @@ std::array<std::array<float,4>,4> seed{};
 std::array<gc_texState,8> tex{};
 std::array<bool,8> texValid{};
 bool canHalt{};
+bool rrPrepared{};
 };
 struct gc_clipVertex{
 float cx{};
@@ -912,6 +914,7 @@ uint32_t gekko_meOf(uint32_t w);
 uint32_t gekko_sprOf(uint32_t w);
 std::string gekko_sprStr(uint32_t n);
 std::tuple<uint32_t,bool> gekko_CPU_Translate(gekko_CPU* c,uint32_t ea,bool store,bool insn);
+std::tuple<uint32_t,bool> gekko_CPU_Translate_reference(gekko_CPU* c,uint32_t ea,bool store,bool insn);
 std::tuple<uint32_t,bool> gekko_batMatch(uint32_t upper,uint32_t lower,uint32_t ea,bool user);
 std::string gekko_CPU_BATString(gekko_CPU* c);
 std::string gekko_batLine(std::string kind,int64_t i,uint32_t upper,uint32_t lower);
@@ -1149,6 +1152,7 @@ float gc_maxf(float a,float b);
 std::tuple<float,float,float,float> gc_tevColorReg(std::array<uint32_t,2> w);
 int32_t gc_sext11(uint32_t v);
 std::tuple<uint8_t,uint8_t,uint8_t,uint8_t,bool> gc_gpu_shade(gc_gpu* g,gc_Machine* m,gc_tevState* t,std::array<std::array<uint8_t,4>,2>* rasCol,std::array<gc_texCoord,8>* tc);
+std::tuple<uint8_t,uint8_t,uint8_t,uint8_t,bool> gc_gpu_shade_reference(gc_gpu* g,gc_Machine* m,gc_tevState* t,std::array<std::array<uint8_t,4>,2>* rasCol,std::array<gc_texCoord,8>* tc);
 uint8_t gc_toU8(float f);
 std::array<float,4> gc_rasSelect(uint32_t sel,std::array<std::array<uint8_t,4>,2>* col);
 std::tuple<std::array<float,3>,std::array<float,3>,std::array<float,3>> gc_combineColor(uint32_t cc,std::array<std::array<float,4>,4>* reg,std::array<float,4> tex,std::array<float,4> ras,std::array<float,3> konst);
@@ -1171,6 +1175,7 @@ float gc_blendFactor(int64_t code,float chanOther,float sa,float da);
 float gc_clampf(float v);
 bool gc_texCanHalt(gc_texState* tx);
 gc_tevState gc_gpu_tevstate(gc_gpu* g);
+gc_tevState gc_gpu_tevstate_reference(gc_gpu* g);
 int64_t gc_gpu_texGenCount(gc_gpu* g);
 int64_t gc_gpu_texMtxRow(gc_gpu* g,int64_t i);
 gc_texCoord gc_gpu_genTexCoord(gc_gpu* g,gc_Machine* m,int64_t i,int64_t mtxRow,float mx,float my,float mz,float nx,float ny,float nz,std::array<gc_texCoord,8>* vtc,std::array<std::array<uint8_t,4>,2>* col);
@@ -1229,6 +1234,7 @@ void gc_Machine_Write8(gc_Machine* m,uint32_t a,uint8_t v);
 void gc_Machine_Write16(gc_Machine* m,uint32_t a,uint16_t v);
 void gc_Machine_Write32(gc_Machine* m,uint32_t a,uint32_t v);
 uint32_t gc_Machine_Fetch32(gc_Machine* m,uint32_t a);
+uint32_t gc_Machine_Fetch32_reference(gc_Machine* m,uint32_t a);
 uint32_t gc_Machine_regRead(gc_Machine* m,uint32_t a,int64_t size);
 void gc_Machine_regWrite(gc_Machine* m,uint32_t a,uint32_t v,int64_t size);
 void gc_Machine_dmaToRAM(gc_Machine* m,uint32_t addr,Slice<uint8_t> data);
@@ -4958,7 +4964,7 @@ return go_fmt_Sprintf(std::string("%d",2),n);
 }
 }
 // tools/cpu/gekko/mmu.go:37:1
-std::tuple<uint32_t,bool> gekko_CPU_Translate(gekko_CPU* c,uint32_t ea,bool store,bool insn){
+std::tuple<uint32_t,bool> gekko_CPU_Translate_reference(gekko_CPU* c,uint32_t ea,bool store,bool insn){
 {
 bool on = (cast<uint32_t>((c->MSR & cast<uint32_t>(16ULL))) != cast<uint32_t>(0ULL));
 if (insn) {
@@ -11436,7 +11442,7 @@ return cast<int32_t>(v);
 }
 }
 // tools/platform/gc/gpu_tev.go:57:1
-std::tuple<uint8_t,uint8_t,uint8_t,uint8_t,bool> gc_gpu_shade(gc_gpu* g,gc_Machine* m,gc_tevState* t,std::array<std::array<uint8_t,4>,2>* rasCol,std::array<gc_texCoord,8>* tc){
+std::tuple<uint8_t,uint8_t,uint8_t,uint8_t,bool> gc_gpu_shade_reference(gc_gpu* g,gc_Machine* m,gc_tevState* t,std::array<std::array<uint8_t,4>,2>* rasCol,std::array<gc_texCoord,8>* tc){
 uint8_t fr{};
 uint8_t fg{};
 uint8_t fb{};
@@ -12038,7 +12044,7 @@ break;}
 }
 }
 // tools/platform/gc/gpu_tev_state.go:94:1
-gc_tevState gc_gpu_tevstate(gc_gpu* g){
+gc_tevState gc_gpu_tevstate_reference(gc_gpu* g){
 {
 gc_tevState t={};
 {int64_t i = cast<int64_t>(0ULL);for (;(i < cast<int64_t>(4ULL));i++){
@@ -13285,7 +13291,7 @@ gc_Machine_logf(m,std::string("write32 unmapped 0x%08X = 0x%08X (PC 0x%08X)",44)
 }
 }
 // tools/platform/gc/machine.go:304:1
-uint32_t gc_Machine_Fetch32(gc_Machine* m,uint32_t a){
+uint32_t gc_Machine_Fetch32_reference(gc_Machine* m,uint32_t a){
 {
 if ((cast<uint32_t>((a + cast<uint32_t>(3ULL))) < cast<uint32_t>(25165824ULL))) {
 return be_Uint32(rrBorrow(m->RAM,a,cast<uint32_t>((a + cast<uint32_t>(4ULL)))));
@@ -14407,3 +14413,5 @@ return ;
 gc_Machine_clearInt(m,cast<int64_t>(8ULL));
 }
 }
+
+#include "fast.h"

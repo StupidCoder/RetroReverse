@@ -3,6 +3,9 @@
 #include <chrono>
 #include <sstream>
 #include <string>
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#endif
 // Cumulative exclusive wall-time buckets. Parent scopes subtract every child,
 // including recursive same-bucket work. No instruction-count approximations.
 namespace rrprof {
@@ -10,9 +13,15 @@ inline std::array<double, 8> ms{}, longest{};
 inline std::array<unsigned, 8> longestTag{};
 inline std::array<const char *, 8> names{};
 inline double now() {
+#ifdef __EMSCRIPTEN__
+  // Read the browser's monotonic millisecond clock directly. chrono's WASI
+  // clock path converts it to 64-bit nanoseconds and back through JS BigInt.
+  return emscripten_get_now();
+#else
   return std::chrono::duration<double, std::milli>(
              std::chrono::steady_clock::now().time_since_epoch())
       .count();
+#endif
 }
 struct Scope;
 inline Scope *current = nullptr;

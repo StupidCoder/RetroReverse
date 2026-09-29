@@ -1,4 +1,7 @@
 export function decodedColor(platform, value, size, format) {
+  // GameCube EFB RGB precedes a lossy YUY2 copy and is not a scanout color.
+  if(platform==='gc')return null;
+  if(platform==='ps2')return [value&255,value>>>8&255,value>>>16&255,255];
   if(platform==='psp'){
     if(format===3)return [value&255,value>>>8&255,value>>>16&255,255];
     const e5=n=>Math.floor(n*255/31),e6=n=>Math.floor(n*255/63);
@@ -249,6 +252,8 @@ export function createInspector({platform, canvas, send, jump}) {
       if (c.paletteAddress)
         snapshotButton(el, c, c.paletteAddress, 'Inspect captured TLUT');
     }
+    if ((platform==='gc'||platform==='ps2') && c.sourceSnapshot && c.command?.registerSnapshot)
+      snapshotButton(el, c, 0, 'Inspect captured GPU registers');
     const details = document.createElement('details'),
           summary = document.createElement('summary'),
           pre = document.createElement('pre');
@@ -334,7 +339,8 @@ export function createInspector({platform, canvas, send, jump}) {
         const reconstructed = decodedColor(platform, p.reconstructed, p.size, p.displayFormat);
         line(
             el, 'Scanout color',
-            reconstructed?.every((n, i) => n === rgba[i])
+            platform==='gc' ? 'History explains the EFB before the lossy RGB-to-YUY2 display copy; scanout color is not compared here'
+            : reconstructed?.every((n, i) => n === rgba[i])
                 ? 'Reconstructed stored bytes match the modeled display color'
                 : 'Stored-byte reconstruction does not match the displayed pixel');
       }

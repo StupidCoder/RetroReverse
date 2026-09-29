@@ -7,9 +7,10 @@ skip={
 'gekko_CPU':{'bus','fetcher'},'gcdsp_CPU':{'bus'},
 'gc_Machine':{'RAM','ARAM','disc','discMD5','Log','logSeen','prof','stack'},
 'gc_gpu':{'workers','tris'},
+'gc_tevStage':{'rrOperands'},'gc_tevState':{'rrPrepared'},
 'vu_VU':{'Micro','Data'},'r5900_CPU':{'bus'},'mips_CPU':{'bus','GTE'},
 'ps2_Machine':{'ram','vol','exe','extraSyms','rasterPool','prof','Log','logSeen','weaveRing'},
-'ps2_IOP':{'ram','ps2','logPC'},'ps2_GS':{'m'},'ps2_vif':{'m'},
+'ps2_IOP':{'ram','ps2','logPC'},'ps2_GS':{'m','rrFeatures'},'ps2_vif':{'m'},
 }
 for platform in ['gc','ps2']:
  source=(root/f'tools/platform/{platform}/browser/core/generated.cpp').read_text()

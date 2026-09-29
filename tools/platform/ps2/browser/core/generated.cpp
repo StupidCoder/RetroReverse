@@ -518,6 +518,7 @@ int64_t path2ImageRemain{};
 int64_t path2SkipRemain{};
 Slice<uint8_t> path2Carry{};
 ps2_Machine* m{};
+RRGSFeatureCache rrFeatures{};
 };
 struct ps2_weaveField{
 Slice<uint8_t> pix{};
@@ -1580,6 +1581,7 @@ std::tuple<uint32_t,bool> ps2_GS_readTexel(ps2_GS* gs,uint32_t psm,uint32_t bp,u
 void ps2_GS_writeTexel(ps2_GS* gs,uint32_t psm,uint32_t bp,uint32_t bw,uint32_t x,uint32_t y,uint32_t v);
 void ps2_GS_imageData(ps2_GS* gs,Slice<uint8_t> data);
 uint32_t ps2_addrPSMCT32(uint32_t bp,uint32_t bw,uint32_t x,uint32_t y);
+uint32_t ps2_addrPSMCT32_reference(uint32_t bp,uint32_t bw,uint32_t x,uint32_t y);
 std::tuple<uint32_t,bool> ps2_Machine_gsPrivRead(ps2_Machine* m,uint32_t a);
 bool ps2_Machine_gsPrivWrite(ps2_Machine* m,uint32_t a,uint32_t v);
 void ps2_Machine_SetGSWeave(ps2_Machine* m,bool on);
@@ -1610,13 +1612,17 @@ int32_t ps2_texAxis(int32_t pc,int32_t p0,int32_t p1,int32_t uv0,int32_t uv1);
 void ps2_GS_sprite(ps2_GS* gs,ps2_gsVertex a,ps2_gsVertex b,uint64_t p);
 void ps2_GS_triangle(ps2_GS* gs,ps2_gsVertex v0,ps2_gsVertex v1,ps2_gsVertex v2,uint64_t p);
 void ps2_GS_noteFeatures(ps2_GS* gs,uint64_t p);
+void ps2_GS_noteFeatures_reference(ps2_GS* gs,uint64_t p);
 std::tuple<int64_t,int64_t,int64_t,int64_t> ps2_unpackRGBA(uint32_t c);
 int32_t ps2_min3(int32_t a,int32_t b,int32_t c);
 int32_t ps2_max3(int32_t a,int32_t b,int32_t c);
 ps2_gsTex ps2_decodeTEX0(uint64_t v);
 uint32_t ps2_addrPSMT8(uint32_t bp,uint32_t bw,uint32_t x,uint32_t y);
+uint32_t ps2_addrPSMT8_reference(uint32_t bp,uint32_t bw,uint32_t x,uint32_t y);
 std::tuple<uint32_t,uint32_t> ps2_addrPSMT4(uint32_t bp,uint32_t bw,uint32_t x,uint32_t y);
+std::tuple<uint32_t,uint32_t> ps2_addrPSMT4_reference(uint32_t bp,uint32_t bw,uint32_t x,uint32_t y);
 uint32_t ps2_addrPSMZ32(uint32_t bp,uint32_t bw,uint32_t x,uint32_t y);
+uint32_t ps2_addrPSMZ32_reference(uint32_t bp,uint32_t bw,uint32_t x,uint32_t y);
 uint32_t ps2_addrPSMZ16(uint32_t bp,uint32_t bw,uint32_t x,uint32_t y,bool s);
 uint32_t ps2_addrPSMCT16(uint32_t bp,uint32_t bw,uint32_t x,uint32_t y,bool s);
 void ps2_GS_clutLoad(ps2_GS* gs,ps2_gsTex t);
@@ -1626,6 +1632,7 @@ std::optional<ps2_gsSampler> ps2_GS_sampler(ps2_GS* gs,uint64_t p);
 uint32_t ps2_gsSampler_pick(ps2_gsSampler* s,int32_t u,int32_t v);
 int32_t ps2_wrapTexel(int32_t c,int32_t size,uint32_t mode,int32_t min,int32_t max);
 uint32_t ps2_gsSampler_at(ps2_gsSampler* s,int32_t u,int32_t v);
+uint32_t ps2_gsSampler_at_reference(ps2_gsSampler* s,int32_t u,int32_t v);
 std::tuple<Slice<uint8_t>,int64_t,int64_t> ps2_Machine_GSTexture(ps2_Machine* m,uint64_t tex0);
 uint32_t ps2_gsSampler_combine(ps2_gsSampler* s,uint32_t tex,uint32_t frag,ps2_gsStats* st);
 int64_t ps2_clamp255(int64_t v);
@@ -12275,7 +12282,7 @@ gs->xfer = x;
 }
 }
 // tools/platform/ps2/gs.go:607:1
-uint32_t ps2_addrPSMCT32(uint32_t bp,uint32_t bw,uint32_t x,uint32_t y){
+uint32_t ps2_addrPSMCT32_reference(uint32_t bp,uint32_t bw,uint32_t x,uint32_t y){
 {
 if ((bw == cast<uint32_t>(0ULL))) {
 bw = cast<uint32_t>(1ULL);
@@ -12836,7 +12843,7 @@ void ps2_GS_count(ps2_GS* gs,std::string what){
 if ((!gs->drawCensus)) {
 gs->drawCensus = Map<std::string,int64_t>{};
 }
-gs->drawCensus[what]++;
+auto&count=(*gs->drawCensus.p)[what]; ++count; if(auto*entry=gs->rrFeatures.recording)entry->record(count);
 }
 }
 // tools/platform/ps2/gsdraw.go:376:1
@@ -13067,6 +13074,7 @@ return cast<uint32_t>((cast<uint32_t>((cast<uint32_t>((r | shl<uint32_t>(gr,cast
 }
 // tools/platform/ps2/gsdraw.go:621:1
 void ps2_GS_point(ps2_GS* gs,ps2_gsVertex v){
+{rrprof::Scope timing(4,"GS software rasterizer");
 {
 auto tmp55=defer([&](){ps2_GS_rasterEnd(gs,ps2_GS_rasterStart(gs));});
 uint64_t p = ps2_GS_prim(gs);
@@ -13080,8 +13088,10 @@ ps2_GS_plot(gs,(&t),shr<int32_t>(v.x,cast<int64_t>(4ULL)),shr<int32_t>(v.y,cast<
 ps2_GS_mergeStats(gs,(&st));
 }
 }
+}
 // tools/platform/ps2/gsdraw.go:642:1
 void ps2_GS_line(ps2_GS* gs,ps2_gsVertex a,ps2_gsVertex b,uint64_t p){
+{rrprof::Scope timing(4,"GS software rasterizer");
 {
 auto tmp56=defer([&](){ps2_GS_rasterEnd(gs,ps2_GS_rasterStart(gs));});
 ps2_GS_noteFeatures(gs,p);
@@ -13168,6 +13178,7 @@ ps2_GS_plot(gs,(&t),x,y,z,rgba,(&st));
 }ps2_GS_mergeStats(gs,(&st));
 }
 }
+}
 // tools/platform/ps2/gsdraw.go:714:1
 int32_t ps2_texAxis(int32_t pc,int32_t p0,int32_t p1,int32_t uv0,int32_t uv1){
 {
@@ -13179,6 +13190,7 @@ return cast<int32_t>((uv0 + cast<int32_t>(divi<int64_t>(cast<int64_t>((cast<int6
 }
 // tools/platform/ps2/gsdraw.go:726:1
 void ps2_GS_sprite(ps2_GS* gs,ps2_gsVertex a,ps2_gsVertex b,uint64_t p){
+{rrprof::Scope timing(4,"GS software rasterizer");
 {
 auto tmp63=defer([&](){ps2_GS_rasterEnd(gs,ps2_GS_rasterStart(gs));});
 ps2_GS_noteFeatures(gs,p);
@@ -13245,8 +13257,10 @@ ps2_GS_plot(gs,(&t),x,y,b.z,rgba,st);
 );
 }
 }
+}
 // tools/platform/ps2/gsdraw.go:800:1
 void ps2_GS_triangle(ps2_GS* gs,ps2_gsVertex v0,ps2_gsVertex v1,ps2_gsVertex v2,uint64_t p){
+{rrprof::Scope timing(4,"GS software rasterizer");
 {
 auto tmp69=defer([&](){ps2_GS_rasterEnd(gs,ps2_GS_rasterStart(gs));});
 ps2_GS_noteFeatures(gs,p);
@@ -13359,8 +13373,9 @@ ps2_GS_plot(gs,(&t),x,y,z,rgba,st);
 );
 }
 }
+}
 // tools/platform/ps2/gsdraw.go:909:1
-void ps2_GS_noteFeatures(ps2_GS* gs,uint64_t p){
+void ps2_GS_noteFeatures_reference(ps2_GS* gs,uint64_t p){
 {
 if ((cast<uint64_t>((p & cast<uint64_t>(16ULL))) != cast<uint64_t>(0ULL))) {
 uint64_t tex0 = gs->reg[cast<int64_t>(6ULL)];
@@ -13435,7 +13450,7 @@ return ps2_gsTex{cast<uint32_t>((cast<uint32_t>(v) & cast<uint32_t>(16383ULL))),
 }
 }
 // tools/platform/ps2/gstex.go:184:1
-uint32_t ps2_addrPSMT8(uint32_t bp,uint32_t bw,uint32_t x,uint32_t y){
+uint32_t ps2_addrPSMT8_reference(uint32_t bp,uint32_t bw,uint32_t x,uint32_t y){
 {
 uint32_t pagesPerRow = divi<uint32_t>(bw,cast<uint32_t>(2ULL));
 if ((pagesPerRow == cast<uint32_t>(0ULL))) {
@@ -13459,7 +13474,7 @@ return cast<uint32_t>((cast<uint32_t>((cast<uint32_t>((cast<uint32_t>((cast<uint
 }
 }
 // tools/platform/ps2/gstex.go:202:1
-std::tuple<uint32_t,uint32_t> ps2_addrPSMT4(uint32_t bp,uint32_t bw,uint32_t x,uint32_t y){
+std::tuple<uint32_t,uint32_t> ps2_addrPSMT4_reference(uint32_t bp,uint32_t bw,uint32_t x,uint32_t y){
 {
 uint32_t pagesPerRow = divi<uint32_t>(bw,cast<uint32_t>(2ULL));
 if ((pagesPerRow == cast<uint32_t>(0ULL))) {
@@ -13483,7 +13498,7 @@ return {cast<uint32_t>((cast<uint32_t>((cast<uint32_t>((cast<uint32_t>((cast<uin
 }
 }
 // tools/platform/ps2/gstex.go:222:1
-uint32_t ps2_addrPSMZ32(uint32_t bp,uint32_t bw,uint32_t x,uint32_t y){
+uint32_t ps2_addrPSMZ32_reference(uint32_t bp,uint32_t bw,uint32_t x,uint32_t y){
 {
 if ((bw == cast<uint32_t>(0ULL))) {
 bw = cast<uint32_t>(1ULL);
@@ -13790,7 +13805,7 @@ break;}
 }
 }
 // tools/platform/ps2/gstex.go:535:1
-uint32_t ps2_gsSampler_at(ps2_gsSampler* s,int32_t u,int32_t v){
+uint32_t ps2_gsSampler_at_reference(ps2_gsSampler* s,int32_t u,int32_t v){
 {
 u = ps2_wrapTexel(u,s->w,s->wms,s->minu,s->maxu);
 v = ps2_wrapTexel(v,s->h,s->wmt,s->minv,s->maxv);
@@ -21139,3 +21154,5 @@ return a;
 return b;
 }
 }
+
+#include "fast.h"

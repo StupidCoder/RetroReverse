@@ -188,13 +188,13 @@ $('load').onclick = () => {
   compatibility = $('compatprofile')?.checked ?? true;
   firmware = platform === 'c64'
                  ? [ 'basic', 'kernal', 'chargen' ].map(id => $(id).files[0])
-                 : platform==='amiga'?[$('kickstart').files[0]]:null;
+                 : platform==='amiga'?[$('kickstart').files[0]]:platform==='ps2'?[$('bios').files[0]]:null;
   load();
 };
 $('reset').onclick = ()=>load();
 $('cancelcapture').onclick=()=>send('cancel-capture');
 $('save').onclick=()=>{release();controls(false);$('status').textContent='Saving state…';send('save');};
-$('statefile').onchange=()=>{const f=$('statefile').files[0];if(!f)return;if(!selected.length){selected=[...$('files').files];firmware=platform==='c64'?['basic','kernal','chargen'].map(id=>$(id).files[0]):platform==='amiga'?[$('kickstart').files[0]]:null;compatibility=$('compatprofile')?.checked??true;}load(f);$('statefile').value='';};
+$('statefile').onchange=()=>{const f=$('statefile').files[0];if(!f)return;if(!selected.length){selected=[...$('files').files];firmware=platform==='c64'?['basic','kernal','chargen'].map(id=>$(id).files[0]):platform==='amiga'?[$('kickstart').files[0]]:platform==='ps2'?[$('bios').files[0]]:null;compatibility=$('compatprofile')?.checked??true;}load(f);$('statefile').value='';};
 for (const id of ['run', 'pause', 'step'])
   $(id).onclick = () => {
     $('status').textContent =
@@ -358,6 +358,8 @@ if(platform==='amiga'){
  canvas.addEventListener('contextmenu',e=>e.preventDefault());
 }
 const gamepadMaps = {
+ gc:{0:256,1:512,2:1024,3:2048,4:16,5:16,6:64,7:32,9:4096,12:8,13:4,14:1,15:2},
+ ps2:{0:16384,1:8192,2:32768,3:4096,4:1024,5:2048,6:256,7:512,8:1,9:8,10:2,11:4,12:16,13:64,14:128,15:32},
  amiga:{0:16,1:32,2:64,12:1,13:2,14:4,15:8},
  gb:{0:16,1:32,8:64,9:128,12:4,13:8,14:2,15:1},
  gg:{0:32,1:16,9:128,12:1,13:2,14:4,15:8},
@@ -435,7 +437,7 @@ function pollPad() {
       if (axis(p.axes[3]) > 30)
         bits.push(4);
       sources.set('gamepad:' + p.index, {bits, ax : x, ay : y});
-    } else if(platform==='3ds'||platform==='psp'){
+    } else if(platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'){
       sources.set('gamepad:'+p.index,{bits,ax:x,ay:y});
     } else {
       const directions =
