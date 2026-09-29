@@ -174,12 +174,12 @@ async function pump(id, one = false) {
   if(id===epoch){running=false;paint();send('message',{text:one?'Paused at the next display boundary.':'Paused.'});}
 }
 function coreState(){const n=core._rr_state_save();check(n);const limit=(platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='xbox'||platform==='dos')?128:32;if(n>limit*1024*1024)throw Error(`Capture checkpoint exceeds the ${limit} MiB budget`);const p=core._rr_state_data();return core.HEAPU8.slice(p,p+n);}
-function cancelCapture(){
+function cancelCapture(starting=false){
  if(capturing){core._rr_capture_end();finishCaptureProfile();capturing=false;}
- capture=null;captureGeneration++;seekGeneration++;send('capture-cleared');
+ capture=null;captureGeneration++;seekGeneration++;send('capture-cleared',{starting});
 }
 async function captureNext(){
- running=false;const id=++epoch;cancelCapture();const generation=captureGeneration;capturing=true;captureRunMs=maxCaptureCall=0;captureProfileStart=Object.fromEntries(json('_rr_profile').buckets.map(b=>[b.name,b.ms]));
+ running=false;const id=++epoch;cancelCapture(true);const generation=captureGeneration;capturing=true;captureRunMs=maxCaptureCall=0;captureProfileStart=Object.fromEntries(json('_rr_profile').buckets.map(b=>[b.name,b.ms]));
  const began=performance.now();let lastProgress=0;
  send('capture-progress',{text:'Finishing the current display interval…',generation});
  const boundary=async phase=>{
@@ -461,6 +461,8 @@ async function memoryRequest(m){
    }
    respond(memoryService.finish());paint();return;
   }
+  if(m.type==='memory-live-end'){memoryService.stopLive();return;}
+  if(m.type==='memory-live-snapshot'){respond(await memoryService.liveSnapshot(m.scale,m.window,m.fetches));return;}
   if(m.type==='memory-overview')respond(memoryService.overview(m.scale,m.window));
   if(m.type==='memory-seek'){memoryService.seek(m.position);respond(memoryService.overview(m.scale,m.window));}
   if(m.type==='memory-page'){

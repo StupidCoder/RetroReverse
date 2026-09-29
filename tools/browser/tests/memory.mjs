@@ -19,4 +19,5 @@ const core={HEAPU8:heap,UTF8ToString:x=>x,_rr_inspect_regions:()=>JSON.stringify
 const service=createMemoryService({core,platform:'test',files:[],status:()=>({steps:0})});
 await service.begin();heap[9]=239;heap[10]=190;const end=service.finish();assert.equal(end.position,2);assert.deepEqual([...service.page('ram',0).bytes],[1,239,190,4]);
 service.seek(0);assert.deepEqual([...service.page('ram',0).bytes],[1,2,3,4]);assert.equal(heap[9],239);service.seek(1);assert.equal(service.page('ram',0).bytes[1],239);service.seek(2);assert.equal(service.detail('ram',1).events[0].kind,2);
+await service.liveSnapshot();heap[8]=77;const live=await service.liveSnapshot();assert.equal(live.live,true);assert.equal(live.recording,0);assert.equal(service.page('ram',0).bytes[0],77);assert.equal(live.regions[0].activityMap[1]&2,2);service.stopLive();assert.equal(service.overview().live,false);
 console.log('PASS memory: address edges, aggregation, TAP indexing, forward/backward reconstruction, read-only inspection');

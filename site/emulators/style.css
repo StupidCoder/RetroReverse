@@ -131,3 +131,5 @@ body[data-platform] .files{margin-top:8px}
 #memory-bytes{height:clamp(180px,calc(100dvh - 415px),370px);min-height:0}#memory-atlas{height:clamp(230px,calc(100dvh - 375px),540px)}#memory-atlas figure{margin-bottom:10px}.memory-row-address{width:82px}.memory-row{min-width:490px}
 
 .memory-both-key{color:#97559a}
+
+.memory-player{display:flex;align-items:center;gap:18px;margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:6px;background:var(--art)}#memory-screen{width:192px;max-width:40%;height:auto;max-height:150px;object-fit:contain;image-rendering:pixelated;background:#111}.memory-transport,#memory-tape{display:flex;flex-wrap:wrap;gap:8px}.memory-player p{font-size:12px;color:var(--muted);margin:8px 0}.memory-player button{font-size:12px;padding:6px 10px}#memory-tape[hidden]{display:none}

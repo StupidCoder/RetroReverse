@@ -147,8 +147,15 @@ Sonic map spans are read from its actual act descriptors and split at ROM bank
 boundaries. Unknown revisions still expose hardware regions without guessed labels.
 Game-phase descriptions are documentation, not automatic phase detection.
 
-Pause now freezes the machine. Use **Capture rendering** for the previous
-pause-and-capture behavior of the Render workspace.
+Pause now freezes the machine. Memory includes a small live output preview and Play, Pause, and Next frame controls
+for every emulator. Memory-capable cores refresh physical storage at up to 5 Hz;
+C64, GG, and Amiga also highlight accesses since the last update. Live tracing
+stops when leaving Memory, uses the existing bounded event buffer, and reports
+overflow. ROM data and its overview are cached. This live view is separate from
+historical recording. The C64 view includes tape controls and pulse position.
+
+Opening **Render** automatically captures the next complete display interval.
+Returning to Render keeps the existing capture until the machine advances.
 
 Run `node tools/browser/tests/memory.mjs` for media-free model/service checks and
 `node tools/browser/tests/memory-wasm.mjs <platform> <local-image>` for optional

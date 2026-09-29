@@ -19,6 +19,10 @@ try {
   const render=createRenderWorkspace({platform,presentation:view,playCanvas:play,resume:()=>resumed++,send:(type,data)=>{const m={type,...data,request:++sequence};sent.push(m);return m.request;}});
   const ids=[...document.querySelectorAll('[id]')].map(n=>n.id);assert(new Set(ids).size===ids.length,platform+': unique DOM IDs');
   assert($('view-render').disabled,platform+': Render disabled before capture');
+  render.ready();$('view-render').click();$('view-render').click();
+  assert(sent.filter(m=>m.type==='capture-render').length===1,platform+': opening Render requests one capture');
+  render.reset({starting:true});assert(document.body.dataset.workspace==='render',platform+': capture initialization keeps Render visible');
+  render.progress('Capturing…');assert($('render-position').textContent==='Capturing…',platform+': progress in Render');
   const c={id:7,tileset:tiles(platform),vram:vram(platform),width:view.width,height:view.height,start:{frames:1},end:{frames:4},info:{producerPixels:platform==='dos'?100:0},replay:{count:3,complete:true},raster:{lines:[{line:0,changes:2},{line:2,changes:1}],blits:[{index:0,kind:'Copy A',width:32,height:2},{index:1,kind:'Cookie cut',width:32,height:2}]}};
   render.setCapture(c);assert(document.body.dataset.workspace==='render'&&!$('view-render').disabled,platform+': capture opens Render');
   await nextPaint();
@@ -72,7 +76,7 @@ try {
   $('view-play').click();assert(!$('play-workspace').hidden&&$('render-workspace').hidden,platform+': Play navigation');
   $('view-render').click();assert(!$('render-workspace').hidden,platform+': Render navigation retains capture');
   $('render-resume').click();assert(resumed===1,platform+': shared resume');
-  render.reset();assert($('view-render').disabled&&document.body.dataset.workspace==='play',platform+': reset invalidates capture');
+  render.reset({unload:true});assert($('view-render').disabled&&document.body.dataset.workspace==='play',platform+': reset invalidates capture');
   results.push(platform+' passed');$('results').textContent=results.join('\n');
  }
  $('results').textContent='PASS: all sixteen UI adapters, shared timeline, stale/cancelled seeks, pixel coordinates, separate Play pixels and capture lifecycle.\n'+results.join('\n');

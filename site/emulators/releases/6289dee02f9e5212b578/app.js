@@ -1,3 +1,5 @@
+import {createWorkspaces} from './workspaces.js';
+import {createMemoryWorkspace} from './memory-workspace.js';
 import {mountShell} from './ui-shell.js';
 import {createRenderWorkspace} from './render-workspace.js';
 import {pixelCoordinates} from './inspector.js';
@@ -19,6 +21,7 @@ function present(m){
  const start=performance.now();
  ctx.putImageData(new ImageData(new Uint8ClampedArray(m.pixels),m.width,m.height),0,0);
  lastCopyMs=performance.now()-start;
+ memory?.present(canvas);
  presentedCount++;const elapsed=performance.now()-presentedAt;
  if(elapsed>=1000){presentedRate=presentedCount*1000/elapsed;presentedCount=0;presentedAt=performance.now();}
 }
@@ -37,10 +40,15 @@ $('help').textContent = config.help;
 $('compat').textContent = config.compat;
 $('tape').hidden = platform !== 'c64';
 const send = (type, data = {}) => {const id=++request;worker?.postMessage({type,session,request:id,...data});return id;};
-const render=createRenderWorkspace({platform,presentation,send,resume:()=>$('run').click(),playCanvas:canvas});
+let memory;
+const views=createWorkspaces({navigation:$('workspace-nav'),onChange:id=>{document.body.dataset.workspace=id;memory?.setActive(id==='memory');if(id==='memory'){memory?.present(canvas);memory?.open();}}});
+views.register({id:'play',label:'Play',panel:$('play-workspace')});
+const render=createRenderWorkspace({workspaces:views,platform,presentation,send,resume:()=>$('run').click(),playCanvas:canvas,beforeCapture:()=>memory.invalidate()});
+memory=createMemoryWorkspace({root:$('memory-workspace'),views,send,transport:id=>transport(id,true),platform});
 function controls(on) {
   for (const id of ['run', 'pause', 'reset', 'step', 'save'])
     $(id).disabled = !on;
+  render.ready(on);
 }
 function showProfile(p, captureWork=false) {
   if (!p || (!captureWork&&performance.now() - profileTime < 500))
@@ -89,12 +97,12 @@ function load(stateFile=null) {
       candidate.onmessage=handleMessage;loaded=true;
       handleMessage({data:m});if(bufferedState)handleMessage({data:bufferedState});
     }else if(m.type==='error'){
-      candidate.terminate();pendingWorker=null;loaded=previousLoaded;controls(loaded);$("pause").disabled=true;
+      candidate.terminate();pendingWorker=null;loaded=previousLoaded;controls(loaded);if(loaded)memory.ready();$("pause").disabled=true;
       $('status').textContent=m.text+' Current machine retained.';
     }else if(m.type==='message')$('status').textContent=m.text;
   };
-  candidate.onerror=e=>{candidate.terminate();pendingWorker=null;loaded=previousLoaded;controls(loaded);$("pause").disabled=true;$('status').textContent='State/load worker failed: '+e.message+'. Current machine retained.';};
-  render.reset();sources.clear();
+  candidate.onerror=e=>{candidate.terminate();pendingWorker=null;loaded=previousLoaded;controls(loaded);if(loaded)memory.ready();$("pause").disabled=true;$('status').textContent='State/load worker failed: '+e.message+'. Current machine retained.';};
+  render.reset();memory.reset();views.select('play');sources.clear();
   c64Keys.clear();
   lastInput = '';
   loaded = false;
@@ -110,8 +118,10 @@ function load(stateFile=null) {
     if(pendingWorker)return;
     if (m.session !== session)
       return;
+    if(m.type.startsWith('memory-')){memory.result(m);return;}
     if (m.type === 'state') {
       const s = m.state;
+      memory.state(m);
       if(platform==='amiga')canvas.classList.toggle('mouse-active',m.running);
       $('help').textContent =
           config.help +
@@ -146,19 +156,20 @@ function load(stateFile=null) {
       showProfile(m.profile);
       if (loaded) {
         $('reset').disabled = !!m.saving;
-        $('run').disabled = m.running||m.capturing||m.saving;
-        $('step').disabled = m.running||m.capturing||m.saving;
-        $('save').disabled = m.capturing||m.saving;
+        render.ready(!m.saving&&!m.memoryRecording);
+        $('run').disabled = m.running||m.capturing||m.saving||m.memoryRecording;
+        $('step').disabled = m.running||m.capturing||m.saving||m.memoryRecording;
+        $('save').disabled = m.capturing||m.saving||m.memoryRecording;
         $('pause').disabled = !m.running&&!m.capturing;
         $('cancelcapture').hidden=!m.capturing;
       }
     } else if(m.type==='capture-progress'){
-      $('status').textContent=m.text;$('cancelcapture').hidden=false;
+      $('status').textContent=m.text;render.progress(m.text);$('cancelcapture').hidden=false;
       $('run').disabled=$('step').disabled=$('save').disabled=true;
     } else if(['raster-seek','raster-pixel','blit-seek','blit-pixel','seek','seek-progress','pixel','source','resource'].includes(m.type)){render.result(m);
     } else if(m.type==='capture-cleared'){
-      render.reset();
-      $('capture-note').textContent=platform==='dos'?'Pause to trace RAM rendering and its copies to VGA.':'Pause to record the next complete display interval.';$('cancelcapture').hidden=true;
+      render.reset({starting:m.starting});
+      $('capture-note').textContent=platform==='dos'?'Open Render to trace RAM rendering and its copies to VGA.':'Open Render to record the next complete display interval.';$('cancelcapture').hidden=true;
     } else if(m.type==='capture'){
       render.setCapture(m);showProfile(m.profile,true);lastTime=performance.now();lastSteps=m.end.steps;lastFrames=m.end.frames;lastSeconds=m.end.seconds??0;rate='';
       $('cancelcapture').hidden=true;
@@ -170,7 +181,7 @@ function load(stateFile=null) {
       console.warn('Long emulation slice', JSON.stringify(m));
     } else if (m.type === 'ready') {
       loaded = true;
-      controls(true);
+      controls(true);memory.ready();
       $('pause').disabled = true;
       $('status').textContent = m.text;
       lastTime = performance.now();
@@ -178,6 +189,7 @@ function load(stateFile=null) {
     } else if (m.type === 'message' || m.type === 'error') {
       $('status').textContent = m.text;
       if (m.type === 'error') {
+        render.reset();$('cancelcapture').hidden=true;
         controls(loaded);
         $('pause').disabled = true;
       }
@@ -197,17 +209,16 @@ $('reset').onclick = ()=>load();
 $('cancelcapture').onclick=()=>send('cancel-capture');
 $('save').onclick=()=>{release();controls(false);$('status').textContent='Saving state…';send('save');};
 $('statefile').onchange=()=>{const f=$('statefile').files[0];if(!f)return;if(!selected.length){selected=[...$('files').files];firmware=platform==='c64'?['basic','kernal','chargen'].map(id=>$(id).files[0]):platform==='amiga'?[$('kickstart').files[0]]:platform==='ps2'?[$('bios').files[0]]:null;compatibility=$('compatprofile')?.checked??true;}load(f);$('statefile').value='';};
-for (const id of ['run', 'pause', 'step'])
-  $(id).onclick = () => {
+function transport(id,stay=false) {
     $('status').textContent =
-        id === 'pause' ? 'Preparing a complete-frame capture…'
+        id === 'pause' ? 'Pausing at the current execution boundary…'
         : id === 'run' ? 'Running local image.'
                        : 'Advancing one display boundary…';
-    if(id==='run'||id==='step'){render.reset();release();lastSteps=null;presentedCount=0;presentedAt=performance.now();}
+    if(id==='run'||id==='step'){if(!stay){memory.invalidate();views.select('play');}render.reset();release();lastSteps=null;presentedCount=0;presentedAt=performance.now();}
     send(id);
-    if (id === 'run')
-      canvas.focus();
-  };
+    if (id === 'run'&&!stay)canvas.focus();
+}
+for(const id of ['run','pause','step'])$(id).onclick=()=>transport(id);
 $('turbo').onchange = () => send('turbo', {value : $('turbo').checked});
 $('fullscreen').onclick = () => canvas.parentElement.requestFullscreen();
 $('tapeplay').onclick = () => send('tape', {down : 1});
@@ -269,8 +280,8 @@ for (const [label, bit] of config.buttons) {
   };
   $('pad').append(b);
 }
-for (const down of [true, false])
-  canvas.addEventListener(down ? 'keydown' : 'keyup', e => {
+for(const target of [canvas,$('memory-screen')])for (const down of [true, false])
+  target.addEventListener(down ? 'keydown' : 'keyup', e => {
     if(render.isInspecting())return;
     if (!loaded || e.repeat || e.metaKey)
       return;
@@ -328,6 +339,8 @@ function release() {
   c64Keys.clear();
 }
 canvas.onblur = release;
+$('memory-screen').onblur=release;
+$('memory-screen').onclick=()=>$('memory-screen').focus();
 window.addEventListener('blur', release);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
@@ -424,7 +437,7 @@ function pollPad() {
   const pads = [...(navigator.getGamepads?.() || []) ].filter(Boolean),
         p = pads.find(p => p.mapping === 'standard');
   const allowed = loaded && !render.isInspecting() && document.hasFocus() && !document.hidden &&
-                  (document.activeElement === canvas ||
+                  (document.activeElement === canvas || document.activeElement === $('memory-screen') ||
                    $('pad').contains(document.activeElement));
   for (const key of sources.keys())
     if (key.startsWith('gamepad:'))

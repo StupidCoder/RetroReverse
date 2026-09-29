@@ -1,3 +1,4 @@
+import {createMemoryService} from './memory-worker.js';
 import {packState, unpackState, digest} from './state.js';
 import {FrameClock} from './pacing.js';
 import {InputQueue} from './input.js';
@@ -14,6 +15,7 @@ const appliedKeys=new Set();
 const mediaHashes=new WeakMap();
 function mediaHash(file){if(!mediaHashes.has(file))mediaHashes.set(file,sha256File(file));return mediaHashes.get(file);}
 let saving=false;
+let memoryService=null,memoryRecording=false,memoryStop=false,memoryBusy=false;
 let bootOptions, firmwareIdentity=[], mediaIdentity, coreIdentity;
 async function identities(){
  if(!mediaIdentity){send("message",{text:"Verifying local media identity…"});mediaIdentity=[];const names=platform==='dos'?dosFiles(files).map(e=>e.path):files.map(f=>f.name);for(const [i,f] of files.entries())mediaIdentity.push({name:names[i],size:f.size,sha256:await mediaHash(f)});mediaIdentity.sort((a,b)=>a.name.localeCompare(b.name));}
@@ -90,7 +92,7 @@ function paint() {
     paintMs,
     heap : core.HEAPU8.length,
     inputDeferred : platform === '3do' && core.deferInput && s.frames < 300,
-    capturing,saving,
+    capturing,saving,memoryRecording,
     profile : readProfile()
   });
 }
@@ -172,12 +174,12 @@ async function pump(id, one = false) {
   if(id===epoch){running=false;paint();send('message',{text:one?'Paused at the next display boundary.':'Paused.'});}
 }
 function coreState(){const n=core._rr_state_save();check(n);const limit=(platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='xbox'||platform==='dos')?128:32;if(n>limit*1024*1024)throw Error(`Capture checkpoint exceeds the ${limit} MiB budget`);const p=core._rr_state_data();return core.HEAPU8.slice(p,p+n);}
-function cancelCapture(){
+function cancelCapture(starting=false){
  if(capturing){core._rr_capture_end();finishCaptureProfile();capturing=false;}
- capture=null;captureGeneration++;seekGeneration++;send('capture-cleared');
+ capture=null;captureGeneration++;seekGeneration++;send('capture-cleared',{starting});
 }
 async function captureNext(){
- running=false;const id=++epoch;cancelCapture();const generation=captureGeneration;capturing=true;captureRunMs=maxCaptureCall=0;captureProfileStart=Object.fromEntries(json('_rr_profile').buckets.map(b=>[b.name,b.ms]));
+ running=false;const id=++epoch;cancelCapture(true);const generation=captureGeneration;capturing=true;captureRunMs=maxCaptureCall=0;captureProfileStart=Object.fromEntries(json('_rr_profile').buckets.map(b=>[b.name,b.ms]));
  const began=performance.now();let lastProgress=0;
  send('capture-progress',{text:'Finishing the current display interval…',generation});
  const boundary=async phase=>{
@@ -374,6 +376,7 @@ async function boot(m) {
     if(platform==='amiga'){for(const code of q.appliedKeys||inputs.down.keys())core._rr_key(code,0);appliedKeys.clear();inputs.mousePending={x:0,y:0};inputs.mouseMask=96;inputs.mouseButtons=0;inputs.mouseButtonEvents=[];inputs.mouseButtonCursor=0;}
     inputs.keys=[];inputs.down.clear();inputs.touch={x:0,y:0,down:false};inputs.touchEvents=[];inputs.touchUntil=0;if(core._rr_touch)core._rr_touch(0,0,0);
   }
+  memoryService=createMemoryService({core,platform,files:[f],status});
   loaded = true;
   paint();
   send('ready', {
@@ -389,6 +392,9 @@ onmessage = async ({data : m}) => {
     if (m.session !== session || !loaded)
       return;
     if(saving&&!['input','turbo','hold'].includes(m.type)){send('message',{text:'Finishing the state save…'});return;}
+    if(m.type==='memory-stop'){memoryStop=true;return;}
+    if(memoryBusy||memoryRecording){if(m.type==='pause'||m.type==='hold')memoryStop=true;if(!['input','turbo','tape'].includes(m.type))return;}
+    if(m.type.startsWith('memory-')){await memoryRequest(m);return;}
     if(m.type==='raster-seek'){rasterSeek(m);return;}
     if(m.type==='blit-seek'){
       if(platform!=='amiga'||!capture||m.capture!==capture.id)return;
@@ -420,8 +426,10 @@ onmessage = async ({data : m}) => {
         return;
       cancelCapture();running = true;
       await pump(++epoch, m.type === 'step');
-    } else if (m.type === 'pause') {
+    } else if (m.type === 'capture-render') {
       await captureNext();
+    } else if (m.type === 'pause') {
+      running=false;++epoch;cancelCapture();paint();send('message',{text:'Paused. Open Memory to inspect physical storage.'});
     } else if (m.type === 'turbo')
       turbo = m.value;
     else if (m.type === 'input') {
@@ -437,3 +445,32 @@ onmessage = async ({data : m}) => {
     send('error', {text : String(e)});
   }
 };
+
+async function memoryRequest(m){
+ const respond=overview=>send('memory-overview',{request:m.request,overview});
+ try{
+  if(m.type==='memory-snapshot'||m.type==='memory-record'){
+   memoryBusy=true;running=false;++epoch;cancelCapture();paint();
+   if(m.type==='memory-snapshot'){respond(await memoryService.snapshot());return;}
+   memoryRecording=true;memoryStop=false;await memoryService.begin(m.fetches);memoryBusy=false;paint();
+   const time=s=>platform==='c64'?s.steps/985248:s.seconds??s.frames/platforms[platform].hz;
+   const start=time(status()),duration=Math.max(.01,Math.min(5,Number(m.duration)||1));
+   let last=0;
+   while(!memoryStop&&time(status())-start<duration&&core._rr_activity_count()<524288){
+    tick();const now=performance.now();if(now-last>100){send('memory-progress',{text:`Recording ${(time(status())-start).toFixed(2)} seconds · ${core._rr_activity_count().toLocaleString()} accesses`});last=now;}await sleep(0);
+   }
+   respond(memoryService.finish());paint();return;
+  }
+  if(m.type==='memory-live-end'){memoryService.stopLive();return;}
+  if(m.type==='memory-live-snapshot'){respond(await memoryService.liveSnapshot(m.scale,m.window,m.fetches));return;}
+  if(m.type==='memory-overview')respond(memoryService.overview(m.scale,m.window));
+  if(m.type==='memory-seek'){memoryService.seek(m.position);respond(memoryService.overview(m.scale,m.window));}
+  if(m.type==='memory-page'){
+   const page=memoryService.page(m.region,m.offset);
+   if(page?.id===m.snapshot){if(m.region==='tape'){page.pulseStart=memoryService.pulseForOffset(page.offset);page.pulseEnd=memoryService.pulseForOffset(page.offset+page.bytes.length)+1;}send('memory-page',{request:m.request,page});}
+  }
+  if(m.type==='memory-map')send('memory-map',{request:m.request,region:m.region,offset:memoryService.mapOffset(m.region,m.pixel,m.scale)});
+  if(m.type==='memory-detail')send('memory-detail',{request:m.request,snapshot:m.snapshot,detail:memoryService.detail(m.region,m.offset)});
+ }catch(e){send('memory-error',{request:m.request,text:String(e)});}
+ finally{const recorded=memoryRecording;if(recorded)core._rr_activity_end();memoryBusy=false;memoryRecording=false;if(recorded)paint();}
+}

@@ -2,9 +2,9 @@ import {createWorkspaces} from '../../../site/emulators/workspaces.js';
 import {createMemoryWorkspace} from '../../../site/emulators/memory-workspace.js';
 const $=id=>document.getElementById(id),assert=(x,s)=>{if(!x)throw Error(s);};
 try{
- const sent=[];let id=0;
+ const sent=[],transport=[];let id=0;
  const views=createWorkspaces({navigation:$('nav')});views.register({id:'play',label:'Play',panel:$('play')});
- const ui=createMemoryWorkspace({root:$('memory'),views,resume:()=>{},send:(type,args)=>{sent.push({type,...args,request:++id});return id;}});
+ const ui=createMemoryWorkspace({root:$('memory'),views,platform:'c64',transport:id=>transport.push(id),send:(type,args)=>{sent.push({type,...args,request:++id});return id;}});
  ui.ready();views.select('memory');ui.open();const snap=sent.at(-1);
  $('memory-scale').value='1';$('memory-scale').dispatchEvent(new Event('change'));
  assert(sent.length===1,'a scale change during an async snapshot must not invalidate the snapshot request');
@@ -21,6 +21,11 @@ try{
  const canvas=$('memory-atlas').querySelector('canvas'),box=canvas.getBoundingClientRect();canvas.dispatchEvent(new MouseEvent('click',{clientX:box.left+box.width/2,clientY:box.top+box.height/4}));
  assert(sent.at(-1).type==='memory-map','bitmap click uses the shared map protocol');
  const before=sent.length;ui.open();assert(sent.length===before,'returning to Memory retains the paused inspection');
+ ui.setActive(true);$('memory-play').click();assert(transport.at(-1)==='run','Play routes to shared transport');
+ ui.state({running:true,state:{frames:20,pulse:123}});assert($('memory-play').disabled&&!$('memory-pause').disabled,'running transport states');assert($('memory-live-status').textContent.includes('123'),'live tape position');
+ $('memory-pause').click();assert(transport.at(-1)==='pause','Pause routes to shared transport');
+ ui.state({running:false,state:{frames:21,pulse:124}});$('memory-step').click();assert(transport.at(-1)==='step','Next frame routes to shared transport');
+ assert(views.current()==='memory','transport stays in Memory');ui.setActive(false);assert(sent.at(-1).type==='memory-live-end','leaving Memory stops instrumentation');
  ui.reset();assert($('view-memory').disabled,'reset disables obsolete session navigation');
  $('results').textContent='PASS: async snapshot race, stale pages, hex/ASCII, label filtering, bitmap navigation and session reset.';document.title='PASS — Memory UI checks';
 }catch(e){$('results').textContent='FAIL: '+e.stack;document.title='FAIL — Memory UI checks';throw e;}
