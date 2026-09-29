@@ -44,12 +44,11 @@ configuration and core hashes, and failed imports leave the running machine
 intact. Initial media hashing for a large Xbox ISO can take tens of seconds.
 
 DOS display counters are instruction-budget intervals, not measured game FPS.
-The capture waits for VGA writes and a short quiet period, with a bounded
-timeout. It records CPU PCs, VRAM, palette and display-register writes. One REP
-instruction can account for most of a software-rendered VGA update, so a capture
-can legitimately contain only one writer event. Pixel details also link to the
-palette entry. This is not instruction-level ancestry through Quake's software
-rasterizer.
+Capture now discovers RAM software-rendering buffers through literal MOVS copies
+to VGA and retains their CPU writers, including intermediate copy ancestry.
+Replay can reveal equal-value redraws, and pixel details expose guest addresses,
+writer PCs and the final VGA transfer. See [DOS render buffers](DOS-RENDER-BUFFERS.md)
+for the capture heuristic, validation and dependency-tracing limits.
 
 Xbox capture ends at the next modeled flip. It records NV2A draws, RAM writes
 and Kelvin register snapshots; antialiased pixels expose their individual stored

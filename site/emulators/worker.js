@@ -195,7 +195,7 @@ async function captureNext(){
    const startState=coreState(),start=status(),input=queueState();
    const captureStarted=core._rr_capture_begin();if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='xbox'||platform==='gb'||platform==='gg'||platform==='gba'||platform==='dos'||platform==='amiga')check(captureStarted);
    const captureFields=(platform==='ps1'||platform==='ps2')?4:(platform==='gc'||platform==='dc')?3:platform==='3ds'?3:platform==='ds'?2:1;
-   if(platform==='dos'){while(!json('_rr_capture_info').ready)await boundary('Recording the next VGA write burst.');}
+   if(platform==='dos'){while(!json('_rr_capture_info').ready)await boundary('Recording RAM rendering and VGA copies.');}
    else for(let field=0;field<captureFields;field++)await boundary(captureFields>1?'Recording display and double-buffer producer context.':'Recording next complete interval.');
    const ended=core._rr_capture_end();if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='xbox'||platform==='gb'||platform==='gg'||platform==='gba'||platform==='dos'||platform==='amiga')check(ended);const captureProfile=finishCaptureProfile();capturing=false;
    const p=core._rr_frame(),endState=coreState(),end=status(),info=json('_rr_capture_info'),replay=json('_rr_replay_begin');
@@ -210,7 +210,7 @@ async function captureNext(){
    if(id!==epoch)return;
    capture={id:generation,startState,endState,start,end,input,width:w,height:h,pixels,info,frameHash};
    paint();send('capture',{id:generation,replay,start,end,width:w,height:h,info,frameHash,elapsedMs:performance.now()-began,checkpointBytes:startState.length+endState.length,profile:captureProfile,runMs:captureRunMs,maxCall:maxCaptureCall});
-   send('message',{text:info.overflow?'Paused. Capture limit reached; some evidence is missing.':platform==='dos'?'Paused. The recorded VGA write window is ready to inspect.':'Paused. A complete display interval is ready to inspect.'});
+   send('message',{text:info.overflow?'Paused. Capture limit reached; some evidence is missing.':platform==='dos'?'Paused. RAM rendering and VGA copies are ready to inspect.':'Paused. A complete display interval is ready to inspect.'});
  }catch(e){if(id===epoch){if(capturing)core._rr_capture_end();finishCaptureProfile();capturing=false;capture=null;paint();send('error',{text:String(e)});}}
 }
 function pixelEvidence(x,y){const p=jsonPixel(x,y);for(const c of p.contributors||[])c.replayStep=core._rr_replay_for_write(platform==='c64'?y:c.id);return p;}
@@ -222,6 +222,7 @@ async function seekReplay(m){
   await sleep(0);if(gen!==seekGeneration||capture!==c)return;
  }
  if(gen!==seekGeneration||capture!==c)return;
+ if(platform==='dos'&&core._rr_replay_view)core._rr_replay_view(+!!m.reveal);
  const p=core._rr_replay_frame(),pixels=core.HEAPU8.slice(p,p+c.width*c.height*4);
  send('seek',{capture:c.id,request:m.request,pixels:pixels.buffer,info:json('_rr_replay_info'),elapsedMs:performance.now()-began});
 }
@@ -386,7 +387,9 @@ onmessage = async ({data : m}) => {
       const fn=m.type==='source'?core._rr_source:core._rr_resource;
       if(!fn)return;
       const p=m.type==='source'?fn(m.address,m.size,m.before,m.expected):fn(m.resource,m.offset);
-      send(m.type,{capture:capture.id,evidence:JSON.parse(core.UTF8ToString(p)),request:m.request});return;
+      const evidence=JSON.parse(core.UTF8ToString(p));
+      if(platform==='dos')for(const c of evidence.contributors||[])c.replayStep=core._rr_replay_for_write(c.id);
+      send(m.type,{capture:capture.id,evidence,request:m.request});return;
     }
     if(m.type==='cancel-capture'||m.type==='hold'){running=false;++epoch;cancelCapture();paint();send('message',{text:'Paused.'});return;}
     if (m.type === 'run' || m.type === 'step') {

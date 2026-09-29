@@ -14,7 +14,7 @@ rrfiles::sources[name]={uint64_t(size),[id](uint64_t at,uint8_t*out,size_t n){rr
 #endif
 return 1;}catch(const std::exception&e){errorText=e.what();return 0;}}
 int rr_init(uint32_t n,int compatibility){try{if(rrCPU()||n!=pathInput.n)throw std::runtime_error("Invalid DOS executable selection");rrBoot(std::string((char*)pathInput.p,n),compatibility);return 1;}catch(const std::exception&e){errorText=e.what();return 0;}}
-int rr_run(uint32_t n){try{auto*c=rrCPU();if(!c||!n||n>1000000)throw std::runtime_error("Invalid execution slice");auto start=c->Steps,end=std::min(start+n,(rrFrames()+1)*rrFramePeriod());rrprof::Scope t(0,"x86 CPU and devices");while(c->Steps<end&&!c->Halted)x86_CPU_Step(c);if(c->Halted)throw std::runtime_error(c->HaltReason);return c->Steps-start;}catch(const std::exception&e){errorText=e.what();return -1;}}
+int rr_run(uint32_t n){try{auto*c=rrCPU();if(!c||!n||n>1000000)throw std::runtime_error("Invalid execution slice");auto start=c->Steps,end=std::min(start+n,(rrFrames()+1)*rrFramePeriod());rrprof::Scope t(0,"x86 CPU and devices");while(c->Steps<end&&!c->Halted){x86_CPU_Step(c);if(rrdos::collecting)rrdos::observe(c->Steps);}if(c->Halted)throw std::runtime_error(c->HaltReason);return c->Steps-start;}catch(const std::exception&e){errorText=e.what();return -1;}}
 static constexpr int padCodes[]={0x48,0x50,0x4b,0x4d,0x1c,0x39,0x1d,0x01};
 static bool padHeld(uint32_t code){for(int i=0;i<8;i++)if(padCodes[i]==code&&(lastPad&(1<<i)))return true;return false;}
 static void sendKey(uint32_t code,bool down){uint8_t sc=code|(down?0:0x80);if(protectedMachine)dos_PM_EnqueueScancode(protectedMachine,sc);else realMachine->keyEvents=append(realMachine->keyEvents,dos_injEvent{dos_injKey,sc,0,0,0});}

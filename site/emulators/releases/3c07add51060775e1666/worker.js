@@ -3,6 +3,7 @@ import {FrameClock} from './pacing.js';
 import {InputQueue} from './input.js';
 import {selectMedia, sha256File} from './media.js';
 import {selectDreamcastMedia} from './dc-media.js';
+import {selectDOSMedia,dosFiles} from './dos-media.js';
 import {platforms} from './platforms.js';
 
 let profileBase = {}, core, platform, session, loaded = false, running = false,
@@ -15,8 +16,8 @@ function mediaHash(file){if(!mediaHashes.has(file))mediaHashes.set(file,sha256Fi
 let saving=false;
 let bootOptions, firmwareIdentity=[], mediaIdentity, coreIdentity;
 async function identities(){
- if(!mediaIdentity){send("message",{text:"Verifying local media identity…"});mediaIdentity=[];for(const f of files)mediaIdentity.push({name:f.name,size:f.size,sha256:await mediaHash(f)});mediaIdentity.sort((a,b)=>a.name.localeCompare(b.name));}
- return {media:mediaIdentity,firmware:firmwareIdentity,core:coreIdentity,configuration:{compatibility:bootOptions.compatibility!==false,customFirmware:!!bootOptions.firmware?.some(Boolean)}};
+ if(!mediaIdentity){send("message",{text:"Verifying local media identity…"});mediaIdentity=[];const names=platform==='dos'?dosFiles(files).map(e=>e.path):files.map(f=>f.name);for(const [i,f] of files.entries())mediaIdentity.push({name:names[i],size:f.size,sha256:await mediaHash(f)});mediaIdentity.sort((a,b)=>a.name.localeCompare(b.name));}
+ return {media:mediaIdentity,firmware:firmwareIdentity,core:coreIdentity,configuration:{compatibility:bootOptions.compatibility!==false,customFirmware:!!bootOptions.firmware?.some(Boolean),...(platform==='dos'?{executable:bootOptions.executable}:{})}};
 }
 function queueState(){return {...inputs,appliedKeys:[...appliedKeys],pulses:[...inputs.pulses],down:[...inputs.down],pending:inputQueue,lastButtons,lastX,lastY,inputSequence,lastInputStep};}
 async function saveState(){
@@ -107,7 +108,7 @@ function applyInputs() {
   if (m.buttons !== lastButtons || m.x !== lastX || m.y !== lastY) {
     if (platform === 'c64')
       core._rr_joystick(2, m.buttons);
-    else if (platform === 'n64'||platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc')
+    else if (platform === 'n64'||platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='xbox')
       core._rr_pad(m.buttons, m.x, m.y);
     else
       core._rr_pad(platform === 'ps1' ? (~m.buttons) & 65535 : m.buttons);
@@ -116,8 +117,9 @@ function applyInputs() {
     lastY = m.y;
   }
   if (platform === 'ds'||platform==='3ds')core._rr_touch(m.touch.x,m.touch.y,+m.touch.down);
+  if(platform==='dos')core._rr_mouse(m.touch.x,m.touch.y,((m.buttons>>8)&3));
   if (platform === 'amiga') {const mouse=inputs.mouseForFrame(s.frames);if(mouse.x||mouse.y)core._rr_mouse(mouse.x,mouse.y);}
-  if (platform === 'c64'||platform==='amiga')
+  if (platform === 'c64'||platform==='dos'||platform==='amiga')
     for (const [code, down] of m.keys){
       core._rr_key(code, down);if(down)appliedKeys.add(code);else appliedKeys.delete(code);
     }
@@ -134,7 +136,7 @@ function tick(one = false) {
   else if (platform === 'n64')
     check(core._rr_run(one ? Math.min(10000, 750000 - status().steps % 750000)
                            : 10000) >= 0);
-  else if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='gb'||platform==='gg'||platform==='gba'||platform==='amiga')check(core._rr_run(10000)>=0);
+  else if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='xbox'||platform==='gb'||platform==='gg'||platform==='gba'||platform==='dos'||platform==='amiga')check(core._rr_run(10000)>=0);
   else
     check(core._rr_run_slice(10000));
   const ms = performance.now() - start;
@@ -169,7 +171,7 @@ async function pump(id, one = false) {
   }
   if(id===epoch){running=false;paint();send('message',{text:one?'Paused at the next display boundary.':'Paused.'});}
 }
-function coreState(){const n=core._rr_state_save();check(n);const limit=(platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc')?128:32;if(n>limit*1024*1024)throw Error(`Capture checkpoint exceeds the ${limit} MiB budget`);const p=core._rr_state_data();return core.HEAPU8.slice(p,p+n);}
+function coreState(){const n=core._rr_state_save();check(n);const limit=(platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='xbox'||platform==='dos')?128:32;if(n>limit*1024*1024)throw Error(`Capture checkpoint exceeds the ${limit} MiB budget`);const p=core._rr_state_data();return core.HEAPU8.slice(p,p+n);}
 function cancelCapture(){
  if(capturing){core._rr_capture_end();finishCaptureProfile();capturing=false;}
  capture=null;captureGeneration++;seekGeneration++;send('capture-cleared');
@@ -191,10 +193,11 @@ async function captureNext(){
  try{
    await boundary('Finishing current interval.');
    const startState=coreState(),start=status(),input=queueState();
-   const captureStarted=core._rr_capture_begin();if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='gb'||platform==='gg'||platform==='gba'||platform==='amiga')check(captureStarted);
+   const captureStarted=core._rr_capture_begin();if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='xbox'||platform==='gb'||platform==='gg'||platform==='gba'||platform==='dos'||platform==='amiga')check(captureStarted);
    const captureFields=(platform==='ps1'||platform==='ps2')?4:(platform==='gc'||platform==='dc')?3:platform==='3ds'?3:platform==='ds'?2:1;
-   for(let field=0;field<captureFields;field++)await boundary(captureFields>1?'Recording display and double-buffer producer context.':'Recording next complete interval.');
-   const ended=core._rr_capture_end();if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='gb'||platform==='gg'||platform==='gba'||platform==='amiga')check(ended);const captureProfile=finishCaptureProfile();capturing=false;
+   if(platform==='dos'){while(!json('_rr_capture_info').ready)await boundary('Recording RAM rendering and VGA copies.');}
+   else for(let field=0;field<captureFields;field++)await boundary(captureFields>1?'Recording display and double-buffer producer context.':'Recording next complete interval.');
+   const ended=core._rr_capture_end();if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='xbox'||platform==='gb'||platform==='gg'||platform==='gba'||platform==='dos'||platform==='amiga')check(ended);const captureProfile=finishCaptureProfile();capturing=false;
    const p=core._rr_frame(),endState=coreState(),end=status(),info=json('_rr_capture_info'),replay=json('_rr_replay_begin');
    const w=platform==='c64'?392:end.width||320,h=platform==='c64'?272:end.height||240;
    const pixels=core.HEAPU8.slice(p,p+w*h*4);
@@ -207,7 +210,7 @@ async function captureNext(){
    if(id!==epoch)return;
    capture={id:generation,startState,endState,start,end,input,width:w,height:h,pixels,info,frameHash};
    paint();send('capture',{id:generation,replay,start,end,width:w,height:h,info,frameHash,elapsedMs:performance.now()-began,checkpointBytes:startState.length+endState.length,profile:captureProfile,runMs:captureRunMs,maxCall:maxCaptureCall});
-   send('message',{text:info.overflow?'Paused. Capture limit reached; some evidence is missing.':'Paused. A complete display interval is ready to inspect.'});
+   send('message',{text:info.overflow?'Paused. Capture limit reached; some evidence is missing.':platform==='dos'?'Paused. RAM rendering and VGA copies are ready to inspect.':'Paused. A complete display interval is ready to inspect.'});
  }catch(e){if(id===epoch){if(capturing)core._rr_capture_end();finishCaptureProfile();capturing=false;capture=null;paint();send('error',{text:String(e)});}}
 }
 function pixelEvidence(x,y){const p=jsonPixel(x,y);for(const c of p.contributors||[])c.replayStep=core._rr_replay_for_write(platform==='c64'?y:c.id);return p;}
@@ -219,6 +222,7 @@ async function seekReplay(m){
   await sleep(0);if(gen!==seekGeneration||capture!==c)return;
  }
  if(gen!==seekGeneration||capture!==c)return;
+ if(platform==='dos'&&core._rr_replay_view)core._rr_replay_view(+!!m.reveal);
  const p=core._rr_replay_frame(),pixels=core.HEAPU8.slice(p,p+c.width*c.height*4);
  send('seek',{capture:c.id,request:m.request,pixels:pixels.buffer,info:json('_rr_replay_info'),elapsedMs:performance.now()-began});
 }
@@ -229,7 +233,7 @@ async function boot(m) {
   platform = m.platform;
   if(restored&&restored.meta.platform!==platform)throw Error("This state belongs to another console");
   inputs = new InputQueue(platforms[platform].hz);
-  if(platform==='amiga')inputs.mouseMask=96;
+  if(platform==='amiga')inputs.mouseMask=96;if(platform==='dos')inputs.mouseMask=768;
   if(platform==='ds'||platform==='3ds')inputs.hold=3/platforms[platform].hz;
   session = m.session;
   files = m.files;
@@ -245,7 +249,8 @@ async function boot(m) {
   const factory = (await import(`./cores/${platform}/core.js`)).default;
   core = await factory({wasmBinary});
   const dcMedia=platform==='dc'?await selectDreamcastMedia(files):null;
-  const f = dcMedia?dcMedia.file:await selectMedia(files);
+  const dosMedia=platform==='dos'?selectDOSMedia(files,m.executable):null;
+  const f = dosMedia?dosMedia.entries.find(e=>e.path===dosMedia.entry).file:dcMedia?dcMedia.file:await selectMedia(files);
   if (platform === 'c64') {
     const custom = m.firmware?.some(Boolean);
     if (custom &&
@@ -285,6 +290,10 @@ async function boot(m) {
     core.HEAPU8.set(new Uint8Array(await f.arrayBuffer()), core._rr_input());
     check(core._rr_tape(f.size));
     core._rr_trace(0, 0, 0);
+  } else if(platform==='dos'){
+    core.gameFiles=files;const put=s=>{const b=new TextEncoder().encode(s),p=core._rr_input(b.length);check(p);core.HEAPU8.set(b,p);return b.length;};
+    for(const e of dosMedia.entries)check(core._rr_file(e.index,put(e.path),e.file.size));
+    check(core._rr_init(put(dosMedia.entry),+(m.compatibility!==false)));
   } else if (platform === 'amiga') {
     if(f.size!==901120)throw Error('Select a standard 880 KiB ADF disk image');
     const custom=m.firmware?.[0];let rom;
@@ -315,8 +324,8 @@ async function boot(m) {
     core.compatProfile =
         profile ? 'Need for Speed: VBL mirror and Cinepak movie HLE'
                 : 'Generic Portfolio boot';
-  } else if (platform === 'ps1'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc') {
-    if (f.size > (platform==='ps2'?16*1024**3:0xffffffff))
+  } else if (platform === 'ps1'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='xbox') {
+    if (f.size > ((platform==='ps2'||platform==='xbox')?16*1024**3:0xffffffff))
       throw Error('Disc exceeds the supported size');
     core.discFile = f;
     if(dcMedia)for(const t of dcMedia.tracks)check(core._rr_disc_track(t.number,t.lba,t.offset,t.length,+t.data));
@@ -349,7 +358,8 @@ async function boot(m) {
     // Saved events remain part of the state. Release host-held controls before
     // continuation; a newly pressed physical button creates a new input edge.
     inputs.buttons=0;inputs.x=inputs.y=0;inputs.pulses.clear();inputQueue.length=0;
-    if(platform==='c64')for(let k=0;k<256;k++)core._rr_key(k,0);
+    if(platform==='c64'||platform==='dos')for(let k=0;k<(platform==='dos'?128:256);k++)core._rr_key(k,0);
+    if(platform==='dos'){core._rr_pad(0);core._rr_mouse(0,0,0);appliedKeys.clear();}
     if(platform==='amiga'){for(const code of q.appliedKeys||inputs.down.keys())core._rr_key(code,0);appliedKeys.clear();inputs.mousePending={x:0,y:0};inputs.mouseMask=96;inputs.mouseButtons=0;inputs.mouseButtonEvents=[];inputs.mouseButtonCursor=0;}
     inputs.keys=[];inputs.down.clear();inputs.touch={x:0,y:0,down:false};inputs.touchEvents=[];inputs.touchUntil=0;if(core._rr_touch)core._rr_touch(0,0,0);
   }
@@ -377,7 +387,9 @@ onmessage = async ({data : m}) => {
       const fn=m.type==='source'?core._rr_source:core._rr_resource;
       if(!fn)return;
       const p=m.type==='source'?fn(m.address,m.size,m.before,m.expected):fn(m.resource,m.offset);
-      send(m.type,{capture:capture.id,evidence:JSON.parse(core.UTF8ToString(p)),request:m.request});return;
+      const evidence=JSON.parse(core.UTF8ToString(p));
+      if(platform==='dos')for(const c of evidence.contributors||[])c.replayStep=core._rr_replay_for_write(c.id);
+      send(m.type,{capture:capture.id,evidence,request:m.request});return;
     }
     if(m.type==='cancel-capture'||m.type==='hold'){running=false;++epoch;cancelCapture();paint();send('message',{text:'Paused.'});return;}
     if (m.type === 'run' || m.type === 'step') {

@@ -26,5 +26,9 @@
   "gba/core.js": "3dbe8594342608bfa17fdfa4bbaa67003e81cdecdb7cc4b6d5b17d1948bec790",
   "gba/core.wasm": "9f6a8a0255e8f99e630566bb57adf05086efcc61798456f02425aa91d3c27b0d",
   "dc/core.js": "3cda45f1d62787b6111be62e1c29f55d7aac0838782cc37eef8cce09c323610d",
-  "dc/core.wasm": "462e0faa425371d517ffd27a5e535174eca5e9eb6b672d07c0bb0414cf423c47"
+  "dc/core.wasm": "462e0faa425371d517ffd27a5e535174eca5e9eb6b672d07c0bb0414cf423c47",
+  "dos/core.js": "ae330e10c60de7eac8cc1017dafe83c2d616c1b9291e16eb460edfa936654fd0",
+  "dos/core.wasm": "92ed4749c3ba608b1119bce81d293be36866345d907ac4d3c801baabd4bd25f6",
+  "xbox/core.js": "b099e3173ed6e07bad6070faa0c99cd41f190ea57739ef11524ac7b82f94cc0d",
+  "xbox/core.wasm": "2e8336f5abe8105dd5b8b0108cf1dca4a44ab403c2d4fd7b45fe781c1aeddcca"
 }

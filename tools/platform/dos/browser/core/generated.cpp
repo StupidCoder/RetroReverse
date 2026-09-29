@@ -2736,7 +2736,7 @@ auto step = [&]()->void{
 {
 switch(op){
 case cast<uint8_t>(164ULL):case cast<uint8_t>(165ULL):{
-x86_CPU_memWrite(c,esBase,x86_CPU_getReg(c,cast<uint8_t>(7ULL),aw),w,x86_CPU_memRead(c,dsBase,x86_CPU_getReg(c,cast<uint8_t>(6ULL),aw),w));
+rrDOSMovs(c,esBase,x86_CPU_getReg(c,cast<uint8_t>(7ULL),aw),w,dsBase,x86_CPU_getReg(c,cast<uint8_t>(6ULL),aw));
 x86_CPU_advSI(c,w,aw);
 x86_CPU_advDI(c,w,aw);
 break;}
@@ -6162,6 +6162,7 @@ dos_Machine_vgaWrite(m,a,v);
 return ;
 }
 m->Mem[a] = v;
+if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[a]));
 }
 }
 // tools/platform/dos/dos.go:211:1
@@ -6203,6 +6204,7 @@ void dos_Machine_setupBIOS(dos_Machine* m){
 constexpr int64_t biosSeg=61440ULL;
 constexpr int64_t biosOff=65363ULL;
 m->Mem[cast<uint32_t>(1048403ULL)] = cast<uint8_t>(207ULL);
+if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>(1048403ULL)]));
 {int64_t n = cast<int64_t>(0ULL);for (;(n < cast<int64_t>(256ULL));n++){
 dos_Machine_w16(m,cast<uint32_t>((cast<uint32_t>(n) * cast<uint32_t>(4ULL))),cast<uint16_t>(65363ULL));
 dos_Machine_w16(m,cast<uint32_t>((cast<uint32_t>((cast<uint32_t>(n) * cast<uint32_t>(4ULL))) + cast<uint32_t>(2ULL))),cast<uint16_t>(61440ULL));
@@ -6211,10 +6213,13 @@ dos_Machine_w16(m,cast<uint32_t>((cast<uint32_t>((cast<uint32_t>(n) * cast<uint3
 dos_Machine_w16(m,cast<uint32_t>((bda + cast<uint32_t>(16ULL))),cast<uint16_t>(33ULL));
 dos_Machine_w16(m,cast<uint32_t>((bda + cast<uint32_t>(19ULL))),cast<uint16_t>(640ULL));
 m->Mem[cast<uint32_t>((bda + cast<uint32_t>(73ULL)))] = cast<uint8_t>(3ULL);
+if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((bda + cast<uint32_t>(73ULL)))]));
 dos_Machine_w16(m,cast<uint32_t>((bda + cast<uint32_t>(74ULL))),cast<uint16_t>(80ULL));
 dos_Machine_w16(m,cast<uint32_t>((bda + cast<uint32_t>(99ULL))),cast<uint16_t>(980ULL));
 m->Mem[cast<uint32_t>((bda + cast<uint32_t>(132ULL)))] = cast<uint8_t>(24ULL);
+if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((bda + cast<uint32_t>(132ULL)))]));
 m->Mem[cast<uint32_t>((bda + cast<uint32_t>(133ULL)))] = cast<uint8_t>(16ULL);
+if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((bda + cast<uint32_t>(133ULL)))]));
 }
 }
 // tools/platform/dos/dos.go:258:1
@@ -6224,10 +6229,14 @@ uint32_t base = shl<uint32_t>(cast<uint32_t>(m->pspSeg),cast<int64_t>(4ULL));
 auto tmp20 = std::make_tuple(cast<uint8_t>(205ULL),cast<uint8_t>(32ULL));
 m->Mem[cast<uint32_t>((base + cast<uint32_t>(0ULL)))] = std::get<0>(tmp20);
 m->Mem[cast<uint32_t>((base + cast<uint32_t>(1ULL)))] = std::get<1>(tmp20);
+if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((base + cast<uint32_t>(0ULL)))]));
+if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((base + cast<uint32_t>(1ULL)))]));
 dos_Machine_w16(m,cast<uint32_t>((base + cast<uint32_t>(2ULL))),m->memTop);
 dos_Machine_w16(m,cast<uint32_t>((base + cast<uint32_t>(44ULL))),m->envSeg);
 m->Mem[cast<uint32_t>((base + cast<uint32_t>(128ULL)))] = cast<uint8_t>(0ULL);
+if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((base + cast<uint32_t>(128ULL)))]));
 m->Mem[cast<uint32_t>((base + cast<uint32_t>(129ULL)))] = cast<uint8_t>(13ULL);
+if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((base + cast<uint32_t>(129ULL)))]));
 }
 }
 // tools/platform/dos/dos.go:272:1
@@ -6891,6 +6900,7 @@ return true;
 break;}
 case cast<uint8_t>(71ULL):{
 m->Mem[dos_lin(c->Seg[cast<int64_t>(3ULL)],x86_CPU_Reg16(c,cast<int64_t>(6ULL)))] = cast<uint8_t>(0ULL);
+if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[dos_lin(c->Seg[cast<int64_t>(3ULL)],x86_CPU_Reg16(c,cast<int64_t>(6ULL)))]));
 return true;
 break;}
 case cast<uint8_t>(53ULL):{
@@ -6995,6 +7005,7 @@ int64_t got = std::get<0>(tmp51);
 uint32_t dst = dos_lin(c->Seg[cast<int64_t>(3ULL)],x86_CPU_Reg16(c,cast<int64_t>(2ULL)));
 {int64_t i = cast<int64_t>(0ULL);for (;(i < got);i++){
 m->Mem[cast<uint32_t>(((cast<uint32_t>((dst + cast<uint32_t>(i)))) & cast<uint32_t>(1048575ULL)))] = buf[i];
+if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>(((cast<uint32_t>((dst + cast<uint32_t>(i)))) & cast<uint32_t>(1048575ULL)))]));
 }
 }dos_Machine_logf(m,std::string("read handle %d: %d/%d bytes from file $%X -> %04X:%04X (lin $%X)",64),h,got,n,pos,c->Seg[cast<int64_t>(3ULL)],x86_CPU_Reg16(c,cast<int64_t>(2ULL)),dst);
 x86_CPU_SetReg16(c,cast<int64_t>(0ULL),cast<uint16_t>(got));
@@ -7171,6 +7182,7 @@ if (rrFileInfo_IsDir(info)) {
 attr = cast<uint8_t>(16ULL);
 }
 m->Mem[cast<uint32_t>((dta + cast<uint32_t>(21ULL)))] = attr;
+if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((dta + cast<uint32_t>(21ULL)))]));
 dos_Machine_w16(m,cast<uint32_t>((dta + cast<uint32_t>(22ULL))),cast<uint16_t>(0ULL));
 dos_Machine_w16(m,cast<uint32_t>((dta + cast<uint32_t>(24ULL))),cast<uint16_t>(33ULL));
 uint32_t sz = cast<uint32_t>(rrFileInfo_Size(info));
@@ -7180,9 +7192,11 @@ std::string name = go_strings_ToUpper(go_filepath_Base(host));
 {int64_t i = cast<int64_t>(0ULL);for (;(i < cast<int64_t>(13ULL));i++){
 if ((i < len(name))) {
 m->Mem[cast<uint32_t>((cast<uint32_t>((dta + cast<uint32_t>(30ULL))) + cast<uint32_t>(i)))] = cast<uint8_t>(name[i]);
+if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((cast<uint32_t>((dta + cast<uint32_t>(30ULL))) + cast<uint32_t>(i)))]));
 }
 else {
 m->Mem[cast<uint32_t>((cast<uint32_t>((dta + cast<uint32_t>(30ULL))) + cast<uint32_t>(i)))] = cast<uint8_t>(0ULL);
+if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((cast<uint32_t>((dta + cast<uint32_t>(30ULL))) + cast<uint32_t>(i)))]));
 }
 }
 }c->CF = false;
@@ -7665,6 +7679,7 @@ void dos_Machine_writeMCB(dos_Machine* m,uint16_t mcbSeg,uint8_t mark,uint16_t o
 {
 uint32_t a = shl<uint32_t>(cast<uint32_t>(mcbSeg),cast<int64_t>(4ULL));
 m->Mem[cast<uint32_t>((a & cast<uint32_t>(1048575ULL)))] = mark;
+if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((a & cast<uint32_t>(1048575ULL)))]));
 dos_Machine_w16(m,cast<uint32_t>((a + cast<uint32_t>(1ULL))),owner);
 dos_Machine_w16(m,cast<uint32_t>((a + cast<uint32_t>(3ULL))),size);
 }
@@ -8156,6 +8171,7 @@ switch(ah){
 case cast<uint8_t>(0ULL):{
 uint8_t mode = cast<uint8_t>((x86_CPU_Reg8(c,cast<int64_t>(0ULL)) & cast<uint8_t>(127ULL)));
 m->Mem[cast<uint32_t>((bda + cast<uint32_t>(73ULL)))] = mode;
+if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((bda + cast<uint32_t>(73ULL)))]));
 dos_Machine_vgaInit13h(m,(cast<uint8_t>((x86_CPU_Reg8(c,cast<int64_t>(0ULL)) & cast<uint8_t>(128ULL))) == cast<uint8_t>(0ULL)));
 uint8_t cols = cast<uint8_t>(80ULL);
 if ((((((mode <= cast<uint8_t>(1ULL)) || (mode == cast<uint8_t>(4ULL))) || (mode == cast<uint8_t>(5ULL))) || (mode == cast<uint8_t>(13ULL))) || (mode == cast<uint8_t>(19ULL)))) {
@@ -8219,6 +8235,7 @@ int64_t n = cast<int64_t>((cast<int64_t>(x86_CPU_Reg16(c,cast<int64_t>(1ULL))) *
 uint32_t dst = dos_lin(c->Seg[cast<int64_t>(0ULL)],x86_CPU_Reg16(c,cast<int64_t>(2ULL)));
 {int64_t i = cast<int64_t>(0ULL);for (;(i < n);i++){
 m->Mem[cast<uint32_t>(((cast<uint32_t>((dst + cast<uint32_t>(i)))) & cast<uint32_t>(1048575ULL)))] = cast<uint8_t>(0ULL);
+if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>(((cast<uint32_t>((dst + cast<uint32_t>(i)))) & cast<uint32_t>(1048575ULL)))]));
 }
 }break;}
 }}

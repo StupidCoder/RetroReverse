@@ -3,6 +3,10 @@ package main
 import "strings"
 
 func x86Body(name, body string) string {
+	if platform == "dos" && name == "x86_CPU_stringOp" {
+		body = strings.ReplaceAll(body, "x86_CPU_memWrite(c,esBase,x86_CPU_getReg(c,cast<uint8_t>(7ULL),aw),w,x86_CPU_memRead(c,dsBase,x86_CPU_getReg(c,cast<uint8_t>(6ULL),aw),w));", "rrDOSMovs(c,esBase,x86_CPU_getReg(c,cast<uint8_t>(7ULL),aw),w,dsBase,x86_CPU_getReg(c,cast<uint8_t>(6ULL),aw));")
+	}
+
 	scopes := map[string]string{"xbox_Machine_Run": "0,\"x86 CPU and devices\"", "xbox_Machine_runPusher": "1,\"NV2A commands\"", "xbox_pgraph_runDraw": "2,\"Vertex processing\"", "xbox_pgraph_assemble": "3,\"Software rasterizer\"", "xbox_pgraph_clearSurface": "4,\"Surface clears\"", "xbox_pgraph_texDecode": "5,\"Texture decoding\"", "dos_Machine_handleInt": "1,\"DOS and BIOS services\"", "dos_PM_handleInt": "1,\"DOS and DPMI services\""}
 	if name == "xbox_pgraph_texDecode" {
 		body = strings.ReplaceAll(body, "[&]", "[=]")

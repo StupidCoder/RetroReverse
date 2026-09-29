@@ -1,0 +1,343 @@
+{
+  "date": "2026-09-29",
+  "workloads": [
+    "Quake private gameplay checkpoint, 3500 synthetic intervals",
+    "Ultima Underworld private new-game checkpoint, 4896 synthetic intervals"
+  ],
+  "validation": [
+    {
+      "platform": "dos",
+      "info": {
+        "events": 304,
+        "writes": 102499,
+        "overflow": 0,
+        "bytes": 10692088,
+        "ready": true,
+        "vgaWriteWindow": true,
+        "renderBuffers": true,
+        "producerPixels": 48640,
+        "bursts": 2,
+        "timedOut": false,
+        "rawWrites": 5028674,
+        "memoryRegions": [
+          {
+            "guest": 43778048,
+            "packed": 1048576,
+            "size": 53248
+          }
+        ]
+      },
+      "replay": {
+        "count": 78483,
+        "cursor": 0,
+        "cacheBytes": 0,
+        "complete": true,
+        "surface": "RAM render buffers mapped through the captured VGA copies",
+        "writerPC": true
+      },
+      "proof": {
+        "steps": 1913452632,
+        "frames": 3508,
+        "pc": 198671,
+        "ram": 1823104341,
+        "rgba": 1585762373
+      }
+    },
+    {
+      "pass": true,
+      "platform": "dos",
+      "explained": 32,
+      "complete": 40,
+      "stateBytes": 68161350
+    },
+    {
+      "platform": "dos",
+      "info": {
+        "events": 39956,
+        "writes": 109223,
+        "overflow": 0,
+        "bytes": 11989096,
+        "ready": true,
+        "vgaWriteWindow": true,
+        "renderBuffers": true,
+        "producerPixels": 19264,
+        "bursts": 2,
+        "timedOut": false,
+        "rawWrites": 325051,
+        "memoryRegions": [
+          {
+            "guest": 266240,
+            "packed": 1048576,
+            "size": 24576
+          },
+          {
+            "guest": 479232,
+            "packed": 1073152,
+            "size": 4096
+          },
+          {
+            "guest": 487424,
+            "packed": 1077248,
+            "size": 4096
+          }
+        ]
+      },
+      "replay": {
+        "count": 104320,
+        "cursor": 0,
+        "cacheBytes": 0,
+        "complete": true,
+        "surface": "RAM render buffers mapped through the captured VGA copies",
+        "writerPC": true
+      },
+      "proof": {
+        "steps": 700999299,
+        "frames": 4907,
+        "pc": 13876,
+        "ram": 510476347,
+        "rgba": 4129348557
+      }
+    },
+    {
+      "pass": true,
+      "platform": "dos",
+      "explained": 15,
+      "complete": 40,
+      "stateBytes": 10001005
+    }
+  ],
+  "browser": {
+    "engine": "Codex in-app browser",
+    "quakeCaptureSeconds": 0.39,
+    "quakeReplaySteps": 86978,
+    "producerPixels": 48640,
+    "peakReportedWasmMiB": 938,
+    "retainedEvidenceAndCheckpointsMiB": 140.8,
+    "checked": [
+      "partial drawing with Reveal buffer writes",
+      "pixel (160,90) -> RAM 0x029c75dc -> CPU PC 0x00111e28",
+      "VGA copy at PC 0x00110fe0 -> earlier RAM writers",
+      "jump to write and return to final frame"
+    ]
+  },
+  "limits": [
+    "Literal MOVS dependency edges only; no general register or arithmetic taint.",
+    "Replay projects immediate source buffers through final VGA copies, not historical scanout.",
+    "Existing VGA mode-3-as-mode-0 approximation is unchanged."
+  ],
+  "normalExecutionComparison": {
+    "platform": "dos",
+    "state": "quake-game.state",
+    "node": "v26.3.1",
+    "arch": "arm64",
+    "fields": 150,
+    "repeats": 3,
+    "hashes": {
+      "before": "695b0779e899ed3cff182368867ad3a3027f022e7421e3314fade2367fbc4051",
+      "after": "92ed4749c3ba608b1119bce81d293be36866345d907ac4d3c801baabd4bd25f6"
+    },
+    "beforeMs": 1928.126416,
+    "afterMs": 1923.66025,
+    "speedup": 1.0023217020781088,
+    "samples": [
+      {
+        "variant": "before",
+        "repeat": 0,
+        "platform": "dos",
+        "fields": 150,
+        "ms": 1937.803875,
+        "fps": 77.40721439108485,
+        "heapBytes": 275251200,
+        "proof": {
+          "steps": 1990907100,
+          "frames": 3650,
+          "pc": 74218,
+          "ram": 2886004950,
+          "rgba": 1500765073
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "x86 CPU and devices",
+              "ms": 1901.57,
+              "longestMs": 1.43325,
+              "tag": 0
+            },
+            {
+              "name": "Local game file reads",
+              "ms": 0.16925,
+              "longestMs": 0.16925,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "variant": "after",
+        "repeat": 0,
+        "platform": "dos",
+        "fields": 150,
+        "ms": 1921.30975,
+        "fps": 78.07174246630457,
+        "heapBytes": 276037632,
+        "proof": {
+          "steps": 1990907100,
+          "frames": 3650,
+          "pc": 74218,
+          "ram": 2886004950,
+          "rgba": 1500765073
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "x86 CPU and devices",
+              "ms": 1886.79,
+              "longestMs": 1.39042,
+              "tag": 0
+            },
+            {
+              "name": "Local game file reads",
+              "ms": 0.170541,
+              "longestMs": 0.170541,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "variant": "after",
+        "repeat": 1,
+        "platform": "dos",
+        "fields": 150,
+        "ms": 1935.073042,
+        "fps": 77.51645376908724,
+        "heapBytes": 276037632,
+        "proof": {
+          "steps": 1990907100,
+          "frames": 3650,
+          "pc": 74218,
+          "ram": 2886004950,
+          "rgba": 1500765073
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "x86 CPU and devices",
+              "ms": 1900.63,
+              "longestMs": 1.4405,
+              "tag": 0
+            },
+            {
+              "name": "Local game file reads",
+              "ms": 0.16425,
+              "longestMs": 0.16425,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "variant": "before",
+        "repeat": 1,
+        "platform": "dos",
+        "fields": 150,
+        "ms": 1915.612542,
+        "fps": 78.30393501359734,
+        "heapBytes": 275251200,
+        "proof": {
+          "steps": 1990907100,
+          "frames": 3650,
+          "pc": 74218,
+          "ram": 2886004950,
+          "rgba": 1500765073
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "x86 CPU and devices",
+              "ms": 1881.35,
+              "longestMs": 1.51417,
+              "tag": 0
+            },
+            {
+              "name": "Local game file reads",
+              "ms": 0.155541,
+              "longestMs": 0.155541,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "variant": "before",
+        "repeat": 2,
+        "platform": "dos",
+        "fields": 150,
+        "ms": 1928.126416,
+        "fps": 77.79572892901022,
+        "heapBytes": 275251200,
+        "proof": {
+          "steps": 1990907100,
+          "frames": 3650,
+          "pc": 74218,
+          "ram": 2886004950,
+          "rgba": 1500765073
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "x86 CPU and devices",
+              "ms": 1893.83,
+              "longestMs": 1.41013,
+              "tag": 0
+            },
+            {
+              "name": "Local game file reads",
+              "ms": 0.161708,
+              "longestMs": 0.161708,
+              "tag": 0
+            }
+          ]
+        }
+      },
+      {
+        "variant": "after",
+        "repeat": 2,
+        "platform": "dos",
+        "fields": 150,
+        "ms": 1923.66025,
+        "fps": 77.97634743453268,
+        "heapBytes": 276037632,
+        "proof": {
+          "steps": 1990907100,
+          "frames": 3650,
+          "pc": 74218,
+          "ram": 2886004950,
+          "rgba": 1500765073
+        },
+        "profile": {
+          "sampled": false,
+          "buckets": [
+            {
+              "name": "x86 CPU and devices",
+              "ms": 1889.73,
+              "longestMs": 1.41133,
+              "tag": 0
+            },
+            {
+              "name": "Local game file reads",
+              "ms": 0.196875,
+              "longestMs": 0.196875,
+              "tag": 0
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

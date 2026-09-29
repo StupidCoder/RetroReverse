@@ -158,11 +158,11 @@ function load(stateFile=null) {
     } else if(m.type==='pixel'||m.type==='source'||m.type==='resource'){inspector.result(m);
     } else if(m.type==='capture-cleared'){
       inspector.reset();replay.reset();
-      $('capture-note').textContent=platform==='dos'?'Pause to record the next VGA write burst.':'Pause to record the next complete display interval.';$('cancelcapture').hidden=true;
+      $('capture-note').textContent=platform==='dos'?'Pause to trace RAM rendering and its copies to VGA.':'Pause to record the next complete display interval.';$('cancelcapture').hidden=true;
     } else if(m.type==='capture'){
       inspector.setCapture(m);replay.setCapture(m);showProfile(m.profile,true);lastTime=performance.now();lastSteps=m.end.steps;lastFrames=m.end.frames;lastSeconds=m.end.seconds??0;rate='';
       $('cancelcapture').hidden=true;
-      $('capture-note').textContent=`Captured display ${m.start.frames}–${m.end.frames} · ${(m.elapsedMs/1000).toFixed(2)} s capture · longest call ${m.maxCall.toFixed(1)} ms · ${((m.info.bytes+m.checkpointBytes)/1048576).toFixed(1)} MiB evidence/checkpoints${m.info.overflow?' · incomplete: trace limit reached':''}`;
+      $('capture-note').textContent=`Captured display ${m.start.frames}–${m.end.frames} · ${(m.elapsedMs/1000).toFixed(2)} s capture · longest call ${m.maxCall.toFixed(1)} ms · ${((m.info.bytes+m.checkpointBytes)/1048576).toFixed(1)} MiB evidence/checkpoints${m.info.overflow?' · incomplete: trace limit reached':''}${m.info.renderBuffers?' · '+m.info.producerPixels.toLocaleString()+' pixels mapped to RAM'+(m.info.timedOut?' · bounded window ended before two VGA bursts':''):''}`;
     } else if(m.type==='saved'){
       const url=URL.createObjectURL(new Blob([m.bytes],{type:'application/octet-stream'}));
       const a=document.createElement('a');a.href=url;a.download=platform+'-'+Date.now()+'.rrstate';a.textContent='Download state';$('status').replaceChildren(document.createTextNode('State ready. Machine paused. '),a);a.click();setTimeout(()=>URL.revokeObjectURL(url),300000);

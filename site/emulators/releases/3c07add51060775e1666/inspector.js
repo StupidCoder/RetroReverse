@@ -1,6 +1,7 @@
 export function decodedColor(platform, value, size, format) {
   // GameCube EFB RGB precedes a lossy YUY2 copy and is not a scanout color.
-  if(platform==='gc')return null;
+  if(platform==='gc'||platform==='dos')return null;
+  if(platform==='xbox')return [value>>>16&255,value>>>8&255,value&255,255];
   if(platform==='gba')return [value>>>16&255,value>>>8&255,value&255,255];
   if(platform==='dc')return size===2?(format===0?[(value>>>10&31)<<3,(value>>>5&31)<<3,(value&31)<<3,255]:[(value>>>11&31)<<3,(value>>>5&63)<<2,(value&31)<<3,255]):[value>>>16&255,value>>>8&255,value&255,255];
   if(platform==='ps2')return [value&255,value>>>8&255,value>>>16&255,255];
@@ -141,6 +142,16 @@ export function createInspector({platform, canvas, send, jump}) {
     }
     if (c.paletteAddress) sourceButton(el, 'Follow palette writes', c.paletteAddress, c.paletteBefore, c.paletteValue, 2);
   }
+  function memoryAddress(address) {
+    if (platform === 'dos') for (const r of capture?.info?.memoryRegions || [])
+      if (address >= r.packed && address < r.packed + r.size) return hex(r.guest + address - r.packed);
+    return hex(address);
+  }
+  function dosSource(el, c) {
+    if (platform !== 'dos' || !c.sourceAddress) return;
+    line(el, 'Copied from RAM', memoryAddress(c.sourceAddress));
+    sourceButton(el, 'Follow earlier buffer writes', c.sourceAddress, c.sourceBefore, c.sourceValue, c.size);
+  }
   function showEvent(c, index) {
     latest = 0;
     selected = c;
@@ -177,16 +188,16 @@ export function createInspector({platform, canvas, send, jump}) {
       return;
     }
     line(el, 'Event', c.command?.kind || 'Memory write');
-    line(el, 'Memory', `${hex(c.address)} (${c.size} bytes)`);
+    line(el, 'Memory', `${memoryAddress(c.address)} (${c.size} bytes)`);
     line(el, c.drawn ? 'Stored bytes' : 'Rejected candidate',
          c.drawn ? `${hex(c.before)} → ${hex(c.after)}`
          : c.depthRejected ? (platform==='gb'||platform==='gg'||platform==='amiga'?'Background priority':'Depth test')
          : c.idRejected && (platform==='gb'||platform==='gg'||platform==='amiga') ? 'Lower object priority'
                            : 'Alpha / transparent texel');
-    line(el, c.event ? (platform==='amiga'?'CPU PC at hardware event':platform==='gb'||platform==='gg'||platform==='gba'?'CPU PC at scanline rendering':'Submission PC') : 'Writer PC',
+    line(el, c.event && platform !== 'dos' ? (platform==='amiga'?'CPU PC at hardware event':platform==='gb'||platform==='gg'||platform==='gba'?'CPU PC at scanline rendering':'Submission PC') : 'Writer PC',
          hex(c.submissionPC ?? c.pc));
     line(el, 'Clock', c.clock || c.submissionClock || 0);
-    if (c.event)
+    if (c.event && platform !== 'dos')
       line(
           el, 'Origin limit',
           platform==='gb'||platform==='gg'||platform==='amiga'||platform==='gba'?'The video hardware renders automatically. Follow source history to locate CPU writes.':'Submission does not identify the instruction that built the command data.');
@@ -224,6 +235,7 @@ export function createInspector({platform, canvas, send, jump}) {
       if(command.hasSource&&c.paletteAddress)sourceButton(el,'Follow palette writes',c.paletteAddress,c.paletteBefore,c.paletteValue,2);
     }
     if (platform === 'gba') gbaSources(el, c);
+    dosSource(el, c);
     if (platform === 'ps1' && c.event && c.command?.hasSource) {
       line(el, 'Texture/copy source', hex(c.sourceAddress));
       sourceButton(el, 'Follow source history', c.sourceAddress, c.sourceBefore,
@@ -290,7 +302,7 @@ export function createInspector({platform, canvas, send, jump}) {
              p.bytes.map(n => n.toString(16).padStart(2, '0')).join(' '));
         return;
       }
-      line(el, 'Historical source', hex(p.address));
+      line(el, 'Historical source', memoryAddress(p.address));
       line(el, 'At the recorded read',
            `${hex(p.reconstructed)}${
                p.complete ? ' · reconstruction matches captured bytes'
@@ -301,7 +313,15 @@ export function createInspector({platform, canvas, send, jump}) {
                  hex(c.submissionPC ??
                      c.pc)} · ${hex(c.before)} → ${hex(c.after)}`);
         if (platform === 'gba') gbaSources(el, c);
+        if (platform === 'dos') {
+          if (c.replayStep !== undefined && jump) {
+            const b = document.createElement('button'); b.textContent = 'Show this write';
+            b.onclick = () => jump(c.replayStep); el.append(b);
+          }
+          dosSource(el, c);
+        }
       }
+      if (p.truncated || p.overflow) line(el, 'Limit', 'Source history is truncated or capture records were dropped.');
       if (!p.contributors?.length)
         line(el, 'Ancestry', 'Source contents predate this capture');
       return;
@@ -349,10 +369,19 @@ export function createInspector({platform, canvas, send, jump}) {
               ? 'Recorded writes reconstruct the final stored bytes'
               : 'Incomplete history: final bytes differ or the capture limit was reached');
       if (!p.blank) {
-        const reconstructed = decodedColor(platform, p.reconstructed, p.size, p.displayFormat);
+        const reconstructed = platform==='dos'?p.displayRGBA:decodedColor(platform, p.reconstructed, p.size, p.displayFormat);
+        if (platform === 'dos') {
+          line(el, p.producer ? 'Render buffer byte' : 'VGA byte', memoryAddress(p.address));
+          if (p.producer) {
+            line(el, 'Copy to screen', `${hex(p.vgaAddress)} · buffer history stops at the captured copy`);
+            sourceButton(el, 'Inspect final VGA copy', p.vgaAddress, 0xffffffff, 0, 1);
+          } else line(el, 'Buffer discovery', 'No literal MOVS source was observed for this pixel. Showing VGA writes.');
+          if (p.paletteAddress) sourceButton(el, 'Inspect VGA palette writes', p.paletteAddress, 0xffffffff, 0, 3);
+        }
+        if(platform==='xbox'&&p.sampleAddresses?.length>1)for(const [i,a] of p.sampleAddresses.entries())sourceButton(el,'Inspect AA sample '+(i+1),a,0xffffffff,0,4);
         line(
             el, 'Scanout color',
-            platform==='gc' ? 'History explains the EFB before the lossy RGB-to-YUY2 display copy; scanout color is not compared here'
+            platform==='xbox'&&p.samplesPerPixel>1 ? 'Display color averages '+p.samplesPerPixel+' stored samples. Select a sample to inspect its writers.' : platform==='gc' ? 'History explains the EFB before the lossy RGB-to-YUY2 display copy; scanout color is not compared here'
             : reconstructed?.every((n, i) => n === rgba[i])
                 ? 'Reconstructed stored bytes match the modeled display color'
                 : 'Stored-byte reconstruction does not match the displayed pixel');
