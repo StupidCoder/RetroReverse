@@ -1,30 +1,40 @@
 #pragma once
 #include "../../../../browser/handheld/common.h"
 inline uint32_t gbShade(uint8_t palette,unsigned texel){uint32_t c=255-85*((palette>>(texel*2))&3);return 0xff000000|c*0x010101;}
-inline void rrGBLine(gameboy_Machine*m,int y){
- if(y<0||y>=144)return;rrprof::Scope measured(1,"LCD tiles and sprites");auto&v=rrhh::video;
- auto lcd=m->io[0x40];if(y==0){v.windowLine=0;rrhh::clear(0xffffffff);}
+template<class Event, class Dot>
+inline bool rrGBRenderLine(const gameboy_Machine*m,int y,int windowLine,Event event,Dot dot){
+ auto lcd=m->io[0x40];
  std::array<uint8_t,160>bg{},claimed{};
  bool bgOn=lcd&1,window=bgOn&&(lcd&0x20)&&y>=m->io[0x4a]&&m->io[0x4b]<=166;
  int wx=int(m->io[0x4b])-7;
- rrhh::event("Background / window scanline",y,bgOn);
+ event("Background / window scanline",y,bgOn);
  for(int x=0;x<160;x++){
-  bool win=window&&x>=wx;int bx=win?x-wx:(x+m->io[0x43])&255,by=win?v.windowLine:(y+m->io[0x42])&255;
+  bool win=window&&x>=wx;int bx=win?x-wx:(x+m->io[0x43])&255,by=win?windowLine:(y+m->io[0x42])&255;
   uint32_t nt=(lcd&(win?0x40:8))?0x1c00:0x1800;uint8_t idx=m->vram[nt+(by/8)*32+bx/8];
   uint32_t address=(lcd&0x10)?idx*16:0x1000+int8_t(idx)*16;address+=(by&7)*2;unsigned bit=7-(bx&7);
   uint16_t bits=m->vram[address]|uint16_t(m->vram[address+1])<<8;unsigned color=bgOn?((bits>>bit)&1)|((bits>>(bit+7))&2):0;bg[x]=color;
-  rrhh::dot(x,y,bgOn?gbShade(m->io[0x47],color):0xffffffff,bgOn?0x8000+address:0,bits,0xff47,m->io[0x47],color,bx&7,by&7);
+  dot(x,y,bgOn?gbShade(m->io[0x47],color):0xffffffff,bgOn?0x8000+address:0,bits,0xff47,m->io[0x47],color,bx&7,by&7);
  }
- if(window&&wx<160)v.windowLine++;
- if(!(lcd&2))return;
+ if(!(lcd&2))return window&&wx<160;
  int height=lcd&4?16:8;std::array<int,10>sprites{};int count=0;
  for(int i=0;i<40&&count<10;i++){int sy=int(m->oam[i*4])-16;if(y>=sy&&y<sy+height)sprites[count++]=i;}
  // DMG object priority: X first, then OAM index. The winning object blocks
  // lower-priority objects even when its BG-priority bit hides it behind BG.
  std::stable_sort(sprites.begin(),sprites.begin()+count,[&](int a,int b){return m->oam[a*4+1]<m->oam[b*4+1];});
- for(int n=0;n<count;n++){int i=sprites[n],sx=int(m->oam[i*4+1])-8,sy=int(m->oam[i*4])-16;uint8_t tile=m->oam[i*4+2],attr=m->oam[i*4+3];int row=y-sy;if(attr&64)row=height-1-row;if(height==16)tile&=254;uint32_t address=tile*16+row*2;uint16_t bits=m->vram[address]|uint16_t(m->vram[address+1])<<8;unsigned pal=attr&16?0x49:0x48;rrhh::event("Object scanline",y,true,i,0xfe00+i*4);
-  for(int px=0;px<8;px++){int x=sx+px;if(x<0||x>=160)continue;unsigned bit=attr&32?px:7-px,color=((bits>>bit)&1)|((bits>>(bit+7))&2);uint8_t flags=1;if(!color)flags=4;else if(claimed[x])flags=8;else{claimed[x]=1;if((attr&128)&&bg[x])flags=2;}rrhh::dot(x,y,gbShade(m->io[pal],color),0x8000+address,bits,0xff00+pal,m->io[pal],color,7-bit,row,flags);}
+ for(int n=0;n<count;n++){int i=sprites[n],sx=int(m->oam[i*4+1])-8,sy=int(m->oam[i*4])-16;uint8_t tile=m->oam[i*4+2],attr=m->oam[i*4+3];int row=y-sy;if(attr&64)row=height-1-row;if(height==16)tile&=254;uint32_t address=tile*16+row*2;uint16_t bits=m->vram[address]|uint16_t(m->vram[address+1])<<8;unsigned pal=attr&16?0x49:0x48;event("Object scanline",y,true,i,0xfe00+i*4);
+  for(int px=0;px<8;px++){int x=sx+px;if(x<0||x>=160)continue;unsigned bit=attr&32?px:7-px,color=((bits>>bit)&1)|((bits>>(bit+7))&2);uint8_t flags=1;if(!color)flags=4;else if(claimed[x])flags=8;else{claimed[x]=1;if((attr&128)&&bg[x])flags=2;}dot(x,y,gbShade(m->io[pal],color),0x8000+address,bits,0xff00+pal,m->io[pal],color,7-bit,row,flags);}
  }
+ return window&&wx<160;
+}
+#include "raster-state.h"
+inline void rrGBLine(gameboy_Machine*m,int y){
+ if(y<0||y>=144)return;rrprof::Scope measured(1,"LCD tiles and sprites");auto&v=rrhh::video;
+ if(y==0){v.windowLine=0;rrhh::clear(0xffffffff);}
+ rrgb::recordStart(m,y,v.windowLine);
+ struct Events {void operator()(const char*kind,int y,bool source=true,int i=-1,uint32_t descriptor=0)const{rrhh::event(kind,y,source,i,descriptor);}};
+ struct Dots {void operator()(int x,int y,uint32_t color,uint32_t source,uint32_t bits,uint32_t pal,uint32_t palette,unsigned texel,int u,int v,uint8_t flags=1)const{rrhh::dot(x,y,color,source,bits,pal,palette,texel,u,v,flags);}};
+ if(rrGBRenderLine(m,y,v.windowLine,Events{},Dots{}))v.windowLine++;
+ rrgb::recordEnd(y);
  rrcapture::trace.current=0;
 }
 inline void rrGBStat(gameboy_Machine*m){auto&v=rrhh::video;unsigned ly=m->io[0x44];unsigned mode=!(m->io[0x40]&128)?0:ly>=144?1:m->lcdDot<80?2:m->lcdDot<252?3:0;

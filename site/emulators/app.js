@@ -1,3 +1,4 @@
+import {createGameBoyRaster} from './gb-raster.js';
 import {createReplay} from './replay.js';
 import {pixelCoordinates,createInspector} from './inspector.js';
 import {platforms} from './platforms.js';
@@ -35,8 +36,9 @@ $('help').textContent = config.help;
 $('compat').textContent = config.compat;
 $('tape').hidden = platform !== 'c64';
 const send = (type, data = {}) => {const id=++request;worker?.postMessage({type,session,request:id,...data});return id;};
-const replay=createReplay({canvas,send});
-const inspector=createInspector({platform,canvas,send,jump:step=>replay.seek(step)});
+const raster=platform==='gb'?createGameBoyRaster({send,resume:()=>$('run').click()}):null;
+const replay=raster||createReplay({canvas,send});
+const inspector=raster?{reset(){},setCapture(){},result:m=>raster.result(m),isInspecting:raster.isInspecting}:createInspector({platform,canvas,send,jump:step=>replay.seek(step)});
 function controls(on) {
   for (const id of ['run', 'pause', 'reset', 'step', 'save'])
     $(id).disabled = !on;
@@ -154,6 +156,7 @@ function load(stateFile=null) {
     } else if(m.type==='capture-progress'){
       $('status').textContent=m.text;$('cancelcapture').hidden=false;
       $('run').disabled=$('step').disabled=$('save').disabled=true;
+    } else if(m.type==='raster-seek'||m.type==='raster-pixel'){raster?.result(m);
     } else if(m.type==='seek'||m.type==='seek-progress'){replay.result(m);
     } else if(m.type==='pixel'||m.type==='source'||m.type==='resource'){inspector.result(m);
     } else if(m.type==='capture-cleared'){
@@ -162,7 +165,7 @@ function load(stateFile=null) {
     } else if(m.type==='capture'){
       inspector.setCapture(m);replay.setCapture(m);showProfile(m.profile,true);lastTime=performance.now();lastSteps=m.end.steps;lastFrames=m.end.frames;lastSeconds=m.end.seconds??0;rate='';
       $('cancelcapture').hidden=true;
-      $('capture-note').textContent=`Captured display ${m.start.frames}–${m.end.frames} · ${(m.elapsedMs/1000).toFixed(2)} s capture · longest call ${m.maxCall.toFixed(1)} ms · ${((m.info.bytes+m.checkpointBytes)/1048576).toFixed(1)} MiB evidence/checkpoints${m.info.overflow?' · incomplete: trace limit reached':''}${m.info.renderBuffers?' · '+m.info.producerPixels.toLocaleString()+' pixels mapped to RAM'+(m.info.timedOut?' · bounded window ended before two VGA bursts':''):''}`;
+      $('capture-note').textContent=`Captured display ${m.start.frames}–${m.end.frames} · ${(m.elapsedMs/1000).toFixed(2)} s capture · longest call ${m.maxCall.toFixed(1)} ms · ${((m.info.bytes+(m.info.rasterBytes||0)+m.checkpointBytes)/1048576).toFixed(1)} MiB evidence/checkpoints${m.info.overflow?' · incomplete: trace limit reached':''}${m.info.renderBuffers?' · '+m.info.producerPixels.toLocaleString()+' pixels mapped to RAM'+(m.info.timedOut?' · bounded window ended before two VGA bursts':''):''}`;
     } else if(m.type==='saved'){
       const url=URL.createObjectURL(new Blob([m.bytes],{type:'application/octet-stream'}));
       const a=document.createElement('a');a.href=url;a.download=platform+'-'+Date.now()+'.rrstate';a.textContent='Download state';$('status').replaceChildren(document.createTextNode('State ready. Machine paused. '),a);a.click();setTimeout(()=>URL.revokeObjectURL(url),300000);

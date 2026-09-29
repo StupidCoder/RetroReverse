@@ -1,0 +1,58 @@
+{
+  "game": "Super Mario Land (World).gb",
+  "runtime": "Node.js WASM",
+  "pass": true,
+  "lines": 144,
+  "sampledPixels": 1872,
+  "sourceChecks": 5688,
+  "capture": {
+    "events": 185,
+    "writes": 46693,
+    "overflow": 0,
+    "bytes": 4049206,
+    "rasterBytes": 1316736
+  },
+  "medianSeekMs": 0.1178340000000162,
+  "maxSeekMs": 0.6722499999999911,
+  "changes": [
+    {
+      "line": 0,
+      "registers": [
+        {
+          "name": "SCX",
+          "address": 65347,
+          "before": 68,
+          "after": 0,
+          "pc": 137,
+          "clock": 10398582
+        }
+      ]
+    },
+    {
+      "line": 16,
+      "registers": [
+        {
+          "name": "SCX",
+          "address": 65347,
+          "before": 0,
+          "after": 69,
+          "pc": 165,
+          "clock": 10399646
+        }
+      ]
+    }
+  ],
+  "proof": {
+    "steps": 10411908,
+    "frames": 701,
+    "pc": 663,
+    "memory": 295848350,
+    "rgba": 1533905501
+  },
+  "checks": {
+    "pixelReconstruction": true,
+    "historicalSources": true,
+    "finalOutputMatches": true,
+    "fullStateUnchanged": true
+  }
+}

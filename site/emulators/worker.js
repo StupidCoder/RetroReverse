@@ -209,7 +209,7 @@ async function captureNext(){
    const frameHash=await digest(pixels);
    if(id!==epoch)return;
    capture={id:generation,startState,endState,start,end,input,width:w,height:h,pixels,info,frameHash};
-   paint();send('capture',{id:generation,replay,start,end,width:w,height:h,info,frameHash,elapsedMs:performance.now()-began,checkpointBytes:startState.length+endState.length,profile:captureProfile,runMs:captureRunMs,maxCall:maxCaptureCall});
+   paint();send('capture',{id:generation,...(platform==='gb'&&core._rr_raster_info?{raster:json('_rr_raster_info')}:{}),replay,start,end,width:w,height:h,info,frameHash,elapsedMs:performance.now()-began,checkpointBytes:startState.length+endState.length,profile:captureProfile,runMs:captureRunMs,maxCall:maxCaptureCall});
    send('message',{text:info.overflow?'Paused. Capture limit reached; some evidence is missing.':platform==='dos'?'Paused. RAM rendering and VGA copies are ready to inspect.':'Paused. A complete display interval is ready to inspect.'});
  }catch(e){if(id===epoch){if(capturing)core._rr_capture_end();finishCaptureProfile();capturing=false;capture=null;paint();send('error',{text:String(e)});}}
 }
@@ -225,6 +225,13 @@ async function seekReplay(m){
  if(platform==='dos'&&core._rr_replay_view)core._rr_replay_view(+!!m.reveal);
  const p=core._rr_replay_frame(),pixels=core.HEAPU8.slice(p,p+c.width*c.height*4);
  send('seek',{capture:c.id,request:m.request,pixels:pixels.buffer,info:json('_rr_replay_info'),elapsedMs:performance.now()-began});
+}
+function rasterSeek(m){
+ if(platform!=='gb'||!capture||capture.id!==m.capture)return;
+ const info=JSON.parse(core.UTF8ToString(core._rr_raster_seek(m.line)));
+ const layers=[];
+ if(!info.error)for(let panel=0;panel<3;panel++){const p=core._rr_raster_frame(panel);layers.push(core.HEAPU8.slice(p,p+160*144*4).buffer);}
+ postMessage({type:'raster-seek',session,capture:capture.id,request:m.request,info,layers},layers);
 }
 async function boot(m) {
   const bootBegan=performance.now();
@@ -378,6 +385,8 @@ onmessage = async ({data : m}) => {
     if (m.session !== session || !loaded)
       return;
     if(saving&&!['input','turbo','hold'].includes(m.type)){send('message',{text:'Finishing the state save…'});return;}
+    if(m.type==='raster-seek'){rasterSeek(m);return;}
+    if(m.type==='raster-pixel'){if(platform!=='gb'||!capture||m.capture!==capture.id)return;const p=core._rr_raster_pixel(m.panel,m.x,m.y);send('raster-pixel',{capture:capture.id,request:m.request,evidence:JSON.parse(core.UTF8ToString(p))});return;}
     if(m.type==='seek'){await seekReplay(m);return;}
     if(m.type==='cancel-seek'){seekGeneration++;return;}
     if(m.type==='save'){await saveState();return;}

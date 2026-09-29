@@ -1,6 +1,8 @@
 #pragma once
 #include "generated.cpp"
 using Machine=gameboy_Machine;
+#define HH_CAPTURE_BEGIN rrgb::begin()
+#define HH_CAPTURE_BYTES sizeof(rrgb::lines)
 #define HH_CPU_NAME "SM83 CPU and timers"
 inline Machine*rrBoot(const std::vector<uint8_t>&input){
  if(input.size()<32768||input.size()>2097152||input.size()%16384)throw std::runtime_error("Game Boy image must contain 32 KiB–2 MiB in complete ROM banks");

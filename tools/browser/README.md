@@ -84,6 +84,8 @@ exact prompts are in `docs/ARTWORK.json`; assets are in `site/emulators/art/`.
 The 3DO hot-path and movie playback refactor is documented in `docs/3DO-PERFORMANCE.md`.
 
 Game Boy and Game Gear ports are documented in `docs/GB-GG-PORTS.md`.
+The separate Game Boy Play/Render workspaces and historical scanline layers are
+documented in `docs/GB-RASTER-INSPECTION.md`.
 
 The new Amiga 500 chipset model and Marble Madness/Turrican validation are documented in `docs/AMIGA-PORT.md`.
 

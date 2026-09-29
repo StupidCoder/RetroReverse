@@ -17,7 +17,7 @@ for slug in ['c64','ps1','n64','3do','ds','3ds','psp','gb','gg','amiga','ps2','g
 for platform in ['c64','amiga']:
  for e in json.loads((base/f'firmware/{platform}/manifest.json').read_text()):
   b=(base/f'firmware/{platform}'/e['file']).read_bytes();assert len(b)==e['bytes'] and hashlib.sha256(b).hexdigest()==e['sha256']
-for name in ['app.js','worker.js','media.js','dc-media.js','dos-media.js','state.js','inspector.js','replay.js','pacing.js']:
+for name in ['app.js','worker.js','media.js','dc-media.js','dos-media.js','state.js','inspector.js','replay.js','pacing.js','gb-raster.js','workspaces.js']:
  s=(base/name).read_text();assert not re.search(r'https?://|localhost|127\.0\.0\.1|sendBeacon|XMLHttpRequest|WebSocket',s),f'Unexpected network source: {name}'
  assert not re.search(r"method\s*:\s*['\"](?:POST|PUT|PATCH)",s),f'Upload path in {name}'
 assert (site/'index.html').is_file();assert 'emulators/' in (site/'src/app.js').read_text()

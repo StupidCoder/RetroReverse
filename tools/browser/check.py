@@ -8,9 +8,9 @@ for name in ['media','dc-media','dos-media','input','state-container','inspector
 for p in (root/'site/emulators').glob('*.js'):
  subprocess.run([node,'--check',str(p)],check=True)
 with tempfile.TemporaryDirectory(prefix='rr-check-') as d:
- for name in ['runtime','capture-buffer','replay','pixel-c64','pixel-ps1','pixel-n64','pixel-3do','fast-3do','pixel-ds','fast-ds','pixel-3ds','pixel-psp','fast-psp','pixel-gb','pixel-gg','pixel-gc','fast-gc','pixel-ps2','fast-ps2','pixel-gba','fast-gba','pixel-dc','fast-dc','pixel-dos','render-dos','fast-x86','pixel-xbox','fast-xbox']:
+ for name in ['runtime','capture-buffer','replay','pixel-c64','pixel-ps1','pixel-n64','pixel-3do','fast-3do','pixel-ds','fast-ds','pixel-3ds','pixel-psp','fast-psp','pixel-gb','raster-gb','pixel-gg','pixel-gc','fast-gc','pixel-ps2','fast-ps2','pixel-gba','fast-gba','pixel-dc','fast-dc','pixel-dos','render-dos','fast-x86','pixel-xbox','fast-xbox']:
   out=str(Path(d)/name)
-  subprocess.run([clang,'-std=c++20','-O1','-fwrapv','-ffp-contract=off','-Wno-address-of-temporary','-Wno-parentheses-equality','-Wno-trigraphs',f'tools/browser/tests/{name}.cpp','-o',out]+(['-lz'] if name in ['pixel-psp','fast-psp','pixel-gb','pixel-gg'] else []),cwd=root,check=True)
+  subprocess.run([clang,'-std=c++20','-O1','-fwrapv','-ffp-contract=off','-Wno-address-of-temporary','-Wno-parentheses-equality','-Wno-trigraphs',f'tools/browser/tests/{name}.cpp','-o',out]+(['-lz'] if name in ['pixel-psp','fast-psp','pixel-gb','raster-gb','pixel-gg'] else []),cwd=root,check=True)
   subprocess.run([out],cwd=root,check=True)
 subprocess.run(['python3','tools/platform/amiga/browser/build.py','--native-only','--test'],cwd=root,check=True)
 subprocess.run(['python3','tools/browser/check-release.py'],cwd=root,check=True)
