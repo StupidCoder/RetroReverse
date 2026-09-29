@@ -2,7 +2,9 @@ import {createWorkspaces} from './workspaces.js';
 import {pixelCoordinates} from './inspector.js';
 const hex=(n,digits=4)=>'0x'+(Number(n)>>>0).toString(16).padStart(digits,'0');
 const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
-export function createGameBoyRaster({send,resume}) {
+export function createRaster({platform,send,resume}) {
+  const c64=platform==='c64',width=c64?392:160,height=c64?272:144;
+  const labels=c64?['Graphics / border','Sprites','Screen so far']:['Background / window','Sprites','Screen so far'];
   const $=id=>document.getElementById(id),root=$('render-workspace');
   const views=createWorkspaces({navigation:$('workspace-nav'),onChange:id=>document.body.dataset.workspace=id});
   views.register({id:'play',label:'Play',panel:$('play-workspace')});
@@ -13,8 +15,8 @@ export function createGameBoyRaster({send,resume}) {
   const paint=()=>{
     if(!layers)return;
     for(let i=0;i<3;i++){
-      const ctx=canvases[i].getContext('2d');ctx.putImageData(new ImageData(new Uint8ClampedArray(layers[i]),160,144),0,0);
-      if($('raster-guide').checked){ctx.fillStyle='rgba(23,111,158,.85)';ctx.fillRect(0,line,160,1);}
+      const ctx=canvases[i].getContext('2d');ctx.putImageData(new ImageData(new Uint8ClampedArray(layers[i]),width,height),0,0);
+      if($('raster-guide').checked){ctx.fillStyle='rgba(23,111,158,.85)';ctx.fillRect(0,line,width,1);}
     }
   };
   function message(parent,text){parent.replaceChildren(el('p',text));}
@@ -30,9 +32,9 @@ export function createGameBoyRaster({send,resume}) {
     layers=null;pending=false;latest=query=0;detail.replaceChildren();history.replaceChildren();
     capture=c;valid=(c.raster?.lines||[]).map(n=>n.line);views.enable('render',true);views.select('render',{focus:true});
     $('raster-markers').replaceChildren();
-    for(const row of c.raster?.lines||[])if(row.changes){const tick=el('button');tick.type='button';tick.style.left=(row.line/143*100)+'%';tick.title=`Line ${row.line}: ${row.changes} video changes`;tick.setAttribute('aria-label',tick.title);tick.onclick=()=>seek(row.line);$('raster-markers').append(tick);}
+    for(const row of c.raster?.lines||[])if(row.changes){const tick=el('button');tick.type='button';tick.style.left=(row.line/(height-1)*100)+'%';tick.title=`Line ${row.line}: ${row.changes} video changes`;tick.setAttribute('aria-label',tick.title);tick.onclick=()=>seek(row.line);$('raster-markers').append(tick);}
     for(const b of root.querySelectorAll('[data-line-nav]'))b.disabled=!valid.length;slider.disabled=!valid.length;
-    for(const canvas of canvases)canvas.getContext('2d').clearRect(0,0,160,144);
+    for(const canvas of canvases)canvas.getContext('2d').clearRect(0,0,width,height);
     if(valid.length)seek(valid[0]);
     else {position.textContent='No recorded lines';$('raster-state-line').textContent='No visible scanlines';$('raster-registers').replaceChildren();$('raster-changes').replaceChildren();$('raster-window-line').textContent='';note.textContent='No visible scanlines were captured. The LCD may be disabled. Return to Play and advance the game.';message(detail,'Capture another frame to inspect its layers.');}
   }
@@ -44,30 +46,38 @@ export function createGameBoyRaster({send,resume}) {
     if(!capture||pending||!layers)return;
     query=send('raster-pixel',{capture:capture.id,panel,x,y});message(detail,'Inspecting pixel…');history.replaceChildren();
   }
-  for(const [panel,canvas]of canvases.entries())canvas.addEventListener('click',e=>{const p=pixelCoordinates(canvas.getBoundingClientRect(),160,144,e.clientX,e.clientY);if(p)inspect(panel,p.x,p.y);});
+  for(const [panel,canvas]of canvases.entries())canvas.addEventListener('click',e=>{const p=pixelCoordinates(canvas.getBoundingClientRect(),width,height,e.clientX,e.clientY);if(p)inspect(panel,p.x,p.y);});
   $('raster-inspect').onclick=()=>inspect(Number($('raster-panel').value),Number($('raster-x').value),Number($('raster-y').value));
   $('raster-resume').onclick=resume;slider.oninput=()=>seek(Number(slider.value));
   $('raster-guide').onchange=paint;
   for(const b of root.querySelectorAll('[data-line-nav]'))b.onclick=()=>{const i=valid.indexOf(line);seek(b.dataset.lineNav==='first'?valid[0]:b.dataset.lineNav==='last'?valid.at(-1):valid[Math.max(0,Math.min(valid.length-1,i+(b.dataset.lineNav==='next'?1:-1)))]);};
   function showState(info){
-    line=info.line;slider.value=line;position.textContent='Line '+line+' / 143';$('raster-state-line').textContent='State at line '+line;
-    note.textContent=`Screen contains captured lines through ${line}. Source panels hold this line’s settings fixed.`;
-    if(!info.complete||valid.length!==144)note.textContent+=' This capture is incomplete; missing lines remain transparent.';
+    line=info.line;slider.value=line;position.textContent='Line '+line+' / '+(height-1);$('raster-state-line').textContent='State at line '+line+(c64?' (VIC raster '+info.raster+')':'');
+    note.textContent=`Screen contains captured lines through ${line}. Source panels hold ${c64?'memory and registers from the start of this line':'this line’s settings'} fixed.`;
+    if(!info.complete||valid.length!==height)note.textContent+=' Some capture evidence is incomplete.';
     const regs=$('raster-registers');regs.replaceChildren();
     for(const r of info.registers){const entry=el('div');entry.append(el('dt',r.name),el('dd',`${r.value} (${hex(r.value,2)})`));regs.append(entry);}
-    $('raster-window-line').textContent='Window row counter: '+info.windowLine;
+    $('raster-window-line').textContent=c64?`VIC bank ${hex(info.vicBank)} · screen ${hex(info.screenBase)} · ${(info.mode&2)?'bitmap '+hex(info.bitmapBase):'characters '+hex(info.charsetBase)} · ${['Text','Multicolor text','Bitmap','Multicolor bitmap','Extended-background text'][info.mode]||'Invalid mode '+info.mode}`:'Window row counter: '+info.windowLine;
     const changes=$('raster-changes');changes.replaceChildren();
-    for(const c of info.changes){const p=el('p');p.append(el('strong',c.name+' '),document.createTextNode(`${c.before} → ${c.after}`),el('span','PC '+hex(c.pc),'raster-writer'));changes.append(p);}
-    const counts=[];if(info.tileWrites)counts.push(info.tileWrites+' tile-data writes');if(info.mapWrites)counts.push(info.mapWrites+' tilemap writes');if(info.objectWrites)counts.push(info.objectWrites+' sprite-attribute writes');
+    let more=null;
+    for(const [index,c]of info.changes.entries()){
+      const p=el(c64?'button':'p');if(c64){p.type='button';p.className='raster-write';p.onclick=()=>showC64Source({role:'Video write',address:c.address,space:c.space,value:c.after,writer:c.writer});}
+      p.append(el('strong',c.name+' '),document.createTextNode(`${c.before} → ${c.after}`),el('span','PC '+hex(c.pc),'raster-writer'));
+      if(c64&&index>=4){if(!more){more=el('details',undefined,'raster-more');more.append(el('summary',`${info.changes.length-4} more writes`));changes.append(more);}more.append(p);}else changes.append(p);
+    }
+    const counts=[];if(info.tileWrites)counts.push(info.tileWrites+(c64?' graphics-byte writes':' tile-data writes'));if(info.mapWrites)counts.push(info.mapWrites+(c64?' screen-memory writes':' tilemap writes'));if(info.objectWrites)counts.push(info.objectWrites+(c64?' sprite-data/pointer writes':' sprite-attribute writes'));
+    if(info.colorWrites)counts.push(info.colorWrites+' color RAM writes');
     if(counts.length)changes.append(el('p',counts.join(', ')));
-    if(!info.changes.length&&!counts.length)changes.append(el('p','No video changes since the previous rendered line.'));
-    if(info.changeCount>info.changes.length)changes.append(el('p','Register change list truncated.'));
-    message(detail,'Select a pixel in any panel to follow its tile, sprite attributes or palette.');history.replaceChildren();
+    if(!info.changes.length&&!counts.length)changes.append(el('p','No video writes since the previous rendered line.'));
+    if(info.changeCount>info.changes.length)changes.append(el('p','Change list truncated.'));
+    message(detail,c64?'Select a pixel to follow character/bitmap bytes, screen memory, sprites and CPU writers.':'Select a pixel in any panel to follow its tile, sprite attributes or palette.');history.replaceChildren();
+    root.querySelector('.raster-inspector').scrollTop=0;
   }
   function showPixel(p){
     detail.replaceChildren();history.replaceChildren();if(p.error){message(detail,p.error);return;}
     $('raster-panel').value=p.panel;$('raster-x').value=p.x;$('raster-y').value=p.y;
-    const title=['Background / window','Sprites','Screen so far'][p.panel];
+    if(c64){showC64Pixel(p);return;}
+    const title=labels[p.panel];
     field(detail,title,`(${p.x}, ${p.y}), state at line ${p.stateLine}`);
     if(p.panel<2)detail.append(el('p','Layer preview with settings frozen at this line. Other rows are illustrative.','raster-context'));
     else field(detail,'Reconstruction',p.complete?'Layer decisions match the captured pixel.':'Incomplete or mismatched evidence.');
@@ -80,6 +90,30 @@ export function createGameBoyRaster({send,resume}) {
       sourceButton(group,'Palette '+hex(c.paletteAddress),c.paletteAddress,1,p.sourceBefore,c.paletteValue);detail.append(group);
     }
     if(!p.candidates.length)detail.append(el('p','No selected sprite covers this position.'));
+  }
+  function showC64Source(c){
+    history.replaceChildren();field(history,c.role,`${hex(c.address)} = ${hex(c.value,2)} (${['RAM','color RAM','I/O','ROM'][c.space]})`);
+    if(c.fetchCycle)field(history,'Actual fetch cycle',c.fetchCycle);
+    if(c.writer){const w=c.writer;field(history,'CPU writer',`PC ${hex(w.pc)}, cycle ${w.cycle}`);field(history,'Byte change',`${hex(w.oldValue,2)} → ${hex(w.value,2)}`);field(history,'Instruction bytes',w.code.map(n=>hex(n,2)).join(' '));if(w.interrupt)field(history,'Context','Interrupt handler');}
+    else field(history,'Writer',c.space===3?'Immutable character ROM':'No earlier writer is recorded.');
+    history.scrollIntoView({block:'nearest'});
+  }
+  function showC64Pixel(p){
+    $('raster-panel').value=p.panel;$('raster-x').value=p.x;$('raster-y').value=p.y;
+    field(detail,labels[p.panel],`(${p.x}, ${p.y}), state at line ${p.stateLine}`);
+    detail.append(el('p',p.preview?'Preview using frozen memory and registers. Actual fetching can differ when the game changes settings during the frame.':`Recorded VIC output at raster ${p.raster}, cycle ${p.cycle}.`,'raster-context'));
+    if(!p.complete)detail.append(el('p','Some evidence is incomplete.'));
+    if(!p.preview)field(detail,'VIC decision',p.border?'Border/background':p.spriteMask?'Graphics and sprite candidates '+hex(p.spriteMask,2):'Graphics');
+    let controls=null;
+    for(const c of p.contributors||[]){
+      const b=el('button',c.role+(c.missing?' — unavailable':' '+hex(c.address)));b.type='button';b.disabled=!!c.missing;b.onclick=()=>showC64Source(c);
+      if(c.space===2){if(!controls){controls=el('details',undefined,'raster-more');controls.append(el('summary','VIC registers and bank controls'));}controls.append(b);}else detail.append(b);
+    }
+    if(controls)detail.append(controls);
+    if(p.panel===1&&!(p.contributors||[]).some(c=>/sprite.*pixel byte/.test(c.role)))detail.append(el('p','No sprite covers this position in the frozen preview.'));
+    const graphics=(p.contributors||[]).find(c=>!c.missing&&/graphics byte|bitmap byte|sprite.*pixel byte/.test(c.role));
+    if(graphics)showC64Source(graphics);
+    else detail.scrollIntoView({block:'nearest'});
   }
   function result(m){
     if(!capture||m.capture!==capture.id)return;

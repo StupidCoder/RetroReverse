@@ -31,7 +31,7 @@ execution nor changes the selected scanline. Resume game returns to Play and
 invalidates the capture. Reset, load, save, and advancing the machine also discard
 old evidence through the existing capture lifecycle. Workspace registration is
 in `site/emulators/workspaces.js`; Game Boy presentation and worker messages are
-in `gb-raster.js`. Other platforms retain their existing inspection UI.
+in `raster.js`, now shared with C64. Other platforms retain their existing inspection UI.
 
 The side panel shows video registers, the internal window row, and changes since
 the preceding rendered line. Register writes include the real CPU writer PC.

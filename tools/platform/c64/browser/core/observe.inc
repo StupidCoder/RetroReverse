@@ -46,7 +46,11 @@ static uint8_t valueAt(int space,uint16_t a){
  if(space==2){auto k=key(space,a);return k<CELLS?history.last[k].value:0;}
  return mem_rd(&machine.mem_cpu,a);
 }
-static void reset(){history=History{};for(auto& p:saved)p.reset();capturing=false;traceReads=false;}
+static void reset(){
+ // Construct in place: a temporary History consumes several MiB of WASM stack.
+ std::destroy_at(&history);std::construct_at(&history);
+ for(auto& p:saved)p.reset();capturing=false;traceReads=false;raster::reset();
+}
 static void instruction(){
  // SYNC marks the opcode which is about to execute; bytes are latched now,
  // before self-modifying writes can alter the displayed disassembly.
@@ -66,6 +70,7 @@ void write(int space,uint16_t address,uint8_t value){
  w.a=machine.cpu.A;w.x=machine.cpu.X;w.y=machine.cpu.Y;w.s=machine.cpu.S;w.p=machine.cpu.P;
  memcpy(w.code,history.code,3);w.readCycle=history.readCycle;w.readAddress=history.readAddress;w.readValue=history.readValue;w.readSpace=history.readSpace;
  history.last[k]=w;
+ if(capturing)raster::write(w);
 }
 static std::string writerJSON(const Write& w){
  if(!w.cycle)return "null";
@@ -100,6 +105,7 @@ static uint32_t bankRef(){return ref(2,0xdd00,bankAtTick.value,true,&bankAtTick)
 static uint32_t bankDDRRef(){return ref(2,0xdd02,bankDDRAtTick.value,true,&bankDDRAtTick);}
 void fetch(int kind,int slot,uint16_t a,uint16_t value){
  a|=machine.vic_bank_select;
+ raster::used(kind,a);
  if(kind==0){screenRefs[slot]=ref(vicSpace(a),a,value);colorRefs[slot]=ref(1,0xd800|(a&1023),value>>8);}
  else if(kind==1){
   if(graphCount>=GRAPH_CAP){overflow++;pendingGraph=0;return;}
@@ -120,6 +126,7 @@ void pixel(void* ptr,uint8_t* dst,uint16_t graphics,uint16_t sprites,bool border
  auto& v=*static_cast<m6569_t*>(ptr);ptrdiff_t offset=dst-v.crt.fb;
  const unsigned y=unsigned(offset)/M6569_FRAMEBUFFER_WIDTH,x=unsigned(offset)%M6569_FRAMEBUFFER_WIDTH;
  if(x>=392||y>=272)return;
+ if(x==0)raster::recordLine(y,ptr);
  if(controlCycle!=ctx.cycles+1){
   controlCycle=ctx.cycles+1;
   bool changed=!currentControl||memcmp(controls[currentControl].regs,v.reg.regs,47)||controls[currentControl].vicBank!=machine.vic_bank_select;
@@ -152,6 +159,7 @@ const char* rr_memory(int space,int address){
 void rr_capture_begin(){
  using namespace observation;for(int y=0;y<272;y++)for(int x=0;x<392;x++)replayInitial[y*392+x]=m6569_color(machine.fb[y*M6569_FRAMEBUFFER_WIDTH+x]&15);capturing=true;refCount=graphCount=controlCount=1;overflow=0;pendingGraph=activeGraph=currentControl=0;controlCycle=0;captureStart=ctx.cycles;captureEnd=0;captureGeneration=ctx.generation;
  memset(captured,0,sizeof captured);memset(screenRefs,0,sizeof screenRefs);memset(colorRefs,0,sizeof colorRefs);memset(pointerRefs,0,sizeof pointerRefs);memset(spriteBits,0,sizeof spriteBits);memset(spriteOut,0,sizeof spriteOut);memset(regCache,0,sizeof regCache);
+ raster::begin();
 }
 void rr_capture_end(){observation::capturing=false;observation::captureEnd=ctx.cycles;}
 const char* rr_pixel(int x,int y){

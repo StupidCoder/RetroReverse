@@ -20,6 +20,7 @@ const media=[];
 for(const file of paths){const hash=createHash('sha256');for await(const b of fs.createReadStream(file))hash.update(b);media.push({name:platform==='dos'?path.relative(root,file).split(path.sep).join('/').toLowerCase():path.basename(file),size:fs.statSync(file).size,sha256:hash.digest('hex')});}
 media.sort((a,b)=>a.name.localeCompare(b.name));
 const manifest=JSON.parse(fs.readFileSync(new URL('../../../site/emulators/build-manifest.json',import.meta.url)));
+const firmware=platform==='c64'?JSON.parse(fs.readFileSync(new URL('../../../site/emulators/firmware/c64/manifest.json',import.meta.url))).map(e=>e.sha256):[];
 const q=new InputQueue(platforms[platform].hz),input={...q,pulses:[],down:[],pending:[],appliedKeys:[],lastButtons:-1,lastX:0,lastY:0,inputSequence:0,lastInputStep:0};
-fs.writeFileSync(output,await packState({format:1,platform,media,firmware:[],core:manifest[platform+'/core.wasm'],configuration:{compatibility:true,customFirmware:false,...(platform==='dos'?{executable:path.basename(image).toLowerCase()}:{})},input:{...input,...(platform==='dos'?{mouseMask:768}:{})}},fs.readFileSync(state)));
+fs.writeFileSync(output,await packState({format:1,platform,media,firmware,core:manifest[platform+'/core.wasm'],configuration:{compatibility:true,customFirmware:false,...(platform==='dos'?{executable:path.basename(image).toLowerCase()}:{})},input:{...input,...(platform==='dos'?{mouseMask:768}:{})}},fs.readFileSync(state)));
 console.log('Private browser state written: '+output);

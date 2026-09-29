@@ -1,0 +1,891 @@
+{
+  "platform": "c64",
+  "runtime": "Node.js WASM",
+  "pass": true,
+  "info": {
+    "lines": 272,
+    "bytes": 21678768
+  },
+  "capture": {
+    "rasterBytes": 21678768,
+    "events": 12461,
+    "writes": 7721,
+    "overflow": 0,
+    "bytes": 10371672
+  },
+  "pixels": 2720,
+  "sources": 3088,
+  "scannerBytes": 48,
+  "scannerWriters": [
+    44509
+  ],
+  "charsetBases": [
+    20480,
+    22528
+  ],
+  "medianSeekMs": 2.7390000000000327,
+  "maxSeekMs": 4.640041999999994,
+  "checks": {
+    "fullStateUnchanged": true,
+    "finalOutputMatches": true,
+    "historicalRAMWriters": true
+  },
+  "changes": [
+    {
+      "line": 0,
+      "raster": 15,
+      "registers": [],
+      "graphicsWrites": 19,
+      "screenWrites": 0
+    },
+    {
+      "line": 1,
+      "raster": 16,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 2,
+      "raster": 17,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 3,
+      "raster": 18,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 4,
+      "raster": 19,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 5,
+      "raster": 20,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 6,
+      "raster": 21,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 7,
+      "raster": 22,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 8,
+      "raster": 23,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 9,
+      "raster": 24,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 10,
+      "raster": 25,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 11,
+      "raster": 26,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 12,
+      "raster": 27,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 13,
+      "raster": 28,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 14,
+      "raster": 29,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 15,
+      "raster": 30,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 16,
+      "raster": 31,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 17,
+      "raster": 32,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 18,
+      "raster": 33,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 19,
+      "raster": 34,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 20,
+      "raster": 35,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 21,
+      "raster": 36,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 22,
+      "raster": 37,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 23,
+      "raster": 38,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 24,
+      "raster": 39,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 25,
+      "raster": 40,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 26,
+      "raster": 41,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 27,
+      "raster": 42,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 28,
+      "raster": 43,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 29,
+      "raster": 44,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 30,
+      "raster": 45,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 31,
+      "raster": 46,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 32,
+      "raster": 47,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 33,
+      "raster": 48,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 34,
+      "raster": 49,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 35,
+      "raster": 50,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 36,
+      "raster": 51,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 37,
+      "raster": 52,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 38,
+      "raster": 53,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 39,
+      "raster": 54,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 40,
+      "raster": 55,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 41,
+      "raster": 56,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 42,
+      "raster": 57,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 43,
+      "raster": 58,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 44,
+      "raster": 59,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 46,
+      "raster": 61,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 47,
+      "raster": 62,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 48,
+      "raster": 63,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 50,
+      "raster": 65,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 51,
+      "raster": 66,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 52,
+      "raster": 67,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 53,
+      "raster": 68,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 54,
+      "raster": 69,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 55,
+      "raster": 70,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 56,
+      "raster": 71,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 57,
+      "raster": 72,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 58,
+      "raster": 73,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 59,
+      "raster": 74,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 60,
+      "raster": 75,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 61,
+      "raster": 76,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 62,
+      "raster": 77,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 63,
+      "raster": 78,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 66,
+      "raster": 81,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 67,
+      "raster": 82,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 68,
+      "raster": 83,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 69,
+      "raster": 84,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 70,
+      "raster": 85,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 71,
+      "raster": 86,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 72,
+      "raster": 87,
+      "registers": [],
+      "graphicsWrites": 2,
+      "screenWrites": 0
+    },
+    {
+      "line": 74,
+      "raster": 89,
+      "registers": [],
+      "graphicsWrites": 1,
+      "screenWrites": 0
+    },
+    {
+      "line": 76,
+      "raster": 91,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 4
+    },
+    {
+      "line": 77,
+      "raster": 92,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 6
+    },
+    {
+      "line": 78,
+      "raster": 93,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 7
+    },
+    {
+      "line": 79,
+      "raster": 94,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 6
+    },
+    {
+      "line": 80,
+      "raster": 95,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 6
+    },
+    {
+      "line": 81,
+      "raster": 96,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 2
+    },
+    {
+      "line": 82,
+      "raster": 97,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 6
+    },
+    {
+      "line": 83,
+      "raster": 98,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 3
+    },
+    {
+      "line": 104,
+      "raster": 119,
+      "registers": [
+        {
+          "address": 53282,
+          "before": 2,
+          "after": 0,
+          "pc": 44574
+        },
+        {
+          "address": 53283,
+          "before": 1,
+          "after": 0,
+          "pc": 44577
+        },
+        {
+          "address": 53265,
+          "before": 31,
+          "after": 16,
+          "pc": 44589
+        },
+        {
+          "address": 53270,
+          "before": 24,
+          "after": 18,
+          "pc": 44592
+        }
+      ],
+      "graphicsWrites": 0,
+      "screenWrites": 0
+    },
+    {
+      "line": 105,
+      "raster": 120,
+      "registers": [
+        {
+          "address": 53272,
+          "before": 20,
+          "after": 22,
+          "pc": 44597
+        }
+      ],
+      "graphicsWrites": 0,
+      "screenWrites": 0
+    },
+    {
+      "line": 113,
+      "raster": 128,
+      "registers": [
+        {
+          "address": 53282,
+          "before": 0,
+          "after": 2,
+          "pc": 44614
+        },
+        {
+          "address": 53283,
+          "before": 0,
+          "after": 1,
+          "pc": 44617
+        },
+        {
+          "address": 53280,
+          "before": 0,
+          "after": 0,
+          "pc": 44622
+        },
+        {
+          "address": 53281,
+          "before": 0,
+          "after": 0,
+          "pc": 44625
+        },
+        {
+          "address": 53269,
+          "before": 1,
+          "after": 31,
+          "pc": 44630
+        }
+      ],
+      "graphicsWrites": 0,
+      "screenWrites": 0
+    },
+    {
+      "line": 118,
+      "raster": 133,
+      "registers": [
+        {
+          "address": 53266,
+          "before": 118,
+          "after": 249,
+          "pc": 44682
+        }
+      ],
+      "graphicsWrites": 0,
+      "screenWrites": 0
+    },
+    {
+      "line": 235,
+      "raster": 250,
+      "registers": [
+        {
+          "address": 53270,
+          "before": 18,
+          "after": 24,
+          "pc": 39895
+        },
+        {
+          "address": 53265,
+          "before": 16,
+          "after": 31,
+          "pc": 39900
+        }
+      ],
+      "graphicsWrites": 0,
+      "screenWrites": 0
+    },
+    {
+      "line": 237,
+      "raster": 252,
+      "registers": [
+        {
+          "address": 53272,
+          "before": 22,
+          "after": 20,
+          "pc": 39913
+        }
+      ],
+      "graphicsWrites": 0,
+      "screenWrites": 0
+    },
+    {
+      "line": 238,
+      "raster": 253,
+      "registers": [
+        {
+          "address": 53280,
+          "before": 0,
+          "after": 0,
+          "pc": 39918
+        },
+        {
+          "address": 53281,
+          "before": 0,
+          "after": 0,
+          "pc": 39921
+        },
+        {
+          "address": 53269,
+          "before": 31,
+          "after": 1,
+          "pc": 39926
+        }
+      ],
+      "graphicsWrites": 0,
+      "screenWrites": 0
+    },
+    {
+      "line": 243,
+      "raster": 258,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 2
+    },
+    {
+      "line": 244,
+      "raster": 259,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 2
+    },
+    {
+      "line": 246,
+      "raster": 261,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 1
+    },
+    {
+      "line": 247,
+      "raster": 262,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 1
+    },
+    {
+      "line": 248,
+      "raster": 263,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 2
+    },
+    {
+      "line": 250,
+      "raster": 265,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 2
+    },
+    {
+      "line": 251,
+      "raster": 266,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 2
+    },
+    {
+      "line": 254,
+      "raster": 269,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 2
+    },
+    {
+      "line": 255,
+      "raster": 270,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 2
+    },
+    {
+      "line": 257,
+      "raster": 272,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 2
+    },
+    {
+      "line": 258,
+      "raster": 273,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 2
+    },
+    {
+      "line": 260,
+      "raster": 275,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 1
+    },
+    {
+      "line": 261,
+      "raster": 276,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 1
+    },
+    {
+      "line": 262,
+      "raster": 277,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 2
+    },
+    {
+      "line": 263,
+      "raster": 278,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 1
+    },
+    {
+      "line": 264,
+      "raster": 279,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 2
+    },
+    {
+      "line": 265,
+      "raster": 280,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 1
+    },
+    {
+      "line": 266,
+      "raster": 281,
+      "registers": [
+        {
+          "address": 53249,
+          "before": 186,
+          "after": 186,
+          "pc": 45268
+        },
+        {
+          "address": 53248,
+          "before": 148,
+          "after": 148,
+          "pc": 45277
+        },
+        {
+          "address": 53264,
+          "before": 18,
+          "after": 18,
+          "pc": 45299
+        }
+      ],
+      "graphicsWrites": 0,
+      "screenWrites": 0
+    },
+    {
+      "line": 267,
+      "raster": 282,
+      "registers": [],
+      "graphicsWrites": 0,
+      "screenWrites": 0
+    }
+  ]
+}
