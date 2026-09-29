@@ -124,3 +124,40 @@ are bypassed. Private fixtures are loaded and re-saved by the new core for QA.
 native raster/pixel tests check historical memory/bank changes, backward seeks,
 capture invalidation and unchanged machine state. The browser harness exercises
 atlas switching, tile address inspection and layout alongside all sixteen adapters.
+
+## PlayStation VRAM and sampler state
+
+`ps1-vram.js` plugs into the command adapter's auxiliary and inspector slots;
+`ps1-vram-decode.js` decodes scratch VRAM after the same completed seek that
+updates the output. Automatic mode follows the current packet's 4/8-bit indexed
+or 16-bit direct texture setting and the last captured CLUT. Explicit mode
+controls reinterpret the bytes without changing the guest. Unknown initial CLUTs
+use labelled grayscale indices. Texture color zero is transparent only when its
+resolved RGB555/STP word is zero; palette index zero itself may be opaque.
+
+The auxiliary selector can enlarge either buffer on its own.
+The overview keeps the 1024-word-wide physical VRAM layout (packed texels are
+compressed horizontally); the 256×256 page preview has square texels. Yellow
+marks the page and current primitive's UV outline, blue the CLUT. The page applies
+the captured texture window by default. Clicking either image shows the packed
+word, texel index, palette address and resolved color at the completed step.
+
+The core's capture hook runs before command execution. `gpu-inspection.h`
+projects that packet's page/depth/CLUT or environment setting into a capture-only
+snapshot, fixing the previous command metadata's stale texture depth. Both
+flat/Gouraud polygon layouts and rectangles are covered. Empty drawing commands
+and setting commands retain their place in replay. No guest GPU fields, rendering
+algorithms or portable state payloads change.
+
+The inspector shows drawing area/offset, texture window, shading and raw-texture
+requests, plus observed blend/dither/mask settings. Unsupported settings are
+unknown until observed in this capture. The UI labels the existing core's ignored
+blend/dither/mask effects and raw-polygon approximation. It also explains that
+post-command VRAM can differ from a self-modifying primitive's earlier samples;
+the existing pixel provenance retains the sampled values.
+
+Register/packet reference: [psx-spx rendering attributes](https://psx-spx.consoledev.net/ps1/gpu/rendering-attributes/)
+and [VRAM formats](https://psx-spx.consoledev.net/ps1/gpu/video-memory-vram/).
+Tests: `vram-ps1.cpp`, `ps1-vram.mjs`, and the shared browser harness. A private
+Ridge Racer WASM capture verified 93 pixel source/CLUT address chains across a
+2,140-step frame history, with 13 texture pages and unchanged full machine state.

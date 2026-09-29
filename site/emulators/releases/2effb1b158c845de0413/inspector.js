@@ -48,7 +48,8 @@ export function pixelCoordinates(rect, width, height, clientX, clientY, stretch=
 }
 const hex = (n, width = 8) =>
     '0x' + (Number(n) >>> 0).toString(16).padStart(width, '0');
-export function createInspector({platform, canvas, send, jump}) {
+export function createInspector({platform, canvas, buffer, root, send, jump}) {
+  root.innerHTML=`<section class="inspector" aria-label="Pixel inspector"><h3>Pixel and source</h3><div class="pixel-controls"><label>X <input id="pixel-x" type="number" min="0" value="160"></label><label>Y <input id="pixel-y" type="number" min="0" value="120"></label><button id="inspect-pixel" disabled>Inspect pixel</button></div><div id="pixel-summary" aria-live="polite"></div><div id="contributors" class="contributors" aria-label="Ordered contributors"></div><div id="event-detail" class="event-detail"></div><div id="source-detail" class="source-detail" aria-live="polite"></div></section>`;
   const $ = id => document.getElementById(id);
   let capture = null, pixels = null, latest = 0, current = null,
       selected = null, rows = [];
@@ -64,12 +65,12 @@ export function createInspector({platform, canvas, send, jump}) {
     $('event-detail').replaceChildren();
     $('source-detail').replaceChildren();
     $('inspect-pixel').disabled = true;
-    $('screen').classList.remove('inspectable');
+    canvas.classList.remove('inspectable');
   }
   function setCapture(c) {
     capture = c;
     $('inspect-pixel').disabled = false;
-    $('screen').classList.add('inspectable');
+    canvas.classList.add('inspectable');
     $('pixel-summary').textContent = 'Select a pixel in the captured display.';
     pixels = canvas.getContext('2d')
                  .getImageData(0, 0, canvas.width, canvas.height)
@@ -94,14 +95,7 @@ export function createInspector({platform, canvas, send, jump}) {
     pending($('pixel-summary'), `Inspecting (${x}, ${y})…`);
     latest = send('pixel', {capture : capture.id, x, y});
   }
-  canvas.addEventListener('click', e => {
-    if (!capture)
-      return;
-    const p = pixelCoordinates(canvas.getBoundingClientRect(), capture.width,
-                               capture.height, e.clientX, e.clientY,platform==='amiga');
-    if (p)
-      query(p.x, p.y);
-  });
+  buffer.setInspect(query);
   $('inspect-pixel').onclick = () =>
       query(Number($('pixel-x').value), Number($('pixel-y').value));
   function line(parent, label, value) {

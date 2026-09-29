@@ -205,15 +205,18 @@ async function captureNext(){
    while(!core._rr_replay_seek(replay.count)){await sleep(0);if(id!==epoch)return;}
    const rp=core._rr_replay_frame();
    replay.complete=replay.complete&&pixels.every((v,i)=>core.HEAPU8[rp+i]===v);
+   const tileset=platform==='gba'?tilesetSnapshot():null,vram=vramSnapshot();
    core._rr_replay_seek(0);
    const frameHash=await digest(pixels);
    if(id!==epoch)return;
    capture={id:generation,startState,endState,start,end,input,width:w,height:h,pixels,info,frameHash};
-   paint();send('capture',{id:generation,...(['gb','gg','c64','amiga'].includes(platform)&&core._rr_raster_info?{raster:json('_rr_raster_info')}:{}),replay,start,end,width:w,height:h,info,frameHash,elapsedMs:performance.now()-began,checkpointBytes:startState.length+endState.length,profile:captureProfile,runMs:captureRunMs,maxCall:maxCaptureCall});
+   paint();send('capture',{id:generation,tileset,vram,...(['gb','gg','c64','amiga'].includes(platform)&&core._rr_raster_info?{raster:json('_rr_raster_info')}:{}),replay,start,end,width:w,height:h,info,frameHash,elapsedMs:performance.now()-began,checkpointBytes:startState.length+endState.length,profile:captureProfile,runMs:captureRunMs,maxCall:maxCaptureCall});
    send('message',{text:info.overflow?'Paused. Capture limit reached; some evidence is missing.':platform==='dos'?'Paused. RAM rendering and VGA copies are ready to inspect.':'Paused. A complete display interval is ready to inspect.'});
  }catch(e){if(id===epoch){if(capturing)core._rr_capture_end();finishCaptureProfile();capturing=false;capture=null;paint();send('error',{text:String(e)});}}
 }
 function pixelEvidence(x,y){const p=jsonPixel(x,y);for(const c of p.contributors||[])c.replayStep=core._rr_replay_for_write(platform==='c64'?y:c.id);return p;}
+function tilesetSnapshot(){if(!core._rr_tileset_size)return null;const size=core._rr_tileset_size();if(!size)return null;const p=core._rr_tileset_data();return p?core.HEAPU8.slice(p,p+size).buffer:null;}
+function vramSnapshot(){if(platform!=='ps1'||!core._rr_vram_size)return null;const size=core._rr_vram_size();if(!size)return null;const p=core._rr_vram_data();return {info:json('_rr_vram_info'),memory:core.HEAPU8.slice(p,p+size).buffer};}
 async function seekReplay(m){
  if(!capture||capture.id!==m.capture)return;
  const gen=++seekGeneration,c=capture,began=performance.now();let progress=began;
@@ -224,7 +227,7 @@ async function seekReplay(m){
  if(gen!==seekGeneration||capture!==c)return;
  if(platform==='dos'&&core._rr_replay_view)core._rr_replay_view(+!!m.reveal);
  const p=core._rr_replay_frame(),pixels=core.HEAPU8.slice(p,p+c.width*c.height*4);
- send('seek',{capture:c.id,request:m.request,pixels:pixels.buffer,info:json('_rr_replay_info'),elapsedMs:performance.now()-began});
+ send('seek',{capture:c.id,request:m.request,pixels:pixels.buffer,tileset:platform==='gba'?tilesetSnapshot():null,vram:vramSnapshot(),info:json('_rr_replay_info'),elapsedMs:performance.now()-began});
 }
 function rasterSeek(m){
  if(!['gb','gg','c64','amiga'].includes(platform)||!capture||capture.id!==m.capture)return;
@@ -232,7 +235,7 @@ function rasterSeek(m){
  const info=JSON.parse(core.UTF8ToString(core._rr_raster_seek(m.line)));
  const layers=[];
  if(!info.error)for(let panel=0;panel<3;panel++){const p=core._rr_raster_frame(panel);layers.push(core.HEAPU8.slice(p,p+capture.width*capture.height*4).buffer);}
- postMessage({type:'raster-seek',session,capture:capture.id,request:m.request,info,layers},layers);
+ postMessage({type:'raster-seek',session,capture:capture.id,request:m.request,info,layers,tileset:info.error?null:tilesetSnapshot()},layers);
 }
 async function boot(m) {
   const bootBegan=performance.now();

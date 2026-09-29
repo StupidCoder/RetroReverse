@@ -9,6 +9,7 @@ const nextPaint=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimat
 function pixels(w,h,color=0xff332211){const out=new Uint32Array(w*h);out.fill(color);return out.buffer;}
 function pixel(canvas){return [...canvas.getContext('2d').getImageData(0,0,1,1).data].join(',');}
 function tiles(platform){if(!tilesetBytes[platform])return null;const b=new Uint8Array(tilesetBytes[platform]);b.fill(0xaa);if(platform==='c64')for(let i=0;i<16;i++)b.set([i*16,i*16,i*16,255],80+i*4);return b.buffer;}
+function vram(platform,cursor=0){return platform==='ps1'?{memory:new ArrayBuffer(1048576),info:{cursor,complete:true,pageX:64,pageY:256,depth:cursor?1:0,clut:0,window:[0,0,0,0],area:[0,0,320,240],offset:[0,0],blend:0,dither:0,forceMask:0,checkMask:0,opcode:0x24,textured:true,gouraud:false,raw:false,semi:false,uv:[[0,0],[16,0],[0,16]]}}:null;}
 const results=[];
 try {
  for(const [platform,view] of Object.entries(presentation)){
@@ -18,7 +19,7 @@ try {
   const render=createRenderWorkspace({platform,presentation:view,playCanvas:play,resume:()=>resumed++,send:(type,data)=>{const m={type,...data,request:++sequence};sent.push(m);return m.request;}});
   const ids=[...document.querySelectorAll('[id]')].map(n=>n.id);assert(new Set(ids).size===ids.length,platform+': unique DOM IDs');
   assert($('view-render').disabled,platform+': Render disabled before capture');
-  const c={id:7,tileset:tiles(platform),width:view.width,height:view.height,start:{frames:1},end:{frames:4},info:{producerPixels:platform==='dos'?100:0},replay:{count:3,complete:true},raster:{lines:[{line:0,changes:2},{line:2,changes:1}],blits:[{index:0,kind:'Copy A',width:32,height:2},{index:1,kind:'Cookie cut',width:32,height:2}]}};
+  const c={id:7,tileset:tiles(platform),vram:vram(platform),width:view.width,height:view.height,start:{frames:1},end:{frames:4},info:{producerPixels:platform==='dos'?100:0},replay:{count:3,complete:true},raster:{lines:[{line:0,changes:2},{line:2,changes:1}],blits:[{index:0,kind:'Copy A',width:32,height:2},{index:1,kind:'Cookie cut',width:32,height:2}]}};
   render.setCapture(c);assert(document.body.dataset.workspace==='render'&&!$('view-render').disabled,platform+': capture opens Render');
   await nextPaint();
   assert(document.documentElement.scrollWidth<=innerWidth,platform+': no horizontal overflow');
@@ -26,13 +27,13 @@ try {
   if(view.render==='commands'){
    assert(pixel(output)===original,platform+': final capture initialized');
    document.querySelector('[data-render-nav=first]').click();const first=sent.at(-1);assert(first.type==='seek'&&first.step===0,platform+': First seeks initial state');
-   render.result({type:'seek',capture:7,request:first.request,info:{cursor:0,cacheBytes:0},tileset:tiles(platform),pixels:pixels(view.width,view.height),elapsedMs:1});
+   render.result({type:'seek',capture:7,request:first.request,info:{cursor:0,cacheBytes:0},tileset:tiles(platform),vram:vram(platform),pixels:pixels(view.width,view.height),elapsedMs:1});
    assert(pixel(output)==='17,34,51,255',platform+': scrub paints output');
    document.querySelector('[data-render-nav=last]').click();const last=sent.at(-1);assert(last.step===3,platform+': Last seeks final step');
-   render.result({type:'seek',capture:7,request:first.request,info:{cursor:0,cacheBytes:0},tileset:tiles(platform),pixels:pixels(view.width,view.height,0xff00ff00),elapsedMs:1});
+   render.result({type:'seek',capture:7,request:first.request,info:{cursor:0,cacheBytes:0},tileset:tiles(platform),vram:vram(platform,1),pixels:pixels(view.width,view.height,0xff00ff00),elapsedMs:1});
    assert(pixel(output)==='17,34,51,255',platform+': stale seek ignored');
    $('replay-cancel').click();assert(sent.at(-1).type==='cancel-seek',platform+': cancel request');
-   render.result({type:'seek',capture:7,request:last.request,info:{cursor:3,cacheBytes:0},pixels:pixels(view.width,view.height,0xff00ff00),elapsedMs:1});
+   render.result({type:'seek',capture:7,request:last.request,info:{cursor:3,cacheBytes:0},vram:vram(platform,1),pixels:pixels(view.width,view.height,0xff00ff00),elapsedMs:1});
    assert(pixel(output)==='17,34,51,255',platform+': cancelled response ignored');
    if(platform==='dos')assert($('replay-reveal').checked&&!$('replay-reveal').parentElement.hidden,'DOS reveal survives refactor');
    const r=output.getBoundingClientRect();output.dispatchEvent(new MouseEvent('click',{clientX:r.left+r.width*(.25+1/view.width),clientY:r.top+r.height*(.75+1/view.height),bubbles:true}));
@@ -40,7 +41,7 @@ try {
   }else{
    const initial=sent.at(-1);assert(initial.type==='raster-seek'&&initial.line===0,platform+': initial line');
    const info={line:0,raster:44,frame:4,complete:true,registers:[],changes:[],pointers:[],palette:Array(32).fill(0),planes:4,mode:platform==='c64'?0:'Indexed color'};
-   render.result({type:'raster-seek',capture:7,request:initial.request,info,tileset:tiles(platform),layers:Array.from({length:3},()=>pixels(view.width,view.height))});
+   render.result({type:'raster-seek',capture:7,request:initial.request,info,tileset:tiles(platform),vram:vram(platform),layers:Array.from({length:3},()=>pixels(view.width,view.height))});
    document.querySelector('[data-render-nav=next]').click();assert(sent.at(-1).line===2,platform+': sparse scanline navigation');
    if(view.render==='amiga'){
     $('amiga-blitter').click();const blit=sent.at(-1);assert(blit.type==='blit-seek'&&blit.index===1,'Amiga masked lens');
@@ -48,6 +49,16 @@ try {
     assert(pixel(output)==='17,34,51,255','Amiga uses common output for destination preview');
     $('amiga-filter').value='copy';$('amiga-filter').dispatchEvent(new Event('change'));assert(sent.at(-1).index===0,'Amiga filtered operations');
    }
+  }
+  if(platform==='ps1'){
+   assert($('ps1-vram').width===4096,'PS1 follows packed GPU texture depth');
+   $('vram-view').value='vram';$('vram-view').dispatchEvent(new Event('change'));assert($('ps1-texture').closest('figure').hidden,'PS1 can enlarge VRAM alone');
+   $('vram-view').value='texture';$('vram-view').dispatchEvent(new Event('change'));assert($('ps1-vram').closest('figure').hidden,'PS1 can enlarge the sampled page');
+   $('vram-view').value='all';$('vram-view').dispatchEvent(new Event('change'));
+   $('vram-mode').value='2';$('vram-mode').dispatchEvent(new Event('change'));assert($('ps1-vram').width===1024,'PS1 explicit color interpretation');
+   $('vram-mode').value='auto';$('vram-mode').dispatchEvent(new Event('change'));assert($('ps1-vram').width===4096,'PS1 restores automatic texture interpretation');
+   const page=$('ps1-texture'),r=page.getBoundingClientRect();page.dispatchEvent(new MouseEvent('click',{clientX:r.left+r.width/2,clientY:r.top+r.height/2,bubbles:true}));
+   assert($('ps1-vram-source').textContent.includes('palette byte'),'PS1 texture-to-VRAM-to-CLUT sample');
   }
   if(tilesetBytes[platform]){
    const mode=$('tileset-auxiliary-view');if(mode){mode.value='tiles';mode.dispatchEvent(new Event('change'));}

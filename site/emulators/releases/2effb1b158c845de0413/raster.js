@@ -1,26 +1,33 @@
-import {createWorkspaces} from './workspaces.js';
-import {pixelCoordinates} from './inspector.js';
+import {createTileset} from './tileset.js';
 const hex=(n,digits=4)=>'0x'+(Number(n)>>>0).toString(16).padStart(digits,'0');
 const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
-export function createRaster({platform,send,resume}) {
+export function createRaster({platform,send,ui}) {
   const c64=platform==='c64',gg=platform==='gg',width=c64?392:160,height=c64?272:144;
   const labels=c64?['Graphics / border','Sprites','Screen so far']:[gg?'Background':'Background / window','Sprites','Screen so far'];
-  const $=id=>document.getElementById(id),root=$('render-workspace');
-  const views=createWorkspaces({navigation:$('workspace-nav'),onChange:id=>document.body.dataset.workspace=id});
-  views.register({id:'play',label:'Play',panel:$('play-workspace')});
-  views.register({id:'render',label:'Render',panel:root,enabled:false});
-  const canvases=[$('raster-background'),$('raster-sprites'),$('raster-output')];
-  const slider=$('raster-position'),position=$('raster-line'),note=$('raster-note'),detail=$('raster-pixel'),history=$('raster-history');
+  const $=id=>document.getElementById(id),timeline=ui.timeline;
+  ui.auxiliary.hidden=false;
+  const buffers=[
+    ui.buffer(ui.auxiliary,{id:'raster-background',title:labels[0],description:c64?'Current character or bitmap memory':'Current tilemap and scrolling'}),
+    ui.buffer(ui.auxiliary,{id:'raster-sprites',title:'Sprites',description:'Before background priority'}),
+    ui.output
+  ];
+  ui.output.labels('Screen so far','Completed lines keep their original settings');
+  ui.sidebar.innerHTML=`<section><h3>Video settings</h3><dl id="raster-registers"></dl><p id="raster-window-line"></p></section>
+    <section><h3>Changes before this line</h3><div id="raster-changes"></div></section>
+    <section><h3>Pixel and source</h3><div class="raster-pixel-controls"><label>Layer<select id="raster-panel"><option value="2">Screen</option><option value="0">${labels[0]}</option><option value="1">Sprites</option></select></label><label>X<input id="raster-x" type="number" min="0" max="${width-1}" value="${width/2}"></label><label>Y<input id="raster-y" type="number" min="0" max="${height-1}" value="${height/2}"></label><button id="raster-inspect">Inspect</button></div><div id="raster-pixel" aria-live="polite"></div><div id="raster-history" aria-live="polite"></div></section>`;
+  const tileset=createTileset({platform,ui,layerPanels:buffers.slice(0,2).map(b=>b.figure)});
+  const canvases=buffers.map(b=>b.canvas),slider=timeline.slider,position=timeline.label,note=timeline.note,detail=$('raster-pixel'),history=$('raster-history');
+  const guide=timeline.toggle('raster-guide','Show scanline',{checked:true,onChange:()=>paint()}).input;
   let capture=null,latest=0,query=0,line=0,valid=[],layers=null,pending=false;
   const paint=()=>{
     if(!layers)return;
     for(let i=0;i<3;i++){
-      const ctx=canvases[i].getContext('2d');ctx.putImageData(new ImageData(new Uint8ClampedArray(layers[i]),width,height),0,0);
-      if($('raster-guide').checked){ctx.fillStyle='rgba(23,111,158,.85)';ctx.fillRect(0,line,width,1);}
+      buffers[i].draw(layers[i],width,height);const ctx=canvases[i].getContext('2d');
+      if(guide.checked){ctx.fillStyle='rgba(23,111,158,.85)';ctx.fillRect(0,line,width,1);}
     }
   };
   function message(parent,text){parent.replaceChildren(el('p',text));}
-  function reset(){capture=null;latest=query=0;valid=[];layers=null;pending=false;views.enable('render',false);views.select('play');detail.replaceChildren();history.replaceChildren();}
+  function reset(){tileset.reset();capture=null;latest=query=0;valid=[];layers=null;pending=false;detail.replaceChildren();history.replaceChildren();}
   function seek(target){
     if(!capture||!valid.length)return;
     target=valid.reduce((best,n)=>Math.abs(n-target)<Math.abs(best-target)?n:best,valid[0]);
@@ -29,14 +36,13 @@ export function createRaster({platform,send,resume}) {
     latest=send('raster-seek',{capture:capture.id,line:target});
   }
   function setCapture(c){
-    layers=null;pending=false;latest=query=0;detail.replaceChildren();history.replaceChildren();
-    capture=c;valid=(c.raster?.lines||[]).map(n=>n.line);views.enable('render',true);views.select('render',{focus:true});
-    $('raster-markers').replaceChildren();
-    for(const row of c.raster?.lines||[])if(row.changes){const tick=el('button');tick.type='button';tick.style.left=(row.line/(height-1)*100)+'%';tick.title=`Line ${row.line}: ${row.changes} video changes`;tick.setAttribute('aria-label',tick.title);tick.onclick=()=>seek(row.line);$('raster-markers').append(tick);}
-    for(const b of root.querySelectorAll('[data-line-nav]'))b.disabled=!valid.length;slider.disabled=!valid.length;
-    for(const canvas of canvases)canvas.getContext('2d').clearRect(0,0,width,height);
+    tileset.reset();layers=null;pending=false;latest=query=0;detail.replaceChildren();history.replaceChildren();
+    capture=c;valid=(c.raster?.lines||[]).map(n=>n.line);
+    timeline.range({max:height-1,positions:valid});
+    timeline.setMarkers((c.raster?.lines||[]).filter(row=>row.changes).map(row=>({value:row.line,label:`Line ${row.line}: ${row.changes} video changes`})));
+    buffers.forEach(buffer=>buffer.clear());
     if(valid.length)seek(valid[0]);
-    else {position.textContent='No recorded lines';$('raster-state-line').textContent='No visible scanlines';$('raster-registers').replaceChildren();$('raster-changes').replaceChildren();$('raster-window-line').textContent='';note.textContent='No visible scanlines were captured. The LCD may be disabled. Return to Play and advance the game.';message(detail,'Capture another frame to inspect its layers.');}
+    else {position.textContent='No recorded lines';ui.position.textContent='No visible scanlines';$('raster-registers').replaceChildren();$('raster-changes').replaceChildren();$('raster-window-line').textContent='';note.textContent='No visible scanlines were captured. The LCD may be disabled. Return to Play and advance the game.';message(detail,'Capture another frame to inspect its layers.');}
   }
   function memoryLabel(a){return gg?(a>=0x14040?'VDP register '+(a-0x14040):a>=0x14000?'CRAM '+hex(a-0x14000,2):a>=0x10000?'VRAM '+hex(a-0x10000):hex(a)):hex(a);}
   function sourceButton(parent,label,address,size,before,expected){
@@ -47,13 +53,11 @@ export function createRaster({platform,send,resume}) {
     if(!capture||pending||!layers)return;
     query=send('raster-pixel',{capture:capture.id,panel,x,y});message(detail,'Inspecting pixel…');history.replaceChildren();
   }
-  for(const [panel,canvas]of canvases.entries())canvas.addEventListener('click',e=>{const p=pixelCoordinates(canvas.getBoundingClientRect(),width,height,e.clientX,e.clientY);if(p)inspect(panel,p.x,p.y);});
+  buffers.forEach((buffer,panel)=>buffer.setInspect((x,y)=>inspect(panel,x,y)));
   $('raster-inspect').onclick=()=>inspect(Number($('raster-panel').value),Number($('raster-x').value),Number($('raster-y').value));
-  $('raster-resume').onclick=resume;slider.oninput=()=>seek(Number(slider.value));
-  $('raster-guide').onchange=paint;
-  for(const b of root.querySelectorAll('[data-line-nav]'))b.onclick=()=>{const i=valid.indexOf(line);seek(b.dataset.lineNav==='first'?valid[0]:b.dataset.lineNav==='last'?valid.at(-1):valid[Math.max(0,Math.min(valid.length-1,i+(b.dataset.lineNav==='next'?1:-1)))]);};
+  timeline.onSeek(seek);
   function showState(info){
-    line=info.line;slider.value=line;position.textContent='Line '+line+' / '+(height-1);$('raster-state-line').textContent='State at line '+line+(c64?' (VIC raster '+info.raster+')':gg?' (VDP line '+info.raster+')':'');
+    line=info.line;timeline.value(line,'Line '+line+' / '+(height-1));ui.position.textContent='State at line '+line+(c64?' (VIC raster '+info.raster+')':gg?' (VDP line '+info.raster+')':'');
     note.textContent=`Screen contains captured lines through ${line}. Source panels hold ${c64?'memory and registers from the start of this line':'this line’s settings'} fixed.`;
     if(!info.complete||valid.length!==height)note.textContent+=' Some capture evidence is incomplete.';
     const regs=$('raster-registers');regs.replaceChildren();
@@ -72,7 +76,7 @@ export function createRaster({platform,send,resume}) {
     if(!info.changes.length&&!counts.length)changes.append(el('p','No video writes since the previous rendered line.'));
     if(info.changeCount>info.changes.length)changes.append(el('p','Change list truncated.'));
     message(detail,c64?'Select a pixel to follow character/bitmap bytes, screen memory, sprites and CPU writers.':'Select a pixel in any panel to follow its tile, sprite attributes or palette.');history.replaceChildren();
-    root.querySelector('.raster-inspector').scrollTop=0;
+    ui.sidebar.scrollTop=0;
   }
   function showPixel(p){
     detail.replaceChildren();history.replaceChildren();if(p.error){message(detail,p.error);return;}
@@ -121,7 +125,7 @@ export function createRaster({platform,send,resume}) {
     if(!capture||m.capture!==capture.id)return;
     if(m.type==='raster-seek'&&m.request===latest){
       pending=false;if(m.info.error){message(detail,m.info.error);note.textContent=m.info.error;return;}
-      layers=m.layers;showState(m.info);paint();return;
+      layers=m.layers;showState(m.info);tileset.update(m.tileset);paint();return;
     }
     if(m.request!==query||pending)return;
     if(m.type==='raster-pixel')showPixel(m.evidence);

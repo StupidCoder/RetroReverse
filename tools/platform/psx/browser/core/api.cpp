@@ -1,5 +1,6 @@
 #include "../../../../browser/core/capture.h"
 #include "proof.h"
+#include "gpu-inspection.h"
 #include <memory>
 #include <emscripten.h>
 // clang-format off
@@ -25,7 +26,7 @@ static void clearCapture() {
     machine->gpu.onCommand = {};
     machine->gpu.onPixel = {};
   }
-  capturing = captured = false;rrcapture::trace.active=rrcapture::trace.valid=false;
+  capturing = captured = false;rrcapture::trace.active=rrcapture::trace.valid=false;rrps1::states.clear();
 }
 static void requireMachine() {
   if (!machine)
@@ -150,10 +151,10 @@ int rr_restore(int slot) {
   });
 }
 int rr_capture_begin() {
- return guard([&](){requireMachine();clearCapture();auto&t=rrcapture::trace;t.begin((uint8_t*)machine->gpu.vram.data(),1024*512*2);capturing=true;
- machine->gpu.onCommand=[](const std::vector<u32>&w){auto&t=rrcapture::trace;t.source=t.palette=t.texel=0;t.u=t.v=0;auto op=w.empty()?0:w[0]>>24;bool hasSource=(op>=0x20&&op<0x40&&(op&4))||(op>=0x60&&op<0x80&&(op&4))||(op>=0x80&&op<0xa0);const char*kind=op==2?"GPU fill":op>=0x20&&op<0x40?"GPU polygon":op>=0x60&&op<0x80?"GPU rectangle":op>=0x80&&op<0xa0?"VRAM copy":op>=0xa0&&op<0xc0?"CPU/DMA VRAM upload":"GPU command";std::ostringstream o;o<<"{\"kind\":\""<<kind<<"\",\"hasSource\":"<<(hasSource?"true":"false")<<",\"words\":[";for(size_t i=0;i<w.size();i++){if(i)o<<',';o<<w[i];}o<<"],\"textureDepth\":"<<machine->gpu.texDepth<<",\"drawX\":"<<machine->gpu.offX<<",\"drawY\":"<<machine->gpu.offY<<"}";t.event(machine->cpu.steps,machine->cpu.cur,o.str());};
+ return guard([&](){requireMachine();clearCapture();auto&t=rrcapture::trace;t.begin((uint8_t*)machine->gpu.vram.data(),1024*512*2);rrps1::begin(machine->gpu);capturing=true;
+ machine->gpu.onCommand=[](const std::vector<u32>&w){auto&t=rrcapture::trace;t.source=t.palette=t.texel=0;t.u=t.v=0;const auto gpu=rrps1::command(machine->gpu,w);auto op=w.empty()?0:w[0]>>24;bool hasSource=(op>=0x20&&op<0x40&&(op&4))||(op>=0x60&&op<0x80&&(op&4))||(op>=0x80&&op<0xa0);const char*kind=op==2?"GPU fill":op>=0x20&&op<0x40?"GPU polygon":op>=0x60&&op<0x80?"GPU rectangle":op>=0x80&&op<0xa0?"VRAM copy":op>=0xa0&&op<0xc0?"CPU/DMA VRAM upload":"GPU command";std::ostringstream o;o<<"{\"kind\":\""<<kind<<"\",\"hasSource\":"<<(hasSource?"true":"false")<<",\"words\":[";for(size_t i=0;i<w.size();i++){if(i)o<<',';o<<w[i];}o<<"],\"textureDepth\":"<<gpu.depth<<",\"drawX\":"<<gpu.offsetX<<",\"drawY\":"<<gpu.offsetY<<"}";rrps1::record(t.event(machine->cpu.steps,machine->cpu.cur,o.str()),gpu);};
  machine->gpu.onPixel=[](int x,int y,u16 value){auto&t=rrcapture::trace;t.record((y*1024+x)*2,value,2,machine->cpu.steps,machine->cpu.cur,t.current);};
- if(machine->gpu.imgPx)t.event(machine->cpu.steps,machine->cpu.cur,"{\"kind\":\"GPU transfer already in progress at capture start\"}");
+ if(machine->gpu.imgPx)rrps1::record(t.event(machine->cpu.steps,machine->cpu.cur,"{\"kind\":\"GPU transfer already in progress at capture start\"}"),rrps1::initial);
  return 1;});
 }
 int rr_capture_end(){return guard([&](){requireMachine();machine->gpu.onCommand={};machine->gpu.onPixel={};capturing=false;captured=true;originX=machine->gpu.dispX;originY=machine->gpu.dispY;rrcapture::trace.end((uint8_t*)machine->gpu.vram.data(),1024*512*2);return int(rrcapture::trace.events.size());});}
@@ -191,3 +192,7 @@ extern "C" const char*rr_replay_begin(){rrreplay::replay.begin();static std::str
 extern "C" int rr_replay_seek(uint32_t step){return rrreplay::replay.seek(step);}
 extern "C" const char*rr_replay_info(){static std::string s;s=rrreplay::replay.info();return s.c_str();}
 extern "C" uint32_t rr_replay_for_write(uint32_t id){return rrreplay::replay.forWrite(id);}
+
+extern "C" int rr_vram_size(){return captured&&rrcapture::trace.valid&&rrreplay::replay.memory.size()==1024*512*2?1024*512*2:0;}
+extern "C" uint8_t*rr_vram_data(){return rr_vram_size()?rrreplay::replay.memory.data():nullptr;}
+extern "C" const char*rr_vram_info(){text=rr_vram_size()?rrps1::info():"{\"error\":\"Capture a display first\"}";return text.c_str();}
