@@ -41,17 +41,20 @@ subprocess.run([cxx, *flags, '-std=c++20', *sources,
                 str(root / 'core/native.cpp'), *objects,
                 '-o', str(root / 'work/amiga-native')], check=True)
 if args.test:
-    subprocess.run([cxx, *flags, '-std=c++20', *sources,
-                    str(root.parents[2] / 'browser/tests/pixel-amiga.cpp'),
-                    *objects, '-o', str(root / 'work/amiga-test')], check=True)
-    subprocess.run([str(root / 'work/amiga-test')], check=True)
+    for test in ['pixel-amiga', 'raster-amiga']:
+        output = str(root / 'work' / test)
+        subprocess.run([cxx, *flags, '-std=c++20', *sources,
+                        str(root.parents[2] / ('browser/tests/' + test + '.cpp')),
+                        *objects, '-o', output], check=True)
+        subprocess.run([output], check=True)
 
 if not args.native_only:
     objects = compile_cpu(str(Path(args.emcc).with_name('emcc')), 'wasm-')
     exports = ('input firmware init run pad mouse key error status proof profile '
                'frame state_input state_save state_data state_load capture_begin '
                'capture_end capture_info pixel source resource replay_begin '
-               'replay_seek replay_info replay_frame replay_for_write').split()
+               'replay_seek replay_info replay_frame replay_for_write raster_info raster_seek '
+               'raster_frame raster_pixel raster_plane blit_seek blit_frame blit_pixel').split()
     subprocess.run([
         args.emcc, *flags, '-std=c++20', *sources, str(root / 'core/api.cpp'),
         *objects, '-sMODULARIZE=1', '-sEXPORT_ES6=1', '-sENVIRONMENT=web,worker',

@@ -95,3 +95,6 @@ The experimental PS2 and GameCube ports, rendering-capture scope, performance me
 Game Boy Advance and Dreamcast ports, optimization measurements, media formats and capture limits are documented in `docs/GBA-DC-PORTS.md`.
 
 MS-DOS PC and Xbox share the x86 C++ port. See `docs/DOS-XBOX-PORTS.md` for executable/disc formats, tests, performance and capture limits.
+
+Amiga’s separate scanline/Copper and blitter/mask views are documented in
+[Amiga raster inspection](docs/AMIGA-RASTER-INSPECTION.md).

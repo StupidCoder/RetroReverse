@@ -1,4 +1,4 @@
-#include "amiga.h"
+#include "inspection.h"
 namespace rramiga {
 void Machine::copperTick() {
   if (copperStopped || (dma & 0x280) != 0x280)
@@ -19,7 +19,7 @@ void Machine::copperTick() {
     if (rrcapture::trace.active) {
       std::ostringstream s;
       s << "{\"kind\":\"Copper MOVE\",\"origin\":\"copper\",\"copperPC\":"
-        << copperPC << ",\"register\":" << r << ",\"value\":" << b << "}";
+        << copperPC << ",\"scanline\":" << line << ",\"beam\":" << beam << ",\"register\":" << r << ",\"value\":" << b << "}";
       detail = s.str();
     }
     EvidenceScope scope(cycles, pc, std::move(detail));
@@ -55,7 +55,8 @@ void Machine::blitter() {
   if (rrcapture::trace.active) {
     std::ostringstream s;
     s << "{\"kind\":\"Blitter operation\",\"origin\":\"blitter\",\"con0\":"
-      << reg[0x40 / 2] << ",\"con1\":" << reg[0x42 / 2]
+      << reg[0x40 / 2] << ",\"blit\":" << inspect::blits.size() << ",\"con1\":" << reg[0x42 / 2]
+      << ",\"copperPC\":" << (!inspect::changes.empty()&&inspect::changes.back().reg==0x58?inspect::changes.back().copperPC:0)
       << ",\"size\":" << reg[0x58 / 2] << ",\"sourceA\":" << ptr(0x50)
       << ",\"sourceB\":" << ptr(0x4c) << ",\"sourceC\":" << ptr(0x48)
       << ",\"destination\":" << ptr(0x54) << "}";
@@ -68,6 +69,7 @@ void Machine::blitter() {
     width = 64;
   if (!height)
     height = 1024;
+  int inspected = inspect::blitBegin(*this, width, height);
   unsigned ash = con0 >> 12, bsh = con1 >> 12;
   blits++;
   blitZero = true;
@@ -104,6 +106,8 @@ void Machine::blitter() {
     for (unsigned y = 0; y < height; y++) {
       uint16_t a = ad >> bit, b = ((bd >> ((bsh + y) & 15)) & 1) ? 65535 : 0,
                c = con0 & 0x200 ? chip16(cp) : cd;
+      inspect::BlitWord observed;
+      if (inspected >= 0) { observed.address={0,0,cp & (CHIP-1),dp & (CHIP-1)}; observed.before=rrcapture::trace.writes.size(); observed.a=a; observed.b=b; observed.c=c; observed.rawA=ad; observed.rawB=bd; observed.oldD=chip16(dp); }
       uint16_t d = minterm(a, b, c, con0 & 255);
       if (!(con1 & 2) || !onedot) {
         if (con0 & 0x100)
@@ -111,6 +115,7 @@ void Machine::blitter() {
         if (d)
           blitZero = false;
       }
+      if (inspected >= 0) { observed.d=d; observed.written=(con0&0x100)&&(!(con1&2)||!onedot); observed.write=observed.written?rrcapture::trace.writes.size():0; inspect::blitWord(inspected,observed); }
       onedot = true;
       bool diagonal = !sign;
       error += sign ? bm : am;
@@ -142,6 +147,8 @@ void Machine::blitter() {
         uint16_t a = con0 & 0x800 ? chip16(ap) : ad,
                  b = con0 & 0x400 ? chip16(bp) : bd,
                  c = con0 & 0x200 ? chip16(cp) : cd;
+        inspect::BlitWord observed;
+        if (inspected >= 0) { observed.address={ap & (CHIP-1),bp & (CHIP-1),cp & (CHIP-1),dp & (CHIP-1)}; observed.before=rrcapture::trace.writes.size(); observed.rawA=a; observed.rawB=b; observed.c=c; observed.oldD=chip16(dp); }
         if (x == 0)
           a &= reg[0x44 / 2];
         if (x + 1 == width)
@@ -168,12 +175,14 @@ void Machine::blitter() {
               carry = !carry;
           }
         }
+        if (inspected >= 0) { observed.a=sa; observed.b=sb; observed.d=d; }
         if (d)
           blitZero = false;
         if (con0 & 0x100) {
           chipWrite(dp, d);
           dp += step;
         }
+        if (inspected >= 0) { observed.written=con0&0x100; observed.write=observed.written?rrcapture::trace.writes.size():0; inspect::blitWord(inspected,observed); }
         if (con0 & 0x800)
           ap += step;
         if (con0 & 0x400)
@@ -195,6 +204,7 @@ void Machine::blitter() {
   setPtr(0x4c, bp);
   setPtr(0x48, cp);
   setPtr(0x54, dp);
+  if (inspected >= 0) inspect::blits[inspected].end=rrcapture::trace.writes.size();
   blitBusy = true;
   blitDone = cycles + uint64_t(width) * height * 8;
 }

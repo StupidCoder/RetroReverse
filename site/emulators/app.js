@@ -1,3 +1,4 @@
+import {createAmigaRaster} from './amiga-raster.js';
 import {createRaster} from './raster.js';
 import {createReplay} from './replay.js';
 import {pixelCoordinates,createInspector} from './inspector.js';
@@ -36,7 +37,7 @@ $('help').textContent = config.help;
 $('compat').textContent = config.compat;
 $('tape').hidden = platform !== 'c64';
 const send = (type, data = {}) => {const id=++request;worker?.postMessage({type,session,request:id,...data});return id;};
-const raster=['gb','gg','c64'].includes(platform)?createRaster({platform,send,resume:()=>$('run').click()}):null;
+const raster=platform==='amiga'?createAmigaRaster({send,resume:()=>$('run').click()}):['gb','gg','c64'].includes(platform)?createRaster({platform,send,resume:()=>$('run').click()}):null;
 const replay=raster||createReplay({canvas,send});
 const inspector=raster?{reset(){},setCapture(){},result:m=>raster.result(m),isInspecting:raster.isInspecting}:createInspector({platform,canvas,send,jump:step=>replay.seek(step)});
 function controls(on) {
@@ -156,7 +157,7 @@ function load(stateFile=null) {
     } else if(m.type==='capture-progress'){
       $('status').textContent=m.text;$('cancelcapture').hidden=false;
       $('run').disabled=$('step').disabled=$('save').disabled=true;
-    } else if(m.type==='raster-seek'||m.type==='raster-pixel'){raster?.result(m);
+    } else if(m.type==='raster-seek'||m.type==='raster-pixel'||m.type==='blit-seek'||m.type==='blit-pixel'){raster?.result(m);
     } else if(m.type==='seek'||m.type==='seek-progress'){replay.result(m);
     } else if(m.type==='pixel'||m.type==='source'||m.type==='resource'){inspector.result(m);
     } else if(m.type==='capture-cleared'){

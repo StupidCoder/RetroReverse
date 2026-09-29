@@ -1,4 +1,4 @@
-#include "amiga.h"
+#include "inspection.h"
 namespace rramiga {
 static int ack(int) { return M68K_INT_ACK_AUTOVECTOR; }
 static void instruction(unsigned pc) {
@@ -166,6 +166,10 @@ void Machine::customWrite(unsigned r, uint16_t v, bool copper) {
                  (unsigned long long)frames, pc, r, v);
   if (logging && r >= 0x140 && r < 0x148)
     std::fprintf(stderr, "SPR0 %03x=%04x PC=%06x\n", r, v, pc);
+  if (r >= 0x180 && r < 0x1c0 && !palettePrepared)
+    beginPalette();
+  uint16_t old = reg[r / 2];
+  uint32_t origin = copper ? (copperPC - 4) & 0x1ffffe : 0;
   switch (r) {
   case 0x96:
     setclear(dma, v);
@@ -212,6 +216,9 @@ void Machine::customWrite(unsigned r, uint16_t v, bool copper) {
   default:
     reg[r / 2] = v;
     captureWrite(registerBase + r, swapped(v), 2, cycles, pc, hardwareEvent);
+    inspect::change(*this, r, old, v, origin);
+    if (r >= 0x180 && r < 0x1c0)
+      lineColors.push_back({beam, (r - 0x180) / 2, v});
     if (r == 0x58)
       blitter();
     if (r >= 0xe0 && r <= 0xf6)
@@ -225,15 +232,17 @@ void Machine::customWrite(unsigned r, uint16_t v, bool copper) {
   }
 }
 void Machine::tick(unsigned n) {
-  cycles += n;
+  if (!palettePrepared) beginPalette();
   ciaClock += n;
   while (ciaClock >= 10) {
     ciaClock -= 10;
     ciaTick();
   }
   for (unsigned i = 0; i < n; i += 2) {
-    beam += 2;
-    copperTick();
+    unsigned delta = std::min(2u, n - i);
+    cycles += delta;
+    beam += delta;
+    if (beam < 454) copperTick();
     diskTick();
     for (unsigned ch = 0; ch < 4; ch++)
       if ((dma & (0x200 | (1 << ch))) == (0x200 | (1 << ch))) {
@@ -261,7 +270,6 @@ void Machine::tick(unsigned n) {
       renderLine();
       line++;
       todTick(1);
-      spriteLine();
       if (line == 312) {
         line = 0;
         frames++;
@@ -273,6 +281,8 @@ void Machine::tick(unsigned n) {
         request(0x20);
         todTick(0);
       }
+      spriteLine();
+      beginPalette();
     }
   }
 }

@@ -181,7 +181,7 @@ export const platforms = {
   amiga: {
     name:'Amiga 500',accept:'.adf',hz:7093790/(312*454),
     help:'Arrows and Space control joystick port 2. Move the mouse over the display; left/right click operate the Amiga mouse. The Mouse speed control helps with Workbench, which moves more slowly than most games. Click the display to use the keyboard. Marble Madness: double-click the disk, then its game icon, then select GO. Turrican: left-click to leave the intro; Fire starts the game.',
-    compat:'Experimental PAL 68000 / OCS machine with 512 KiB chip RAM and 512 KiB slow RAM. Kickstart 1.2 loads automatically. One standard 880 KiB ADF in DF0. Marble Madness and Turrican reach gameplay using their original loaders. Copper, blitter, bitplanes, sprites, CIA timers and floppy DMA are modeled. Chipset arbitration, scanline effects and blitter timing are approximate. Disk writing, extended ADF/IPF, AGA, multi-disk swapping and audio output are not implemented.',
+    compat:'Experimental PAL 68000 / OCS machine with 512 KiB chip RAM and 512 KiB slow RAM. Kickstart 1.2 loads automatically. One standard 880 KiB ADF in DF0. Marble Madness and Turrican reach gameplay using their original loaders. Copper, blitter, bitplanes, sprites, CIA timers and floppy DMA are modeled. Palette changes retain their modeled horizontal positions. Bitplane fetching, chipset arbitration and blitter timing are approximate. Disk writing, extended ADF/IPF, AGA, multi-disk swapping and audio output are not implemented.',
     buttons:[['↑',1],['↓',2],['←',4],['→',8],['Fire',16],['Mouse left',32],['Mouse right',64]],
     keys:{ArrowUp:1,ArrowDown:2,ArrowLeft:4,ArrowRight:8,' ':16}
   },

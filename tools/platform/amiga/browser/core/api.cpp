@@ -150,6 +150,7 @@ int rr_capture_begin() {
     auto b = memoryImage();
     rrcapture::trace.begin(b.data(), b.size());
     rramiga::hardwareEvent = rramiga::diskEvent = 0;
+    rramiga::inspect::begin();
     return 1;
   } catch (const std::exception &e) {
     errorText = e.what();
@@ -168,6 +169,7 @@ int rr_capture_end() {
 }
 const char *rr_capture_info() {
   reply = rrcapture::trace.info();
+  reply.pop_back();reply+=",\"rasterBytes\":"+std::to_string(rramiga::inspect::bytes())+",\"inspectionOverflow\":"+(rramiga::inspect::overflow?"true":"false")+"}";
   return reply.c_str();
 }
 const char *rr_pixel(int x, int y) {
@@ -205,3 +207,5 @@ uint8_t *rr_replay_frame() {
                                           : nullptr;
 }
 }
+
+#include "inspection-api.h"

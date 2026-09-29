@@ -62,33 +62,30 @@ Keyboard position codes and joystick/gamepad controls are also available.
 
 ## Inspection and states
 
-Pause captures a complete modeled PAL frame. The capture records CPU RAM writes,
-Copper register writes, floppy DMA and blitter destinations, plus bitplane and
-sprite scanout. A selected pixel can follow each sampled bitplane word and its
-palette register to earlier writers within the capture. Sprite source words and
-transparent/priority-rejected candidates are recorded too.
+The Amiga now has separate Play and Render workspaces, with **Scanlines & Copper**
+and **Blitter & masks** inspection lenses. Pause captures three modeled PAL
+intervals to include producers for buffered graphics. Pixels lead to historical
+bitplane/palette/sprite words and their CPU, Copper or blitter writers. Blits expose
+actual A/B/C inputs after masking/shifting, D results and destination previews.
+See [Amiga raster inspection](AMIGA-RASTER-INSPECTION.md) for the workflow,
+accuracy scope, capture limits and current validation.
 
-Capture address spaces are chip RAM at its native address, slow RAM compacted to
-`0x80000`, custom-register words at `0x100000`, and a modeled 640×256 RGBA scanout
-at `0x110000`. Historical byte values use the shared inspector's little-endian
-packing; Amiga register and RAM words themselves remain big-endian. The canvas
-corrects the aspect ratio of the captured hires columns.
-
-Replay applies recorded effects in separate scratch memory. It neither runs the
-CPU nor changes the paused machine. Scrubbing shows scanlines being produced.
-The CPU PC accompanying an autonomous hardware event is labeled as such, not
-claimed to be the instruction that created all of its source data. Blitter
-metadata includes starting channel pointers and control words, but does not yet
-provide automatic ancestry for every contributing A/B/C word. HAM retained-color
-dependencies and the second word pair of an attached sprite are not fully traced.
+Capture address spaces remain chip RAM at native addresses, slow RAM compacted
+to `0x80000`, custom words at `0x100000`, and 640×256 RGBA scanout at `0x110000`.
+UI register addresses use `$DFFxxx`. Historical byte values use the shared
+little-endian packing, while Amiga RAM/register words are big-endian.
 
 States serialize explicit CPU registers/prefetch plus RAM, video buffers, CIA,
 Copper, blitter, disk/rotation and input state. No C++ pointers or struct padding
-are persisted. Raw payloads in the tested scenes are 2,373,150 bytes; the usual
+are persisted. Raw payloads are approximately 2.3 MiB; version 2 also preserves pending palette changes; the usual
 `.rrstate` wrapper enforces media/firmware/core identity and integrity. Invalid
 loads retain the current machine via the shared candidate-worker flow.
 
-## Validation
+## Original port validation
+
+For current raster-workspace tests and performance, see
+[Amiga raster inspection](AMIGA-RASTER-INSPECTION.md). The measurements below
+refer to the original single-frame capture.
 
 `python3 tools/platform/amiga/browser/build.py --native-only --test` runs public,
 media-free checks for 68000 execution, overlay/RAM mapping, CIA timing and keyboard
@@ -130,8 +127,8 @@ encoding have separate exclusive wall-time buckets.
 
 ## Limits
 
-This is a useful initial OCS emulator, not UAE-level compatibility. Rendering is
-sampled per scanline; DMA bus arbitration, blitter completion time, keyboard
+This is a useful initial OCS emulator, not UAE-level compatibility. Bitplane rendering is
+sampled per scanline, with palette writes retaining modeled horizontal positions; DMA bus arbitration, blitter completion time, keyboard
 serial handshake and several chip edge cases are approximate. It is not suitable
 as a cycle-exact oracle. Interlace, collision registers, precise mid-line effects,
 ECS/AGA extensions and audio output remain incomplete or unimplemented.

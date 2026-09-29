@@ -26,6 +26,8 @@ struct Sprite {
   uint16_t pos = 0, ctl = 0, a = 0, b = 0;
   bool active = false, header = false;
 };
+struct ColorChange { unsigned beam = 0, index = 0; uint16_t value = 0; };
+struct RenderProbe;
 struct Machine {
   std::array<uint8_t, CHIP> ram{};
   std::array<uint8_t, SLOW> slow{};
@@ -59,6 +61,9 @@ struct Machine {
   std::array<uint32_t, 6> bplPointer{};
   bool displayY = false;
   int lastRender = -1;
+  bool palettePrepared = false;
+  std::array<uint16_t, 32> linePalette{};
+  std::vector<ColorChange> lineColors;
   std::array<uint32_t, 4> audioPtr{}, audioCount{}, audioClock{};
   uint32_t pc = 0;
   bool logging = false;
@@ -96,7 +101,10 @@ struct Machine {
   void prepareTrack();
   void diskPort(uint8_t value);
   void blitter();
-  void renderLine();
+  void renderLine(bool preview = false, uint32_t *background = nullptr,
+                  uint32_t *spriteLayer = nullptr, int plane = -1,
+                  RenderProbe *probe = nullptr);
+  void beginPalette();
   void spriteLine();
   unsigned run(unsigned budget);
   void key(uint8_t raw, bool down);

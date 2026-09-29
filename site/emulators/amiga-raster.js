@@ -1,0 +1,92 @@
+import {createWorkspaces} from './workspaces.js';
+import {pixelCoordinates} from './inspector.js';
+const hex=(n,d=4)=>'$'+(Number(n)>>>0).toString(16).padStart(d,'0');
+const swap=n=>((n&255)<<8)|(n>>>8&255);
+const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
+const memory=a=>a>=0x100000?hex(0xdff000+a-0x100000,6):'Chip RAM '+hex(a,5);
+const byteText=(n,size)=>Array.from({length:size},(_,i)=>hex(n>>>(8*i)&255,2)).join(' ');
+export function createAmigaRaster({send,resume}){
+ const $=id=>document.getElementById('amiga-'+id),root=document.getElementById('render-workspace');
+ const views=createWorkspaces({navigation:document.getElementById('workspace-nav'),onChange:id=>document.body.dataset.workspace=id});
+ views.register({id:'play',label:'Play',panel:document.getElementById('play-workspace')});views.register({id:'render',label:'Render',panel:root,enabled:false});
+ const scanCanvases=['playfield','sprites','output'].map($),blitCanvases=['a','b','c','d','before','after'].map($);
+ let capture=null,mode='scan',line=0,blit=0,blitIDs=[],latest=0,query=0,pending=false,layers=null,info=null;
+ const message=(parent,text)=>parent.replaceChildren(el('p',text));
+ function field(parent,name,value){const p=el('p');p.append(el('strong',name+': '),document.createTextNode(value));parent.append(p);}
+ function reset(){capture=null;query=latest=0;pending=false;layers=info=null;views.enable('render',false);views.select('play');$('pixel').replaceChildren();$('history').replaceChildren();}
+ function blitFilter(){blitIDs=(capture?.raster?.blits||[]).filter(b=>$('filter').value==='all'||($('filter').value==='mask'?b.kind==='Cookie cut':b.kind.startsWith('Copy'))).map(b=>b.index);$('operation').replaceChildren();for(const i of blitIDs){const b=capture.raster.blits[i],option=el('option',`${i+1} · ${b.kind} · ${b.width}×${b.height}`);option.value=i;$('operation').append(option);}}
+ function request(){
+  if(!capture)return;pending=true;query=0;layers=null;$('pixel').replaceChildren();$('history').replaceChildren();
+  if(mode==='scan'){latest=send('raster-seek',{capture:capture.id,line,plane:Number($('plane').value)});$('timeline').max=255;$('timeline').value=line;}
+  else if(blitIDs.length){if(!blitIDs.includes(blit))blit=blitIDs[0];latest=send('blit-seek',{capture:capture.id,index:blit});$('timeline').max=blitIDs.length-1;$('timeline').value=blitIDs.indexOf(blit);$('operation').value=blit;}
+  else {pending=false;$('cursor').textContent='No matching blits';message($('state'),'No matching operation was recorded in these display intervals.');$('changes').replaceChildren();$('note').textContent='Choose another filter or capture another frame.';for(const c of blitCanvases)c.getContext('2d').clearRect(0,0,c.width,c.height);}
+  $('timeline').disabled=mode==='blit'&&!blitIDs.length;for(const b of root.querySelectorAll('[data-amiga-nav]'))b.disabled=$('timeline').disabled;
+ }
+ function setMode(next){mode=next;$('scan-board').hidden=mode!=='scan';$('blit-board').hidden=mode!=='blit';$('scan').setAttribute('aria-pressed',mode==='scan');$('blitter').setAttribute('aria-pressed',mode==='blit');$('plane-label').hidden=mode!=='scan';$('filter-label').hidden=mode!=='blit';$('operation-label').hidden=mode!=='blit';$('guide-text').textContent=mode==='scan'?'Show scanline':'Highlight change';$('panel-label').hidden=mode!=='scan';$('markers').hidden=mode!=='scan';$('palette').hidden=mode!=='scan';request();}
+ function setCapture(c){capture=c;line=0;blit=0;blitFilter();views.enable('render',true);views.select('render',{focus:true});$('markers').replaceChildren();
+  for(const row of c.raster?.lines||[])if(row.changes){const b=el('button');b.type='button';b.style.left=row.line/255*100+'%';b.title=`Line ${row.line}: ${row.changes} video writes`;b.setAttribute('aria-label',b.title);b.onclick=()=>{line=row.line;request();};$('markers').append(b);}
+  setMode('scan');
+ }
+ function paint(){if(!layers||!info)return;const canvases=mode==='scan'?scanCanvases:blitCanvases;for(let p=0;p<canvases.length;p++){const c=canvases[p],w=mode==='blit'&&p<4?info.width:640,h=mode==='blit'&&p<4?info.height:256;if(c.width!==w)c.width=w;if(c.height!==h)c.height=h;c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(layers[p]),w,h),0,0);if(mode==='scan'&&$('guide').checked){const ctx=c.getContext('2d');ctx.fillStyle='rgba(23,111,158,.85)';ctx.fillRect(0,line,640,1);}}}
+ function highlightChange(){
+  if(mode!=='blit'||!layers||!$('guide').checked)return;
+  const before=new Uint32Array(layers[4]),after=new Uint32Array(layers[5]);let left=640,top=256,right=-1,bottom=-1;
+  for(let i=0;i<before.length;i++)if(before[i]!==after[i]){const x=i%640,y=Math.floor(i/640);left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x);bottom=Math.max(bottom,y);}
+  if(right>=0)for(const c of blitCanvases.slice(4)){const ctx=c.getContext('2d');ctx.strokeStyle='#e37b32';ctx.lineWidth=3;ctx.strokeRect(Math.max(1,left-2),Math.max(1,top-2),right-left+5,bottom-top+5);}
+ }
+ function sourceButton(parent,s){const b=el('button',s.role+' · '+memory(s.address));b.type='button';b.onclick=()=>{if(pending)return;query=send('source',{capture:capture.id,address:s.address,size:s.size,before:s.before,expected:s.value});message($('history'),'Reading historical writes…');};parent.append(b);}
+ function showScan(s){
+  line=s.line;$('position').textContent=`Final captured frame ${s.frame}, row ${line} (PAL line ${s.raster})`;$('cursor').textContent=`Line ${line} / 255`;
+  $('note').textContent='Source panels hold memory and settings from this line fixed. Completed screen rows retain their actual colors.'+(!s.complete?' Some capture evidence is missing.':'');
+  $('state-heading').textContent='Video settings';$('changes-heading').textContent='Copper and register writes';$('state').replaceChildren();
+  field($('state'),'Playfield',`${s.planes} bitplanes · ${s.mode}`);
+  const regs=el('details');regs.append(el('summary','Registers and plane addresses'));for(const r of s.registers)field(regs,r.name,hex(r.value));s.pointers.slice(0,s.planes).forEach((p,i)=>field(regs,'Bitplane '+(i+1),hex(p,5)));$('state').append(regs);
+  $('palette').replaceChildren();s.palette.forEach((c,i)=>{const b=el('button',String(i));b.type='button';const css='#'+c.toString(16).padStart(3,'0').slice(-3);b.style.background=css;b.style.color=((c>>8&15)*3+(c>>4&15)*6+(c&15))>75?'#111':'#fff';b.title=`COLOR${i} = ${hex(c,3)}`;b.onclick=()=>{const matching=s.changes.filter(v=>v.register===0x180+i*2).at(-1);if(matching){query=send('source',{capture:capture.id,address:0x100180+i*2,size:2,before:matching.cutoff,expected:swap(c)});message($('history'),'Reading palette writers…');}else message($('history'),`COLOR${i} = ${hex(c,3)}. No write to this color on the selected line. Select a pixel to search earlier history.`);};$('palette').append(b);});
+  $('changes').replaceChildren();for(const c of s.changes){const b=el('button',`${c.name} ${hex(c.before)} → ${hex(c.value)}`,'raster-write');b.type='button';b.append(el('span',`${c.copperPC?'Copper '+hex(c.copperPC,5):'CPU '+hex(c.pc,6)} · PAL ${c.line}, H ${hex(c.beam/2,2)}`,'raster-writer'));b.onclick=()=>{query=send('source',{capture:capture.id,address:0x100000+c.register,size:2,before:c.cutoff,expected:swap(c.value)});message($('history'),'Reading register history…');};$('changes').append(b);}
+  if(!s.changes.length)message($('changes'),'No video-register writes on this line. Markers below the slider identify changes.');
+  message($('pixel'),'Select a pixel to follow its plane words or palette to CPU, Copper and blitter writers.');
+ }
+ function showBlit(s){
+  blit=s.index;$('position').textContent=`${s.kind} in frame ${s.frame}, PAL line ${s.line}`;$('cursor').textContent=`Blit ${s.index+1} / ${s.count}`;
+  $('note').textContent='One-bit inputs and result, after masking and shifts. Playfield previews use the final frame’s layout; writes to other buffers may not appear.'+(!s.complete?' Some capture evidence is missing.':'');
+  $('state-heading').textContent='Blitter operation';$('changes-heading').textContent='Shifts, masks and channels';$('state').replaceChildren();$('changes').replaceChildren();
+  const op=s.con0&255;
+  $('a').closest('figure').querySelector('strong').textContent=op===0xca?'A · mask input':'A · source input';
+  $('b').closest('figure').querySelector('strong').textContent=op===0xca?'B · image input':'B · source input';
+  $('c').closest('figure').querySelector('strong').textContent=op===0xca?'C · background input':'C · source input';
+  field($('state'),'Function',op===0xca?'D = (A & B) | (~A & C)':op===0xf0?'D = A':op===0xcc?'D = B':op===0?'D = 0':`Minterm ${hex(op,2)}`);
+  if(op===0xca)$('state').append(el('p','Mask bit 1 selects the image from B. Mask bit 0 keeps the background from C.'));
+  field($('state'),'Size',`${s.width} bits × ${s.height} rows`);field($('state'),s.copperPC?'Started by Copper':'Started by CPU',hex(s.copperPC||s.pc,6));
+  field($('changes'),'A / B shift',`${s.con0>>>12} / ${s.con1>>>12} bits`);field($('changes'),'A edge masks',`${hex(s.firstMask)} / ${hex(s.lastMask)}`);field($('changes'),'Direction',s.con1&1?'Line mode (rows show successive steps)':s.con1&2?'Descending':'Ascending');
+  if(!(s.con1&1)&&(s.con1&0x18))field($('changes'),'Area fill',`${s.con1&0x10?'Exclusive':'Inclusive'} fill modifies the Boolean result; initial carry ${s.con1&4?1:0}`);
+  for(let p=0;p<4;p++)field($('changes'),String.fromCharCode(65+p),`${s.con1&1&&p<2?'Line pattern data register':s.con0&(0x800>>p)?memory(s.pointers[p]):p===3?'Destination DMA disabled':'Constant data register'}; modulo ${s.modulos[p]}`);
+  const table=el('details');table.append(el('summary','Boolean truth table (before optional fill)'));const text=el('p');text.textContent=Array.from({length:8},(_,i)=>`${i>>2&1}${i>>1&1}${i&1} → ${op>>i&1}`).join('  ·  ');table.append(el('p','A B C → D'),text);$('changes').append(table);
+  message($('pixel'),'Click a bit in any channel to inspect the fetched words, shift carry and destination write.');$('x').value=Math.min(Number($('x').value),s.width-1);$('y').value=Math.min(Number($('y').value),s.height-1);
+ }
+ function inspect(panel,x,y){if(!capture||pending||!layers)return;query=send(mode==='scan'?'raster-pixel':'blit-pixel',{capture:capture.id,panel,x,y});message($('pixel'),'Inspecting…');$('history').replaceChildren();}
+ for(const [p,c] of scanCanvases.entries())c.onclick=e=>{const q=pixelCoordinates(c.getBoundingClientRect(),640,256,e.clientX,e.clientY);if(q)inspect(p,q.x,q.y);};
+ for(const c of blitCanvases.slice(0,4))c.onclick=e=>{const r=c.getBoundingClientRect(),scale=Math.min(r.width/c.width,r.height/c.height),bounds={left:r.left+(r.width-c.width*scale)/2,top:r.top+(r.height-c.height*scale)/2,width:c.width*scale,height:c.height*scale};const q=pixelCoordinates(bounds,c.width,c.height,e.clientX,e.clientY);if(q)inspect(0,q.x,q.y);};
+ function showPixel(p){$('pixel').replaceChildren();$('history').replaceChildren();if(p.error){message($('pixel'),p.error);return;}$('x').value=p.x;$('y').value=p.y;
+  if(mode==='blit'){field($('pixel'),'Word / bit',`${p.word} / ${p.bit}`);field($('pixel'),'A B C → D',`${p.a>>>p.bit&1} ${p.b>>>p.bit&1} ${p.c>>>p.bit&1} → ${p.d>>>p.bit&1}`);field($('pixel'),'Destination',`${hex(p.oldD)} → ${hex(p.d)}${p.written?'':' (write suppressed)'}`);for(const s of p.sources)sourceButton($('pixel'),s);}
+  else {$('panel').value=p.panel;field($('pixel'),'Pixel',`(${p.x}, ${p.y}), state at line ${p.stateLine}`);if(p.preview)$('pixel').append(el('p','Preview using frozen memory and settings.'));else field($('pixel'),'Reconstruction',p.complete?'Matches the recorded output.':'Evidence is incomplete or differs.');if(p.ham)$('pixel').append(el('p','HAM colors can also depend on preceding pixels; that chain is not expanded here.'));
+   for(const c of p.candidates){const g=el('div',undefined,'raster-candidate');g.append(el('strong',c.kind+(c.object>=0?' '+c.object:'')));if(c.object>=0)g.append(el('p',c.flags&4?'Transparent':c.flags&8?'Behind another sprite':c.flags&2?'Behind playfield':'Visible sprite'));for(const s of c.sources)sourceButton(g,s);$('pixel').append(g);}
+  }
+ }
+ function showHistory(p){$('history').replaceChildren();if(p.error){message($('history'),p.error);return;}field($('history'),'Memory',memory(p.address));field($('history'),'Reconstruction',p.complete?'Historical bytes match the sampled word.':'History is incomplete.');
+  for(const w of p.contributors||[]){const c=w.command||{},g=el('div',undefined,'raster-candidate');field(g,c.origin==='copper'?'Copper MOVE':c.origin==='blitter'?'Blitter write':c.origin==='disk'?'Disk DMA':'CPU write',`${byteText(w.before,w.size)} → ${byteText(w.after,w.size)}`);
+   if(c.origin==='copper')field(g,'Copper instruction',hex(c.copperPC,5));else if(c.origin==='blitter'&&c.copperPC)field(g,'Started by Copper',hex(c.copperPC,5));else field(g,c.origin==='blitter'?'Submission CPU PC':c.origin?'Concurrent CPU PC':'CPU PC',hex(w.pc,6));
+   if(c.origin==='blitter'&&Number.isInteger(c.blit)){const b=el('button',`Inspect blit ${c.blit+1}`);b.type='button';b.onclick=()=>{$('filter').value='all';blitFilter();blit=c.blit;setMode('blit');};g.append(b);}$('history').append(g);
+  }
+  if(!p.contributors?.length)$('history').append(el('p','These bytes were already present when this capture began.'));if(p.truncated||p.overflow)$('history').append(el('p','Writer history is truncated.'));
+  $('history').scrollIntoView({block:'nearest'});
+ }
+ function result(m){if(!capture||m.capture!==capture.id)return;
+  if((m.type==='raster-seek'||m.type==='blit-seek')&&m.request===latest){pending=false;info=m.info;if(info.error){message($('pixel'),info.error);return;}layers=m.layers;mode==='scan'?showScan(info):showBlit(info);paint();highlightChange();root.querySelector('.raster-inspector').scrollTop=0;return;}
+  if(m.request!==query||pending)return;if(m.type==='raster-pixel'||m.type==='blit-pixel')showPixel(m.evidence);else if(m.type==='source')showHistory(m.evidence);
+ }
+ $('scan').onclick=()=>setMode('scan');$('blitter').onclick=()=>{if(mode==='scan'&&blit===0)blit=capture?.raster?.blits.find(b=>b.kind==='Cookie cut')?.index||0;setMode('blit');};$('filter').onchange=()=>{blitFilter();request();};$('operation').onchange=()=>{blit=Number($('operation').value);request();};$('plane').onchange=request;$('guide').onchange=()=>{paint();highlightChange();};$('resume').onclick=resume;
+ $('inspect').onclick=()=>inspect(Number($('panel').value),Number($('x').value),Number($('y').value));
+ $('timeline').oninput=()=>{if(mode==='scan')line=Number($('timeline').value);else blit=blitIDs[Number($('timeline').value)];request();};
+ for(const b of root.querySelectorAll('[data-amiga-nav]'))b.onclick=()=>{const max=mode==='scan'?255:blitIDs.length-1,current=mode==='scan'?line:blitIDs.indexOf(blit),next=b.dataset.amigaNav==='first'?0:b.dataset.amigaNav==='last'?max:Math.max(0,Math.min(max,current+(b.dataset.amigaNav==='next'?1:-1)));if(mode==='scan')line=next;else blit=blitIDs[next];request();};
+ reset();return{reset,setCapture,result,isInspecting:()=>!!capture};
+}

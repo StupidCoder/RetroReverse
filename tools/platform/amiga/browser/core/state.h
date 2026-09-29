@@ -1,8 +1,10 @@
 #pragma once
 #include "../../../../browser/state/archive.h"
+#include "inspection.h"
 #include <memory>
 extern "C" unsigned rr_cpu_state(unsigned *, int);
 namespace rramiga {
+inline void stateFields(rrstate::Archive &a, ColorChange &c) { a(c.beam,c.index,c.value); }
 inline void stateFields(rrstate::Archive &a, CIA &c) {
   a(c.r, c.ta, c.tb, c.la, c.lb, c.tod, c.alarm, c.latch, c.pending, c.mask,
     c.todLatch, c.todStop);
@@ -29,20 +31,25 @@ inline void stateFields(rrstate::Archive &a, Machine &m) {
 }
 inline std::vector<uint8_t> save() {
   rrstate::Archive a;
-  a.header(10, 1);
+  a.header(10, 2);
   std::array<uint32_t, 61> cpu{};
   if (rr_cpu_state(cpu.data(), 0) != cpu.size())
     throw std::runtime_error("CPU state schema");
   a(cpu, *active);
+  a(active->palettePrepared,active->linePalette,active->lineColors);
   return std::move(a.bytes);
 }
 inline void restore(const uint8_t *p, size_t n) {
   rrstate::Archive a(p, n);
-  a.header(10, 1);
+  bool legacy=n>=12 && p[8]==1;
+  a.header(10, legacy?1:2);
   std::array<uint32_t, 61> cpu{};
   auto next = std::make_unique<Machine>();
   a(cpu, *next);
+  if(!legacy)a(next->palettePrepared,next->linePalette,next->lineColors);
   a.finish();
+  if(next->lineColors.size()>454)throw std::runtime_error("Invalid palette history");
+  unsigned previous=0;for(auto&c:next->lineColors){if(c.beam>454||c.index>=32||c.beam<previous)throw std::runtime_error("Invalid palette position");previous=c.beam;}
   if (next->beam >= 454 || next->line >= 312 || next->ciaClock >= 10 ||
       next->cylinder < 0 || next->cylinder > 79 || next->side < 0 ||
       next->side > 1 || next->track.size() > 6400 ||
@@ -57,5 +64,6 @@ inline void restore(const uint8_t *p, size_t n) {
   next->logging = active->logging;
   *active = std::move(*next);
   rr_cpu_state(cpu.data(), 1);
+  inspect::begin();
 }
 } // namespace rramiga
