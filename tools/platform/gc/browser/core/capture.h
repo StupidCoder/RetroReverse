@@ -1,0 +1,24 @@
+#pragma once
+#include "../../../../browser/core/replay.h"
+namespace rrgc {
+struct Copy {uint32_t dst=0,before=0,event=0;int sx=0,sy=0,w=640,h=480;std::vector<uint32_t>efb;};
+inline std::vector<Copy>copies;inline Copy shown;inline bool hasCopy=false;inline uint32_t xfb=0;
+inline std::vector<uint8_t>memory(gc_Machine*m){std::vector<uint8_t>b(rrEFBBase+640*528*4);std::memcpy(b.data(),m->RAM.p,rrEFBBase);if(m->gpu.EFB.n)std::memcpy(b.data()+rrEFBBase,m->gpu.EFB.p,std::min<int64_t>(m->gpu.EFB.n,640*528)*4);return b;}
+inline uint32_t address(int x,int y){if(x<0||y<0||x>=640||y>=480)return UINT32_MAX;return rrEFBBase+4*(std::clamp(y+shown.sy,0,527)*640+std::clamp(x+shown.sx,0,639));}
+inline std::vector<uint8_t>display(const std::vector<uint8_t>&b,bool efb){std::vector<uint8_t>out(640*480*4);auto&t=rrcapture::trace;for(int y=0;y<480;y++)for(int x=0;x<640;x++){auto o=(y*640+x)*4;if(efb){auto p=t.value(b,address(x,y),4);out[o]=p>>24;out[o+1]=p>>16;out[o+2]=p>>8;}else{auto a=xfb+(y*640+(x&~1))*2;auto p=t.value(b,a,4);auto[r,g,bl]=gc_yuv2rgb(x&1?p>>16:p,p>>8,p>>24);out[o]=r;out[o+1]=g;out[o+2]=bl;}out[o+3]=255;}return out;}
+}
+extern "C" {
+int rr_capture_begin(){try{rrCaptureMachine=machine;gc_gpu_ensureEFB(&machine->gpu);auto b=rrgc::memory(machine);rrconsole::pending=UINT32_MAX;rrcapture::trace.begin(b.data(),b.size());rrgc::copies.clear();rrgc::shown={};rrgc::hasCopy=false;
+ machine->OnGXCmd=[](gc_Machine*m,uint8_t op,Slice<uint32_t>words){auto g=&m->gpu;auto&t=rrcapture::trace;if(op==0){rrconsole::flush();t.current=0;return;}std::ostringstream s;const bool draw=(op&0x80)!=0;s<<"{\"kind\":\""<<(draw?"GX primitive":op==0x61?"GX BP register":op==8?"GX CP register":op==0x10?"GX XF registers":"GX command")<<"\",\"opcode\":"<<unsigned(op)<<",\"words\":[";for(int i=0;i<std::min<int64_t>(words.n,32);i++){if(i)s<<',';s<<words[i];}s<<"]";uint32_t resource=0;if(draw){std::vector<uint8_t>bp(256*4);for(int i=0;i<256;i++)for(int j=0;j<4;j++)bp[i*4+j]=g->BP[i]>>(8*j);resource=t.resource(bp.data(),bp.size());s<<",\"depthMode\":"<<g->BP[0x40]<<",\"blendMode\":"<<g->BP[0x41]<<",\"alphaTest\":"<<g->BP[0xf3]<<",\"TEVStages\":"<<((g->BP[0]>>10&15)+1)<<",\"registerSnapshot\":\"256 BP registers, little-endian 32-bit\"";}s<<"}";rrconsole::command(m->Instrs,m->CPU->PC,s.str(),resource);};
+ machine->OnFlip=[](gc_Machine*m){rrconsole::flush();auto&bp=m->gpu.BP;rrgc::Copy c;c.dst=gc_phys((bp[0x4b]&0xffffff)<<5);c.sx=bp[0x49]&1023;c.sy=bp[0x49]>>10&1023;c.w=(bp[0x4a]&1023)+1;c.h=(bp[0x4a]>>10&1023)+1;c.before=rrcapture::trace.writes.size();c.event=rrcapture::trace.current;c.efb.assign(m->gpu.EFB.begin(),m->gpu.EFB.end());rrgc::copies.push_back(std::move(c));};return 1;}catch(const std::exception&e){errorText=e.what();return 0;}}
+int rr_capture_end(){try{rrconsole::flush();machine->OnGXCmd={};machine->OnFlip={};rrCaptureMachine=nullptr;rrgc::xfb=gc_vi_XFBAddr(&machine->vi);for(auto&c:rrgc::copies)if(c.dst==rrgc::xfb){rrgc::shown=c;rrgc::hasCopy=true;}auto b=rrgc::memory(machine);rrcapture::trace.end(b.data(),b.size());return 1;}catch(const std::exception&e){errorText=e.what();return 0;}}
+const char*rr_capture_info(){reply=rrcapture::trace.info();reply.pop_back();reply+=",\"xfb\":"+std::to_string(rrgc::xfb)+",\"copies\":[";for(size_t i=0;i<rrgc::copies.size();i++){if(i)reply+=",";auto&c=rrgc::copies[i];reply+="{\"dst\":"+std::to_string(c.dst)+",\"before\":"+std::to_string(c.before)+"}";}reply+="]}";return reply.c_str();}
+const char*rr_pixel(int x,int y){auto&t=rrcapture::trace;auto a=rrgc::address(x,y);if(rrgc::hasCopy){uint32_t v=(a>=rrEFBBase&&(a-rrEFBBase)/4<rrgc::shown.efb.size())?rrgc::shown.efb[(a-rrEFBBase)/4]:0;reply=t.pixel(a,4,rrgc::shown.before,v);reply.pop_back();reply+=",\"displayFormat\":\"EFB RGBA, before RGB-to-YUY2 display copy\",\"displayAddress\":"+std::to_string(rrgc::xfb+(y*640+x)*2)+"}";}else reply=t.pixel(rrgc::xfb+(y*640+(x&~1))*2,4);return reply.c_str();}
+const char*rr_source(uint32_t a,int n,uint32_t before,uint32_t expected){reply=rrcapture::trace.pixel(a,n,before,expected);return reply.c_str();}
+const char*rr_resource(uint32_t id,uint32_t off){reply=rrcapture::trace.resourceJSON(id,off);return reply.c_str();}
+const char*rr_replay_begin(){rrreplay::replay.begin();reply=rrreplay::replay.info();return reply.c_str();}
+int rr_replay_seek(uint32_t n){return rrreplay::replay.seek(n);}
+const char*rr_replay_info(){reply=rrreplay::replay.info();reply.pop_back();bool efb=rrgc::hasCopy&&rrreplay::replay.writeCursor<rrgc::shown.before;reply+=efb?",\"surface\":\"Embedded framebuffer before display copy\"}":",\"surface\":\"VI display buffer (YUY2)\"}";return reply.c_str();}
+uint32_t rr_replay_for_write(uint32_t id){return rrreplay::replay.forWrite(id);}
+uint8_t*rr_replay_frame(){pixels=rrgc::display(rrreplay::replay.memory,rrgc::hasCopy&&rrreplay::replay.writeCursor<rrgc::shown.before);return pixels.data();}
+}

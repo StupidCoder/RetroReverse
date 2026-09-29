@@ -15,6 +15,8 @@
     "psp": "-O3 -msimd128",
     "gameboy": "-O3",
     "gamegear": "-O3",
-    "amiga": "-O3"
+    "amiga": "-O3",
+    "gc": "-O3 -msimd128 -fwasm-exceptions",
+    "ps2": "-O3 -msimd128 -fwasm-exceptions"
   }
 }

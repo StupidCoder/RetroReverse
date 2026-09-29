@@ -52,5 +52,19 @@
     "prompt": "Use case: product-mockup. Asset type: RetroReverse emulator landing-page console card. Create a clean museum-catalog product illustration of an original Commodore Amiga 500 computer, the complete beige wedge keyboard computer with its numeric keypad, function-key row, rear ventilation and small Amiga badge. Three-quarter elevated front-left view, entire machine comfortably within the frame. No monitor, no mouse, no cables, no disk, no people. Soft realistic studio lighting, subtle contact shadow on a uniform very pale cool gray-blue surface (#e9edf3), understated photographic 3D illustration matching a collection of vintage console portraits. Square composition, machine centered and filling about 78% of the width; leave generous empty margins above and below so a landscape card crop still shows the complete keyboard. No overlaid title, no watermark.",
     "tool": "built-in image_gen",
     "file": "site/emulators/art/amiga.png"
+  },
+  {
+    "console": "PlayStation 2",
+    "tool": "built-in image_gen",
+    "mode": "generate",
+    "file": "site/emulators/art/ps2.png",
+    "prompt": "Use case: product-mockup. Asset: square console selection card for RetroReverse educational emulator gallery. A faithful black original fat Sony PlayStation 2 console, resting horizontally, alone, three-quarter view from above showing the front and right side. Accurate stepped rectangular silhouette, characteristic horizontal ventilation ridges, disc tray, two controller ports and memory card slots. Clean realistic 3D product illustration, soft studio light, matte black textured plastic, pale cool gray background, subtle contact shadow, centered with generous even margins. Console occupies about 75 percent of image. No controller, no cable, no props, no caption or extra typography. Square image."
+  },
+  {
+    "console": "GameCube",
+    "tool": "built-in image_gen",
+    "mode": "generate",
+    "file": "site/emulators/art/gc.png",
+    "prompt": "Use case: product-mockup. Asset: square console selection card for RetroReverse educational emulator gallery. A faithful indigo Nintendo GameCube console alone, three-quarter view from above showing front and right side. Recognizable cube shape, circular gray top-loading disc lid, four controller ports across light gray front, two memory card slots below, black carrying handle peeking behind. Clean realistic 3D product illustration, soft studio light, matte indigo textured plastic, pale cool gray background, subtle contact shadow, centered with generous even margins. Console occupies about 70 percent of image. No controller, no cable, no props, no caption or extra typography. Square image."
   }
 ]

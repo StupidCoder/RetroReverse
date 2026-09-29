@@ -71,10 +71,10 @@ function readProfile() {
   return p;
 }
 function paint() {
-  const start = performance.now(), s = status();
+  const start = performance.now(), p = core._rr_frame(), s = status();
   frames = s.frames;
   const w = platform === 'c64' ? 392 : s.width || 320,
-        h = platform === 'c64' ? 272 : s.height || 240, p = core._rr_frame(),
+        h = platform === 'c64' ? 272 : s.height || 240,
         pixels = core.HEAPU8.slice(p, p + w * h * 4);
   paintMs += performance.now() - start;
   send('state', {
@@ -106,7 +106,7 @@ function applyInputs() {
   if (m.buttons !== lastButtons || m.x !== lastX || m.y !== lastY) {
     if (platform === 'c64')
       core._rr_joystick(2, m.buttons);
-    else if (platform === 'n64'||platform==='3ds'||platform==='psp')
+    else if (platform === 'n64'||platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2')
       core._rr_pad(m.buttons, m.x, m.y);
     else
       core._rr_pad(platform === 'ps1' ? (~m.buttons) & 65535 : m.buttons);
@@ -133,7 +133,7 @@ function tick(one = false) {
   else if (platform === 'n64')
     check(core._rr_run(one ? Math.min(10000, 750000 - status().steps % 750000)
                            : 10000) >= 0);
-  else if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gb'||platform==='gg'||platform==='amiga')check(core._rr_run(10000)>=0);
+  else if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='gb'||platform==='gg'||platform==='amiga')check(core._rr_run(10000)>=0);
   else
     check(core._rr_run_slice(10000));
   const ms = performance.now() - start;
@@ -168,7 +168,7 @@ async function pump(id, one = false) {
   }
   if(id===epoch){running=false;paint();send('message',{text:one?'Paused at the next display boundary.':'Paused.'});}
 }
-function coreState(){const n=core._rr_state_save();check(n);const limit=(platform==='3ds'||platform==='psp')?128:32;if(n>limit*1024*1024)throw Error(`Capture checkpoint exceeds the ${limit} MiB budget`);const p=core._rr_state_data();return core.HEAPU8.slice(p,p+n);}
+function coreState(){const n=core._rr_state_save();check(n);const limit=(platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2')?128:32;if(n>limit*1024*1024)throw Error(`Capture checkpoint exceeds the ${limit} MiB budget`);const p=core._rr_state_data();return core.HEAPU8.slice(p,p+n);}
 function cancelCapture(){
  if(capturing){core._rr_capture_end();finishCaptureProfile();capturing=false;}
  capture=null;captureGeneration++;seekGeneration++;send('capture-cleared');
@@ -190,12 +190,12 @@ async function captureNext(){
  try{
    await boundary('Finishing current interval.');
    const startState=coreState(),start=status(),input=queueState();
-   const captureStarted=core._rr_capture_begin();if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gb'||platform==='gg'||platform==='amiga')check(captureStarted);
-   const captureFields=platform==='ps1'?4:platform==='3ds'?3:platform==='ds'?2:1;
+   const captureStarted=core._rr_capture_begin();if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='gb'||platform==='gg'||platform==='amiga')check(captureStarted);
+   const captureFields=(platform==='ps1'||platform==='ps2')?4:platform==='gc'?3:platform==='3ds'?3:platform==='ds'?2:1;
    for(let field=0;field<captureFields;field++)await boundary(captureFields>1?'Recording display and double-buffer producer context.':'Recording next complete interval.');
-   const ended=core._rr_capture_end();if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gb'||platform==='gg'||platform==='amiga')check(ended);const captureProfile=finishCaptureProfile();capturing=false;
-   const endState=coreState(),end=status(),info=json('_rr_capture_info'),replay=json('_rr_replay_begin');
-   const w=platform==='c64'?392:end.width||320,h=platform==='c64'?272:end.height||240,p=core._rr_frame();
+   const ended=core._rr_capture_end();if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='gb'||platform==='gg'||platform==='amiga')check(ended);const captureProfile=finishCaptureProfile();capturing=false;
+   const p=core._rr_frame(),endState=coreState(),end=status(),info=json('_rr_capture_info'),replay=json('_rr_replay_begin');
+   const w=platform==='c64'?392:end.width||320,h=platform==='c64'?272:end.height||240;
    const pixels=core.HEAPU8.slice(p,p+w*h*4);
    // Validate visible output rather than assuming every memory space is watched.
    while(!core._rr_replay_seek(replay.count)){await sleep(0);if(id!==epoch)return;}
@@ -313,11 +313,12 @@ async function boot(m) {
     core.compatProfile =
         profile ? 'Need for Speed: VBL mirror and Cinepak movie HLE'
                 : 'Generic Portfolio boot';
-  } else if (platform === 'ps1'||platform==='psp') {
-    if (f.size > 0xffffffff)
-      throw Error('Disc exceeds 4 GiB limit');
+  } else if (platform === 'ps1'||platform==='psp'||platform==='gc'||platform==='ps2') {
+    if (f.size > (platform==='ps2'?16*1024**3:0xffffffff))
+      throw Error('Disc exceeds the supported size');
     core.discFile = f;
     check(core._rr_init_file(f.size) > 0);
+    if(platform==='ps2'){const rom=m.firmware?.[0];if(rom){if(![4,8].includes(rom.size/1048576))throw Error('PS2 BIOS must be a 4 or 8 MiB ROM image');const b=new Uint8Array(await rom.arrayBuffer());firmwareIdentity=[await digest(b)];const p=core._rr_input(b.length);check(p);core.HEAPU8.set(b,p);check(core._rr_bios(b.length));}check(core._rr_boot());}
   } else if(platform==='ds'||platform==='3ds'||platform==='gb'||platform==='gg'){
     const limit=platform==='gb'?2:platform==='gg'?4:platform==='ds'?512:1024;
     if(f.size>limit*1024*1024+(platform==='gg'?512:0))throw Error(`Cartridge exceeds ${limit} MiB`);

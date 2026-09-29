@@ -1,0 +1,141 @@
+{
+  "publicSuite": "passed including both synthetic rendering/state drivers",
+  "privateChecks": [
+    {
+      "platform": "gc",
+      "info": {
+        "events": 47351,
+        "writes": 4398815,
+        "overflow": 0,
+        "bytes": 401641388,
+        "xfb": 5744736,
+        "copies": [
+          {
+            "dst": 5744736,
+            "before": 4060895
+          }
+        ]
+      },
+      "replay": {
+        "count": 47351,
+        "cursor": 0,
+        "cacheBytes": 0,
+        "complete": true
+      },
+      "proof": {
+        "steps": 7313401702,
+        "frames": 903,
+        "pc": 1280,
+        "ram": 2252928185,
+        "rgba": 674487376
+      }
+    },
+    {
+      "pass": true,
+      "platform": "gc",
+      "explained": 208,
+      "complete": 208,
+      "stateBytes": 44703088
+    },
+    {
+      "platform": "ps2",
+      "info": {
+        "events": 97388,
+        "writes": 5271376,
+        "overflow": 0,
+        "bytes": 515822720
+      },
+      "replay": {
+        "count": 97388,
+        "cursor": 0,
+        "cacheBytes": 0,
+        "complete": true
+      },
+      "proof": {
+        "steps": 9151040578,
+        "frames": 9151,
+        "pc": 7480284,
+        "ram": 2156245310,
+        "vram": 2646949360,
+        "rgba": 2758051367
+      }
+    },
+    {
+      "pass": true,
+      "platform": "ps2",
+      "explained": 78,
+      "complete": 78,
+      "stateBytes": 42898427
+    }
+  ],
+  "browser": {
+    "surface": "in-app desktop browser",
+    "gc": "local cold boot/menu controls, restored foyer, Next frame, Reset, pause/capture/scrub/pixel/register inspection, downloaded-state round trip",
+    "ps2": "local cold boot to title with Cross prompt confirmation, Reset, restored 3D scene, pause/capture/slider/pixel/register inspection, downloaded-state round trip at field 9153"
+  },
+  "samplerSoak": {
+    "pass": true,
+    "platform": "ps2",
+    "fields": 600,
+    "budgetMiB": 512,
+    "samples": [
+      {
+        "frame": 9207,
+        "heapBytes": 193331200
+      },
+      {
+        "frame": 9267,
+        "heapBytes": 193331200
+      },
+      {
+        "frame": 9327,
+        "heapBytes": 193331200
+      },
+      {
+        "frame": 9387,
+        "heapBytes": 193331200
+      },
+      {
+        "frame": 9447,
+        "heapBytes": 193331200
+      },
+      {
+        "frame": 9507,
+        "heapBytes": 193331200
+      },
+      {
+        "frame": 9567,
+        "heapBytes": 193331200
+      },
+      {
+        "frame": 9627,
+        "heapBytes": 193331200
+      },
+      {
+        "frame": 9687,
+        "heapBytes": 193331200
+      },
+      {
+        "frame": 9747,
+        "heapBytes": 193331200
+      }
+    ],
+    "proof": {
+      "steps": 9747041466,
+      "frames": 9747,
+      "pc": 7372652,
+      "ram": 363158653,
+      "vram": 1473746860,
+      "rgba": 4285815074
+    }
+  },
+  "nativeRawDiscSmoke": {
+    "steps": 60029011,
+    "frames": 60,
+    "pc": 3000404,
+    "ram": 3372386691,
+    "vram": 123167409,
+    "rgba": 2397052357
+  },
+  "release": "ce207bc387b1188f0ab9"
+}

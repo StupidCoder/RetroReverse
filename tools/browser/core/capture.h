@@ -8,6 +8,12 @@
 #ifndef RR_CAPTURE_WRITE_CAP
 #define RR_CAPTURE_WRITE_CAP 1048576
 #endif
+#ifndef RR_CAPTURE_EVENT_CAP
+#define RR_CAPTURE_EVENT_CAP 16384
+#endif
+#ifndef RR_CAPTURE_META_CAP
+#define RR_CAPTURE_META_CAP (16 * 1024 * 1024)
+#endif
 namespace rrcapture {
 struct Event {
   uint64_t clock;
@@ -26,8 +32,8 @@ struct Write {
           flags = 0; // 1 written, 2 depth reject, 4 alpha/transparent reject, 8 repeated polygon ID, 16 stencil, 32 scissor, 64 write mask
 };
 struct Recorder {
-  static constexpr size_t WRITE_CAP = RR_CAPTURE_WRITE_CAP, EVENT_CAP = 16384,
-                          META_CAP = 16 * 1024 * 1024;
+  static constexpr size_t WRITE_CAP = RR_CAPTURE_WRITE_CAP, EVENT_CAP = RR_CAPTURE_EVENT_CAP,
+                          META_CAP = RR_CAPTURE_META_CAP;
   bool active = false, valid = false, rendering = false;
   uint32_t base = 0, current = 0, overflow = 0;
   uint32_t source = 0, palette = 0, texel = 0, sourceValue = 0,

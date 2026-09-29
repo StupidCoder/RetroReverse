@@ -86,3 +86,5 @@ The 3DO hot-path and movie playback refactor is documented in `docs/3DO-PERFORMA
 Game Boy and Game Gear ports are documented in `docs/GB-GG-PORTS.md`.
 
 The new Amiga 500 chipset model and Marble Madness/Turrican validation are documented in `docs/AMIGA-PORT.md`.
+
+The experimental PS2 and GameCube ports, rendering-capture scope, performance measurements, and reproduction commands are documented in `docs/PS2-GC-PORTS.md`.

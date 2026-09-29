@@ -8,7 +8,7 @@ for name in ['media','input','state-container','inspector','pacing']:
 for p in (root/'site/emulators').glob('*.js'):
  subprocess.run([node,'--check',str(p)],check=True)
 with tempfile.TemporaryDirectory(prefix='rr-check-') as d:
- for name in ['runtime','capture-buffer','replay','pixel-c64','pixel-ps1','pixel-n64','pixel-3do','fast-3do','pixel-ds','fast-ds','pixel-3ds','pixel-psp','fast-psp','pixel-gb','pixel-gg']:
+ for name in ['runtime','capture-buffer','replay','pixel-c64','pixel-ps1','pixel-n64','pixel-3do','fast-3do','pixel-ds','fast-ds','pixel-3ds','pixel-psp','fast-psp','pixel-gb','pixel-gg','pixel-gc','pixel-ps2']:
   out=str(Path(d)/name)
   subprocess.run([clang,'-std=c++20','-O1','-fwrapv','-ffp-contract=off','-Wno-address-of-temporary','-Wno-parentheses-equality',f'tools/browser/tests/{name}.cpp','-o',out]+(['-lz'] if name in ['pixel-psp','fast-psp','pixel-gb','pixel-gg'] else []),cwd=root,check=True)
   subprocess.run([out],cwd=root,check=True)

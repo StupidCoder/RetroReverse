@@ -1,4 +1,7 @@
 export function decodedColor(platform, value, size, format) {
+  // GameCube EFB RGB precedes a lossy YUY2 copy and is not a scanout color.
+  if(platform==='gc')return null;
+  if(platform==='ps2')return [value&255,value>>>8&255,value>>>16&255,255];
   if(platform==='psp'){
     if(format===3)return [value&255,value>>>8&255,value>>>16&255,255];
     const e5=n=>Math.floor(n*255/31),e6=n=>Math.floor(n*255/63);
@@ -16,7 +19,7 @@ export function decodedColor(platform, value, size, format) {
     if(format===4)return [(value>>>12&15)*17,(value>>>8&15)*17,(value>>>4&15)*17,255];
     return null;
   }
-  if(platform==='ds'||platform==='gb'||platform==='gg')return [value&255,value>>>8&255,value>>>16&255,value>>>24];
+  if(platform==='ds'||platform==='gb'||platform==='gg'||platform==='amiga')return [value&255,value>>>8&255,value>>>16&255,value>>>24];
   if (platform === 'ps1')
     return [
       (value & 31) << 3, ((value >>> 5) & 31) << 3, ((value >>> 10) & 31) << 3,
@@ -31,7 +34,8 @@ export function decodedColor(platform, value, size, format) {
     return size===2?[(v>>>11&31)<<3,(v>>>6&31)<<3,(v>>>1&31)<<3,255]:[value&255,value>>>8&255,value>>>16&255,255];
   return null;
 }
-export function pixelCoordinates(rect, width, height, clientX, clientY) {
+export function pixelCoordinates(rect, width, height, clientX, clientY, stretch=false) {
+  if(stretch){const x=(clientX-rect.left)*width/rect.width,y=(clientY-rect.top)*height/rect.height;return x>=0&&y>=0&&x<width&&y<height?{x:Math.floor(x),y:Math.floor(y)}:null;}
   const scale = Math.min(rect.width / width, rect.height / height);
   const x = (clientX - rect.left - (rect.width - width * scale) / 2) / scale;
   const y = (clientY - rect.top - (rect.height - height * scale) / 2) / scale;
@@ -91,7 +95,7 @@ export function createInspector({platform, canvas, send, jump}) {
     if (!capture)
       return;
     const p = pixelCoordinates(canvas.getBoundingClientRect(), capture.width,
-                               capture.height, e.clientX, e.clientY);
+                               capture.height, e.clientX, e.clientY,platform==='amiga');
     if (p)
       query(p.x, p.y);
   });
@@ -166,16 +170,16 @@ export function createInspector({platform, canvas, send, jump}) {
     line(el, 'Memory', `${hex(c.address)} (${c.size} bytes)`);
     line(el, c.drawn ? 'Stored bytes' : 'Rejected candidate',
          c.drawn ? `${hex(c.before)} → ${hex(c.after)}`
-         : c.depthRejected ? (platform==='gb'||platform==='gg'?'Background priority':'Depth test')
-         : c.idRejected && (platform==='gb'||platform==='gg') ? 'Lower object priority'
+         : c.depthRejected ? (platform==='gb'||platform==='gg'||platform==='amiga'?'Background priority':'Depth test')
+         : c.idRejected && (platform==='gb'||platform==='gg'||platform==='amiga') ? 'Lower object priority'
                            : 'Alpha / transparent texel');
-    line(el, c.event ? (platform==='gb'||platform==='gg'?'CPU PC at scanline rendering':'Submission PC') : 'Writer PC',
+    line(el, c.event ? (platform==='amiga'?'CPU PC at hardware event':platform==='gb'||platform==='gg'?'CPU PC at scanline rendering':'Submission PC') : 'Writer PC',
          hex(c.submissionPC ?? c.pc));
     line(el, 'Clock', c.clock || c.submissionClock || 0);
     if (c.event)
       line(
           el, 'Origin limit',
-          platform==='gb'||platform==='gg'?'The video hardware renders automatically. Follow source history to locate CPU writes.':'Submission does not identify the instruction that built the command data.');
+          platform==='gb'||platform==='gg'||platform==='amiga'?'The video hardware renders automatically. Follow source history to locate CPU writes.':'Submission does not identify the instruction that built the command data.');
     if (c.command?.pixc !== undefined)
       line(el, 'PIXC', hex(c.command.pixc));
     if (c.command?.otherModes)
@@ -190,6 +194,24 @@ export function createInspector({platform, canvas, send, jump}) {
       line(el,'Tile row',hex(c.sourceAddress));
       sourceButton(el,'Follow tile writes',c.sourceAddress,c.sourceBefore,c.sourceValue,platform==='gb'?2:4);
       if(c.paletteAddress)sourceButton(el,'Follow palette writes',c.paletteAddress,c.paletteBefore,c.paletteValue,platform==='gb'?1:2);
+    }
+    if(platform==='amiga'){
+      const command=c.command||{};
+      if(command.copperPC!==undefined)line(el,'Copper instruction',hex(command.copperPC));
+      if(command.scanline!==undefined)line(el,'Scanline',command.scanline);
+      if(command.kind==='Bitplane scanline'&&command.hasSource){
+        line(el,'BPLCON0',hex(command.bplcon0,4));
+        for(let p=0;p<command.planePointers.length;p++){
+          const hires=!!(command.bplcon0&0x8000),pos=(hires?c.u:Math.floor(c.u/2))-(command.fetchStart-0x38)*(hires?4:2)-((command.scroll>>(p%2?4:0))&15);
+          const word=command.planeWords[p]?.[Math.floor(pos/16)];
+          if(pos>=0&&word!==undefined)sourceButton(el,'Follow bitplane '+(p+1),(command.planePointers[p]+Math.floor(pos/16)*2)&0x7ffff,c.sourceBefore,((word&255)<<8)|(word>>8),2);
+        }
+        if(command.bplcon0&0x800)line(el,'HAM limit','This pixel may retain components from earlier pixels on the scanline.');
+      }else if(command.kind==='Sprite scanline'){
+        line(el,'Sprite',command.sprite);sourceButton(el,'Follow sprite words',c.sourceAddress,c.sourceBefore,c.sourceValue,4);
+        if(command.attached)line(el,'Attached sprite','The second sprite contributes two additional color bits.');
+      }
+      if(command.hasSource&&c.paletteAddress)sourceButton(el,'Follow palette writes',c.paletteAddress,c.paletteBefore,c.paletteValue,2);
     }
     if (platform === 'ps1' && c.event && c.command?.hasSource) {
       line(el, 'Texture/copy source', hex(c.sourceAddress));
@@ -230,6 +252,8 @@ export function createInspector({platform, canvas, send, jump}) {
       if (c.paletteAddress)
         snapshotButton(el, c, c.paletteAddress, 'Inspect captured TLUT');
     }
+    if ((platform==='gc'||platform==='ps2') && c.sourceSnapshot && c.command?.registerSnapshot)
+      snapshotButton(el, c, 0, 'Inspect captured GPU registers');
     const details = document.createElement('details'),
           summary = document.createElement('summary'),
           pre = document.createElement('pre');
@@ -315,7 +339,8 @@ export function createInspector({platform, canvas, send, jump}) {
         const reconstructed = decodedColor(platform, p.reconstructed, p.size, p.displayFormat);
         line(
             el, 'Scanout color',
-            reconstructed?.every((n, i) => n === rgba[i])
+            platform==='gc' ? 'History explains the EFB before the lossy RGB-to-YUY2 display copy; scanout color is not compared here'
+            : reconstructed?.every((n, i) => n === rgba[i])
                 ? 'Reconstructed stored bytes match the modeled display color'
                 : 'Stored-byte reconstruction does not match the displayed pixel');
       }
@@ -340,9 +365,9 @@ export function createInspector({platform, canvas, send, jump}) {
                           : `${c.id}. ${c.command?.kind || 'Memory write'}${
                                 c.drawn ? ''
                                 : c.depthRejected
-                                    ? (platform==='gb'||platform==='gg'?' · behind background':' · depth rejected')
+                                    ? (platform==='gb'||platform==='gg'||platform==='amiga'?' · behind background':' · depth rejected')
                                     : c.idRejected
-                                    ? (platform==='gb'||platform==='gg'?' · lower object priority':' · same translucent polygon ID')
+                                    ? (platform==='gb'||platform==='gg'||platform==='amiga'?' · lower object priority':' · same translucent polygon ID')
                                     : c.stencilRejected ? ' · stencil rejected'
                                     : c.scissorRejected ? ' · scissor rejected'
                                     : c.maskRejected ? ' · write masked'

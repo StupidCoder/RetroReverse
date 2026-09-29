@@ -1,4 +1,173 @@
 export const platforms = {
+
+  "ps2": {
+    "name": "PlayStation 2",
+    "accept": ".iso,.bin,.cue",
+    "hz": 60,
+    "help": "Arrows operate the D-pad. X / Z / C / V are Cross / Square / Circle / Triangle. Enter is Start, Shift is Select. Q / E are L1 / R1, 1 / 3 are L2 / R2. I J K L move the left analog stick.",
+    "compat": "Experimental Emotion Engine, IOP, VU0/VU1 and software GS, ported from the project’s Go core. Boots the disc executable with kernel HLE. Some games need a local PS2 BIOS for IOP modules; Jak and Daxter carries its own IOP image. ISO and single data-track BIN/CUE accepted. Compatibility and rendering limits inherit the Go core. Audio output, memory-card files and right-stick input are not exposed.",
+    "buttons": [
+      [
+        "↑",
+        16
+      ],
+      [
+        "↓",
+        64
+      ],
+      [
+        "←",
+        128
+      ],
+      [
+        "→",
+        32
+      ],
+      [
+        "Cross",
+        16384
+      ],
+      [
+        "Square",
+        32768
+      ],
+      [
+        "Circle",
+        8192
+      ],
+      [
+        "Triangle",
+        4096
+      ],
+      [
+        "Start",
+        8
+      ],
+      [
+        "Select",
+        1
+      ],
+      [
+        "L1",
+        1024
+      ],
+      [
+        "R1",
+        2048
+      ],
+      [
+        "L2",
+        256
+      ],
+      [
+        "R2",
+        512
+      ]
+    ],
+    "keys": {
+      "ArrowUp": 16,
+      "ArrowDown": 64,
+      "ArrowLeft": 128,
+      "ArrowRight": 32,
+      "x": 16384,
+      "z": 32768,
+      "c": 8192,
+      "v": 4096,
+      "Enter": 8,
+      "Shift": 1,
+      "q": 1024,
+      "e": 2048,
+      "i": "up",
+      "k": "down",
+      "j": "left",
+      "l": "right",
+      "1": 256,
+      "3": 512
+    }
+  },
+  "gc": {
+    "name": "Nintendo GameCube",
+    "accept": ".iso,.gcm",
+    "hz": 60,
+    "help": "Arrows move the main analog stick. X / Z are A / B, C / V are X / Y. Enter is Start, Q / E are L / R, Space is Z. I J K L operate the D-pad. Gamepads provide the main stick and D-pad separately.",
+    "compat": "Experimental Gekko, Flipper GX/TEV, DSP and devices, ported from the project’s Go core. Runs the disc’s apploader with an IPL setup substitute; no firmware required. Raw uncompressed ISO/GCM only. Compatibility, nearest-neighbor texture sampling and incomplete effects inherit the Go core. Audio output, memory-card files and C-stick input are not exposed.",
+    "buttons": [
+      [
+        "↑",
+        "up"
+      ],
+      [
+        "↓",
+        "down"
+      ],
+      [
+        "←",
+        "left"
+      ],
+      [
+        "→",
+        "right"
+      ],
+      [
+        "A",
+        256
+      ],
+      [
+        "B",
+        512
+      ],
+      [
+        "X",
+        1024
+      ],
+      [
+        "Y",
+        2048
+      ],
+      [
+        "Start",
+        4096
+      ],
+      [
+        "L",
+        64
+      ],
+      [
+        "R",
+        32
+      ],
+      [
+        "Z",
+        16
+      ]
+    ],
+    "keys": {
+      "ArrowUp": "up",
+      "ArrowDown": "down",
+      "ArrowLeft": "left",
+      "ArrowRight": "right",
+      "x": 256,
+      "z": 512,
+      "c": 1024,
+      "v": 2048,
+      "Enter": 4096,
+      "q": 64,
+      "e": 32,
+      "i": 8,
+      "k": 4,
+      "j": 1,
+      "l": 2,
+      " ": 16
+    }
+  }
+,
+  amiga: {
+    name:'Amiga 500',accept:'.adf',hz:7093790/(312*454),
+    help:'Arrows and Space control joystick port 2. Move the mouse over the display; left/right click operate the Amiga mouse. The Mouse speed control helps with Workbench, which moves more slowly than most games. Click the display to use the keyboard. Marble Madness: double-click the disk, then its game icon, then select GO. Turrican: left-click to leave the intro; Fire starts the game.',
+    compat:'Experimental PAL 68000 / OCS machine with 512 KiB chip RAM and 512 KiB slow RAM. Kickstart 1.2 loads automatically. One standard 880 KiB ADF in DF0. Marble Madness and Turrican reach gameplay using their original loaders. Copper, blitter, bitplanes, sprites, CIA timers and floppy DMA are modeled. Chipset arbitration, scanline effects and blitter timing are approximate. Disk writing, extended ADF/IPF, AGA, multi-disk swapping and audio output are not implemented.',
+    buttons:[['↑',1],['↓',2],['←',4],['→',8],['Fire',16],['Mouse left',32],['Mouse right',64]],
+    keys:{ArrowUp:1,ArrowDown:2,ArrowLeft:4,ArrowRight:8,' ':16}
+  },
   gb: {
     name:'Game Boy',accept:'.gb',hz:4194304/70224,
     help:'Arrows move. X / Z are A / B. Enter is Start and Shift is Select. Pause to inspect LCD tile, window and object rendering.',

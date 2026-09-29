@@ -1,0 +1,1199 @@
+{
+  "platform": "arm64",
+  "tests": [
+    {
+      "platform": "gc",
+      "fields": 60,
+      "ms": 38634.033417,
+      "fps": 1.5530348424246694,
+      "proof": {
+        "steps": 7775101702,
+        "frames": 960,
+        "pc": 1280,
+        "ram": 1248033418,
+        "rgba": 934521841
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "Gekko and devices",
+            "ms": 25604.9,
+            "longestMs": 54.2777,
+            "tag": 0
+          },
+          {
+            "name": "GX command processor",
+            "ms": 1474.12,
+            "longestMs": 46.5148,
+            "tag": 0
+          },
+          {
+            "name": "Vertices and transforms",
+            "ms": 2341.9,
+            "longestMs": 46.5137,
+            "tag": 0
+          },
+          {
+            "name": "TEV and software rasterizer",
+            "ms": 7719.74,
+            "longestMs": 46.5071,
+            "tag": 0
+          },
+          {
+            "name": "Pixel engine copies",
+            "ms": 142.662,
+            "longestMs": 2.00604,
+            "tag": 0
+          },
+          {
+            "name": "DSP core",
+            "ms": 1039.98,
+            "longestMs": 0.947458,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 1.77629,
+            "longestMs": 1.00004,
+            "tag": 0
+          }
+        ]
+      },
+      "variant": "baseline",
+      "repeat": 0,
+      "state": "foyer-go.state",
+      "runtime": "wasm"
+    },
+    {
+      "platform": "gc",
+      "fields": 60,
+      "ms": 38755.537375,
+      "fps": 1.5481658638722462,
+      "proof": {
+        "steps": 7775101702,
+        "frames": 960,
+        "pc": 1280,
+        "ram": 1248033418,
+        "rgba": 934521841
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "Gekko and devices",
+            "ms": 25663.3,
+            "longestMs": 97.1316,
+            "tag": 0
+          },
+          {
+            "name": "GX command processor",
+            "ms": 1503.77,
+            "longestMs": 50.5451,
+            "tag": 0
+          },
+          {
+            "name": "Vertices and transforms",
+            "ms": 2357.23,
+            "longestMs": 50.5413,
+            "tag": 0
+          },
+          {
+            "name": "TEV and software rasterizer",
+            "ms": 7761.91,
+            "longestMs": 50.5056,
+            "tag": 0
+          },
+          {
+            "name": "Pixel engine copies",
+            "ms": 141.978,
+            "longestMs": 1.96142,
+            "tag": 0
+          },
+          {
+            "name": "DSP core",
+            "ms": 1014.08,
+            "longestMs": 0.861667,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 1.74288,
+            "longestMs": 0.9625,
+            "tag": 0
+          }
+        ]
+      },
+      "variant": "baseline",
+      "repeat": 1,
+      "state": "foyer-go.state",
+      "runtime": "wasm"
+    },
+    {
+      "platform": "gc",
+      "fields": 60,
+      "ms": 16446.503166,
+      "fps": 3.6481919222828187,
+      "proof": {
+        "steps": 7775101702,
+        "frames": 960,
+        "pc": 1280,
+        "ram": 1248033418,
+        "rgba": 934521841
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "Gekko and devices",
+            "ms": 7026.56,
+            "longestMs": 78.7247,
+            "tag": 0
+          },
+          {
+            "name": "GX command processor",
+            "ms": 834.282,
+            "longestMs": 77.9444,
+            "tag": 0
+          },
+          {
+            "name": "Vertices and transforms",
+            "ms": 1143.63,
+            "longestMs": 77.9425,
+            "tag": 0
+          },
+          {
+            "name": "TEV and software rasterizer",
+            "ms": 6754.53,
+            "longestMs": 77.9185,
+            "tag": 0
+          },
+          {
+            "name": "Pixel engine copies",
+            "ms": 185.417,
+            "longestMs": 4.62358,
+            "tag": 0
+          },
+          {
+            "name": "DSP core",
+            "ms": 336.388,
+            "longestMs": 0.964125,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 1.59021,
+            "longestMs": 0.866791,
+            "tag": 0
+          }
+        ]
+      },
+      "variant": "optimized",
+      "repeat": 0,
+      "state": "foyer-go.state",
+      "runtime": "wasm"
+    },
+    {
+      "platform": "gc",
+      "fields": 60,
+      "ms": 16411.860125,
+      "fps": 3.6558927228853655,
+      "proof": {
+        "steps": 7775101702,
+        "frames": 960,
+        "pc": 1280,
+        "ram": 1248033418,
+        "rgba": 934521841
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "Gekko and devices",
+            "ms": 6908.53,
+            "longestMs": 43.6993,
+            "tag": 0
+          },
+          {
+            "name": "GX command processor",
+            "ms": 833.036,
+            "longestMs": 40.2178,
+            "tag": 0
+          },
+          {
+            "name": "Vertices and transforms",
+            "ms": 1145.41,
+            "longestMs": 40.217,
+            "tag": 0
+          },
+          {
+            "name": "TEV and software rasterizer",
+            "ms": 6836.73,
+            "longestMs": 40.2128,
+            "tag": 0
+          },
+          {
+            "name": "Pixel engine copies",
+            "ms": 181.448,
+            "longestMs": 2.48954,
+            "tag": 0
+          },
+          {
+            "name": "DSP core",
+            "ms": 337.537,
+            "longestMs": 0.956333,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 1.59721,
+            "longestMs": 0.834667,
+            "tag": 0
+          }
+        ]
+      },
+      "variant": "optimized",
+      "repeat": 1,
+      "state": "foyer-go.state",
+      "runtime": "wasm"
+    },
+    {
+      "platform": "gc",
+      "state": "foyer-go.state",
+      "runtime": "native",
+      "variant": "optimized",
+      "seconds": 12.0907,
+      "proof": {
+        "steps": 7775101702,
+        "frames": 960,
+        "pc": 1280,
+        "ram": 1248033418,
+        "rgba": 934521841
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "Gekko and devices",
+            "ms": 4905.31,
+            "longestMs": 57.7076,
+            "tag": 0
+          },
+          {
+            "name": "GX command processor",
+            "ms": 426.779,
+            "longestMs": 50.0169,
+            "tag": 0
+          },
+          {
+            "name": "Vertices and transforms",
+            "ms": 679.035,
+            "longestMs": 36.8251,
+            "tag": 0
+          },
+          {
+            "name": "TEV and software rasterizer",
+            "ms": 5587.43,
+            "longestMs": 36.8225,
+            "tag": 0
+          },
+          {
+            "name": "Pixel engine copies",
+            "ms": 120.547,
+            "longestMs": 1.09212,
+            "tag": 0
+          },
+          {
+            "name": "DSP core",
+            "ms": 340.624,
+            "longestMs": 0.0355,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 1.24121,
+            "longestMs": 0.121041,
+            "tag": 0
+          }
+        ]
+      }
+    },
+    {
+      "platform": "ps2",
+      "fields": 60,
+      "ms": 10428.750375,
+      "fps": 5.753325934795903,
+      "proof": {
+        "steps": 1125025907,
+        "frames": 1124,
+        "pc": 1193996,
+        "ram": 3981303189,
+        "vram": 3545911283,
+        "rgba": 1503332011
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "EE / IOP and scheduler",
+            "ms": 7298.02,
+            "longestMs": 74.3728,
+            "tag": 0
+          },
+          {
+            "name": "Vector units",
+            "ms": 1223.94,
+            "longestMs": 11.2435,
+            "tag": 0
+          },
+          {
+            "name": "VIF / DMA",
+            "ms": 183.568,
+            "longestMs": 11.2618,
+            "tag": 0
+          },
+          {
+            "name": "GS software rasterizer",
+            "ms": 1665.83,
+            "longestMs": 3.698,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 0.581917,
+            "longestMs": 0.12225,
+            "tag": 0
+          },
+          {
+            "name": "GS scanout",
+            "ms": 0.735875,
+            "longestMs": 0.735875,
+            "tag": 0
+          }
+        ]
+      },
+      "variant": "baseline",
+      "repeat": 0,
+      "state": "title-go.state",
+      "runtime": "wasm"
+    },
+    {
+      "platform": "ps2",
+      "fields": 60,
+      "ms": 10581.638,
+      "fps": 5.670199642059197,
+      "proof": {
+        "steps": 1125025907,
+        "frames": 1124,
+        "pc": 1193996,
+        "ram": 3981303189,
+        "vram": 3545911283,
+        "rgba": 1503332011
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "EE / IOP and scheduler",
+            "ms": 7445.77,
+            "longestMs": 73.3037,
+            "tag": 0
+          },
+          {
+            "name": "Vector units",
+            "ms": 1227.12,
+            "longestMs": 11.1745,
+            "tag": 0
+          },
+          {
+            "name": "VIF / DMA",
+            "ms": 188.605,
+            "longestMs": 11.1955,
+            "tag": 0
+          },
+          {
+            "name": "GS software rasterizer",
+            "ms": 1660.34,
+            "longestMs": 3.69529,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 0.561126,
+            "longestMs": 0.116292,
+            "tag": 0
+          },
+          {
+            "name": "GS scanout",
+            "ms": 0.684084,
+            "longestMs": 0.684084,
+            "tag": 0
+          }
+        ]
+      },
+      "variant": "baseline",
+      "repeat": 1,
+      "state": "title-go.state",
+      "runtime": "wasm"
+    },
+    {
+      "platform": "ps2",
+      "fields": 60,
+      "ms": 4349.792417,
+      "fps": 13.793761689754678,
+      "proof": {
+        "steps": 1125025907,
+        "frames": 1124,
+        "pc": 1193996,
+        "ram": 3981303189,
+        "vram": 3545911283,
+        "rgba": 1503332011
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "EE / IOP and scheduler",
+            "ms": 2241.87,
+            "longestMs": 49.4655,
+            "tag": 0
+          },
+          {
+            "name": "Vector units",
+            "ms": 583.268,
+            "longestMs": 9.39221,
+            "tag": 0
+          },
+          {
+            "name": "VIF / DMA",
+            "ms": 84.8653,
+            "longestMs": 9.40546,
+            "tag": 0
+          },
+          {
+            "name": "GS software rasterizer",
+            "ms": 1412.09,
+            "longestMs": 4.16933,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 1.21608,
+            "longestMs": 0.78225,
+            "tag": 0
+          },
+          {
+            "name": "GS scanout",
+            "ms": 0.686875,
+            "longestMs": 0.686875,
+            "tag": 0
+          }
+        ]
+      },
+      "variant": "before_sampler_lifetime_fix",
+      "repeat": 0,
+      "state": "title-go.state",
+      "runtime": "wasm"
+    },
+    {
+      "platform": "ps2",
+      "fields": 60,
+      "ms": 4363.65575,
+      "fps": 13.749938913031809,
+      "proof": {
+        "steps": 1125025907,
+        "frames": 1124,
+        "pc": 1193996,
+        "ram": 3981303189,
+        "vram": 3545911283,
+        "rgba": 1503332011
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "EE / IOP and scheduler",
+            "ms": 2256.34,
+            "longestMs": 49.637,
+            "tag": 0
+          },
+          {
+            "name": "Vector units",
+            "ms": 585.066,
+            "longestMs": 9.48529,
+            "tag": 0
+          },
+          {
+            "name": "VIF / DMA",
+            "ms": 85.5682,
+            "longestMs": 9.50113,
+            "tag": 0
+          },
+          {
+            "name": "GS software rasterizer",
+            "ms": 1408.2,
+            "longestMs": 4.15342,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 1.2185,
+            "longestMs": 0.813625,
+            "tag": 0
+          },
+          {
+            "name": "GS scanout",
+            "ms": 0.684084,
+            "longestMs": 0.684084,
+            "tag": 0
+          }
+        ]
+      },
+      "variant": "before_sampler_lifetime_fix",
+      "repeat": 1,
+      "state": "title-go.state",
+      "runtime": "wasm"
+    },
+    {
+      "platform": "ps2",
+      "state": "title-go.state",
+      "runtime": "native",
+      "variant": "before_sampler_lifetime_fix",
+      "seconds": 3.27164,
+      "proof": {
+        "steps": 1125025907,
+        "frames": 1124,
+        "pc": 1193996,
+        "ram": 3981303189,
+        "vram": 3545911283,
+        "rgba": 1503332011
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "EE / IOP and scheduler",
+            "ms": 1645.56,
+            "longestMs": 60.2396,
+            "tag": 0
+          },
+          {
+            "name": "Vector units",
+            "ms": 380.541,
+            "longestMs": 11.8566,
+            "tag": 0
+          },
+          {
+            "name": "VIF / DMA",
+            "ms": 44.3474,
+            "longestMs": 11.863,
+            "tag": 0
+          },
+          {
+            "name": "GS software rasterizer",
+            "ms": 1161.63,
+            "longestMs": 3.84154,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 0.361501,
+            "longestMs": 0.046083,
+            "tag": 0
+          },
+          {
+            "name": "GS scanout",
+            "ms": 0.277792,
+            "longestMs": 0.277792,
+            "tag": 0
+          }
+        ]
+      }
+    },
+    {
+      "platform": "ps2",
+      "fields": 60,
+      "ms": 31094.438083,
+      "fps": 1.929605540381297,
+      "proof": {
+        "steps": 9207040578,
+        "frames": 9207,
+        "pc": 7480480,
+        "ram": 3069613019,
+        "vram": 2959245253,
+        "rgba": 2692625148
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "EE / IOP and scheduler",
+            "ms": 9109.67,
+            "longestMs": 808.007,
+            "tag": 0
+          },
+          {
+            "name": "Vector units",
+            "ms": 14354.4,
+            "longestMs": 19.946,
+            "tag": 0
+          },
+          {
+            "name": "VIF / DMA",
+            "ms": 1046.8,
+            "longestMs": 19.9702,
+            "tag": 0
+          },
+          {
+            "name": "GS transfers",
+            "ms": 52.2625,
+            "longestMs": 0.301584,
+            "tag": 0
+          },
+          {
+            "name": "GS software rasterizer",
+            "ms": 6470.35,
+            "longestMs": 3.77358,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 1.55629,
+            "longestMs": 0.957792,
+            "tag": 0
+          },
+          {
+            "name": "GS scanout",
+            "ms": 0.716916,
+            "longestMs": 0.716916,
+            "tag": 0
+          }
+        ]
+      },
+      "variant": "baseline",
+      "repeat": 0,
+      "state": "gameplay-go.state",
+      "runtime": "wasm"
+    },
+    {
+      "platform": "ps2",
+      "fields": 60,
+      "ms": 31151.093249999998,
+      "fps": 1.926096125053332,
+      "proof": {
+        "steps": 9207040578,
+        "frames": 9207,
+        "pc": 7480480,
+        "ram": 3069613019,
+        "vram": 2959245253,
+        "rgba": 2692625148
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "EE / IOP and scheduler",
+            "ms": 9010.95,
+            "longestMs": 855.869,
+            "tag": 0
+          },
+          {
+            "name": "Vector units",
+            "ms": 14546.3,
+            "longestMs": 18.926,
+            "tag": 0
+          },
+          {
+            "name": "VIF / DMA",
+            "ms": 1051.66,
+            "longestMs": 18.9288,
+            "tag": 0
+          },
+          {
+            "name": "GS transfers",
+            "ms": 52.9496,
+            "longestMs": 0.308292,
+            "tag": 0
+          },
+          {
+            "name": "GS software rasterizer",
+            "ms": 6432.01,
+            "longestMs": 3.75917,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 0.678459,
+            "longestMs": 0.142791,
+            "tag": 0
+          },
+          {
+            "name": "GS scanout",
+            "ms": 0.71725,
+            "longestMs": 0.71725,
+            "tag": 0
+          }
+        ]
+      },
+      "variant": "baseline",
+      "repeat": 1,
+      "state": "gameplay-go.state",
+      "runtime": "wasm"
+    },
+    {
+      "platform": "ps2",
+      "fields": 60,
+      "ms": 15601.349250000001,
+      "fps": 3.845821219597401,
+      "proof": {
+        "steps": 9207040578,
+        "frames": 9207,
+        "pc": 7480480,
+        "ram": 3069613019,
+        "vram": 2959245253,
+        "rgba": 2692625148
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "EE / IOP and scheduler",
+            "ms": 3215.24,
+            "longestMs": 473.141,
+            "tag": 0
+          },
+          {
+            "name": "Vector units",
+            "ms": 6155.38,
+            "longestMs": 14.4555,
+            "tag": 0
+          },
+          {
+            "name": "VIF / DMA",
+            "ms": 442.354,
+            "longestMs": 15.5783,
+            "tag": 0
+          },
+          {
+            "name": "GS transfers",
+            "ms": 14.2024,
+            "longestMs": 0.23525,
+            "tag": 0
+          },
+          {
+            "name": "GS software rasterizer",
+            "ms": 5745.12,
+            "longestMs": 4.90679,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 1.33346,
+            "longestMs": 0.849917,
+            "tag": 0
+          },
+          {
+            "name": "GS scanout",
+            "ms": 0.687,
+            "longestMs": 0.687,
+            "tag": 0
+          }
+        ]
+      },
+      "variant": "before_sampler_lifetime_fix",
+      "repeat": 0,
+      "state": "gameplay-go.state",
+      "runtime": "wasm"
+    },
+    {
+      "platform": "ps2",
+      "fields": 60,
+      "ms": 15708.838375,
+      "fps": 3.819505845542828,
+      "proof": {
+        "steps": 9207040578,
+        "frames": 9207,
+        "pc": 7480480,
+        "ram": 3069613019,
+        "vram": 2959245253,
+        "rgba": 2692625148
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "EE / IOP and scheduler",
+            "ms": 3187.64,
+            "longestMs": 469.964,
+            "tag": 0
+          },
+          {
+            "name": "Vector units",
+            "ms": 6269.03,
+            "longestMs": 13.1705,
+            "tag": 0
+          },
+          {
+            "name": "VIF / DMA",
+            "ms": 453.38,
+            "longestMs": 14.2487,
+            "tag": 0
+          },
+          {
+            "name": "GS transfers",
+            "ms": 14.3216,
+            "longestMs": 0.158667,
+            "tag": 0
+          },
+          {
+            "name": "GS software rasterizer",
+            "ms": 5754.67,
+            "longestMs": 4.65579,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 1.29092,
+            "longestMs": 0.786125,
+            "tag": 0
+          },
+          {
+            "name": "GS scanout",
+            "ms": 0.7145,
+            "longestMs": 0.7145,
+            "tag": 0
+          }
+        ]
+      },
+      "variant": "before_sampler_lifetime_fix",
+      "repeat": 1,
+      "state": "gameplay-go.state",
+      "runtime": "wasm"
+    },
+    {
+      "platform": "ps2",
+      "fields": 60,
+      "ms": 4372.590042,
+      "fps": 13.721844358534081,
+      "heapBytes": 193331200,
+      "proof": {
+        "steps": 1125025907,
+        "frames": 1124,
+        "pc": 1193996,
+        "ram": 3981303189,
+        "vram": 3545911283,
+        "rgba": 1503332011
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "EE / IOP and scheduler",
+            "ms": 2264.94,
+            "longestMs": 50.5305,
+            "tag": 0
+          },
+          {
+            "name": "Vector units",
+            "ms": 579.486,
+            "longestMs": 9.90292,
+            "tag": 0
+          },
+          {
+            "name": "VIF / DMA",
+            "ms": 86.2364,
+            "longestMs": 9.9155,
+            "tag": 0
+          },
+          {
+            "name": "GS software rasterizer",
+            "ms": 1412.05,
+            "longestMs": 4.11692,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 1.22204,
+            "longestMs": 0.817666,
+            "tag": 0
+          },
+          {
+            "name": "GS scanout",
+            "ms": 0.659084,
+            "longestMs": 0.659084,
+            "tag": 0
+          }
+        ]
+      },
+      "variant": "optimized",
+      "repeat": 0,
+      "state": "title-go.state",
+      "runtime": "wasm"
+    },
+    {
+      "platform": "ps2",
+      "fields": 60,
+      "ms": 4336.3836249999995,
+      "fps": 13.836414207933462,
+      "heapBytes": 193331200,
+      "proof": {
+        "steps": 1125025907,
+        "frames": 1124,
+        "pc": 1193996,
+        "ram": 3981303189,
+        "vram": 3545911283,
+        "rgba": 1503332011
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "EE / IOP and scheduler",
+            "ms": 2254.32,
+            "longestMs": 49.0619,
+            "tag": 0
+          },
+          {
+            "name": "Vector units",
+            "ms": 578.646,
+            "longestMs": 9.018,
+            "tag": 0
+          },
+          {
+            "name": "VIF / DMA",
+            "ms": 85.3364,
+            "longestMs": 9.03046,
+            "tag": 0
+          },
+          {
+            "name": "GS software rasterizer",
+            "ms": 1389.93,
+            "longestMs": 4.20379,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 1.18492,
+            "longestMs": 0.802583,
+            "tag": 0
+          },
+          {
+            "name": "GS scanout",
+            "ms": 0.671417,
+            "longestMs": 0.671417,
+            "tag": 0
+          }
+        ]
+      },
+      "variant": "optimized",
+      "repeat": 1,
+      "state": "title-go.state",
+      "runtime": "wasm"
+    },
+    {
+      "platform": "ps2",
+      "state": "title-go.state",
+      "runtime": "native",
+      "variant": "optimized",
+      "seconds": 3.28079,
+      "proof": {
+        "steps": 1125025907,
+        "frames": 1124,
+        "pc": 1193996,
+        "ram": 3981303189,
+        "vram": 3545911283,
+        "rgba": 1503332011
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "EE / IOP and scheduler",
+            "ms": 1681.13,
+            "longestMs": 32.2178,
+            "tag": 0
+          },
+          {
+            "name": "Vector units",
+            "ms": 373.685,
+            "longestMs": 5.55533,
+            "tag": 0
+          },
+          {
+            "name": "VIF / DMA",
+            "ms": 44.4843,
+            "longestMs": 5.55788,
+            "tag": 0
+          },
+          {
+            "name": "GS software rasterizer",
+            "ms": 1141.95,
+            "longestMs": 2.04742,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 1.00596,
+            "longestMs": 0.155375,
+            "tag": 0
+          },
+          {
+            "name": "GS scanout",
+            "ms": 0.254416,
+            "longestMs": 0.254416,
+            "tag": 0
+          }
+        ]
+      }
+    },
+    {
+      "platform": "ps2",
+      "fields": 60,
+      "ms": 15827.256542,
+      "fps": 3.7909286325637677,
+      "heapBytes": 193331200,
+      "proof": {
+        "steps": 9207040578,
+        "frames": 9207,
+        "pc": 7480480,
+        "ram": 3069613019,
+        "vram": 2959245253,
+        "rgba": 2692625148
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "EE / IOP and scheduler",
+            "ms": 3236.67,
+            "longestMs": 476.625,
+            "tag": 0
+          },
+          {
+            "name": "Vector units",
+            "ms": 6332.47,
+            "longestMs": 12.8582,
+            "tag": 0
+          },
+          {
+            "name": "VIF / DMA",
+            "ms": 448.927,
+            "longestMs": 12.8624,
+            "tag": 0
+          },
+          {
+            "name": "GS transfers",
+            "ms": 14.2858,
+            "longestMs": 0.174292,
+            "tag": 0
+          },
+          {
+            "name": "GS software rasterizer",
+            "ms": 5765.39,
+            "longestMs": 4.40608,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 1.26258,
+            "longestMs": 0.7715,
+            "tag": 0
+          },
+          {
+            "name": "GS scanout",
+            "ms": 0.683834,
+            "longestMs": 0.683834,
+            "tag": 0
+          }
+        ]
+      },
+      "variant": "optimized",
+      "repeat": 0,
+      "state": "gameplay-go.state",
+      "runtime": "wasm"
+    },
+    {
+      "platform": "ps2",
+      "fields": 60,
+      "ms": 15812.562167,
+      "fps": 3.7944514852385467,
+      "heapBytes": 193331200,
+      "proof": {
+        "steps": 9207040578,
+        "frames": 9207,
+        "pc": 7480480,
+        "ram": 3069613019,
+        "vram": 2959245253,
+        "rgba": 2692625148
+      },
+      "profile": {
+        "sampled": false,
+        "buckets": [
+          {
+            "name": "EE / IOP and scheduler",
+            "ms": 3240.92,
+            "longestMs": 491.246,
+            "tag": 0
+          },
+          {
+            "name": "Vector units",
+            "ms": 6292.97,
+            "longestMs": 12.995,
+            "tag": 0
+          },
+          {
+            "name": "VIF / DMA",
+            "ms": 450.965,
+            "longestMs": 12.9992,
+            "tag": 0
+          },
+          {
+            "name": "GS transfers",
+            "ms": 14.1958,
+            "longestMs": 0.165333,
+            "tag": 0
+          },
+          {
+            "name": "GS software rasterizer",
+            "ms": 5783.34,
+            "longestMs": 8.07679,
+            "tag": 0
+          },
+          {
+            "name": "Disc file reads",
+            "ms": 1.26071,
+            "longestMs": 0.729958,
+            "tag": 0
+          },
+          {
+            "name": "GS scanout",
+            "ms": 0.714583,
+            "longestMs": 0.714583,
+            "tag": 0
+          }
+        ]
+      },
+      "variant": "optimized",
+      "repeat": 1,
+      "state": "gameplay-go.state",
+      "runtime": "wasm"
+    }
+  ],
+  "date": "2026-09-29",
+  "host": "macOS arm64, user MacBook",
+  "node": "v24.19.0",
+  "emscripten": "4.0.16",
+  "method": "Sequential fresh-process runs, capture off, 60 video fields, 10000-instruction host slices; native wall time includes final proof scan.",
+  "binarySHA256": {
+    "gc/baseline": "a3b93afc1fefdc2f92ca42c89e787179de262ee9a4fda0482a21bec09feeeb1e",
+    "gc/optimized": "1cc2cbfd910a1f51abcbecb00337f545224ae83c7bd1a39f0bda591ab28eddb6",
+    "ps2/baseline": "dd854be1bb579131028e77397eaf8ac88d592bfc50feab85f0c315cd0fc4ae34",
+    "ps2/optimized": "317836f5f08a5305d5fe10de16829b12956b47dd99035250271b7ba4e414160f",
+    "ps2/before_sampler_lifetime_fix": "4f689154ab7b83d2327bb77e160a7f8b5595d810124a1ade37e3bb5759d504f2"
+  },
+  "publishedBinarySHA256": {
+    "gc": "1cc2cbfd910a1f51abcbecb00337f545224ae83c7bd1a39f0bda591ab28eddb6",
+    "ps2": "7c32cf3ef6a56972d02b8fac29eda8aae37a6e946277689ab10457043297fd85"
+  },
+  "postMeasurementChange": "PS2 transfer-register metadata now uses hexadecimal strings to preserve all 64 bits in JavaScript; uncaptured execution is unchanged."
+}
