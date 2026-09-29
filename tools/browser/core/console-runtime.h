@@ -25,7 +25,9 @@ inline std::tuple<int64_t,Error>go_strconv_ParseInt(std::string s,int b,int){try
 template<class...A>void go_fmt_Printf(std::string,A...){ }
 template<class...A>void go_fmt_Println(A...){ }
 
+#ifndef RR_OS_FILE_DEFINED
 struct os_File{};
+#endif
 inline os_File*go_os_Stderr=nullptr;
 template<class...A>void go_fmt_Fprintf(os_File*,std::string,A...){ }
 template<class...A>void go_fmt_Fprintln(os_File*,A...){ }

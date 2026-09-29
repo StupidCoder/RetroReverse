@@ -19,6 +19,8 @@
     "gc": "-O3 -msimd128 -fwasm-exceptions",
     "ps2": "-O3 -msimd128 -fwasm-exceptions",
     "gba": "-O3 -msimd128 -fwasm-exceptions",
-    "dc": "-O3 -msimd128 -fwasm-exceptions"
+    "dc": "-O3 -msimd128 -fwasm-exceptions",
+    "dos": "-O3 -msimd128 -fwasm-exceptions",
+    "xbox": "-O3 -msimd128 -fwasm-exceptions"
   }
 }

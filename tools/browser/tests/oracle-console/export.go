@@ -132,7 +132,7 @@ func (e *exporter) value(v reflect.Value) {
 				e.u(0, 8)
 				continue
 			}
-			fv := v.FieldByName(f)
+			fv := v.FieldByName(strings.TrimSuffix(f, "_"))
 			if !fv.IsValid() {
 				panic(name + " missing " + f)
 			}
@@ -170,6 +170,10 @@ func exportState(platform, path string, m any) {
 		id = 13
 		version = 1
 	}
+	if platform == "xbox" {
+		id = 16
+		version = 1
+	}
 	if platform == "dc" {
 		id = 14
 		version = 1
@@ -183,6 +187,9 @@ func exportState(platform, path string, m any) {
 	if platform == "ps2" {
 		names = []string{"ram"}
 	}
+	if platform == "xbox" {
+		names = []string{"RAM"}
+	}
 	if platform == "gba" || platform == "dc" {
 		names = nil
 	}
@@ -191,6 +198,9 @@ func exportState(platform, path string, m any) {
 		for i := 0; i < s.Len(); i++ {
 			e.b = append(e.b, byte(s.Index(i).Uint()))
 		}
+	}
+	if platform == "xbox" {
+		e.u(0, 8)
 	}
 	if err = os.WriteFile(path, e.b, 0600); err != nil {
 		panic(err)

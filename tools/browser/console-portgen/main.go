@@ -63,6 +63,12 @@ var platform = "gc"
 
 func selected(dir, n string) bool {
 	switch filepath.Base(dir) {
+	case "x86":
+		return n == "cpu.go" || n == "exec.go" || n == "exec2.go" || n == "fpuexec.go" || n == "sse.go" || n == "mmxint.go"
+	case "dos":
+		return n != "dos_state.go" && n != "go32_state.go"
+	case "xbox":
+		return n != "state.go"
 	case "arm":
 		return n != "disasm.go"
 	case "sh4":
@@ -107,7 +113,7 @@ func must(e error) {
 }
 func id(s string) string {
 	switch s {
-	case "sub", "new", "delete", "template", "typename", "operator", "register", "signed", "unsigned", "not", "and", "or", "xor", "default", "class", "union", "short", "long", "int", "float", "double", "auto", "switch", "case", "this", "char", "bool", "private", "public", "virtual":
+	case "do", "inline", "sub", "new", "delete", "template", "typename", "operator", "register", "signed", "unsigned", "not", "and", "or", "xor", "default", "class", "union", "short", "long", "int", "float", "double", "auto", "switch", "case", "this", "char", "bool", "private", "public", "virtual":
 		return s + "_"
 	}
 	return s
@@ -178,8 +184,17 @@ func typ(t types.Type) string {
 		return "Map<" + typ(t.Key()) + "," + typ(t.Elem()) + ">"
 	case *types.Named:
 		if _, ok := t.Underlying().(*types.Interface); ok {
+			if t.Obj().Name() == "usbDevice" && platform == "xbox" {
+				return "xbox_xidDevice*"
+			}
 			if t.Obj().Name() == "error" {
 				return "Error"
+			}
+			if t.Obj().Pkg() != nil && t.Obj().Pkg().Name() == "x86" {
+				return "RRX86Bus"
+			}
+			if t.Obj().Pkg() != nil && t.Obj().Pkg().Path() == "io/fs" {
+				return "RRFileInfo"
 			}
 			if t.Obj().Pkg() != nil && t.Obj().Pkg().Path() == "hash" {
 				return "SHA1*"
@@ -274,10 +289,19 @@ func (g *gen) e(e ast.Expr) string {
 	}
 	// Go evaluates constant expressions at arbitrary precision before conversion.
 	// In particular uint16(0x3fe00/8) must not truncate the numerator first.
+	if tv := g.u.info.Types[e]; tv.Value != nil && tv.Value.Kind() == constant.Float && (platform == "xbox" || platform == "dos") {
+		v, _ := constant.Float64Val(tv.Value)
+		return "cast<" + typ(tv.Type) + ">(" + fmt.Sprintf("%.17e", v) + ")"
+	}
 	if tv := g.u.info.Types[e]; tv.Value != nil && tv.Value.Kind() == constant.Int {
 		return "cast<" + typ(tv.Type) + ">(" + tv.Value.ExactString() + "ULL)"
 	}
 	switch x := e.(type) {
+	case *ast.TypeAssertExpr:
+		if platform == "xbox" && typ(g.t(x.X)) == "xbox_xidDevice*" {
+			return "std::make_tuple(" + g.e(x.X) + "," + g.e(x.X) + "!=nullptr)"
+		}
+		panic("unsupported type assertion")
 	case *ast.ArrayType, *ast.MapType, *ast.StructType:
 		return typ(g.t(e))
 	case *ast.Ident:
@@ -408,7 +432,7 @@ func (g *gen) e(e ast.Expr) string {
 		if g.function == "" {
 			capture = "[]"
 		}
-		if g.function == "psp_handlerFor" {
+		if g.function == "psp_handlerFor" || strings.HasPrefix(g.function, "xbox_kernel") {
 			capture = "[=]"
 		}
 		return capture + "(" + params(s.Params()) + ")->" + ret(s.Results()) + body
@@ -458,6 +482,25 @@ func (g *gen) call(x *ast.CallExpr) string {
 		if _, isInterface := elem.Underlying().(*types.Interface); !isInterface {
 			n := sig.Params().Len() - 1
 			a = append(a[:n], typ(sig.Params().At(n).Type())+"{"+strings.Join(a[n:], ",")+"}")
+		}
+	}
+	// File-open constants differ between the generator host OSes. Normalize them
+	// to the portable virtual filesystem flags before folding Go constants.
+	if sel, ok := x.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "OpenFile" && len(a) == 3 {
+		if obj := g.obj(sel.Sel); obj.Pkg() != nil && obj.Pkg().Path() == "os" {
+			v, _ := constant.Int64Val(g.u.info.Types[x.Args[1]].Value)
+			flags := v & 3
+			for _, f := range []struct {
+				name string
+				bit  int64
+			}{{"O_CREATE", 64}, {"O_TRUNC", 512}, {"O_APPEND", 1024}} {
+				c := obj.Pkg().Scope().Lookup(f.name).(*types.Const)
+				bit, _ := constant.Int64Val(c.Val())
+				if v&bit != 0 {
+					flags |= f.bit
+				}
+			}
+			a[1] = fmt.Sprint(flags)
 		}
 	}
 	join := strings.Join(a, ",")
@@ -515,7 +558,13 @@ func (g *gen) call(x *ast.CallExpr) string {
 				return prefix + s.Sel.Name + "(" + join + ")"
 			}
 			if _, ok := recv.Underlying().(*types.Interface); ok {
-				if typ(g.t(s.X)) == "vu_VU*" {
+				if typ(g.t(s.X)) == "xbox_xidDevice*" {
+					name = "xbox_xidDevice_" + s.Sel.Name
+				} else if typ(g.t(s.X)) == "RRX86Bus" {
+					name = "rrBus_" + s.Sel.Name
+				} else if typ(g.t(s.X)) == "RRFileInfo" {
+					name = "rrFileInfo_" + s.Sel.Name
+				} else if typ(g.t(s.X)) == "vu_VU*" {
 					name = "vu_VU_" + s.Sel.Name
 				} else if typ(g.t(s.X)) == "RRNullGTE*" {
 					name = "rrGTE_" + s.Sel.Name
@@ -669,6 +718,19 @@ func (g *gen) assign(x *ast.AssignStmt) string {
 		}
 		l := g.lhs(x.Lhs[0])
 		if x.Tok == token.DEFINE {
+			// Go's short declaration starts its scope after the initializer. C++
+			// starts earlier: `ord = ord` would read an uninitialized new variable.
+			shadow := false
+			ast.Inspect(x.Rhs[0], func(n ast.Node) bool {
+				if r, ok := n.(*ast.Ident); ok && r.Name == x.Lhs[0].(*ast.Ident).Name && g.u.info.Uses[r] != nil {
+					shadow = true
+				}
+				return true
+			})
+			if shadow {
+				t := g.tmp()
+				return "auto " + t + " = " + g.e(x.Rhs[0]) + ";\n" + typ(g.t(x.Lhs[0])) + " " + l + " = " + t + ";\n"
+			}
 			if _, ok := x.Rhs[0].(*ast.FuncLit); ok {
 				return "auto " + l + " = " + g.e(x.Rhs[0]) + ";\n"
 			}
@@ -727,6 +789,20 @@ func (g *gen) st(s ast.Stmt) string {
 			if idx, ok := lhs.(*ast.IndexExpr); ok {
 				target := g.e(idx.X)
 				at := g.e(idx.Index)
+				if platform == "xbox" && (target == "m->RAM" || target == "g->m->RAM" || target == "ram") {
+					owner := "m"
+					if strings.HasPrefix(g.function, "xbox_pgraph_") {
+						owner = "g->m"
+					}
+					if target != "ram" || strings.HasPrefix(g.function, "xbox_pgraph_") {
+						out += "if(rrcapture::trace.active)rrXboxWrite(" + owner + "," + target + "," + at + ");\n"
+					}
+				}
+				if platform == "dos" {
+					if strings.HasPrefix(target, "v->planes") || target == "m->io->Pal" || target == "io->Pal" || target == "p->Pal" || target == "p->Mem" || target == "v->crtc" || target == "v->seq" {
+						out += "if(rrcapture::trace.active)rrDOSWrite(&(" + g.lhs(lhs) + "));\n"
+					}
+				}
 				if platform == "dc" {
 					owner := "m"
 					if target == "st->m->VRAM" {
@@ -797,6 +873,11 @@ func (g *gen) st(s ast.Stmt) string {
 		g.breaks = append(g.breaks, "")
 		defer func() { g.breaks = g.breaks[:len(g.breaks)-1] }()
 		r := g.e(x.X)
+		if p, ok := g.t(x.X).(*types.Pointer); ok {
+			if _, ok := p.Elem().Underlying().(*types.Array); ok {
+				r = "*(" + r + ")"
+			}
+		}
 		v := g.tmp()
 		out := "{auto&& " + v + " = " + r + ";\n"
 		if _, ok := g.t(x.X).Underlying().(*types.Map); ok {
@@ -982,6 +1063,8 @@ func (g *gen) decl(d *ast.GenDecl, global bool) string {
 }
 
 var skips = map[string]bool{
+	"x86_CPU_Halt": true, "dos_Machine_logf": true, "dos_PM_logf": true, "dos_Machine_logInject": true, "dos_Machine_Screenshot": true, "dos_dosDateTime": true,
+	"xbox_Machine_usbUnsupported": true, "xbox_pgraph_dumpReceiverState": true, "xbox_Machine_disasmAt": true, "xbox_Machine_DisasmForward": true, "xbox_encodePNG": true, "xbox_Machine_FramePNG": true, "xbox_Machine_SurfacePNG": true, "xbox_pgraph_dumpTexShaderConfig": true, "xbox_vshWorkers": true, "xbox_parallelChunks": true, "xbox_Machine_logf": true, "xbox_pgraph_rasterParallel": true, "xbox_rasterWorkers": true, "xbox_Machine_shaLoad": true, "xbox_Machine_shaStore": true, "xbox_Image_MD5": true,
 	"arm_CPU_Halt": true, "arm_NewCPU": true, "arm_CPU_read16": true, "arm_CPU_read32aligned": true, "arm_CPU_write16": true, "arm_CPU_write32aligned": true, "gba_Parse": true, "gbamachine_Machine_note": true, "gbamachine_Machine_WriteWAV": true,
 	"sh4_Inst_set": true, "sh4_NewCPU": true, "sh4_CPU_Halt": true, "sh4_CPU_fetchInstr": true, "dc_Machine_logf": true,
 	"gekko_NewCPU": true, "gekko_CPU_Halt": true, "gekko_CPU_fetch": true,
@@ -997,6 +1080,8 @@ var skips = map[string]bool{
 // Keep the translated implementations available for differential tests. The
 // corresponding fast.h implements narrowly scoped, behavior-preserving paths.
 var fastFunctions = map[string]bool{
+	"xbox_combMap": true, "xbox_combOp": true,
+	"x86_CPU_memRead": true, "x86_CPU_memWrite": true, "x86_CPU_fetch16": true, "x86_CPU_fetch32": true,
 	"gbamachine_bus_Read16": true, "dc_Machine_Fetch16": true, "dc_Machine_read32i": true, "dc_Machine_read16i": true, "dc_armBus_Read32": true, "dc_twiddle": true, "dc_Machine_tickField": true,
 	"gc_Machine_Fetch32":  true,
 	"gekko_CPU_Translate": true,
@@ -1020,8 +1105,8 @@ func main() {
 	if len(os.Args) > 1 {
 		platform = os.Args[1]
 	}
-	if platform != "gc" && platform != "ps2" && platform != "gba" && platform != "dc" {
-		panic("expected gc, ps2, gba or dc")
+	if platform != "gc" && platform != "ps2" && platform != "gba" && platform != "dc" && platform != "dos" && platform != "xbox" {
+		panic("expected gc, ps2, gba, dc, dos or xbox")
 	}
 	path := platform
 	if platform == "gba" {
@@ -1039,6 +1124,9 @@ func main() {
 	}
 	if platform == "dc" {
 		units = []*unit{pkgs["retroreverse.com/tools/cpu/arm"], pkgs["retroreverse.com/tools/cpu/sh4"], pkgs["retroreverse.com/tools/lib/iso9660"], pkgs["retroreverse.com/tools/platform/dc"]}
+	}
+	if platform == "dos" || platform == "xbox" {
+		units = []*unit{pkgs["retroreverse.com/tools/cpu/x86"], pkgs["retroreverse.com/tools/platform/"+platform]}
 	}
 	named := []*types.Named{}
 	for _, u := range units {
@@ -1109,6 +1197,9 @@ func main() {
 					v := u.Field(i)
 					out += typ(v.Type()) + " " + id(v.Name()) + "{};\n"
 				}
+				if n == "dos_PM" {
+					out += "bool rrQuakeBase{};\n"
+				}
 				if n == "dc_Machine" {
 					out += "uint32_t rrLastTotal{},rrLinePeriod{};\n"
 				}
@@ -1124,14 +1215,14 @@ func main() {
 				if n == "gc_tevState" {
 					out += "bool rrPrepared{};\n"
 				}
-				if n == "gc_idleSnap" || n == "ps2_idleSnap" || n == "r5900_Quad" || n == "ps2_iopBinding" || n == "ps2_sifRPCKey" {
+				if n == "xbox_texKey" || n == "gc_idleSnap" || n == "ps2_idleSnap" || n == "r5900_Quad" || n == "ps2_iopBinding" || n == "ps2_sifRPCKey" {
 					out += "bool operator==(const " + n + "&)const=default;\n"
-					if n == "ps2_iopBinding" || n == "ps2_sifRPCKey" {
+					if n == "xbox_texKey" || n == "ps2_iopBinding" || n == "ps2_sifRPCKey" {
 						out += "auto operator<=>(const " + n + "&)const=default;\n"
 					}
 				}
 				out += "};\n"
-				if n == "ps2_iopBinding" || n == "ps2_sifRPCKey" {
+				if n == "xbox_texKey" || n == "ps2_iopBinding" || n == "ps2_sifRPCKey" {
 					out += "namespace std {template<>struct hash<" + n + ">{size_t operator()(const " + n + "&v)const{size_t h=0;"
 					for i := 0; i < u.NumFields(); i++ {
 						v := u.Field(i)
@@ -1165,9 +1256,9 @@ func main() {
 			if n == "ps2_Machine" {
 				out += "uint64_t rrVblAcc{},rrIopAcc{};\n"
 			}
-			if n == "gc_idleSnap" || n == "ps2_idleSnap" || n == "r5900_Quad" || n == "ps2_iopBinding" || n == "ps2_sifRPCKey" {
+			if n == "xbox_texKey" || n == "gc_idleSnap" || n == "ps2_idleSnap" || n == "r5900_Quad" || n == "ps2_iopBinding" || n == "ps2_sifRPCKey" {
 				out += "bool operator==(const " + n + "&)const=default;\n"
-				if n == "ps2_iopBinding" || n == "ps2_sifRPCKey" {
+				if n == "xbox_texKey" || n == "ps2_iopBinding" || n == "ps2_sifRPCKey" {
 					out += "auto operator<=>(const " + n + "&)const=default;\n"
 				}
 			}
@@ -1243,7 +1334,7 @@ func main() {
 						signature = strings.Replace(signature, name+"(", name+"_reference(", 1)
 						protos += signature + ";\n"
 					}
-					body := advanceBody(name, g.block(d.Body))
+					body := x86Body(name, advanceBody(name, g.block(d.Body)))
 					if name == "ps2_GS_count" {
 						body = strings.ReplaceAll(body, "gs->drawCensus[what]++;", "auto&count=(*gs->drawCensus.p)[what]; ++count; if(auto*entry=gs->rrFeatures.recording)entry->record(count);")
 					}

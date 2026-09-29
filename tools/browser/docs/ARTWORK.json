@@ -80,5 +80,19 @@
     "mode": "generate",
     "file": "site/emulators/art/dc.png",
     "prompt": "Use case: product-mockup. Asset: square console selection card for RetroReverse educational emulator gallery. A faithful original white Sega Dreamcast console alone, three-quarter view from above showing the front and right side. Compact square white/light-gray body, large circular top-loading disc lid with subtle orange Dreamcast swirl, four controller ports across front, round power and open buttons on top near corners, small orange status light. Clean realistic 3D product illustration, soft studio light, matte light gray plastic, pale cool gray-blue background #e9edf3, subtle contact shadow, centered with generous even margins. Entire console occupies about 70 percent of image. No controller, no cable, no props, no caption or added typography, no watermark. Square image."
+  },
+  {
+    "console": "MS-DOS PC",
+    "tool": "built-in image_gen",
+    "mode": "generate",
+    "file": "site/emulators/art/dos.png",
+    "prompt": "Use case: product-mockup. Asset: square hardware selection card for RetroReverse educational emulator gallery. A late-1990s beige Pentium III desktop PC setup, compact beige mid-tower with floppy and CD-ROM drives next to a beige 4:3 CRT monitor showing a blank dark screen, simple beige keyboard in front. Faithful period proportions. Three-quarter elevated front view. Clean realistic 3D product illustration, soft studio lighting, matte beige plastic, uniform very pale cool gray-blue background #e9edf3 and subtle contact shadow. Centered entire setup fits within about 75 percent of image with generous margins. No game imagery, no people, no cables, no overlaid text, no watermark. Square image."
+  },
+  {
+    "console": "Xbox",
+    "tool": "built-in image_gen",
+    "mode": "generate",
+    "file": "site/emulators/art/xbox.png",
+    "prompt": "Use case: product-mockup. Asset: square console selection card for RetroReverse educational emulator gallery. A faithful original 2001 Microsoft Xbox console alone, three-quarter elevated view showing the front and right side. Large matte black rectangular console with its characteristic sculpted X across the top, bright green circular Xbox jewel at the center, front disc tray and four recessed controller ports. Accurate original hardware silhouette, subtle surface texture. Clean realistic 3D product illustration, soft studio light, uniform pale cool gray-blue background #e9edf3, subtle contact shadow, centered with generous margins. Entire console occupies about 75 percent of the width. No controller, no cable, no props, no overlaid title, no watermark. Square image."
   }
 ]

@@ -26,6 +26,10 @@ func check(e error) {
 	}
 }
 func main() {
+	if os.Args[1] == "xbox" {
+		runX86()
+		return
+	}
 	if os.Args[1] == "gba" || os.Args[1] == "dc" {
 		runAdvance()
 		return

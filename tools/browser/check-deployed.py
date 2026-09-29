@@ -13,7 +13,7 @@ def get(path):
     key,value=line.split(':',1);h[key.lower()]=value.strip()
   return body,h
 b,h=get('release.json');release=json.loads(b);rows=[]
-for slug in ['c64','ps1','n64','3do']:
+for slug in ['c64','ps1','n64','3do','ds','3ds','psp','gb','gg','amiga','ps2','gc','gba','dc','dos','xbox']:
  body,headers=get(slug+'/');assert f"releases/{release['id']}/app.js".encode() in body
  assert headers.get('Cache-Control',headers.get('cache-control'))=='no-cache'
  rows.append({'route':slug+'/','contentType':headers.get('Content-Type',headers.get('content-type'))})

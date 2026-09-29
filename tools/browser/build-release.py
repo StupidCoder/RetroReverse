@@ -7,7 +7,7 @@ p=argparse.ArgumentParser();p.add_argument('--emcc',default=os.environ.get('EMXX
 version=json.loads((root/'tools/browser/release.json').read_text())['emscripten']
 actual=subprocess.check_output([a.emcc,'--version'],text=True)
 if version not in actual.splitlines()[0]:raise SystemExit(f'Release builds require Emscripten {version}: {actual.splitlines()[0]}')
-for platform in ['c64','psx','n64','threedo','nds','n3ds','psp','gameboy','gamegear','amiga','ps2','gc','gba','dc']:
+for platform in ['c64','psx','n64','threedo','nds','n3ds','psp','gameboy','gamegear','amiga','ps2','gc','gba','dc','dos','xbox']:
  subprocess.run(['python3',str(root/f'tools/platform/{platform}/browser/build.py'),'--emcc',a.emcc],check=True,cwd=root)
 subprocess.run(['python3',str(root/'tools/browser/package.py')],check=True,cwd=root)
 subprocess.run(['python3',str(root/'tools/browser/check-release.py')],check=True,cwd=root)

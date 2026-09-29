@@ -90,3 +90,5 @@ The new Amiga 500 chipset model and Marble Madness/Turrican validation are docum
 The experimental PS2 and GameCube ports, rendering-capture scope, performance measurements, and reproduction commands are documented in `docs/PS2-GC-PORTS.md`.
 
 Game Boy Advance and Dreamcast ports, optimization measurements, media formats and capture limits are documented in `docs/GBA-DC-PORTS.md`.
+
+MS-DOS PC and Xbox share the x86 C++ port. See `docs/DOS-XBOX-PORTS.md` for executable/disc formats, tests, performance and capture limits.

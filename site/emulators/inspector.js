@@ -1,6 +1,7 @@
 export function decodedColor(platform, value, size, format) {
   // GameCube EFB RGB precedes a lossy YUY2 copy and is not a scanout color.
-  if(platform==='gc')return null;
+  if(platform==='gc'||platform==='dos')return null;
+  if(platform==='xbox')return [value>>>16&255,value>>>8&255,value&255,255];
   if(platform==='gba')return [value>>>16&255,value>>>8&255,value&255,255];
   if(platform==='dc')return size===2?(format===0?[(value>>>10&31)<<3,(value>>>5&31)<<3,(value&31)<<3,255]:[(value>>>11&31)<<3,(value>>>5&63)<<2,(value&31)<<3,255]):[value>>>16&255,value>>>8&255,value&255,255];
   if(platform==='ps2')return [value&255,value>>>8&255,value>>>16&255,255];
@@ -349,10 +350,12 @@ export function createInspector({platform, canvas, send, jump}) {
               ? 'Recorded writes reconstruct the final stored bytes'
               : 'Incomplete history: final bytes differ or the capture limit was reached');
       if (!p.blank) {
-        const reconstructed = decodedColor(platform, p.reconstructed, p.size, p.displayFormat);
+        const reconstructed = platform==='dos'?p.displayRGBA:decodedColor(platform, p.reconstructed, p.size, p.displayFormat);
+        if(platform==='dos'&&p.paletteAddress)sourceButton(el,'Inspect VGA palette writes',p.paletteAddress,0xffffffff,0,3);
+        if(platform==='xbox'&&p.sampleAddresses?.length>1)for(const [i,a] of p.sampleAddresses.entries())sourceButton(el,'Inspect AA sample '+(i+1),a,0xffffffff,0,4);
         line(
             el, 'Scanout color',
-            platform==='gc' ? 'History explains the EFB before the lossy RGB-to-YUY2 display copy; scanout color is not compared here'
+            platform==='xbox'&&p.samplesPerPixel>1 ? 'Display color averages '+p.samplesPerPixel+' stored samples. Select a sample to inspect its writers.' : platform==='gc' ? 'History explains the EFB before the lossy RGB-to-YUY2 display copy; scanout color is not compared here'
             : reconstructed?.every((n, i) => n === rgba[i])
                 ? 'Reconstructed stored bytes match the modeled display color'
                 : 'Stored-byte reconstruction does not match the displayed pixel');

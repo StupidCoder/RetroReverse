@@ -1,4 +1,21 @@
 export const platforms = {
+ dos:{name:'MS-DOS PC',accept:'',help:'Choose the game folder and its EXE. Click the display to type with the PC keyboard. Mouse input is available for real-mode DOS games. Gamepads map to arrows, Enter, Space and Ctrl.',compat:'Shared x86 interpreter with x87, MMX and SSE. Real-mode MZ and DJGPP go32/COFF executable loading with DOS, BIOS and DPMI HLE; VGA 320×200. No bootable OS, paging, general DOS extenders or sound output. Display intervals are synthetic. Unknown executables can be selected; compatibility varies.',buttons:[['↑',1],['↓',2],['←',4],['→',8],['Enter',16],['Space',32],['Ctrl',64],['Esc',128]],keys:{},hz:70},
+ xbox:{name:'Xbox',accept:'.iso,.xiso',help:'Arrows steer the left stick; X / Z are A / B. Enter is Start, Space is Back. Q / E operate the triggers. A standard gamepad is supported.',compat:'Pentium III-class x86 interpreter with x87, MMX and SSE, Xbox kernel HLE, USB gamepad and software NV2A. XDVDFS ISO/XISO discs. No system BIOS needed; audio DSP and full hardware compatibility remain incomplete.',buttons:[['←','left'],['→','right'],['↑','up'],['↓','down'],['A',256],['B',512],['Start',16],['LT',16384],['RT',32768]],keys:{ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down',x:256,z:512,c:1024,v:2048,Enter:16,' ':32,q:16384,e:32768},hz:60},
+  gba: {
+    name:'Game Boy Advance',accept:'.gba',hz:16777216/280896,
+    help:'Arrows move. X / Z are A / B. Enter is Start, Shift is Select, Q / E are L / R. Pause to inspect PPU layers, priorities and color effects.',
+    compat:'ARM7TDMI, BIOS HLE, scanline PPU modes 0–5, affine backgrounds/objects, windows, blending, DMA, timers and EEPROM. No firmware needed. Mosaic, SRAM/Flash save chips and link cable are incomplete. Timing follows the existing instruction-budget model. Audio is emulated but not played. Browser states preserve the session.',
+    buttons:[['↑',64],['↓',128],['←',32],['→',16],['A',1],['B',2],['Start',8],['Select',4],['L',512],['R',256]],
+    keys:{ArrowUp:64,ArrowDown:128,ArrowLeft:32,ArrowRight:16,x:1,z:2,Enter:8,Shift:4,q:512,e:256}
+  },
+  dc: {
+    name:'Dreamcast',accept:'.cue,.bin',hz:60,
+    help:'Select the CUE and its combined BIN together. Arrows steer the analog stick; I J K L operate the D-pad. X / Z / C / V are A / B / X / Y. Enter is Start. Q / E are left / right triggers (brake / accelerate in Crazy Taxi).',
+    compat:'SH-4, AICA ARM7 and synthesis, Maple controller, BIOS/GD-ROM HLE and software PowerVR rendering. Single combined raw Mode 1 BIN with cdrdao TOC or standard CUE. GDI, CDI, CHD and separate track files are not supported. No firmware needed. Translucent sorting and some PowerVR features remain incomplete. VMU, disc audio and audio output are not exposed. Compatibility inherits the experimental Go core.',
+    buttons:[['↑','up'],['↓','down'],['←','left'],['→','right'],['A',4],['B',2],['X',1024],['Y',512],['Start',8],['L',65536],['R',131072]],
+    keys:{ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',i:16,k:32,j:64,l:128,x:4,z:2,c:1024,v:512,Enter:8,q:65536,e:131072}
+  },
+
 
   "ps2": {
     "name": "PlayStation 2",

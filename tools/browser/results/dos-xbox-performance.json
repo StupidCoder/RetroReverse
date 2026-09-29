@@ -1,0 +1,629 @@
+{
+  "schema": 1,
+  "date": "2026-09-29",
+  "method": "Sequential fresh-process A/B; three samples; native CPU and explicit GPU fast paths disabled in reference; includes correctness fixes in both variants. DOS fields are synthetic instruction intervals, not game FPS.",
+  "benchmarks": [
+    {
+      "platform": "dos",
+      "state": "quake-game.state",
+      "node": "v26.3.1",
+      "arch": "arm64",
+      "fields": 300,
+      "repeats": 3,
+      "hashes": {
+        "before": "2634ba6348edb5a8a7a9a6eeb5a096556f0a61dd400f4a4c1e836b3b3c90262f",
+        "after": "695b0779e899ed3cff182368867ad3a3027f022e7421e3314fade2367fbc4051"
+      },
+      "beforeMs": 4754.815042,
+      "afterMs": 4099.6370830000005,
+      "speedup": 1.1598136483145867,
+      "samples": [
+        {
+          "variant": "before",
+          "repeat": 0,
+          "platform": "dos",
+          "fields": 300,
+          "ms": 4898.499291,
+          "fps": 61.243246590070804,
+          "heapBytes": 275251200,
+          "proof": {
+            "steps": 2072725200,
+            "frames": 3800,
+            "pc": 205957,
+            "ram": 3874481853,
+            "rgba": 1388609197
+          },
+          "profile": {
+            "sampled": false,
+            "buckets": [
+              {
+                "name": "x86 CPU and devices",
+                "ms": 4804.69,
+                "longestMs": 1.73925,
+                "tag": 0
+              },
+              {
+                "name": "Local game file reads",
+                "ms": 0.601167,
+                "longestMs": 0.601167,
+                "tag": 0
+              }
+            ]
+          }
+        },
+        {
+          "variant": "after",
+          "repeat": 0,
+          "platform": "dos",
+          "fields": 300,
+          "ms": 4099.6370830000005,
+          "fps": 73.17720908614388,
+          "heapBytes": 275251200,
+          "proof": {
+            "steps": 2072725200,
+            "frames": 3800,
+            "pc": 205957,
+            "ram": 3874481853,
+            "rgba": 1388609197
+          },
+          "profile": {
+            "sampled": false,
+            "buckets": [
+              {
+                "name": "x86 CPU and devices",
+                "ms": 4002.45,
+                "longestMs": 1.56292,
+                "tag": 0
+              },
+              {
+                "name": "Local game file reads",
+                "ms": 0.328792,
+                "longestMs": 0.328792,
+                "tag": 0
+              }
+            ]
+          }
+        },
+        {
+          "variant": "after",
+          "repeat": 1,
+          "platform": "dos",
+          "fields": 300,
+          "ms": 4189.413208,
+          "fps": 71.60907389777819,
+          "heapBytes": 275251200,
+          "proof": {
+            "steps": 2072725200,
+            "frames": 3800,
+            "pc": 205957,
+            "ram": 3874481853,
+            "rgba": 1388609197
+          },
+          "profile": {
+            "sampled": false,
+            "buckets": [
+              {
+                "name": "x86 CPU and devices",
+                "ms": 4080.42,
+                "longestMs": 1.91062,
+                "tag": 0
+              },
+              {
+                "name": "Local game file reads",
+                "ms": 0.269042,
+                "longestMs": 0.269042,
+                "tag": 0
+              }
+            ]
+          }
+        },
+        {
+          "variant": "before",
+          "repeat": 1,
+          "platform": "dos",
+          "fields": 300,
+          "ms": 4754.815042,
+          "fps": 63.09393685139267,
+          "heapBytes": 275251200,
+          "proof": {
+            "steps": 2072725200,
+            "frames": 3800,
+            "pc": 205957,
+            "ram": 3874481853,
+            "rgba": 1388609197
+          },
+          "profile": {
+            "sampled": false,
+            "buckets": [
+              {
+                "name": "x86 CPU and devices",
+                "ms": 4673.85,
+                "longestMs": 1.78504,
+                "tag": 0
+              },
+              {
+                "name": "Local game file reads",
+                "ms": 0.335584,
+                "longestMs": 0.335584,
+                "tag": 0
+              }
+            ]
+          }
+        },
+        {
+          "variant": "before",
+          "repeat": 2,
+          "platform": "dos",
+          "fields": 300,
+          "ms": 4644.266875,
+          "fps": 64.5957711032702,
+          "heapBytes": 275251200,
+          "proof": {
+            "steps": 2072725200,
+            "frames": 3800,
+            "pc": 205957,
+            "ram": 3874481853,
+            "rgba": 1388609197
+          },
+          "profile": {
+            "sampled": false,
+            "buckets": [
+              {
+                "name": "x86 CPU and devices",
+                "ms": 4575.43,
+                "longestMs": 1.62675,
+                "tag": 0
+              },
+              {
+                "name": "Local game file reads",
+                "ms": 0.159625,
+                "longestMs": 0.159625,
+                "tag": 0
+              }
+            ]
+          }
+        },
+        {
+          "variant": "after",
+          "repeat": 2,
+          "platform": "dos",
+          "fields": 300,
+          "ms": 3859.568916,
+          "fps": 77.72888799998823,
+          "heapBytes": 275251200,
+          "proof": {
+            "steps": 2072725200,
+            "frames": 3800,
+            "pc": 205957,
+            "ram": 3874481853,
+            "rgba": 1388609197
+          },
+          "profile": {
+            "sampled": false,
+            "buckets": [
+              {
+                "name": "x86 CPU and devices",
+                "ms": 3789.66,
+                "longestMs": 1.59721,
+                "tag": 0
+              },
+              {
+                "name": "Local game file reads",
+                "ms": 0.157125,
+                "longestMs": 0.157125,
+                "tag": 0
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "platform": "xbox",
+      "state": "race.state",
+      "node": "v26.3.1",
+      "arch": "arm64",
+      "fields": 3,
+      "repeats": 3,
+      "hashes": {
+        "before": "5b11ac6ade899568fddf38860da692ebe12ed2f5d3e7f6b590917f84aca995bb",
+        "after": "2e8336f5abe8105dd5b8b0108cf1dca4a44ab403c2d4fd7b45fe781c1aeddcca"
+      },
+      "beforeMs": 2023.113042,
+      "afterMs": 1506.399625,
+      "speedup": 1.3430121784582891,
+      "samples": [
+        {
+          "variant": "before",
+          "repeat": 0,
+          "platform": "xbox",
+          "fields": 3,
+          "ms": 2042.0588750000002,
+          "fps": 1.4691055369302217,
+          "heapBytes": 450887680,
+          "proof": {
+            "steps": 28232088280,
+            "frames": 3,
+            "pc": 1762923,
+            "tick": 31202070449,
+            "draws": 7993384,
+            "ram": 1568442226,
+            "rgba": 2990492116
+          },
+          "profile": {
+            "sampled": false,
+            "buckets": [
+              {
+                "name": "x86 CPU and devices",
+                "ms": 268.743,
+                "longestMs": 129.416,
+                "tag": 0
+              },
+              {
+                "name": "NV2A commands",
+                "ms": 13.3208,
+                "longestMs": 127.827,
+                "tag": 0
+              },
+              {
+                "name": "Vertex processing",
+                "ms": 258.834,
+                "longestMs": 80.437,
+                "tag": 0
+              },
+              {
+                "name": "Software rasterizer",
+                "ms": 1368.52,
+                "longestMs": 80.4305,
+                "tag": 0
+              },
+              {
+                "name": "Surface clears",
+                "ms": 7.47808,
+                "longestMs": 2.04825,
+                "tag": 0
+              },
+              {
+                "name": "Texture decoding",
+                "ms": 117.711,
+                "longestMs": 9.14079,
+                "tag": 0
+              },
+              {
+                "name": "Disc file reads",
+                "ms": 2.45029,
+                "longestMs": 0.998291,
+                "tag": 0
+              }
+            ]
+          }
+        },
+        {
+          "variant": "after",
+          "repeat": 0,
+          "platform": "xbox",
+          "fields": 3,
+          "ms": 1506.399625,
+          "fps": 1.9915034166315595,
+          "heapBytes": 450887680,
+          "proof": {
+            "steps": 28232088280,
+            "frames": 3,
+            "pc": 1762923,
+            "tick": 31202070449,
+            "draws": 7993384,
+            "ram": 1568442226,
+            "rgba": 2990492116
+          },
+          "profile": {
+            "sampled": false,
+            "buckets": [
+              {
+                "name": "x86 CPU and devices",
+                "ms": 223.388,
+                "longestMs": 95.3985,
+                "tag": 0
+              },
+              {
+                "name": "NV2A commands",
+                "ms": 12.6424,
+                "longestMs": 94.9064,
+                "tag": 0
+              },
+              {
+                "name": "Vertex processing",
+                "ms": 244.652,
+                "longestMs": 52.5545,
+                "tag": 0
+              },
+              {
+                "name": "Software rasterizer",
+                "ms": 897.634,
+                "longestMs": 52.5525,
+                "tag": 0
+              },
+              {
+                "name": "Surface clears",
+                "ms": 6.05296,
+                "longestMs": 1.76454,
+                "tag": 0
+              },
+              {
+                "name": "Texture decoding",
+                "ms": 115.145,
+                "longestMs": 9.60679,
+                "tag": 0
+              },
+              {
+                "name": "Disc file reads",
+                "ms": 1.66371,
+                "longestMs": 0.774083,
+                "tag": 0
+              }
+            ]
+          }
+        },
+        {
+          "variant": "after",
+          "repeat": 1,
+          "platform": "xbox",
+          "fields": 3,
+          "ms": 1533.866542,
+          "fps": 1.9558416054165422,
+          "heapBytes": 450887680,
+          "proof": {
+            "steps": 28232088280,
+            "frames": 3,
+            "pc": 1762923,
+            "tick": 31202070449,
+            "draws": 7993384,
+            "ram": 1568442226,
+            "rgba": 2990492116
+          },
+          "profile": {
+            "sampled": false,
+            "buckets": [
+              {
+                "name": "x86 CPU and devices",
+                "ms": 229.253,
+                "longestMs": 93.6304,
+                "tag": 0
+              },
+              {
+                "name": "NV2A commands",
+                "ms": 12.9712,
+                "longestMs": 93.157,
+                "tag": 0
+              },
+              {
+                "name": "Vertex processing",
+                "ms": 249.175,
+                "longestMs": 53.3505,
+                "tag": 0
+              },
+              {
+                "name": "Software rasterizer",
+                "ms": 911.771,
+                "longestMs": 53.3428,
+                "tag": 0
+              },
+              {
+                "name": "Surface clears",
+                "ms": 6.25667,
+                "longestMs": 1.90033,
+                "tag": 0
+              },
+              {
+                "name": "Texture decoding",
+                "ms": 116.057,
+                "longestMs": 9.47338,
+                "tag": 0
+              },
+              {
+                "name": "Disc file reads",
+                "ms": 1.67587,
+                "longestMs": 0.776,
+                "tag": 0
+              }
+            ]
+          }
+        },
+        {
+          "variant": "before",
+          "repeat": 1,
+          "platform": "xbox",
+          "fields": 3,
+          "ms": 1987.5474170000002,
+          "fps": 1.509397951636391,
+          "heapBytes": 450887680,
+          "proof": {
+            "steps": 28232088280,
+            "frames": 3,
+            "pc": 1762923,
+            "tick": 31202070449,
+            "draws": 7993384,
+            "ram": 1568442226,
+            "rgba": 2990492116
+          },
+          "profile": {
+            "sampled": false,
+            "buckets": [
+              {
+                "name": "x86 CPU and devices",
+                "ms": 265.166,
+                "longestMs": 130.646,
+                "tag": 0
+              },
+              {
+                "name": "NV2A commands",
+                "ms": 12.9406,
+                "longestMs": 129.22,
+                "tag": 0
+              },
+              {
+                "name": "Vertex processing",
+                "ms": 247.607,
+                "longestMs": 78.4253,
+                "tag": 0
+              },
+              {
+                "name": "Software rasterizer",
+                "ms": 1331.26,
+                "longestMs": 78.4225,
+                "tag": 0
+              },
+              {
+                "name": "Surface clears",
+                "ms": 6.0865,
+                "longestMs": 1.81683,
+                "tag": 0
+              },
+              {
+                "name": "Texture decoding",
+                "ms": 117.534,
+                "longestMs": 9.245,
+                "tag": 0
+              },
+              {
+                "name": "Disc file reads",
+                "ms": 1.65779,
+                "longestMs": 0.771375,
+                "tag": 0
+              }
+            ]
+          }
+        },
+        {
+          "variant": "before",
+          "repeat": 2,
+          "platform": "xbox",
+          "fields": 3,
+          "ms": 2023.113042,
+          "fps": 1.4828632596003006,
+          "heapBytes": 450887680,
+          "proof": {
+            "steps": 28232088280,
+            "frames": 3,
+            "pc": 1762923,
+            "tick": 31202070449,
+            "draws": 7993384,
+            "ram": 1568442226,
+            "rgba": 2990492116
+          },
+          "profile": {
+            "sampled": false,
+            "buckets": [
+              {
+                "name": "x86 CPU and devices",
+                "ms": 265.611,
+                "longestMs": 128.719,
+                "tag": 0
+              },
+              {
+                "name": "NV2A commands",
+                "ms": 13.1656,
+                "longestMs": 127.327,
+                "tag": 0
+              },
+              {
+                "name": "Vertex processing",
+                "ms": 247.959,
+                "longestMs": 81.4124,
+                "tag": 0
+              },
+              {
+                "name": "Software rasterizer",
+                "ms": 1367.33,
+                "longestMs": 81.4049,
+                "tag": 0
+              },
+              {
+                "name": "Surface clears",
+                "ms": 6.12904,
+                "longestMs": 1.78008,
+                "tag": 0
+              },
+              {
+                "name": "Texture decoding",
+                "ms": 115.556,
+                "longestMs": 9.64783,
+                "tag": 0
+              },
+              {
+                "name": "Disc file reads",
+                "ms": 1.60671,
+                "longestMs": 0.750208,
+                "tag": 0
+              }
+            ]
+          }
+        },
+        {
+          "variant": "after",
+          "repeat": 2,
+          "platform": "xbox",
+          "fields": 3,
+          "ms": 1500.6992500000001,
+          "fps": 1.9990681010868765,
+          "heapBytes": 450887680,
+          "proof": {
+            "steps": 28232088280,
+            "frames": 3,
+            "pc": 1762923,
+            "tick": 31202070449,
+            "draws": 7993384,
+            "ram": 1568442226,
+            "rgba": 2990492116
+          },
+          "profile": {
+            "sampled": false,
+            "buckets": [
+              {
+                "name": "x86 CPU and devices",
+                "ms": 223.003,
+                "longestMs": 91.8506,
+                "tag": 0
+              },
+              {
+                "name": "NV2A commands",
+                "ms": 12.4042,
+                "longestMs": 91.396,
+                "tag": 0
+              },
+              {
+                "name": "Vertex processing",
+                "ms": 243.722,
+                "longestMs": 52.1373,
+                "tag": 0
+              },
+              {
+                "name": "Software rasterizer",
+                "ms": 896.567,
+                "longestMs": 52.1354,
+                "tag": 0
+              },
+              {
+                "name": "Surface clears",
+                "ms": 6.11363,
+                "longestMs": 1.77796,
+                "tag": 0
+              },
+              {
+                "name": "Texture decoding",
+                "ms": 112.39,
+                "longestMs": 9.00633,
+                "tag": 0
+              },
+              {
+                "name": "Disc file reads",
+                "ms": 1.60384,
+                "longestMs": 0.744584,
+                "tag": 0
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

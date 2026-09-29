@@ -1,6 +1,7 @@
 import {createReplay} from './replay.js';
 import {pixelCoordinates,createInspector} from './inspector.js';
 import {platforms} from './platforms.js';
+import {dosFiles,dosKeys} from './dos-media.js';
 import {amigaKeys} from './amiga-input.js';
 const $ = id => document.getElementById(id),
       platform = document.body.dataset.platform, config = platforms[platform],
@@ -127,10 +128,11 @@ function load(stateFile=null) {
         rate = `${(ratio * 100).toFixed(0)}% ${
             platform === 'c64' ? 'PAL speed' : 'nominal display rate'} · ${
             ((s.frames - lastFrames) / dt).toFixed(1)} ${
-            platform === 'ps1' || platform === 'n64' ? 'synthetic fields'
+            platform === 'dos' ? 'synthetic VGA intervals' : platform === 'ps1' || platform === 'n64' ? 'synthetic fields'
                                                      : 'display updates'}/s · ${
             ((s.steps - lastSteps) / dt / 1e6).toFixed(2)}M ${
             platform === 'c64' ? 'cycles' : 'steps'}/s`;
+        if(platform==='dos')rate=rate.replace(/^[^·]+· /,'');
         lastTime = now;
         lastFrames = s.frames;
         lastSeconds = s.seconds??0;
@@ -156,7 +158,7 @@ function load(stateFile=null) {
     } else if(m.type==='pixel'||m.type==='source'||m.type==='resource'){inspector.result(m);
     } else if(m.type==='capture-cleared'){
       inspector.reset();replay.reset();
-      $('capture-note').textContent='Pause to record the next complete display interval.';$('cancelcapture').hidden=true;
+      $('capture-note').textContent=platform==='dos'?'Pause to record the next VGA write burst.':'Pause to record the next complete display interval.';$('cancelcapture').hidden=true;
     } else if(m.type==='capture'){
       inspector.setCapture(m);replay.setCapture(m);showProfile(m.profile,true);lastTime=performance.now();lastSteps=m.end.steps;lastFrames=m.end.frames;lastSeconds=m.end.seconds??0;rate='';
       $('cancelcapture').hidden=true;
@@ -181,7 +183,7 @@ function load(stateFile=null) {
       }
     }
   };
-  candidate.postMessage({type:'load',session:nextSession,platform,files:selected,firmware,compatibility,stateFile});
+  candidate.postMessage({type:'load',session:nextSession,platform,files:selected,firmware,compatibility,stateFile,...(platform==='dos'?{executable:$('program').value}:{})});
 }
 $('load').onclick = () => {
   selected = [...$('files').files ];
@@ -230,7 +232,7 @@ function input(keys = [], mouse = null) {
     }
   }
   const state = {
-    ...((platform==='ds'||platform==='3ds')?{touch:inputTouch}:{}),
+    ...((platform==='ds'||platform==='3ds'||platform==='dos')?{touch:inputTouch}:{}),
     buttons : buttons >>> 0,
     x : Math.max(-80, Math.min(80, x)),
     y : Math.max(-80, Math.min(80, y))
@@ -272,6 +274,7 @@ for (const down of [true, false])
     if(inspector.isInspecting())return;
     if (!loaded || e.repeat || e.metaKey)
       return;
+    if(platform==='dos'&&dosKeys[e.code]!==undefined){e.preventDefault();const code=dosKeys[e.code];if(down)c64Keys.add(code);else c64Keys.delete(code);input([[code,+down]]);return;}
     if(platform==='amiga'&&amigaKeys[e.code]!==undefined){
       e.preventDefault();const code=amigaKeys[e.code],bit=config.keys[e.key];
       if(down)c64Keys.add(code);else c64Keys.delete(code);
@@ -358,6 +361,8 @@ if(platform==='amiga'){
  canvas.addEventListener('contextmenu',e=>e.preventDefault());
 }
 const gamepadMaps = {
+ dos:{0:32,1:64,8:128,9:16,12:1,13:2,14:4,15:8},
+ xbox:{0:256,1:512,2:1024,3:2048,4:4096,5:8192,6:16384,7:32768,8:32,9:16,10:64,11:128,12:1,13:2,14:4,15:8},
  gba:{0:1,1:2,4:512,5:256,8:4,9:8,12:64,13:128,14:32,15:16},
  dc:{0:4,1:2,2:1024,3:512,6:65536,7:131072,9:8,12:16,13:32,14:64,15:128},
  gc:{0:256,1:512,2:1024,3:2048,4:16,5:16,6:64,7:32,9:4096,12:8,13:4,14:1,15:2},
@@ -439,11 +444,11 @@ function pollPad() {
       if (axis(p.axes[3]) > 30)
         bits.push(4);
       sources.set('gamepad:' + p.index, {bits, ax : x, ay : y});
-    } else if(platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'){
+    } else if(platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='xbox'){
       sources.set('gamepad:'+p.index,{bits,ax:x,ay:y});
     } else {
       const directions =
-          platform === 'gb' ? [2,1,4,8] : platform === 'gg' ? [4,8,1,2] : (platform === 'ds'||platform==='gba') ? [32,16,64,128] : platform === 'ps1' ? [ 128, 32, 16, 64 ]
+          platform === 'dos' ? [4,8,1,2] : platform === 'gb' ? [2,1,4,8] : platform === 'gg' ? [4,8,1,2] : (platform === 'ds'||platform==='gba') ? [32,16,64,128] : platform === 'ps1' ? [ 128, 32, 16, 64 ]
           : (platform === 'c64'||platform==='amiga')
               ? [ 4, 8, 1, 2 ]
               : [ 0x10000000, 0x20000000, 0x40000000, 0x80000000 ];
@@ -475,3 +480,10 @@ function pollPad() {
   requestAnimationFrame(pollPad);
 }
 requestAnimationFrame(pollPad);
+
+if(platform==='dos'){
+ $('files').onchange=()=>{try{const entries=dosFiles([...$('files').files]);$('program').replaceChildren(...entries.filter(e=>/\.exe$/i.test(e.path)).map(e=>{const o=document.createElement('option');o.value=o.textContent=e.path;return o;}));$('status').textContent='Choose the DOS executable, then load.';}catch(e){$('status').textContent=e.message;}};
+ canvas.addEventListener('contextmenu',e=>e.preventDefault());
+ const mouse=e=>{if(!loaded||inspector.isInspecting())return;e.preventDefault();const p=pixelCoordinates(canvas.getBoundingClientRect(),320,200,e.clientX,e.clientY);if(!p)return;inputTouch={x:p.x,y:p.y,down:!!e.buttons};sources.set('dosMouse',{bits:[e.buttons&1?256:0,e.buttons&2?512:0]});input();};
+ canvas.addEventListener('pointerdown',e=>{if(inspector.isInspecting())return;canvas.focus();canvas.setPointerCapture(e.pointerId);mouse(e);});for(const event of ['pointermove','pointerup'])canvas.addEventListener(event,mouse);for(const event of ['pointercancel','lostpointercapture'])canvas.addEventListener(event,()=>{sources.delete('dosMouse');input();});
+}
