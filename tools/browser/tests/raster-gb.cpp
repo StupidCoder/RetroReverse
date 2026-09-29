@@ -15,6 +15,7 @@ int main(){
  auto write=[&](uint16_t address,uint8_t value){rrhh::video.pc=0x4567;rrhh::video.steps++;gameboy_Machine_Write(m,address,value);};
  assert(rr_capture_begin());
  for(int y=0;y<144;y++){
+  if(y==30)write(0x8100,0xa5);
   if(y==48)write(0xff43,8);
   if(y==72)write(0xff40,0xf3);
   if(y==80)write(0xff40,0xd3);
@@ -25,6 +26,8 @@ int main(){
  }
  rrhh::present();assert(rr_capture_end());auto proof=std::string(rr_proof());
  auto size=rr_state_save();auto saved=stateOutput;
+ rr_raster_seek(29);assert(rr_tileset_size()==8320&&rr_tileset_data()[0x100]==0);
+ rr_raster_seek(30);assert(rr_tileset_data()[0x100]==0xa5&&rr_tileset_data()[8192+0x47]==0xe4);
  contains(rr_raster_info(),"\"line\":48,\"changes\":1");
  contains(rr_raster_seek(47),"\"name\":\"SCX\",\"address\":65347,\"value\":0");
  assert(rrgb::pictures[0][0]==0xffaaaaaa);assert(rrgb::pictures[2][48*160]==0);
@@ -48,9 +51,9 @@ int main(){
  assert(std::string(rr_proof())==changedProof);
  // Restore, then prove inspection preserves the complete machine state too.
  memcpy(rr_state_input(size),saved.data(),size);assert(rr_state_load(size));assert(std::string(rr_proof())==proof);
- for(int y:{0,72,90,120,143,48,0,143}){rr_raster_seek(y);contains(rr_raster_pixel(2,24,y),"\"complete\":true");}
+ for(int y:{0,72,90,120,143,48,0,143}){rr_raster_seek(y);rr_tileset_data();contains(rr_raster_pixel(2,24,y),"\"complete\":true");}
  assert(rr_state_save()==size&&stateOutput==saved);
  assert(rr_capture_begin());rrhh::clear(0xffffffff);rrhh::present();assert(rr_capture_end());
- contains(rr_raster_info(),"\"lines\":[]");contains(rr_raster_info(),"\"complete\":false");contains(rr_raster_seek(0),"\"error\"");contains(rr_raster_pixel(0,0,0),"\"error\"");
+ contains(rr_raster_info(),"\"lines\":[]");contains(rr_raster_info(),"\"complete\":false");contains(rr_raster_seek(0),"\"error\"");contains(rr_raster_pixel(0,0,0),"\"error\"");assert(!rr_tileset_size());
  std::cout<<"Game Boy raster: historical scroll, window counter, sprite priority, source addresses, partial output, immutable seeks and blank LCD pass\n";
 }

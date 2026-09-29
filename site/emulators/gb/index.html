@@ -3,56 +3,10 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Game Boy — RetroReverse</title>
-<link rel="stylesheet" href="../releases/c392655b669c527b9447/style.css">
+<link rel="stylesheet" href="../releases/a2465d3b39abc4a9a11b/style.css">
 </head>
 <body data-platform="gb">
-<header><a href="../../">RetroReverse</a><a href="../">All emulators</a><span>Game Boy</span></header>
-<main>
-<div class="workspace-heading"><h1>Game Boy</h1><nav id="workspace-nav"></nav></div>
-<p id="status" class="status" role="status">Select a local game image to begin. Nothing is uploaded.</p>
-<section id="play-workspace">
-<div class="files"><label for="files">Game image</label><input type="file" id="files" multiple><button id="load" class="primary">Load image</button></div>
-<div class="raster-player">
-<section>
-<div class="monitor"><canvas id="screen" width="160" height="144" tabindex="0" aria-label="Game Boy display and keyboard controls"></canvas></div>
-<div class="transport"><button id="run" disabled>Run</button><button id="pause" disabled>Pause</button><button id="reset" disabled>Reset</button><button id="step" disabled>Next frame</button><label><input id="turbo" type="checkbox"> Fast forward</label><button id="fullscreen">Full screen</button></div>
-<div id="pad" class="pad"></div>
-</section>
-<aside>
-<p>Pause to explore how tiles and sprites build the screen, one scanline at a time.</p>
-<div class="transport"><button id="save" disabled>Save state</button><label>Load state <input id="statefile" type="file" accept=".rrstate"></label></div>
-<p id="capture-note" class="metrics">Pause to record the next complete display interval.</p><button id="cancelcapture" hidden>Cancel capture</button><p id="metrics" class="metrics">No machine running</p>
-<details><summary>Controls</summary><p id="help"></p><p id="device" class="metrics">Keyboard and on-screen controls</p></details>
-<details><summary>Performance</summary><p id="profile-note">Run the machine to measure subsystem timings.</p><table class="stats"><thead><tr><th>Subsystem</th><th>ms</th><th>%</th></tr></thead><tbody id="profile"></tbody></table></details>
-<details><summary>Compatibility</summary><p id="compat"></p><p>Inspection uses the recorded state at each scanline, including the window row counter. Source panels are frozen-state previews; the output retains actual completed lines. Effects within a scanline remain limited by this core's scanline-level renderer. Memory addresses use DMG VRAM, OAM and palette-register addresses.</p></details>
-</aside>
-</div>
-</section>
-<section id="render-workspace" hidden>
-<div class="raster-heading"><div><h2>Building the screen</h2><p id="raster-state-line">State at the selected scanline</p></div><button id="raster-resume">Resume game</button></div>
-<div class="raster-workspace">
-<div class="raster-stage">
-<div class="raster-board">
-<div class="raster-sources">
-<figure><figcaption><strong>Background / window</strong><span>Current tilemap and scrolling</span></figcaption><div class="raster-picture"><canvas id="raster-background" width="160" height="144" aria-label="Background and window layer preview"></canvas></div></figure>
-<figure><figcaption><strong>Sprites</strong><span>Before background priority</span></figcaption><div class="raster-picture"><canvas id="raster-sprites" width="160" height="144" aria-label="Sprite layer preview"></canvas></div></figure>
-</div>
-<figure class="raster-composite"><figcaption><strong>Screen so far</strong><span>Completed lines keep their original settings</span></figcaption><div class="raster-picture"><canvas id="raster-output" width="160" height="144" aria-label="Screen composited through the selected scanline"></canvas></div></figure>
-</div>
-<div class="raster-timeline">
-<div class="raster-transport"><strong id="raster-line">Line 0 / 143</strong><button data-line-nav="first">First</button><button data-line-nav="previous">Previous line</button><button data-line-nav="next">Next line</button><button data-line-nav="last">Last</button><label><input type="checkbox" id="raster-guide" checked> Show scanline</label></div>
-<div class="raster-track"><label for="raster-position" class="sr-only">Scanline</label><input id="raster-position" type="range" min="0" max="143" step="1" value="0"><div id="raster-markers" aria-label="Video changes by scanline"></div></div>
-<p id="raster-note" aria-live="polite">Pause a running game to capture its rendering.</p>
-</div>
-</div>
-<aside class="raster-inspector" aria-label="Scanline inspector">
-<section><h3>Video settings</h3><dl id="raster-registers"></dl><p id="raster-window-line"></p></section>
-<section><h3>Changes before this line</h3><div id="raster-changes"></div></section>
-<section><h3>Pixel and source</h3><div class="raster-pixel-controls"><label>Layer<select id="raster-panel"><option value="2">Screen</option><option value="0">Background / window</option><option value="1">Sprites</option></select></label><label>X<input id="raster-x" type="number" min="0" max="159" value="80"></label><label>Y<input id="raster-y" type="number" min="0" max="143" value="72"></label><button id="raster-inspect">Inspect</button></div><div id="raster-pixel" aria-live="polite"></div><div id="raster-history" aria-live="polite"></div></section>
-</aside>
-</div>
-</section>
-<div id="tape" hidden><button id="tapeplay">Play tape</button><button id="tapestop">Stop tape</button></div>
-</main>
-<script type="module" src="../releases/c392655b669c527b9447/app.js"></script>
+<div id="emulator-app"></div>
+<noscript>This emulator needs JavaScript and WebAssembly. <a href="../">All emulators</a></noscript>
+<script type="module" src="../releases/a2465d3b39abc4a9a11b/app.js"></script>
 </body></html>

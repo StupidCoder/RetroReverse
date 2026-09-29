@@ -73,6 +73,9 @@ inline std::string pixel(int panel,int x,int y){
 }
 }
 extern "C" {
+// Inspection-only VRAM/palette snapshot; never reads the live machine.
+int rr_tileset_size(){return rrcapture::trace.valid&&rrgb::selected>=0&&rrgb::lines[rrgb::selected].valid?8320:0;}
+uint8_t*rr_tileset_data(){static std::array<uint8_t,8320>b; if(!rr_tileset_size())return nullptr;const auto&s=rrgb::lines[rrgb::selected];std::copy(s.vram.begin(),s.vram.end(),b.begin());std::copy(s.io.begin(),s.io.end(),b.begin()+8192);return b.data();}
 const char*rr_raster_info(){reply=rrgb::info();return reply.c_str();}
 const char*rr_raster_seek(int line){reply=rrgb::seek(line);return reply.c_str();}
 uint8_t*rr_raster_frame(int panel){return panel>=0&&panel<3?reinterpret_cast<uint8_t*>(rrgb::pictures[panel].data()):nullptr;}

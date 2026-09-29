@@ -7,3 +7,5 @@ void arm_CPU_write16(arm_CPU*,uint32_t,uint32_t);
 void arm_CPU_write32aligned(arm_CPU*,uint32_t,uint32_t);
 template<class...A>void gbamachine_Machine_note(gbamachine_Machine*m,std::string f,A...a){auto v=go_fmt_Sprintf(f,a...);if(!get(m->logSeen,v)){m->logSeen[v]=true;m->Log=append(m->Log,v);}}
 void rrGBAMemWrite(gbamachine_Machine*,const Slice<uint8_t>&,uint32_t);
+
+void rrGBARegisterWrite(gbamachine_Machine*,uint32_t,uint16_t);

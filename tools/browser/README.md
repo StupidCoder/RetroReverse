@@ -98,3 +98,6 @@ MS-DOS PC and Xbox share the x86 C++ port. See `docs/DOS-XBOX-PORTS.md` for exec
 
 Amiga’s separate scanline/Copper and blitter/mask views are documented in
 [Amiga raster inspection](docs/AMIGA-RASTER-INSPECTION.md).
+
+The common Play/Render shell, adapter API and UI checks are documented in
+[Shared emulator UI](docs/SHARED-UI.md).

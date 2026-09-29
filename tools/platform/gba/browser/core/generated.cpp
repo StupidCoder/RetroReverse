@@ -6595,6 +6595,7 @@ if (bool(m->OnIO)) {
 m->OnIO(true,reg,v,m->cpu->R[cast<int64_t>(15ULL)]);
 }
 m->io[reg] = v;
+rrGBARegisterWrite(m,reg,v);
 {
 if (((((((((reg == cast<uint32_t>(40ULL)) || (reg == cast<uint32_t>(42ULL))) || (reg == cast<uint32_t>(44ULL))) || (reg == cast<uint32_t>(46ULL))) || (reg == cast<uint32_t>(56ULL))) || (reg == cast<uint32_t>(58ULL))) || (reg == cast<uint32_t>(60ULL))) || (reg == cast<uint32_t>(62ULL)))){
 gbamachine_ppu_reloadAffineRef(&(m->ppu),m,reg);

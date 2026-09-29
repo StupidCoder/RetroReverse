@@ -151,6 +151,21 @@ static std::string pixelQuery(int panel,int x,int y){
 }
 }
 extern "C" {
+// Registers [0,47), bases [64,68), RGBA palette [80,144), color RAM
+// [144,1168), screen [1168,2192), VIC-visible character bytes [2192,4240).
+int rr_tileset_size(){return raster::valid()&&raster::selected>=0&&raster::lines[raster::selected].valid?4240:0;}
+uint8_t*rr_tileset_data(){
+ static std::array<uint8_t,4240>b{};if(!rr_tileset_size())return nullptr;
+ const auto&s=raster::lines[raster::selected];std::copy(s.regs.begin(),s.regs.end(),b.begin());
+ unsigned chars=s.bank+((s.regs[0x18]&14)<<10),screen=s.bank+((s.regs[0x18]&0xf0)<<6);
+ b[64]=chars;b[65]=chars>>8;b[66]=screen;b[67]=screen>>8;
+ for(unsigned i=0;i<16;i++){auto c=m6569_color(i);for(unsigned k=0;k<4;k++)b[80+i*4+k]=c>>(k*8);}
+ std::copy(s.color.begin(),s.color.end(),b.begin()+144);
+ auto fetch=[&](unsigned a){return observation::vicSpace(a)==3?raster::charROM[a&4095]:s.ram[a];};
+ for(unsigned i=0;i<1024;i++)b[1168+i]=fetch(screen+i);
+ for(unsigned i=0;i<2048;i++)b[2192+i]=fetch(chars+i);
+ return b.data();
+}
 const char*rr_raster_info(){observation::json=raster::info();return observation::json.c_str();}
 const char*rr_raster_seek(int line){observation::json=raster::seek(line);return observation::json.c_str();}
 uint32_t*rr_raster_frame(int panel){return panel>=0&&panel<3?raster::pictures[panel].data():nullptr;}

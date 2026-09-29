@@ -43,6 +43,9 @@ int main(){
   if(raster::lines[y].regs[0x18]==0x1a&&raster::lines[y-1].regs[0x18]==0x18)switched=y;
  }
  assert(changed>0&&switched>changed);
+ rr_raster_seek(changed-1);assert(rr_tileset_size()==4240);assert(rr_tileset_data()[2192+8]==0x80);
+ rr_raster_seek(changed);assert(rr_tileset_data()[2192+8]==0x40);
+ rr_raster_seek(switched);assert(rr_tileset_data()[65]==0x28&&rr_tileset_data()[2192+8]==0xff);
  contains(rr_raster_seek(changed),"\"tileWrites\":1");contains(rr_raster_seek(switched),"\"charsetBase\":10240");
  auto newBackground=raster::pictures[0];rr_raster_seek(switched-1);assert(newBackground!=raster::pictures[0]);
  assert(raster::pictures[2][switched*392]==0);contains(rr_raster_pixel(2,0,switched),"not been drawn");
@@ -55,10 +58,10 @@ int main(){
  }
  assert(first&&second&&writer);
  auto size=rr_state_save();std::vector<uint8_t> saved(rr_state_data(),rr_state_data()+size);auto status=std::string(rr_status());
- for(int y:{0,70,100,200,271,0,271}){contains(rr_raster_seek(y),"\"complete\":true");rr_raster_pixel(0,100,100);rr_raster_pixel(1,100,100);rr_raster_pixel(2,50,y);}
+ for(int y:{0,70,100,200,271,0,271}){contains(rr_raster_seek(y),"\"complete\":true");rr_tileset_data();rr_raster_pixel(0,100,100);rr_raster_pixel(1,100,100);rr_raster_pixel(2,50,y);}
  assert(std::string(rr_status())==status);assert(rr_state_save()==size);assert(!memcmp(rr_state_data(),saved.data(),size));
  assert(!memcmp(rr_raster_frame(2),rr_frame(),392*272*4));
  auto frozen=raster::pictures[0];memset(machine.ram,0,65536);memset(machine.color_ram,0,1024);rr_raster_seek(271);assert(raster::pictures[0]==frozen);
- rr_capture_begin();rr_capture_end();contains(rr_raster_info(),"\"complete\":false");contains(rr_raster_seek(0),"\"error\"");
+ rr_capture_begin();rr_capture_end();contains(rr_raster_info(),"\"complete\":false");contains(rr_raster_seek(0),"\"error\"");assert(!rr_tileset_size());
  std::cout<<"C64 raster: frozen VIC layers, priority, charset split, glyph writers, accumulated output and unchanged state pass\n";
 }

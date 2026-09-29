@@ -16,6 +16,7 @@ int main(){
  assert(rr_capture_begin());
  for(int line=0;line<192;line++){
   rrhh::video.steps++;rrhh::video.pc=0x4567;
+  if(line==54)vram(0x100,0xa5);
   if(line==72)reg(8,8);
   if(line==96){gamegear_Machine_Out(m,0xbf,2);gamegear_Machine_Out(m,0xbf,0xc0);gamegear_Machine_Out(m,0xbe,0xf0);gamegear_Machine_Out(m,0xbe,0);}
   if(line==136)vram(0x3800+17*64+5*2,0);
@@ -29,7 +30,11 @@ int main(){
  rr_raster_seek(16);assert(rrgg::pictures[1][16*160]==0xff00ff00);assert(rrgg::pictures[2][16*160]==0xff0000ff);contains(rr_raster_pixel(1,0,16),"\"flags\":2");contains(rr_raster_pixel(1,0,16),"\"flags\":8");contains(rr_raster_pixel(1,0,16),"\"role\":\"Sprite X / tile\"");
  contains(rr_raster_seek(72),"\"colorWrites\":1");contains(rr_raster_seek(112),"\"mapWrites\":1");contains(rr_raster_seek(120),"\"objectWrites\":1");
  auto size=rr_state_save();assert(size);auto saved=stateOutput;
- for(int y:{143,0,72,16,48,90,143}){rr_raster_seek(y);contains(rr_raster_pixel(2,24,y),"\"complete\":true");}
+ rr_raster_seek(29);assert(rr_tileset_size()==16464&&rr_tileset_data()[0x100]==0);
+ rr_raster_seek(30);assert(rr_tileset_data()[0x100]==0xa5);
+ rr_raster_seek(71);assert(rr_tileset_data()[16384+2]==15);
+ rr_raster_seek(72);assert(rr_tileset_data()[16384+2]==0xf0);
+ for(int y:{143,0,72,16,48,90,143}){rr_raster_seek(y);rr_tileset_data();contains(rr_raster_pixel(2,24,y),"\"complete\":true");}
  assert(!memcmp(rr_raster_frame(2),rr_frame(),160*144*4));assert(rr_state_save()==size&&stateOutput==saved);
  v.VRAM.fill(0);v.CRAM.fill(0);v.Regs.fill(0);rr_raster_seek(47);assert(rrgg::pictures[0][0]==0xff0000ff);
  memcpy(rr_state_input(size),saved.data(),size);assert(rr_state_load(size));contains(rr_raster_seek(0),"\"error\"");

@@ -1,6 +1,10 @@
 #pragma once
 #include "../../../../browser/core/replay.h"
 extern "C" {
+// Replay memory contains registers [0,96), palette [4096,5120), VRAM
+// [8192,106496). It follows the same completed seek as the output buffer.
+int rr_tileset_size(){return rrcapture::trace.valid&&rrreplay::replay.memory.size()>=rrgba::oamBase?rrgba::oamBase:0;}
+uint8_t*rr_tileset_data(){return rr_tileset_size()?rrreplay::replay.memory.data():nullptr;}
 int rr_capture_begin(){try{auto b=rrgba::memory(machine,false);rrcapture::trace.begin(b.data(),b.size());return 1;}catch(const std::exception&e){errorText=e.what();return 0;}}
 int rr_capture_end(){try{auto b=rrgba::memory(machine,true);rrcapture::trace.end(b.data(),b.size());return 1;}catch(const std::exception&e){errorText=e.what();return 0;}}
 const char*rr_capture_info(){reply=rrcapture::trace.info();return reply.c_str();}

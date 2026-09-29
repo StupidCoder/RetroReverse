@@ -16,6 +16,13 @@ inline void compose(gbamachine_Machine*m,int x,int y,int top,int second,uint16_t
  {std::ostringstream s;s<<"{\"kind\":\"PPU priority / window / color effects\",\"scanline\":"<<y<<",\"x\":"<<x<<",\"topLayer\":"<<top<<",\"secondLayer\":"<<second<<",\"topColor15\":"<<topC<<",\"secondColor15\":"<<secondC<<",\"windowMask\":"<<ctl<<",\"blendControl\":"<<get(m->io,0x50u)<<"}";auto e=t.event(m->Steps,m->cpu->R[15],s.str());}
  t.record(at,gbamachine_rgb15(color),4,m->Steps,m->cpu->R[15],t.current);
 }
-inline std::vector<uint8_t>memory(gbamachine_Machine*m,bool final){std::vector<uint8_t>b(memorySize);if(final&&rrcapture::trace.shadow.size()==memorySize)b=rrcapture::trace.shadow;std::memcpy(b.data()+palBase,m->pal.p,m->pal.n);std::memcpy(b.data()+vramBase,m->vram.p,m->vram.n);std::memcpy(b.data()+oamBase,m->oam.p,m->oam.n);std::memcpy(b.data()+frameBase,m->screen.data(),frameBytes);return b;}
+inline std::vector<uint8_t>memory(gbamachine_Machine*m,bool final){std::vector<uint8_t>b(memorySize);if(final&&rrcapture::trace.shadow.size()==memorySize)b=rrcapture::trace.shadow;for(unsigned i=0;i<0x60;i+=2){auto v=get(m->io,i);b[i]=v;b[i+1]=v>>8;}std::memcpy(b.data()+palBase,m->pal.p,m->pal.n);std::memcpy(b.data()+vramBase,m->vram.p,m->vram.n);std::memcpy(b.data()+oamBase,m->oam.p,m->oam.n);std::memcpy(b.data()+frameBase,m->screen.data(),frameBytes);return b;}
 }
 inline void rrGBAMemWrite(gbamachine_Machine*m,const Slice<uint8_t>&b,uint32_t i){uint32_t a;if(b.p==m->pal.p)a=rrgba::palBase;else if(b.p==m->vram.p)a=rrgba::vramBase;else if(b.p==m->oam.p)a=rrgba::oamBase;else return;rrgba::clean();auto&t=rrcapture::trace;auto previous=t.current;t.current=0;t.record(a+i,b[i],1,m->Steps,m->cpu->R[15]);t.current=previous;}
+
+// Preserve display-register writes alongside graphics memory for tileset replay.
+inline void rrGBARegisterWrite(gbamachine_Machine*m,uint32_t reg,uint16_t value){
+ if(reg>=0x60||!rrcapture::trace.active)return;
+ auto&t=rrcapture::trace;rrgba::clean();auto previous=t.current;t.current=0;
+ t.record(reg,value,2,m->Steps,m->cpu->R[15]);t.current=previous;
+}

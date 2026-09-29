@@ -19,5 +19,16 @@ int main(){
  assert(rr_capture_begin());assert(m->cpu->SWI(m->cpu,1));assert(rr_capture_end());
  assert(rrcapture::trace.shadow[rrgba::palBase]==0&&rrcapture::trace.shadow[rrgba::vramBase+10]==0&&rrcapture::trace.shadow[rrgba::oamBase+20]==0);
  assert(std::string(rr_source(rrgba::vramBase+10,1,UINT32_MAX,0)).find("\"complete\":true")!=std::string::npos);
+ // Tile/character bank, palette and display control all follow replay memory.
+ m=machine;b.m=m;m->io[8]=0;m->vram[0x4000]=0;m->pal[2]=0;
+ assert(rr_capture_begin());
+ gbamachine_Machine_ioWrite16(m,0x04000008,4);m->Steps++;
+ gbamachine_bus_Write16(&b,0x06004000,0x21);m->Steps++;
+ gbamachine_bus_Write16(&b,0x05000002,31);assert(rr_capture_end());
+ rr_replay_begin();assert(rr_tileset_size()==0x1a000);auto*tiles=rr_tileset_data();assert(tiles[8]==0&&tiles[8192+0x4000]==0&&tiles[4098]==0);
+ auto stateSize=rr_state_save();std::vector<uint8_t>checkpoint(rr_state_data(),rr_state_data()+stateSize);
+ while(!rr_replay_seek(rrreplay::replay.steps.size())){}tiles=rr_tileset_data();assert(tiles[8]==4&&tiles[8192+0x4000]==0x21&&tiles[4098]==31);
+ while(!rr_replay_seek(0)){}tiles=rr_tileset_data();assert(tiles[8]==0&&tiles[8192+0x4000]==0&&tiles[4098]==0);
+ assert(rr_state_save()==stateSize&&!memcmp(checkpoint.data(),rr_state_data(),stateSize));
  std::cout<<"GBA pixel, replay, blending and state checks pass\n";
 }

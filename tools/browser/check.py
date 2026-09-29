@@ -3,7 +3,7 @@
 from pathlib import Path
 import os,subprocess,tempfile
 root=Path(__file__).resolve().parents[2];node=os.environ.get('NODE','node');clang=os.environ.get('CXX','clang++')
-for name in ['media','dc-media','dos-media','input','state-container','inspector','pacing']:
+for name in ['media','dc-media','dos-media','input','state-container','inspector','pacing','ui-shell','tileset']:
  subprocess.run([node,f'tools/browser/tests/{name}.mjs'],cwd=root,check=True)
 for p in (root/'site/emulators').glob('*.js'):
  subprocess.run([node,'--check',str(p)],check=True)
