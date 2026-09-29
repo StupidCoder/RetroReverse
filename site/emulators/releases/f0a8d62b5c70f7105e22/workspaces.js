@@ -7,14 +7,14 @@ export function createWorkspaces({navigation, onChange=()=>{}}) {
     const next=views.get(id);if(!next||next.button.disabled)return;
     active=id;
     for(const [key,v] of views){const chosen=key===id;v.panel.hidden=!chosen;v.button.setAttribute('aria-selected',String(chosen));v.button.tabIndex=chosen?0:-1;}
-    if(focus)next.button.focus();onChange(id);
+    if(focus)next.button.focus();onChange(id);next.onSelect?.();
   }
-  function register({id,label,panel,enabled=true}) {
+  function register({id,label,panel,enabled=true,onSelect}) {
     const button=document.createElement('button');button.type='button';button.id='view-'+id;
     button.textContent=label;button.setAttribute('role','tab');button.setAttribute('aria-controls',panel.id);
     button.disabled=!enabled;button.tabIndex=-1;button.setAttribute('aria-selected','false');
     panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby',button.id);panel.hidden=true;
-    button.onclick=()=>select(id);views.set(id,{button,panel});navigation.append(button);
+    button.onclick=()=>select(id);views.set(id,{button,panel,onSelect});navigation.append(button);
     if(active===null&&enabled)select(id);
   }
   function enable(id,value){const v=views.get(id);if(!v)return;v.button.disabled=!value;if(!value&&active===id){const fallback=[...views].find(([,v])=>!v.button.disabled);if(fallback)select(fallback[0]);}}

@@ -16,15 +16,15 @@ export function shellMarkup(platform) {
     <div class="play-layout">
       <section class="play-stage">
         <div class="monitor"><canvas id="screen" width="${view.width}" height="${view.height}" tabindex="0" aria-label="${config.name} display and keyboard controls"></canvas></div>
-        <div class="transport"><button id="run" disabled>Run</button><button id="pause" disabled>Pause</button><button id="capture-render" disabled>Capture rendering</button><button id="reset" disabled>Reset</button><button id="step" disabled>${dos?'Advance':'Next frame'}</button><label><input id="turbo" type="checkbox"> Fast forward</label><button id="fullscreen">Full screen</button></div>
+        <div class="transport"><button id="run" disabled>Run</button><button id="pause" disabled>Pause</button><button id="reset" disabled>Reset</button><button id="step" disabled>${dos?'Advance':'Next frame'}</button><label><input id="turbo" type="checkbox"> Fast forward</label><button id="fullscreen">Full screen</button></div>
         <div id="pad" class="pad"></div>
         ${platform==='amiga'?'<label class="mouse-speed">Mouse speed <select id="mouse-speed"><option value="1">1× — games</option><option value="2">2×</option><option value="4" selected>4× — Workbench</option></select></label>':''}
       </section>
       <aside class="play-inspector">
-        <p>Pause to inspect Memory, or capture rendering to explore Render.</p>
+        <p>Open Memory to inspect storage, or Render to capture a display.</p>
         <div class="state-controls"><button id="save" disabled>Save state</button><label>Load state <input id="statefile" type="file" accept=".rrstate"></label></div>
-        <p id="capture-note" class="metrics">${dos?'Pause to trace RAM rendering and its copies to VGA.':'Capture rendering to record the next complete display interval.'}</p>
-        <button id="cancelcapture" hidden>Cancel capture</button><p id="metrics" class="metrics">No machine running</p>
+        <p id="capture-note" class="metrics">${dos?'Open Render to trace RAM rendering and its copies to VGA.':'Open Render to record the next complete display interval.'}</p>
+        <p id="metrics" class="metrics">No machine running</p>
         ${view.firmwareHTML||''}
         <div id="tape" ${platform==='c64'?'':'hidden'}><button id="tapeplay">Play tape</button><button id="tapestop">Stop tape</button><p>Type LOAD, press Enter, then play the tape. Type RUN after loading.</p></div>
         <details><summary>Controls</summary><p id="help"></p><p id="device" class="metrics">Keyboard and on-screen controls</p></details>
@@ -35,7 +35,7 @@ export function shellMarkup(platform) {
   </section>
   <section id="memory-workspace" hidden></section>
   <section id="render-workspace" hidden>
-    <div class="render-heading"><div><h2>Building the screen</h2><p id="render-position">Capture a display to inspect it.</p></div><button id="render-resume">Resume game</button></div>
+    <div class="render-heading"><div><h2>Building the screen</h2><p id="render-position">Capture a display to inspect it.</p></div><button id="cancelcapture" hidden>Cancel capture</button><button id="render-resume">Resume game</button></div>
     <div id="render-toolbar" class="render-toolbar" hidden></div>
     <div class="render-layout">
       <div class="render-stage"><div class="render-buffers"><div id="render-auxiliary" class="render-auxiliary" hidden></div><div id="render-output-slot" class="render-output-slot"></div></div><div id="render-timeline"></div></div>

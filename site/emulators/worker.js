@@ -218,7 +218,7 @@ async function captureNext(){
 }
 function pixelEvidence(x,y){const p=jsonPixel(x,y);for(const c of p.contributors||[])c.replayStep=core._rr_replay_for_write(platform==='c64'?y:c.id);return p;}
 function tilesetSnapshot(){if(!core._rr_tileset_size)return null;const size=core._rr_tileset_size();if(!size)return null;const p=core._rr_tileset_data();return p?core.HEAPU8.slice(p,p+size).buffer:null;}
-function vramSnapshot(){if(platform!=='ps1'||!core._rr_vram_size)return null;const size=core._rr_vram_size();if(!size)return null;const p=core._rr_vram_data();return {info:json('_rr_vram_info'),memory:core.HEAPU8.slice(p,p+size).buffer};}
+function vramSnapshot(){if(!['ps1','dc'].includes(platform)||!core._rr_vram_size)return null;const size=core._rr_vram_size();if(!size)return null;const p=core._rr_vram_data();return {info:json('_rr_vram_info'),memory:core.HEAPU8.slice(p,p+size).buffer};}
 async function seekReplay(m){
  if(!capture||capture.id!==m.capture)return;
  const gen=++seekGeneration,c=capture,began=performance.now();let progress=began;

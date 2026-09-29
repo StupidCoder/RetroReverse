@@ -1,3 +1,4 @@
+import {createDCTexture} from './dc-texture.js';
 import {createPS1VRAM} from './ps1-vram.js';
 import {createTileset} from './tileset.js';
 import {createWorkspaces} from './workspaces.js';
@@ -14,6 +15,7 @@ function createCommands({platform,send,ui}) {
   const replay=createReplay({send,ui,onPosition:m=>{tileset?.update(m.tileset);vram?.update(m.vram);}});
   const inspector=createInspector({platform,canvas:ui.output.canvas,buffer:ui.output,root:ui.sidebar,send,jump:replay.seek});
   if(platform==='ps1')vram=createPS1VRAM({ui});
+  if(platform==='dc')vram=createDCTexture({ui,seek:replay.seek});
   if(platform==='gba')tileset=createTileset({platform,ui});
   return {reset(){replay.reset();inspector.reset();tileset?.reset();vram?.reset();},setCapture(c){inspector.setCapture(c);replay.setCapture(c);tileset?.update(c.tileset);vram?.update(c.vram);},result(m){replay.result(m);inspector.result(m);}};
 }

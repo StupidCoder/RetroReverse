@@ -161,3 +161,6 @@ and [VRAM formats](https://psx-spx.consoledev.net/ps1/gpu/video-memory-vram/).
 Tests: `vram-ps1.cpp`, `ps1-vram.mjs`, and the shared browser harness. A private
 Ridge Racer WASM capture verified 93 pixel source/CLUT address chains across a
 2,140-step frame history, with 13 texture pages and unchanged full machine state.
+
+Dreamcast adds a binding-aware texture view with memory-order, palette and VQ
+dictionary inspection; see [Dreamcast texture inspection](DC-TEXTURE-INSPECTION.md).

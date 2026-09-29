@@ -174,12 +174,12 @@ async function pump(id, one = false) {
   if(id===epoch){running=false;paint();send('message',{text:one?'Paused at the next display boundary.':'Paused.'});}
 }
 function coreState(){const n=core._rr_state_save();check(n);const limit=(platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='xbox'||platform==='dos')?128:32;if(n>limit*1024*1024)throw Error(`Capture checkpoint exceeds the ${limit} MiB budget`);const p=core._rr_state_data();return core.HEAPU8.slice(p,p+n);}
-function cancelCapture(){
+function cancelCapture(starting=false){
  if(capturing){core._rr_capture_end();finishCaptureProfile();capturing=false;}
- capture=null;captureGeneration++;seekGeneration++;send('capture-cleared');
+ capture=null;captureGeneration++;seekGeneration++;send('capture-cleared',{starting});
 }
 async function captureNext(){
- running=false;const id=++epoch;cancelCapture();const generation=captureGeneration;capturing=true;captureRunMs=maxCaptureCall=0;captureProfileStart=Object.fromEntries(json('_rr_profile').buckets.map(b=>[b.name,b.ms]));
+ running=false;const id=++epoch;cancelCapture(true);const generation=captureGeneration;capturing=true;captureRunMs=maxCaptureCall=0;captureProfileStart=Object.fromEntries(json('_rr_profile').buckets.map(b=>[b.name,b.ms]));
  const began=performance.now();let lastProgress=0;
  send('capture-progress',{text:'Finishing the current display interval…',generation});
  const boundary=async phase=>{
@@ -218,7 +218,7 @@ async function captureNext(){
 }
 function pixelEvidence(x,y){const p=jsonPixel(x,y);for(const c of p.contributors||[])c.replayStep=core._rr_replay_for_write(platform==='c64'?y:c.id);return p;}
 function tilesetSnapshot(){if(!core._rr_tileset_size)return null;const size=core._rr_tileset_size();if(!size)return null;const p=core._rr_tileset_data();return p?core.HEAPU8.slice(p,p+size).buffer:null;}
-function vramSnapshot(){if(platform!=='ps1'||!core._rr_vram_size)return null;const size=core._rr_vram_size();if(!size)return null;const p=core._rr_vram_data();return {info:json('_rr_vram_info'),memory:core.HEAPU8.slice(p,p+size).buffer};}
+function vramSnapshot(){if(!['ps1','dc'].includes(platform)||!core._rr_vram_size)return null;const size=core._rr_vram_size();if(!size)return null;const p=core._rr_vram_data();return {info:json('_rr_vram_info'),memory:core.HEAPU8.slice(p,p+size).buffer};}
 async function seekReplay(m){
  if(!capture||capture.id!==m.capture)return;
  const gen=++seekGeneration,c=capture,began=performance.now();let progress=began;
@@ -461,6 +461,8 @@ async function memoryRequest(m){
    }
    respond(memoryService.finish());paint();return;
   }
+  if(m.type==='memory-live-end'){memoryService.stopLive();return;}
+  if(m.type==='memory-live-snapshot'){respond(await memoryService.liveSnapshot(m.scale,m.window,m.fetches));return;}
   if(m.type==='memory-overview')respond(memoryService.overview(m.scale,m.window));
   if(m.type==='memory-seek'){memoryService.seek(m.position);respond(memoryService.overview(m.scale,m.window));}
   if(m.type==='memory-page'){

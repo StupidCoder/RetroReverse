@@ -133,3 +133,11 @@ body[data-platform] .files{margin-top:8px}
 .memory-both-key{color:#97559a}
 
 .memory-player{display:flex;align-items:center;gap:18px;margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:6px;background:var(--art)}#memory-screen{width:192px;max-width:40%;height:auto;max-height:150px;object-fit:contain;image-rendering:pixelated;background:#111}.memory-transport,#memory-tape{display:flex;flex-wrap:wrap;gap:8px}.memory-player p{font-size:12px;color:var(--muted);margin:8px 0}.memory-player button{font-size:12px;padding:6px 10px}#memory-tape[hidden]{display:none}
+
+/* Dreamcast texture and palette/codebook share the existing auxiliary slot. */
+.render-auxiliary:has(#dc-texture-board){width:100%;max-width:none;overflow:hidden}
+#dc-texture-board{display:grid;gap:12px;width:100%;justify-items:center}
+#dc-texture-board .buffer-view{width:min(100%,calc((max(230px,var(--render-space)) - 50px)*var(--texture-ratio,1)))}
+#dc-texture-board[data-aux=yes] .buffer-view:first-child{width:min(100%,calc((max(230px,var(--render-space)) - 82px)*.66*var(--texture-ratio,1)))}
+#dc-texture-board[data-aux=yes] .buffer-view:nth-child(2){width:min(100%,calc((max(230px,var(--render-space)) - 82px)*.34*var(--aux-ratio,1)))}
+#dc-texture-board figcaption{font-size:11px}.dc-texture-empty{font-size:13px;color:var(--muted)}
