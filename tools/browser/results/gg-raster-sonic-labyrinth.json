@@ -1,0 +1,183 @@
+{
+  "game": "Sonic The Hedgehog (Japan, USA).gg",
+  "runtime": "Node.js WASM",
+  "pass": true,
+  "lines": 144,
+  "sampledPixels": 1872,
+  "sourceChecks": 6192,
+  "paletteWriters": [
+    1514,
+    513,
+    503
+  ],
+  "capture": {
+    "events": 385,
+    "writes": 48546,
+    "overflow": 0,
+    "bytes": 4198930,
+    "rasterBytes": 2466432
+  },
+  "medianSeekMs": 0.28949999999986176,
+  "maxSeekMs": 1.0476670000000041,
+  "changes": [
+    {
+      "line": 0,
+      "raster": 24,
+      "scrollX": 39,
+      "scrollY": 0,
+      "registers": [
+        {
+          "name": "Line reload",
+          "address": 81994,
+          "before": 125,
+          "after": 10,
+          "pc": 154,
+          "clock": 10409484
+        },
+        {
+          "name": "Mode 1",
+          "address": 81984,
+          "before": 38,
+          "after": 54,
+          "pc": 165,
+          "clock": 10409489
+        },
+        {
+          "name": "Mode 2",
+          "address": 81985,
+          "before": 226,
+          "after": 162,
+          "pc": 249,
+          "clock": 10409504
+        },
+        {
+          "name": "Scroll X",
+          "address": 81992,
+          "before": 47,
+          "after": 39,
+          "pc": 260,
+          "clock": 10409509
+        },
+        {
+          "name": "Scroll Y",
+          "address": 81993,
+          "before": 216,
+          "after": 0,
+          "pc": 269,
+          "clock": 10409513
+        },
+        {
+          "name": "Mode 2",
+          "address": 81985,
+          "before": 162,
+          "after": 226,
+          "pc": 363,
+          "clock": 10410813
+        },
+        {
+          "name": "Line reload",
+          "address": 81994,
+          "before": 10,
+          "after": 117,
+          "pc": 459,
+          "clock": 10411370
+        }
+      ],
+      "paletteWrites": 30
+    },
+    {
+      "line": 117,
+      "raster": 141,
+      "scrollX": 39,
+      "scrollY": 0,
+      "registers": [],
+      "paletteWrites": 3
+    },
+    {
+      "line": 118,
+      "raster": 142,
+      "scrollX": 39,
+      "scrollY": 0,
+      "registers": [],
+      "paletteWrites": 4
+    },
+    {
+      "line": 119,
+      "raster": 143,
+      "scrollX": 39,
+      "scrollY": 0,
+      "registers": [],
+      "paletteWrites": 4
+    },
+    {
+      "line": 120,
+      "raster": 144,
+      "scrollX": 39,
+      "scrollY": 0,
+      "registers": [],
+      "paletteWrites": 4
+    },
+    {
+      "line": 121,
+      "raster": 145,
+      "scrollX": 39,
+      "scrollY": 0,
+      "registers": [],
+      "paletteWrites": 4
+    },
+    {
+      "line": 122,
+      "raster": 146,
+      "scrollX": 39,
+      "scrollY": 0,
+      "registers": [],
+      "paletteWrites": 3
+    },
+    {
+      "line": 123,
+      "raster": 147,
+      "scrollX": 39,
+      "scrollY": 0,
+      "registers": [],
+      "paletteWrites": 2
+    },
+    {
+      "line": 124,
+      "raster": 148,
+      "scrollX": 39,
+      "scrollY": 0,
+      "registers": [],
+      "paletteWrites": 4
+    },
+    {
+      "line": 125,
+      "raster": 149,
+      "scrollX": 39,
+      "scrollY": 0,
+      "registers": [
+        {
+          "name": "Mode 1",
+          "address": 81984,
+          "before": 54,
+          "after": 38,
+          "pc": 526,
+          "clock": 10414683
+        }
+      ],
+      "paletteWrites": 2
+    }
+  ],
+  "proof": {
+    "steps": 10415454,
+    "frames": 2028,
+    "pc": 811,
+    "memory": 3140843977,
+    "rgba": 119413931
+  },
+  "checks": {
+    "pixelReconstruction": true,
+    "historicalSources": true,
+    "finalOutputMatches": true,
+    "fullStateUnchanged": true
+  }
+}

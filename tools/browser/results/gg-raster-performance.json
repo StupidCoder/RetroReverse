@@ -1,0 +1,1 @@
+{"platform":"gg","fields":600,"ms":340.082667,"fps":1764.2769191762425,"heapBytes":33554432,"proof":{"steps":12757075,"frames":2400,"pc":811,"memory":204269153,"rgba":4014918498},"profile":{"sampled":false,"buckets":[{"name":"Z80 CPU and ports","ms":147.17,"longestMs":4.33275,"tag":0},{"name":"VDP tiles and sprites","ms":180.189,"longestMs":0.123792,"tag":0}]}}

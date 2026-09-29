@@ -1020,7 +1020,7 @@ func main() {
 					signature := ret(sig.Results()) + " " + name + "(" + args + ")"
 					protos += signature + ";\n"
 					body := g.block(d.Body)
-					if name == "gameboy_Machine_tick" || name == "gameboy_Machine_writeIO" || name == "gameboy_Machine_Read" || name == "gameboy_Machine_mbcWrite" {
+					if name == "gameboy_Machine_tick" || name == "gameboy_Machine_writeIO" || name == "gameboy_Machine_Read" || name == "gameboy_Machine_mbcWrite" || name == "gamegear_Machine_In" || name == "gamegear_Machine_Out" || name == "z80_CPU_Step" {
 						signature = strings.Replace(signature, name, name+"_Reference", 1)
 						protos += signature + ";\n"
 					}

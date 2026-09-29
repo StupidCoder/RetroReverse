@@ -5,6 +5,11 @@ Run/Pause/Reset, keyboard/on-screen/standard-gamepad controls, performance count
 portable `.rrstate` files, automatic frame capture and rendering replay. No firmware
 or server process is required. There is no game allowlist.
 
+Both handhelds now have separate Play/Render workspaces. See
+[Game Boy raster inspection](GB-RASTER-INSPECTION.md) and
+[Game Gear raster inspection](GG-RASTER-INSPECTION.md). The latter also replaces
+the original Game Gear instruction-budget timing described by the initial port.
+
 The bounded source generator in `tools/browser/handheld-portgen/` translates the
 existing Go SM83 / Z80 CPU and cartridge/device models. It selects the execution
 sources and fails on unsupported syntax. The C++ hosts add stable completed LCD
@@ -72,9 +77,11 @@ captures contain about 4 MiB of evidence, and raw states are approximately 229 K
   MBC1 banking mode 1 includes the banked low ROM window. Color-only cartridges
   and other mappers are rejected explicitly. Pixel FIFO timing, DMA duration,
   VRAM/OAM access restrictions and timer-edge quirks are not cycle accurate.
-- Game Gear: Sega mapper, 16 KiB–4 MiB, optional 512-byte copier header. Its inherited
-  Z80 scheduler uses a 30,000-instruction frame budget. It is not cycle accurate;
-  line interrupts, alternate mappers, cartridge SRAM and link cable are not modeled.
+- Game Gear: Sega mapper, 16 KiB–4 MiB, optional 512-byte copier header. Z80
+  instruction-cycle scheduling, persistent line/frame interrupts, scroll latches
+  and paired CRAM writes are modeled. Rendering remains scanline-level; VDP fetch
+  timing within a line, the external H-counter latch, alternate mappers,
+  cartridge SRAM and link cable are not modeled.
 - Neither browser port connects audio output. These are educational ports of the
   project's existing experimental cores, not replacements for mature emulators.
 

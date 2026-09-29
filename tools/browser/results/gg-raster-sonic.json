@@ -1,0 +1,58 @@
+{
+  "game": "Sonic The Hedgehog (Japan, USA).gg",
+  "runtime": "Node.js WASM",
+  "pass": true,
+  "lines": 144,
+  "sampledPixels": 1872,
+  "sourceChecks": 6192,
+  "paletteWriters": [],
+  "capture": {
+    "events": 385,
+    "writes": 48305,
+    "overflow": 0,
+    "bytes": 4181578,
+    "rasterBytes": 2466432
+  },
+  "medianSeekMs": 0.2981250000000273,
+  "maxSeekMs": 0.7664580000000569,
+  "changes": [
+    {
+      "line": 0,
+      "raster": 24,
+      "scrollX": 248,
+      "scrollY": 39,
+      "registers": [
+        {
+          "name": "Mode 2",
+          "address": 81985,
+          "before": 226,
+          "after": 162,
+          "pc": 249,
+          "clock": 9127016
+        },
+        {
+          "name": "Mode 2",
+          "address": 81985,
+          "before": 162,
+          "after": 226,
+          "pc": 363,
+          "clock": 9128560
+        }
+      ],
+      "paletteWrites": 0
+    }
+  ],
+  "proof": {
+    "steps": 9133110,
+    "frames": 1801,
+    "pc": 807,
+    "memory": 1413592199,
+    "rgba": 2334449941
+  },
+  "checks": {
+    "pixelReconstruction": true,
+    "historicalSources": true,
+    "finalOutputMatches": true,
+    "fullStateUnchanged": true
+  }
+}

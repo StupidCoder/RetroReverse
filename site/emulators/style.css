@@ -17,17 +17,17 @@ body[data-platform="amiga"] .monitor:fullscreen canvas{width:min(100vw,125vh)}
 body[data-platform="amiga"] canvas.mouse-active{cursor:none}
 
 /* Raster workspaces: the play surface and the raster explanation are peers. */
-:is(body[data-platform="gb"],body[data-platform="c64"]) header{padding-block:12px}
-:is(body[data-platform="gb"],body[data-platform="c64"]) main{padding-top:18px;padding-bottom:20px;max-width:1540px}
+:is(body[data-platform="gb"],body[data-platform="gg"],body[data-platform="c64"]) header{padding-block:12px}
+:is(body[data-platform="gb"],body[data-platform="gg"],body[data-platform="c64"]) main{padding-top:18px;padding-bottom:20px;max-width:1540px}
 .workspace-heading{display:flex;align-items:center;gap:32px;flex-wrap:wrap}
 .workspace-heading h1{font-size:32px;margin:0}
 #workspace-nav{display:flex;gap:4px;border-bottom:1px solid var(--line)}
 #workspace-nav button{background:transparent;border:0;border-bottom:3px solid transparent;border-radius:0;padding:9px 22px}
 #workspace-nav button[aria-selected="true"]{border-bottom-color:var(--accent);color:var(--accent);font-weight:600}
-:is(body[data-platform="gb"],body[data-platform="c64"]) .status{font-size:13px;margin:8px 0 14px;min-height:20px}
+:is(body[data-platform="gb"],body[data-platform="gg"],body[data-platform="c64"]) .status{font-size:13px;margin:8px 0 14px;min-height:20px}
 .raster-player{display:grid;grid-template-columns:minmax(0,660px) minmax(240px,340px);justify-content:center;gap:32px}
-body[data-platform="gb"] .monitor canvas{aspect-ratio:10/9;max-height:58vh}
-:is(body[data-platform="gb"],body[data-platform="c64"]) .files{margin-top:8px}
+:is(body[data-platform="gb"],body[data-platform="gg"]) .monitor canvas{aspect-ratio:10/9;max-height:58vh}
+:is(body[data-platform="gb"],body[data-platform="gg"],body[data-platform="c64"]) .files{margin-top:8px}
 .raster-player input[type="file"]{max-width:100%}
 .raster-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:8px 0 14px}
 .raster-heading h2{font-size:23px}.raster-heading p{margin:2px 0 0;font-size:13px;color:var(--muted)}

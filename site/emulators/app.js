@@ -36,7 +36,7 @@ $('help').textContent = config.help;
 $('compat').textContent = config.compat;
 $('tape').hidden = platform !== 'c64';
 const send = (type, data = {}) => {const id=++request;worker?.postMessage({type,session,request:id,...data});return id;};
-const raster=['gb','c64'].includes(platform)?createRaster({platform,send,resume:()=>$('run').click()}):null;
+const raster=['gb','gg','c64'].includes(platform)?createRaster({platform,send,resume:()=>$('run').click()}):null;
 const replay=raster||createReplay({canvas,send});
 const inspector=raster?{reset(){},setCapture(){},result:m=>raster.result(m),isInspecting:raster.isInspecting}:createInspector({platform,canvas,send,jump:step=>replay.seek(step)});
 function controls(on) {

@@ -153,6 +153,7 @@ uint16_t z80_CPU_adc16(z80_CPU* c,uint16_t a,uint16_t b);
 uint16_t z80_CPU_sbc16(z80_CPU* c,uint16_t a,uint16_t b);
 uint8_t z80_CPU_rot(z80_CPU* c,int64_t y,uint8_t v);
 void z80_CPU_Step(z80_CPU* c);
+void z80_CPU_Step_Reference(z80_CPU* c);
 void z80_CPU_exec(z80_CPU* c,uint8_t op);
 void z80_CPU_execMain(z80_CPU* c,uint8_t op);
 void z80_CPU_execX0(z80_CPU* c,int64_t y,int64_t z,int64_t p,int64_t q);
@@ -182,7 +183,9 @@ gamegear_Machine* gamegear_NewMachine(Slice<uint8_t> rom);
 uint8_t gamegear_Machine_Read(gamegear_Machine* m,uint16_t a);
 void gamegear_Machine_Write(gamegear_Machine* m,uint16_t a,uint8_t v);
 uint8_t gamegear_Machine_In(gamegear_Machine* m,uint16_t port);
+uint8_t gamegear_Machine_In_Reference(gamegear_Machine* m,uint16_t port);
 void gamegear_Machine_Out(gamegear_Machine* m,uint16_t port,uint8_t v);
+void gamegear_Machine_Out_Reference(gamegear_Machine* m,uint16_t port,uint8_t v);
 bool gamegear_Machine_RunFrame(gamegear_Machine* m);
 bool gamegear_Machine_step(gamegear_Machine* m);
 void gamegear_PSG_Write(gamegear_PSG* p,uint8_t v);
@@ -761,7 +764,7 @@ return r;
 }
 }
 // tools/cpu/z80/cpu.go:404:1
-void z80_CPU_Step(z80_CPU* c){
+void z80_CPU_Step_Reference(z80_CPU* c){
 {
 if (c->Halted) {
 return ;
@@ -1716,7 +1719,7 @@ rrAfterWrite(m,writtenAddress,writtenValue);
 }
 }
 // tools/platform/gamegear/machine.go:240:1
-uint8_t gamegear_Machine_In(gamegear_Machine* m,uint16_t port){
+uint8_t gamegear_Machine_In_Reference(gamegear_Machine* m,uint16_t port){
 {
 {
 switch(cast<uint8_t>(port)){
@@ -1746,7 +1749,7 @@ break;}
 }
 }
 // tools/platform/gamegear/machine.go:262:1
-void gamegear_Machine_Out(gamegear_Machine* m,uint16_t port,uint8_t v){
+void gamegear_Machine_Out_Reference(gamegear_Machine* m,uint16_t port,uint8_t v){
 {
 {
 {

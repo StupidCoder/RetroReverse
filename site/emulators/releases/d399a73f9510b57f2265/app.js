@@ -1,4 +1,4 @@
-import {createGameBoyRaster} from './gb-raster.js';
+import {createRaster} from './raster.js';
 import {createReplay} from './replay.js';
 import {pixelCoordinates,createInspector} from './inspector.js';
 import {platforms} from './platforms.js';
@@ -36,7 +36,7 @@ $('help').textContent = config.help;
 $('compat').textContent = config.compat;
 $('tape').hidden = platform !== 'c64';
 const send = (type, data = {}) => {const id=++request;worker?.postMessage({type,session,request:id,...data});return id;};
-const raster=platform==='gb'?createGameBoyRaster({send,resume:()=>$('run').click()}):null;
+const raster=['gb','gg','c64'].includes(platform)?createRaster({platform,send,resume:()=>$('run').click()}):null;
 const replay=raster||createReplay({canvas,send});
 const inspector=raster?{reset(){},setCapture(){},result:m=>raster.result(m),isInspecting:raster.isInspecting}:createInspector({platform,canvas,send,jump:step=>replay.seek(step)});
 function controls(on) {
