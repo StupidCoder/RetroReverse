@@ -78,7 +78,8 @@ limitations. Detailed race captures can exceed 1 GiB of WASM memory.
 
 ## Validation
 
-The public native suite and the four additional actual-WASM tests cover x86
+The public native suite passes both locally and in Linux GitHub Actions
+(run `36556258688`). The four additional actual-WASM tests also pass. They cover x86
 wrapping, unaligned access, VGA and watches; synthetic MZ execution; virtual
 file overlays; combined keyboard/controller input; VGA palette provenance;
 NV2A triangles and replay; state corruption/rollback and pointer aliases;
@@ -92,11 +93,13 @@ selection and first/final replay. A gameplay checkpoint also passed deterministi
 round trips and replay equality in Node/WASM.
 
 OutRun's frame 250 cold-boot SEGA image is byte-identical between Go, native C++
-and Node/WASM (RGBA FNV `86c4f3a5`). At frame 3,000, native C++ and WASM both show
+and Node/WASM (RGBA FNV `86c4f3a5`). At frame 3,000, Go, native C++ and WASM all show
 the same white loading image; the extended loading phase is not a browser-only
-display failure. Do not treat the initial logo as evidence of complete menu
-acceptance. The separately restored driving checkpoint renders the race in the
-browser. Small numerical differences from Go remain in 3D rendering.
+display failure. Continuing this cold execution to frame 18,000 reaches the
+animated OutRun title with PRESS START at 2,617,498,631 CPU steps. Pressing Start
+then reaches License Select after another 120 flips. The separately
+restored driving checkpoint renders the race in the browser. Small numerical
+differences from Go remain in 3D rendering.
 
 The browser Xbox acceptance included local ISO selection, state import, resume,
 pause/capture, pixel contributors, and first/intermediate/final render replay.
@@ -126,10 +129,14 @@ inspection, not real-time Xbox play. Profiles, hashes and individual samples
 are in `../results/dos-xbox-performance.json`.
 
 Cold boot is a different workload: reaching OutRun's frame 250 took 36.5 seconds
-in one Node/WASM run. The later white loading phase is expensive and should not
-be presented as a completed interactive cold-boot acceptance. Race checkpoints
-avoid repeating that loading phase, but are private game-derived files and are
-not hosted with the site.
+in one Node/WASM run. Continuing through frame 3,000 and then 18,000 took another
+114.2 and 687.3 seconds, respectively: about 14 minutes of core execution to the
+observed title screen. Those extended runs overlapped some other validation, so
+this is an observed elapsed time rather than a clean performance comparison or
+the exact first title-frame time. The long white loading phase is expensive.
+Race checkpoints avoid repeating it, but are private game-derived files and are
+not hosted with the site. Detailed acceptance results are in
+`../results/dos-xbox-validation.json`.
 
 ## Reproduction
 

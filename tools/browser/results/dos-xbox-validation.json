@@ -1,0 +1,354 @@
+{
+  "schema": 1,
+  "date": "2026-09-29",
+  "release": "41976e9ea3c37c416243",
+  "publicWasmTests": [
+    "Shared x86 wide reads/fetches: real-mode wrapping, unaligned RAM, VGA and watch hooks pass",
+    "Xbox SIMD combiner maps/ops match scalar reference for random bit patterns, NaNs and infinities",
+    "DOS MZ boot, VGA/palette provenance, replay, file-overlay restore and combined inputs pass",
+    "Xbox NV2A triangle/provenance/replay, thread closures, SHA1 continuation, state aliases and bounded texture ownership pass"
+  ],
+  "privateDosCheck": {
+    "pass": true,
+    "platform": "dos",
+    "explained": 32,
+    "complete": 40,
+    "stateBytes": 68161350
+  },
+  "privateXboxSoak": {
+    "pass": true,
+    "platform": "xbox",
+    "fields": 120,
+    "budgetMiB": 600,
+    "samples": [
+      {
+        "frame": 60,
+        "heapBytes": 450887680
+      },
+      {
+        "frame": 120,
+        "heapBytes": 450887680
+      }
+    ],
+    "proof": {
+      "steps": 28489659022,
+      "frames": 120,
+      "pc": 1762923,
+      "tick": 32632338353,
+      "draws": 8063035,
+      "ram": 324108429,
+      "rgba": 1742804744
+    }
+  },
+  "coldXbox250Wasm": {
+    "platform": "xbox",
+    "fields": 250,
+    "ms": 36540.673834,
+    "fps": 6.841691019046904,
+    "heapBytes": 134217728,
+    "proof": {
+      "steps": 647559222,
+      "frames": 250,
+      "pc": 1762923,
+      "tick": 3752926129,
+      "draws": 918,
+      "ram": 2929713459,
+      "rgba": 2261054373
+    },
+    "profile": {
+      "sampled": false,
+      "buckets": [
+        {
+          "name": "x86 CPU and devices",
+          "ms": 22686.2,
+          "longestMs": 75.2582,
+          "tag": 0
+        },
+        {
+          "name": "NV2A commands",
+          "ms": 43.9155,
+          "longestMs": 74.8987,
+          "tag": 0
+        },
+        {
+          "name": "Vertex processing",
+          "ms": 4.90743,
+          "longestMs": 37.6628,
+          "tag": 0
+        },
+        {
+          "name": "Software rasterizer",
+          "ms": 8563.78,
+          "longestMs": 36.8826,
+          "tag": 0
+        },
+        {
+          "name": "Surface clears",
+          "ms": 4876.8,
+          "longestMs": 5.2515,
+          "tag": 0
+        },
+        {
+          "name": "Texture decoding",
+          "ms": 7.27992,
+          "longestMs": 1.12083,
+          "tag": 0
+        },
+        {
+          "name": "Disc file reads",
+          "ms": 20.9263,
+          "longestMs": 1.24892,
+          "tag": 0
+        }
+      ]
+    }
+  },
+  "coldXbox3000Go": {
+    "steps": 812293594,
+    "frames": 3000,
+    "pc": 1762923,
+    "ram": 2871740997,
+    "rgba": 2596822469,
+    "seconds": 115.521734,
+    "halt": ""
+  },
+  "coldXbox3000Wasm": {
+    "platform": "xbox",
+    "fields": 2750,
+    "ms": 114216.95212500001,
+    "fps": 24.076986374057473,
+    "heapBytes": 305004544,
+    "proof": {
+      "steps": 812318210,
+      "frames": 3000,
+      "pc": 1762923,
+      "tick": 37370334129,
+      "draws": 16876,
+      "ram": 32557353,
+      "rgba": 2596822469
+    },
+    "profile": {
+      "sampled": false,
+      "buckets": [
+        {
+          "name": "x86 CPU and devices",
+          "ms": 13597.1,
+          "longestMs": 69.2321,
+          "tag": 0
+        },
+        {
+          "name": "NV2A commands",
+          "ms": 121.197,
+          "longestMs": 68.2152,
+          "tag": 0
+        },
+        {
+          "name": "Vertex processing",
+          "ms": 70.335,
+          "longestMs": 53.508,
+          "tag": 0
+        },
+        {
+          "name": "Software rasterizer",
+          "ms": 95901.3,
+          "longestMs": 53.4945,
+          "tag": 0
+        },
+        {
+          "name": "Surface clears",
+          "ms": 4092.63,
+          "longestMs": 3.93283,
+          "tag": 0
+        },
+        {
+          "name": "Texture decoding",
+          "ms": 80.7435,
+          "longestMs": 1.15933,
+          "tag": 0
+        },
+        {
+          "name": "Disc file reads",
+          "ms": 11.458,
+          "longestMs": 1.11658,
+          "tag": 0
+        }
+      ]
+    }
+  },
+  "browserAcceptance": {
+    "dos": [
+      "local folder/EXE selection",
+      "cold Quake boot and running demo",
+      "keyboard",
+      "state import",
+      "state export link",
+      "pause and VGA/palette pixel evidence",
+      "first/final replay"
+    ],
+    "xbox": [
+      "local ISO selection",
+      "driving state import",
+      "resume",
+      "pause/capture",
+      "pixel contributors",
+      "first/intermediate/final replay"
+    ],
+    "physicalGamepadTested": false
+  },
+  "deployed": {
+    "base": "https://aireverseengineering.pages.dev/emulators/",
+    "release": "41976e9ea3c37c416243",
+    "assetsVerified": 53,
+    "routes": [
+      {
+        "route": "c64/",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "ps1/",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "n64/",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "3do/",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "ds/",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "3ds/",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "psp/",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "gb/",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "gg/",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "amiga/",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "ps2/",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "gc/",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "gba/",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "dc/",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "dos/",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "route": "xbox/",
+        "contentType": "text/html; charset=utf-8"
+      }
+    ],
+    "isolationHeaders": true
+  },
+  "extendedColdXboxWasm": {
+    "platform": "xbox",
+    "fields": 15000,
+    "ms": 687334.7097080001,
+    "fps": 21.82342865584722,
+    "heapBytes": 314966016,
+    "proof": {
+      "steps": 2617498631,
+      "frames": 18000,
+      "pc": 1762923,
+      "tick": 222290527153,
+      "draws": 87093,
+      "ram": 1656097304,
+      "rgba": 1874755740
+    },
+    "profile": {
+      "sampled": false,
+      "buckets": [
+        {
+          "name": "x86 CPU and devices",
+          "ms": 144307,
+          "longestMs": 401,
+          "tag": 0
+        },
+        {
+          "name": "NV2A commands",
+          "ms": 588.902,
+          "longestMs": 400.637,
+          "tag": 0
+        },
+        {
+          "name": "Vertex processing",
+          "ms": 278.572,
+          "longestMs": 300.374,
+          "tag": 0
+        },
+        {
+          "name": "Software rasterizer",
+          "ms": 508525,
+          "longestMs": 300.366,
+          "tag": 0
+        },
+        {
+          "name": "Surface clears",
+          "ms": 28764.3,
+          "longestMs": 77.4662,
+          "tag": 0
+        },
+        {
+          "name": "Texture decoding",
+          "ms": 2216.44,
+          "longestMs": 5.75108,
+          "tag": 0
+        },
+        {
+          "name": "Disc file reads",
+          "ms": 32.9814,
+          "longestMs": 0.773834,
+          "tag": 0
+        }
+      ]
+    },
+    "observedScreen": "OutRun 2006 title with PRESS START, from uninterrupted cold execution across checkpoints",
+    "totalCoreRunMs": 838092.3356670002
+  },
+  "coldXboxStartInput": {
+    "observedScreen": "License Select / Create New License",
+    "holdFrames": 10,
+    "totalFramesAfterTitle": 120,
+    "proof": {
+      "steps": 2640632234,
+      "frames": 18120,
+      "pc": 1762923,
+      "tick": 223757468593,
+      "draws": 94946,
+      "ram": 3845839600,
+      "rgba": 1048069014
+    }
+  },
+  "linuxCI": {
+    "run": 36556258688,
+    "commit": "12fc74dbe3bb5540651f91d573627612d353afb4",
+    "conclusion": "success"
+  }
+}
