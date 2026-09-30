@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "fort-apocalypse-c64",
-  "revision": 3,
+  "revision": 4,
   "game": {
     "name": "Fort Apocalypse",
     "system": {
@@ -38,6 +38,10 @@
     "mechanics": {
       "path": "/games/fort-apocalypse-c64/fort-apocalypse-c64.md",
       "description": "Repository write-up, Part V: player and enemy helicopter. This is a repository source path, not a hosted site asset."
+    },
+    "experiment": {
+      "path": "/tools/browser/docs/code-m8/README.md",
+      "description": "M8 reproducible experiment, original tape bytes and measured original/modified outcomes."
     }
   },
   "evidence": {
@@ -63,7 +67,13 @@
       "status": "inferred",
       "source": "mechanics",
       "description": "Documented player and enemy state and routine entries.",
-      "limitations": "Requires live byte and applicability validation before guided execution; the signature-overlap bug explanation remains unresolved."
+      "limitations": "Requires live byte and applicability validation before guided execution. The historical origin of the $55 opcode is unresolved; M8 verifies one guarded repair experiment."
+    },
+    "upward-experiment": {
+      "status": "confirmed",
+      "source": "experiment",
+      "description": "Reference tape has $55 $76 at $A000 (EOR $76,X). A prepared underground spawn reproduces original death and a different trajectory after $55 \u2192 $A5.",
+      "limitations": "The LDA repair is a hypothesis tested in one 200-frame scenario. Adjacency to the ASCII signature does not establish how the opcode became corrupted. No universal AI fix is claimed."
     }
   },
   "spaces": {
@@ -536,7 +546,8 @@
         "reference-pal"
       ],
       "evidence": [
-        "mechanics"
+        "mechanics",
+        "upward-experiment"
       ],
       "applicability": "Documented entry only. CPU banking and live instruction bytes must be validated before executing a guided stop."
     },
@@ -569,9 +580,9 @@
     "upward-probe-caution": {
       "function": "enemy-upward-probe",
       "offset": "0x0",
-      "text": "The write-up attributes an altered opcode to a signature overlap. Exact bytes, instruction boundaries and the resulting terrain lookup must be reconciled before asserting a reproducible crash or a repair.",
+      "text": "The reference entry executes $55 $76: EOR $76,X. The controlled experiment tests $A5 $76 (LDA $76), compares identical-input runs and verifies terrain contact before original death. The candidate survives the tested 200 frames; the signature-adjacency history and universal repair behavior remain unproven.",
       "evidence": [
-        "mechanics"
+        "upward-experiment"
       ]
     }
   },
@@ -859,5 +870,474 @@
       ]
     }
   },
-  "experiments": {}
+  "experiments": {
+    "upward-probe": {
+      "title": "Underground pursuit: test the upward-probe repair",
+      "description": "Prepare the scene through the original teleport and spawn routines. Replay original code twice, then compare a one-byte LDA hypothesis with identical released joystick input.",
+      "requirements": "Pause at enemy AI $9C52 after the reference boot recipe plus 6,000,000 cycles and the next AI entry. Player must be at (23,8), camera (5,-1), enemy (195,22), and mode 2. Preparation checks the subsequent teleport and spawn; other timing/RNG contexts may fail and restore the session.",
+      "releases": [
+        "reference-pal"
+      ],
+      "evidence": [
+        "upward-experiment"
+      ],
+      "start": {
+        "all": [
+          {
+            "pc": 40018
+          },
+          {
+            "address": 157,
+            "value": 2
+          },
+          {
+            "address": 100,
+            "value": 3
+          },
+          {
+            "address": 105,
+            "value": 23
+          },
+          {
+            "address": 106,
+            "value": 8
+          },
+          {
+            "address": 86,
+            "value": 5
+          },
+          {
+            "address": 88,
+            "value": 255
+          },
+          {
+            "address": 118,
+            "value": 195
+          },
+          {
+            "address": 119,
+            "value": 22
+          }
+        ]
+      },
+      "guards": [
+        {
+          "address": 40960,
+          "bytes": [
+            85,
+            118,
+            133,
+            41,
+            165,
+            119,
+            201,
+            3,
+            144,
+            28,
+            133,
+            42,
+            32,
+            49,
+            160,
+            176
+          ]
+        },
+        {
+          "address": 39058,
+          "bytes": [
+            165,
+            157,
+            201,
+            10,
+            208,
+            65,
+            169,
+            7,
+            133,
+            157,
+            169,
+            15,
+            133,
+            159,
+            162,
+            2
+          ]
+        },
+        {
+          "address": 40043,
+          "bytes": [
+            166,
+            92,
+            189,
+            79,
+            156,
+            141,
+            40,
+            208,
+            169,
+            8,
+            133,
+            113,
+            173,
+            27,
+            212,
+            41
+          ]
+        },
+        {
+          "address": 40154,
+          "bytes": [
+            165,
+            113,
+            41,
+            1,
+            133,
+            44,
+            165,
+            113,
+            41,
+            254,
+            133,
+            113,
+            32,
+            136,
+            164,
+            198
+          ]
+        },
+        {
+          "address": 41493,
+          "bytes": [
+            162,
+            3,
+            165,
+            115,
+            41,
+            2,
+            208,
+            18,
+            165,
+            104,
+            41,
+            2,
+            240,
+            27,
+            165,
+            104
+          ]
+        }
+      ],
+      "setup": [
+        {
+          "title": "Request the native teleport",
+          "require": [
+            {
+              "address": 77,
+              "value": 0
+            },
+            {
+              "address": 157,
+              "value": 2
+            }
+          ],
+          "edits": [
+            {
+              "kind": "ram",
+              "address": 157,
+              "before": [
+                2
+              ],
+              "after": [
+                10
+              ],
+              "explanation": "Request the original $9892 teleport state; the game updates camera, scroll and player coordinates."
+            },
+            {
+              "kind": "ram",
+              "address": 77,
+              "before": [
+                0
+              ],
+              "after": [
+                1
+              ],
+              "explanation": "Set the arrival grace flag used by the original barrier-contact teleport path."
+            }
+          ],
+          "cycles": 4000000,
+          "pc": 40018,
+          "budget": 100000,
+          "assertions": [
+            {
+              "address": 157,
+              "value": 2
+            },
+            {
+              "address": 100,
+              "value": 3
+            },
+            {
+              "address": 105,
+              "value": 53
+            },
+            {
+              "address": 106,
+              "value": 23
+            },
+            {
+              "address": 86,
+              "value": 34
+            },
+            {
+              "address": 88,
+              "value": 15
+            }
+          ]
+        },
+        {
+          "title": "Request an original enemy spawn",
+          "require": [
+            {
+              "address": 110,
+              "value": 3
+            },
+            {
+              "address": 67,
+              "value": 0
+            }
+          ],
+          "edits": [
+            {
+              "kind": "ram",
+              "address": 110,
+              "before": [
+                3
+              ],
+              "after": [
+                1
+              ],
+              "explanation": "Return the off-screen enemy to its native idle state."
+            },
+            {
+              "kind": "ram",
+              "address": 67,
+              "before": [
+                0
+              ],
+              "after": [
+                1
+              ],
+              "explanation": "Request a spawn on the next native idle update; the original RNG and distance gates choose the position."
+            }
+          ],
+          "cycles": 0,
+          "pc": 40103,
+          "budget": 100000,
+          "assertions": [
+            {
+              "address": 118,
+              "value": 73
+            },
+            {
+              "address": 119,
+              "value": 33
+            }
+          ]
+        },
+        {
+          "title": "Let the game initialize and display the enemy",
+          "require": [],
+          "edits": [],
+          "cycles": 0,
+          "pc": 40154,
+          "budget": 100000,
+          "assertions": [
+            {
+              "address": 110,
+              "value": 3
+            },
+            {
+              "address": 109,
+              "value": 2
+            },
+            {
+              "address": 116,
+              "value": 0
+            },
+            {
+              "address": 117,
+              "value": 0
+            },
+            {
+              "address": 118,
+              "value": 73
+            },
+            {
+              "address": 119,
+              "value": 33
+            }
+          ]
+        }
+      ],
+      "invariants": [
+        {
+          "pc": 40154
+        },
+        {
+          "address": 157,
+          "value": 2
+        },
+        {
+          "address": 100,
+          "value": 3
+        },
+        {
+          "address": 109,
+          "value": 2
+        },
+        {
+          "address": 110,
+          "value": 3
+        },
+        {
+          "address": 105,
+          "value": 53
+        },
+        {
+          "address": 106,
+          "value": 23
+        },
+        {
+          "address": 86,
+          "value": 34
+        },
+        {
+          "address": 88,
+          "value": 15
+        },
+        {
+          "address": 118,
+          "value": 73
+        },
+        {
+          "address": 119,
+          "value": 33
+        },
+        {
+          "address": 40960,
+          "value": 85
+        }
+      ],
+      "patch": [
+        {
+          "kind": "code",
+          "address": 40960,
+          "before": [
+            85
+          ],
+          "after": [
+            165
+          ],
+          "explanation": "Candidate repair: EOR $76,X becomes LDA $76, so the probe starts with the enemy map column."
+        }
+      ],
+      "duration": 3931200,
+      "wallBudget": 30000,
+      "probePC": 41493,
+      "inputs": [
+        {
+          "cycle": 0,
+          "buttons": 0
+        }
+      ],
+      "watches": [
+        {
+          "id": "enemy-state",
+          "label": "Enemy mode (3 hunting, 4 dying, 1 idle)",
+          "address": 110
+        },
+        {
+          "id": "enemy-visible",
+          "label": "Enemy display flag (2 visible)",
+          "address": 109
+        },
+        {
+          "id": "enemy-column",
+          "label": "Enemy map column",
+          "address": 118
+        },
+        {
+          "id": "enemy-row",
+          "label": "Enemy map row",
+          "address": 119
+        },
+        {
+          "id": "player-state",
+          "label": "Player mode",
+          "address": 100
+        },
+        {
+          "id": "player-column",
+          "label": "Player map column",
+          "address": 105
+        },
+        {
+          "id": "player-row",
+          "label": "Player map row",
+          "address": 106
+        },
+        {
+          "id": "background-contact",
+          "label": "Sprite/background latch",
+          "address": 115
+        },
+        {
+          "id": "sprite-contact",
+          "label": "Sprite/sprite latch",
+          "address": 104
+        }
+      ],
+      "observations": [
+        {
+          "id": "dying",
+          "label": "Enemy dying state observed",
+          "when": {
+            "address": 110,
+            "value": 4
+          }
+        },
+        {
+          "id": "terrain-contact",
+          "label": "Hunting enemy has background-contact bit; no enemy/player-bullet sprite-contact combination",
+          "when": {
+            "all": [
+              {
+                "address": 110,
+                "value": 3
+              },
+              {
+                "address": 115,
+                "value": 2,
+                "mask": 2
+              },
+              {
+                "address": 104,
+                "value": 0,
+                "mask": 14
+              }
+            ]
+          }
+        },
+        {
+          "id": "visible",
+          "label": "Enemy is visible",
+          "when": {
+            "address": 109,
+            "value": 2
+          }
+        }
+      ],
+      "interpretation": "Compare the measured contact and dying-state observations, and the enemy trajectory. The reference run dies after climbing into the underground terrain; the LDA variant survives the 200-frame interval. If a different run still dies, or neither run dies, report that result: this is a candidate repair, not a universal success assertion."
+    }
+  }
 }

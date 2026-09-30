@@ -111,6 +111,7 @@ type Game struct {
 	} `json:"system"`
 }
 type Package struct {
+	Experiments   map[string]Experiment `json:"experiments"`
 	LiveGuards    []TourGuard           `json:"liveGuards,omitempty"`
 	Assets        map[string]Asset      `json:"assets"`
 	SchemaVersion int                   `json:"schemaVersion"`
@@ -611,6 +612,9 @@ func (p *Package) validate() error {
 		return e
 	}
 	if e := p.validateAssets(); e != nil {
+		return e
+	}
+	if e := p.validateExperiments(); e != nil {
 		return e
 	}
 	return p.validateTours()

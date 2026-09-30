@@ -1,3 +1,4 @@
+import {createExperimentPanel} from './experiment-panel.js';
 import {createTourPanel} from './tour-panel.js';
 import {disassemble6502,hex} from './disassembly6502.js';
 export function createCodeWorkspace({root,views,send,transport,platform,statePanel,panelLayout}){
@@ -12,29 +13,30 @@ export function createCodeWorkspace({root,views,send,transport,platform,statePan
  if(platform!=='c64'){root.querySelector('#code-tape-play').hidden=true;root.querySelector('#code-tape-stop').hidden=true;root.querySelector('#code-normalize').hidden=true;root.querySelector('#code-disassembly').setAttribute('aria-label','Live x86 disassembly');root.querySelector('#code-until').parentElement.nextElementSibling.textContent='Linear-address stops use the current CPU mode. Near branch targets are shown in linear display coordinates. REP remains one instruction; oversized atomic operations are rejected.';}
  if(platform==='3do'){root.querySelector('#code-disassembly').setAttribute('aria-label','Live ARM60 disassembly');root.querySelector('#code-until').parentElement.nextElementSibling.textContent='ARM32 big-endian. Task switches and Portfolio HLE services are separate boundaries; movies cannot be instruction-stepped. Named stops bind the current task.';}
  const bufferPanel=document.createElement('section');bufferPanel.className='code-buffers';root.append(bufferPanel);
+ const experimentPanel=platform==='c64'?createExperimentPanel({root,send}):null;
  const tourPanel=createTourPanel({root,send,inspect:at=>{address=at;refresh();},layout:show=>panelLayout?.suggest(show)});
  const $=id=>root.querySelector('#code-'+id);
- let enabled=false,active=false,running=false,busy=false,externalBusy=false,snapshot=null,address=-1,pending=0,snapshotPending=false,waitingSnapshot=false,job=0,generation=0,timer=null,knowledge=null,functionId=null;
+ let enabled=false,active=false,running=false,busy=false,externalBusy=false,experimentOwned=false,snapshot=null,address=-1,pending=0,snapshotPending=false,waitingSnapshot=false,job=0,generation=0,timer=null,knowledge=null,functionId=null;
  const command=(type,args={})=>send(type,{protocol:1,generation,...args});
  function refresh(force=false){clearTimeout(timer);timer=null;if(!enabled||(!active&&!force))return;snapshotPending=true;pending=command('debug-snapshot',{address});controls();}
  function schedule(){if(!timer&&active&&enabled&&running)timer=setTimeout(refresh,200);}
  function controls(){
   const locked=!enabled||running||busy||externalBusy||snapshotPending;
-  for(const id of ['play','frame','until','go','resume']){const el=$(id);if(el.tagName==='FORM'){for(const e of el.elements)e.disabled=locked;}else el.disabled=locked;}
-  $('step').disabled=locked||!snapshot?.boundary;$('normalize').disabled=locked||!snapshot||snapshot.boundary;
-  $('tape-play').disabled=$('tape-stop').disabled=!enabled||busy||externalBusy;
+  for(const id of ['play','frame','until','go','resume']){const el=$(id);if(el.tagName==='FORM'){for(const e of el.elements)e.disabled=locked;}else el.disabled=locked||experimentOwned;}
+  $('step').disabled=locked||experimentOwned||!snapshot?.boundary;$('normalize').disabled=locked||experimentOwned||!snapshot||snapshot.boundary;
+  $('tape-play').disabled=$('tape-stop').disabled=!enabled||busy||externalBusy||experimentOwned;
   $('pause').disabled=!running&&!busy;$('cancel').disabled=!busy;
   for(const b of $('functions').querySelectorAll('button'))b.disabled=locked;
  }
  function render(s){
-  snapshot=s;statePanel?.update(s);const regs=Object.entries(s.registers).map(([k,v])=>`${k}=$${hex(v,s.architecture!=='6510'?8:2)}`).join('  ');
+  snapshot=s;statePanel?.update(s);const regs=Object.entries(s.registers).map(([k,v])=>`${k}=$${hex(v,platform!=='c64'?8:2)}`).join('  ');
   $('registers').textContent=`${regs}  Bank=$${hex(s.bank,2)}  Cycle ${s.cycle} · ${s.boundary?'Next PC $'+hex(s.nextPC):'Mid-instruction; next PC unavailable'}${s.interruptPending?' · interrupt pending':''}${s.stalled?' · RDY stall':''}`;
   if(s.architecture==='x86')$('registers').textContent=`${s.mode} · CS:IP $${hex(s.cs)}:$${hex(s.ip,s.mode==='real16'?4:8)} · CS base $${hex(s.csBase,8)} · step ${s.cycle} · ${regs} · `+s.segments.map((v,i)=>`${['ES','CS','SS','DS','FS','GS'][i]}=$${hex(v.selector)} (base $${hex(v.base,8)})`).join(' ');
   if(s.architecture==='arm60')$('registers').textContent=`ARM32 · task ${s.task} · scheduler step ${s.cycle} · retired ${s.retiredInstructions} · display ${s.frame} · field ${s.field} · ${s.hle?'Portfolio HLE boundary · ':''}${s.movieHLE?'Movie HLE active · ':''}${regs}`;
   $('disassembly').replaceChildren();
   for(const row of s.instructions||disassemble6502(s.bytes,s.address)){
    const line=document.createElement('div');line.className=row.address===s.nextPC?'code-current':'';
-   line.textContent=`${row.address===s.nextPC?'▶':' '} $${hex(row.address)}  ${(row.bytes||s.bytes.slice(row.address-s.address,row.address-s.address+row.length)).map(b=>b==null?'??':hex(b,2)).join(' ').padEnd(8)}  ${row.text}  ${({0:'[RAM]',1:'[color RAM / open bus]',2:'[I/O unavailable]',3:'[ROM]'})[s.architecture!=='6510'?(row.bytes?.some(b=>b==null)?2:0):s.mapping[(row.address-s.address)&65535]]}`;
+   line.textContent=`${row.address===s.nextPC?'▶':' '} $${hex(row.address)}  ${(row.bytes||s.bytes.slice(row.address-s.address,row.address-s.address+row.length)).map(b=>b==null?'??':hex(b,2)).join(' ').padEnd(8)}  ${row.text}  ${({0:'[RAM]',1:'[color RAM / open bus]',2:'[I/O unavailable]',3:'[ROM]'})[platform!=='c64'?(row.bytes?.some(b=>b==null)?2:0):s.mapping[(row.address-s.address)&65535]]}`;
    $('disassembly').append(line);
   }
   if(document.activeElement!==$('address'))$('address').value='$'+hex(s.address);
@@ -55,7 +57,7 @@ export function createCodeWorkspace({root,views,send,transport,platform,statePan
   controls();
  }
  function execute(type){
-  if(!snapshot||running||busy||externalBusy||snapshotPending)return;
+  if(!snapshot||running||busy||externalBusy||experimentOwned||snapshotPending)return;
   busy=true;clearTimeout(timer);controls();
   job=command(type,{functionId,snapshotId:snapshot.snapshotId,cycle:snapshot.cycle,bank:snapshot.bank,target:address<0?snapshot.address:address,resume:$('resume').value});
  }
@@ -70,14 +72,15 @@ export function createCodeWorkspace({root,views,send,transport,platform,statePan
   ready(session){enabled=true;generation=session;$('note').textContent='Mapped CPU bytes · snapshots do not advance execution.';views.enable('code',true);command('debug-capabilities');controls();},
   inspect(at,id=null){functionId=id;address=at;refresh();},
   refreshState(){refresh(true);},
-  reset(){tourPanel.reset();statePanel?.reset();enabled=false;busy=false;snapshotPending=false;job=0;snapshot=null;functionId=null;address=-1;knowledge=null;bufferPanel.replaceChildren();clearTimeout(timer);views.enable('code',false);controls();},
+  reset(){experimentPanel?.reset();tourPanel.reset();statePanel?.reset();enabled=false;busy=false;snapshotPending=false;job=0;snapshot=null;functionId=null;address=-1;knowledge=null;bufferPanel.replaceChildren();clearTimeout(timer);views.enable('code',false);controls();},
   setActive(value){active=value;clearTimeout(timer);timer=null;if(value)refresh();},
   present(canvas){if(active){const c=$('screen');if(c.width!==canvas.width)c.width=canvas.width;if(c.height!==canvas.height)c.height=canvas.height;c.getContext('2d').drawImage(canvas,0,0);}},
-  state(m){tourPanel.state(m);const was=running;running=m.running;statePanel?.setRunning(m.running||m.debugBusy||m.capturing||m.memoryRecording||m.saving);externalBusy=m.capturing||m.saving||m.memoryRecording||(m.debugBusy&&!busy);controls();if(active&&was&&!running)refresh();schedule();},
+  state(m){experimentPanel?.state(m);tourPanel.state(m);const was=running;running=m.running;statePanel?.setRunning(m.running||m.debugBusy||m.capturing||m.memoryRecording||m.saving);experimentOwned=!!m.experimentOwned;externalBusy=m.capturing||m.saving||m.memoryRecording||(m.debugBusy&&!busy);controls();if(active&&was&&!running)refresh();schedule();},
+  experimentResult(m){experimentPanel?.result(m);functionId=null;if(m.snapshot){address=-1;render(m.snapshot);}$('note').textContent='Experiment: '+m.phase;},
   tourResult(m){functionId=null;tourPanel.result(m);$('note').textContent='Tour: '+m.phase;if(m.snapshot){functionId=null;address=-1;render(m.snapshot);}},
   result(m){
    if(m.generation!==generation)return;
-   if(m.type==='debug-capabilities'){knowledge=m.knowledge;tourPanel.ready(knowledge,generation);statePanel?.setKnowledge(knowledge);functions();return;}
+   if(m.type==='debug-capabilities'){knowledge=m.knowledge;tourPanel.ready(knowledge,generation);experimentPanel?.ready(knowledge,generation);statePanel?.setKnowledge(knowledge);functions();return;}
    if(m.type==='debug-snapshot'&&m.request===pending){snapshotPending=false;if(waitingSnapshot){waitingSnapshot=false;$('note').textContent='Mapped CPU bytes · snapshots do not advance execution.';}render(m.snapshot);return;}
    if(m.type==='debug-started'&&m.request===job){$('note').textContent='Running a bounded debugger job…';return;}
    if(m.type==='debug-result'){

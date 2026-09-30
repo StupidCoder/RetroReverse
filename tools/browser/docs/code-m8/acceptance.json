@@ -1,0 +1,181 @@
+{
+  "result": "PASS",
+  "coreSHA256": "b40776dcdc3cfdc09dd5ebf5eb23e1d796637a29f9063054416e9f9f44a4a1cb",
+  "prepared": "128519799",
+  "branches": [
+    {
+      "id": "1:1:original-1",
+      "hash": "cce7fd76d00194c36d4ea860562b1acc9f165e82d855d1bfecb78529d93084cd",
+      "final": {
+        "enemy-state": 1,
+        "enemy-visible": 1,
+        "enemy-column": 69,
+        "enemy-row": 29,
+        "player-state": 3,
+        "player-column": 53,
+        "player-row": 24,
+        "background-contact": 0,
+        "sprite-contact": 0
+      },
+      "observations": [
+        {
+          "branchId": "1:1:original-1",
+          "offset": 2063196,
+          "pc": 41493,
+          "values": {
+            "enemy-state": 3,
+            "enemy-visible": 2,
+            "enemy-column": 69,
+            "enemy-row": 29,
+            "player-state": 3,
+            "player-column": 53,
+            "player-row": 24,
+            "background-contact": 2,
+            "sprite-contact": 0
+          },
+          "predicates": [
+            "terrain-contact",
+            "visible"
+          ]
+        },
+        {
+          "branchId": "1:1:original-1",
+          "offset": 2082852,
+          "pc": 41493,
+          "values": {
+            "enemy-state": 4,
+            "enemy-visible": 2,
+            "enemy-column": 69,
+            "enemy-row": 29,
+            "player-state": 3,
+            "player-column": 53,
+            "player-row": 24,
+            "background-contact": 2,
+            "sprite-contact": 0
+          },
+          "predicates": [
+            "dying",
+            "visible"
+          ]
+        },
+        {
+          "branchId": "1:1:original-1",
+          "offset": 2102508,
+          "pc": 41493,
+          "values": {
+            "enemy-state": 4,
+            "enemy-visible": 2,
+            "enemy-column": 69,
+            "enemy-row": 29,
+            "player-state": 3,
+            "player-column": 53,
+            "player-row": 24,
+            "background-contact": 2,
+            "sprite-contact": 0
+          },
+          "predicates": [
+            "dying",
+            "visible"
+          ]
+        }
+      ],
+      "samples": 128
+    },
+    {
+      "id": "1:1:original-2",
+      "hash": "cce7fd76d00194c36d4ea860562b1acc9f165e82d855d1bfecb78529d93084cd",
+      "final": {
+        "enemy-state": 1,
+        "enemy-visible": 1,
+        "enemy-column": 69,
+        "enemy-row": 29,
+        "player-state": 3,
+        "player-column": 53,
+        "player-row": 24,
+        "background-contact": 0,
+        "sprite-contact": 0
+      },
+      "observations": [
+        {
+          "branchId": "1:1:original-2",
+          "offset": 2063196,
+          "pc": 41493,
+          "values": {
+            "enemy-state": 3,
+            "enemy-visible": 2,
+            "enemy-column": 69,
+            "enemy-row": 29,
+            "player-state": 3,
+            "player-column": 53,
+            "player-row": 24,
+            "background-contact": 2,
+            "sprite-contact": 0
+          },
+          "predicates": [
+            "terrain-contact",
+            "visible"
+          ]
+        },
+        {
+          "branchId": "1:1:original-2",
+          "offset": 2082852,
+          "pc": 41493,
+          "values": {
+            "enemy-state": 4,
+            "enemy-visible": 2,
+            "enemy-column": 69,
+            "enemy-row": 29,
+            "player-state": 3,
+            "player-column": 53,
+            "player-row": 24,
+            "background-contact": 2,
+            "sprite-contact": 0
+          },
+          "predicates": [
+            "dying",
+            "visible"
+          ]
+        },
+        {
+          "branchId": "1:1:original-2",
+          "offset": 2102508,
+          "pc": 41493,
+          "values": {
+            "enemy-state": 4,
+            "enemy-visible": 2,
+            "enemy-column": 69,
+            "enemy-row": 29,
+            "player-state": 3,
+            "player-column": 53,
+            "player-row": 24,
+            "background-contact": 2,
+            "sprite-contact": 0
+          },
+          "predicates": [
+            "dying",
+            "visible"
+          ]
+        }
+      ],
+      "samples": 128
+    },
+    {
+      "id": "1:1:modified",
+      "hash": "b7e1e782eb721743a772ac99f5dcbf893419489fb33d926c6f13bb6f089ae6fc",
+      "final": {
+        "enemy-state": 3,
+        "enemy-visible": 2,
+        "enemy-column": 63,
+        "enemy-row": 32,
+        "player-state": 3,
+        "player-column": 53,
+        "player-row": 24,
+        "background-contact": 0,
+        "sprite-contact": 0
+      },
+      "observations": [],
+      "samples": 201
+    }
+  ],
+  "restored": true
+}

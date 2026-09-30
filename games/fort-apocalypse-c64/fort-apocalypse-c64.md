@@ -850,14 +850,15 @@ EXPERT. Each tick ($9CDA):
    motion, which in turn aims its shots;
 5. the down helper ($9E19) likewise probes two cells below and steps
    $75 (8 sub-steps per character = 1 pixel per tick);
-6. the up helper ($A000) probes three rows above — but this routine
-   is **broken by the "JOE VIERMON" signature** (Appendix B): its
-   first opcode byte, $A5 (`LDA $76`), was overwritten by the
-   signature's final 'U' ($55), making it `EOR $76,X` — the column
-   used for the upward probes is garbage. Climbing is therefore
-   erratic: spuriously blocked or clipping into ceilings (where the
-   sprite-background latch then kills it, see below). Above row 3 the
-   probes are skipped entirely;
+6. the up helper ($A000) begins with **`$55 $76` (`EOR $76,X`)** in
+   the reference tape. It derives the probe column from the caller's
+   accumulator and an indexed zero-page byte, rather than simply loading
+   the enemy column. The M8 experiment changes `$55` to `$A5` (`LDA $76`)
+   as a candidate repair. In its verified underground pursuit, the original
+   climbs into terrain and dies; the candidate stays alive for 200 frames.
+   The adjacent signature does not prove who changed the opcode or what
+   preceded it. See the [reproducible comparison](../../tools/browser/docs/code-m8/README.md)
+   for exact preparation and evidence. Above row 3 the probes are skipped;
 7. plot the blip at the new position, clamp the bank to 0–$10,
    restore the rotor bit (toggled every 4 frames, $A313).
 
@@ -1292,11 +1293,13 @@ Two more curiosities:
   game's text encoding, never displayed), sitting in padding right
   before the routine at $A000. It contains the porter's name and
   looks like a CBM DOS command/filename remnant — a development
-  leftover or deliberate signature. Its last two bytes spill into the
-  routine entry, and the 'U' ($55) lands exactly on what must have
-  been the `$A5` of `LDA $76`, turning it into `EOR $76,X` — **the
-  signature actually corrupts the enemy helicopter's upward terrain
-  probe** (Part V §3): the column it tests while climbing is garbage.
+  leftover or deliberate signature. The 16 bytes through `$9FFF` end
+  in `Z`; `$A000` contains `$55` (`U` in ASCII), which executes as
+  `EOR $76,X`. Earlier research attributed this to signature overlap.
+  The byte adjacency alone does not establish that history. M8 confirms
+  the executed opcode and a reproducible behavior difference after the
+  candidate `LDA $76` repair (Part V §3), without claiming an original
+  uncorrupted binary has been found.
 * **$AA4F** (108 bytes) reads like text (`NNNNKKKKKIIII...`) but is
   the **attract-mode joystick recording** — the byte values $46-$4E
   happen to be letter codes.

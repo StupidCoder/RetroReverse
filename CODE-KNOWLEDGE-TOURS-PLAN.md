@@ -758,6 +758,10 @@ simulation-loop identities remain distinct. HLE boundaries are labelled.
 
 ### M8 — Reproducible experiments
 
+Completed for checked C64 RAM/code edits, identical-input replay and the prepared
+Fort underground pursuit comparison. See the [M8 report](tools/browser/docs/code-m8/README.md)
+for the measured result, package profile, lifecycle and reproduction commands.
+
 Depends on M4 and validated checkpoint/replay support. Implement transactional
 checked edits, original/modified branches, identical input replay, observations,
 cleanup and return-to-session. Author the prepared Fort helicopter comparison.

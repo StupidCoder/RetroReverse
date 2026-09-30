@@ -61,3 +61,18 @@ extern "C" const char* rr_debug_snapshot(int address){
  for(int i=0;i<256;i++){if(i)s<<',';s<<observation::cpuSpace(uint16_t(address+i));}
  s<<"]}";out=s.str();return out.c_str();
 }
+// Experiment transaction: input records are u16le address, expected byte, new byte.
+// Check the entire batch before touching RAM. Ports, ROM and I/O are excluded.
+extern "C" int rr_debug_edit(int count){
+ if(!initialized||!debug::boundary()||debug::interrupt()||count<1||count>256)return 0;
+ for(int i=0;i<count;i++){
+  const unsigned a=input[i*4]|unsigned(input[i*4+1])<<8;
+  if(a<2||observation::cpuSpace(a)!=0||machine.ram[a]!=input[i*4+2])return 0;
+  for(int j=0;j<i;j++)if(a==(input[j*4]|unsigned(input[j*4+1])<<8))return 0;
+ }
+ for(int i=0;i<count;i++)machine.ram[input[i*4]|unsigned(input[i*4+1])<<8]=input[i*4+3];
+ // SYNC already holds the fetched byte; a patch at this PC must replace it too.
+ const uint16_t pc=M6502_GET_ADDR(machine.pins);
+ if(observation::cpuSpace(pc)==0)M6502_SET_DATA(machine.pins,machine.ram[pc]);
+ invalidateDebug();return 1;
+}

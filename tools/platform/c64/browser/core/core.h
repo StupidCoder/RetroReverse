@@ -7,6 +7,7 @@ int rr_tape(int size);
 int rr_prepare(int pc,int pulse); // input: 64KiB prepared RAM, explicit synthetic start
 int rr_stop_reason();
 // Debug jobs: 0 normalize boundary, 1 retire one instruction, 2 run to PC.
+int rr_debug_edit(int count); // atomic checked RAM/code edits from input records
 int rr_debug_begin(int mode,int target,int next_match);
 int rr_debug_run(int cycles); // 0 slice exhausted, 1 boundary, 2 instruction, 3 interrupt entry, 4 target, 5 mapping invalid, 6 halted, -1 error
 const char* rr_debug_snapshot(int address); // -1 selects current fetch; safe mapped bytes, no execution

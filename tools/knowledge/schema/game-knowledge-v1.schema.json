@@ -195,8 +195,10 @@
     },
     "experiments": {
       "type": "object",
-      "maxProperties": 0,
-      "description": "Reserved. Nonempty definitions are unsupported in the M1 profile."
+      "maxProperties": 16,
+      "additionalProperties": {
+        "$ref": "#/$defs/experiment"
+      }
     },
     "extensions": {
       "type": "object",
@@ -2009,6 +2011,314 @@
         "evidence"
       ],
       "additionalProperties": false
+    },
+    "experimentEdit": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "ram",
+            "code"
+          ]
+        },
+        "address": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 65535
+        },
+        "before": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "minItems": 1,
+          "maxItems": 256
+        },
+        "after": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "minItems": 1,
+          "maxItems": 256
+        },
+        "explanation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "kind",
+        "address",
+        "before",
+        "after",
+        "explanation"
+      ]
+    },
+    "experimentStage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "require": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tourCondition"
+          },
+          "minItems": 0,
+          "maxItems": 32
+        },
+        "edits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/experimentEdit"
+          },
+          "minItems": 0,
+          "maxItems": 32
+        },
+        "cycles": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5000000
+        },
+        "pc": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 65535
+        },
+        "budget": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000000
+        },
+        "assertions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tourCondition"
+          },
+          "minItems": 0,
+          "maxItems": 32
+        }
+      },
+      "required": [
+        "title",
+        "require",
+        "edits",
+        "cycles",
+        "pc",
+        "budget",
+        "assertions"
+      ]
+    },
+    "experiment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "requirements": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "releases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "minItems": 1,
+          "maxItems": 16
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "minItems": 1,
+          "maxItems": 32
+        },
+        "start": {
+          "$ref": "#/$defs/tourCondition"
+        },
+        "guards": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tourGuard"
+          },
+          "minItems": 1,
+          "maxItems": 32
+        },
+        "setup": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/experimentStage"
+          },
+          "minItems": 1,
+          "maxItems": 8
+        },
+        "invariants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tourCondition"
+          },
+          "minItems": 0,
+          "maxItems": 32
+        },
+        "patch": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/experimentEdit"
+          },
+          "minItems": 1,
+          "maxItems": 32
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000000
+        },
+        "wallBudget": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30000
+        },
+        "probePC": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 65535
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cycle": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4999999
+              },
+              "buttons": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 31
+              }
+            },
+            "required": [
+              "cycle",
+              "buttons"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 256
+        },
+        "watches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "address": {
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 65535
+              }
+            },
+            "required": [
+              "id",
+              "label",
+              "address"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 64
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "when": {
+                "$ref": "#/$defs/tourCondition"
+              }
+            },
+            "required": [
+              "id",
+              "label",
+              "when"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 32
+        },
+        "interpretation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "title",
+        "description",
+        "requirements",
+        "releases",
+        "evidence",
+        "start",
+        "guards",
+        "setup",
+        "invariants",
+        "patch",
+        "duration",
+        "wallBudget",
+        "probePC",
+        "inputs",
+        "watches",
+        "observations",
+        "interpretation"
+      ]
     }
   }
 }

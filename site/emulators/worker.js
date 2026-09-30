@@ -1,3 +1,4 @@
+import {createExperimentService} from './experiment-worker.js';
 import {create3DOInspector} from './threedo-inspector.js';
 import {createDOSInspector} from './dos-inspector.js';
 import {identifyDOSFiles} from './dos-knowledge.js';
@@ -22,7 +23,7 @@ const inputQueue = [];
 const appliedKeys=new Set();
 const mediaHashes=new WeakMap();
 function mediaHash(file){if(!mediaHashes.has(file))mediaHashes.set(file,sha256File(file));return mediaHashes.get(file);}
-let saving=false,debugService=null,tourService=null;
+let saving=false,debugService=null,tourService=null,experimentService=null;
 const executionGate=createExecutionGate();
 let memoryService=null,memoryRecording=false,memoryStop=false,memoryBusy=false;
 let bootOptions, firmwareIdentity=[], mediaIdentity, coreIdentity;
@@ -101,7 +102,7 @@ function paint() {
     paintMs,
     heap : core.HEAPU8.length,
     inputDeferred : platform === '3do' && core.deferInput && s.frames < 300,
-    capturing,saving,memoryRecording,debugBusy:!!(debugService?.active()||tourService?.active()),
+    capturing,saving,memoryRecording,debugBusy:!!(debugService?.active()||tourService?.active()||experimentService?.active()),experimentOwned:!!experimentService?.owns(),
     profile : readProfile()
   });
 }
@@ -394,9 +395,14 @@ async function boot(m) {
     debugService=createDebugService({core,send,sleep,paint,applyInputs,generation:session,platform,...adapter,
       knowledge:pkg?{...identity,data:pkg.knowledge}:identity,
       onStart:()=>{cancelCapture();memoryService.stopLive();},
-      busy:includePlay=>!!(tourService?.active()||(executionGate.owner&&(includePlay||!['run','step'].includes(executionGate.owner)))||saving||memoryBusy||memoryRecording||capturing||(includePlay&&running))});
+      busy:includePlay=>!!(experimentService?.active()||tourService?.active()||(executionGate.owner&&(includePlay||!['run','step'].includes(executionGate.owner)))||saving||memoryBusy||memoryRecording||capturing||(includePlay&&running))});
+    if(platform==='c64')experimentService=createExperimentService({core,knowledge,generation:session,send,sleep,paint,snapshot:()=>debugService.snapshot(),
+      busy:()=>!!(running||executionGate.owner||debugService.active()||tourService?.active()||saving||memoryBusy||memoryRecording||capturing),captureHost:queueState,
+      clearInput:()=>{inputs=new InputQueue(50);inputQueue.length=0;appliedKeys.clear();lastButtons=lastX=lastY=0;for(let k=0;k<256;k++)core._rr_key(k,0);core._rr_joystick(1,0);core._rr_joystick(2,0);},
+      restoreHost:q=>{inputs=new InputQueue(50);Object.assign(inputs,q,{pulses:new Map(q.pulses),down:new Map(q.down)});inputQueue.length=0;inputQueue.push(...q.pending);appliedKeys.clear();for(const k of q.appliedKeys)appliedKeys.add(k);lastButtons=q.lastButtons;lastX=q.lastX;lastY=q.lastY;inputSequence=q.inputSequence;lastInputStep=q.lastInputStep;},
+      onStart:()=>{cancelCapture();memoryService.stopLive();tourService?.invalidate('An explicit experiment replaced this tour context.');}});
     tourService=createTourService({core,knowledge,generation:session,send,sleep,paint,...adapter,maxCheckpointBytes:platform==='dos'?128*1024*1024:platform==='3do'?32*1024*1024:4*1024*1024,
-      snapshot:()=>debugService.snapshot(),busy:()=>!!(running||executionGate.owner||debugService.active()||saving||memoryBusy||memoryRecording||capturing),
+      snapshot:()=>debugService.snapshot(),busy:()=>!!(experimentService?.owns()||running||executionGate.owner||debugService.active()||saving||memoryBusy||memoryRecording||capturing),
       onStart:()=>{cancelCapture();memoryService.stopLive();if(platform==='3do'&&lastButtons)core._rr_pad(0);inputs=new InputQueue(platforms[platform].hz);if(platform==='dos')inputs.mouseMask=768;inputQueue.length=0;appliedKeys.clear();lastButtons=lastX=lastY=0;if(platform!=='3do')for(let k=0;k<(platform==='dos'?128:256);k++)core._rr_key(k,0);if(platform==='dos'){core._rr_pad(0);core._rr_mouse(0,0,0);}else if(platform==='c64')core._rr_joystick(2,0);},
       onRestore:()=>{inputs=new InputQueue(platforms[platform].hz);if(platform==='dos')inputs.mouseMask=768;inputQueue.length=0;appliedKeys.clear();lastButtons=lastX=lastY=0;}
     });
@@ -416,6 +422,13 @@ onmessage = async ({data : m}) => {
     }
     if (m.session !== session || !loaded)
       return;
+    if(m.type.startsWith('experiment-')){if(experimentService)await experimentService.request(m);else send('experiment-rejected',{generation:session,request:m.request,text:'Experiments are unavailable for this core.'});return;}
+    if(experimentService?.owns()){
+      if(['pause','hold','cancel-capture'].includes(m.type)){experimentService.cancel();return;}
+      if(m.type==='input'||m.type==='turbo')return;
+      const readOnly=['debug-snapshot','debug-capabilities','memory-snapshot','memory-page','memory-detail','memory-overview'];
+      if(experimentService.active()||!readOnly.includes(m.type)){send(m.type.startsWith('tour-')?'tour-rejected':m.type.startsWith('debug-')?'debug-result':m.type.startsWith('memory-')?'memory-error':'message',{generation:session,request:m.request,reason:'rejected',text:'Experiment owns the session. Return or explicitly continue the modified branch first.'});return;}
+    }
     if(m.type.startsWith('tour-')){
       if(tourService)await tourService.request(m);
       else send('tour-rejected',{generation:session,request:m.request,text:'Tours are unavailable for this core.'});

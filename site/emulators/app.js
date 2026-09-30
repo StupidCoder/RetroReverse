@@ -127,6 +127,7 @@ function load(stateFile=null) {
     if(pendingWorker)return;
     if (m.session !== session)
       return;
+    if(m.type.startsWith('experiment-')){memory.invalidate();code?.experimentResult(m);return;}
     if(m.type.startsWith('tour-')){if(m.phase==='running-to-stop')memory.invalidate();code?.tourResult(m);return;}
     if(m.type.startsWith('debug-')){if(m.type==='debug-started')memory.invalidate();code?.result(m);return;}
     if(m.type.startsWith('memory-')){memory.result(m);if(m.type==='memory-overview'&&views.current()==='memory')code?.refreshState();return;}
@@ -166,11 +167,11 @@ function load(stateFile=null) {
           m.maxCall.toFixed(1)} ms · canvas copy ${copyMs.toFixed(1)} ms`;
       showProfile(m.profile);
       if (loaded) {
-        $('reset').disabled = !!m.saving;
-        render.ready(!m.saving&&!m.memoryRecording&&!m.debugBusy);
-        $('run').disabled = m.running||m.capturing||m.saving||m.memoryRecording||m.debugBusy;
-        $('step').disabled = m.running||m.capturing||m.saving||m.memoryRecording||m.debugBusy;
-        $('save').disabled = m.capturing||m.saving||m.memoryRecording||m.debugBusy;
+        $('reset').disabled = !!(m.saving||m.experimentOwned);
+        render.ready(!m.saving&&!m.memoryRecording&&!m.debugBusy&&!m.experimentOwned);
+        $('run').disabled = m.running||m.capturing||m.saving||m.memoryRecording||m.debugBusy||m.experimentOwned;
+        $('step').disabled = m.running||m.capturing||m.saving||m.memoryRecording||m.debugBusy||m.experimentOwned;
+        $('save').disabled = m.capturing||m.saving||m.memoryRecording||m.debugBusy||m.experimentOwned;
         $('pause').disabled = !m.running&&!m.capturing&&!m.debugBusy;
         $('cancelcapture').hidden=!m.capturing;
       }

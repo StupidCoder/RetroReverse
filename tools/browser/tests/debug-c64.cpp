@@ -44,4 +44,11 @@ int main(){
  // JAM must remain bounded rather than hanging the worker.
  setup();machine.ram[0x800]=2;M6502_SET_DATA(machine.pins,2);assert(rr_debug_begin(1,0,0));assert(rr_debug_run(100)==6);
  std::cout<<"C64 debug boundary, target, branch, interrupt, banking, stall and JAM: PASS\n";
+ // Checked batches validate every expected byte and mapped address before mutation.
+ setup();uint8_t edits[]={0x00,0x08,0xee,0xce,0x01,0x02,0xff,9};memcpy(rr_input(),edits,8);
+ assert(!rr_debug_edit(2)&&machine.ram[0x800]==0xee);
+ rr_input()[6]=machine.ram[0x201];assert(rr_debug_edit(2)&&machine.ram[0x201]==9);
+ assert(rr_debug_begin(1,0,0)&&rr_debug_run(100)==2&&machine.ram[0x200]==255); // patched prefetched DEC
+ setup();rr_input()[0]=0;rr_input()[1]=0xdc;rr_input()[2]=machine.ram[0xdc00];rr_input()[3]=0;assert(!rr_debug_edit(1));
+ assert(!rr_debug_edit(257));rr_run(1,0,0);assert(!rr_debug_edit(1));
 }
