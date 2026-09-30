@@ -1,0 +1,48 @@
+{
+  "milestone": "M6",
+  "result": "PASS",
+  "release": "b953284cffd7a66f7c44",
+  "sourcePackageSHA256": "d6a8ce88e4dc91a48d954be495141036df294c363ffc62380949d658462ace78",
+  "publicChecks": [
+    "Go knowledge schema/semantics, source resolver and artifact tests",
+    "Go vet knowledge, knowledgeasset, knowledgecheck, knowledgeexport",
+    "ROM subranges and multi-fragment assets",
+    "Raw 2352-byte sectors and two noncontiguous ISO extents",
+    "Synthetic NCSD/NCCH/RomFS/Yaz0/SARC chain",
+    "Wrong image/member/hash, unsafe paths, cycles, decoder versions and work limits",
+    "Indexed8 PNG decoded pixel comparison and artifact hash/symlink checks",
+    "Escaped and deterministic JS/catalog export",
+    "Browser knowledge, DOS knowledge, tours, structured state and debugger regressions",
+    "Pinned release integrity: 85 assets, 16 direct routes"
+  ],
+  "fuzz": {
+    "target": "FuzzAssetFormats",
+    "seconds": 15,
+    "executions": 157939,
+    "workers": 2,
+    "result": "PASS"
+  },
+  "privateAcceptance": {
+    "asset": "kinopio",
+    "size": 392880,
+    "sha256": "afb9a8de5b5a3f0a4c135ede44fa42b1cb99b21de6217534588fa3b63a2580b4",
+    "dependency": "opening-animations",
+    "dependencySize": 3616892,
+    "dependencySHA256": "5f7be4565dd8bc790553bb493a25ea1921d80b24565023638326416e6aefef49",
+    "curatedArtifact": "public/captain-toad-treasure-tracker-3ds/objects/kinopio.glb",
+    "artifactChecks": "size, SHA-256, GLB v2 chunks and embedded-resource policy",
+    "cliExport": "PASS: exported BCH size/hash and JSON report match; dependency also verified"
+  },
+  "browserCatalog": {
+    "result": "PASS",
+    "route": "/knowledge/",
+    "checks": [
+      "Three package sections and source hashes",
+      "Readable complete model and animation chains",
+      "Scoped animation dependency anchor",
+      "Curated GLB link and hash",
+      "Explicit static catalog/local verification distinction"
+    ]
+  },
+  "limits": "Static local Go resolution only; full BCH resources rather than invented subresource spans. The existing game exporter owns GLB conversion. Private input bytes are not included."
+}

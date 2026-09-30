@@ -1,4 +1,4 @@
-# Game knowledge tools — M1–M5 profile
+# Game knowledge tools — M1–M6 profile
 
 `games/<slug>/knowledge.json` is the hand-maintained source. The initial Fort
 package supplies Memory's existing annotations and records documented state and
@@ -63,12 +63,13 @@ Implemented:
 - Regions, state definitions, function entries and instruction-relative commentary.
 - Deterministic browser data export carrying source SHA-256 and package revision.
 
-The current profile does not implement general pointer/filesystem/sector/transform resolution,
-sign-magnitude types, dynamic arrays, live struct decoding, runtime signatures,
-general phase predicates, experiments, or executable asset recipes. Reserved
-`assets` and `experiments` must be empty; unsupported location/type kinds
-are rejected. Those features have later milestone gates rather than inert objects
-that look executable. Future v1 extensions must remain fail-closed in older tools.
+Static asset filesystem/container/sector/transform resolution, decoder registry,
+source dependencies, preview checks and the site catalog are implemented in M6.
+See [ASSET-RESOLUTION.md](ASSET-RESOLUTION.md) for the exact supported formats,
+commands, budgets and authoring workflow. Generic pointer resolution,
+sign-magnitude types, dynamic arrays, general phase predicates and experiments
+remain unsupported. `experiments` must be empty. Older tools reject new kinds
+rather than accepting inert objects that look executable.
 
 All M1 locations must resolve in each declared release; per-release relocation and
 location overrides are not implemented. Use explicit release applicability for
@@ -103,8 +104,8 @@ contains the original structured knowledge and release-specific physical labels.
 The content hash identifies the exact source bytes, including formatting.
 
 `site/emulators/knowledge-model.js` currently recognizes only exact single-image
-releases; multi-disc and file-set browser activation await a complete browser
-identity flow. `memory-labels.js` uses this data for Fort and retains Sonic's
+releases; multi-disc browser activation awaits a complete identity flow. The DOS adapter
+separately verifies its required file-set members and selected executable. `memory-labels.js` uses this data for Fort and retains Sonic's
 existing descriptor-based implementation until Sonic is migrated. An unknown,
 wrong-sized, wrong-hash or ambiguous image gets no game-specific labels; hardware
 regions remain available. The cache is keyed by both File and platform.

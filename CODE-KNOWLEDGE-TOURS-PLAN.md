@@ -726,6 +726,11 @@ as segment-times-16. Support only the modes actually tested.
 
 ### M6 — Asset location chains and authoring integration
 
+Completed for bounded static Go resolution, versioned format adapters, asset
+dependencies, curated artifact verification and the generated site catalog.
+Captain Toad and synthetic ROM/raw-sector chains are covered. See the
+[M6 report](tools/browser/docs/code-m6/README.md) and supported-format limits.
+
 Depends on M1; can progress independently of M5 once the base contract is stable.
 Implement sectors/filesystems/containers/transforms and bounded resolver execution,
 decoder registry, dependency links, static validation/export tools and site index.

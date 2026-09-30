@@ -21,14 +21,26 @@ type Space struct {
 	Size      uint64 `json:"size"`
 }
 type Location struct {
-	Relocation uint64 `json:"relocation,omitempty"`
-	Kind       string `json:"kind"`
-	Space      string `json:"space,omitempty"`
-	Address    string `json:"address,omitempty"`
-	Offset     string `json:"offset,omitempty"`
-	Role       string `json:"role,omitempty"`
-	Base       string `json:"base,omitempty"`
-	Module     string `json:"module,omitempty"`
+	Parent        string `json:"parent,omitempty"`
+	Decoder       string `json:"decoder,omitempty"`
+	Version       int    `json:"version,omitempty"`
+	Path          string `json:"path,omitempty"`
+	Size          uint64 `json:"size,omitempty"`
+	SHA256        string `json:"sha256,omitempty"`
+	Length        uint64 `json:"length,omitempty"`
+	First         uint64 `json:"first,omitempty"`
+	Count         uint64 `json:"count,omitempty"`
+	Stride        uint64 `json:"stride,omitempty"`
+	PayloadOffset uint64 `json:"payloadOffset,omitempty"`
+	PayloadSize   uint64 `json:"payloadSize,omitempty"`
+	Relocation    uint64 `json:"relocation,omitempty"`
+	Kind          string `json:"kind"`
+	Space         string `json:"space,omitempty"`
+	Address       string `json:"address,omitempty"`
+	Offset        string `json:"offset,omitempty"`
+	Role          string `json:"role,omitempty"`
+	Base          string `json:"base,omitempty"`
+	Module        string `json:"module,omitempty"`
 }
 type Field struct {
 	Name        string `json:"name"`
@@ -99,6 +111,7 @@ type Game struct {
 	} `json:"system"`
 }
 type Package struct {
+	Assets        map[string]Asset      `json:"assets"`
 	SchemaVersion int                   `json:"schemaVersion"`
 	ID            string                `json:"id"`
 	Revision      uint64                `json:"revision"`
@@ -196,6 +209,9 @@ func (p *Package) resolve(id, release string, seen map[string]bool, depth int) (
 	if !ok {
 		return Span{}, fmt.Errorf("unknown location %s", id)
 	}
+	if l.Parent != "" {
+		return p.resolveAssetLocation(l, release, seen, depth)
+	}
 	if l.Kind == "relative" {
 		s, e := p.resolve(l.Base, release, seen, depth+1)
 		if e != nil {
@@ -209,6 +225,12 @@ func (p *Package) resolve(id, release string, seen map[string]bool, depth int) (
 			return s, fmt.Errorf("relative location exceeds space")
 		}
 		s.Offset += n
+		if l.Length > 0 {
+			if l.Length > s.Limit-s.Offset {
+				return s, fmt.Errorf("location length exceeds parent")
+			}
+			s.Limit = s.Offset + l.Length
+		}
 		return s, nil
 	}
 	if l.Kind == "relocated-segment" {
@@ -274,6 +296,12 @@ func (p *Package) resolve(id, release string, seen map[string]bool, depth int) (
 	}
 	if s.Offset >= s.Limit {
 		return s, fmt.Errorf("location %s exceeds space", id)
+	}
+	if l.Length > 0 {
+		if l.Length > s.Limit-s.Offset {
+			return s, fmt.Errorf("location length exceeds source")
+		}
+		s.Limit = s.Offset + l.Length
 	}
 	return s, nil
 }
@@ -569,6 +597,9 @@ func (p *Package) validate() error {
 		}
 	}
 	if e := p.validateModules(); e != nil {
+		return e
+	}
+	if e := p.validateAssets(); e != nil {
 		return e
 	}
 	return p.validateTours()

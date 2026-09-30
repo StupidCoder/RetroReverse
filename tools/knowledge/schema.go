@@ -153,6 +153,9 @@ func schemaCheck(s map[string]any, v any, path string, root map[string]any) erro
 		if p, ok := s["pattern"].(string); ok && !regexp.MustCompile(p).MatchString(x) {
 			return fail("invalid string pattern")
 		}
+		if n, ok := s["maxLength"]; ok && len([]rune(x)) > int(number(n)) {
+			return fmt.Errorf("%s: string too long", path)
+		}
 		if n, ok := s["minLength"]; ok && len([]rune(x)) < int(number(n)) {
 			return fail("string is too short")
 		}
@@ -232,7 +235,7 @@ func schemaCheck(s map[string]any, v any, path string, root map[string]any) erro
 // does not implement. This prevents a later schema edit from silently weakening validation.
 func auditSchema(s map[string]any, root map[string]any) error {
 	allowed := map[string]bool{}
-	for _, k := range strings.Fields("$schema $id title description $defs $ref type const enum oneOf properties required additionalProperties propertyNames items minItems maxItems uniqueItems minProperties maxProperties minLength pattern minimum maximum") {
+	for _, k := range strings.Fields("$schema $id title description $defs $ref type const enum oneOf properties required additionalProperties propertyNames items minItems maxItems uniqueItems minProperties maxProperties minLength maxLength pattern minimum maximum") {
 		allowed[k] = true
 	}
 	for k, v := range s {

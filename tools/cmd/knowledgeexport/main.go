@@ -17,6 +17,7 @@ func main() {
 }
 func run() error {
 	out := flag.String("out", "", "output JS path")
+	index := flag.String("index", "", "optional static HTML asset catalog")
 	check := flag.Bool("check", false, "fail if output is missing or stale")
 	flag.Parse()
 	if *out == "" || flag.NArg() == 0 {
@@ -34,20 +35,30 @@ func run() error {
 	if e != nil {
 		return e
 	}
-	if *check {
-		old, e := os.ReadFile(*out)
+	outputs := map[string][]byte{*out: b}
+	if *index != "" {
+		catalog, e := knowledge.ExportCatalog(ps)
 		if e != nil {
 			return e
 		}
-		if !bytes.Equal(old, b) {
-			return fmt.Errorf("stale export: regenerate %s", *out)
+		outputs[*index] = catalog
+	}
+	for path, data := range outputs {
+		if *check {
+			old, e := os.ReadFile(path)
+			if e != nil {
+				return e
+			}
+			if !bytes.Equal(old, data) {
+				return fmt.Errorf("stale export: regenerate %s", path)
+			}
+			fmt.Println("CURRENT", path)
+		} else {
+			if e = os.WriteFile(path, data, 0644); e != nil {
+				return e
+			}
+			fmt.Println("EXPORTED", path)
 		}
-		fmt.Println("CURRENT", *out)
-		return nil
 	}
-	if e = os.WriteFile(*out, b, 0644); e != nil {
-		return e
-	}
-	fmt.Println("EXPORTED", *out)
 	return nil
 }

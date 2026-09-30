@@ -3,8 +3,8 @@
 from pathlib import Path
 import os,subprocess,tempfile
 root=Path(__file__).resolve().parents[2];node=os.environ.get('NODE','node');clang=os.environ.get('CXX','clang++')
-subprocess.run(['go','test','./tools/knowledge','./tools/cmd/knowledgecheck','./tools/cmd/knowledgeexport','./tools/cpu/mos6502','./tools/cmd/dis6502export'],cwd=root,check=True)
-subprocess.run(['go','run','./tools/cmd/knowledgeexport','-check','-out','site/emulators/knowledge-data.js',*map(str,sorted((root/'games').glob('*/knowledge.json')))],cwd=root,check=True)
+subprocess.run(['go','test','./tools/knowledge','./tools/cmd/knowledgecheck','./tools/cmd/knowledgeexport','./tools/cmd/knowledgeasset','./tools/cpu/mos6502','./tools/cmd/dis6502export'],cwd=root,check=True)
+subprocess.run(['go','run','./tools/cmd/knowledgeexport','-check','-out','site/emulators/knowledge-data.js','-index','site/knowledge/index.html',*map(str,sorted((root/'games').glob('*/knowledge.json')))],cwd=root,check=True)
 subprocess.run(['go','run','./tools/cmd/dis6502export','-check'],cwd=root,check=True)
 for name in ['dos-knowledge','tours','structured-state','debug','knowledge','memory','media','dc-media','dos-media','input','state-container','inspector','pacing','ui-shell','tileset','ps1-vram','dc-texture']:
  subprocess.run([node,f'tools/browser/tests/{name}.mjs'],cwd=root,check=True)

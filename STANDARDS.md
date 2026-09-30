@@ -16,6 +16,7 @@ Go rather than scraping oracle output.
 ```
 games/<slug>/                    # one directory per game
   <slug>.md                      # the writeup; pins the image MD5 near the top
+  knowledge.json                 # versioned, hash-pinned research facts and asset chains
   image/                         # ROM/disk image(s) — .gitignored (copyright)
   extract/                       # Go module: retroreverse.com/games/<slug>/extract
     go.mod
@@ -223,3 +224,28 @@ regardless of platform. The default Parts are:
 Games subdivide when the content warrants it — e.g. splitting model / level / collision /
 message formats into their own Parts — but keep the same image → boot → architecture →
 formats → mechanics → sound order, numbering the Parts sequentially.
+
+
+## Game knowledge as research output
+
+Completing new game research or revising an existing finding includes updating
+`games/<slug>/knowledge.json`. Bundle the game/system names, exact SHA-256 release
+identity, evidence, known memory/code/state and asset source chains in this one
+hand-maintained package. Do not move game-specific facts into viewer code.
+Existing games migrate when research resumes; absent knowledge stays absent.
+
+Use [the knowledge authoring workflow](tools/knowledge/ASSET-RESOLUTION.md).
+Increment the package revision for published fact changes. Record uncertainty and
+scope explicitly; a raw field, compressed member and runtime copy are different
+claims. Register reusable decoder implementations in repository Go code, never
+scripts inside a package. Unknown operations must be rejected.
+
+Before considering research complete, validate the package, resolve its new asset
+chains against the matching local image, verify declared curated artifacts, and
+add public synthetic/negative tests for new formats. Regenerate deterministic
+browser metadata and the `/knowledge/` catalog with
+`python3 tools/browser/package.py --site-only`; commit them with the source facts
+and narrative. Keep raw images, extracted source blobs and states in ignored
+`image/` or `work/` directories. Existing game exporters remain responsible for
+curated models/audio/images; a source-byte resolver does not certify a preview
+it has not reproduced.

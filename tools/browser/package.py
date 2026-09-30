@@ -9,8 +9,9 @@ parser.add_argument('--site-only',action='store_true',help='Reuse verified packa
 parser.add_argument('--core',action='append',default=[],help='Refresh only these core slugs; retain and verify other packaged cores')
 args=parser.parse_args()
 if args.site_only and args.core:parser.error('--site-only and --core are mutually exclusive')
+(repo/'site/knowledge').mkdir(exist_ok=True)
 packages=sorted((repo/'games').glob('*/knowledge.json'))
-subprocess.run(['go','run','./tools/cmd/knowledgeexport','-out',str(out/'knowledge-data.js'),*map(str,packages)],cwd=repo,check=True)
+subprocess.run(['go','run','./tools/cmd/knowledgeexport','-out',str(out/'knowledge-data.js'),'-index',str(repo/'site/knowledge/index.html'),*map(str,packages)],cwd=repo,check=True)
 existing=json.loads((out/'build-manifest.json').read_text()) if args.site_only or args.core else {}
 subprocess.run(['go','run','./tools/cmd/dis6502export','-out',str(out/'opcodes6502.js')],cwd=repo,check=True)
 manifest={}

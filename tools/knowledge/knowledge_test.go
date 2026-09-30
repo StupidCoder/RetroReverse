@@ -47,17 +47,43 @@ func changed(t *testing.T, f func(map[string]any)) []byte {
 }
 func TestFortAndDeterministicExport(t *testing.T) {
 	p := fort(t)
-	uw, e := Read("../../games/ultima-underworld-pc/knowledge.json")
+	paths, e := filepath.Glob("../../games/*/knowledge.json")
 	if e != nil {
 		t.Fatal(e)
 	}
-	a, e := ExportJS([]*Package{p, uw})
+	ps := []*Package{}
+	for _, path := range paths {
+		q, e := Read(path)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if e := q.VerifyArtifacts("../../site"); e != nil {
+			t.Fatal(e)
+		}
+		ps = append(ps, q)
+	}
+	a, e := ExportJS(ps)
 	if e != nil {
 		t.Fatal(e)
 	}
-	b, e := ExportJS([]*Package{uw, p})
+	catalog, e := ExportCatalog(ps)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for i, j := 0, len(ps)-1; i < j; i, j = i+1, j-1 {
+		ps[i], ps[j] = ps[j], ps[i]
+	}
+	b, e := ExportJS(ps)
 	if e != nil || !bytes.Equal(a, b) {
 		t.Fatal("nondeterministic export")
+	}
+	again, e := ExportCatalog(ps)
+	if e != nil || !bytes.Equal(catalog, again) {
+		t.Fatal("nondeterministic catalog")
+	}
+	checked, e := os.ReadFile("../../site/knowledge/index.html")
+	if e != nil || !bytes.Equal(catalog, checked) {
+		t.Fatal("stale knowledge catalog")
 	}
 	actual, e := os.ReadFile("../../site/emulators/knowledge-data.js")
 	if e != nil || !bytes.Equal(a, actual) {

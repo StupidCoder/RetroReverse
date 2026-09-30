@@ -34,6 +34,7 @@ func run() error {
 	files := mediaFlags{}
 	flag.Var(files, "file", "verify logical file-set member (repeat name=path)")
 	flag.Var(media, "media", "verify raw local media (repeat role=path)")
+	artifacts := flag.String("artifacts", "", "verify curated preview files beneath this site root")
 	release := flag.String("release", "", "require this release when checking media")
 	flag.Parse()
 	if flag.NArg() != 1 {
@@ -42,6 +43,12 @@ func run() error {
 	p, e := knowledge.Read(flag.Arg(0))
 	if e != nil {
 		return e
+	}
+	if *artifacts != "" {
+		if e = p.VerifyArtifacts(*artifacts); e != nil {
+			return e
+		}
+		fmt.Println("ARTIFACTS VERIFIED")
 	}
 	fmt.Printf("VALID %s revision %d sha256=%s\n", p.ID, p.Revision, p.Hash)
 	if len(media) > 0 && len(files) > 0 {

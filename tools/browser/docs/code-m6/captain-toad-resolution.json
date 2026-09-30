@@ -1,0 +1,191 @@
+{
+  "sources": [
+    {
+      "location": "kinopio-bch",
+      "length": 392880
+    }
+  ],
+  "status": "resolved",
+  "package": "captain-toad-treasure-tracker-3ds",
+  "revision": 1,
+  "packageSHA256": "d6a8ce88e4dc91a48d954be495141036df294c363ffc62380949d658462ace78",
+  "release": "europe-decrypted",
+  "asset": "kinopio",
+  "sha256": "afb9a8de5b5a3f0a4c135ede44fa42b1cb99b21de6217534588fa3b63a2580b4",
+  "size": 392880,
+  "format": "bch",
+  "outputSHA256": "afb9a8de5b5a3f0a4c135ede44fa42b1cb99b21de6217534588fa3b63a2580b4",
+  "chain": [
+    {
+      "location": "cartridge",
+      "kind": "image",
+      "path": "cartridge",
+      "size": 536870912
+    },
+    {
+      "extents": [
+        {
+          "offset": 16384,
+          "length": 447635456
+        }
+      ],
+      "location": "application",
+      "kind": "member",
+      "parent": "cartridge",
+      "decoder": "ncsd",
+      "path": "partition0",
+      "size": 447635456,
+      "sha256": "cdc1dd802ac7115dba9cac74b3b77c977ad3c5aa90d6e6cbeb7c43a6ade5fded"
+    },
+    {
+      "extents": [
+        {
+          "offset": 2547712,
+          "length": 445087744
+        }
+      ],
+      "location": "romfs",
+      "kind": "member",
+      "parent": "application",
+      "decoder": "ncch",
+      "path": "romfs",
+      "size": 445087744,
+      "sha256": "7cdac5479cb8d2166e9d93f709a6af45598ab621467c8fc69f02dd452a355bf7"
+    },
+    {
+      "extents": [
+        {
+          "offset": 64503904,
+          "length": 215885
+        }
+      ],
+      "location": "kinopio-archive",
+      "kind": "file",
+      "parent": "romfs",
+      "decoder": "romfs",
+      "path": "ObjectData/Kinopio.szs",
+      "size": 215885,
+      "sha256": "6ca32057c01c72cc0206227cd890553658b7cc79a1ca2aa5dfc1b9fd4d53dfa6"
+    },
+    {
+      "location": "kinopio-decoded",
+      "kind": "transform",
+      "parent": "kinopio-archive",
+      "decoder": "yaz0",
+      "size": 403304,
+      "sha256": "84d1227bbd926bd0e66053f32d0aefd95fce4b2386ad3e06422201e17462eb22"
+    },
+    {
+      "extents": [
+        {
+          "offset": 2560,
+          "length": 392880
+        }
+      ],
+      "location": "kinopio-bch",
+      "kind": "member",
+      "parent": "kinopio-decoded",
+      "decoder": "sarc",
+      "path": "Kinopio.bch",
+      "size": 392880,
+      "sha256": "afb9a8de5b5a3f0a4c135ede44fa42b1cb99b21de6217534588fa3b63a2580b4"
+    }
+  ],
+  "dependencies": [
+    {
+      "sources": [
+        {
+          "location": "opening-animations-bch",
+          "length": 3616892
+        }
+      ],
+      "dependencyRole": "animation",
+      "status": "resolved",
+      "package": "captain-toad-treasure-tracker-3ds",
+      "revision": 1,
+      "packageSHA256": "d6a8ce88e4dc91a48d954be495141036df294c363ffc62380949d658462ace78",
+      "release": "europe-decrypted",
+      "asset": "opening-animations",
+      "sha256": "5f7be4565dd8bc790553bb493a25ea1921d80b24565023638326416e6aefef49",
+      "size": 3616892,
+      "format": "bch",
+      "outputSHA256": "5f7be4565dd8bc790553bb493a25ea1921d80b24565023638326416e6aefef49",
+      "chain": [
+        {
+          "location": "cartridge",
+          "kind": "image",
+          "path": "cartridge",
+          "size": 536870912
+        },
+        {
+          "extents": [
+            {
+              "offset": 16384,
+              "length": 447635456
+            }
+          ],
+          "location": "application",
+          "kind": "member",
+          "parent": "cartridge",
+          "decoder": "ncsd",
+          "path": "partition0",
+          "size": 447635456,
+          "sha256": "cdc1dd802ac7115dba9cac74b3b77c977ad3c5aa90d6e6cbeb7c43a6ade5fded"
+        },
+        {
+          "extents": [
+            {
+              "offset": 2547712,
+              "length": 445087744
+            }
+          ],
+          "location": "romfs",
+          "kind": "member",
+          "parent": "application",
+          "decoder": "ncch",
+          "path": "romfs",
+          "size": 445087744,
+          "sha256": "7cdac5479cb8d2166e9d93f709a6af45598ab621467c8fc69f02dd452a355bf7"
+        },
+        {
+          "extents": [
+            {
+              "offset": 94929728,
+              "length": 2619327
+            }
+          ],
+          "location": "opening-animations-archive",
+          "kind": "file",
+          "parent": "romfs",
+          "decoder": "romfs",
+          "path": "ObjectData/KinopioAnimationSeason1OpeningStage.szs",
+          "size": 2619327,
+          "sha256": "cec6b1511736dc32a0e5503c1998ac71104da53070b81a8fc903f763099ca2c9"
+        },
+        {
+          "location": "opening-animations-decoded",
+          "kind": "transform",
+          "parent": "opening-animations-archive",
+          "decoder": "yaz0",
+          "size": 3629844,
+          "sha256": "2b396cbd3a43fddfe68940928df00cfc37888ec610d7d8201510df5a0932712a"
+        },
+        {
+          "extents": [
+            {
+              "offset": 512,
+              "length": 3616892
+            }
+          ],
+          "location": "opening-animations-bch",
+          "kind": "member",
+          "parent": "opening-animations-decoded",
+          "decoder": "sarc",
+          "path": "KinopioAnimationSeason1OpeningStage.bch",
+          "size": 3616892,
+          "sha256": "5f7be4565dd8bc790553bb493a25ea1921d80b24565023638326416e6aefef49"
+        }
+      ]
+    }
+  ]
+}
