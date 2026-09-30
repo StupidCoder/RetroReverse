@@ -7,7 +7,7 @@ export function createStatePanel({memory,code}){
  function draw(){
   for(const d of root.querySelectorAll('details[data-state-key]')){if(d.open)opened.add(d.dataset.stateKey);else opened.delete(d.dataset.stateKey);}
   const scroll=root.scrollTop;root.replaceChildren(element('h3','Game state'));
-  root.append(element('p',snapshot?`Snapshot ${snapshot.snapshotId} · cycle ${snapshot.cycle} · ${snapshot.boundary?'instruction boundary':'mid-instruction sample'}. Raw bytes and values come from this same snapshot.`:'No state snapshot yet.'));
+  root.append(element('p',snapshot?`Snapshot ${snapshot.snapshotId} · ${snapshot.architecture==='x86'?'step':'cycle'} ${snapshot.cycle} · ${snapshot.boundary?'instruction boundary':'mid-instruction sample'}. Raw bytes and values come from this same snapshot.`:'No state snapshot yet.'));
   root.append(element('p','Documented meanings are not a live gameplay-phase assertion. Slot incarnations count observed empty/unavailable → occupied transitions; reuse between samples may be missed.'));
   if(!snapshot?.state.entries.length){root.append(element('p','No matching live state definitions for this image.'));return;}
   function node(n,entry,key,label){
@@ -28,7 +28,7 @@ export function createStatePanel({memory,code}){
    else section.append(node(entry.node,entry,entry.id,entry.label));
    section.append(element('p',entry.applicability));
    section.append(element('p',entry.evidence.map(e=>`${e.status}: ${e.description}${e.limitations?' '+e.limitations:''}`).join(' ')));
-   for(const id of entry.relatedFunctions){const f=knowledge?.data?.functions[id],l=knowledge?.data?.locations[f?.entry];if(l?.kind!=='cpu')continue;const b=element('button','Code: '+f.label);b.disabled=running;b.onclick=()=>code(Number(l.address));section.append(b);}
+   for(const id of entry.relatedFunctions){const f=knowledge?.data?.functions[id],l=knowledge?.data?.locations[f?.entry];const target=snapshot?.functions?.[id]?.address??(l?.kind==='cpu'?Number(l.address):null);if(target===null)continue;const b=element('button','Code: '+f.label);b.disabled=running;b.onclick=()=>code(target,id);section.append(b);}
    root.append(section);
   }
   root.scrollTop=scroll;

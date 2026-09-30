@@ -1,3 +1,6 @@
+import {createDOSInspector} from './dos-inspector.js';
+import {identifyDOSFiles} from './dos-knowledge.js';
+import {createTourService} from './tour-worker.js';
 import {createDebugService} from './debug-worker.js';
 import {createExecutionGate} from './execution-gate.js';
 import {identifySingleImage} from './knowledge-model.js';
@@ -18,7 +21,7 @@ const inputQueue = [];
 const appliedKeys=new Set();
 const mediaHashes=new WeakMap();
 function mediaHash(file){if(!mediaHashes.has(file))mediaHashes.set(file,sha256File(file));return mediaHashes.get(file);}
-let saving=false,debugService=null;
+let saving=false,debugService=null,tourService=null;
 const executionGate=createExecutionGate();
 let memoryService=null,memoryRecording=false,memoryStop=false,memoryBusy=false;
 let bootOptions, firmwareIdentity=[], mediaIdentity, coreIdentity;
@@ -97,7 +100,7 @@ function paint() {
     paintMs,
     heap : core.HEAPU8.length,
     inputDeferred : platform === '3do' && core.deferInput && s.frames < 300,
-    capturing,saving,memoryRecording,debugBusy:!!debugService?.active(),
+    capturing,saving,memoryRecording,debugBusy:!!(debugService?.active()||tourService?.active()),
     profile : readProfile()
   });
 }
@@ -382,13 +385,20 @@ async function boot(m) {
     inputs.keys=[];inputs.down.clear();inputs.touch={x:0,y:0,down:false};inputs.touchEvents=[];inputs.touchUntil=0;if(core._rr_touch)core._rr_touch(0,0,0);
   }
   memoryService=createMemoryService({core,platform,files:[f],status});
-  if(platform==='c64'&&core._rr_debug_snapshot){
-    const identity=identifySingleImage(platform,{size:f.size,sha256:await mediaHash(f)});
+  if(['c64','dos'].includes(platform)&&core._rr_debug_snapshot){
+    const identity=platform==='dos'?await identifyDOSFiles(dosMedia.entries,knowledgePackages,mediaHash,dosMedia.entry):identifySingleImage(platform,{size:f.size,sha256:await mediaHash(f)});
     const pkg=knowledgePackages.find(p=>p.id===identity.packageId);
-    debugService=createDebugService({core,send,sleep,paint,applyInputs,generation:session,
+    const knowledge=pkg?{...identity,data:pkg.knowledge}:identity;
+    const adapter=platform==='dos'?createDOSInspector(core,knowledge):{};
+    debugService=createDebugService({core,send,sleep,paint,applyInputs,generation:session,platform,...adapter,
       knowledge:pkg?{...identity,data:pkg.knowledge}:identity,
       onStart:()=>{cancelCapture();memoryService.stopLive();},
-      busy:includePlay=>!!((executionGate.owner&&(includePlay||!['run','step'].includes(executionGate.owner)))||saving||memoryBusy||memoryRecording||capturing||(includePlay&&running))});
+      busy:includePlay=>!!(tourService?.active()||(executionGate.owner&&(includePlay||!['run','step'].includes(executionGate.owner)))||saving||memoryBusy||memoryRecording||capturing||(includePlay&&running))});
+    tourService=createTourService({core,knowledge,generation:session,send,sleep,paint,...adapter,maxCheckpointBytes:platform==='dos'?128*1024*1024:4*1024*1024,
+      snapshot:()=>debugService.snapshot(),busy:()=>!!(running||executionGate.owner||debugService.active()||saving||memoryBusy||memoryRecording||capturing),
+      onStart:()=>{cancelCapture();memoryService.stopLive();inputs=new InputQueue(platforms[platform].hz);if(platform==='dos')inputs.mouseMask=768;inputQueue.length=0;appliedKeys.clear();lastButtons=lastX=lastY=0;for(let k=0;k<(platform==='dos'?128:256);k++)core._rr_key(k,0);if(platform==='dos'){core._rr_pad(0);core._rr_mouse(0,0,0);}else core._rr_joystick(2,0);},
+      onRestore:()=>{inputs=new InputQueue(platforms[platform].hz);if(platform==='dos')inputs.mouseMask=768;inputQueue.length=0;appliedKeys.clear();lastButtons=lastX=lastY=0;}
+    });
   }
   loaded = true;
   paint();
@@ -405,6 +415,17 @@ onmessage = async ({data : m}) => {
     }
     if (m.session !== session || !loaded)
       return;
+    if(m.type.startsWith('tour-')){
+      if(tourService)await tourService.request(m);
+      else send('tour-rejected',{generation:session,request:m.request,text:'Tours are unavailable for this core.'});
+      return;
+    }
+    if(tourService?.active()){
+      if(['pause','hold','cancel-capture'].includes(m.type)){tourService.cancel();return;}
+      send(m.type.startsWith('memory-')?'memory-error':m.type.startsWith('debug-')?'debug-result':'message',{generation:session,request:m.request,reason:'rejected',text:'Tour is running. Cancel it before another operation.'});return;
+    }
+    if(['run','step','seek','capture-render','memory-record','tape','debug-normalize','debug-step','debug-until'].includes(m.type))tourService?.invalidate();
+    if(m.type==='input'&&((m.buttons??0)!==lastButtons||(m.keys||[]).some(([key,down])=>!!down!==appliedKeys.has(key))))tourService?.invalidate();
     if(m.type.startsWith('debug-')){
       if(!debugService){send('debug-result',{request:m.request,reason:'unsupported',text:'Instruction debugging is unavailable for this core.'});return;}
       await debugService.request(m);return;

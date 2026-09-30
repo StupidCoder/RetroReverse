@@ -33,9 +33,10 @@ type FileSet struct {
 	SHA256     string   `json:"sha256"`
 }
 type Release struct {
-	Label   string   `json:"label"`
-	Media   []Media  `json:"media,omitempty"`
-	FileSet *FileSet `json:"fileSet,omitempty"`
+	Executable string   `json:"executable,omitempty"`
+	Label      string   `json:"label"`
+	Media      []Media  `json:"media,omitempty"`
+	FileSet    *FileSet `json:"fileSet,omitempty"`
 }
 
 func CanonicalPath(path, policy string) (string, error) {

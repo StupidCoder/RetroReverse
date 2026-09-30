@@ -1,3 +1,5 @@
+import {createDOSInspector} from './dos-inspector.js';
+import {identifyDOSFiles} from './dos-knowledge.js';
 import {createTourService} from './tour-worker.js';
 import {createDebugService} from './debug-worker.js';
 import {createExecutionGate} from './execution-gate.js';
@@ -383,17 +385,19 @@ async function boot(m) {
     inputs.keys=[];inputs.down.clear();inputs.touch={x:0,y:0,down:false};inputs.touchEvents=[];inputs.touchUntil=0;if(core._rr_touch)core._rr_touch(0,0,0);
   }
   memoryService=createMemoryService({core,platform,files:[f],status});
-  if(platform==='c64'&&core._rr_debug_snapshot){
-    const identity=identifySingleImage(platform,{size:f.size,sha256:await mediaHash(f)});
+  if(['c64','dos'].includes(platform)&&core._rr_debug_snapshot){
+    const identity=platform==='dos'?await identifyDOSFiles(dosMedia.entries,knowledgePackages,mediaHash,dosMedia.entry):identifySingleImage(platform,{size:f.size,sha256:await mediaHash(f)});
     const pkg=knowledgePackages.find(p=>p.id===identity.packageId);
-    debugService=createDebugService({core,send,sleep,paint,applyInputs,generation:session,
+    const knowledge=pkg?{...identity,data:pkg.knowledge}:identity;
+    const adapter=platform==='dos'?createDOSInspector(core,knowledge):{};
+    debugService=createDebugService({core,send,sleep,paint,applyInputs,generation:session,platform,...adapter,
       knowledge:pkg?{...identity,data:pkg.knowledge}:identity,
       onStart:()=>{cancelCapture();memoryService.stopLive();},
       busy:includePlay=>!!(tourService?.active()||(executionGate.owner&&(includePlay||!['run','step'].includes(executionGate.owner)))||saving||memoryBusy||memoryRecording||capturing||(includePlay&&running))});
-    tourService=createTourService({core,knowledge:pkg?{...identity,data:pkg.knowledge}:identity,generation:session,send,sleep,paint,
+    tourService=createTourService({core,knowledge,generation:session,send,sleep,paint,...adapter,maxCheckpointBytes:platform==='dos'?128*1024*1024:4*1024*1024,
       snapshot:()=>debugService.snapshot(),busy:()=>!!(running||executionGate.owner||debugService.active()||saving||memoryBusy||memoryRecording||capturing),
-      onStart:()=>{cancelCapture();memoryService.stopLive();inputs=new InputQueue(platforms[platform].hz);inputQueue.length=0;appliedKeys.clear();lastButtons=lastX=lastY=0;for(let k=0;k<256;k++)core._rr_key(k,0);core._rr_joystick(2,0);},
-      onRestore:()=>{inputs=new InputQueue(platforms[platform].hz);inputQueue.length=0;appliedKeys.clear();lastButtons=lastX=lastY=0;}
+      onStart:()=>{cancelCapture();memoryService.stopLive();inputs=new InputQueue(platforms[platform].hz);if(platform==='dos')inputs.mouseMask=768;inputQueue.length=0;appliedKeys.clear();lastButtons=lastX=lastY=0;for(let k=0;k<(platform==='dos'?128:256);k++)core._rr_key(k,0);if(platform==='dos'){core._rr_pad(0);core._rr_mouse(0,0,0);}else core._rr_joystick(2,0);},
+      onRestore:()=>{inputs=new InputQueue(platforms[platform].hz);if(platform==='dos')inputs.mouseMask=768;inputQueue.length=0;appliedKeys.clear();lastButtons=lastX=lastY=0;}
     });
   }
   loaded = true;

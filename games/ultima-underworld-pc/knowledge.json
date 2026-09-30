@@ -1,0 +1,525 @@
+{
+  "schemaVersion": 1,
+  "id": "ultima-underworld-pc",
+  "revision": 1,
+  "game": {
+    "name": "Ultima Underworld: The Stygian Abyss",
+    "system": {
+      "id": "dos",
+      "name": "MS-DOS"
+    }
+  },
+  "releases": {
+    "reference-installed": {
+      "label": "Reference executable and renderer assets (required subset; extra files allowed)",
+      "fileSet": {
+        "algorithm": "rr-media-set-v1",
+        "pathPolicy": "ascii-insensitive",
+        "members": [
+          {
+            "path": "uw.exe",
+            "size": 561744,
+            "sha256": "b05b8d8cae54144c386070d56dfdd8dacad38869f2920a6c35813a1d75c80a7b"
+          },
+          {
+            "path": "data/lev.ark",
+            "size": 290864,
+            "sha256": "87e9a6e5d249df273e1964f48ad910afee6f7e073165c00237dfb9a22ae3a121"
+          },
+          {
+            "path": "data/w64.tr",
+            "size": 861008,
+            "sha256": "a6313b264d16d123163fffd112ba7dc07b0357a8a8cf9b6af6ab169498b18193"
+          },
+          {
+            "path": "data/f32.tr",
+            "size": 53464,
+            "sha256": "e0737adb05099e2bbcd7c4a3644f5d4e53ace05c54fa92bc3cf12e0dff1e3bb0"
+          },
+          {
+            "path": "data/pals.dat",
+            "size": 6144,
+            "sha256": "fd1b6789c99fcab95f3f3ee12901fe9b6f991b0d7e1120656bcf2b37f129afe9"
+          }
+        ],
+        "sha256": "3448de8849381da83c6fa633fdf4e83f5322b59da929dfb3360957d20493b95a"
+      },
+      "executable": "uw.exe"
+    }
+  },
+  "sources": {
+    "renderer": {
+      "path": "/games/ultima-underworld-pc/ultima-underworld-pc.md",
+      "description": "Repository research, Part V; live renderer disassembly in disasm/uw-render.asm."
+    }
+  },
+  "evidence": {
+    "renderer": {
+      "status": "confirmed",
+      "source": "renderer",
+      "description": "Renderer functions derived from live execution and writer profiling; runtime signatures and relocation words gate their use.",
+      "limitations": "The tour demonstrates successive projection, span and presentation entries; it does not claim that one selected polygon alone produces the next whole display. Existing VGA/HUD inaccuracies remain."
+    }
+  },
+  "spaces": {
+    "ram": {
+      "kind": "physical",
+      "region": "ram",
+      "size": 1048576
+    }
+  },
+  "locations": {
+    "projection": {
+      "kind": "module",
+      "module": "geometry",
+      "offset": "0x6148"
+    },
+    "span": {
+      "kind": "module",
+      "module": "raster",
+      "offset": "0x2ce"
+    },
+    "blit": {
+      "kind": "module",
+      "module": "raster",
+      "offset": "0xb96"
+    },
+    "gradient-u": {
+      "kind": "module",
+      "module": "raster",
+      "offset": "0x2ec"
+    },
+    "gradient-v-low": {
+      "kind": "module",
+      "module": "raster",
+      "offset": "0x2f0"
+    },
+    "gradient-v-high": {
+      "kind": "module",
+      "module": "raster",
+      "offset": "0x2f3"
+    },
+    "chunky": {
+      "kind": "relocated-segment",
+      "module": "raster",
+      "relocation": 2636,
+      "offset": "0x0"
+    },
+    "copy-finished": {
+      "kind": "module",
+      "module": "raster",
+      "offset": "0xbda"
+    }
+  },
+  "types": {
+    "u16": {
+      "kind": "integer",
+      "bytes": 2,
+      "signed": false,
+      "endian": "little"
+    }
+  },
+  "regions": {},
+  "state": {
+    "gradient-u": {
+      "label": "Span U step immediate",
+      "location": "gradient-u",
+      "type": "u16",
+      "relatedFunctions": [
+        "span"
+      ],
+      "releases": [
+        "reference-installed"
+      ],
+      "evidence": [
+        "renderer"
+      ],
+      "applicability": "Only while the corresponding live module signatures and relocation words match."
+    },
+    "gradient-v-low": {
+      "label": "Span V fractional step immediate",
+      "location": "gradient-v-low",
+      "type": "u16",
+      "relatedFunctions": [
+        "span"
+      ],
+      "releases": [
+        "reference-installed"
+      ],
+      "evidence": [
+        "renderer"
+      ],
+      "applicability": "Only while the corresponding live module signatures and relocation words match."
+    },
+    "gradient-v-high": {
+      "label": "Span V carry step immediate",
+      "location": "gradient-v-high",
+      "type": "u16",
+      "relatedFunctions": [
+        "span"
+      ],
+      "releases": [
+        "reference-installed"
+      ],
+      "evidence": [
+        "renderer"
+      ],
+      "applicability": "Only while the corresponding live module signatures and relocation words match."
+    }
+  },
+  "functions": {
+    "projection": {
+      "label": "Perspective projection",
+      "entry": "projection",
+      "isa": "x86-16",
+      "description": "Multiplies view-space axes by the projection scales and divides by depth. The following stores write screen coordinates; a game-installed divide-error handler handles saturation.",
+      "releases": [
+        "reference-installed"
+      ],
+      "evidence": [
+        "renderer"
+      ],
+      "applicability": "Only while the corresponding live module signatures and relocation words match."
+    },
+    "span": {
+      "label": "Self-modifying texture span",
+      "entry": "span",
+      "isa": "x86-16",
+      "description": "Copies texture bytes with MOVSB. ADD DX, ADD BP and ADC AX use gradient immediates patched for this span; the decoder reads their current values.",
+      "releases": [
+        "reference-installed"
+      ],
+      "evidence": [
+        "renderer"
+      ],
+      "applicability": "Only while the corresponding live module signatures and relocation words match."
+    },
+    "blit": {
+      "label": "Chunky to planar VGA copy",
+      "entry": "blit",
+      "isa": "x86-16",
+      "description": "Reads the chunky buffer and copies every fourth byte into one VGA plane, repeating for the other planes. The main game output still shows the previous presentation until this copy runs.",
+      "releases": [
+        "reference-installed"
+      ],
+      "evidence": [
+        "renderer"
+      ],
+      "applicability": "Only while the corresponding live module signatures and relocation words match."
+    }
+  },
+  "annotations": {},
+  "modules": {
+    "raster": {
+      "label": "Resident software rasterizer",
+      "kind": "mz",
+      "mode": "real16",
+      "paragraph": 144,
+      "size": 4096,
+      "signatures": [
+        {
+          "offset": 718,
+          "bytes": [
+            161,
+            189,
+            7,
+            139,
+            22,
+            187,
+            7,
+            51,
+            219,
+            139,
+            46,
+            193,
+            7,
+            142,
+            30,
+            175,
+            7
+          ]
+        },
+        {
+          "offset": 2966,
+          "bytes": [
+            209,
+            229,
+            139,
+            142,
+            94,
+            9,
+            176,
+            8,
+            238,
+            139,
+            251,
+            190,
+            3,
+            0,
+            3,
+            241
+          ]
+        }
+      ],
+      "relocations": [
+        {
+          "offset": 2636,
+          "relativeSegment": 16565
+        }
+      ]
+    },
+    "geometry": {
+      "label": "Loaded geometry overlay",
+      "kind": "overlay",
+      "mode": "real16",
+      "size": 28672,
+      "signatures": [
+        {
+          "offset": 24911,
+          "bytes": [
+            191,
+            89,
+            6,
+            139,
+            54,
+            7,
+            3,
+            51,
+            201,
+            139,
+            108,
+            4,
+            38,
+            137,
+            109,
+            12
+          ]
+        },
+        {
+          "offset": 24932,
+          "bytes": [
+            247,
+            46,
+            178,
+            38,
+            247,
+            253,
+            3,
+            6,
+            180,
+            38,
+            171,
+            173,
+            38,
+            137,
+            69,
+            8
+          ]
+        }
+      ],
+      "relocations": [
+        {
+          "offset": 24907,
+          "relativeSegment": 15053
+        }
+      ]
+    }
+  },
+  "buffers": {
+    "chunky": {
+      "label": "Verified chunky RAM buffer (320 \u00d7 200)",
+      "location": "chunky",
+      "width": 320,
+      "height": 200,
+      "stride": 320,
+      "palette": "vga",
+      "releases": [
+        "reference-installed"
+      ],
+      "evidence": [
+        "renderer"
+      ],
+      "when": {
+        "any": [
+          {
+            "all": [
+              {
+                "location": "span"
+              },
+              {
+                "register": "ES",
+                "value": 16837
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "location": "blit"
+              },
+              {
+                "register": "DS",
+                "value": 16837
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "location": "copy-finished"
+              },
+              {
+                "register": "DS",
+                "value": 16837
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "tours": {
+    "renderer": {
+      "title": "From projection to texture spans and VGA",
+      "description": "Visit three verified stages of Underworld\u2019s original software renderer. At the span and copy stops, inspect the chunky RAM buffer alongside the current display.",
+      "releases": [
+        "reference-installed"
+      ],
+      "evidence": [
+        "renderer"
+      ],
+      "startPolicy": "current-paused",
+      "requirements": "Enter the dungeon normally and pause while the geometry overlay is loaded. The exact executable and renderer assets, both code signatures, and the expected relocation words must match. This tour starts from your current state and does not synthesize a scene.",
+      "guards": [
+        {
+          "location": "projection",
+          "bytes": [
+            86,
+            6
+          ]
+        },
+        {
+          "location": "span",
+          "bytes": [
+            161,
+            189,
+            7
+          ]
+        }
+      ],
+      "start": {
+        "mode": "real16"
+      },
+      "stops": [
+        {
+          "id": "projection",
+          "title": "Perspective projection",
+          "explanation": "Multiplies view-space axes by the projection scales and divides by depth. The following stores write screen coordinates; a game-installed divide-error handler handles saturation.",
+          "until": {
+            "location": "projection"
+          },
+          "assertions": [
+            {
+              "mode": "real16"
+            }
+          ],
+          "cycleBudget": 2000000,
+          "wallBudget": 10000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "location": "chunky",
+              "length": 16384
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 0,
+            "gameState": true
+          }
+        },
+        {
+          "id": "span",
+          "title": "Self-modifying texture span",
+          "explanation": "Copies texture bytes with MOVSB. ADD DX, ADD BP and ADC AX use gradient immediates patched for this span; the decoder reads their current values.",
+          "until": {
+            "location": "span"
+          },
+          "assertions": [
+            {
+              "mode": "real16"
+            }
+          ],
+          "cycleBudget": 2000000,
+          "wallBudget": 10000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "location": "chunky",
+              "length": 16384
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 0,
+            "gameState": true
+          }
+        },
+        {
+          "id": "blit",
+          "title": "Chunky to planar VGA copy",
+          "explanation": "Reads the chunky buffer and copies every fourth byte into one VGA plane, repeating for the other planes. The main game output still shows the previous presentation until this copy runs.",
+          "until": {
+            "location": "blit"
+          },
+          "assertions": [
+            {
+              "mode": "real16"
+            }
+          ],
+          "cycleBudget": 2000000,
+          "wallBudget": 10000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "location": "chunky",
+              "length": 16384
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 0,
+            "gameState": true
+          }
+        },
+        {
+          "id": "copy-finished",
+          "title": "The planar copy is complete",
+          "explanation": "The copy loop has finished its rows and planes. The game output now contains the presented buffer; no scene geometry was rendered directly into VGA by this copy. The interval RAM write counter excludes VGA planes.",
+          "until": {
+            "location": "copy-finished"
+          },
+          "assertions": [
+            {
+              "mode": "real16"
+            }
+          ],
+          "cycleBudget": 2000000,
+          "wallBudget": 10000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "location": "chunky",
+              "length": 16384
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 0,
+            "gameState": true
+          }
+        }
+      ]
+    }
+  }
+}

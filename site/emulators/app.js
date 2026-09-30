@@ -48,8 +48,8 @@ const views=createWorkspaces({navigation:$('workspace-nav'),onChange:id=>{docume
 views.register({id:'play',label:'Play',panel:$('play-workspace')});
 const render=createRenderWorkspace({workspaces:views,platform,presentation,send,resume:()=>$('run').click(),playCanvas:canvas,beforeCapture:()=>memory.invalidate()});
 memory=createMemoryWorkspace({root:$('memory-workspace'),views,send,transport:id=>transport(id,true),platform});
-if(platform==='c64'){
- statePanel=createStatePanel({memory:(region,offset)=>{views.select('memory');memory.navigate(region,offset);},code:address=>{views.select('code');code.inspect(address);}});
+if(['c64','dos'].includes(platform)){
+ statePanel=createStatePanel({memory:(region,offset)=>{views.select('memory');memory.navigate(region,offset);},code:(address,functionId)=>{views.select('code');code.inspect(address,functionId);}});
  panelLayout=createPanelLayout(statePanel.root);
 }
 code=createCodeWorkspace({root:$('code-workspace'),views,send,transport:id=>transport(id,true),platform,statePanel,panelLayout});

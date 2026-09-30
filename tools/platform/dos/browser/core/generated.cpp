@@ -2,6 +2,9 @@
 struct x86_CPU;
 struct x86_ea;
 struct x86_FPUState;
+struct x86_rmOperand;
+struct x86_Inst;
+struct x86_dec;
 struct dos_COFFSection;
 struct dos_COFF;
 struct dos_dos_432_kv;
@@ -36,6 +39,9 @@ struct Anon19;
 struct Anon2;
 struct Anon20;
 struct Anon21;
+struct Anon22;
+struct Anon23;
+struct Anon24;
 struct Anon3;
 struct Anon4;
 struct Anon5;
@@ -93,7 +99,35 @@ uint8_t reg{};
 uint32_t base{};
 uint32_t off{};
 };
+struct x86_rmOperand{
+bool isReg{};
+uint8_t reg{};
+std::string text{};
+};
 using x86_sseKind=int64_t;
+using x86_Flow=int64_t;
+struct x86_Inst{
+uint32_t Addr{};
+int64_t Len{};
+std::string Mnem{};
+std::string Text{};
+x86_Flow Flow{};
+uint32_t Target{};
+bool HasTarget{};
+};
+struct x86_dec{
+Slice<uint8_t> mem{};
+uint32_t addr{};
+int64_t p{};
+int64_t defSize{};
+int64_t opsize{};
+int64_t addrsize{};
+std::string seg{};
+bool lock{};
+std::string rep{};
+std::string prefixText{};
+bool bad{};
+};
 struct dos_COFFSection{
 std::string Name{};
 uint32_t VAddr{};
@@ -344,26 +378,29 @@ Slice<dos_Reloc> Relocs{};
 };
 struct Anon0{std::array<uint32_t,8> Regs{};std::array<uint16_t,8> Seg{};uint32_t IP{};uint32_t instrIP{};bool CF{};bool PF{};bool AF{};bool ZF{};bool SF{};bool TF{};bool IF{};bool DF{};bool OF{};bool Halted{};std::string HaltReason{};uint64_t Steps{};uint64_t Ext386{};int64_t Mode{};std::array<uint32_t,8> SegBase{};std::function<uint32_t(uint16_t)> SegResolve{};std::function<bool(x86_CPU*,uint8_t)> IntHook{};std::function<void(x86_CPU*)> OnStep{};std::function<uint32_t(uint16_t,int64_t)> PortIn{};std::function<void(uint16_t,int64_t,uint32_t)> PortOut{};RRX86Bus bus{};bool ssShadow{};x86_FPUState FPU{};std::array<std::array<uint8_t,16>,8> XMM{};std::array<std::array<uint8_t,8>,8> MMX{};uint32_t MXCSR{};uint64_t TSCMul{};std::function<uint64_t()> TSCFunc{};int64_t dSeg{};int64_t dOpsize{};int64_t dAddrsize{};};
 struct Anon1{bool isReg{};uint8_t reg{};uint32_t base{};uint32_t off{};};
-struct Anon10{Slice<uint8_t> backing{};int64_t nextPage{};Map<uint16_t,dos_emsHandle> handles{};uint16_t nextH{};std::array<int64_t,4> slot{};Map<uint16_t,std::array<int64_t,4>> saved{};};
-struct Anon11{uint8_t kbdOut{};bool kbdOutFull{};bool expectData{};bool retrace{};uint16_t pit{};uint8_t oplReg{};bool oplTimer{};uint32_t tick{};uint8_t mixReg{};std::array<uint8_t,256> mixRegs{};Slice<uint8_t> dspQueue{};uint8_t dspReset{};int64_t dacIndex{};std::array<uint8_t,768> Pal{};Map<uint16_t,bool> seen{};};
-struct Anon12{dos_injKind kind{};uint8_t code{};int64_t x{};int64_t y{};int64_t delay{};};
-struct Anon13{int64_t x{};int64_t y{};int64_t accX{};int64_t accY{};uint8_t buttons{};int64_t xMin{};int64_t xMax{};int64_t yMin{};int64_t yMax{};bool hidden{};int64_t pressL{};int64_t pressR{};};
-struct Anon14{std::array<std::array<uint8_t,65536>,4> planes{};std::array<uint8_t,4> latch{};uint8_t seqIdx{};std::array<uint8_t,8> seq{};uint8_t gcIdx{};std::array<uint8_t,16> gc{};uint8_t crtcIdx{};std::array<uint8_t,32> crtc{};};
-struct Anon15{Slice<uint8_t> Mem{};x86_CPU* CPU{};std::string gameDir{};Map<uint16_t,os_File*> files{};uint32_t convBase{};uint32_t convNext{};uint32_t convTop{};uint32_t heapBase{};uint32_t heapNext{};uint32_t stackFloor{};uint32_t infoBase{};uint32_t imgEnd{};uint32_t wWLo{};uint32_t wWHi{};std::function<void(uint32_t,uint32_t,uint32_t)> onW{};uint32_t wRLo{};uint32_t wRHi{};std::function<void(uint32_t,uint32_t,uint32_t)> onR{};uint16_t nextSel{};uint16_t nextCallback{};Map<uint16_t,uint32_t> sels{};bool virtIF{};uint16_t lolSeg{};uint16_t lolOff{};uint16_t dtaSeg{};uint16_t dtaOff{};dos_pitState pit{};bool retrace{};std::array<dos_pmVector,256> pmVectors{};dos_pmVector defIntVec{};Slice<dos_injEvent> keyEvents{};Slice<uint8_t> injKeys{};int64_t keyWait{};bool keyRetry{};int64_t injTick{};int64_t keyHits{};uint8_t kbdData{};bool kbdFull{};int64_t dacIndex{};std::array<uint8_t,768> Pal{};Slice<std::string> Log{};Map<uint16_t,int64_t> DPMICounts{};Map<uint8_t,int64_t> IntCounts{};Map<uint8_t,int64_t> DOSCounts{};bool Terminated{};uint8_t ExitCode{};Slice<uint8_t> Console{};};
-struct Anon16{std::string Name{};uint32_t Lo{};uint32_t Hi{};};
-struct Anon17{uint16_t sel{};uint32_t off{};bool set{};};
-struct Anon18{uint16_t reload{};bool writeHi{};uint16_t latched{};bool haveLatch{};bool readHi{};};
-struct Anon19{uint32_t addr{};uint32_t edi{};uint32_t esi{};uint32_t ebp{};uint32_t ebx{};uint32_t edx{};uint32_t ecx{};uint32_t eax{};uint16_t flags{};uint16_t es{};uint16_t ds{};uint16_t fs{};uint16_t gs{};uint16_t ip{};uint16_t cs{};uint16_t sp{};uint16_t ss{};};
+struct Anon10{uint16_t Seg{};uint16_t Off{};int64_t Count{};};
+struct Anon11{uint8_t ah{};int64_t n{};};
+struct Anon12{int64_t base{};int64_t count{};};
+struct Anon13{Slice<uint8_t> backing{};int64_t nextPage{};Map<uint16_t,dos_emsHandle> handles{};uint16_t nextH{};std::array<int64_t,4> slot{};Map<uint16_t,std::array<int64_t,4>> saved{};};
+struct Anon14{uint8_t kbdOut{};bool kbdOutFull{};bool expectData{};bool retrace{};uint16_t pit{};uint8_t oplReg{};bool oplTimer{};uint32_t tick{};uint8_t mixReg{};std::array<uint8_t,256> mixRegs{};Slice<uint8_t> dspQueue{};uint8_t dspReset{};int64_t dacIndex{};std::array<uint8_t,768> Pal{};Map<uint16_t,bool> seen{};};
+struct Anon15{dos_injKind kind{};uint8_t code{};int64_t x{};int64_t y{};int64_t delay{};};
+struct Anon16{int64_t x{};int64_t y{};int64_t accX{};int64_t accY{};uint8_t buttons{};int64_t xMin{};int64_t xMax{};int64_t yMin{};int64_t yMax{};bool hidden{};int64_t pressL{};int64_t pressR{};};
+struct Anon17{std::array<std::array<uint8_t,65536>,4> planes{};std::array<uint8_t,4> latch{};uint8_t seqIdx{};std::array<uint8_t,8> seq{};uint8_t gcIdx{};std::array<uint8_t,16> gc{};uint8_t crtcIdx{};std::array<uint8_t,32> crtc{};};
+struct Anon18{Slice<uint8_t> Mem{};x86_CPU* CPU{};std::string gameDir{};Map<uint16_t,os_File*> files{};uint32_t convBase{};uint32_t convNext{};uint32_t convTop{};uint32_t heapBase{};uint32_t heapNext{};uint32_t stackFloor{};uint32_t infoBase{};uint32_t imgEnd{};uint32_t wWLo{};uint32_t wWHi{};std::function<void(uint32_t,uint32_t,uint32_t)> onW{};uint32_t wRLo{};uint32_t wRHi{};std::function<void(uint32_t,uint32_t,uint32_t)> onR{};uint16_t nextSel{};uint16_t nextCallback{};Map<uint16_t,uint32_t> sels{};bool virtIF{};uint16_t lolSeg{};uint16_t lolOff{};uint16_t dtaSeg{};uint16_t dtaOff{};dos_pitState pit{};bool retrace{};std::array<dos_pmVector,256> pmVectors{};dos_pmVector defIntVec{};Slice<dos_injEvent> keyEvents{};Slice<uint8_t> injKeys{};int64_t keyWait{};bool keyRetry{};int64_t injTick{};int64_t keyHits{};uint8_t kbdData{};bool kbdFull{};int64_t dacIndex{};std::array<uint8_t,768> Pal{};Slice<std::string> Log{};Map<uint16_t,int64_t> DPMICounts{};Map<uint8_t,int64_t> IntCounts{};Map<uint8_t,int64_t> DOSCounts{};bool Terminated{};uint8_t ExitCode{};Slice<uint8_t> Console{};};
+struct Anon19{std::string Name{};uint32_t Lo{};uint32_t Hi{};};
 struct Anon2{std::array<double,8> St{};std::array<uint8_t,8> Tag{};int64_t Top{};uint16_t Ctrl{};uint16_t Stat{};};
-struct Anon20{uint16_t LastPageBytes{};uint16_t Pages{};uint16_t Relocations{};uint16_t HeaderParas{};uint16_t MinAlloc{};uint16_t MaxAlloc{};uint16_t InitSS{};uint16_t InitSP{};uint16_t Checksum{};uint16_t InitIP{};uint16_t InitCS{};uint16_t RelocOffset{};uint16_t OverlayNumber{};int64_t FileSize{};int64_t LoadImageEnd{};int64_t LoadModuleOffset{};int64_t LoadModuleSize{};int64_t AppendedSize{};Slice<dos_Reloc> Relocs{};};
-struct Anon21{uint16_t Segment{};uint16_t Offset{};};
-struct Anon3{std::string Name{};uint32_t VAddr{};uint32_t Size{};uint32_t FileOff{};uint32_t Flags{};Slice<uint8_t> Data{};};
-struct Anon4{int64_t StubEnd{};int64_t NSections{};uint16_t Flags{};uint32_t Entry{};uint32_t TextStart{};uint32_t DataStart{};uint32_t TextSize{};uint32_t DataSize{};uint32_t BSSSize{};Slice<dos_COFFSection> Sections{};};
-struct Anon5{Slice<std::string> matches{};int64_t idx{};};
-struct Anon6{Slice<uint8_t> Mem{};x86_CPU* CPU{};std::string gameDir{};Map<uint16_t,os_File*> files{};uint16_t pspSeg{};uint16_t envSeg{};uint16_t loadSeg{};uint16_t memTop{};uint16_t firstMCB{};uint16_t dtaSeg{};uint16_t dtaOff{};Map<uint32_t,dos_findState*> finds{};std::string scratchDir{};Slice<std::string> Log{};Map<uint8_t,int64_t> IntCounts{};Map<uint8_t,int64_t> otherInts{};int64_t OverlayCalls{};dos_emsState* ems{};dos_ioState* io{};Map<uint16_t,int64_t> video{};dos_vgaState* vga{};dos_mouseState* ms{};Slice<dos_injEvent> keyEvents{};int64_t keyWait{};int64_t keyHits{};bool keyRetry{};bool EnableIRQ{};uint32_t WatchAddr{};uint32_t WatchLen{};int64_t watchHits{};uint64_t VGAProfileAt{};uint32_t ProfLo{};uint32_t ProfHi{};Map<uint32_t,int64_t> vgaProfile{};uint64_t RdProfileAt{};uint32_t RdLo{};uint32_t RdHi{};Map<uint32_t,int64_t> rdProfile{};bool Terminated{};uint8_t ExitCode{};Map<uint16_t,int64_t> Int33Hist{};};
-struct Anon7{uint16_t Seg{};uint16_t Off{};int64_t Count{};};
-struct Anon8{uint8_t ah{};int64_t n{};};
-struct Anon9{int64_t base{};int64_t count{};};
+struct Anon20{uint16_t sel{};uint32_t off{};bool set{};};
+struct Anon21{uint16_t reload{};bool writeHi{};uint16_t latched{};bool haveLatch{};bool readHi{};};
+struct Anon22{uint32_t addr{};uint32_t edi{};uint32_t esi{};uint32_t ebp{};uint32_t ebx{};uint32_t edx{};uint32_t ecx{};uint32_t eax{};uint16_t flags{};uint16_t es{};uint16_t ds{};uint16_t fs{};uint16_t gs{};uint16_t ip{};uint16_t cs{};uint16_t sp{};uint16_t ss{};};
+struct Anon23{uint16_t LastPageBytes{};uint16_t Pages{};uint16_t Relocations{};uint16_t HeaderParas{};uint16_t MinAlloc{};uint16_t MaxAlloc{};uint16_t InitSS{};uint16_t InitSP{};uint16_t Checksum{};uint16_t InitIP{};uint16_t InitCS{};uint16_t RelocOffset{};uint16_t OverlayNumber{};int64_t FileSize{};int64_t LoadImageEnd{};int64_t LoadModuleOffset{};int64_t LoadModuleSize{};int64_t AppendedSize{};Slice<dos_Reloc> Relocs{};};
+struct Anon24{uint16_t Segment{};uint16_t Offset{};};
+struct Anon3{bool isReg{};uint8_t reg{};std::string text{};};
+struct Anon4{uint32_t Addr{};int64_t Len{};std::string Mnem{};std::string Text{};x86_Flow Flow{};uint32_t Target{};bool HasTarget{};};
+struct Anon5{Slice<uint8_t> mem{};uint32_t addr{};int64_t p{};int64_t defSize{};int64_t opsize{};int64_t addrsize{};std::string seg{};bool lock{};std::string rep{};std::string prefixText{};bool bad{};};
+struct Anon6{std::string Name{};uint32_t VAddr{};uint32_t Size{};uint32_t FileOff{};uint32_t Flags{};Slice<uint8_t> Data{};};
+struct Anon7{int64_t StubEnd{};int64_t NSections{};uint16_t Flags{};uint32_t Entry{};uint32_t TextStart{};uint32_t DataStart{};uint32_t TextSize{};uint32_t DataSize{};uint32_t BSSSize{};Slice<dos_COFFSection> Sections{};};
+struct Anon8{Slice<std::string> matches{};int64_t idx{};};
+struct Anon9{Slice<uint8_t> Mem{};x86_CPU* CPU{};std::string gameDir{};Map<uint16_t,os_File*> files{};uint16_t pspSeg{};uint16_t envSeg{};uint16_t loadSeg{};uint16_t memTop{};uint16_t firstMCB{};uint16_t dtaSeg{};uint16_t dtaOff{};Map<uint32_t,dos_findState*> finds{};std::string scratchDir{};Slice<std::string> Log{};Map<uint8_t,int64_t> IntCounts{};Map<uint8_t,int64_t> otherInts{};int64_t OverlayCalls{};dos_emsState* ems{};dos_ioState* io{};Map<uint16_t,int64_t> video{};dos_vgaState* vga{};dos_mouseState* ms{};Slice<dos_injEvent> keyEvents{};int64_t keyWait{};int64_t keyHits{};bool keyRetry{};bool EnableIRQ{};uint32_t WatchAddr{};uint32_t WatchLen{};int64_t watchHits{};uint64_t VGAProfileAt{};uint32_t ProfLo{};uint32_t ProfHi{};Map<uint32_t,int64_t> vgaProfile{};uint64_t RdProfileAt{};uint32_t RdLo{};uint32_t RdHi{};Map<uint32_t,int64_t> rdProfile{};bool Terminated{};uint8_t ExitCode{};Map<uint16_t,int64_t> Int33Hist{};};
 
 #include "adapters-decl.h"
 x86_CPU* x86_NewCPU(RRX86Bus bus);
@@ -464,6 +501,9 @@ void x86_CPU_bitOp(x86_CPU* c,x86_ea o,uint32_t idx,int64_t w,int64_t mode,bool 
 uint32_t x86_applyBit(uint32_t v,uint32_t b,int64_t mode);
 void x86_CPU_bitScan(x86_CPU* c,uint8_t reg,uint32_t src,int64_t w,bool reverse);
 void x86_CPU_doubleShift(x86_CPU* c,bool left,x86_ea o,uint8_t reg,uint32_t count,int64_t w);
+x86_Inst x86_dec_fpu(x86_dec* d,uint8_t op);
+x86_Inst x86_dec_fpuMem(x86_dec* d,uint8_t op,uint8_t reg,std::string mem);
+x86_Inst x86_dec_fpuReg(x86_dec* d,uint8_t op,uint8_t b,uint8_t sti);
 void x86_FPUState_finit(x86_FPUState* f);
 uint8_t x86_classify(double v);
 int64_t x86_FPUState_phys(x86_FPUState* f,int64_t i);
@@ -507,6 +547,11 @@ void x86_CPU_envWriteHeader(x86_CPU* c,x86_ea o,x86_FPUState* f);
 void x86_CPU_envReadHeader(x86_CPU* c,x86_ea o,x86_FPUState* f);
 uint16_t x86_FPUState_tagWord(x86_FPUState* f);
 void x86_FPUState_setTagWord(x86_FPUState* f,uint16_t w);
+x86_Inst x86_dec_grp1(x86_dec* d,uint8_t op);
+x86_Inst x86_dec_grp2(x86_dec* d,int64_t size,std::string count);
+x86_Inst x86_dec_grp3(x86_dec* d,int64_t size);
+x86_Inst x86_dec_grp4(x86_dec* d);
+x86_Inst x86_dec_grp5(x86_dec* d);
 std::tuple<uint8_t,std::array<uint8_t,16>,x86_ea,bool> x86_CPU_intOperands(x86_CPU* c,x86_sseKind k);
 std::array<uint8_t,16> x86_CPU_intReg(x86_CPU* c,uint8_t reg,bool wide);
 void x86_CPU_setIntReg(x86_CPU* c,uint8_t reg,bool wide,std::array<uint8_t,16> v);
@@ -524,6 +569,24 @@ uint64_t x86_shiftRightLogical(uint64_t v,uint32_t bits,uint32_t cnt);
 uint64_t x86_shiftRightArith(uint64_t v,uint32_t bits,uint32_t cnt);
 void x86_shiftLanes(std::array<uint8_t,16>* v,int64_t n,int64_t elem,uint32_t cnt,std::function<uint64_t(uint64_t,uint32_t,uint32_t)> fn);
 void x86_byteShift(std::array<uint8_t,16>* v,int64_t n,bool left);
+std::string x86_rmOperand_at(x86_rmOperand o,int64_t size);
+std::string x86_rmOperand_atHint(x86_rmOperand o,int64_t size);
+std::string x86_sizeKeyword(int64_t size);
+std::tuple<uint8_t,x86_rmOperand> x86_dec_modrm(x86_dec* d);
+std::string x86_dec_mem16(x86_dec* d,uint8_t mod,uint8_t rmf);
+std::string x86_dec_mem32(x86_dec* d,uint8_t mod,uint8_t rmf);
+std::string x86_dec_sib(x86_dec* d,uint8_t mod);
+std::string x86_dispStr(int32_t v);
+Slice<std::string> x86_Disassemble(Slice<uint8_t> code,uint32_t base);
+Slice<std::string> x86_Disassemble32(Slice<uint8_t> code,uint32_t base);
+std::string x86_hexBytes(Slice<uint8_t> b);
+x86_Inst x86_dec_oneByte(x86_dec* d,uint8_t op);
+x86_Inst x86_dec_aluForm(x86_dec* d,std::string mnem,uint8_t z);
+x86_Inst x86_dec_loop(x86_dec* d,std::string mnem);
+x86_Inst x86_dec_farPtr(x86_dec* d,std::string mnem,x86_Flow flow);
+std::string x86_dec_moffs(x86_dec* d);
+std::string x86_pick(int64_t size,std::string a16,std::string a32);
+int64_t x86_imWidth(int64_t size);
 x86_sseKind x86_CPU_sseKindOf(x86_CPU* c,uint8_t rep);
 std::array<uint8_t,16> x86_CPU_sseRM(x86_CPU* c,x86_ea o,int64_t n);
 std::array<uint8_t,8> x86_CPU_mmxRM(x86_CPU* c,x86_ea o);
@@ -542,6 +605,26 @@ bool x86_CPU_execSSE(x86_CPU* c,uint8_t op,uint8_t rep);
 void x86_CPU_sseArith(x86_CPU* c,uint8_t op,x86_sseKind k,uint8_t reg,x86_ea o);
 void x86_CPU_sseUnary(x86_CPU* c,x86_sseKind k,uint8_t reg,x86_ea o,std::function<double(double)> fn);
 void x86_CPU_sseCompareFlags(x86_CPU* c,double a,double b);
+x86_Inst x86_dec_twoByte(x86_dec* d,uint8_t op);
+x86_Inst x86_dec_grp6(x86_dec* d);
+x86_Inst x86_dec_grp7(x86_dec* d);
+x86_Inst x86_dec_grp8(x86_dec* d);
+x86_Inst x86_Decode(Slice<uint8_t> code,uint32_t addr);
+x86_Inst x86_Decode32(Slice<uint8_t> code,uint32_t addr);
+x86_Inst x86_dec_finish(x86_dec* d,Slice<uint8_t> code,uint32_t addr,x86_Inst in);
+uint8_t x86_dec_next(x86_dec* d);
+uint8_t x86_dec_imm8(x86_dec* d);
+uint16_t x86_dec_imm16(x86_dec* d);
+uint32_t x86_dec_imm32(x86_dec* d);
+std::tuple<uint32_t,int64_t> x86_dec_immOsz(x86_dec* d);
+uint32_t x86_dec_jrel(x86_dec* d,int64_t size);
+x86_Inst x86_dec_run(x86_dec* d);
+std::string x86_segOverride(uint8_t op);
+x86_Inst x86_mk(std::string mnem,std::string text);
+x86_Inst x86_op1(std::string mnem,std::string a);
+x86_Inst x86_op2(std::string mnem,std::string a,std::string b);
+std::string x86_gpr(uint8_t i,int64_t size);
+std::string x86_hexImm(uint32_t v,int64_t width);
 bool dos_COFFSection_IsText(dos_COFFSection s);
 bool dos_COFFSection_IsBSS(dos_COFFSection s);
 std::tuple<dos_COFF*,Error> dos_ParseGo32COFF(Slice<uint8_t> data);
@@ -716,6 +799,7 @@ constexpr int64_t x86_FS=4ULL;
 constexpr int64_t x86_GS=5ULL;
 constexpr int64_t x86_ModeReal=0ULL;
 constexpr int64_t x86_ModeProt=1ULL;
+Map<uint8_t,std::string> x86_d9tab=Map<uint8_t,std::string>{{cast<uint8_t>(208ULL),std::string("FNOP",4)},{cast<uint8_t>(224ULL),std::string("FCHS",4)},{cast<uint8_t>(225ULL),std::string("FABS",4)},{cast<uint8_t>(228ULL),std::string("FTST",4)},{cast<uint8_t>(229ULL),std::string("FXAM",4)},{cast<uint8_t>(232ULL),std::string("FLD1",4)},{cast<uint8_t>(233ULL),std::string("FLDL2T",6)},{cast<uint8_t>(234ULL),std::string("FLDL2E",6)},{cast<uint8_t>(235ULL),std::string("FLDPI",5)},{cast<uint8_t>(236ULL),std::string("FLDLG2",6)},{cast<uint8_t>(237ULL),std::string("FLDLN2",6)},{cast<uint8_t>(238ULL),std::string("FLDZ",4)},{cast<uint8_t>(240ULL),std::string("F2XM1",5)},{cast<uint8_t>(241ULL),std::string("FYL2X",5)},{cast<uint8_t>(242ULL),std::string("FPTAN",5)},{cast<uint8_t>(243ULL),std::string("FPATAN",6)},{cast<uint8_t>(244ULL),std::string("FXTRACT",7)},{cast<uint8_t>(245ULL),std::string("FPREM1",6)},{cast<uint8_t>(246ULL),std::string("FDECSTP",7)},{cast<uint8_t>(247ULL),std::string("FINCSTP",7)},{cast<uint8_t>(248ULL),std::string("FPREM",5)},{cast<uint8_t>(249ULL),std::string("FYL2XP1",7)},{cast<uint8_t>(250ULL),std::string("FSQRT",5)},{cast<uint8_t>(251ULL),std::string("FSINCOS",7)},{cast<uint8_t>(252ULL),std::string("FRNDINT",7)},{cast<uint8_t>(253ULL),std::string("FSCALE",6)},{cast<uint8_t>(254ULL),std::string("FSIN",4)},{cast<uint8_t>(255ULL),std::string("FCOS",4)}};
 constexpr int64_t x86_tagValid=0ULL;
 constexpr int64_t x86_tagZero=1ULL;
 constexpr int64_t x86_tagSpecial=2ULL;
@@ -724,6 +808,22 @@ constexpr x86_sseKind x86_ssePS=0ULL;
 constexpr x86_sseKind x86_ssePD=1ULL;
 constexpr x86_sseKind x86_sseSS=2ULL;
 constexpr x86_sseKind x86_sseSD=3ULL;
+Map<uint8_t,std::string> x86_mmxIntName=Map<uint8_t,std::string>{{cast<uint8_t>(42ULL),std::string("CVTPI2PS",8)},{cast<uint8_t>(44ULL),std::string("CVTTPS2PI",9)},{cast<uint8_t>(45ULL),std::string("CVTPS2PI",8)},{cast<uint8_t>(110ULL),std::string("MOVD",4)},{cast<uint8_t>(126ULL),std::string("MOVD",4)},{cast<uint8_t>(111ULL),std::string("MOVQ",4)},{cast<uint8_t>(127ULL),std::string("MOVQ",4)},{cast<uint8_t>(16ULL),std::string("MOVUPS",6)},{cast<uint8_t>(17ULL),std::string("MOVUPS",6)},{cast<uint8_t>(18ULL),std::string("MOVLPS",6)},{cast<uint8_t>(19ULL),std::string("MOVLPS",6)},{cast<uint8_t>(20ULL),std::string("UNPCKLPS",8)},{cast<uint8_t>(21ULL),std::string("UNPCKHPS",8)},{cast<uint8_t>(22ULL),std::string("MOVHPS",6)},{cast<uint8_t>(23ULL),std::string("MOVHPS",6)},{cast<uint8_t>(40ULL),std::string("MOVAPS",6)},{cast<uint8_t>(41ULL),std::string("MOVAPS",6)},{cast<uint8_t>(43ULL),std::string("MOVNTPS",7)},{cast<uint8_t>(46ULL),std::string("UCOMISS",7)},{cast<uint8_t>(47ULL),std::string("COMISS",6)},{cast<uint8_t>(81ULL),std::string("SQRTPS",6)},{cast<uint8_t>(82ULL),std::string("RSQRTPS",7)},{cast<uint8_t>(83ULL),std::string("RCPPS",5)},{cast<uint8_t>(84ULL),std::string("ANDPS",5)},{cast<uint8_t>(85ULL),std::string("ANDNPS",6)},{cast<uint8_t>(86ULL),std::string("ORPS",4)},{cast<uint8_t>(87ULL),std::string("XORPS",5)},{cast<uint8_t>(88ULL),std::string("ADDPS",5)},{cast<uint8_t>(89ULL),std::string("MULPS",5)},{cast<uint8_t>(90ULL),std::string("CVTPS2PD",8)},{cast<uint8_t>(91ULL),std::string("CVTDQ2PS",8)},{cast<uint8_t>(92ULL),std::string("SUBPS",5)},{cast<uint8_t>(93ULL),std::string("MINPS",5)},{cast<uint8_t>(94ULL),std::string("DIVPS",5)},{cast<uint8_t>(95ULL),std::string("MAXPS",5)},{cast<uint8_t>(198ULL),std::string("SHUFPS",6)},{cast<uint8_t>(214ULL),std::string("MOVQ",4)},{cast<uint8_t>(96ULL),std::string("PUNPCKLBW",9)},{cast<uint8_t>(97ULL),std::string("PUNPCKLWD",9)},{cast<uint8_t>(98ULL),std::string("PUNPCKLDQ",9)},{cast<uint8_t>(99ULL),std::string("PACKSSWB",8)},{cast<uint8_t>(100ULL),std::string("PCMPGTB",7)},{cast<uint8_t>(101ULL),std::string("PCMPGTW",7)},{cast<uint8_t>(102ULL),std::string("PCMPGTD",7)},{cast<uint8_t>(103ULL),std::string("PACKUSWB",8)},{cast<uint8_t>(104ULL),std::string("PUNPCKHBW",9)},{cast<uint8_t>(105ULL),std::string("PUNPCKHWD",9)},{cast<uint8_t>(106ULL),std::string("PUNPCKHDQ",9)},{cast<uint8_t>(107ULL),std::string("PACKSSDW",8)},{cast<uint8_t>(108ULL),std::string("PUNPCKLQDQ",10)},{cast<uint8_t>(109ULL),std::string("PUNPCKHQDQ",10)},{cast<uint8_t>(112ULL),std::string("PSHUFW",6)},{cast<uint8_t>(113ULL),std::string("PSHIFTW",7)},{cast<uint8_t>(114ULL),std::string("PSHIFTD",7)},{cast<uint8_t>(115ULL),std::string("PSHIFTQ",7)},{cast<uint8_t>(116ULL),std::string("PCMPEQB",7)},{cast<uint8_t>(117ULL),std::string("PCMPEQW",7)},{cast<uint8_t>(118ULL),std::string("PCMPEQD",7)},{cast<uint8_t>(196ULL),std::string("PINSRW",6)},{cast<uint8_t>(197ULL),std::string("PEXTRW",6)},{cast<uint8_t>(209ULL),std::string("PSRLW",5)},{cast<uint8_t>(210ULL),std::string("PSRLD",5)},{cast<uint8_t>(211ULL),std::string("PSRLQ",5)},{cast<uint8_t>(212ULL),std::string("PADDQ",5)},{cast<uint8_t>(213ULL),std::string("PMULLW",6)},{cast<uint8_t>(215ULL),std::string("PMOVMSKB",8)},{cast<uint8_t>(216ULL),std::string("PSUBUSB",7)},{cast<uint8_t>(217ULL),std::string("PSUBUSW",7)},{cast<uint8_t>(218ULL),std::string("PMINUB",6)},{cast<uint8_t>(219ULL),std::string("PAND",4)},{cast<uint8_t>(220ULL),std::string("PADDUSB",7)},{cast<uint8_t>(221ULL),std::string("PADDUSW",7)},{cast<uint8_t>(222ULL),std::string("PMAXUB",6)},{cast<uint8_t>(223ULL),std::string("PANDN",5)},{cast<uint8_t>(224ULL),std::string("PAVGB",5)},{cast<uint8_t>(225ULL),std::string("PSRAW",5)},{cast<uint8_t>(226ULL),std::string("PSRAD",5)},{cast<uint8_t>(227ULL),std::string("PAVGW",5)},{cast<uint8_t>(228ULL),std::string("PMULHUW",7)},{cast<uint8_t>(229ULL),std::string("PMULHW",6)},{cast<uint8_t>(231ULL),std::string("MOVNTQ",6)},{cast<uint8_t>(232ULL),std::string("PSUBSB",6)},{cast<uint8_t>(233ULL),std::string("PSUBSW",6)},{cast<uint8_t>(234ULL),std::string("PMINSW",6)},{cast<uint8_t>(235ULL),std::string("POR",3)},{cast<uint8_t>(236ULL),std::string("PADDSB",6)},{cast<uint8_t>(237ULL),std::string("PADDSW",6)},{cast<uint8_t>(238ULL),std::string("PMAXSW",6)},{cast<uint8_t>(239ULL),std::string("PXOR",4)},{cast<uint8_t>(241ULL),std::string("PSLLW",5)},{cast<uint8_t>(242ULL),std::string("PSLLD",5)},{cast<uint8_t>(243ULL),std::string("PSLLQ",5)},{cast<uint8_t>(244ULL),std::string("PMULUDQ",7)},{cast<uint8_t>(245ULL),std::string("PMADDWD",7)},{cast<uint8_t>(246ULL),std::string("PSADBW",6)},{cast<uint8_t>(248ULL),std::string("PSUBB",5)},{cast<uint8_t>(249ULL),std::string("PSUBW",5)},{cast<uint8_t>(250ULL),std::string("PSUBD",5)},{cast<uint8_t>(251ULL),std::string("PSUBQ",5)},{cast<uint8_t>(252ULL),std::string("PADDB",5)},{cast<uint8_t>(253ULL),std::string("PADDW",5)},{cast<uint8_t>(254ULL),std::string("PADDD",5)}};
+constexpr x86_Flow x86_FlowSeq=0ULL;
+constexpr x86_Flow x86_FlowBranch=1ULL;
+constexpr x86_Flow x86_FlowJump=2ULL;
+constexpr x86_Flow x86_FlowCall=3ULL;
+constexpr x86_Flow x86_FlowReturn=4ULL;
+constexpr x86_Flow x86_FlowIndJump=5ULL;
+constexpr x86_Flow x86_FlowStop=6ULL;
+std::array<std::string,8> x86_reg8=std::array<std::string,8>{std::string("AL",2),std::string("CL",2),std::string("DL",2),std::string("BL",2),std::string("AH",2),std::string("CH",2),std::string("DH",2),std::string("BH",2)};
+std::array<std::string,8> x86_reg16=std::array<std::string,8>{std::string("AX",2),std::string("CX",2),std::string("DX",2),std::string("BX",2),std::string("SP",2),std::string("BP",2),std::string("SI",2),std::string("DI",2)};
+std::array<std::string,8> x86_reg32=std::array<std::string,8>{std::string("EAX",3),std::string("ECX",3),std::string("EDX",3),std::string("EBX",3),std::string("ESP",3),std::string("EBP",3),std::string("ESI",3),std::string("EDI",3)};
+std::array<std::string,8> x86_sreg=std::array<std::string,8>{std::string("ES",2),std::string("CS",2),std::string("SS",2),std::string("DS",2),std::string("FS",2),std::string("GS",2),std::string("?6",2),std::string("?7",2)};
+std::array<std::string,8> x86_rm16=std::array<std::string,8>{std::string("BX+SI",5),std::string("BX+DI",5),std::string("BP+SI",5),std::string("BP+DI",5),std::string("SI",2),std::string("DI",2),std::string("BP",2),std::string("BX",2)};
+std::array<std::string,16> x86_ccName=std::array<std::string,16>{std::string("O",1),std::string("NO",2),std::string("B",1),std::string("NB",2),std::string("Z",1),std::string("NZ",2),std::string("BE",2),std::string("A",1),std::string("S",1),std::string("NS",2),std::string("P",1),std::string("NP",2),std::string("L",1),std::string("GE",2),std::string("LE",2),std::string("G",1)};
+std::array<std::string,8> x86_alu=std::array<std::string,8>{std::string("ADD",3),std::string("OR",2),std::string("ADC",3),std::string("SBB",3),std::string("AND",3),std::string("SUB",3),std::string("XOR",3),std::string("CMP",3)};
+std::array<std::string,8> x86_shf=std::array<std::string,8>{std::string("ROL",3),std::string("ROR",3),std::string("RCL",3),std::string("RCR",3),std::string("SHL",3),std::string("SHR",3),std::string("SAL",3),std::string("SAR",3)};
 constexpr int64_t dos_coffI386Magic=332ULL;
 constexpr int64_t dos_coffZMagic=267ULL;
 constexpr int64_t dos_coffStypText=32ULL;
@@ -3256,15 +3356,212 @@ x86_CPU_setSZP(c,res,w);
 x86_CPU_wEA(c,o,w,res);
 }
 }
+// tools/cpu/x86/fpu.go:10:1
+x86_Inst x86_dec_fpu(x86_dec* d,uint8_t op){
+{
+uint8_t b = x86_dec_next(d);
+auto tmp87 = std::make_tuple(shr<uint8_t>(b,cast<int64_t>(6ULL)),cast<uint8_t>(((shr<uint8_t>(b,cast<int64_t>(3ULL))) & cast<uint8_t>(7ULL))),cast<uint8_t>((b & cast<uint8_t>(7ULL))));
+uint8_t mod = std::get<0>(tmp87);
+uint8_t reg = std::get<1>(tmp87);
+uint8_t rm = std::get<2>(tmp87);
+if ((mod != cast<uint8_t>(3ULL))) {
+std::string memtext={};
+if ((d->addrsize == cast<int64_t>(32ULL))) {
+memtext = x86_dec_mem32(d,mod,rm);
+}
+else {
+memtext = x86_dec_mem16(d,mod,rm);
+}
+return x86_dec_fpuMem(d,op,reg,memtext);
+}
+return x86_dec_fpuReg(d,op,b,rm);
+}
+}
+// tools/cpu/x86/fpu.go:26:1
+x86_Inst x86_dec_fpuMem(x86_dec* d,uint8_t op,uint8_t reg,std::string mem){
+{
+std::string name={};
+std::string kw={};
+{
+switch(op){
+case cast<uint8_t>(216ULL):{
+auto tmp88 = std::make_tuple(std::array<std::string,8>{std::string("FADD",4),std::string("FMUL",4),std::string("FCOM",4),std::string("FCOMP",5),std::string("FSUB",4),std::string("FSUBR",5),std::string("FDIV",4),std::string("FDIVR",5)}[reg],std::string("DWORD ",6));
+name = std::get<0>(tmp88);
+kw = std::get<1>(tmp88);
+break;}
+case cast<uint8_t>(217ULL):{
+name = std::array<std::string,8>{std::string("FLD",3),std::string("",0),std::string("FST",3),std::string("FSTP",4),std::string("FLDENV",6),std::string("FLDCW",5),std::string("FNSTENV",7),std::string("FNSTCW",6)}[reg];
+if ((((reg == cast<uint8_t>(0ULL)) || (reg == cast<uint8_t>(2ULL))) || (reg == cast<uint8_t>(3ULL)))) {
+kw = std::string("DWORD ",6);
+}
+else if (((reg == cast<uint8_t>(5ULL)) || (reg == cast<uint8_t>(7ULL)))) {
+kw = std::string("WORD ",5);
+}
+break;}
+case cast<uint8_t>(218ULL):{
+auto tmp89 = std::make_tuple(std::array<std::string,8>{std::string("FIADD",5),std::string("FIMUL",5),std::string("FICOM",5),std::string("FICOMP",6),std::string("FISUB",5),std::string("FISUBR",6),std::string("FIDIV",5),std::string("FIDIVR",6)}[reg],std::string("DWORD ",6));
+name = std::get<0>(tmp89);
+kw = std::get<1>(tmp89);
+break;}
+case cast<uint8_t>(219ULL):{
+name = std::array<std::string,8>{std::string("FILD",4),std::string("FISTTP",6),std::string("FIST",4),std::string("FISTP",5),std::string("",0),std::string("FLD",3),std::string("",0),std::string("FSTP",4)}[reg];
+if (((reg == cast<uint8_t>(5ULL)) || (reg == cast<uint8_t>(7ULL)))) {
+kw = std::string("TBYTE ",6);
+}
+else {
+kw = std::string("DWORD ",6);
+}
+break;}
+case cast<uint8_t>(220ULL):{
+auto tmp90 = std::make_tuple(std::array<std::string,8>{std::string("FADD",4),std::string("FMUL",4),std::string("FCOM",4),std::string("FCOMP",5),std::string("FSUB",4),std::string("FSUBR",5),std::string("FDIV",4),std::string("FDIVR",5)}[reg],std::string("QWORD ",6));
+name = std::get<0>(tmp90);
+kw = std::get<1>(tmp90);
+break;}
+case cast<uint8_t>(221ULL):{
+name = std::array<std::string,8>{std::string("FLD",3),std::string("FISTTP",6),std::string("FST",3),std::string("FSTP",4),std::string("FRSTOR",6),std::string("",0),std::string("FNSAVE",6),std::string("FNSTSW",6)}[reg];
+if ((((reg == cast<uint8_t>(0ULL)) || (reg == cast<uint8_t>(2ULL))) || (reg == cast<uint8_t>(3ULL)))) {
+kw = std::string("QWORD ",6);
+}
+else if ((reg == cast<uint8_t>(7ULL))) {
+kw = std::string("WORD ",5);
+}
+break;}
+case cast<uint8_t>(222ULL):{
+auto tmp91 = std::make_tuple(std::array<std::string,8>{std::string("FIADD",5),std::string("FIMUL",5),std::string("FICOM",5),std::string("FICOMP",6),std::string("FISUB",5),std::string("FISUBR",6),std::string("FIDIV",5),std::string("FIDIVR",6)}[reg],std::string("WORD ",5));
+name = std::get<0>(tmp91);
+kw = std::get<1>(tmp91);
+break;}
+default:{
+name = std::array<std::string,8>{std::string("FILD",4),std::string("FISTTP",6),std::string("FIST",4),std::string("FISTP",5),std::string("FBLD",4),std::string("FILD",4),std::string("FBSTP",5),std::string("FISTP",5)}[reg];
+{
+switch(reg){
+case cast<uint8_t>(4ULL):case cast<uint8_t>(6ULL):{
+kw = std::string("TBYTE ",6);
+break;}
+case cast<uint8_t>(5ULL):case cast<uint8_t>(7ULL):{
+kw = std::string("QWORD ",6);
+break;}
+default:{
+kw = std::string("WORD ",5);
+break;}
+}}
+break;}
+}}
+if ((name == std::string("",0))) {
+return x86_Inst{{},{},std::string(".byte",5),go_fmt_Sprintf(std::string(".byte $%02X,$%02X",17),op,d->mem[cast<int64_t>((d->p - cast<int64_t>(1ULL)))]),cast<x86_Flow>(6ULL),{},{}};
+}
+return x86_op1(name,(kw + mem));
+}
+}
+// tools/cpu/x86/fpu.go:77:1
+x86_Inst x86_dec_fpuReg(x86_dec* d,uint8_t op,uint8_t b,uint8_t sti){
+{
+std::string st = go_fmt_Sprintf(std::string("ST(%d)",6),sti);
+uint8_t sub_ = cast<uint8_t>(((shr<uint8_t>(b,cast<int64_t>(3ULL))) & cast<uint8_t>(7ULL)));
+{
+switch(op){
+case cast<uint8_t>(216ULL):{
+return x86_op2(std::array<std::string,8>{std::string("FADD",4),std::string("FMUL",4),std::string("FCOM",4),std::string("FCOMP",5),std::string("FSUB",4),std::string("FSUBR",5),std::string("FDIV",4),std::string("FDIVR",5)}[sub_],std::string("ST",2),st);
+break;}
+case cast<uint8_t>(217ULL):{
+{
+if (((b >= cast<uint8_t>(192ULL)) && (b <= cast<uint8_t>(199ULL)))){
+return x86_op2(std::string("FLD",3),std::string("ST",2),st);
+}
+else if (((b >= cast<uint8_t>(200ULL)) && (b <= cast<uint8_t>(207ULL)))){
+return x86_op2(std::string("FXCH",4),std::string("ST",2),st);
+}
+}
+tmp92:;
+{
+auto tmp93 = lookup(x86_d9tab,b);
+std::string n = std::get<0>(tmp93);
+bool ok = std::get<1>(tmp93);
+if (ok) {
+return x86_mk(n,n);
+}
+}
+break;}
+case cast<uint8_t>(218ULL):{
+if ((b == cast<uint8_t>(233ULL))) {
+return x86_mk(std::string("FUCOMPP",7),std::string("FUCOMPP",7));
+}
+{
+auto tmp94 = lookup(Map<uint8_t,std::string>{{cast<uint8_t>(192ULL),std::string("FCMOVB",6)},{cast<uint8_t>(200ULL),std::string("FCMOVE",6)},{cast<uint8_t>(208ULL),std::string("FCMOVBE",7)},{cast<uint8_t>(216ULL),std::string("FCMOVU",6)}},cast<uint8_t>((b & cast<uint8_t>(248ULL))));
+std::string n = std::get<0>(tmp94);
+bool ok = std::get<1>(tmp94);
+if (ok) {
+return x86_op2(n,std::string("ST",2),st);
+}
+}
+break;}
+case cast<uint8_t>(219ULL):{
+{
+switch(b){
+case cast<uint8_t>(226ULL):{
+return x86_mk(std::string("FNCLEX",6),std::string("FNCLEX",6));
+break;}
+case cast<uint8_t>(227ULL):{
+return x86_mk(std::string("FNINIT",6),std::string("FNINIT",6));
+break;}
+}}
+{
+auto tmp95 = lookup(Map<uint8_t,std::string>{{cast<uint8_t>(192ULL),std::string("FCMOVNB",7)},{cast<uint8_t>(200ULL),std::string("FCMOVNE",7)},{cast<uint8_t>(208ULL),std::string("FCMOVNBE",8)},{cast<uint8_t>(216ULL),std::string("FCMOVNU",7)},{cast<uint8_t>(232ULL),std::string("FUCOMI",6)},{cast<uint8_t>(240ULL),std::string("FCOMI",5)}},cast<uint8_t>((b & cast<uint8_t>(248ULL))));
+std::string n = std::get<0>(tmp95);
+bool ok = std::get<1>(tmp95);
+if (ok) {
+return x86_op2(n,std::string("ST",2),st);
+}
+}
+break;}
+case cast<uint8_t>(220ULL):{
+return x86_op2(std::array<std::string,8>{std::string("FADD",4),std::string("FMUL",4),std::string("FCOM",4),std::string("FCOMP",5),std::string("FSUBR",5),std::string("FSUB",4),std::string("FDIVR",5),std::string("FDIV",4)}[sub_],st,std::string("ST",2));
+break;}
+case cast<uint8_t>(221ULL):{
+{
+auto tmp96 = lookup(Map<uint8_t,std::string>{{cast<uint8_t>(192ULL),std::string("FFREE",5)},{cast<uint8_t>(208ULL),std::string("FST",3)},{cast<uint8_t>(216ULL),std::string("FSTP",4)},{cast<uint8_t>(224ULL),std::string("FUCOM",5)},{cast<uint8_t>(232ULL),std::string("FUCOMP",6)}},cast<uint8_t>((b & cast<uint8_t>(248ULL))));
+std::string n = std::get<0>(tmp96);
+bool ok = std::get<1>(tmp96);
+if (ok) {
+return x86_op1(n,st);
+}
+}
+break;}
+case cast<uint8_t>(222ULL):{
+if ((b == cast<uint8_t>(217ULL))) {
+return x86_mk(std::string("FCOMPP",6),std::string("FCOMPP",6));
+}
+return x86_op2(std::array<std::string,8>{std::string("FADDP",5),std::string("FMULP",5),std::string("FCOMP",5),std::string("FCOMPP",6),std::string("FSUBRP",6),std::string("FSUBP",5),std::string("FDIVRP",6),std::string("FDIVP",5)}[sub_],st,std::string("ST",2));
+break;}
+}}
+if ((op == cast<uint8_t>(223ULL))) {
+{
+switch(b){
+case cast<uint8_t>(224ULL):{
+return x86_op1(std::string("FNSTSW",6),std::string("AX",2));
+break;}
+}}
+{
+auto tmp97 = lookup(Map<uint8_t,std::string>{{cast<uint8_t>(192ULL),std::string("FFREEP",6)},{cast<uint8_t>(232ULL),std::string("FUCOMIP",7)},{cast<uint8_t>(240ULL),std::string("FCOMIP",6)}},cast<uint8_t>((b & cast<uint8_t>(248ULL))));
+std::string n = std::get<0>(tmp97);
+bool ok = std::get<1>(tmp97);
+if (ok) {
+return x86_op2(n,std::string("ST",2),st);
+}
+}
+}
+return x86_mk(std::string("ESC",3),go_fmt_Sprintf(std::string("ESC $%02X,$%02X",15),op,b));
+}
+}
 // tools/cpu/x86/fpuexec.go:41:1
 void x86_FPUState_finit(x86_FPUState* f){
 {
 f->Ctrl = cast<uint16_t>(895ULL);
 f->Stat = cast<uint16_t>(0ULL);
 f->Top = cast<int64_t>(0ULL);
-{auto&& tmp87 = f->Tag;
-for(int64_t tmp88=0;tmp88<len(tmp87);++tmp88){
-auto i=tmp88;f->Tag[i] = cast<uint8_t>(3ULL);
+{auto&& tmp98 = f->Tag;
+for(int64_t tmp99=0;tmp99<len(tmp98);++tmp99){
+auto i=tmp99;f->Tag[i] = cast<uint8_t>(3ULL);
 f->St[i] = cast<double>(0.00000000000000000e+00);
 }}
 }
@@ -3283,7 +3580,7 @@ else {
 return cast<uint8_t>(0ULL);
 }
 }
-tmp89:;
+tmp100:;
 }
 }
 // tools/cpu/x86/fpuexec.go:63:1
@@ -3401,9 +3698,9 @@ return x86_f80ToF64(mant,se);
 // tools/cpu/x86/fpuexec.go:143:1
 void x86_CPU_fStore80(x86_CPU* c,x86_ea o,double v){
 {
-auto tmp90 = x86_f64ToF80(v);
-uint64_t mant = std::get<0>(tmp90);
-uint16_t se = std::get<1>(tmp90);
+auto tmp101 = x86_f64ToF80(v);
+uint64_t mant = std::get<0>(tmp101);
+uint16_t se = std::get<1>(tmp101);
 x86_CPU_memWrite(c,o.base,o.off,cast<int64_t>(4ULL),cast<uint32_t>(mant));
 x86_CPU_memWrite(c,o.base,cast<uint32_t>((o.off + cast<uint32_t>(4ULL))),cast<int64_t>(4ULL),cast<uint32_t>(shr<uint64_t>(mant,cast<int64_t>(32ULL))));
 x86_CPU_memWrite(c,o.base,cast<uint32_t>((o.off + cast<uint32_t>(8ULL))),cast<int64_t>(2ULL),cast<uint32_t>(se));
@@ -3432,7 +3729,7 @@ return neg(go_math_Inf(cast<int64_t>(1ULL)));
 return go_math_NaN();
 }
 }
-tmp91:;
+tmp102:;
 return neg(go_math_Ldexp(cast<double>(mant),cast<int64_t>((exp - cast<int64_t>(16446ULL)))));
 }
 }
@@ -3452,10 +3749,10 @@ else if (go_math_IsNaN(v)){
 return {cast<uint64_t>(13835058055282163712ULL),cast<uint16_t>((shl<uint16_t>(sign,cast<int64_t>(15ULL)) | cast<uint16_t>(32767ULL)))};
 }
 }
-tmp92:;
-auto tmp93 = go_math_Frexp(go_math_Abs(v));
-double m = std::get<0>(tmp93);
-int64_t e = std::get<1>(tmp93);
+tmp103:;
+auto tmp104 = go_math_Frexp(go_math_Abs(v));
+double m = std::get<0>(tmp104);
+int64_t e = std::get<1>(tmp104);
 uint64_t mant = cast<uint64_t>((m * go_math_Exp2(cast<double>(6.40000000000000000e+01))));
 int64_t e80 = cast<int64_t>((e + cast<int64_t>(16382ULL)));
 return {mant,cast<uint16_t>((shl<uint16_t>(sign,cast<int64_t>(15ULL)) | cast<uint16_t>(e80)))};
@@ -3465,10 +3762,10 @@ return {mant,cast<uint16_t>((shl<uint16_t>(sign,cast<int64_t>(15ULL)) | cast<uin
 void x86_CPU_fpuExec(x86_CPU* c,uint8_t op){
 {
 uint8_t mb = cast<uint8_t>(x86_CPU_fetch8(c));
-auto tmp94 = std::make_tuple(shr<uint8_t>(mb,cast<int64_t>(6ULL)),cast<uint8_t>(((shr<uint8_t>(mb,cast<int64_t>(3ULL))) & cast<uint8_t>(7ULL))),cast<uint8_t>((mb & cast<uint8_t>(7ULL))));
-uint8_t mod = std::get<0>(tmp94);
-uint8_t reg = std::get<1>(tmp94);
-uint8_t rm = std::get<2>(tmp94);
+auto tmp105 = std::make_tuple(shr<uint8_t>(mb,cast<int64_t>(6ULL)),cast<uint8_t>(((shr<uint8_t>(mb,cast<int64_t>(3ULL))) & cast<uint8_t>(7ULL))),cast<uint8_t>((mb & cast<uint8_t>(7ULL))));
+uint8_t mod = std::get<0>(tmp105);
+uint8_t reg = std::get<1>(tmp105);
+uint8_t rm = std::get<2>(tmp105);
 if ((mod != cast<uint8_t>(3ULL))) {
 x86_ea o={};
 if ((c->dAddrsize == cast<int64_t>(32ULL))) {
@@ -3529,43 +3826,43 @@ else {
 x86_FPUState_setCC(f,true,false,false);
 }
 }
-tmp95:;
+tmp106:;
 }
 }
 // tools/cpu/x86/fpuexec.go:251:1
 void x86_CPU_fcomi(x86_CPU* c,double a,double b){
 {
-auto tmp96 = std::make_tuple(false,false,false);
-c->OF = std::get<0>(tmp96);
-c->SF = std::get<1>(tmp96);
-c->AF = std::get<2>(tmp96);
+auto tmp107 = std::make_tuple(false,false,false);
+c->OF = std::get<0>(tmp107);
+c->SF = std::get<1>(tmp107);
+c->AF = std::get<2>(tmp107);
 {
 if ((go_math_IsNaN(a) || go_math_IsNaN(b))){
-auto tmp98 = std::make_tuple(true,true,true);
-c->ZF = std::get<0>(tmp98);
-c->PF = std::get<1>(tmp98);
-c->CF = std::get<2>(tmp98);
+auto tmp109 = std::make_tuple(true,true,true);
+c->ZF = std::get<0>(tmp109);
+c->PF = std::get<1>(tmp109);
+c->CF = std::get<2>(tmp109);
 }
 else if ((a > b)){
-auto tmp99 = std::make_tuple(false,false,false);
-c->ZF = std::get<0>(tmp99);
-c->PF = std::get<1>(tmp99);
-c->CF = std::get<2>(tmp99);
+auto tmp110 = std::make_tuple(false,false,false);
+c->ZF = std::get<0>(tmp110);
+c->PF = std::get<1>(tmp110);
+c->CF = std::get<2>(tmp110);
 }
 else if ((a < b)){
-auto tmp100 = std::make_tuple(false,false,true);
-c->ZF = std::get<0>(tmp100);
-c->PF = std::get<1>(tmp100);
-c->CF = std::get<2>(tmp100);
+auto tmp111 = std::make_tuple(false,false,true);
+c->ZF = std::get<0>(tmp111);
+c->PF = std::get<1>(tmp111);
+c->CF = std::get<2>(tmp111);
 }
 else {
-auto tmp101 = std::make_tuple(true,false,false);
-c->ZF = std::get<0>(tmp101);
-c->PF = std::get<1>(tmp101);
-c->CF = std::get<2>(tmp101);
+auto tmp112 = std::make_tuple(true,false,false);
+c->ZF = std::get<0>(tmp112);
+c->PF = std::get<1>(tmp112);
+c->CF = std::get<2>(tmp112);
 }
 }
-tmp97:;
+tmp108:;
 }
 }
 // tools/cpu/x86/fpuexec.go:266:1
@@ -3577,9 +3874,9 @@ switch(op){
 case cast<uint8_t>(216ULL):{
 double v = x86_CPU_fLoad32(c,o);
 {
-auto tmp102 = x86_arithST(cast<int64_t>(reg),x86_FPUState_st(f,cast<int64_t>(0ULL)),v);
-double res = std::get<0>(tmp102);
-bool cmp = std::get<1>(tmp102);
+auto tmp113 = x86_arithST(cast<int64_t>(reg),x86_FPUState_st(f,cast<int64_t>(0ULL)),v);
+double res = std::get<0>(tmp113);
+bool cmp = std::get<1>(tmp113);
 if (cmp) {
 x86_FPUState_fcom(f,x86_FPUState_st(f,cast<int64_t>(0ULL)),v);
 if ((reg == cast<uint8_t>(3ULL))) {
@@ -3594,9 +3891,9 @@ break;}
 case cast<uint8_t>(220ULL):{
 double v = x86_CPU_fLoad64(c,o);
 {
-auto tmp103 = x86_arithST(cast<int64_t>(reg),x86_FPUState_st(f,cast<int64_t>(0ULL)),v);
-double res = std::get<0>(tmp103);
-bool cmp = std::get<1>(tmp103);
+auto tmp114 = x86_arithST(cast<int64_t>(reg),x86_FPUState_st(f,cast<int64_t>(0ULL)),v);
+double res = std::get<0>(tmp114);
+bool cmp = std::get<1>(tmp114);
 if (cmp) {
 x86_FPUState_fcom(f,x86_FPUState_st(f,cast<int64_t>(0ULL)),v);
 if ((reg == cast<uint8_t>(3ULL))) {
@@ -3611,9 +3908,9 @@ break;}
 case cast<uint8_t>(218ULL):{
 double v = cast<double>(cast<int32_t>(x86_CPU_memRead(c,o.base,o.off,cast<int64_t>(4ULL))));
 {
-auto tmp104 = x86_arithST(cast<int64_t>(reg),x86_FPUState_st(f,cast<int64_t>(0ULL)),v);
-double res = std::get<0>(tmp104);
-bool cmp = std::get<1>(tmp104);
+auto tmp115 = x86_arithST(cast<int64_t>(reg),x86_FPUState_st(f,cast<int64_t>(0ULL)),v);
+double res = std::get<0>(tmp115);
+bool cmp = std::get<1>(tmp115);
 if (cmp) {
 x86_FPUState_fcom(f,x86_FPUState_st(f,cast<int64_t>(0ULL)),v);
 if ((reg == cast<uint8_t>(3ULL))) {
@@ -3628,9 +3925,9 @@ break;}
 case cast<uint8_t>(222ULL):{
 double v = cast<double>(cast<int16_t>(cast<uint16_t>(x86_CPU_memRead(c,o.base,o.off,cast<int64_t>(2ULL)))));
 {
-auto tmp105 = x86_arithST(cast<int64_t>(reg),x86_FPUState_st(f,cast<int64_t>(0ULL)),v);
-double res = std::get<0>(tmp105);
-bool cmp = std::get<1>(tmp105);
+auto tmp116 = x86_arithST(cast<int64_t>(reg),x86_FPUState_st(f,cast<int64_t>(0ULL)),v);
+double res = std::get<0>(tmp116);
+bool cmp = std::get<1>(tmp116);
 if (cmp) {
 x86_FPUState_fcom(f,x86_FPUState_st(f,cast<int64_t>(0ULL)),v);
 if ((reg == cast<uint8_t>(3ULL))) {
@@ -3797,9 +4094,9 @@ switch(op){
 case cast<uint8_t>(216ULL):{
 double v = x86_FPUState_st(f,i);
 {
-auto tmp106 = x86_arithST(cast<int64_t>(reg),x86_FPUState_st(f,cast<int64_t>(0ULL)),v);
-double res = std::get<0>(tmp106);
-bool cmp = std::get<1>(tmp106);
+auto tmp117 = x86_arithST(cast<int64_t>(reg),x86_FPUState_st(f,cast<int64_t>(0ULL)),v);
+double res = std::get<0>(tmp117);
+bool cmp = std::get<1>(tmp117);
 if (cmp) {
 x86_FPUState_fcom(f,x86_FPUState_st(f,cast<int64_t>(0ULL)),v);
 if ((reg == cast<uint8_t>(3ULL))) {
@@ -3899,19 +4196,19 @@ x86_FPUState_push(f,x86_FPUState_st(f,i));
 return ;
 }
 else if (((mb >= cast<uint8_t>(200ULL)) && (mb <= cast<uint8_t>(207ULL)))){
-auto tmp108 = std::make_tuple(x86_FPUState_phys(f,cast<int64_t>(0ULL)),x86_FPUState_phys(f,i));
-int64_t p0 = std::get<0>(tmp108);
-int64_t pi = std::get<1>(tmp108);
-auto tmp109 = std::make_tuple(f->St[pi],f->St[p0]);
-f->St[p0] = std::get<0>(tmp109);
-f->St[pi] = std::get<1>(tmp109);
-auto tmp110 = std::make_tuple(f->Tag[pi],f->Tag[p0]);
-f->Tag[p0] = std::get<0>(tmp110);
-f->Tag[pi] = std::get<1>(tmp110);
+auto tmp119 = std::make_tuple(x86_FPUState_phys(f,cast<int64_t>(0ULL)),x86_FPUState_phys(f,i));
+int64_t p0 = std::get<0>(tmp119);
+int64_t pi = std::get<1>(tmp119);
+auto tmp120 = std::make_tuple(f->St[pi],f->St[p0]);
+f->St[p0] = std::get<0>(tmp120);
+f->St[pi] = std::get<1>(tmp120);
+auto tmp121 = std::make_tuple(f->Tag[pi],f->Tag[p0]);
+f->Tag[p0] = std::get<0>(tmp121);
+f->Tag[pi] = std::get<1>(tmp121);
 return ;
 }
 }
-tmp107:;
+tmp118:;
 {
 switch(mb){
 case cast<uint8_t>(208ULL):{
@@ -4021,37 +4318,37 @@ bool c2={};
 bool c0={};
 {
 if ((f->Tag[x86_FPUState_phys(f,cast<int64_t>(0ULL))] == cast<uint8_t>(3ULL))){
-auto tmp112 = std::make_tuple(true,false,true);
-c3 = std::get<0>(tmp112);
-c2 = std::get<1>(tmp112);
-c0 = std::get<2>(tmp112);
+auto tmp123 = std::make_tuple(true,false,true);
+c3 = std::get<0>(tmp123);
+c2 = std::get<1>(tmp123);
+c0 = std::get<2>(tmp123);
 }
 else if (go_math_IsNaN(v)){
-auto tmp113 = std::make_tuple(false,false,true);
-c3 = std::get<0>(tmp113);
-c2 = std::get<1>(tmp113);
-c0 = std::get<2>(tmp113);
+auto tmp124 = std::make_tuple(false,false,true);
+c3 = std::get<0>(tmp124);
+c2 = std::get<1>(tmp124);
+c0 = std::get<2>(tmp124);
 }
 else if (go_math_IsInf(v,cast<int64_t>(0ULL))){
-auto tmp114 = std::make_tuple(false,true,true);
-c3 = std::get<0>(tmp114);
-c2 = std::get<1>(tmp114);
-c0 = std::get<2>(tmp114);
+auto tmp125 = std::make_tuple(false,true,true);
+c3 = std::get<0>(tmp125);
+c2 = std::get<1>(tmp125);
+c0 = std::get<2>(tmp125);
 }
 else if ((v == cast<double>(0.00000000000000000e+00))){
-auto tmp115 = std::make_tuple(true,false,false);
-c3 = std::get<0>(tmp115);
-c2 = std::get<1>(tmp115);
-c0 = std::get<2>(tmp115);
+auto tmp126 = std::make_tuple(true,false,false);
+c3 = std::get<0>(tmp126);
+c2 = std::get<1>(tmp126);
+c0 = std::get<2>(tmp126);
 }
 else {
-auto tmp116 = std::make_tuple(false,true,false);
-c3 = std::get<0>(tmp116);
-c2 = std::get<1>(tmp116);
-c0 = std::get<2>(tmp116);
+auto tmp127 = std::make_tuple(false,true,false);
+c3 = std::get<0>(tmp127);
+c2 = std::get<1>(tmp127);
+c0 = std::get<2>(tmp127);
 }
 }
-tmp111:;
+tmp122:;
 x86_FPUState_setCC(f,c3,c2,c0);
 f->Stat &= ~(cast<uint16_t>(512ULL));
 if (sign) {
@@ -4078,9 +4375,9 @@ x86_FPUState_push(f,sig);
 void x86_CPU_fprem(x86_CPU* c,bool ieee){
 {
 x86_FPUState* f = (&c->FPU);
-auto tmp117 = std::make_tuple(x86_FPUState_st(f,cast<int64_t>(0ULL)),x86_FPUState_st(f,cast<int64_t>(1ULL)));
-double a = std::get<0>(tmp117);
-double b = std::get<1>(tmp117);
+auto tmp128 = std::make_tuple(x86_FPUState_st(f,cast<int64_t>(0ULL)),x86_FPUState_st(f,cast<int64_t>(1ULL)));
+double a = std::get<0>(tmp128);
+double b = std::get<1>(tmp128);
 double r={};
 double q={};
 if (ieee) {
@@ -4264,11 +4561,11 @@ if (x86_CPU_envIs32(c)) {
 base = cast<uint32_t>(28ULL);
 }
 {int64_t i = cast<int64_t>(0ULL);for (;(i < cast<int64_t>(8ULL));i++){
-auto tmp118 = x86_f64ToF80(f->St[i]);
-uint64_t mant = std::get<0>(tmp118);
-uint16_t se = std::get<1>(tmp118);
-auto tmp119 = cast<uint32_t>((cast<uint32_t>((o.off + base)) + cast<uint32_t>((cast<uint32_t>(i) * cast<uint32_t>(10ULL)))));
-uint32_t off = tmp119;
+auto tmp129 = x86_f64ToF80(f->St[i]);
+uint64_t mant = std::get<0>(tmp129);
+uint16_t se = std::get<1>(tmp129);
+auto tmp130 = cast<uint32_t>((cast<uint32_t>((o.off + base)) + cast<uint32_t>((cast<uint32_t>(i) * cast<uint32_t>(10ULL)))));
+uint32_t off = tmp130;
 x86_CPU_memWrite(c,o.base,off,cast<int64_t>(4ULL),cast<uint32_t>(mant));
 x86_CPU_memWrite(c,o.base,cast<uint32_t>((off + cast<uint32_t>(4ULL))),cast<int64_t>(4ULL),cast<uint32_t>(shr<uint64_t>(mant,cast<int64_t>(32ULL))));
 x86_CPU_memWrite(c,o.base,cast<uint32_t>((off + cast<uint32_t>(8ULL))),cast<int64_t>(2ULL),cast<uint32_t>(se));
@@ -4286,8 +4583,8 @@ if (x86_CPU_envIs32(c)) {
 base = cast<uint32_t>(28ULL);
 }
 {int64_t i = cast<int64_t>(0ULL);for (;(i < cast<int64_t>(8ULL));i++){
-auto tmp120 = cast<uint32_t>((cast<uint32_t>((o.off + base)) + cast<uint32_t>((cast<uint32_t>(i) * cast<uint32_t>(10ULL)))));
-uint32_t off = tmp120;
+auto tmp131 = cast<uint32_t>((cast<uint32_t>((o.off + base)) + cast<uint32_t>((cast<uint32_t>(i) * cast<uint32_t>(10ULL)))));
+uint32_t off = tmp131;
 uint64_t mant = cast<uint64_t>((cast<uint64_t>(x86_CPU_memRead(c,o.base,off,cast<int64_t>(4ULL))) | shl<uint64_t>(cast<uint64_t>(x86_CPU_memRead(c,o.base,cast<uint32_t>((off + cast<uint32_t>(4ULL))),cast<int64_t>(4ULL))),cast<int64_t>(32ULL))));
 uint16_t se = cast<uint16_t>(x86_CPU_memRead(c,o.base,cast<uint32_t>((off + cast<uint32_t>(8ULL))),cast<int64_t>(2ULL)));
 f->St[i] = x86_f80ToF64(mant,se);
@@ -4350,6 +4647,136 @@ f->Tag[i] = cast<uint8_t>((cast<uint8_t>(shr<uint16_t>(w,(cast<uint64_t>((cast<u
 }
 }}
 }
+// tools/cpu/x86/groups.go:11:1
+x86_Inst x86_dec_grp1(x86_dec* d,uint8_t op){
+{
+auto tmp132 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp132);
+x86_rmOperand rm = std::get<1>(tmp132);
+std::string mnem = x86_alu[reg];
+{
+switch(op){
+case cast<uint8_t>(128ULL):case cast<uint8_t>(130ULL):{
+return x86_op2(mnem,x86_rmOperand_atHint(rm,cast<int64_t>(8ULL)),x86_hexImm(cast<uint32_t>(x86_dec_imm8(d)),cast<int64_t>(1ULL)));
+break;}
+case cast<uint8_t>(129ULL):{
+auto tmp133 = x86_dec_immOsz(d);
+uint32_t v = std::get<0>(tmp133);
+int64_t w = std::get<1>(tmp133);
+return x86_op2(mnem,x86_rmOperand_atHint(rm,d->opsize),x86_hexImm(v,w));
+break;}
+default:{
+uint32_t imm = cast<uint32_t>(cast<int32_t>(cast<int8_t>(x86_dec_next(d))));
+return x86_op2(mnem,x86_rmOperand_atHint(rm,d->opsize),x86_hexImm(imm,x86_imWidth(d->opsize)));
+break;}
+}}
+}
+}
+// tools/cpu/x86/groups.go:28:1
+x86_Inst x86_dec_grp2(x86_dec* d,int64_t size,std::string count){
+{
+auto tmp134 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp134);
+x86_rmOperand rm = std::get<1>(tmp134);
+std::string mnem = x86_shf[reg];
+std::string amt = count;
+if ((count == std::string("imm",3))) {
+amt = x86_hexImm(cast<uint32_t>(x86_dec_imm8(d)),cast<int64_t>(1ULL));
+}
+return x86_op2(mnem,x86_rmOperand_atHint(rm,size),amt);
+}
+}
+// tools/cpu/x86/groups.go:39:1
+x86_Inst x86_dec_grp3(x86_dec* d,int64_t size){
+{
+auto tmp135 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp135);
+x86_rmOperand rm = std::get<1>(tmp135);
+{
+switch(reg){
+case cast<uint8_t>(0ULL):case cast<uint8_t>(1ULL):{
+if ((size == cast<int64_t>(8ULL))) {
+return x86_op2(std::string("TEST",4),x86_rmOperand_atHint(rm,cast<int64_t>(8ULL)),x86_hexImm(cast<uint32_t>(x86_dec_imm8(d)),cast<int64_t>(1ULL)));
+}
+auto tmp136 = x86_dec_immOsz(d);
+uint32_t v = std::get<0>(tmp136);
+int64_t w = std::get<1>(tmp136);
+return x86_op2(std::string("TEST",4),x86_rmOperand_atHint(rm,size),x86_hexImm(v,w));
+break;}
+case cast<uint8_t>(2ULL):{
+return x86_op1(std::string("NOT",3),x86_rmOperand_atHint(rm,size));
+break;}
+case cast<uint8_t>(3ULL):{
+return x86_op1(std::string("NEG",3),x86_rmOperand_atHint(rm,size));
+break;}
+case cast<uint8_t>(4ULL):{
+return x86_op1(std::string("MUL",3),x86_rmOperand_atHint(rm,size));
+break;}
+case cast<uint8_t>(5ULL):{
+return x86_op1(std::string("IMUL",4),x86_rmOperand_atHint(rm,size));
+break;}
+case cast<uint8_t>(6ULL):{
+return x86_op1(std::string("DIV",3),x86_rmOperand_atHint(rm,size));
+break;}
+default:{
+return x86_op1(std::string("IDIV",4),x86_rmOperand_atHint(rm,size));
+break;}
+}}
+}
+}
+// tools/cpu/x86/groups.go:64:1
+x86_Inst x86_dec_grp4(x86_dec* d){
+{
+auto tmp137 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp137);
+x86_rmOperand rm = std::get<1>(tmp137);
+{
+switch(reg){
+case cast<uint8_t>(0ULL):{
+return x86_op1(std::string("INC",3),x86_rmOperand_atHint(rm,cast<int64_t>(8ULL)));
+break;}
+case cast<uint8_t>(1ULL):{
+return x86_op1(std::string("DEC",3),x86_rmOperand_atHint(rm,cast<int64_t>(8ULL)));
+break;}
+}}
+d->bad = true;
+return x86_Inst{};
+}
+}
+// tools/cpu/x86/groups.go:80:1
+x86_Inst x86_dec_grp5(x86_dec* d){
+{
+auto tmp138 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp138);
+x86_rmOperand rm = std::get<1>(tmp138);
+{
+switch(reg){
+case cast<uint8_t>(0ULL):{
+return x86_op1(std::string("INC",3),x86_rmOperand_atHint(rm,d->opsize));
+break;}
+case cast<uint8_t>(1ULL):{
+return x86_op1(std::string("DEC",3),x86_rmOperand_atHint(rm,d->opsize));
+break;}
+case cast<uint8_t>(2ULL):{
+return x86_Inst{{},{},std::string("CALL",4),(std::string("CALL ",5) + x86_rmOperand_at(rm,d->opsize)),cast<x86_Flow>(3ULL),{},{}};
+break;}
+case cast<uint8_t>(3ULL):{
+return x86_Inst{{},{},std::string("CALLF",5),(std::string("CALLF ",6) + x86_rmOperand_atHint(rm,d->opsize)),cast<x86_Flow>(3ULL),{},{}};
+break;}
+case cast<uint8_t>(4ULL):{
+return x86_Inst{{},{},std::string("JMP",3),(std::string("JMP ",4) + x86_rmOperand_at(rm,d->opsize)),cast<x86_Flow>(5ULL),{},{}};
+break;}
+case cast<uint8_t>(5ULL):{
+return x86_Inst{{},{},std::string("JMPF",4),(std::string("JMPF ",5) + x86_rmOperand_atHint(rm,d->opsize)),cast<x86_Flow>(5ULL),{},{}};
+break;}
+case cast<uint8_t>(6ULL):{
+return x86_op1(std::string("PUSH",4),x86_rmOperand_atHint(rm,d->opsize));
+break;}
+}}
+d->bad = true;
+return x86_Inst{};
+}
+}
 // tools/cpu/x86/mmxint.go:14:1
 std::tuple<uint8_t,std::array<uint8_t,16>,x86_ea,bool> x86_CPU_intOperands(x86_CPU* c,x86_sseKind k){
 uint8_t reg{};
@@ -4357,9 +4784,9 @@ std::array<uint8_t,16> src{};
 x86_ea o{};
 bool wide{};
 {
-auto tmp121 = x86_CPU_modrmE(c);
-reg = std::get<0>(tmp121);
-o = std::get<1>(tmp121);
+auto tmp139 = x86_CPU_modrmE(c);
+reg = std::get<0>(tmp139);
+o = std::get<1>(tmp139);
 wide = (k == cast<x86_sseKind>(1ULL));
 if (wide) {
 src = x86_CPU_sseRM(c,o,cast<int64_t>(16ULL));
@@ -4474,10 +4901,10 @@ case cast<uint8_t>(96ULL):case cast<uint8_t>(97ULL):case cast<uint8_t>(98ULL):ca
 if (((((op == cast<uint8_t>(108ULL)) || (op == cast<uint8_t>(109ULL)))) && (k != cast<x86_sseKind>(1ULL)))) {
 return false;
 }
-auto tmp122 = x86_CPU_intOperands(c,k);
-uint8_t reg = std::get<0>(tmp122);
-std::array<uint8_t,16> src = std::get<1>(tmp122);
-bool wide = std::get<3>(tmp122);
+auto tmp140 = x86_CPU_intOperands(c,k);
+uint8_t reg = std::get<0>(tmp140);
+std::array<uint8_t,16> src = std::get<1>(tmp140);
+bool wide = std::get<3>(tmp140);
 std::array<uint8_t,16> dst = x86_CPU_intReg(c,reg,wide);
 int64_t n = x86_intWidth(wide);
 int64_t elem={};
@@ -4512,10 +4939,10 @@ gcopy(sub(r,cast<int64_t>((cast<int64_t>((cast<int64_t>((i * cast<int64_t>(2ULL)
 return true;
 break;}
 case cast<uint8_t>(99ULL):{
-auto tmp123 = x86_CPU_intOperands(c,k);
-uint8_t reg = std::get<0>(tmp123);
-std::array<uint8_t,16> src = std::get<1>(tmp123);
-bool wide = std::get<3>(tmp123);
+auto tmp141 = x86_CPU_intOperands(c,k);
+uint8_t reg = std::get<0>(tmp141);
+std::array<uint8_t,16> src = std::get<1>(tmp141);
+bool wide = std::get<3>(tmp141);
 std::array<uint8_t,16> dst = x86_CPU_intReg(c,reg,wide);
 int64_t n = x86_intWidth(wide);
 std::array<uint8_t,16> r={};
@@ -4529,10 +4956,10 @@ r[cast<int64_t>((divi<int64_t>(n,cast<int64_t>(2ULL)) + i))] = x86_satI8(cast<in
 return true;
 break;}
 case cast<uint8_t>(103ULL):{
-auto tmp124 = x86_CPU_intOperands(c,k);
-uint8_t reg = std::get<0>(tmp124);
-std::array<uint8_t,16> src = std::get<1>(tmp124);
-bool wide = std::get<3>(tmp124);
+auto tmp142 = x86_CPU_intOperands(c,k);
+uint8_t reg = std::get<0>(tmp142);
+std::array<uint8_t,16> src = std::get<1>(tmp142);
+bool wide = std::get<3>(tmp142);
 std::array<uint8_t,16> dst = x86_CPU_intReg(c,reg,wide);
 int64_t n = x86_intWidth(wide);
 std::array<uint8_t,16> r={};
@@ -4546,10 +4973,10 @@ r[cast<int64_t>((divi<int64_t>(n,cast<int64_t>(2ULL)) + i))] = x86_satU8(cast<in
 return true;
 break;}
 case cast<uint8_t>(107ULL):{
-auto tmp125 = x86_CPU_intOperands(c,k);
-uint8_t reg = std::get<0>(tmp125);
-std::array<uint8_t,16> src = std::get<1>(tmp125);
-bool wide = std::get<3>(tmp125);
+auto tmp143 = x86_CPU_intOperands(c,k);
+uint8_t reg = std::get<0>(tmp143);
+std::array<uint8_t,16> src = std::get<1>(tmp143);
+bool wide = std::get<3>(tmp143);
 std::array<uint8_t,16> dst = x86_CPU_intReg(c,reg,wide);
 int64_t n = x86_intWidth(wide);
 std::array<uint8_t,16> r={};
@@ -4565,10 +4992,10 @@ x86_putw16(sub(r,cast<int64_t>((divi<int64_t>(n,cast<int64_t>(2ULL)) + cast<int6
 return true;
 break;}
 case cast<uint8_t>(100ULL):case cast<uint8_t>(101ULL):case cast<uint8_t>(102ULL):case cast<uint8_t>(116ULL):case cast<uint8_t>(117ULL):case cast<uint8_t>(118ULL):{
-auto tmp126 = x86_CPU_intOperands(c,k);
-uint8_t reg = std::get<0>(tmp126);
-std::array<uint8_t,16> src = std::get<1>(tmp126);
-bool wide = std::get<3>(tmp126);
+auto tmp144 = x86_CPU_intOperands(c,k);
+uint8_t reg = std::get<0>(tmp144);
+std::array<uint8_t,16> src = std::get<1>(tmp144);
+bool wide = std::get<3>(tmp144);
 std::array<uint8_t,16> dst = x86_CPU_intReg(c,reg,wide);
 int64_t n = x86_intWidth(wide);
 bool eq = (op >= cast<uint8_t>(116ULL));
@@ -4585,9 +5012,9 @@ r[i] = cast<uint8_t>(255ULL);
 }break;}
 case cast<uint8_t>(1ULL):{
 {int64_t i = cast<int64_t>(0ULL);for (;(i < divi<int64_t>(n,cast<int64_t>(2ULL)));i++){
-auto tmp127 = std::make_tuple(cast<int16_t>(x86_w16(sub(dst,cast<int64_t>((i * cast<int64_t>(2ULL))),len(dst)))),cast<int16_t>(x86_w16(sub(src,cast<int64_t>((i * cast<int64_t>(2ULL))),len(src)))));
-int16_t a = std::get<0>(tmp127);
-int16_t b = std::get<1>(tmp127);
+auto tmp145 = std::make_tuple(cast<int16_t>(x86_w16(sub(dst,cast<int64_t>((i * cast<int64_t>(2ULL))),len(dst)))),cast<int16_t>(x86_w16(sub(src,cast<int64_t>((i * cast<int64_t>(2ULL))),len(src)))));
+int16_t a = std::get<0>(tmp145);
+int16_t b = std::get<1>(tmp145);
 if ((((eq && (a == b))) || (((!eq) && (a > b))))) {
 x86_putw16(sub(r,cast<int64_t>((i * cast<int64_t>(2ULL))),len(r)),cast<uint16_t>(65535ULL));
 }
@@ -4595,9 +5022,9 @@ x86_putw16(sub(r,cast<int64_t>((i * cast<int64_t>(2ULL))),len(r)),cast<uint16_t>
 }break;}
 case cast<uint8_t>(2ULL):{
 {int64_t i = cast<int64_t>(0ULL);for (;(i < divi<int64_t>(n,cast<int64_t>(4ULL)));i++){
-auto tmp128 = std::make_tuple(cast<int32_t>(x86_le32b(sub(dst,cast<int64_t>((i * cast<int64_t>(4ULL))),len(dst)))),cast<int32_t>(x86_le32b(sub(src,cast<int64_t>((i * cast<int64_t>(4ULL))),len(src)))));
-int32_t a = std::get<0>(tmp128);
-int32_t b = std::get<1>(tmp128);
+auto tmp146 = std::make_tuple(cast<int32_t>(x86_le32b(sub(dst,cast<int64_t>((i * cast<int64_t>(4ULL))),len(dst)))),cast<int32_t>(x86_le32b(sub(src,cast<int64_t>((i * cast<int64_t>(4ULL))),len(src)))));
+int32_t a = std::get<0>(tmp146);
+int32_t b = std::get<1>(tmp146);
 if ((((eq && (a == b))) || (((!eq) && (a > b))))) {
 x86_putle32(sub(r,cast<int64_t>((i * cast<int64_t>(4ULL))),len(r)),cast<uint32_t>(4294967295ULL));
 }
@@ -4608,9 +5035,9 @@ x86_CPU_setIntReg(c,reg,wide,r);
 return true;
 break;}
 case cast<uint8_t>(112ULL):{
-auto tmp129 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp129);
-x86_ea o = std::get<1>(tmp129);
+auto tmp147 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp147);
+x86_ea o = std::get<1>(tmp147);
 uint8_t imm = cast<uint8_t>(x86_CPU_fetch8(c));
 {
 switch(k){
@@ -4654,9 +5081,9 @@ break;}
 return true;
 break;}
 case cast<uint8_t>(113ULL):case cast<uint8_t>(114ULL):case cast<uint8_t>(115ULL):{
-auto tmp130 = x86_CPU_modrmE(c);
-uint8_t sub_ = std::get<0>(tmp130);
-x86_ea o = std::get<1>(tmp130);
+auto tmp148 = x86_CPU_modrmE(c);
+uint8_t sub_ = std::get<0>(tmp148);
+x86_ea o = std::get<1>(tmp148);
 uint32_t imm = cast<uint32_t>(x86_CPU_fetch8(c));
 if ((!o.isReg)) {
 return false;
@@ -4712,10 +5139,10 @@ x86_CPU_setIntReg(c,tgt,wide,v);
 return true;
 break;}
 case cast<uint8_t>(209ULL):case cast<uint8_t>(210ULL):case cast<uint8_t>(211ULL):case cast<uint8_t>(225ULL):case cast<uint8_t>(226ULL):case cast<uint8_t>(241ULL):case cast<uint8_t>(242ULL):case cast<uint8_t>(243ULL):{
-auto tmp131 = x86_CPU_intOperands(c,k);
-uint8_t reg = std::get<0>(tmp131);
-std::array<uint8_t,16> src = std::get<1>(tmp131);
-bool wide = std::get<3>(tmp131);
+auto tmp149 = x86_CPU_intOperands(c,k);
+uint8_t reg = std::get<0>(tmp149);
+std::array<uint8_t,16> src = std::get<1>(tmp149);
+bool wide = std::get<3>(tmp149);
 std::array<uint8_t,16> v = x86_CPU_intReg(c,reg,wide);
 int64_t n = x86_intWidth(wide);
 uint32_t cnt = x86_le32b(sub(src,cast<int64_t>(0ULL),cast<int64_t>(4ULL)));
@@ -4746,7 +5173,7 @@ else {
 x86_shiftLanes((&v),n,elem,cnt,x86_shiftRightLogical);
 }
 }
-tmp132:;
+tmp150:;
 x86_CPU_setIntReg(c,reg,wide,v);
 return true;
 break;}
@@ -4754,10 +5181,10 @@ case cast<uint8_t>(219ULL):case cast<uint8_t>(223ULL):case cast<uint8_t>(235ULL)
 if (((op == cast<uint8_t>(239ULL)) && (k == cast<x86_sseKind>(1ULL)))) {
 return false;
 }
-auto tmp133 = x86_CPU_intOperands(c,k);
-uint8_t reg = std::get<0>(tmp133);
-std::array<uint8_t,16> src = std::get<1>(tmp133);
-bool wide = std::get<3>(tmp133);
+auto tmp151 = x86_CPU_intOperands(c,k);
+uint8_t reg = std::get<0>(tmp151);
+std::array<uint8_t,16> src = std::get<1>(tmp151);
+bool wide = std::get<3>(tmp151);
 std::array<uint8_t,16> dst = x86_CPU_intReg(c,reg,wide);
 int64_t n = x86_intWidth(wide);
 std::array<uint8_t,16> r={};
@@ -4782,10 +5209,10 @@ break;}
 return true;
 break;}
 case cast<uint8_t>(252ULL):case cast<uint8_t>(253ULL):case cast<uint8_t>(254ULL):case cast<uint8_t>(212ULL):case cast<uint8_t>(248ULL):case cast<uint8_t>(249ULL):case cast<uint8_t>(250ULL):case cast<uint8_t>(251ULL):{
-auto tmp134 = x86_CPU_intOperands(c,k);
-uint8_t reg = std::get<0>(tmp134);
-std::array<uint8_t,16> src = std::get<1>(tmp134);
-bool wide = std::get<3>(tmp134);
+auto tmp152 = x86_CPU_intOperands(c,k);
+uint8_t reg = std::get<0>(tmp152);
+std::array<uint8_t,16> src = std::get<1>(tmp152);
+bool wide = std::get<3>(tmp152);
 std::array<uint8_t,16> dst = x86_CPU_intReg(c,reg,wide);
 int64_t n = x86_intWidth(wide);
 bool sub_ = ((op >= cast<uint8_t>(248ULL)) && (op <= cast<uint8_t>(251ULL)));
@@ -4828,10 +5255,10 @@ r[cast<int64_t>((i + j))] = cast<uint8_t>(shr<uint64_t>(v,(cast<int64_t>((cast<i
 return true;
 break;}
 case cast<uint8_t>(236ULL):case cast<uint8_t>(237ULL):case cast<uint8_t>(220ULL):case cast<uint8_t>(221ULL):case cast<uint8_t>(232ULL):case cast<uint8_t>(233ULL):case cast<uint8_t>(216ULL):case cast<uint8_t>(217ULL):{
-auto tmp135 = x86_CPU_intOperands(c,k);
-uint8_t reg = std::get<0>(tmp135);
-std::array<uint8_t,16> src = std::get<1>(tmp135);
-bool wide = std::get<3>(tmp135);
+auto tmp153 = x86_CPU_intOperands(c,k);
+uint8_t reg = std::get<0>(tmp153);
+std::array<uint8_t,16> src = std::get<1>(tmp153);
+bool wide = std::get<3>(tmp153);
 std::array<uint8_t,16> dst = x86_CPU_intReg(c,reg,wide);
 int64_t n = x86_intWidth(wide);
 std::array<uint8_t,16> r={};
@@ -4843,14 +5270,14 @@ if (words) {
 int32_t a={};
 int32_t b={};
 if (signed_) {
-auto tmp136 = std::make_tuple(cast<int32_t>(cast<int16_t>(x86_w16(sub(dst,cast<int64_t>((i * cast<int64_t>(2ULL))),len(dst))))),cast<int32_t>(cast<int16_t>(x86_w16(sub(src,cast<int64_t>((i * cast<int64_t>(2ULL))),len(src))))));
-a = std::get<0>(tmp136);
-b = std::get<1>(tmp136);
+auto tmp154 = std::make_tuple(cast<int32_t>(cast<int16_t>(x86_w16(sub(dst,cast<int64_t>((i * cast<int64_t>(2ULL))),len(dst))))),cast<int32_t>(cast<int16_t>(x86_w16(sub(src,cast<int64_t>((i * cast<int64_t>(2ULL))),len(src))))));
+a = std::get<0>(tmp154);
+b = std::get<1>(tmp154);
 }
 else {
-auto tmp137 = std::make_tuple(cast<int32_t>(x86_w16(sub(dst,cast<int64_t>((i * cast<int64_t>(2ULL))),len(dst)))),cast<int32_t>(x86_w16(sub(src,cast<int64_t>((i * cast<int64_t>(2ULL))),len(src)))));
-a = std::get<0>(tmp137);
-b = std::get<1>(tmp137);
+auto tmp155 = std::make_tuple(cast<int32_t>(x86_w16(sub(dst,cast<int64_t>((i * cast<int64_t>(2ULL))),len(dst)))),cast<int32_t>(x86_w16(sub(src,cast<int64_t>((i * cast<int64_t>(2ULL))),len(src)))));
+a = std::get<0>(tmp155);
+b = std::get<1>(tmp155);
 }
 int32_t v = cast<int32_t>((a + b));
 if (sub_) {
@@ -4869,14 +5296,14 @@ else {
 int32_t a={};
 int32_t b={};
 if (signed_) {
-auto tmp138 = std::make_tuple(cast<int32_t>(cast<int8_t>(dst[i])),cast<int32_t>(cast<int8_t>(src[i])));
-a = std::get<0>(tmp138);
-b = std::get<1>(tmp138);
+auto tmp156 = std::make_tuple(cast<int32_t>(cast<int8_t>(dst[i])),cast<int32_t>(cast<int8_t>(src[i])));
+a = std::get<0>(tmp156);
+b = std::get<1>(tmp156);
 }
 else {
-auto tmp139 = std::make_tuple(cast<int32_t>(dst[i]),cast<int32_t>(src[i]));
-a = std::get<0>(tmp139);
-b = std::get<1>(tmp139);
+auto tmp157 = std::make_tuple(cast<int32_t>(dst[i]),cast<int32_t>(src[i]));
+a = std::get<0>(tmp157);
+b = std::get<1>(tmp157);
 }
 int32_t v = cast<int32_t>((a + b));
 if (sub_) {
@@ -4894,10 +5321,10 @@ x86_CPU_setIntReg(c,reg,wide,r);
 return true;
 break;}
 case cast<uint8_t>(213ULL):case cast<uint8_t>(229ULL):case cast<uint8_t>(228ULL):{
-auto tmp140 = x86_CPU_intOperands(c,k);
-uint8_t reg = std::get<0>(tmp140);
-std::array<uint8_t,16> src = std::get<1>(tmp140);
-bool wide = std::get<3>(tmp140);
+auto tmp158 = x86_CPU_intOperands(c,k);
+uint8_t reg = std::get<0>(tmp158);
+std::array<uint8_t,16> src = std::get<1>(tmp158);
+bool wide = std::get<3>(tmp158);
 std::array<uint8_t,16> dst = x86_CPU_intReg(c,reg,wide);
 int64_t n = x86_intWidth(wide);
 std::array<uint8_t,16> r={};
@@ -4922,10 +5349,10 @@ break;}
 return true;
 break;}
 case cast<uint8_t>(245ULL):{
-auto tmp141 = x86_CPU_intOperands(c,k);
-uint8_t reg = std::get<0>(tmp141);
-std::array<uint8_t,16> src = std::get<1>(tmp141);
-bool wide = std::get<3>(tmp141);
+auto tmp159 = x86_CPU_intOperands(c,k);
+uint8_t reg = std::get<0>(tmp159);
+std::array<uint8_t,16> src = std::get<1>(tmp159);
+bool wide = std::get<3>(tmp159);
 std::array<uint8_t,16> dst = x86_CPU_intReg(c,reg,wide);
 int64_t n = x86_intWidth(wide);
 std::array<uint8_t,16> r={};
@@ -4940,10 +5367,10 @@ x86_putle32(sub(r,cast<int64_t>((i * cast<int64_t>(4ULL))),len(r)),cast<uint32_t
 return true;
 break;}
 case cast<uint8_t>(244ULL):{
-auto tmp142 = x86_CPU_intOperands(c,k);
-uint8_t reg = std::get<0>(tmp142);
-std::array<uint8_t,16> src = std::get<1>(tmp142);
-bool wide = std::get<3>(tmp142);
+auto tmp160 = x86_CPU_intOperands(c,k);
+uint8_t reg = std::get<0>(tmp160);
+std::array<uint8_t,16> src = std::get<1>(tmp160);
+bool wide = std::get<3>(tmp160);
 std::array<uint8_t,16> dst = x86_CPU_intReg(c,reg,wide);
 int64_t n = x86_intWidth(wide);
 std::array<uint8_t,16> r={};
@@ -4957,10 +5384,10 @@ r[cast<int64_t>((cast<int64_t>((i * cast<int64_t>(8ULL))) + j))] = cast<uint8_t>
 return true;
 break;}
 case cast<uint8_t>(246ULL):{
-auto tmp143 = x86_CPU_intOperands(c,k);
-uint8_t reg = std::get<0>(tmp143);
-std::array<uint8_t,16> src = std::get<1>(tmp143);
-bool wide = std::get<3>(tmp143);
+auto tmp161 = x86_CPU_intOperands(c,k);
+uint8_t reg = std::get<0>(tmp161);
+std::array<uint8_t,16> src = std::get<1>(tmp161);
+bool wide = std::get<3>(tmp161);
 std::array<uint8_t,16> dst = x86_CPU_intReg(c,reg,wide);
 int64_t n = x86_intWidth(wide);
 std::array<uint8_t,16> r={};
@@ -4979,10 +5406,10 @@ sum += cast<uint32_t>(d);
 return true;
 break;}
 case cast<uint8_t>(218ULL):case cast<uint8_t>(222ULL):{
-auto tmp144 = x86_CPU_intOperands(c,k);
-uint8_t reg = std::get<0>(tmp144);
-std::array<uint8_t,16> src = std::get<1>(tmp144);
-bool wide = std::get<3>(tmp144);
+auto tmp162 = x86_CPU_intOperands(c,k);
+uint8_t reg = std::get<0>(tmp162);
+std::array<uint8_t,16> src = std::get<1>(tmp162);
+bool wide = std::get<3>(tmp162);
 std::array<uint8_t,16> dst = x86_CPU_intReg(c,reg,wide);
 int64_t n = x86_intWidth(wide);
 std::array<uint8_t,16> r={};
@@ -4998,17 +5425,17 @@ r[i] = dst[i];
 return true;
 break;}
 case cast<uint8_t>(234ULL):case cast<uint8_t>(238ULL):{
-auto tmp145 = x86_CPU_intOperands(c,k);
-uint8_t reg = std::get<0>(tmp145);
-std::array<uint8_t,16> src = std::get<1>(tmp145);
-bool wide = std::get<3>(tmp145);
+auto tmp163 = x86_CPU_intOperands(c,k);
+uint8_t reg = std::get<0>(tmp163);
+std::array<uint8_t,16> src = std::get<1>(tmp163);
+bool wide = std::get<3>(tmp163);
 std::array<uint8_t,16> dst = x86_CPU_intReg(c,reg,wide);
 int64_t n = x86_intWidth(wide);
 std::array<uint8_t,16> r={};
 {int64_t i = cast<int64_t>(0ULL);for (;(i < divi<int64_t>(n,cast<int64_t>(2ULL)));i++){
-auto tmp146 = std::make_tuple(cast<int16_t>(x86_w16(sub(dst,cast<int64_t>((i * cast<int64_t>(2ULL))),len(dst)))),cast<int16_t>(x86_w16(sub(src,cast<int64_t>((i * cast<int64_t>(2ULL))),len(src)))));
-int16_t a = std::get<0>(tmp146);
-int16_t b = std::get<1>(tmp146);
+auto tmp164 = std::make_tuple(cast<int16_t>(x86_w16(sub(dst,cast<int64_t>((i * cast<int64_t>(2ULL))),len(dst)))),cast<int16_t>(x86_w16(sub(src,cast<int64_t>((i * cast<int64_t>(2ULL))),len(src)))));
+int16_t a = std::get<0>(tmp164);
+int16_t b = std::get<1>(tmp164);
 int16_t v = a;
 if ((((op == cast<uint8_t>(234ULL))) == ((b < a)))) {
 v = b;
@@ -5019,10 +5446,10 @@ x86_putw16(sub(r,cast<int64_t>((i * cast<int64_t>(2ULL))),len(r)),cast<uint16_t>
 return true;
 break;}
 case cast<uint8_t>(224ULL):case cast<uint8_t>(227ULL):{
-auto tmp147 = x86_CPU_intOperands(c,k);
-uint8_t reg = std::get<0>(tmp147);
-std::array<uint8_t,16> src = std::get<1>(tmp147);
-bool wide = std::get<3>(tmp147);
+auto tmp165 = x86_CPU_intOperands(c,k);
+uint8_t reg = std::get<0>(tmp165);
+std::array<uint8_t,16> src = std::get<1>(tmp165);
+bool wide = std::get<3>(tmp165);
 std::array<uint8_t,16> dst = x86_CPU_intReg(c,reg,wide);
 int64_t n = x86_intWidth(wide);
 std::array<uint8_t,16> r={};
@@ -5040,9 +5467,9 @@ x86_CPU_setIntReg(c,reg,wide,r);
 return true;
 break;}
 case cast<uint8_t>(196ULL):{
-auto tmp148 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp148);
-x86_ea o = std::get<1>(tmp148);
+auto tmp166 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp166);
+x86_ea o = std::get<1>(tmp166);
 int64_t imm = cast<int64_t>(x86_CPU_fetch8(c));
 uint16_t w={};
 if (o.isReg) {
@@ -5064,9 +5491,9 @@ c->MMX[cast<uint8_t>((reg & cast<uint8_t>(7ULL)))] = v;
 return true;
 break;}
 case cast<uint8_t>(197ULL):{
-auto tmp149 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp149);
-x86_ea o = std::get<1>(tmp149);
+auto tmp167 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp167);
+x86_ea o = std::get<1>(tmp167);
 int64_t imm = cast<int64_t>(x86_CPU_fetch8(c));
 if ((!o.isReg)) {
 return false;
@@ -5080,9 +5507,9 @@ c->Regs[reg] = cast<uint32_t>(x86_w16(sub(c->MMX[cast<uint8_t>((o.reg & cast<uin
 return true;
 break;}
 case cast<uint8_t>(215ULL):{
-auto tmp150 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp150);
-x86_ea o = std::get<1>(tmp150);
+auto tmp168 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp168);
+x86_ea o = std::get<1>(tmp168);
 if ((!o.isReg)) {
 return false;
 }
@@ -5108,9 +5535,9 @@ c->Regs[reg] = mask;
 return true;
 break;}
 case cast<uint8_t>(231ULL):{
-auto tmp151 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp151);
-x86_ea o = std::get<1>(tmp151);
+auto tmp169 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp169);
+x86_ea o = std::get<1>(tmp169);
 if (o.isReg) {
 return false;
 }
@@ -5212,6 +5639,750 @@ r[i] = (*v)[cast<int64_t>((i + n))];
 (*v) = r;
 }
 }
+// tools/cpu/x86/modrm.go:15:1
+std::string x86_rmOperand_at(x86_rmOperand o,int64_t size){
+{
+if (o.isReg) {
+return x86_gpr(o.reg,size);
+}
+return o.text;
+}
+}
+// tools/cpu/x86/modrm.go:25:1
+std::string x86_rmOperand_atHint(x86_rmOperand o,int64_t size){
+{
+if (o.isReg) {
+return x86_gpr(o.reg,size);
+}
+return (x86_sizeKeyword(size) + o.text);
+}
+}
+// tools/cpu/x86/modrm.go:32:1
+std::string x86_sizeKeyword(int64_t size){
+{
+{
+switch(size){
+case cast<int64_t>(8ULL):{
+return std::string("BYTE ",5);
+break;}
+case cast<int64_t>(32ULL):{
+return std::string("DWORD ",6);
+break;}
+default:{
+return std::string("WORD ",5);
+break;}
+}}
+}
+}
+// tools/cpu/x86/modrm.go:45:1
+std::tuple<uint8_t,x86_rmOperand> x86_dec_modrm(x86_dec* d){
+uint8_t reg{};
+x86_rmOperand rm{};
+{
+uint8_t b = x86_dec_next(d);
+auto tmp170 = std::make_tuple(shr<uint8_t>(b,cast<int64_t>(6ULL)),cast<uint8_t>(((shr<uint8_t>(b,cast<int64_t>(3ULL))) & cast<uint8_t>(7ULL))),cast<uint8_t>((b & cast<uint8_t>(7ULL))));
+uint8_t mod = std::get<0>(tmp170);
+uint8_t regf = std::get<1>(tmp170);
+uint8_t rmf = std::get<2>(tmp170);
+if ((mod == cast<uint8_t>(3ULL))) {
+return {regf,x86_rmOperand{true,rmf,{}}};
+}
+if ((d->addrsize == cast<int64_t>(32ULL))) {
+return {regf,x86_rmOperand{{},{},x86_dec_mem32(d,mod,rmf)}};
+}
+return {regf,x86_rmOperand{{},{},x86_dec_mem16(d,mod,rmf)}};
+}
+}
+// tools/cpu/x86/modrm.go:58:1
+std::string x86_dec_mem16(x86_dec* d,uint8_t mod,uint8_t rmf){
+{
+if (((mod == cast<uint8_t>(0ULL)) && (rmf == cast<uint8_t>(6ULL)))) {
+return go_fmt_Sprintf(std::string("[%s%s]",6),d->seg,x86_hexImm(cast<uint32_t>(x86_dec_imm16(d)),cast<int64_t>(2ULL)));
+}
+std::string base = x86_rm16[rmf];
+{
+switch(mod){
+case cast<uint8_t>(1ULL):{
+return go_fmt_Sprintf(std::string("[%s%s%s]",8),d->seg,base,x86_dispStr(cast<int32_t>(cast<int8_t>(x86_dec_next(d)))));
+break;}
+case cast<uint8_t>(2ULL):{
+return go_fmt_Sprintf(std::string("[%s%s%s]",8),d->seg,base,x86_dispStr(cast<int32_t>(cast<int16_t>(x86_dec_imm16(d)))));
+break;}
+default:{
+return go_fmt_Sprintf(std::string("[%s%s]",6),d->seg,base);
+break;}
+}}
+}
+}
+// tools/cpu/x86/modrm.go:75:1
+std::string x86_dec_mem32(x86_dec* d,uint8_t mod,uint8_t rmf){
+{
+std::string base={};
+if ((rmf == cast<uint8_t>(4ULL))) {
+base = x86_dec_sib(d,mod);
+}
+else if (((mod == cast<uint8_t>(0ULL)) && (rmf == cast<uint8_t>(5ULL)))) {
+return go_fmt_Sprintf(std::string("[%s%s]",6),d->seg,x86_hexImm(x86_dec_imm32(d),cast<int64_t>(4ULL)));
+}
+else {
+base = x86_reg32[rmf];
+}
+{
+switch(mod){
+case cast<uint8_t>(1ULL):{
+return go_fmt_Sprintf(std::string("[%s%s%s]",8),d->seg,base,x86_dispStr(cast<int32_t>(cast<int8_t>(x86_dec_next(d)))));
+break;}
+case cast<uint8_t>(2ULL):{
+return go_fmt_Sprintf(std::string("[%s%s%s]",8),d->seg,base,x86_dispStr(cast<int32_t>(x86_dec_imm32(d))));
+break;}
+default:{
+return go_fmt_Sprintf(std::string("[%s%s]",6),d->seg,base);
+break;}
+}}
+}
+}
+// tools/cpu/x86/modrm.go:97:1
+std::string x86_dec_sib(x86_dec* d,uint8_t mod){
+{
+uint8_t s = x86_dec_next(d);
+auto tmp171 = std::make_tuple(shr<uint8_t>(s,cast<int64_t>(6ULL)),cast<uint8_t>(((shr<uint8_t>(s,cast<int64_t>(3ULL))) & cast<uint8_t>(7ULL))),cast<uint8_t>((s & cast<uint8_t>(7ULL))));
+uint8_t scale = std::get<0>(tmp171);
+uint8_t index = std::get<1>(tmp171);
+uint8_t base = std::get<2>(tmp171);
+std::string idx = std::string("",0);
+if ((index != cast<uint8_t>(4ULL))) {
+idx = ((std::string("+",1) + x86_reg32[index]) + go_fmt_Sprintf(std::string("*%d",3),shl<int64_t>(cast<int64_t>(1ULL),scale)));
+}
+if (((base == cast<uint8_t>(5ULL)) && (mod == cast<uint8_t>(0ULL)))) {
+return (x86_hexImm(x86_dec_imm32(d),cast<int64_t>(4ULL)) + idx);
+}
+return (x86_reg32[base] + idx);
+}
+}
+// tools/cpu/x86/modrm.go:112:1
+std::string x86_dispStr(int32_t v){
+{
+{
+if ((v == cast<int32_t>(0ULL))){
+return std::string("",0);
+}
+else if ((v < cast<int32_t>(0ULL))){
+return go_fmt_Sprintf(std::string("-$%X",4),cast<int32_t>(-v));
+}
+else {
+return go_fmt_Sprintf(std::string("+$%X",4),v);
+}
+}
+tmp172:;
+}
+}
+// tools/cpu/x86/modrm.go:125:1
+Slice<std::string> x86_Disassemble(Slice<uint8_t> code,uint32_t base){
+{
+Slice<std::string> out={};
+{int64_t off = cast<int64_t>(0ULL);for (;(off < len(code));){
+x86_Inst in = x86_Decode(sub(code,off,len(code)),cast<uint32_t>((base + cast<uint32_t>(off))));
+Slice<uint8_t> raw = sub(code,off,cast<int64_t>((off + in.Len)));
+out = append(out,Slice<std::string>{go_fmt_Sprintf(std::string("%08X  %-18s  %s",15),in.Addr,x86_hexBytes(raw),in.Text)});
+off += in.Len;
+}
+}return out;
+}
+}
+// tools/cpu/x86/modrm.go:138:1
+Slice<std::string> x86_Disassemble32(Slice<uint8_t> code,uint32_t base){
+{
+Slice<std::string> out={};
+{int64_t off = cast<int64_t>(0ULL);for (;(off < len(code));){
+x86_Inst in = x86_Decode32(sub(code,off,len(code)),cast<uint32_t>((base + cast<uint32_t>(off))));
+if ((in.Len <= cast<int64_t>(0ULL))) {
+break;
+}
+Slice<uint8_t> raw = sub(code,off,cast<int64_t>((off + in.Len)));
+out = append(out,Slice<std::string>{go_fmt_Sprintf(std::string("%08X  %-18s  %s",15),in.Addr,x86_hexBytes(raw),in.Text)});
+off += in.Len;
+}
+}return out;
+}
+}
+// tools/cpu/x86/modrm.go:152:1
+std::string x86_hexBytes(Slice<uint8_t> b){
+{
+std::string s = std::string("",0);
+{auto&& tmp173 = b;
+for(int64_t tmp174=0;tmp174<len(tmp173);++tmp174){
+auto i=tmp174;auto x=tmp173[tmp174];if ((i == cast<int64_t>(6ULL))) {
+s += std::string("\342\200\246",3);
+break;
+}
+s += go_fmt_Sprintf(std::string("%02X ",5),x);
+}}
+return s;
+}
+}
+// tools/cpu/x86/onebyte.go:6:1
+x86_Inst x86_dec_oneByte(x86_dec* d,uint8_t op){
+{
+if (((op < cast<uint8_t>(64ULL)) && (cast<uint8_t>((op & cast<uint8_t>(7ULL))) < cast<uint8_t>(6ULL)))) {
+return x86_dec_aluForm(d,x86_alu[shr<uint8_t>(op,cast<int64_t>(3ULL))],cast<uint8_t>((op & cast<uint8_t>(7ULL))));
+}
+{
+switch(op){
+case cast<uint8_t>(6ULL):{
+return x86_op1(std::string("PUSH",4),std::string("ES",2));
+break;}
+case cast<uint8_t>(7ULL):{
+return x86_op1(std::string("POP",3),std::string("ES",2));
+break;}
+case cast<uint8_t>(14ULL):{
+return x86_op1(std::string("PUSH",4),std::string("CS",2));
+break;}
+case cast<uint8_t>(22ULL):{
+return x86_op1(std::string("PUSH",4),std::string("SS",2));
+break;}
+case cast<uint8_t>(23ULL):{
+return x86_op1(std::string("POP",3),std::string("SS",2));
+break;}
+case cast<uint8_t>(30ULL):{
+return x86_op1(std::string("PUSH",4),std::string("DS",2));
+break;}
+case cast<uint8_t>(31ULL):{
+return x86_op1(std::string("POP",3),std::string("DS",2));
+break;}
+case cast<uint8_t>(39ULL):{
+return x86_mk(std::string("DAA",3),std::string("DAA",3));
+break;}
+case cast<uint8_t>(47ULL):{
+return x86_mk(std::string("DAS",3),std::string("DAS",3));
+break;}
+case cast<uint8_t>(55ULL):{
+return x86_mk(std::string("AAA",3),std::string("AAA",3));
+break;}
+case cast<uint8_t>(63ULL):{
+return x86_mk(std::string("AAS",3),std::string("AAS",3));
+break;}
+case cast<uint8_t>(64ULL):case cast<uint8_t>(65ULL):case cast<uint8_t>(66ULL):case cast<uint8_t>(67ULL):case cast<uint8_t>(68ULL):case cast<uint8_t>(69ULL):case cast<uint8_t>(70ULL):case cast<uint8_t>(71ULL):{
+return x86_op1(std::string("INC",3),x86_gpr(cast<uint8_t>((op & cast<uint8_t>(7ULL))),d->opsize));
+break;}
+case cast<uint8_t>(72ULL):case cast<uint8_t>(73ULL):case cast<uint8_t>(74ULL):case cast<uint8_t>(75ULL):case cast<uint8_t>(76ULL):case cast<uint8_t>(77ULL):case cast<uint8_t>(78ULL):case cast<uint8_t>(79ULL):{
+return x86_op1(std::string("DEC",3),x86_gpr(cast<uint8_t>((op & cast<uint8_t>(7ULL))),d->opsize));
+break;}
+case cast<uint8_t>(80ULL):case cast<uint8_t>(81ULL):case cast<uint8_t>(82ULL):case cast<uint8_t>(83ULL):case cast<uint8_t>(84ULL):case cast<uint8_t>(85ULL):case cast<uint8_t>(86ULL):case cast<uint8_t>(87ULL):{
+return x86_op1(std::string("PUSH",4),x86_gpr(cast<uint8_t>((op & cast<uint8_t>(7ULL))),d->opsize));
+break;}
+case cast<uint8_t>(88ULL):case cast<uint8_t>(89ULL):case cast<uint8_t>(90ULL):case cast<uint8_t>(91ULL):case cast<uint8_t>(92ULL):case cast<uint8_t>(93ULL):case cast<uint8_t>(94ULL):case cast<uint8_t>(95ULL):{
+return x86_op1(std::string("POP",3),x86_gpr(cast<uint8_t>((op & cast<uint8_t>(7ULL))),d->opsize));
+break;}
+case cast<uint8_t>(96ULL):{
+return x86_mk(std::string("PUSHA",5),x86_pick(d->opsize,std::string("PUSHA",5),std::string("PUSHAD",6)));
+break;}
+case cast<uint8_t>(97ULL):{
+return x86_mk(std::string("POPA",4),x86_pick(d->opsize,std::string("POPA",4),std::string("POPAD",5)));
+break;}
+case cast<uint8_t>(98ULL):{
+auto tmp175 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp175);
+x86_rmOperand rm = std::get<1>(tmp175);
+return x86_op2(std::string("BOUND",5),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,d->opsize));
+break;}
+case cast<uint8_t>(99ULL):{
+auto tmp176 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp176);
+x86_rmOperand rm = std::get<1>(tmp176);
+return x86_op2(std::string("ARPL",4),x86_rmOperand_at(rm,cast<int64_t>(16ULL)),x86_gpr(reg,cast<int64_t>(16ULL)));
+break;}
+case cast<uint8_t>(104ULL):{
+auto tmp177 = x86_dec_immOsz(d);
+uint32_t v = std::get<0>(tmp177);
+int64_t w = std::get<1>(tmp177);
+return x86_op1(std::string("PUSH",4),x86_hexImm(v,w));
+break;}
+case cast<uint8_t>(105ULL):{
+auto tmp178 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp178);
+x86_rmOperand rm = std::get<1>(tmp178);
+auto tmp179 = x86_dec_immOsz(d);
+uint32_t v = std::get<0>(tmp179);
+int64_t w = std::get<1>(tmp179);
+return x86_mk(std::string("IMUL",4),go_fmt_Sprintf(std::string("IMUL %s, %s, %s",15),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,d->opsize),x86_hexImm(v,w)));
+break;}
+case cast<uint8_t>(106ULL):{
+return x86_op1(std::string("PUSH",4),x86_hexImm(cast<uint32_t>(cast<int32_t>(cast<int8_t>(x86_dec_next(d)))),x86_imWidth(d->opsize)));
+break;}
+case cast<uint8_t>(107ULL):{
+auto tmp180 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp180);
+x86_rmOperand rm = std::get<1>(tmp180);
+uint32_t imm = cast<uint32_t>(cast<int32_t>(cast<int8_t>(x86_dec_next(d))));
+return x86_mk(std::string("IMUL",4),go_fmt_Sprintf(std::string("IMUL %s, %s, %s",15),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,d->opsize),x86_hexImm(imm,x86_imWidth(d->opsize))));
+break;}
+case cast<uint8_t>(108ULL):{
+return x86_mk(std::string("INSB",4),(d->rep + std::string("INSB",4)));
+break;}
+case cast<uint8_t>(109ULL):{
+return x86_mk(std::string("INS",3),(d->rep + x86_pick(d->opsize,std::string("INSW",4),std::string("INSD",4))));
+break;}
+case cast<uint8_t>(110ULL):{
+return x86_mk(std::string("OUTSB",5),(d->rep + std::string("OUTSB",5)));
+break;}
+case cast<uint8_t>(111ULL):{
+return x86_mk(std::string("OUTS",4),(d->rep + x86_pick(d->opsize,std::string("OUTSW",5),std::string("OUTSD",5))));
+break;}
+case cast<uint8_t>(112ULL):case cast<uint8_t>(113ULL):case cast<uint8_t>(114ULL):case cast<uint8_t>(115ULL):case cast<uint8_t>(116ULL):case cast<uint8_t>(117ULL):case cast<uint8_t>(118ULL):case cast<uint8_t>(119ULL):case cast<uint8_t>(120ULL):case cast<uint8_t>(121ULL):case cast<uint8_t>(122ULL):case cast<uint8_t>(123ULL):case cast<uint8_t>(124ULL):case cast<uint8_t>(125ULL):case cast<uint8_t>(126ULL):case cast<uint8_t>(127ULL):{
+std::string mnem = (std::string("J",1) + x86_ccName[cast<uint8_t>((op & cast<uint8_t>(15ULL)))]);
+uint32_t t = x86_dec_jrel(d,cast<int64_t>(1ULL));
+return x86_Inst{{},{},mnem,go_fmt_Sprintf(std::string("%s $%08X",8),mnem,t),cast<x86_Flow>(1ULL),t,true};
+break;}
+case cast<uint8_t>(128ULL):case cast<uint8_t>(129ULL):case cast<uint8_t>(130ULL):case cast<uint8_t>(131ULL):{
+return x86_dec_grp1(d,op);
+break;}
+case cast<uint8_t>(132ULL):{
+auto tmp181 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp181);
+x86_rmOperand rm = std::get<1>(tmp181);
+return x86_op2(std::string("TEST",4),x86_rmOperand_at(rm,cast<int64_t>(8ULL)),x86_reg8[reg]);
+break;}
+case cast<uint8_t>(133ULL):{
+auto tmp182 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp182);
+x86_rmOperand rm = std::get<1>(tmp182);
+return x86_op2(std::string("TEST",4),x86_rmOperand_at(rm,d->opsize),x86_gpr(reg,d->opsize));
+break;}
+case cast<uint8_t>(134ULL):{
+auto tmp183 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp183);
+x86_rmOperand rm = std::get<1>(tmp183);
+return x86_op2(std::string("XCHG",4),x86_rmOperand_at(rm,cast<int64_t>(8ULL)),x86_reg8[reg]);
+break;}
+case cast<uint8_t>(135ULL):{
+auto tmp184 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp184);
+x86_rmOperand rm = std::get<1>(tmp184);
+return x86_op2(std::string("XCHG",4),x86_rmOperand_at(rm,d->opsize),x86_gpr(reg,d->opsize));
+break;}
+case cast<uint8_t>(136ULL):{
+auto tmp185 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp185);
+x86_rmOperand rm = std::get<1>(tmp185);
+return x86_op2(std::string("MOV",3),x86_rmOperand_at(rm,cast<int64_t>(8ULL)),x86_reg8[reg]);
+break;}
+case cast<uint8_t>(137ULL):{
+auto tmp186 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp186);
+x86_rmOperand rm = std::get<1>(tmp186);
+return x86_op2(std::string("MOV",3),x86_rmOperand_at(rm,d->opsize),x86_gpr(reg,d->opsize));
+break;}
+case cast<uint8_t>(138ULL):{
+auto tmp187 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp187);
+x86_rmOperand rm = std::get<1>(tmp187);
+return x86_op2(std::string("MOV",3),x86_reg8[reg],x86_rmOperand_at(rm,cast<int64_t>(8ULL)));
+break;}
+case cast<uint8_t>(139ULL):{
+auto tmp188 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp188);
+x86_rmOperand rm = std::get<1>(tmp188);
+return x86_op2(std::string("MOV",3),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,d->opsize));
+break;}
+case cast<uint8_t>(140ULL):{
+auto tmp189 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp189);
+x86_rmOperand rm = std::get<1>(tmp189);
+return x86_op2(std::string("MOV",3),x86_rmOperand_at(rm,cast<int64_t>(16ULL)),x86_sreg[reg]);
+break;}
+case cast<uint8_t>(141ULL):{
+auto tmp190 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp190);
+x86_rmOperand rm = std::get<1>(tmp190);
+return x86_op2(std::string("LEA",3),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,d->opsize));
+break;}
+case cast<uint8_t>(142ULL):{
+auto tmp191 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp191);
+x86_rmOperand rm = std::get<1>(tmp191);
+return x86_op2(std::string("MOV",3),x86_sreg[reg],x86_rmOperand_at(rm,cast<int64_t>(16ULL)));
+break;}
+case cast<uint8_t>(143ULL):{
+auto tmp192 = x86_dec_modrm(d);
+x86_rmOperand rm = std::get<1>(tmp192);
+return x86_op1(std::string("POP",3),x86_rmOperand_atHint(rm,d->opsize));
+break;}
+case cast<uint8_t>(144ULL):{
+if ((d->rep == std::string("REP ",4))) {
+return x86_mk(std::string("PAUSE",5),std::string("PAUSE",5));
+}
+return x86_mk(std::string("NOP",3),std::string("NOP",3));
+break;}
+case cast<uint8_t>(145ULL):case cast<uint8_t>(146ULL):case cast<uint8_t>(147ULL):case cast<uint8_t>(148ULL):case cast<uint8_t>(149ULL):case cast<uint8_t>(150ULL):case cast<uint8_t>(151ULL):{
+return x86_op2(std::string("XCHG",4),x86_gpr(cast<uint8_t>(0ULL),d->opsize),x86_gpr(cast<uint8_t>((op & cast<uint8_t>(7ULL))),d->opsize));
+break;}
+case cast<uint8_t>(152ULL):{
+return x86_mk(std::string("CBW",3),x86_pick(d->opsize,std::string("CBW",3),std::string("CWDE",4)));
+break;}
+case cast<uint8_t>(153ULL):{
+return x86_mk(std::string("CWD",3),x86_pick(d->opsize,std::string("CWD",3),std::string("CDQ",3)));
+break;}
+case cast<uint8_t>(154ULL):{
+return x86_dec_farPtr(d,std::string("CALLF",5),cast<x86_Flow>(3ULL));
+break;}
+case cast<uint8_t>(155ULL):{
+return x86_mk(std::string("FWAIT",5),std::string("FWAIT",5));
+break;}
+case cast<uint8_t>(156ULL):{
+return x86_mk(std::string("PUSHF",5),x86_pick(d->opsize,std::string("PUSHF",5),std::string("PUSHFD",6)));
+break;}
+case cast<uint8_t>(157ULL):{
+return x86_mk(std::string("POPF",4),x86_pick(d->opsize,std::string("POPF",4),std::string("POPFD",5)));
+break;}
+case cast<uint8_t>(158ULL):{
+return x86_mk(std::string("SAHF",4),std::string("SAHF",4));
+break;}
+case cast<uint8_t>(159ULL):{
+return x86_mk(std::string("LAHF",4),std::string("LAHF",4));
+break;}
+case cast<uint8_t>(160ULL):{
+return x86_op2(std::string("MOV",3),std::string("AL",2),x86_dec_moffs(d));
+break;}
+case cast<uint8_t>(161ULL):{
+return x86_op2(std::string("MOV",3),x86_gpr(cast<uint8_t>(0ULL),d->opsize),x86_dec_moffs(d));
+break;}
+case cast<uint8_t>(162ULL):{
+return x86_op2(std::string("MOV",3),x86_dec_moffs(d),std::string("AL",2));
+break;}
+case cast<uint8_t>(163ULL):{
+return x86_op2(std::string("MOV",3),x86_dec_moffs(d),x86_gpr(cast<uint8_t>(0ULL),d->opsize));
+break;}
+case cast<uint8_t>(164ULL):{
+return x86_mk(std::string("MOVSB",5),(d->rep + std::string("MOVSB",5)));
+break;}
+case cast<uint8_t>(165ULL):{
+return x86_mk(std::string("MOVS",4),(d->rep + x86_pick(d->opsize,std::string("MOVSW",5),std::string("MOVSD",5))));
+break;}
+case cast<uint8_t>(166ULL):{
+return x86_mk(std::string("CMPSB",5),(d->rep + std::string("CMPSB",5)));
+break;}
+case cast<uint8_t>(167ULL):{
+return x86_mk(std::string("CMPS",4),(d->rep + x86_pick(d->opsize,std::string("CMPSW",5),std::string("CMPSD",5))));
+break;}
+case cast<uint8_t>(168ULL):{
+return x86_op2(std::string("TEST",4),std::string("AL",2),x86_hexImm(cast<uint32_t>(x86_dec_imm8(d)),cast<int64_t>(1ULL)));
+break;}
+case cast<uint8_t>(169ULL):{
+auto tmp193 = x86_dec_immOsz(d);
+uint32_t v = std::get<0>(tmp193);
+int64_t w = std::get<1>(tmp193);
+return x86_op2(std::string("TEST",4),x86_gpr(cast<uint8_t>(0ULL),d->opsize),x86_hexImm(v,w));
+break;}
+case cast<uint8_t>(170ULL):{
+return x86_mk(std::string("STOSB",5),(d->rep + std::string("STOSB",5)));
+break;}
+case cast<uint8_t>(171ULL):{
+return x86_mk(std::string("STOS",4),(d->rep + x86_pick(d->opsize,std::string("STOSW",5),std::string("STOSD",5))));
+break;}
+case cast<uint8_t>(172ULL):{
+return x86_mk(std::string("LODSB",5),(d->rep + std::string("LODSB",5)));
+break;}
+case cast<uint8_t>(173ULL):{
+return x86_mk(std::string("LODS",4),(d->rep + x86_pick(d->opsize,std::string("LODSW",5),std::string("LODSD",5))));
+break;}
+case cast<uint8_t>(174ULL):{
+return x86_mk(std::string("SCASB",5),(d->rep + std::string("SCASB",5)));
+break;}
+case cast<uint8_t>(175ULL):{
+return x86_mk(std::string("SCAS",4),(d->rep + x86_pick(d->opsize,std::string("SCASW",5),std::string("SCASD",5))));
+break;}
+case cast<uint8_t>(176ULL):case cast<uint8_t>(177ULL):case cast<uint8_t>(178ULL):case cast<uint8_t>(179ULL):case cast<uint8_t>(180ULL):case cast<uint8_t>(181ULL):case cast<uint8_t>(182ULL):case cast<uint8_t>(183ULL):{
+return x86_op2(std::string("MOV",3),x86_reg8[cast<uint8_t>((op & cast<uint8_t>(7ULL)))],x86_hexImm(cast<uint32_t>(x86_dec_imm8(d)),cast<int64_t>(1ULL)));
+break;}
+case cast<uint8_t>(184ULL):case cast<uint8_t>(185ULL):case cast<uint8_t>(186ULL):case cast<uint8_t>(187ULL):case cast<uint8_t>(188ULL):case cast<uint8_t>(189ULL):case cast<uint8_t>(190ULL):case cast<uint8_t>(191ULL):{
+auto tmp194 = x86_dec_immOsz(d);
+uint32_t v = std::get<0>(tmp194);
+int64_t w = std::get<1>(tmp194);
+return x86_op2(std::string("MOV",3),x86_gpr(cast<uint8_t>((op & cast<uint8_t>(7ULL))),d->opsize),x86_hexImm(v,w));
+break;}
+case cast<uint8_t>(192ULL):{
+return x86_dec_grp2(d,cast<int64_t>(8ULL),std::string("imm",3));
+break;}
+case cast<uint8_t>(193ULL):{
+return x86_dec_grp2(d,d->opsize,std::string("imm",3));
+break;}
+case cast<uint8_t>(194ULL):{
+return x86_Inst{{},{},std::string("RET",3),(std::string("RET ",4) + x86_hexImm(cast<uint32_t>(x86_dec_imm16(d)),cast<int64_t>(2ULL))),cast<x86_Flow>(4ULL),{},{}};
+break;}
+case cast<uint8_t>(195ULL):{
+return x86_Inst{{},{},std::string("RET",3),std::string("RET",3),cast<x86_Flow>(4ULL),{},{}};
+break;}
+case cast<uint8_t>(196ULL):{
+auto tmp195 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp195);
+x86_rmOperand rm = std::get<1>(tmp195);
+return x86_op2(std::string("LES",3),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,d->opsize));
+break;}
+case cast<uint8_t>(197ULL):{
+auto tmp196 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp196);
+x86_rmOperand rm = std::get<1>(tmp196);
+return x86_op2(std::string("LDS",3),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,d->opsize));
+break;}
+case cast<uint8_t>(198ULL):{
+auto tmp197 = x86_dec_modrm(d);
+x86_rmOperand rm = std::get<1>(tmp197);
+return x86_op2(std::string("MOV",3),x86_rmOperand_atHint(rm,cast<int64_t>(8ULL)),x86_hexImm(cast<uint32_t>(x86_dec_imm8(d)),cast<int64_t>(1ULL)));
+break;}
+case cast<uint8_t>(199ULL):{
+auto tmp198 = x86_dec_modrm(d);
+x86_rmOperand rm = std::get<1>(tmp198);
+auto tmp199 = x86_dec_immOsz(d);
+uint32_t v = std::get<0>(tmp199);
+int64_t w = std::get<1>(tmp199);
+return x86_op2(std::string("MOV",3),x86_rmOperand_atHint(rm,d->opsize),x86_hexImm(v,w));
+break;}
+case cast<uint8_t>(200ULL):{
+uint16_t sz = x86_dec_imm16(d);
+uint8_t lvl = x86_dec_imm8(d);
+return x86_op2(std::string("ENTER",5),x86_hexImm(cast<uint32_t>(sz),cast<int64_t>(2ULL)),x86_hexImm(cast<uint32_t>(lvl),cast<int64_t>(1ULL)));
+break;}
+case cast<uint8_t>(201ULL):{
+return x86_mk(std::string("LEAVE",5),std::string("LEAVE",5));
+break;}
+case cast<uint8_t>(202ULL):{
+return x86_Inst{{},{},std::string("RETF",4),(std::string("RETF ",5) + x86_hexImm(cast<uint32_t>(x86_dec_imm16(d)),cast<int64_t>(2ULL))),cast<x86_Flow>(4ULL),{},{}};
+break;}
+case cast<uint8_t>(203ULL):{
+return x86_Inst{{},{},std::string("RETF",4),std::string("RETF",4),cast<x86_Flow>(4ULL),{},{}};
+break;}
+case cast<uint8_t>(204ULL):{
+return x86_mk(std::string("INT3",4),std::string("INT3",4));
+break;}
+case cast<uint8_t>(205ULL):{
+return x86_op1(std::string("INT",3),x86_hexImm(cast<uint32_t>(x86_dec_imm8(d)),cast<int64_t>(1ULL)));
+break;}
+case cast<uint8_t>(206ULL):{
+return x86_mk(std::string("INTO",4),std::string("INTO",4));
+break;}
+case cast<uint8_t>(207ULL):{
+return x86_Inst{{},{},std::string("IRET",4),x86_pick(d->opsize,std::string("IRET",4),std::string("IRETD",5)),cast<x86_Flow>(4ULL),{},{}};
+break;}
+case cast<uint8_t>(208ULL):{
+return x86_dec_grp2(d,cast<int64_t>(8ULL),std::string("1",1));
+break;}
+case cast<uint8_t>(209ULL):{
+return x86_dec_grp2(d,d->opsize,std::string("1",1));
+break;}
+case cast<uint8_t>(210ULL):{
+return x86_dec_grp2(d,cast<int64_t>(8ULL),std::string("CL",2));
+break;}
+case cast<uint8_t>(211ULL):{
+return x86_dec_grp2(d,d->opsize,std::string("CL",2));
+break;}
+case cast<uint8_t>(212ULL):{
+{
+uint8_t b = x86_dec_imm8(d);
+if ((b != cast<uint8_t>(10ULL))) {
+return x86_op1(std::string("AAM",3),x86_hexImm(cast<uint32_t>(b),cast<int64_t>(1ULL)));
+}
+}
+return x86_mk(std::string("AAM",3),std::string("AAM",3));
+break;}
+case cast<uint8_t>(213ULL):{
+{
+uint8_t b = x86_dec_imm8(d);
+if ((b != cast<uint8_t>(10ULL))) {
+return x86_op1(std::string("AAD",3),x86_hexImm(cast<uint32_t>(b),cast<int64_t>(1ULL)));
+}
+}
+return x86_mk(std::string("AAD",3),std::string("AAD",3));
+break;}
+case cast<uint8_t>(214ULL):{
+return x86_mk(std::string("SALC",4),std::string("SALC",4));
+break;}
+case cast<uint8_t>(215ULL):{
+return x86_mk(std::string("XLAT",4),std::string("XLAT",4));
+break;}
+case cast<uint8_t>(216ULL):case cast<uint8_t>(217ULL):case cast<uint8_t>(218ULL):case cast<uint8_t>(219ULL):case cast<uint8_t>(220ULL):case cast<uint8_t>(221ULL):case cast<uint8_t>(222ULL):case cast<uint8_t>(223ULL):{
+return x86_dec_fpu(d,op);
+break;}
+case cast<uint8_t>(224ULL):{
+return x86_dec_loop(d,std::string("LOOPNE",6));
+break;}
+case cast<uint8_t>(225ULL):{
+return x86_dec_loop(d,std::string("LOOPE",5));
+break;}
+case cast<uint8_t>(226ULL):{
+return x86_dec_loop(d,std::string("LOOP",4));
+break;}
+case cast<uint8_t>(227ULL):{
+return x86_dec_loop(d,x86_pick(d->addrsize,std::string("JCXZ",4),std::string("JECXZ",5)));
+break;}
+case cast<uint8_t>(228ULL):{
+return x86_op2(std::string("IN",2),std::string("AL",2),x86_hexImm(cast<uint32_t>(x86_dec_imm8(d)),cast<int64_t>(1ULL)));
+break;}
+case cast<uint8_t>(229ULL):{
+return x86_op2(std::string("IN",2),x86_gpr(cast<uint8_t>(0ULL),d->opsize),x86_hexImm(cast<uint32_t>(x86_dec_imm8(d)),cast<int64_t>(1ULL)));
+break;}
+case cast<uint8_t>(230ULL):{
+return x86_op2(std::string("OUT",3),x86_hexImm(cast<uint32_t>(x86_dec_imm8(d)),cast<int64_t>(1ULL)),std::string("AL",2));
+break;}
+case cast<uint8_t>(231ULL):{
+return x86_op2(std::string("OUT",3),x86_hexImm(cast<uint32_t>(x86_dec_imm8(d)),cast<int64_t>(1ULL)),x86_gpr(cast<uint8_t>(0ULL),d->opsize));
+break;}
+case cast<uint8_t>(232ULL):{
+uint32_t t = x86_dec_jrel(d,x86_imWidth(d->opsize));
+return x86_Inst{{},{},std::string("CALL",4),go_fmt_Sprintf(std::string("CALL $%08X",10),t),cast<x86_Flow>(3ULL),t,true};
+break;}
+case cast<uint8_t>(233ULL):{
+uint32_t t = x86_dec_jrel(d,x86_imWidth(d->opsize));
+return x86_Inst{{},{},std::string("JMP",3),go_fmt_Sprintf(std::string("JMP $%08X",9),t),cast<x86_Flow>(2ULL),t,true};
+break;}
+case cast<uint8_t>(234ULL):{
+return x86_dec_farPtr(d,std::string("JMPF",4),cast<x86_Flow>(2ULL));
+break;}
+case cast<uint8_t>(235ULL):{
+uint32_t t = x86_dec_jrel(d,cast<int64_t>(1ULL));
+return x86_Inst{{},{},std::string("JMP",3),go_fmt_Sprintf(std::string("JMP $%08X",9),t),cast<x86_Flow>(2ULL),t,true};
+break;}
+case cast<uint8_t>(236ULL):{
+return x86_op2(std::string("IN",2),std::string("AL",2),std::string("DX",2));
+break;}
+case cast<uint8_t>(237ULL):{
+return x86_op2(std::string("IN",2),x86_gpr(cast<uint8_t>(0ULL),d->opsize),std::string("DX",2));
+break;}
+case cast<uint8_t>(238ULL):{
+return x86_op2(std::string("OUT",3),std::string("DX",2),std::string("AL",2));
+break;}
+case cast<uint8_t>(239ULL):{
+return x86_op2(std::string("OUT",3),std::string("DX",2),x86_gpr(cast<uint8_t>(0ULL),d->opsize));
+break;}
+case cast<uint8_t>(241ULL):{
+return x86_mk(std::string("INT1",4),std::string("INT1",4));
+break;}
+case cast<uint8_t>(244ULL):{
+return x86_Inst{{},{},std::string("HLT",3),std::string("HLT",3),cast<x86_Flow>(6ULL),{},{}};
+break;}
+case cast<uint8_t>(245ULL):{
+return x86_mk(std::string("CMC",3),std::string("CMC",3));
+break;}
+case cast<uint8_t>(246ULL):{
+return x86_dec_grp3(d,cast<int64_t>(8ULL));
+break;}
+case cast<uint8_t>(247ULL):{
+return x86_dec_grp3(d,d->opsize);
+break;}
+case cast<uint8_t>(248ULL):{
+return x86_mk(std::string("CLC",3),std::string("CLC",3));
+break;}
+case cast<uint8_t>(249ULL):{
+return x86_mk(std::string("STC",3),std::string("STC",3));
+break;}
+case cast<uint8_t>(250ULL):{
+return x86_mk(std::string("CLI",3),std::string("CLI",3));
+break;}
+case cast<uint8_t>(251ULL):{
+return x86_mk(std::string("STI",3),std::string("STI",3));
+break;}
+case cast<uint8_t>(252ULL):{
+return x86_mk(std::string("CLD",3),std::string("CLD",3));
+break;}
+case cast<uint8_t>(253ULL):{
+return x86_mk(std::string("STD",3),std::string("STD",3));
+break;}
+case cast<uint8_t>(254ULL):{
+return x86_dec_grp4(d);
+break;}
+case cast<uint8_t>(255ULL):{
+return x86_dec_grp5(d);
+break;}
+}}
+d->bad = true;
+return x86_Inst{};
+}
+}
+// tools/cpu/x86/onebyte.go:326:1
+x86_Inst x86_dec_aluForm(x86_dec* d,std::string mnem,uint8_t z){
+{
+{
+switch(z){
+case cast<uint8_t>(0ULL):{
+auto tmp200 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp200);
+x86_rmOperand rm = std::get<1>(tmp200);
+return x86_op2(mnem,x86_rmOperand_at(rm,cast<int64_t>(8ULL)),x86_reg8[reg]);
+break;}
+case cast<uint8_t>(1ULL):{
+auto tmp201 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp201);
+x86_rmOperand rm = std::get<1>(tmp201);
+return x86_op2(mnem,x86_rmOperand_at(rm,d->opsize),x86_gpr(reg,d->opsize));
+break;}
+case cast<uint8_t>(2ULL):{
+auto tmp202 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp202);
+x86_rmOperand rm = std::get<1>(tmp202);
+return x86_op2(mnem,x86_reg8[reg],x86_rmOperand_at(rm,cast<int64_t>(8ULL)));
+break;}
+case cast<uint8_t>(3ULL):{
+auto tmp203 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp203);
+x86_rmOperand rm = std::get<1>(tmp203);
+return x86_op2(mnem,x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,d->opsize));
+break;}
+case cast<uint8_t>(4ULL):{
+return x86_op2(mnem,std::string("AL",2),x86_hexImm(cast<uint32_t>(x86_dec_imm8(d)),cast<int64_t>(1ULL)));
+break;}
+default:{
+auto tmp204 = x86_dec_immOsz(d);
+uint32_t v = std::get<0>(tmp204);
+int64_t w = std::get<1>(tmp204);
+return x86_op2(mnem,x86_gpr(cast<uint8_t>(0ULL),d->opsize),x86_hexImm(v,w));
+break;}
+}}
+}
+}
+// tools/cpu/x86/onebyte.go:349:1
+x86_Inst x86_dec_loop(x86_dec* d,std::string mnem){
+{
+uint32_t t = x86_dec_jrel(d,cast<int64_t>(1ULL));
+return x86_Inst{{},{},mnem,go_fmt_Sprintf(std::string("%s $%08X",8),mnem,t),cast<x86_Flow>(1ULL),t,true};
+}
+}
+// tools/cpu/x86/onebyte.go:356:1
+x86_Inst x86_dec_farPtr(x86_dec* d,std::string mnem,x86_Flow flow){
+{
+auto tmp205 = x86_dec_immOsz(d);
+uint32_t off = std::get<0>(tmp205);
+int64_t w = std::get<1>(tmp205);
+uint16_t seg = x86_dec_imm16(d);
+uint32_t t = cast<uint32_t>((shl<uint32_t>(cast<uint32_t>(seg),cast<int64_t>(4ULL)) + off));
+return x86_Inst{{},{},mnem,go_fmt_Sprintf(std::string("%s $%04X:%s",11),mnem,seg,x86_hexImm(off,w)),flow,t,true};
+}
+}
+// tools/cpu/x86/onebyte.go:365:1
+std::string x86_dec_moffs(x86_dec* d){
+{
+if ((d->addrsize == cast<int64_t>(32ULL))) {
+return go_fmt_Sprintf(std::string("[%s%s]",6),d->seg,x86_hexImm(x86_dec_imm32(d),cast<int64_t>(4ULL)));
+}
+return go_fmt_Sprintf(std::string("[%s%s]",6),d->seg,x86_hexImm(cast<uint32_t>(x86_dec_imm16(d)),cast<int64_t>(2ULL)));
+}
+}
+// tools/cpu/x86/onebyte.go:373:1
+std::string x86_pick(int64_t size,std::string a16,std::string a32){
+{
+if ((size == cast<int64_t>(32ULL))) {
+return a32;
+}
+return a16;
+}
+}
+// tools/cpu/x86/onebyte.go:381:1
+int64_t x86_imWidth(int64_t size){
+{
+if ((size == cast<int64_t>(32ULL))) {
+return cast<int64_t>(4ULL);
+}
+return cast<int64_t>(2ULL);
+}
+}
 // tools/cpu/x86/sse.go:32:1
 x86_sseKind x86_CPU_sseKindOf(x86_CPU* c,uint8_t rep){
 {
@@ -5229,7 +6400,7 @@ else {
 return cast<x86_sseKind>(0ULL);
 }
 }
-tmp152:;
+tmp206:;
 }
 }
 // tools/cpu/x86/sse.go:49:1
@@ -5321,11 +6492,11 @@ return cast<uint64_t>((cast<uint64_t>(x86_le32b(b)) | shl<uint64_t>(cast<uint64_
 // tools/cpu/x86/sse.go:104:1
 void x86_putle32(Slice<uint8_t> b,uint32_t v){
 {
-auto tmp153 = std::make_tuple(cast<uint8_t>(v),cast<uint8_t>(shr<uint32_t>(v,cast<int64_t>(8ULL))),cast<uint8_t>(shr<uint32_t>(v,cast<int64_t>(16ULL))),cast<uint8_t>(shr<uint32_t>(v,cast<int64_t>(24ULL))));
-b[cast<int64_t>(0ULL)] = std::get<0>(tmp153);
-b[cast<int64_t>(1ULL)] = std::get<1>(tmp153);
-b[cast<int64_t>(2ULL)] = std::get<2>(tmp153);
-b[cast<int64_t>(3ULL)] = std::get<3>(tmp153);
+auto tmp207 = std::make_tuple(cast<uint8_t>(v),cast<uint8_t>(shr<uint32_t>(v,cast<int64_t>(8ULL))),cast<uint8_t>(shr<uint32_t>(v,cast<int64_t>(16ULL))),cast<uint8_t>(shr<uint32_t>(v,cast<int64_t>(24ULL))));
+b[cast<int64_t>(0ULL)] = std::get<0>(tmp207);
+b[cast<int64_t>(1ULL)] = std::get<1>(tmp207);
+b[cast<int64_t>(2ULL)] = std::get<2>(tmp207);
+b[cast<int64_t>(3ULL)] = std::get<3>(tmp207);
 }
 }
 // tools/cpu/x86/sse.go:107:1
@@ -5359,9 +6530,9 @@ x86_sseKind k = x86_CPU_sseKindOf(c,rep);
 {
 switch(op){
 case cast<uint8_t>(16ULL):{
-auto tmp154 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp154);
-x86_ea o = std::get<1>(tmp154);
+auto tmp208 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp208);
+x86_ea o = std::get<1>(tmp208);
 std::array<uint8_t,16> src = x86_CPU_sseRM(c,o,x86_sseWidth(k));
 std::array<uint8_t,16> dst = c->XMM[reg];
 {
@@ -5390,17 +6561,17 @@ c->XMM[reg] = dst;
 return true;
 break;}
 case cast<uint8_t>(17ULL):{
-auto tmp155 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp155);
-x86_ea o = std::get<1>(tmp155);
+auto tmp209 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp209);
+x86_ea o = std::get<1>(tmp209);
 std::array<uint8_t,16> src = c->XMM[reg];
 x86_CPU_sseStoreRM(c,o,src,x86_sseWidth(k));
 return true;
 break;}
 case cast<uint8_t>(40ULL):case cast<uint8_t>(41ULL):{
-auto tmp156 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp156);
-x86_ea o = std::get<1>(tmp156);
+auto tmp210 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp210);
+x86_ea o = std::get<1>(tmp210);
 if ((op == cast<uint8_t>(40ULL))) {
 c->XMM[reg] = x86_CPU_sseRM(c,o,cast<int64_t>(16ULL));
 }
@@ -5410,16 +6581,16 @@ x86_CPU_sseStoreRM(c,o,c->XMM[reg],cast<int64_t>(16ULL));
 return true;
 break;}
 case cast<uint8_t>(43ULL):{
-auto tmp157 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp157);
-x86_ea o = std::get<1>(tmp157);
+auto tmp211 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp211);
+x86_ea o = std::get<1>(tmp211);
 x86_CPU_sseStoreRM(c,o,c->XMM[reg],cast<int64_t>(16ULL));
 return true;
 break;}
 case cast<uint8_t>(18ULL):case cast<uint8_t>(22ULL):{
-auto tmp158 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp158);
-x86_ea o = std::get<1>(tmp158);
+auto tmp212 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp212);
+x86_ea o = std::get<1>(tmp212);
 std::array<uint8_t,16> src = x86_CPU_sseRM(c,o,cast<int64_t>(8ULL));
 std::array<uint8_t,16> dst = c->XMM[reg];
 int64_t half = cast<int64_t>(0ULL);
@@ -5431,9 +6602,9 @@ c->XMM[reg] = dst;
 return true;
 break;}
 case cast<uint8_t>(19ULL):case cast<uint8_t>(23ULL):{
-auto tmp159 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp159);
-x86_ea o = std::get<1>(tmp159);
+auto tmp213 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp213);
+x86_ea o = std::get<1>(tmp213);
 std::array<uint8_t,16> src = c->XMM[reg];
 int64_t half = cast<int64_t>(0ULL);
 if ((op == cast<uint8_t>(23ULL))) {
@@ -5445,9 +6616,9 @@ x86_CPU_sseStoreRM(c,o,v,cast<int64_t>(8ULL));
 return true;
 break;}
 case cast<uint8_t>(110ULL):{
-auto tmp160 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp160);
-x86_ea o = std::get<1>(tmp160);
+auto tmp214 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp214);
+x86_ea o = std::get<1>(tmp214);
 uint32_t v = x86_CPU_rEA(c,o,cast<int64_t>(4ULL));
 if ((k == cast<x86_sseKind>(1ULL))) {
 std::array<uint8_t,16> b={};
@@ -5462,9 +6633,9 @@ c->MMX[cast<uint8_t>((reg & cast<uint8_t>(7ULL)))] = b;
 return true;
 break;}
 case cast<uint8_t>(126ULL):{
-auto tmp161 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp161);
-x86_ea o = std::get<1>(tmp161);
+auto tmp215 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp215);
+x86_ea o = std::get<1>(tmp215);
 if ((rep == cast<uint8_t>(243ULL))) {
 std::array<uint8_t,16> src = x86_CPU_sseRM(c,o,cast<int64_t>(8ULL));
 std::array<uint8_t,16> b={};
@@ -5483,9 +6654,9 @@ case cast<uint8_t>(119ULL):{
 return true;
 break;}
 case cast<uint8_t>(111ULL):{
-auto tmp162 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp162);
-x86_ea o = std::get<1>(tmp162);
+auto tmp216 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp216);
+x86_ea o = std::get<1>(tmp216);
 if (((k == cast<x86_sseKind>(1ULL)) || (rep == cast<uint8_t>(243ULL)))) {
 c->XMM[reg] = x86_CPU_sseRM(c,o,cast<int64_t>(16ULL));
 }
@@ -5495,9 +6666,9 @@ c->MMX[cast<uint8_t>((reg & cast<uint8_t>(7ULL)))] = x86_CPU_mmxRM(c,o);
 return true;
 break;}
 case cast<uint8_t>(127ULL):{
-auto tmp163 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp163);
-x86_ea o = std::get<1>(tmp163);
+auto tmp217 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp217);
+x86_ea o = std::get<1>(tmp217);
 if (((k == cast<x86_sseKind>(1ULL)) || (rep == cast<uint8_t>(243ULL)))) {
 x86_CPU_sseStoreRM(c,o,c->XMM[reg],cast<int64_t>(16ULL));
 }
@@ -5510,21 +6681,21 @@ case cast<uint8_t>(214ULL):{
 if ((k != cast<x86_sseKind>(1ULL))) {
 return false;
 }
-auto tmp164 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp164);
-x86_ea o = std::get<1>(tmp164);
+auto tmp218 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp218);
+x86_ea o = std::get<1>(tmp218);
 std::array<uint8_t,16> v={};
 gcopy(sub(v,cast<int64_t>(0ULL),cast<int64_t>(8ULL)),sub(c->XMM[reg],cast<int64_t>(0ULL),cast<int64_t>(8ULL)));
 x86_CPU_sseStoreRM(c,o,v,cast<int64_t>(8ULL));
 return true;
 break;}
 case cast<uint8_t>(198ULL):{
-auto tmp165 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp165);
-x86_ea o = std::get<1>(tmp165);
-auto tmp166 = std::make_tuple(c->XMM[reg],x86_CPU_sseRM(c,o,cast<int64_t>(16ULL)));
-std::array<uint8_t,16> a = std::get<0>(tmp166);
-std::array<uint8_t,16> b = std::get<1>(tmp166);
+auto tmp219 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp219);
+x86_ea o = std::get<1>(tmp219);
+auto tmp220 = std::make_tuple(c->XMM[reg],x86_CPU_sseRM(c,o,cast<int64_t>(16ULL)));
+std::array<uint8_t,16> a = std::get<0>(tmp220);
+std::array<uint8_t,16> b = std::get<1>(tmp220);
 uint8_t imm = cast<uint8_t>(x86_CPU_fetch8(c));
 std::array<uint8_t,16> r={};
 if ((k == cast<x86_sseKind>(1ULL))) {
@@ -5545,12 +6716,12 @@ c->XMM[reg] = r;
 return true;
 break;}
 case cast<uint8_t>(20ULL):case cast<uint8_t>(21ULL):{
-auto tmp167 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp167);
-x86_ea o = std::get<1>(tmp167);
-auto tmp168 = std::make_tuple(c->XMM[reg],x86_CPU_sseRM(c,o,cast<int64_t>(16ULL)));
-std::array<uint8_t,16> a = std::get<0>(tmp168);
-std::array<uint8_t,16> b = std::get<1>(tmp168);
+auto tmp221 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp221);
+x86_ea o = std::get<1>(tmp221);
+auto tmp222 = std::make_tuple(c->XMM[reg],x86_CPU_sseRM(c,o,cast<int64_t>(16ULL)));
+std::array<uint8_t,16> a = std::get<0>(tmp222);
+std::array<uint8_t,16> b = std::get<1>(tmp222);
 int64_t h = cast<int64_t>(0ULL);
 if ((op == cast<uint8_t>(21ULL))) {
 h = cast<int64_t>(8ULL);
@@ -5570,12 +6741,12 @@ c->XMM[reg] = r;
 return true;
 break;}
 case cast<uint8_t>(84ULL):case cast<uint8_t>(85ULL):case cast<uint8_t>(86ULL):case cast<uint8_t>(87ULL):{
-auto tmp169 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp169);
-x86_ea o = std::get<1>(tmp169);
-auto tmp170 = std::make_tuple(c->XMM[reg],x86_CPU_sseRM(c,o,cast<int64_t>(16ULL)));
-std::array<uint8_t,16> a = std::get<0>(tmp170);
-std::array<uint8_t,16> b = std::get<1>(tmp170);
+auto tmp223 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp223);
+x86_ea o = std::get<1>(tmp223);
+auto tmp224 = std::make_tuple(c->XMM[reg],x86_CPU_sseRM(c,o,cast<int64_t>(16ULL)));
+std::array<uint8_t,16> a = std::get<0>(tmp224);
+std::array<uint8_t,16> b = std::get<1>(tmp224);
 std::array<uint8_t,16> r={};
 {int64_t i = cast<int64_t>(0ULL);for (;(i < cast<int64_t>(16ULL));i++){
 {
@@ -5598,16 +6769,16 @@ break;}
 return true;
 break;}
 case cast<uint8_t>(88ULL):case cast<uint8_t>(89ULL):case cast<uint8_t>(92ULL):case cast<uint8_t>(93ULL):case cast<uint8_t>(94ULL):case cast<uint8_t>(95ULL):{
-auto tmp171 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp171);
-x86_ea o = std::get<1>(tmp171);
+auto tmp225 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp225);
+x86_ea o = std::get<1>(tmp225);
 x86_CPU_sseArith(c,op,k,reg,o);
 return true;
 break;}
 case cast<uint8_t>(81ULL):{
-auto tmp172 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp172);
-x86_ea o = std::get<1>(tmp172);
+auto tmp226 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp226);
+x86_ea o = std::get<1>(tmp226);
 x86_CPU_sseUnary(c,k,reg,o,[&](double x)->double{
 return go_math_Sqrt(x);
 }
@@ -5615,9 +6786,9 @@ return go_math_Sqrt(x);
 return true;
 break;}
 case cast<uint8_t>(83ULL):{
-auto tmp173 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp173);
-x86_ea o = std::get<1>(tmp173);
+auto tmp227 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp227);
+x86_ea o = std::get<1>(tmp227);
 x86_CPU_sseUnary(c,k,reg,o,[&](double x)->double{
 return (cast<double>(1.00000000000000000e+00) / x);
 }
@@ -5625,9 +6796,9 @@ return (cast<double>(1.00000000000000000e+00) / x);
 return true;
 break;}
 case cast<uint8_t>(82ULL):{
-auto tmp174 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp174);
-x86_ea o = std::get<1>(tmp174);
+auto tmp228 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp228);
+x86_ea o = std::get<1>(tmp228);
 x86_CPU_sseUnary(c,k,reg,o,[&](double x)->double{
 return (cast<double>(1.00000000000000000e+00) / go_math_Sqrt(x));
 }
@@ -5635,9 +6806,9 @@ return (cast<double>(1.00000000000000000e+00) / go_math_Sqrt(x));
 return true;
 break;}
 case cast<uint8_t>(42ULL):{
-auto tmp175 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp175);
-x86_ea o = std::get<1>(tmp175);
+auto tmp229 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp229);
+x86_ea o = std::get<1>(tmp229);
 std::array<uint8_t,16> dst = c->XMM[reg];
 {
 switch(k){
@@ -5652,9 +6823,9 @@ x86_setF32Lane((&dst),cast<int64_t>(0ULL),cast<float>(iv));
 break;}
 default:{
 std::array<uint8_t,8> src = x86_CPU_mmxRM(c,o);
-auto tmp176 = std::make_tuple(cast<int32_t>(x86_le32b(sub(src,cast<int64_t>(0ULL),len(src)))),cast<int32_t>(x86_le32b(sub(src,cast<int64_t>(4ULL),len(src)))));
-int32_t a = std::get<0>(tmp176);
-int32_t b = std::get<1>(tmp176);
+auto tmp230 = std::make_tuple(cast<int32_t>(x86_le32b(sub(src,cast<int64_t>(0ULL),len(src)))),cast<int32_t>(x86_le32b(sub(src,cast<int64_t>(4ULL),len(src)))));
+int32_t a = std::get<0>(tmp230);
+int32_t b = std::get<1>(tmp230);
 if ((k == cast<x86_sseKind>(1ULL))) {
 x86_setF64Lane((&dst),cast<int64_t>(0ULL),cast<double>(a));
 x86_setF64Lane((&dst),cast<int64_t>(1ULL),cast<double>(b));
@@ -5669,9 +6840,9 @@ c->XMM[reg] = dst;
 return true;
 break;}
 case cast<uint8_t>(44ULL):case cast<uint8_t>(45ULL):{
-auto tmp177 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp177);
-x86_ea o = std::get<1>(tmp177);
+auto tmp231 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp231);
+x86_ea o = std::get<1>(tmp231);
 bool trunc = (op == cast<uint8_t>(44ULL));
 auto cvt = [&](double f)->uint32_t{
 if (trunc) {
@@ -5714,9 +6885,9 @@ break;}
 return true;
 break;}
 case cast<uint8_t>(90ULL):{
-auto tmp178 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp178);
-x86_ea o = std::get<1>(tmp178);
+auto tmp232 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp232);
+x86_ea o = std::get<1>(tmp232);
 std::array<uint8_t,16> src = x86_CPU_sseRM(c,o,x86_sseWidth(k));
 std::array<uint8_t,16> dst = c->XMM[reg];
 {
@@ -5740,9 +6911,9 @@ c->XMM[reg] = dst;
 return true;
 break;}
 case cast<uint8_t>(91ULL):{
-auto tmp179 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp179);
-x86_ea o = std::get<1>(tmp179);
+auto tmp233 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp233);
+x86_ea o = std::get<1>(tmp233);
 std::array<uint8_t,16> src = x86_CPU_sseRM(c,o,cast<int64_t>(16ULL));
 std::array<uint8_t,16> dst = c->XMM[reg];
 if (((rep == cast<uint8_t>(243ULL)) || (c->dOpsize == cast<int64_t>(16ULL)))) {
@@ -5759,21 +6930,21 @@ c->XMM[reg] = dst;
 return true;
 break;}
 case cast<uint8_t>(46ULL):case cast<uint8_t>(47ULL):{
-auto tmp180 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp180);
-x86_ea o = std::get<1>(tmp180);
+auto tmp234 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp234);
+x86_ea o = std::get<1>(tmp234);
 std::array<uint8_t,16> src = x86_CPU_sseRM(c,o,x86_sseWidth(k));
 double a={};
 double b={};
 if (((k == cast<x86_sseKind>(3ULL)) || ((k == cast<x86_sseKind>(1ULL))))) {
-auto tmp181 = std::make_tuple(x86_f64Lane(c->XMM[reg],cast<int64_t>(0ULL)),x86_f64Lane(src,cast<int64_t>(0ULL)));
-a = std::get<0>(tmp181);
-b = std::get<1>(tmp181);
+auto tmp235 = std::make_tuple(x86_f64Lane(c->XMM[reg],cast<int64_t>(0ULL)),x86_f64Lane(src,cast<int64_t>(0ULL)));
+a = std::get<0>(tmp235);
+b = std::get<1>(tmp235);
 }
 else {
-auto tmp182 = std::make_tuple(cast<double>(x86_f32Lane(c->XMM[reg],cast<int64_t>(0ULL))),cast<double>(x86_f32Lane(src,cast<int64_t>(0ULL))));
-a = std::get<0>(tmp182);
-b = std::get<1>(tmp182);
+auto tmp236 = std::make_tuple(cast<double>(x86_f32Lane(c->XMM[reg],cast<int64_t>(0ULL))),cast<double>(x86_f32Lane(src,cast<int64_t>(0ULL))));
+a = std::get<0>(tmp236);
+b = std::get<1>(tmp236);
 }
 x86_CPU_sseCompareFlags(c,a,b);
 return true;
@@ -5782,12 +6953,12 @@ case cast<uint8_t>(239ULL):{
 if ((k != cast<x86_sseKind>(1ULL))) {
 return false;
 }
-auto tmp183 = x86_CPU_modrmE(c);
-uint8_t reg = std::get<0>(tmp183);
-x86_ea o = std::get<1>(tmp183);
-auto tmp184 = std::make_tuple(c->XMM[reg],x86_CPU_sseRM(c,o,cast<int64_t>(16ULL)));
-std::array<uint8_t,16> a = std::get<0>(tmp184);
-std::array<uint8_t,16> b = std::get<1>(tmp184);
+auto tmp237 = x86_CPU_modrmE(c);
+uint8_t reg = std::get<0>(tmp237);
+x86_ea o = std::get<1>(tmp237);
+auto tmp238 = std::make_tuple(c->XMM[reg],x86_CPU_sseRM(c,o,cast<int64_t>(16ULL)));
+std::array<uint8_t,16> a = std::get<0>(tmp238);
+std::array<uint8_t,16> b = std::get<1>(tmp238);
 std::array<uint8_t,16> r={};
 {int64_t i = cast<int64_t>(0ULL);for (;(i < cast<int64_t>(16ULL));i++){
 r[i] = cast<uint8_t>((a[i] ^ b[i]));
@@ -5904,37 +7075,625 @@ c->XMM[reg] = dst;
 // tools/cpu/x86/sse.go:538:1
 void x86_CPU_sseCompareFlags(x86_CPU* c,double a,double b){
 {
-auto tmp185 = std::make_tuple(false,false,false);
-c->OF = std::get<0>(tmp185);
-c->SF = std::get<1>(tmp185);
-c->AF = std::get<2>(tmp185);
+auto tmp239 = std::make_tuple(false,false,false);
+c->OF = std::get<0>(tmp239);
+c->SF = std::get<1>(tmp239);
+c->AF = std::get<2>(tmp239);
 {
 if ((go_math_IsNaN(a) || go_math_IsNaN(b))){
-auto tmp187 = std::make_tuple(true,true,true);
-c->ZF = std::get<0>(tmp187);
-c->PF = std::get<1>(tmp187);
-c->CF = std::get<2>(tmp187);
+auto tmp241 = std::make_tuple(true,true,true);
+c->ZF = std::get<0>(tmp241);
+c->PF = std::get<1>(tmp241);
+c->CF = std::get<2>(tmp241);
 }
 else if ((a > b)){
-auto tmp188 = std::make_tuple(false,false,false);
-c->ZF = std::get<0>(tmp188);
-c->PF = std::get<1>(tmp188);
-c->CF = std::get<2>(tmp188);
+auto tmp242 = std::make_tuple(false,false,false);
+c->ZF = std::get<0>(tmp242);
+c->PF = std::get<1>(tmp242);
+c->CF = std::get<2>(tmp242);
 }
 else if ((a < b)){
-auto tmp189 = std::make_tuple(false,false,true);
-c->ZF = std::get<0>(tmp189);
-c->PF = std::get<1>(tmp189);
-c->CF = std::get<2>(tmp189);
+auto tmp243 = std::make_tuple(false,false,true);
+c->ZF = std::get<0>(tmp243);
+c->PF = std::get<1>(tmp243);
+c->CF = std::get<2>(tmp243);
 }
 else {
-auto tmp190 = std::make_tuple(true,false,false);
-c->ZF = std::get<0>(tmp190);
-c->PF = std::get<1>(tmp190);
-c->CF = std::get<2>(tmp190);
+auto tmp244 = std::make_tuple(true,false,false);
+c->ZF = std::get<0>(tmp244);
+c->PF = std::get<1>(tmp244);
+c->CF = std::get<2>(tmp244);
 }
 }
-tmp186:;
+tmp240:;
+}
+}
+// tools/cpu/x86/twobyte.go:7:1
+x86_Inst x86_dec_twoByte(x86_dec* d,uint8_t op){
+{
+{
+if (((op >= cast<uint8_t>(128ULL)) && (op <= cast<uint8_t>(143ULL)))){
+std::string mnem = (std::string("J",1) + x86_ccName[cast<uint8_t>((op & cast<uint8_t>(15ULL)))]);
+uint32_t t = x86_dec_jrel(d,x86_imWidth(d->opsize));
+return x86_Inst{{},{},mnem,go_fmt_Sprintf(std::string("%s $%08X",8),mnem,t),cast<x86_Flow>(1ULL),t,true};
+}
+else if (((op >= cast<uint8_t>(144ULL)) && (op <= cast<uint8_t>(159ULL)))){
+auto tmp246 = x86_dec_modrm(d);
+x86_rmOperand rm = std::get<1>(tmp246);
+std::string mnem = (std::string("SET",3) + x86_ccName[cast<uint8_t>((op & cast<uint8_t>(15ULL)))]);
+return x86_op1(mnem,x86_rmOperand_atHint(rm,cast<int64_t>(8ULL)));
+}
+else if (((op >= cast<uint8_t>(64ULL)) && (op <= cast<uint8_t>(79ULL)))){
+auto tmp247 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp247);
+x86_rmOperand rm = std::get<1>(tmp247);
+std::string mnem = (std::string("CMOV",4) + x86_ccName[cast<uint8_t>((op & cast<uint8_t>(15ULL)))]);
+return x86_op2(mnem,x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,d->opsize));
+}
+else if (((op >= cast<uint8_t>(200ULL)) && (op <= cast<uint8_t>(207ULL)))){
+return x86_op1(std::string("BSWAP",5),x86_reg32[cast<uint8_t>((op & cast<uint8_t>(7ULL)))]);
+}
+}
+tmp245:;
+{
+switch(op){
+case cast<uint8_t>(0ULL):{
+return x86_dec_grp6(d);
+break;}
+case cast<uint8_t>(1ULL):{
+return x86_dec_grp7(d);
+break;}
+case cast<uint8_t>(2ULL):{
+auto tmp248 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp248);
+x86_rmOperand rm = std::get<1>(tmp248);
+return x86_op2(std::string("LAR",3),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,d->opsize));
+break;}
+case cast<uint8_t>(3ULL):{
+auto tmp249 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp249);
+x86_rmOperand rm = std::get<1>(tmp249);
+return x86_op2(std::string("LSL",3),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,d->opsize));
+break;}
+case cast<uint8_t>(6ULL):{
+return x86_mk(std::string("CLTS",4),std::string("CLTS",4));
+break;}
+case cast<uint8_t>(8ULL):{
+return x86_mk(std::string("INVD",4),std::string("INVD",4));
+break;}
+case cast<uint8_t>(9ULL):{
+return x86_mk(std::string("WBINVD",6),std::string("WBINVD",6));
+break;}
+case cast<uint8_t>(11ULL):{
+return x86_Inst{{},{},std::string("UD2",3),std::string("UD2",3),cast<x86_Flow>(6ULL),{},{}};
+break;}
+case cast<uint8_t>(32ULL):{
+auto tmp250 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp250);
+x86_rmOperand rm = std::get<1>(tmp250);
+return x86_op2(std::string("MOV",3),x86_rmOperand_at(rm,cast<int64_t>(32ULL)),go_fmt_Sprintf(std::string("CR%d",4),reg));
+break;}
+case cast<uint8_t>(33ULL):{
+auto tmp251 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp251);
+x86_rmOperand rm = std::get<1>(tmp251);
+return x86_op2(std::string("MOV",3),x86_rmOperand_at(rm,cast<int64_t>(32ULL)),go_fmt_Sprintf(std::string("DR%d",4),reg));
+break;}
+case cast<uint8_t>(34ULL):{
+auto tmp252 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp252);
+x86_rmOperand rm = std::get<1>(tmp252);
+return x86_op2(std::string("MOV",3),go_fmt_Sprintf(std::string("CR%d",4),reg),x86_rmOperand_at(rm,cast<int64_t>(32ULL)));
+break;}
+case cast<uint8_t>(35ULL):{
+auto tmp253 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp253);
+x86_rmOperand rm = std::get<1>(tmp253);
+return x86_op2(std::string("MOV",3),go_fmt_Sprintf(std::string("DR%d",4),reg),x86_rmOperand_at(rm,cast<int64_t>(32ULL)));
+break;}
+case cast<uint8_t>(49ULL):{
+return x86_mk(std::string("RDTSC",5),std::string("RDTSC",5));
+break;}
+case cast<uint8_t>(160ULL):{
+return x86_op1(std::string("PUSH",4),std::string("FS",2));
+break;}
+case cast<uint8_t>(161ULL):{
+return x86_op1(std::string("POP",3),std::string("FS",2));
+break;}
+case cast<uint8_t>(162ULL):{
+return x86_mk(std::string("CPUID",5),std::string("CPUID",5));
+break;}
+case cast<uint8_t>(163ULL):{
+auto tmp254 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp254);
+x86_rmOperand rm = std::get<1>(tmp254);
+return x86_op2(std::string("BT",2),x86_rmOperand_at(rm,d->opsize),x86_gpr(reg,d->opsize));
+break;}
+case cast<uint8_t>(164ULL):{
+auto tmp255 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp255);
+x86_rmOperand rm = std::get<1>(tmp255);
+return x86_mk(std::string("SHLD",4),go_fmt_Sprintf(std::string("SHLD %s, %s, %s",15),x86_rmOperand_at(rm,d->opsize),x86_gpr(reg,d->opsize),x86_hexImm(cast<uint32_t>(x86_dec_imm8(d)),cast<int64_t>(1ULL))));
+break;}
+case cast<uint8_t>(165ULL):{
+auto tmp256 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp256);
+x86_rmOperand rm = std::get<1>(tmp256);
+return x86_mk(std::string("SHLD",4),go_fmt_Sprintf(std::string("SHLD %s, %s, CL",15),x86_rmOperand_at(rm,d->opsize),x86_gpr(reg,d->opsize)));
+break;}
+case cast<uint8_t>(168ULL):{
+return x86_op1(std::string("PUSH",4),std::string("GS",2));
+break;}
+case cast<uint8_t>(169ULL):{
+return x86_op1(std::string("POP",3),std::string("GS",2));
+break;}
+case cast<uint8_t>(171ULL):{
+auto tmp257 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp257);
+x86_rmOperand rm = std::get<1>(tmp257);
+return x86_op2(std::string("BTS",3),x86_rmOperand_at(rm,d->opsize),x86_gpr(reg,d->opsize));
+break;}
+case cast<uint8_t>(172ULL):{
+auto tmp258 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp258);
+x86_rmOperand rm = std::get<1>(tmp258);
+return x86_mk(std::string("SHRD",4),go_fmt_Sprintf(std::string("SHRD %s, %s, %s",15),x86_rmOperand_at(rm,d->opsize),x86_gpr(reg,d->opsize),x86_hexImm(cast<uint32_t>(x86_dec_imm8(d)),cast<int64_t>(1ULL))));
+break;}
+case cast<uint8_t>(173ULL):{
+auto tmp259 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp259);
+x86_rmOperand rm = std::get<1>(tmp259);
+return x86_mk(std::string("SHRD",4),go_fmt_Sprintf(std::string("SHRD %s, %s, CL",15),x86_rmOperand_at(rm,d->opsize),x86_gpr(reg,d->opsize)));
+break;}
+case cast<uint8_t>(175ULL):{
+auto tmp260 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp260);
+x86_rmOperand rm = std::get<1>(tmp260);
+return x86_op2(std::string("IMUL",4),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,d->opsize));
+break;}
+case cast<uint8_t>(176ULL):{
+auto tmp261 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp261);
+x86_rmOperand rm = std::get<1>(tmp261);
+return x86_op2(std::string("CMPXCHG",7),x86_rmOperand_at(rm,cast<int64_t>(8ULL)),x86_reg8[reg]);
+break;}
+case cast<uint8_t>(177ULL):{
+auto tmp262 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp262);
+x86_rmOperand rm = std::get<1>(tmp262);
+return x86_op2(std::string("CMPXCHG",7),x86_rmOperand_at(rm,d->opsize),x86_gpr(reg,d->opsize));
+break;}
+case cast<uint8_t>(178ULL):{
+auto tmp263 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp263);
+x86_rmOperand rm = std::get<1>(tmp263);
+return x86_op2(std::string("LSS",3),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,d->opsize));
+break;}
+case cast<uint8_t>(179ULL):{
+auto tmp264 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp264);
+x86_rmOperand rm = std::get<1>(tmp264);
+return x86_op2(std::string("BTR",3),x86_rmOperand_at(rm,d->opsize),x86_gpr(reg,d->opsize));
+break;}
+case cast<uint8_t>(180ULL):{
+auto tmp265 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp265);
+x86_rmOperand rm = std::get<1>(tmp265);
+return x86_op2(std::string("LFS",3),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,d->opsize));
+break;}
+case cast<uint8_t>(181ULL):{
+auto tmp266 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp266);
+x86_rmOperand rm = std::get<1>(tmp266);
+return x86_op2(std::string("LGS",3),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,d->opsize));
+break;}
+case cast<uint8_t>(182ULL):{
+auto tmp267 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp267);
+x86_rmOperand rm = std::get<1>(tmp267);
+return x86_op2(std::string("MOVZX",5),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,cast<int64_t>(8ULL)));
+break;}
+case cast<uint8_t>(183ULL):{
+auto tmp268 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp268);
+x86_rmOperand rm = std::get<1>(tmp268);
+return x86_op2(std::string("MOVZX",5),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,cast<int64_t>(16ULL)));
+break;}
+case cast<uint8_t>(186ULL):{
+return x86_dec_grp8(d);
+break;}
+case cast<uint8_t>(187ULL):{
+auto tmp269 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp269);
+x86_rmOperand rm = std::get<1>(tmp269);
+return x86_op2(std::string("BTC",3),x86_rmOperand_at(rm,d->opsize),x86_gpr(reg,d->opsize));
+break;}
+case cast<uint8_t>(188ULL):{
+auto tmp270 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp270);
+x86_rmOperand rm = std::get<1>(tmp270);
+return x86_op2(std::string("BSF",3),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,d->opsize));
+break;}
+case cast<uint8_t>(189ULL):{
+auto tmp271 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp271);
+x86_rmOperand rm = std::get<1>(tmp271);
+return x86_op2(std::string("BSR",3),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,d->opsize));
+break;}
+case cast<uint8_t>(190ULL):{
+auto tmp272 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp272);
+x86_rmOperand rm = std::get<1>(tmp272);
+return x86_op2(std::string("MOVSX",5),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,cast<int64_t>(8ULL)));
+break;}
+case cast<uint8_t>(191ULL):{
+auto tmp273 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp273);
+x86_rmOperand rm = std::get<1>(tmp273);
+return x86_op2(std::string("MOVSX",5),x86_gpr(reg,d->opsize),x86_rmOperand_at(rm,cast<int64_t>(16ULL)));
+break;}
+case cast<uint8_t>(192ULL):{
+auto tmp274 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp274);
+x86_rmOperand rm = std::get<1>(tmp274);
+return x86_op2(std::string("XADD",4),x86_rmOperand_at(rm,cast<int64_t>(8ULL)),x86_reg8[reg]);
+break;}
+case cast<uint8_t>(193ULL):{
+auto tmp275 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp275);
+x86_rmOperand rm = std::get<1>(tmp275);
+return x86_op2(std::string("XADD",4),x86_rmOperand_at(rm,d->opsize),x86_gpr(reg,d->opsize));
+break;}
+}}
+{
+auto tmp276 = lookup(x86_mmxIntName,op);
+std::string mnem = std::get<0>(tmp276);
+bool ok = std::get<1>(tmp276);
+if (ok) {
+{
+switch(op){
+case cast<uint8_t>(112ULL):case cast<uint8_t>(196ULL):case cast<uint8_t>(197ULL):case cast<uint8_t>(198ULL):{
+auto tmp277 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp277);
+x86_rmOperand rm = std::get<1>(tmp277);
+return x86_Inst{{},{},mnem,go_fmt_Sprintf(std::string("%s mm%d, %s, $%02X",18),mnem,reg,x86_rmOperand_atHint(rm,cast<int64_t>(32ULL)),x86_dec_imm8(d)),{},{},{}};
+break;}
+case cast<uint8_t>(113ULL):case cast<uint8_t>(114ULL):case cast<uint8_t>(115ULL):{
+auto tmp278 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp278);
+x86_rmOperand rm = std::get<1>(tmp278);
+Map<uint8_t,std::string> grp = Map<uint8_t,std::string>{{cast<uint8_t>(2ULL),std::string("PSRL",4)},{cast<uint8_t>(3ULL),std::string("PSRLDQ",6)},{cast<uint8_t>(4ULL),std::string("PSRA",4)},{cast<uint8_t>(6ULL),std::string("PSLL",4)},{cast<uint8_t>(7ULL),std::string("PSLLDQ",6)}};
+Map<uint8_t,std::string> sz = Map<uint8_t,std::string>{{cast<uint8_t>(113ULL),std::string("W",1)},{cast<uint8_t>(114ULL),std::string("D",1)},{cast<uint8_t>(115ULL),std::string("Q",1)}};
+{
+auto tmp279 = lookup(grp,reg);
+std::string g = std::get<0>(tmp279);
+bool ok = std::get<1>(tmp279);
+if (ok) {
+std::string n = (g + get(sz,op));
+if (((reg == cast<uint8_t>(3ULL)) || (reg == cast<uint8_t>(7ULL)))) {
+n = g;
+}
+return x86_Inst{{},{},n,go_fmt_Sprintf(std::string("%s %s, $%02X",12),n,x86_rmOperand_atHint(rm,cast<int64_t>(32ULL)),x86_dec_imm8(d)),{},{},{}};
+}
+}
+break;}
+default:{
+auto tmp280 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp280);
+x86_rmOperand rm = std::get<1>(tmp280);
+return x86_Inst{{},{},mnem,go_fmt_Sprintf(std::string("%s mm%d, %s",11),mnem,reg,x86_rmOperand_atHint(rm,cast<int64_t>(32ULL))),{},{},{}};
+break;}
+}}
+}
+}
+return x86_Inst{{},{},std::string(".byte",5),go_fmt_Sprintf(std::string(".byte $0F,$%02X",15),op),cast<x86_Flow>(6ULL),{},{}};
+}
+}
+// tools/cpu/x86/twobyte.go:206:1
+x86_Inst x86_dec_grp6(x86_dec* d){
+{
+auto tmp281 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp281);
+x86_rmOperand rm = std::get<1>(tmp281);
+std::array<std::string,6> names = std::array<std::string,6>{std::string("SLDT",4),std::string("STR",3),std::string("LLDT",4),std::string("LTR",3),std::string("VERR",4),std::string("VERW",4)};
+if ((reg < cast<uint8_t>(6ULL))) {
+return x86_op1(names[reg],x86_rmOperand_atHint(rm,cast<int64_t>(16ULL)));
+}
+d->bad = true;
+return x86_Inst{};
+}
+}
+// tools/cpu/x86/twobyte.go:217:1
+x86_Inst x86_dec_grp7(x86_dec* d){
+{
+auto tmp282 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp282);
+x86_rmOperand rm = std::get<1>(tmp282);
+{
+switch(reg){
+case cast<uint8_t>(0ULL):{
+return x86_op1(std::string("SGDT",4),x86_rmOperand_at(rm,d->opsize));
+break;}
+case cast<uint8_t>(1ULL):{
+return x86_op1(std::string("SIDT",4),x86_rmOperand_at(rm,d->opsize));
+break;}
+case cast<uint8_t>(2ULL):{
+return x86_op1(std::string("LGDT",4),x86_rmOperand_at(rm,d->opsize));
+break;}
+case cast<uint8_t>(3ULL):{
+return x86_op1(std::string("LIDT",4),x86_rmOperand_at(rm,d->opsize));
+break;}
+case cast<uint8_t>(4ULL):{
+return x86_op1(std::string("SMSW",4),x86_rmOperand_atHint(rm,cast<int64_t>(16ULL)));
+break;}
+case cast<uint8_t>(6ULL):{
+return x86_op1(std::string("LMSW",4),x86_rmOperand_atHint(rm,cast<int64_t>(16ULL)));
+break;}
+case cast<uint8_t>(7ULL):{
+return x86_op1(std::string("INVLPG",6),x86_rmOperand_at(rm,d->opsize));
+break;}
+}}
+d->bad = true;
+return x86_Inst{};
+}
+}
+// tools/cpu/x86/twobyte.go:240:1
+x86_Inst x86_dec_grp8(x86_dec* d){
+{
+auto tmp283 = x86_dec_modrm(d);
+uint8_t reg = std::get<0>(tmp283);
+x86_rmOperand rm = std::get<1>(tmp283);
+Map<uint8_t,std::string> names = Map<uint8_t,std::string>{{cast<uint8_t>(4ULL),std::string("BT",2)},{cast<uint8_t>(5ULL),std::string("BTS",3)},{cast<uint8_t>(6ULL),std::string("BTR",3)},{cast<uint8_t>(7ULL),std::string("BTC",3)}};
+{
+auto tmp284 = lookup(names,reg);
+std::string n = std::get<0>(tmp284);
+bool ok = std::get<1>(tmp284);
+if (ok) {
+return x86_op2(n,x86_rmOperand_atHint(rm,d->opsize),x86_hexImm(cast<uint32_t>(x86_dec_imm8(d)),cast<int64_t>(1ULL)));
+}
+}
+d->bad = true;
+return x86_Inst{};
+}
+}
+// tools/cpu/x86/x86.go:73:1
+x86_Inst x86_Decode(Slice<uint8_t> code,uint32_t addr){
+{
+x86_dec* d = arenaNew(x86_dec{code,addr,{},{},{},{},{},{},{},{},{}});
+x86_Inst in = x86_dec_run(d);
+return x86_dec_finish(d,code,addr,in);
+}
+}
+// tools/cpu/x86/x86.go:82:1
+x86_Inst x86_Decode32(Slice<uint8_t> code,uint32_t addr){
+{
+x86_dec* d = arenaNew(x86_dec{code,addr,{},cast<int64_t>(32ULL),{},{},{},{},{},{},{}});
+x86_Inst in = x86_dec_run(d);
+return x86_dec_finish(d,code,addr,in);
+}
+}
+// tools/cpu/x86/x86.go:90:1
+x86_Inst x86_dec_finish(x86_dec* d,Slice<uint8_t> code,uint32_t addr,x86_Inst in){
+{
+if (d->bad) {
+uint8_t b = cast<uint8_t>(0ULL);
+if ((len(code) > cast<int64_t>(0ULL))) {
+b = code[cast<int64_t>(0ULL)];
+}
+return x86_Inst{addr,cast<int64_t>(1ULL),std::string(".byte",5),go_fmt_Sprintf(std::string(".byte $%02X",11),b),cast<x86_Flow>(6ULL),{},{}};
+}
+in.Addr = addr;
+in.Len = d->p;
+if ((d->prefixText != std::string("",0))) {
+in.Text = (d->prefixText + in.Text);
+}
+return in;
+}
+}
+// tools/cpu/x86/x86.go:125:1
+uint8_t x86_dec_next(x86_dec* d){
+{
+if ((d->p >= len(d->mem))) {
+d->bad = true;
+return cast<uint8_t>(0ULL);
+}
+uint8_t b = d->mem[d->p];
+d->p++;
+return b;
+}
+}
+// tools/cpu/x86/x86.go:135:1
+uint8_t x86_dec_imm8(x86_dec* d){
+{
+return x86_dec_next(d);
+}
+}
+// tools/cpu/x86/x86.go:136:1
+uint16_t x86_dec_imm16(x86_dec* d){
+{
+uint16_t lo = cast<uint16_t>(x86_dec_next(d));
+uint16_t hi = cast<uint16_t>(x86_dec_next(d));
+return cast<uint16_t>((lo | shl<uint16_t>(hi,cast<int64_t>(8ULL))));
+}
+}
+// tools/cpu/x86/x86.go:141:1
+uint32_t x86_dec_imm32(x86_dec* d){
+{
+uint32_t lo = cast<uint32_t>(x86_dec_imm16(d));
+uint32_t hi = cast<uint32_t>(x86_dec_imm16(d));
+return cast<uint32_t>((lo | shl<uint32_t>(hi,cast<int64_t>(16ULL))));
+}
+}
+// tools/cpu/x86/x86.go:149:1
+std::tuple<uint32_t,int64_t> x86_dec_immOsz(x86_dec* d){
+{
+if ((d->opsize == cast<int64_t>(32ULL))) {
+return {x86_dec_imm32(d),cast<int64_t>(4ULL)};
+}
+return {cast<uint32_t>(x86_dec_imm16(d)),cast<int64_t>(2ULL)};
+}
+}
+// tools/cpu/x86/x86.go:158:1
+uint32_t x86_dec_jrel(x86_dec* d,int64_t size){
+{
+int32_t rel={};
+{
+switch(size){
+case cast<int64_t>(1ULL):{
+rel = cast<int32_t>(cast<int8_t>(x86_dec_next(d)));
+break;}
+case cast<int64_t>(2ULL):{
+rel = cast<int32_t>(cast<int16_t>(x86_dec_imm16(d)));
+break;}
+default:{
+rel = cast<int32_t>(x86_dec_imm32(d));
+break;}
+}}
+return cast<uint32_t>((cast<uint32_t>((d->addr + cast<uint32_t>(d->p))) + cast<uint32_t>(rel)));
+}
+}
+// tools/cpu/x86/x86.go:172:1
+x86_Inst x86_dec_run(x86_dec* d){
+{
+if ((d->defSize == cast<int64_t>(32ULL))) {
+auto tmp285 = std::make_tuple(cast<int64_t>(32ULL),cast<int64_t>(32ULL));
+d->opsize = std::get<0>(tmp285);
+d->addrsize = std::get<1>(tmp285);
+}
+else {
+auto tmp286 = std::make_tuple(cast<int64_t>(16ULL),cast<int64_t>(16ULL));
+d->opsize = std::get<0>(tmp286);
+d->addrsize = std::get<1>(tmp286);
+}
+int64_t alt = cast<int64_t>(32ULL);
+if ((d->defSize == cast<int64_t>(32ULL))) {
+alt = cast<int64_t>(16ULL);
+}
+{;for (;;){
+if ((d->p >= len(d->mem))) {
+d->bad = true;
+return x86_Inst{};
+}
+uint8_t op = d->mem[d->p];
+{
+switch(op){
+case cast<uint8_t>(38ULL):case cast<uint8_t>(46ULL):case cast<uint8_t>(54ULL):case cast<uint8_t>(62ULL):case cast<uint8_t>(100ULL):case cast<uint8_t>(101ULL):{
+d->seg = (x86_segOverride(op) + std::string(":",1));
+d->p++;
+continue;
+break;}
+case cast<uint8_t>(102ULL):{
+d->opsize = alt;
+d->p++;
+continue;
+break;}
+case cast<uint8_t>(103ULL):{
+d->addrsize = alt;
+d->p++;
+continue;
+break;}
+case cast<uint8_t>(240ULL):{
+d->lock = true;
+d->prefixText = std::string("LOCK ",5);
+d->p++;
+continue;
+break;}
+case cast<uint8_t>(242ULL):{
+d->rep = std::string("REPNE ",6);
+d->p++;
+continue;
+break;}
+case cast<uint8_t>(243ULL):{
+d->rep = std::string("REP ",4);
+d->p++;
+continue;
+break;}
+}}
+break;
+}
+}uint8_t op = x86_dec_next(d);
+if ((op == cast<uint8_t>(15ULL))) {
+return x86_dec_twoByte(d,x86_dec_next(d));
+}
+return x86_dec_oneByte(d,op);
+}
+}
+// tools/cpu/x86/x86.go:226:1
+std::string x86_segOverride(uint8_t op){
+{
+{
+switch(op){
+case cast<uint8_t>(38ULL):{
+return std::string("ES",2);
+break;}
+case cast<uint8_t>(46ULL):{
+return std::string("CS",2);
+break;}
+case cast<uint8_t>(54ULL):{
+return std::string("SS",2);
+break;}
+case cast<uint8_t>(62ULL):{
+return std::string("DS",2);
+break;}
+case cast<uint8_t>(100ULL):{
+return std::string("FS",2);
+break;}
+default:{
+return std::string("GS",2);
+break;}
+}}
+}
+}
+// tools/cpu/x86/x86.go:246:1
+x86_Inst x86_mk(std::string mnem,std::string text){
+{
+return x86_Inst{{},{},mnem,text,cast<x86_Flow>(0ULL),{},{}};
+}
+}
+// tools/cpu/x86/x86.go:249:1
+x86_Inst x86_op1(std::string mnem,std::string a){
+{
+return x86_mk(mnem,((mnem + std::string(" ",1)) + a));
+}
+}
+// tools/cpu/x86/x86.go:252:1
+x86_Inst x86_op2(std::string mnem,std::string a,std::string b){
+{
+return x86_mk(mnem,((((mnem + std::string(" ",1)) + a) + std::string(", ",2)) + b));
+}
+}
+// tools/cpu/x86/x86.go:255:1
+std::string x86_gpr(uint8_t i,int64_t size){
+{
+{
+switch(size){
+case cast<int64_t>(8ULL):{
+return x86_reg8[i];
+break;}
+case cast<int64_t>(32ULL):{
+return x86_reg32[i];
+break;}
+default:{
+return x86_reg16[i];
+break;}
+}}
+}
+}
+// tools/cpu/x86/x86.go:267:1
+std::string x86_hexImm(uint32_t v,int64_t width){
+{
+{
+switch(width){
+case cast<int64_t>(1ULL):{
+return go_fmt_Sprintf(std::string("$%02X",5),cast<uint32_t>((v & cast<uint32_t>(255ULL))));
+break;}
+case cast<int64_t>(4ULL):{
+return go_fmt_Sprintf(std::string("$%08X",5),v);
+break;}
+default:{
+return go_fmt_Sprintf(std::string("$%04X",5),cast<uint32_t>((v & cast<uint32_t>(65535ULL))));
+break;}
+}}
 }
 }
 // tools/platform/dos/coff.go:45:1
@@ -6162,7 +7921,7 @@ dos_Machine_vgaWrite(m,a,v);
 return ;
 }
 m->Mem[a] = v;
-if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[a]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->Mem[a]));
 }
 }
 // tools/platform/dos/dos.go:211:1
@@ -6204,7 +7963,7 @@ void dos_Machine_setupBIOS(dos_Machine* m){
 constexpr int64_t biosSeg=61440ULL;
 constexpr int64_t biosOff=65363ULL;
 m->Mem[cast<uint32_t>(1048403ULL)] = cast<uint8_t>(207ULL);
-if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>(1048403ULL)]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->Mem[cast<uint32_t>(1048403ULL)]));
 {int64_t n = cast<int64_t>(0ULL);for (;(n < cast<int64_t>(256ULL));n++){
 dos_Machine_w16(m,cast<uint32_t>((cast<uint32_t>(n) * cast<uint32_t>(4ULL))),cast<uint16_t>(65363ULL));
 dos_Machine_w16(m,cast<uint32_t>((cast<uint32_t>((cast<uint32_t>(n) * cast<uint32_t>(4ULL))) + cast<uint32_t>(2ULL))),cast<uint16_t>(61440ULL));
@@ -6213,13 +7972,13 @@ dos_Machine_w16(m,cast<uint32_t>((cast<uint32_t>((cast<uint32_t>(n) * cast<uint3
 dos_Machine_w16(m,cast<uint32_t>((bda + cast<uint32_t>(16ULL))),cast<uint16_t>(33ULL));
 dos_Machine_w16(m,cast<uint32_t>((bda + cast<uint32_t>(19ULL))),cast<uint16_t>(640ULL));
 m->Mem[cast<uint32_t>((bda + cast<uint32_t>(73ULL)))] = cast<uint8_t>(3ULL);
-if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((bda + cast<uint32_t>(73ULL)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->Mem[cast<uint32_t>((bda + cast<uint32_t>(73ULL)))]));
 dos_Machine_w16(m,cast<uint32_t>((bda + cast<uint32_t>(74ULL))),cast<uint16_t>(80ULL));
 dos_Machine_w16(m,cast<uint32_t>((bda + cast<uint32_t>(99ULL))),cast<uint16_t>(980ULL));
 m->Mem[cast<uint32_t>((bda + cast<uint32_t>(132ULL)))] = cast<uint8_t>(24ULL);
-if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((bda + cast<uint32_t>(132ULL)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->Mem[cast<uint32_t>((bda + cast<uint32_t>(132ULL)))]));
 m->Mem[cast<uint32_t>((bda + cast<uint32_t>(133ULL)))] = cast<uint8_t>(16ULL);
-if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((bda + cast<uint32_t>(133ULL)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->Mem[cast<uint32_t>((bda + cast<uint32_t>(133ULL)))]));
 }
 }
 // tools/platform/dos/dos.go:258:1
@@ -6229,14 +7988,14 @@ uint32_t base = shl<uint32_t>(cast<uint32_t>(m->pspSeg),cast<int64_t>(4ULL));
 auto tmp20 = std::make_tuple(cast<uint8_t>(205ULL),cast<uint8_t>(32ULL));
 m->Mem[cast<uint32_t>((base + cast<uint32_t>(0ULL)))] = std::get<0>(tmp20);
 m->Mem[cast<uint32_t>((base + cast<uint32_t>(1ULL)))] = std::get<1>(tmp20);
-if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((base + cast<uint32_t>(0ULL)))]));
-if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((base + cast<uint32_t>(1ULL)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->Mem[cast<uint32_t>((base + cast<uint32_t>(0ULL)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->Mem[cast<uint32_t>((base + cast<uint32_t>(1ULL)))]));
 dos_Machine_w16(m,cast<uint32_t>((base + cast<uint32_t>(2ULL))),m->memTop);
 dos_Machine_w16(m,cast<uint32_t>((base + cast<uint32_t>(44ULL))),m->envSeg);
 m->Mem[cast<uint32_t>((base + cast<uint32_t>(128ULL)))] = cast<uint8_t>(0ULL);
-if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((base + cast<uint32_t>(128ULL)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->Mem[cast<uint32_t>((base + cast<uint32_t>(128ULL)))]));
 m->Mem[cast<uint32_t>((base + cast<uint32_t>(129ULL)))] = cast<uint8_t>(13ULL);
-if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((base + cast<uint32_t>(129ULL)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->Mem[cast<uint32_t>((base + cast<uint32_t>(129ULL)))]));
 }
 }
 // tools/platform/dos/dos.go:272:1
@@ -6900,7 +8659,7 @@ return true;
 break;}
 case cast<uint8_t>(71ULL):{
 m->Mem[dos_lin(c->Seg[cast<int64_t>(3ULL)],x86_CPU_Reg16(c,cast<int64_t>(6ULL)))] = cast<uint8_t>(0ULL);
-if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[dos_lin(c->Seg[cast<int64_t>(3ULL)],x86_CPU_Reg16(c,cast<int64_t>(6ULL)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->Mem[dos_lin(c->Seg[cast<int64_t>(3ULL)],x86_CPU_Reg16(c,cast<int64_t>(6ULL)))]));
 return true;
 break;}
 case cast<uint8_t>(53ULL):{
@@ -7005,7 +8764,7 @@ int64_t got = std::get<0>(tmp51);
 uint32_t dst = dos_lin(c->Seg[cast<int64_t>(3ULL)],x86_CPU_Reg16(c,cast<int64_t>(2ULL)));
 {int64_t i = cast<int64_t>(0ULL);for (;(i < got);i++){
 m->Mem[cast<uint32_t>(((cast<uint32_t>((dst + cast<uint32_t>(i)))) & cast<uint32_t>(1048575ULL)))] = buf[i];
-if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>(((cast<uint32_t>((dst + cast<uint32_t>(i)))) & cast<uint32_t>(1048575ULL)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->Mem[cast<uint32_t>(((cast<uint32_t>((dst + cast<uint32_t>(i)))) & cast<uint32_t>(1048575ULL)))]));
 }
 }dos_Machine_logf(m,std::string("read handle %d: %d/%d bytes from file $%X -> %04X:%04X (lin $%X)",64),h,got,n,pos,c->Seg[cast<int64_t>(3ULL)],x86_CPU_Reg16(c,cast<int64_t>(2ULL)),dst);
 x86_CPU_SetReg16(c,cast<int64_t>(0ULL),cast<uint16_t>(got));
@@ -7182,7 +8941,7 @@ if (rrFileInfo_IsDir(info)) {
 attr = cast<uint8_t>(16ULL);
 }
 m->Mem[cast<uint32_t>((dta + cast<uint32_t>(21ULL)))] = attr;
-if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((dta + cast<uint32_t>(21ULL)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->Mem[cast<uint32_t>((dta + cast<uint32_t>(21ULL)))]));
 dos_Machine_w16(m,cast<uint32_t>((dta + cast<uint32_t>(22ULL))),cast<uint16_t>(0ULL));
 dos_Machine_w16(m,cast<uint32_t>((dta + cast<uint32_t>(24ULL))),cast<uint16_t>(33ULL));
 uint32_t sz = cast<uint32_t>(rrFileInfo_Size(info));
@@ -7192,11 +8951,11 @@ std::string name = go_strings_ToUpper(go_filepath_Base(host));
 {int64_t i = cast<int64_t>(0ULL);for (;(i < cast<int64_t>(13ULL));i++){
 if ((i < len(name))) {
 m->Mem[cast<uint32_t>((cast<uint32_t>((dta + cast<uint32_t>(30ULL))) + cast<uint32_t>(i)))] = cast<uint8_t>(name[i]);
-if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((cast<uint32_t>((dta + cast<uint32_t>(30ULL))) + cast<uint32_t>(i)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->Mem[cast<uint32_t>((cast<uint32_t>((dta + cast<uint32_t>(30ULL))) + cast<uint32_t>(i)))]));
 }
 else {
 m->Mem[cast<uint32_t>((cast<uint32_t>((dta + cast<uint32_t>(30ULL))) + cast<uint32_t>(i)))] = cast<uint8_t>(0ULL);
-if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((cast<uint32_t>((dta + cast<uint32_t>(30ULL))) + cast<uint32_t>(i)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->Mem[cast<uint32_t>((cast<uint32_t>((dta + cast<uint32_t>(30ULL))) + cast<uint32_t>(i)))]));
 }
 }
 }c->CF = false;
@@ -7411,7 +9170,7 @@ io->dacIndex = cast<int64_t>((cast<int64_t>(b) * cast<int64_t>(3ULL)));
 break;}
 case cast<uint16_t>(969ULL):{
 io->Pal[modi<int64_t>(io->dacIndex,cast<int64_t>(768ULL))] = b;
-if(rrcapture::trace.active)rrDOSWrite(&(io->Pal[modi<int64_t>(io->dacIndex,cast<int64_t>(768ULL))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(io->Pal[modi<int64_t>(io->dacIndex,cast<int64_t>(768ULL))]));
 io->dacIndex++;
 break;}
 case cast<uint16_t>(548ULL):{
@@ -7679,7 +9438,7 @@ void dos_Machine_writeMCB(dos_Machine* m,uint16_t mcbSeg,uint8_t mark,uint16_t o
 {
 uint32_t a = shl<uint32_t>(cast<uint32_t>(mcbSeg),cast<int64_t>(4ULL));
 m->Mem[cast<uint32_t>((a & cast<uint32_t>(1048575ULL)))] = mark;
-if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((a & cast<uint32_t>(1048575ULL)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->Mem[cast<uint32_t>((a & cast<uint32_t>(1048575ULL)))]));
 dos_Machine_w16(m,cast<uint32_t>((a + cast<uint32_t>(1ULL))),owner);
 dos_Machine_w16(m,cast<uint32_t>((a + cast<uint32_t>(3ULL))),size);
 }
@@ -7991,26 +9750,26 @@ void dos_Machine_vgaInit13h(dos_Machine* m,bool clear){
 {
 dos_vgaState* v = m->vga;
 v->seq[cast<int64_t>(2ULL)] = cast<uint8_t>(15ULL);
-if(rrcapture::trace.active)rrDOSWrite(&(v->seq[cast<int64_t>(2ULL)]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(v->seq[cast<int64_t>(2ULL)]));
 v->seq[cast<int64_t>(4ULL)] = cast<uint8_t>(14ULL);
-if(rrcapture::trace.active)rrDOSWrite(&(v->seq[cast<int64_t>(4ULL)]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(v->seq[cast<int64_t>(4ULL)]));
 v->gc[cast<int64_t>(4ULL)] = cast<uint8_t>(0ULL);
 v->gc[cast<int64_t>(5ULL)] = cast<uint8_t>(64ULL);
 v->gc[cast<int64_t>(8ULL)] = cast<uint8_t>(255ULL);
 auto tmp99 = std::make_tuple(cast<uint8_t>(0ULL),cast<uint8_t>(0ULL));
 v->crtc[cast<int64_t>(12ULL)] = std::get<0>(tmp99);
 v->crtc[cast<int64_t>(13ULL)] = std::get<1>(tmp99);
-if(rrcapture::trace.active)rrDOSWrite(&(v->crtc[cast<int64_t>(12ULL)]));
-if(rrcapture::trace.active)rrDOSWrite(&(v->crtc[cast<int64_t>(13ULL)]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(v->crtc[cast<int64_t>(12ULL)]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(v->crtc[cast<int64_t>(13ULL)]));
 v->crtc[cast<int64_t>(19ULL)] = cast<uint8_t>(40ULL);
-if(rrcapture::trace.active)rrDOSWrite(&(v->crtc[cast<int64_t>(19ULL)]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(v->crtc[cast<int64_t>(19ULL)]));
 if (clear) {
 {auto&& tmp100 = v->planes;
 for(int64_t tmp101=0;tmp101<len(tmp100);++tmp101){
 auto p=tmp101;{auto&& tmp102 = v->planes[p];
 for(int64_t tmp103=0;tmp103<len(tmp102);++tmp103){
 auto i=tmp103;v->planes[p][i] = cast<uint8_t>(0ULL);
-if(rrcapture::trace.active)rrDOSWrite(&(v->planes[p][i]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(v->planes[p][i]));
 }}
 }}
 }
@@ -8029,7 +9788,7 @@ dos_vgaState* v = m->vga;
 uint32_t off = cast<uint32_t>((a - cast<uint32_t>(655360ULL)));
 if (dos_vgaState_chained(v)) {
 v->planes[cast<uint32_t>((off & cast<uint32_t>(3ULL)))][cast<uint32_t>(((shr<uint32_t>(off,cast<int64_t>(2ULL))) & cast<uint32_t>(65535ULL)))] = val;
-if(rrcapture::trace.active)rrDOSWrite(&(v->planes[cast<uint32_t>((off & cast<uint32_t>(3ULL)))][cast<uint32_t>(((shr<uint32_t>(off,cast<int64_t>(2ULL))) & cast<uint32_t>(65535ULL)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(v->planes[cast<uint32_t>((off & cast<uint32_t>(3ULL)))][cast<uint32_t>(((shr<uint32_t>(off,cast<int64_t>(2ULL))) & cast<uint32_t>(65535ULL)))]));
 return ;
 }
 off &= cast<uint32_t>(65535ULL);
@@ -8040,7 +9799,7 @@ case cast<uint8_t>(1ULL):{
 {int64_t p = cast<int64_t>(0ULL);for (;(p < cast<int64_t>(4ULL));p++){
 if ((cast<uint8_t>((mask & (shl<uint8_t>(cast<uint8_t>(1ULL),p)))) != cast<uint8_t>(0ULL))) {
 v->planes[p][off] = v->latch[p];
-if(rrcapture::trace.active)rrDOSWrite(&(v->planes[p][off]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(v->planes[p][off]));
 }
 }
 }break;}
@@ -8055,7 +9814,7 @@ if ((cast<uint8_t>((val & (shl<uint8_t>(cast<uint8_t>(1ULL),p)))) != cast<uint8_
 d = cast<uint8_t>(255ULL);
 }
 v->planes[p][off] = cast<uint8_t>(((cast<uint8_t>((d & bm))) | ((v->latch[p] & ~(bm)))));
-if(rrcapture::trace.active)rrDOSWrite(&(v->planes[p][off]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(v->planes[p][off]));
 }
 }break;}
 default:{
@@ -8077,7 +9836,7 @@ d = cast<uint8_t>(0ULL);
 }
 }
 v->planes[p][off] = cast<uint8_t>(((cast<uint8_t>((d & bm))) | ((v->latch[p] & ~(bm)))));
-if(rrcapture::trace.active)rrDOSWrite(&(v->planes[p][off]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(v->planes[p][off]));
 }
 }break;}
 }}
@@ -8128,14 +9887,14 @@ case cast<uint16_t>(965ULL):{
 if ((cast<uint8_t>((v->seqIdx & cast<uint8_t>(7ULL))) == cast<uint8_t>(4ULL))) {
 bool was = dos_vgaState_chained(v);
 v->seq[cast<int64_t>(4ULL)] = b;
-if(rrcapture::trace.active)rrDOSWrite(&(v->seq[cast<int64_t>(4ULL)]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(v->seq[cast<int64_t>(4ULL)]));
 if ((was != dos_vgaState_chained(v))) {
 dos_Machine_logf(m,std::string("VGA: chain-4 %v -> %v (seq[4]=%02X) at %04X:%04X",48),was,dos_vgaState_chained(v),b,m->CPU->Seg[cast<int64_t>(1ULL)],m->CPU->IP);
 }
 return ;
 }
 v->seq[cast<uint8_t>((v->seqIdx & cast<uint8_t>(7ULL)))] = b;
-if(rrcapture::trace.active)rrDOSWrite(&(v->seq[cast<uint8_t>((v->seqIdx & cast<uint8_t>(7ULL)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(v->seq[cast<uint8_t>((v->seqIdx & cast<uint8_t>(7ULL)))]));
 break;}
 case cast<uint16_t>(974ULL):{
 v->gcIdx = b;
@@ -8148,7 +9907,7 @@ v->crtcIdx = b;
 break;}
 case cast<uint16_t>(981ULL):{
 v->crtc[cast<uint8_t>((v->crtcIdx & cast<uint8_t>(31ULL)))] = b;
-if(rrcapture::trace.active)rrDOSWrite(&(v->crtc[cast<uint8_t>((v->crtcIdx & cast<uint8_t>(31ULL)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(v->crtc[cast<uint8_t>((v->crtcIdx & cast<uint8_t>(31ULL)))]));
 break;}
 }}
 }
@@ -8171,7 +9930,7 @@ switch(ah){
 case cast<uint8_t>(0ULL):{
 uint8_t mode = cast<uint8_t>((x86_CPU_Reg8(c,cast<int64_t>(0ULL)) & cast<uint8_t>(127ULL)));
 m->Mem[cast<uint32_t>((bda + cast<uint32_t>(73ULL)))] = mode;
-if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>((bda + cast<uint32_t>(73ULL)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->Mem[cast<uint32_t>((bda + cast<uint32_t>(73ULL)))]));
 dos_Machine_vgaInit13h(m,(cast<uint8_t>((x86_CPU_Reg8(c,cast<int64_t>(0ULL)) & cast<uint8_t>(128ULL))) == cast<uint8_t>(0ULL)));
 uint8_t cols = cast<uint8_t>(80ULL);
 if ((((((mode <= cast<uint8_t>(1ULL)) || (mode == cast<uint8_t>(4ULL))) || (mode == cast<uint8_t>(5ULL))) || (mode == cast<uint8_t>(13ULL))) || (mode == cast<uint8_t>(19ULL)))) {
@@ -8211,11 +9970,11 @@ switch(x86_CPU_Reg8(c,cast<int64_t>(0ULL))){
 case cast<uint8_t>(16ULL):{
 int64_t i = cast<int64_t>((modi<int64_t>(cast<int64_t>(x86_CPU_Reg16(c,cast<int64_t>(3ULL))),cast<int64_t>(256ULL)) * cast<int64_t>(3ULL)));
 m->io->Pal[i] = x86_CPU_Reg8(c,cast<int64_t>(6ULL));
-if(rrcapture::trace.active)rrDOSWrite(&(m->io->Pal[i]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->io->Pal[i]));
 m->io->Pal[cast<int64_t>((i + cast<int64_t>(1ULL)))] = x86_CPU_Reg8(c,cast<int64_t>(5ULL));
-if(rrcapture::trace.active)rrDOSWrite(&(m->io->Pal[cast<int64_t>((i + cast<int64_t>(1ULL)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->io->Pal[cast<int64_t>((i + cast<int64_t>(1ULL)))]));
 m->io->Pal[cast<int64_t>((i + cast<int64_t>(2ULL)))] = x86_CPU_Reg8(c,cast<int64_t>(1ULL));
-if(rrcapture::trace.active)rrDOSWrite(&(m->io->Pal[cast<int64_t>((i + cast<int64_t>(2ULL)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->io->Pal[cast<int64_t>((i + cast<int64_t>(2ULL)))]));
 break;}
 case cast<uint8_t>(18ULL):{
 uint32_t src = dos_lin(c->Seg[cast<int64_t>(0ULL)],x86_CPU_Reg16(c,cast<int64_t>(2ULL)));
@@ -8223,7 +9982,7 @@ int64_t start = cast<int64_t>((cast<int64_t>(x86_CPU_Reg16(c,cast<int64_t>(3ULL)
 int64_t n = cast<int64_t>((cast<int64_t>(x86_CPU_Reg16(c,cast<int64_t>(1ULL))) * cast<int64_t>(3ULL)));
 {int64_t i = cast<int64_t>(0ULL);for (;((i < n) && (cast<int64_t>((start + i)) < cast<int64_t>(768ULL)));i++){
 m->io->Pal[cast<int64_t>((start + i))] = m->Mem[cast<uint32_t>(((cast<uint32_t>((src + cast<uint32_t>(i)))) & cast<uint32_t>(1048575ULL)))];
-if(rrcapture::trace.active)rrDOSWrite(&(m->io->Pal[cast<int64_t>((start + i))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->io->Pal[cast<int64_t>((start + i))]));
 }
 }break;}
 case cast<uint8_t>(21ULL):{
@@ -8235,7 +9994,7 @@ int64_t n = cast<int64_t>((cast<int64_t>(x86_CPU_Reg16(c,cast<int64_t>(1ULL))) *
 uint32_t dst = dos_lin(c->Seg[cast<int64_t>(0ULL)],x86_CPU_Reg16(c,cast<int64_t>(2ULL)));
 {int64_t i = cast<int64_t>(0ULL);for (;(i < n);i++){
 m->Mem[cast<uint32_t>(((cast<uint32_t>((dst + cast<uint32_t>(i)))) & cast<uint32_t>(1048575ULL)))] = cast<uint8_t>(0ULL);
-if(rrcapture::trace.active)rrDOSWrite(&(m->Mem[cast<uint32_t>(((cast<uint32_t>((dst + cast<uint32_t>(i)))) & cast<uint32_t>(1048575ULL)))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(m->Mem[cast<uint32_t>(((cast<uint32_t>((dst + cast<uint32_t>(i)))) & cast<uint32_t>(1048575ULL)))]));
 }
 }break;}
 }}
@@ -8452,7 +10211,7 @@ void dos_PM_Write(dos_PM* p,uint32_t a,uint8_t v){
 {
 if ((cast<int64_t>(a) < len(p->Mem))) {
 p->Mem[a] = v;
-if(rrcapture::trace.active)rrDOSWrite(&(p->Mem[a]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(p->Mem[a]));
 if (((bool(p->onW) && (a >= p->wWLo)) && (a < p->wWHi))) {
 p->onW(a,cast<uint32_t>(v),dos_PM_watchPC(p));
 }
@@ -9558,7 +11317,7 @@ p->dacIndex = cast<int64_t>((cast<int64_t>(b) * cast<int64_t>(3ULL)));
 break;}
 case cast<uint16_t>(969ULL):{
 p->Pal[modi<int64_t>(p->dacIndex,cast<int64_t>(768ULL))] = b;
-if(rrcapture::trace.active)rrDOSWrite(&(p->Pal[modi<int64_t>(p->dacIndex,cast<int64_t>(768ULL))]));
+if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(p->Pal[modi<int64_t>(p->dacIndex,cast<int64_t>(768ULL))]));
 p->dacIndex++;
 break;}
 }}

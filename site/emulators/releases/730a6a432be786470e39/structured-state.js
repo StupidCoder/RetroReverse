@@ -37,7 +37,7 @@ export function resolveStateLocation(k,id,depth=0){
  if(l.kind==='physical'&&space?.region==='ram')return {kind:'ram',address:Number(l.offset),space:l.space};
  throw Error('Live location is unavailable for this adapter');
 }
-export function createStateSampler(knowledge,read){
+export function createStateSampler(knowledge,read,resolve=(k,id)=>resolveStateLocation(k,id)){
  const history=new Map();
  return function sample(context){
   const k=knowledge?.data;if(!k)return {cycle:context.cycle,boundary:context.boundary,entries:[]};
@@ -45,7 +45,7 @@ export function createStateSampler(knowledge,read){
   const entries=Object.entries(k.state||{}).filter(([,d])=>d.releases.includes(knowledge.releaseId)).map(([id,d])=>{
    const out={id,label:d.label,applicability:d.applicability,evidence:d.evidence.map(e=>k.evidence[e]),relatedFunctions:d.relatedFunctions||[]};
    try{
-    const location=resolveStateLocation(k,d.location),size=typeSize(k.types,d.type);remaining-=size;if(remaining<0)throw Error('Snapshot state byte budget exceeded');
+    const location=resolve(k,d.location,context),size=typeSize(k.types,d.type);remaining-=size;if(remaining<0)throw Error('Snapshot state byte budget exceeded');
     const span=read(location,size),node=decodeStateType(k.types,d.type,span.bytes,{budget});
     if(d.occupancy&&node.children)for(const slot of node.children){
      let value=slot;for(const field of d.occupancy.path)value=value?.children?.find(c=>c.label===field);

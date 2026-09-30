@@ -5,20 +5,25 @@ import "fmt"
 // M4 is deliberately data-only: current paused state, sequential stops, C64
 // physical RAM predicates and mapped RAM PC targets. No expressions or scripts.
 type TourCondition struct {
-	PC      *uint64         `json:"pc,omitempty"`
-	Address *uint64         `json:"address,omitempty"`
-	Value   uint64          `json:"value,omitempty"`
-	Mask    *uint64         `json:"mask,omitempty"`
-	All     []TourCondition `json:"all,omitempty"`
-	Any     []TourCondition `json:"any,omitempty"`
+	Mode     string          `json:"mode,omitempty"`
+	Register string          `json:"register,omitempty"`
+	Location string          `json:"location,omitempty"`
+	PC       *uint64         `json:"pc,omitempty"`
+	Address  *uint64         `json:"address,omitempty"`
+	Value    uint64          `json:"value,omitempty"`
+	Mask     *uint64         `json:"mask,omitempty"`
+	All      []TourCondition `json:"all,omitempty"`
+	Any      []TourCondition `json:"any,omitempty"`
 }
 type TourGuard struct {
-	Address uint64 `json:"address"`
-	Bytes   []byte `json:"bytes"`
+	Location string `json:"location,omitempty"`
+	Address  uint64 `json:"address"`
+	Bytes    []byte `json:"bytes"`
 }
 type TourCapture struct {
-	Address uint64 `json:"address"`
-	Length  uint64 `json:"length"`
+	Location string `json:"location,omitempty"`
+	Address  uint64 `json:"address"`
+	Length   uint64 `json:"length"`
 }
 type TourStop struct {
 	ID          string          `json:"id"`
@@ -67,8 +72,12 @@ func validateCondition(c TourCondition, depth int, nodes *int) error {
 }
 func (p *Package) validateTours() error {
 	for id, t := range p.Tours {
-		if p.Game.System.ID != "c64" {
-			return fmt.Errorf("tour %s: only C64 is implemented", id)
+		limit := uint64(65536)
+		if p.Game.System.ID == "dos" {
+			limit = 68157440
+		}
+		if p.Game.System.ID != "c64" && p.Game.System.ID != "dos" {
+			return fmt.Errorf("tour %s: unsupported tour platform", id)
 		}
 		if e := p.evidence(t.Evidence); e != nil {
 			return e
@@ -79,7 +88,7 @@ func (p *Package) validateTours() error {
 			}
 		}
 		for _, g := range t.Guards {
-			if g.Address+uint64(len(g.Bytes)) > 65536 {
+			if g.Address+uint64(len(g.Bytes)) > limit {
 				return fmt.Errorf("tour guard exceeds RAM")
 			}
 		}
@@ -95,19 +104,84 @@ func (p *Package) validateTours() error {
 			total := uint64(0)
 			for i, r := range s.Capture {
 				total += r.Length
-				if r.Address+r.Length > 65536 || total > 16384 {
+				if r.Address+r.Length > limit || total > 16384 {
 					return fmt.Errorf("tour capture exceeds RAM/budget")
 				}
 				for _, previous := range s.Capture[:i] {
-					if r.Address < previous.Address+previous.Length && previous.Address < r.Address+r.Length {
+					if r.Location == "" && previous.Location == "" && r.Address < previous.Address+previous.Length && previous.Address < r.Address+r.Length {
 						return fmt.Errorf("overlapping tour capture ranges")
 					}
 				}
 			}
 		}
+		for _, g := range t.Guards {
+			if g.Location != "" {
+				if p.Game.System.ID != "dos" {
+					return fmt.Errorf("symbolic tour guards require DOS")
+				}
+				for _, r := range t.Releases {
+					s, e := p.Resolve(g.Location, r)
+					if e != nil {
+						return e
+					}
+					if uint64(len(g.Bytes)) > s.Limit-s.Offset {
+						return fmt.Errorf("guard exceeds location")
+					}
+				}
+			}
+		}
+		for _, s := range t.Stops {
+			for _, c := range s.Capture {
+				if c.Location != "" {
+					if p.Game.System.ID != "dos" {
+						return fmt.Errorf("symbolic capture ranges require DOS")
+					}
+					for _, r := range t.Releases {
+						loc, e := p.Resolve(c.Location, r)
+						if e != nil {
+							return e
+						}
+						if c.Length > loc.Limit-loc.Offset {
+							return fmt.Errorf("capture exceeds location")
+						}
+					}
+				}
+			}
+		}
 		for _, c := range conditions {
+			if e := p.checkCondition(c, t.Releases, limit); e != nil {
+				return e
+			}
 			nodes := 0
 			if e := validateCondition(c, 0, &nodes); e != nil {
+				return e
+			}
+		}
+	}
+	return nil
+}
+
+func (p *Package) checkCondition(c TourCondition, releases []string, limit uint64) error {
+	nodes := 0
+	if e := validateCondition(c, 0, &nodes); e != nil {
+		return e
+	}
+	if p.Game.System.ID != "dos" && (c.Location != "" || c.Register != "" || c.Mode != "") {
+		return fmt.Errorf("DOS condition on another platform")
+	}
+	if c.Location != "" {
+		for _, r := range releases {
+			if _, e := p.Resolve(c.Location, r); e != nil {
+				return e
+			}
+		}
+	}
+	if c.PC != nil && *c.PC >= limit || c.Address != nil && *c.Address >= limit {
+		return fmt.Errorf("tour address out of bounds")
+	}
+	for _, xs := range [][]TourCondition{c.All, c.Any} {
+		for _, x := range xs {
+			if e := p.checkCondition(x, releases, limit); e != nil {
 				return e
 			}
 		}

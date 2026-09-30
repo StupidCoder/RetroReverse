@@ -21,12 +21,14 @@ type Space struct {
 	Size      uint64 `json:"size"`
 }
 type Location struct {
-	Kind    string `json:"kind"`
-	Space   string `json:"space,omitempty"`
-	Address string `json:"address,omitempty"`
-	Offset  string `json:"offset,omitempty"`
-	Role    string `json:"role,omitempty"`
-	Base    string `json:"base,omitempty"`
+	Relocation uint64 `json:"relocation,omitempty"`
+	Kind       string `json:"kind"`
+	Space      string `json:"space,omitempty"`
+	Address    string `json:"address,omitempty"`
+	Offset     string `json:"offset,omitempty"`
+	Role       string `json:"role,omitempty"`
+	Base       string `json:"base,omitempty"`
+	Module     string `json:"module,omitempty"`
 }
 type Field struct {
 	Name        string `json:"name"`
@@ -110,6 +112,8 @@ type Package struct {
 	Regions       map[string]Definition `json:"regions"`
 	State         map[string]Definition `json:"state"`
 	Functions     map[string]Definition `json:"functions"`
+	Modules       map[string]Module     `json:"modules"`
+	Buffers       map[string]Buffer     `json:"buffers"`
 	Tours         map[string]Tour       `json:"tours"`
 	Annotations   map[string]Annotation `json:"annotations"`
 	Raw           json.RawMessage       `json:"-"`
@@ -206,6 +210,34 @@ func (p *Package) resolve(id, release string, seen map[string]bool, depth int) (
 		}
 		s.Offset += n
 		return s, nil
+	}
+	if l.Kind == "relocated-segment" {
+		m, ok := p.Modules[l.Module]
+		if !ok {
+			return Span{}, fmt.Errorf("unknown relocation module")
+		}
+		found := false
+		for _, r := range m.Relocations {
+			if r.Offset == l.Relocation {
+				found = true
+			}
+		}
+		n, e := hexnum(l.Offset)
+		if !found || e != nil || n >= 65536 {
+			return Span{}, fmt.Errorf("invalid segment relocation location")
+		}
+		return Span{Kind: "module", Space: l.Module, Offset: n, Limit: 65536}, nil
+	}
+	if l.Kind == "module" {
+		m, ok := p.Modules[l.Module]
+		if !ok {
+			return Span{}, fmt.Errorf("unknown module %s", l.Module)
+		}
+		n, e := hexnum(l.Offset)
+		if e != nil || n >= m.Size {
+			return Span{}, fmt.Errorf("module offset outside bounds")
+		}
+		return Span{Kind: "module", Space: l.Module, Offset: n, Limit: m.Size}, nil
 	}
 	s := Span{Kind: l.Kind, Space: l.Space, Role: l.Role}
 	var e error
@@ -535,6 +567,9 @@ func (p *Package) validate() error {
 				return fmt.Errorf("annotation exceeds space")
 			}
 		}
+	}
+	if e := p.validateModules(); e != nil {
+		return e
 	}
 	return p.validateTours()
 }

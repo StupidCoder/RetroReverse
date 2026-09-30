@@ -11,6 +11,7 @@ export function createPanelLayout(panel){
    const root=document.createElement('section');root.className='state-panel-host';parent.append(controls,root);controls.append(label,select);
    input.onchange=()=>{visible=input.checked;mount();};select.onchange=()=>{placement=select.value;mount();};hosts.set(id,{root,controls});
   },
+  suggest(show){visible=show;mount();},
   activate(id){if(!hosts.has(id))return;active=id;mount();},
  };
 }

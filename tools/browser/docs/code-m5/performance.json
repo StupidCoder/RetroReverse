@@ -1,0 +1,75 @@
+{
+  "baseline": "7ee41351, identical clang++ -O3 flags",
+  "runs": [
+    {
+      "version": "before",
+      "seconds": 0.931277333,
+      "proof": {
+        "steps": 742284972,
+        "frames": 5196,
+        "pc": 1186,
+        "ram": 2882005260,
+        "rgba": 3791992353
+      }
+    },
+    {
+      "version": "after",
+      "seconds": 1.3536597910000001,
+      "proof": {
+        "steps": 742284972,
+        "frames": 5196,
+        "pc": 1186,
+        "ram": 2882005260,
+        "rgba": 3791992353
+      }
+    },
+    {
+      "version": "before",
+      "seconds": 0.9336269589999997,
+      "proof": {
+        "steps": 742284972,
+        "frames": 5196,
+        "pc": 1186,
+        "ram": 2882005260,
+        "rgba": 3791992353
+      }
+    },
+    {
+      "version": "after",
+      "seconds": 0.9546005420000001,
+      "proof": {
+        "steps": 742284972,
+        "frames": 5196,
+        "pc": 1186,
+        "ram": 2882005260,
+        "rgba": 3791992353
+      }
+    },
+    {
+      "version": "before",
+      "seconds": 0.9302242920000001,
+      "proof": {
+        "steps": 742284972,
+        "frames": 5196,
+        "pc": 1186,
+        "ram": 2882005260,
+        "rgba": 3791992353
+      }
+    },
+    {
+      "version": "after",
+      "seconds": 0.9554869999999998,
+      "proof": {
+        "steps": 742284972,
+        "frames": 5196,
+        "pc": 1186,
+        "ram": 2882005260,
+        "rgba": 3791992353
+      }
+    }
+  ],
+  "medians": {
+    "before": 0.931277333,
+    "after": 0.9554869999999998
+  }
+}

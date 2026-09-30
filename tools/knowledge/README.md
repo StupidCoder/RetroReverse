@@ -1,4 +1,4 @@
-# Game knowledge tools — M1–M4 profile
+# Game knowledge tools — M1–M5 profile
 
 `games/<slug>/knowledge.json` is the hand-maintained source. The initial Fort
 package supplies Memory's existing annotations and records documented state and
@@ -63,7 +63,7 @@ Implemented:
 - Regions, state definitions, function entries and instruction-relative commentary.
 - Deterministic browser data export carrying source SHA-256 and package revision.
 
-The current profile does not implement pointer/overlay/filesystem/sector/transform resolution,
+The current profile does not implement general pointer/filesystem/sector/transform resolution,
 sign-magnitude types, dynamic arrays, live struct decoding, runtime signatures,
 general phase predicates, experiments, or executable asset recipes. Reserved
 `assets` and `experiments` must be empty; unsupported location/type kinds
@@ -145,3 +145,12 @@ See [M3 implementation and limits](../browser/docs/code-m3/README.md).
 PC/masked-RAM conditions, assertions, budgets, layout hints and interval write
 evidence. See the [M4 specification and acceptance report](../browser/docs/code-m4/README.md).
 Tour conditions are data; applicability prose is still never evaluated.
+
+## M5 DOS runtime knowledge
+
+DOS file-set releases can pin an `executable`. Verified MZ/overlay modules,
+module-relative and relocation-derived segment locations, mode/register/symbolic
+tour conditions, and bounded contextual pixel buffers are now implemented.
+See the [M5 profile and acceptance report](../browser/docs/code-m5/README.md).
+Protected-mode decoding uses the core’s cached segment bases; runtime knowledge
+modules currently support the verified real-mode Underworld profile.

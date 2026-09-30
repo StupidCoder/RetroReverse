@@ -197,6 +197,20 @@
       "propertyNames": {
         "pattern": "^[a-z0-9.-]+:[a-z0-9.-]+$"
       }
+    },
+    "modules": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/module"
+      },
+      "maxProperties": 16
+    },
+    "buffers": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/buffer"
+      },
+      "maxProperties": 4
     }
   },
   "required": [
@@ -307,6 +321,10 @@
             "sha256"
           ],
           "additionalProperties": false
+        },
+        "executable": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -509,6 +527,56 @@
           "required": [
             "kind",
             "base",
+            "offset"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "module"
+            },
+            "module": {
+              "type": "string",
+              "minLength": 1
+            },
+            "offset": {
+              "type": "string",
+              "pattern": "^0x(0|[1-9a-f][0-9a-f]*)$"
+            }
+          },
+          "required": [
+            "kind",
+            "module",
+            "offset"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "relocated-segment"
+            },
+            "module": {
+              "type": "string",
+              "minLength": 1
+            },
+            "relocation": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65534
+            },
+            "offset": {
+              "type": "string",
+              "pattern": "^0x(0|[1-9a-f][0-9a-f]*)$"
+            }
+          },
+          "required": [
+            "kind",
+            "module",
+            "relocation",
             "offset"
           ],
           "additionalProperties": false
@@ -977,7 +1045,7 @@
             "pc": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 65535
+              "maximum": 68157439
             }
           },
           "required": [
@@ -991,7 +1059,7 @@
             "address": {
               "type": "integer",
               "minimum": 2,
-              "maximum": 65535
+              "maximum": 68157439
             },
             "value": {
               "type": "integer",
@@ -1043,53 +1111,165 @@
             "any"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "location": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "location"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "register": {
+              "enum": [
+                "ES",
+                "CS",
+                "SS",
+                "DS",
+                "FS",
+                "GS",
+                "EAX",
+                "EBX",
+                "ECX",
+                "EDX",
+                "ESI",
+                "EDI",
+                "EBP",
+                "ESP"
+              ]
+            },
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "register",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "enum": [
+                "real16",
+                "protected32"
+              ]
+            }
+          },
+          "required": [
+            "mode"
+          ],
+          "additionalProperties": false
         }
       ]
     },
     "tourGuard": {
-      "type": "object",
-      "properties": {
-        "address": {
-          "type": "integer",
-          "minimum": 2,
-          "maximum": 65535
-        },
-        "bytes": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 255
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "address": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 68157439
+            },
+            "bytes": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              },
+              "minItems": 1,
+              "maxItems": 256
+            }
           },
-          "minItems": 1,
-          "maxItems": 256
+          "required": [
+            "address",
+            "bytes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "bytes": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              },
+              "minItems": 1,
+              "maxItems": 256
+            },
+            "location": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "bytes",
+            "location"
+          ],
+          "additionalProperties": false
         }
-      },
-      "required": [
-        "address",
-        "bytes"
-      ],
-      "additionalProperties": false
+      ]
     },
     "tourCapture": {
-      "type": "object",
-      "properties": {
-        "address": {
-          "type": "integer",
-          "minimum": 2,
-          "maximum": 65535
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "address": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 68157439
+            },
+            "length": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16384
+            }
+          },
+          "required": [
+            "address",
+            "length"
+          ],
+          "additionalProperties": false
         },
-        "length": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 16384
+        {
+          "type": "object",
+          "properties": {
+            "length": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16384
+            },
+            "location": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "length",
+            "location"
+          ],
+          "additionalProperties": false
         }
-      },
-      "required": [
-        "address",
-        "length"
-      ],
-      "additionalProperties": false
+      ]
     },
     "tourStop": {
       "type": "object",
@@ -1151,7 +1331,7 @@
             "address": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 65535
+              "maximum": 68157439
             },
             "gameState": {
               "type": "boolean"
@@ -1245,6 +1425,165 @@
         "guards",
         "start",
         "stops"
+      ],
+      "additionalProperties": false
+    },
+    "moduleSignature": {
+      "type": "object",
+      "properties": {
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "bytes": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "minItems": 8,
+          "maxItems": 128
+        }
+      },
+      "required": [
+        "offset",
+        "bytes"
+      ],
+      "additionalProperties": false
+    },
+    "module": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "const": "real16"
+        },
+        "kind": {
+          "enum": [
+            "mz",
+            "overlay"
+          ]
+        },
+        "paragraph": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "signatures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/moduleSignature"
+          },
+          "minItems": 1,
+          "maxItems": 8
+        },
+        "relocations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "offset": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65534
+              },
+              "relativeSegment": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              }
+            },
+            "required": [
+              "offset",
+              "relativeSegment"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0,
+          "maxItems": 64
+        }
+      },
+      "required": [
+        "label",
+        "mode",
+        "kind",
+        "size",
+        "signatures",
+        "relocations"
+      ],
+      "additionalProperties": false
+    },
+    "buffer": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location": {
+          "type": "string",
+          "minLength": 1
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 320
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        },
+        "stride": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024
+        },
+        "palette": {
+          "const": "vga"
+        },
+        "releases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "maxItems": 32
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "maxItems": 32
+        },
+        "when": {
+          "$ref": "#/$defs/tourCondition"
+        }
+      },
+      "required": [
+        "label",
+        "location",
+        "width",
+        "height",
+        "stride",
+        "palette",
+        "releases",
+        "evidence",
+        "when"
       ],
       "additionalProperties": false
     }

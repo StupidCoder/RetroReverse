@@ -711,6 +711,10 @@ The user can complete a tour with keyboard controls and a narrow layout.
 
 ### M5 — DOS adapter and Underworld renderer tour
 
+Completed for the modeled real16 and flat protected32 DOS contexts, verified
+Underworld modules, live operands/buffers and a four-stop renderer tour. See the
+[M5 report](tools/browser/docs/code-m5/README.md) for supported modes and limits.
+
 Depends on M2/M4. Add x86 registers/modes and instruction stepping, live decoding,
 module/overlay resolution, relocation validation and buffer panels. Build the
 projection/span/copy lesson incrementally.

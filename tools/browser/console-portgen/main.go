@@ -64,7 +64,7 @@ var platform = "gc"
 func selected(dir, n string) bool {
 	switch filepath.Base(dir) {
 	case "x86":
-		return n == "cpu.go" || n == "exec.go" || n == "exec2.go" || n == "fpuexec.go" || n == "sse.go" || n == "mmxint.go"
+		return (platform == "dos" && (n == "x86.go" || n == "onebyte.go" || n == "twobyte.go" || n == "modrm.go" || n == "groups.go" || n == "fpu.go")) || n == "cpu.go" || n == "exec.go" || n == "exec2.go" || n == "fpuexec.go" || n == "sse.go" || n == "mmxint.go"
 	case "dos":
 		return n != "dos_state.go" && n != "go32_state.go"
 	case "xbox":
@@ -800,7 +800,7 @@ func (g *gen) st(s ast.Stmt) string {
 				}
 				if platform == "dos" {
 					if strings.HasPrefix(target, "v->planes") || target == "m->io->Pal" || target == "io->Pal" || target == "p->Pal" || target == "p->Mem" || target == "m->Mem" || target == "v->crtc" || target == "v->seq" {
-						out += "if(rrcapture::trace.active)rrDOSWrite(&(" + g.lhs(lhs) + "));\n"
+						out += "if(rrcapture::trace.active||rrmem::active)rrDOSWrite(&(" + g.lhs(lhs) + "));\n"
 					}
 				}
 				if platform == "dc" {

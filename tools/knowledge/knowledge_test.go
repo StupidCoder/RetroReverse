@@ -47,11 +47,15 @@ func changed(t *testing.T, f func(map[string]any)) []byte {
 }
 func TestFortAndDeterministicExport(t *testing.T) {
 	p := fort(t)
-	a, e := ExportJS([]*Package{p})
+	uw, e := Read("../../games/ultima-underworld-pc/knowledge.json")
 	if e != nil {
 		t.Fatal(e)
 	}
-	b, e := ExportJS([]*Package{p})
+	a, e := ExportJS([]*Package{p, uw})
+	if e != nil {
+		t.Fatal(e)
+	}
+	b, e := ExportJS([]*Package{uw, p})
 	if e != nil || !bytes.Equal(a, b) {
 		t.Fatal("nondeterministic export")
 	}

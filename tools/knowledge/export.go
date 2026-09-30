@@ -17,10 +17,11 @@ type Label struct {
 	Source      string `json:"source"`
 }
 type BrowserRelease struct {
-	ID      string   `json:"id"`
-	Media   []Media  `json:"media,omitempty"`
-	FileSet *FileSet `json:"fileSet,omitempty"`
-	Labels  []Label  `json:"labels"`
+	Executable string   `json:"executable,omitempty"`
+	ID         string   `json:"id"`
+	Media      []Media  `json:"media,omitempty"`
+	FileSet    *FileSet `json:"fileSet,omitempty"`
+	Labels     []Label  `json:"labels"`
 }
 type BrowserPackage struct {
 	ID           string           `json:"id"`
@@ -43,7 +44,7 @@ func (p *Package) BrowserData() (BrowserPackage, error) {
 	out := BrowserPackage{ID: p.ID, Platform: p.Game.System.ID, Revision: p.Revision, SourceSHA256: p.Hash, Knowledge: p.Raw}
 	for _, id := range keys(p.Releases) {
 		r := p.Releases[id]
-		b := BrowserRelease{ID: id, Media: r.Media, FileSet: r.FileSet, Labels: []Label{}}
+		b := BrowserRelease{ID: id, Executable: r.Executable, Media: r.Media, FileSet: r.FileSet, Labels: []Label{}}
 		for _, key := range keys(p.Regions) {
 			d := p.Regions[key]
 			if !d.MemoryLabel || !contains(d.Releases, id) {

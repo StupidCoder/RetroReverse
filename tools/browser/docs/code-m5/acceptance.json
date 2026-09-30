@@ -1,0 +1,98 @@
+{
+  "milestone": "M5",
+  "result": "PASS",
+  "release": "730a6a432be786470e39",
+  "dosCoreSHA256": "d74ff016ce39ed811cd536106150511559873d28deae886270bf03905d430eb0",
+  "publicChecks": [
+    "Go knowledge, x86 and export/check commands",
+    "DOS module relocation, overlay movement/ambiguity, mode and executable identity",
+    "Shared debugger, structured-state and tour regressions",
+    "Native DOS debug and 512 Go decoder comparison vectors",
+    "WASM debug-dos, fast-x86, fast-xbox, pixel-dos, render-dos and pixel-xbox",
+    "Release 85 pinned assets and 16 routes",
+    "git diff --check"
+  ],
+  "underworld": {
+    "result": "PASS",
+    "initialStep": "699427872",
+    "reports": [
+      {
+        "stop": "projection",
+        "step": "699467905",
+        "intervalSteps": 40033,
+        "ramWrites": 1810,
+        "storageWrites": {
+          "0": 11322
+        },
+        "buffers": 0,
+        "displaySHA256": "0e1620d3d1602be62590b7725a8a970d8ba9143ec5d2d013d0e11872b52fb983"
+      },
+      {
+        "stop": "span",
+        "step": "699468616",
+        "intervalSteps": 711,
+        "ramWrites": 0,
+        "storageWrites": {
+          "0": 352
+        },
+        "buffers": 1,
+        "displaySHA256": "0e1620d3d1602be62590b7725a8a970d8ba9143ec5d2d013d0e11872b52fb983"
+      },
+      {
+        "stop": "blit",
+        "step": "699905103",
+        "intervalSteps": 436487,
+        "ramWrites": 17395,
+        "storageWrites": {
+          "0": 125012,
+          "1": 87,
+          "2": 85,
+          "3": 81,
+          "4": 82
+        },
+        "buffers": 1,
+        "displaySHA256": "19f95a2f9b34d8aa9621e4ff8b5d7129b6e24153855b0ab69d716cf9104f0b82"
+      },
+      {
+        "stop": "copy-finished",
+        "step": "699983969",
+        "intervalSteps": 78866,
+        "ramWrites": 0,
+        "storageWrites": {
+          "0": 14244,
+          "1": 4816,
+          "2": 4816,
+          "3": 4816,
+          "4": 4816
+        },
+        "buffers": 1,
+        "displaySHA256": "19f95a2f9b34d8aa9621e4ff8b5d7129b6e24153855b0ab69d716cf9104f0b82"
+      }
+    ]
+  },
+  "browser": {
+    "result": "PASS",
+    "release": "730a6a432be786470e39",
+    "checks": [
+      "DOS folder/state load and exact executable identity",
+      "Live x86 mode, registers, segment bases and disassembly",
+      "Verified overlay function navigation and SMC watches",
+      "Four renderer stops",
+      "Atomic state and chunky buffer snapshots",
+      "Instruction step and exact checkpoint restoration",
+      "19264 VGA writes",
+      "375px buffer layout and keyboard focus"
+    ],
+    "projection": "699467905",
+    "span": "699468616",
+    "final": "699983969"
+  },
+  "fortRegression": {
+    "result": "PASS",
+    "release": "730a6a432be786470e39",
+    "firstCycle": "118441859",
+    "lastCycle": "118442960",
+    "terrainWrites": 215
+  },
+  "privateInputs": "Game files and authentic gameplay checkpoints are local, excluded from this report and repository."
+}

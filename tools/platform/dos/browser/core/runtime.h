@@ -6,3 +6,4 @@
 #include "../../../../browser/core/console-trace.h"
 
 #include "render-trace.h"
+#include "../../../../browser/core/memory.h"

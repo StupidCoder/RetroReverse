@@ -160,3 +160,6 @@ body[data-platform] .files{margin-top:8px}
 .tour-panel select { max-width: 100%; }
 .tour-panel pre { max-height: 18rem; overflow: auto; font-size: .85rem; }
 .tour-panel .tour-status { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.code-buffers canvas { max-width: 100%; height: auto; image-rendering: pixelated; }
+#code-registers { overflow-wrap: anywhere; }
