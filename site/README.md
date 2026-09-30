@@ -197,3 +197,12 @@ now uses an explicit “Capture next display” button. See the
 The shared Game state panel now displays Fort watches, raw bytes, documented
 function links, and bounded records/arrays. It can be hidden or moved above/below
 Code or Memory without losing navigation. See [M3](../tools/browser/docs/code-m3/README.md).
+
+M9 adds C64 step over/out for conventional JSR/RTS frames and conditional RAM
+write watchpoints (masked byte value, optional writer PC). Write stops can be
+mid-instruction. Recorded Memory writes link to current disassembly at their
+writer address; they do not reconstruct historical code. The generated
+[knowledge catalog](knowledge/index.html) now indexes functions as well as assets.
+See the [release capability matrix, schema policy and browser evidence](../tools/browser/docs/code-m9/README.md)
+for the exact C64/DOS/3DO scopes, tours, controlled experiments and remaining
+Elite compatibility gate.

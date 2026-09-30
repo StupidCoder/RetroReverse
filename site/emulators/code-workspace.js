@@ -5,12 +5,13 @@ export function createCodeWorkspace({root,views,send,transport,platform,statePan
  if(!['c64','dos','3do'].includes(platform))return null;
  root.innerHTML=`<div class="memory-heading"><div><h2>Code</h2><p id="code-note" role="status">Load a game to inspect its code.</p></div></div>
  <div class="memory-player"><canvas id="code-screen" tabindex="0" width="392" height="272" aria-label="Code game output"></canvas><div><div class="memory-transport"><button id="code-play">Play</button><button id="code-pause">Pause</button><button id="code-frame">Next frame</button></div><p>Click the preview for keyboard controls. Navigation never advances execution.</p><button id="code-tape-play">Play tape</button><button id="code-tape-stop">Stop tape</button></div></div>
- <div class="code-toolbar"><button id="code-normalize">Finish partial instruction</button><button id="code-step">Step instruction</button><button id="code-follow">Follow PC</button><button id="code-refresh">Refresh</button><button id="code-cancel" disabled>Cancel run</button></div>
+ <div class="code-toolbar"><button id="code-normalize">Finish partial instruction</button><button id="code-step">Step instruction</button><button id="code-over">Step over</button><button id="code-out">Step out</button><button id="code-follow">Follow PC</button><button id="code-refresh">Refresh</button><button id="code-cancel" disabled>Cancel run</button></div>
+ <form id="code-watch"><h3>Conditional write watchpoint</h3><label>RAM address <input name="address" value="$0200" size="6"></label> <label>Value <input name="value" value="$00" size="4"></label> <label>Mask <input name="mask" value="$00" size="4"></label> <label>Writer PC (optional) <input name="writer" size="6"></label> <button>Run until write</button><p>Hexadecimal. Stop when (written byte &amp; mask) equals value; mask $00 matches any write, including a same-value write. Stops may be mid-instruction. Step out requires a balanced JSR/RTS frame; it cannot infer arbitrary stack use.</p></form><p id="code-event" role="status"></p>
  <p id="code-registers"></p><div class="code-layout"><section><form id="code-go"><label>CPU address <input id="code-address" placeholder="$0800" size="8" spellcheck="false"></label><button>Inspect</button></form>
  <div class="code-toolbar"><button id="code-until">Run to address</button><label>At current PC <select id="code-resume"><option value="stop-if-current">Stop immediately</option><option value="next-match">Run to next visit</option></select></label></div>
  <p>Address stops use the current CPU mapping. They do not prove that a documented function is loaded. Runs stop after 10 seconds or 9,852,480 cycles.</p>
  <pre id="code-disassembly" tabindex="0" aria-label="Mapped 6510 disassembly"></pre></section><aside><h3>Identified functions</h3><p id="code-identity"></p><div id="code-functions"></div><p id="code-annotation"></p></aside></div>`;
- if(platform!=='c64'){root.querySelector('#code-tape-play').hidden=true;root.querySelector('#code-tape-stop').hidden=true;root.querySelector('#code-normalize').hidden=true;root.querySelector('#code-disassembly').setAttribute('aria-label','Live x86 disassembly');root.querySelector('#code-until').parentElement.nextElementSibling.textContent='Linear-address stops use the current CPU mode. Near branch targets are shown in linear display coordinates. REP remains one instruction; oversized atomic operations are rejected.';}
+ if(platform!=='c64'){for(const id of ['over','out','watch'])root.querySelector('#code-'+id).hidden=true;root.querySelector('#code-tape-play').hidden=true;root.querySelector('#code-tape-stop').hidden=true;root.querySelector('#code-normalize').hidden=true;root.querySelector('#code-disassembly').setAttribute('aria-label','Live x86 disassembly');root.querySelector('#code-until').parentElement.nextElementSibling.textContent='Linear-address stops use the current CPU mode. Near branch targets are shown in linear display coordinates. REP remains one instruction; oversized atomic operations are rejected.';}
  if(platform==='3do'){root.querySelector('#code-disassembly').setAttribute('aria-label','Live ARM60 disassembly');root.querySelector('#code-until').parentElement.nextElementSibling.textContent='ARM32 big-endian. Task switches and Portfolio HLE services are separate boundaries; movies cannot be instruction-stepped. Named stops bind the current task.';}
  const bufferPanel=document.createElement('section');bufferPanel.className='code-buffers';root.append(bufferPanel);
  const experimentPanel=platform==='c64'?createExperimentPanel({root,send}):null;
@@ -23,6 +24,8 @@ export function createCodeWorkspace({root,views,send,transport,platform,statePan
  function controls(){
   const locked=!enabled||running||busy||externalBusy||snapshotPending;
   for(const id of ['play','frame','until','go','resume']){const el=$(id);if(el.tagName==='FORM'){for(const e of el.elements)e.disabled=locked;}else el.disabled=locked||experimentOwned;}
+  for(const id of ['over','out'])$(id).disabled=locked||experimentOwned||!snapshot?.boundary||snapshot.interruptPending;
+  for(const e of $('watch').elements)e.disabled=locked||experimentOwned;
   $('step').disabled=locked||experimentOwned||!snapshot?.boundary;$('normalize').disabled=locked||experimentOwned||!snapshot||snapshot.boundary;
   $('tape-play').disabled=$('tape-stop').disabled=!enabled||busy||externalBusy||experimentOwned;
   $('pause').disabled=!running&&!busy;$('cancel').disabled=!busy;
@@ -56,14 +59,16 @@ export function createCodeWorkspace({root,views,send,transport,platform,statePan
   }
   controls();
  }
- function execute(type){
+ function execute(type,args={}){
   if(!snapshot||running||busy||externalBusy||experimentOwned||snapshotPending)return;
   busy=true;clearTimeout(timer);controls();
-  job=command(type,{functionId,snapshotId:snapshot.snapshotId,cycle:snapshot.cycle,bank:snapshot.bank,target:address<0?snapshot.address:address,resume:$('resume').value});
+  job=command(type,{functionId,snapshotId:snapshot.snapshotId,cycle:snapshot.cycle,bank:snapshot.bank,target:address<0?snapshot.address:address,resume:$('resume').value,...args});
  }
  $('go').onsubmit=e=>{e.preventDefault();const text=$('address').value.trim().replace(/^\$|^0x/i,'');if(!(platform!=='c64'?/^[0-9a-f]{1,8}$/i:/^[0-9a-f]{1,4}$/i).test(text)){$('note').textContent=platform!=='c64'?'Enter a linear RAM address in hexadecimal.':'Enter a CPU address from $0000 to $FFFF.';return;}functionId=null;address=parseInt(text,16);refresh();};
  $('follow').onclick=()=>{functionId=null;address=-1;$('annotation').textContent='';refresh();};$('refresh').onclick=refresh;
  $('step').onclick=()=>execute('debug-step');$('normalize').onclick=()=>execute('debug-normalize');$('until').onclick=()=>execute('debug-until');
+ $('over').onclick=()=>execute('debug-over');$('out').onclick=()=>execute('debug-out');
+ $('watch').onsubmit=e=>{e.preventDefault();const values={};for(const key of ['address','value','mask','writer']){const raw=$('watch').elements.namedItem(key).value.trim().replace(/^\$|^0x/i,'');if(key==='writer'&&!raw){values[key]=-1;continue;}if(!/^[0-9a-f]{1,4}$/i.test(raw)){$('note').textContent='Enter hexadecimal watchpoint values.';return;}values[key]=parseInt(raw,16);}execute('debug-watch',{watch:values});};
  $('cancel').onclick=()=>command('debug-cancel');
  for(const [id,type] of [['play','run'],['pause','pause'],['frame','step']])$(id).onclick=()=>transport(type);
  $('tape-play').onclick=()=>send('tape',{down:1});$('tape-stop').onclick=()=>send('tape',{down:0});
@@ -72,7 +77,7 @@ export function createCodeWorkspace({root,views,send,transport,platform,statePan
   ready(session){enabled=true;generation=session;$('note').textContent='Mapped CPU bytes · snapshots do not advance execution.';views.enable('code',true);command('debug-capabilities');controls();},
   inspect(at,id=null){functionId=id;address=at;refresh();},
   refreshState(){refresh(true);},
-  reset(){experimentPanel?.reset();tourPanel.reset();statePanel?.reset();enabled=false;busy=false;snapshotPending=false;job=0;snapshot=null;functionId=null;address=-1;knowledge=null;bufferPanel.replaceChildren();clearTimeout(timer);views.enable('code',false);controls();},
+  reset(){$('event').replaceChildren();experimentPanel?.reset();tourPanel.reset();statePanel?.reset();enabled=false;busy=false;snapshotPending=false;job=0;snapshot=null;functionId=null;address=-1;knowledge=null;bufferPanel.replaceChildren();clearTimeout(timer);views.enable('code',false);controls();},
   setActive(value){active=value;clearTimeout(timer);timer=null;if(value)refresh();},
   present(canvas){if(active){const c=$('screen');if(c.width!==canvas.width)c.width=canvas.width;if(c.height!==canvas.height)c.height=canvas.height;c.getContext('2d').drawImage(canvas,0,0);}},
   state(m){experimentPanel?.state(m);tourPanel.state(m);const was=running;running=m.running;statePanel?.setRunning(m.running||m.debugBusy||m.capturing||m.memoryRecording||m.saving);experimentOwned=!!m.experimentOwned;externalBusy=m.capturing||m.saving||m.memoryRecording||(m.debugBusy&&!busy);controls();if(active&&was&&!running)refresh();schedule();},
@@ -84,7 +89,7 @@ export function createCodeWorkspace({root,views,send,transport,platform,statePan
    if(m.type==='debug-snapshot'&&m.request===pending){snapshotPending=false;if(waitingSnapshot){waitingSnapshot=false;$('note').textContent='Mapped CPU bytes · snapshots do not advance execution.';}render(m.snapshot);return;}
    if(m.type==='debug-started'&&m.request===job){$('note').textContent='Running a bounded debugger job…';return;}
    if(m.type==='debug-result'){
-    if(m.request===job){job=0;busy=false;$('note').textContent=`${m.reason}${m.text?': '+m.text:''}${m.cycles!==undefined?' · '+m.cycles+(platform==='dos'?' instruction steps':platform==='3do'?' scheduler steps':' cycles'):''}`;if(m.snapshot){functionId=null;address=-1;render(m.snapshot);}else refresh();controls();}
+    if(m.request===job){job=0;busy=false;$('event').replaceChildren();if(m.event){const e=m.event;$('event').append(`Write $${hex(e.value,2)} to $${hex(e.address)} at cycle ${e.cycle}. `);const b=document.createElement('button');b.textContent='Inspect writer $'+hex(e.pc);b.onclick=()=>{functionId=null;address=e.pc;refresh();};$('event').append(b,' Shows current code bytes at the recorded writer address.');}$('note').textContent=`${m.reason}${m.text?': '+m.text:''}${m.cycles!==undefined?' · '+m.cycles+(platform==='dos'?' instruction steps':platform==='3do'?' scheduler steps':' cycles'):''}`;if(m.snapshot){functionId=null;address=-1;render(m.snapshot);}else refresh();controls();}
     else if(m.request===pending){snapshotPending=false;controls();$('note').textContent=m.text||m.reason;if(m.retryable&&active&&enabled){waitingSnapshot=true;clearTimeout(timer);timer=setTimeout(refresh,200);}else schedule();}
    }
   }

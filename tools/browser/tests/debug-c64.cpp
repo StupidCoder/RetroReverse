@@ -51,4 +51,29 @@ int main(){
  assert(rr_debug_begin(1,0,0)&&rr_debug_run(100)==2&&machine.ram[0x200]==255); // patched prefetched DEC
  setup();rr_input()[0]=0;rr_input()[1]=0xdc;rr_input()[2]=machine.ram[0xdc00];rr_input()[3]=0;assert(!rr_debug_edit(1));
  assert(!rr_debug_edit(257));rr_run(1,0,0);assert(!rr_debug_edit(1));
+ // Nested calls: over returns to the caller; out stops at the matching RTS.
+ setup();const uint8_t caller[]={0x20,0,9,0xea};memcpy(machine.ram+0x800,caller,sizeof(caller));
+ const uint8_t callee[]={0x20,0,10,0x60};memcpy(machine.ram+0x900,callee,sizeof(callee));machine.ram[0xa00]=0x60;M6502_SET_DATA(machine.pins,0x20);
+ assert(rr_debug_begin(3,0,0)&&rr_debug_run(100)==12&&pc()==0x803&&machine.cpu.S==0xfd);
+ assert(rr_debug_begin(3,0,0)&&rr_debug_run(100)==2&&pc()==0x804); // non-call over is one step
+ setup();memcpy(machine.ram+0x800,caller,sizeof(caller));memcpy(machine.ram+0x900,callee,sizeof(callee));machine.ram[0xa00]=0x60;M6502_SET_DATA(machine.pins,0x20);
+ assert(rr_debug_begin(1,0,0)&&rr_debug_run(100)==2&&pc()==0x900);
+ assert(rr_debug_begin(4,0,0)&&rr_debug_run(100)==12&&pc()==0x803);
+ assert(!rr_debug_begin(4,0,0)); // no conventional return frame
+ // A hardware interrupt inside a subroutine must not count its RTS as our return.
+ setup();ctx.synthetic=false;memcpy(machine.ram+0x800,caller,sizeof(caller));machine.ram[0x900]=0xea;machine.ram[0x901]=0x60;M6502_SET_DATA(machine.pins,0x20);
+ assert(rr_debug_begin(3,0,0));assert(rr_debug_run(6)==0&&pc()==0x900);
+ machine.rom_kernal[0x1ffe]=0;machine.rom_kernal[0x1fff]=10;machine.cpu.irq_pip=0x400;machine.cpu.P=0;
+ const uint8_t handler[]={0x20,0,11,0x40};memcpy(machine.ram+0xa00,handler,sizeof(handler));machine.ram[0xb00]=0x60;
+ assert(rr_debug_run(200)==12&&pc()==0x803&&machine.cpu.S==0xfd);
+ // RMW's dummy same-value write is observable, with exact writer attribution.
+ setup();assert(!rr_debug_watch(0xdc00,0,0,-1));assert(!rr_debug_watch(0x200,2,1,-1));
+ assert(rr_debug_watch(0x200,0,255,0x800)&&rr_debug_run(100)==13);
+ assert(!debug::boundary()&&machine.ram[0x200]==0);
+ assert(std::string(rr_debug_event()).find("\"pc\":2048")!=std::string::npos);
+ assert(rr_debug_watch(0x200,1,255,0x800)&&rr_debug_run(100)==13&&machine.ram[0x200]==1);
+ assert(rr_debug_begin(0,0,0)&&rr_debug_run(100)==1);
+ assert(rr_debug_watch(0x200,0,0,0x900)&&rr_debug_run(100)==0); // writer mismatch
+ std::cout<<"C64 nested over/out and masked actual-write watchpoints: PASS\n";
+
 }

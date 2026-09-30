@@ -1,0 +1,15 @@
+{
+  "result": "PASS",
+  "release": "d3ac0a286899e5625481",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:157.0) Gecko/20100101 Firefox/157.0",
+  "checks": [
+    "nested native stepping through UI",
+    "write watchpoint, historical writer navigation, partial-instruction normalization",
+    "ordinary Play run/pause",
+    "Memory atlas, bounded recording, writer links",
+    "ordinary Render capture",
+    "fresh Code snapshot after Render",
+    "375px layout, form labels, focus and named disassembly"
+  ],
+  "heapBytes": 134217728
+}

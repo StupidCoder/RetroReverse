@@ -47,7 +47,7 @@ let memory,code,statePanel,panelLayout;
 const views=createWorkspaces({navigation:$('workspace-nav'),onChange:id=>{document.body.dataset.workspace=id;panelLayout?.activate(id);memory?.setActive(id==='memory');code?.setActive(id==='code');if(id==='code')code?.present(canvas);if(id==='memory'){memory?.present(canvas);memory?.open();}}});
 views.register({id:'play',label:'Play',panel:$('play-workspace')});
 const render=createRenderWorkspace({workspaces:views,platform,presentation,send,resume:()=>$('run').click(),playCanvas:canvas,beforeCapture:()=>memory.invalidate()});
-memory=createMemoryWorkspace({root:$('memory-workspace'),views,send,transport:id=>transport(id,true),platform});
+memory=createMemoryWorkspace({root:$('memory-workspace'),views,send,transport:id=>transport(id,true),platform,onWriter:['c64','dos','3do'].includes(platform)?at=>{views.select('code');code?.inspect(at);}:null});
 if(['c64','dos','3do'].includes(platform)){
  statePanel=createStatePanel({memory:(region,offset)=>{views.select('memory');memory.navigate(region,offset);},code:(address,functionId)=>{views.select('code');code.inspect(address,functionId);}});
  panelLayout=createPanelLayout(statePanel.root);
@@ -127,6 +127,7 @@ function load(stateFile=null) {
     if(pendingWorker)return;
     if (m.session !== session)
       return;
+    if(m.type.startsWith('experiment-')){memory.invalidate();code?.experimentResult(m);return;}
     if(m.type.startsWith('tour-')){if(m.phase==='running-to-stop')memory.invalidate();code?.tourResult(m);return;}
     if(m.type.startsWith('debug-')){if(m.type==='debug-started')memory.invalidate();code?.result(m);return;}
     if(m.type.startsWith('memory-')){memory.result(m);if(m.type==='memory-overview'&&views.current()==='memory')code?.refreshState();return;}
@@ -166,11 +167,11 @@ function load(stateFile=null) {
           m.maxCall.toFixed(1)} ms · canvas copy ${copyMs.toFixed(1)} ms`;
       showProfile(m.profile);
       if (loaded) {
-        $('reset').disabled = !!m.saving;
-        render.ready(!m.saving&&!m.memoryRecording&&!m.debugBusy);
-        $('run').disabled = m.running||m.capturing||m.saving||m.memoryRecording||m.debugBusy;
-        $('step').disabled = m.running||m.capturing||m.saving||m.memoryRecording||m.debugBusy;
-        $('save').disabled = m.capturing||m.saving||m.memoryRecording||m.debugBusy;
+        $('reset').disabled = !!(m.saving||m.experimentOwned);
+        render.ready(!m.saving&&!m.memoryRecording&&!m.debugBusy&&!m.experimentOwned);
+        $('run').disabled = m.running||m.capturing||m.saving||m.memoryRecording||m.debugBusy||m.experimentOwned;
+        $('step').disabled = m.running||m.capturing||m.saving||m.memoryRecording||m.debugBusy||m.experimentOwned;
+        $('save').disabled = m.capturing||m.saving||m.memoryRecording||m.debugBusy||m.experimentOwned;
         $('pause').disabled = !m.running&&!m.capturing&&!m.debugBusy;
         $('cancelcapture').hidden=!m.capturing;
       }

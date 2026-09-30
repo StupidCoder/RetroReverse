@@ -47,7 +47,7 @@ let memory,code,statePanel,panelLayout;
 const views=createWorkspaces({navigation:$('workspace-nav'),onChange:id=>{document.body.dataset.workspace=id;panelLayout?.activate(id);memory?.setActive(id==='memory');code?.setActive(id==='code');if(id==='code')code?.present(canvas);if(id==='memory'){memory?.present(canvas);memory?.open();}}});
 views.register({id:'play',label:'Play',panel:$('play-workspace')});
 const render=createRenderWorkspace({workspaces:views,platform,presentation,send,resume:()=>$('run').click(),playCanvas:canvas,beforeCapture:()=>memory.invalidate()});
-memory=createMemoryWorkspace({root:$('memory-workspace'),views,send,transport:id=>transport(id,true),platform});
+memory=createMemoryWorkspace({root:$('memory-workspace'),views,send,transport:id=>transport(id,true),platform,onWriter:['c64','dos','3do'].includes(platform)?at=>{views.select('code');code?.inspect(at);}:null});
 if(['c64','dos','3do'].includes(platform)){
  statePanel=createStatePanel({memory:(region,offset)=>{views.select('memory');memory.navigate(region,offset);},code:(address,functionId)=>{views.select('code');code.inspect(address,functionId);}});
  panelLayout=createPanelLayout(statePanel.root);

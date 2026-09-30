@@ -163,3 +163,17 @@ body[data-platform] .files{margin-top:8px}
 
 .code-buffers canvas { max-width: 100%; height: auto; image-rendering: pixelated; }
 #code-registers { overflow-wrap: anywhere; }
+/* Code uses the same compact game preview as Memory, including narrow screens. */
+#code-screen{width:192px;max-width:40%;height:auto;object-fit:contain;image-rendering:pixelated;background:#111}
+.memory-player>div{min-width:0}
+#code-watch{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+#code-watch h3,#code-watch p{flex-basis:100%;margin:6px 0}
+#code-watch label{display:inline-flex;align-items:center;gap:6px}
+#code-watch input{width:7ch;min-width:0}
+#code-watch input[name=writer]{width:9ch}
+#code-event{overflow-wrap:anywhere}
+#code-disassembly{color:#e5e9ef}
+.code-layout>section,.code-layout>aside{min-width:0}
+#code-go{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+#code-go input{max-width:12ch}
+@media(max-width:850px){.code-layout{grid-template-columns:minmax(0,1fr)}}

@@ -6,10 +6,13 @@ int rr_init(int basic_size,int kernal_size,int chars_size); // input: BASIC,KERN
 int rr_tape(int size);
 int rr_prepare(int pc,int pulse); // input: 64KiB prepared RAM, explicit synthetic start
 int rr_stop_reason();
-// Debug jobs: 0 normalize boundary, 1 retire one instruction, 2 run to PC.
+// Debug jobs: 0 normalize, 1 instruction, 2 PC, 3 step over, 4 balanced-frame step out.
+// Conditional write jobs use rr_debug_watch (internally mode 5).
 int rr_debug_edit(int count); // atomic checked RAM/code edits from input records
 int rr_debug_begin(int mode,int target,int next_match);
-int rr_debug_run(int cycles); // 0 slice exhausted, 1 boundary, 2 instruction, 3 interrupt entry, 4 target, 5 mapping invalid, 6 halted, -1 error
+int rr_debug_run(int cycles); // 0 budget, 1 boundary, 2 instruction, 3 IRQ, 4 target, 5 mapping, 6 halted, 12 return, 13 write, 14 bad return, -1 error
+int rr_debug_watch(int address,int value,int mask,int writer); // mapped RAM; writer -1 means any PC
+const char* rr_debug_event(); // last matching write JSON or null; reset at job/state change
 const char* rr_debug_snapshot(int address); // -1 selects current fetch; safe mapped bytes, no execution
 int rr_run(int ticks,int stop_kind,int target); // 0 budget; 1 edge; 2 PC; 3 address; 4 writer; 5 pulse; 6 next opcode; 7 raster frame
 void rr_play(int down);

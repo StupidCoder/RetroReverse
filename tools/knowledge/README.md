@@ -1,4 +1,4 @@
-# Game knowledge tools — M1–M6 profile
+# Game knowledge tools — M1–M9 profile
 
 `games/<slug>/knowledge.json` is the hand-maintained source. The initial Fort
 package supplies Memory's existing annotations and records documented state and
@@ -155,3 +155,11 @@ tour conditions, and bounded contextual pixel buffers are now implemented.
 See the [M5 profile and acceptance report](../browser/docs/code-m5/README.md).
 Protected-mode decoding uses the core’s cached segment bases; runtime knowledge
 modules currently support the verified real-mode Underworld profile.
+
+## Release and schema compatibility
+
+See the [M9 compatibility policy and capability matrix](../browser/docs/code-m9/README.md).
+`knowledgeexport -index site/knowledge/index.html` derives function/release/evidence
+and asset/provenance tables from the same validated packages as browser data.
+Package revision changes track research; schema-version changes track incompatible
+contracts. Unknown executable actions are rejected, never silently skipped.

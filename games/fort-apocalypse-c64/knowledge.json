@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "fort-apocalypse-c64",
-  "revision": 4,
+  "revision": 5,
   "game": {
     "name": "Fort Apocalypse",
     "system": {
@@ -218,6 +218,21 @@
       "kind": "cpu",
       "space": "cpu",
       "address": "0x8cdb"
+    },
+    "native-teleport-entry": {
+      "kind": "cpu",
+      "space": "cpu",
+      "address": "0x9892"
+    },
+    "accepted-enemy-spawn-entry": {
+      "kind": "cpu",
+      "space": "cpu",
+      "address": "0x9ca7"
+    },
+    "enemy-terrain-contact-entry": {
+      "kind": "cpu",
+      "space": "cpu",
+      "address": "0xa215"
     }
   },
   "types": {
@@ -574,6 +589,42 @@
         "playfield"
       ],
       "applicability": "Documented entry only. CPU banking and live instruction bytes must be validated before executing a guided stop."
+    },
+    "native-teleport": {
+      "label": "Native teleport / camera setup",
+      "entry": "native-teleport-entry",
+      "isa": "mos6510",
+      "releases": [
+        "reference-pal"
+      ],
+      "evidence": [
+        "upward-experiment"
+      ],
+      "applicability": "Native teleport entry used by the M8 prepared scenario. Validated in the M8 reference gameplay scenario; outside that scenario, verify banking and live bytes before execution."
+    },
+    "accepted-enemy-spawn": {
+      "label": "Accepted enemy spawn initialization",
+      "entry": "accepted-enemy-spawn-entry",
+      "isa": "mos6510",
+      "releases": [
+        "reference-pal"
+      ],
+      "evidence": [
+        "upward-experiment"
+      ],
+      "applicability": "Entry after the random/distance spawn decision; initializes the accepted enemy. This does not describe the random selection itself. Validated in the M8 reference gameplay scenario; outside that scenario, verify banking and live bytes before execution."
+    },
+    "enemy-terrain-contact": {
+      "label": "Enemy terrain contact handling",
+      "entry": "enemy-terrain-contact-entry",
+      "isa": "mos6510",
+      "releases": [
+        "reference-pal"
+      ],
+      "evidence": [
+        "upward-experiment"
+      ],
+      "applicability": "Terrain-contact predicate used in the M8 experiment, before the dying state is observed. Validated in the M8 reference gameplay scenario; outside that scenario, verify banking and live bytes before execution."
     }
   },
   "annotations": {

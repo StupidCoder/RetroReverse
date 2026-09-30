@@ -438,7 +438,7 @@ onmessage = async ({data : m}) => {
       if(['pause','hold','cancel-capture'].includes(m.type)){tourService.cancel();return;}
       send(m.type.startsWith('memory-')?'memory-error':m.type.startsWith('debug-')?'debug-result':'message',{generation:session,request:m.request,reason:'rejected',text:'Tour is running. Cancel it before another operation.'});return;
     }
-    if(['run','step','seek','capture-render','memory-record','tape','debug-normalize','debug-step','debug-until'].includes(m.type))tourService?.invalidate();
+    if(['run','step','seek','capture-render','memory-record','tape','debug-normalize','debug-step','debug-until','debug-over','debug-out','debug-watch'].includes(m.type))tourService?.invalidate();
     if(m.type==='input'&&((m.buttons??0)!==lastButtons||(m.keys||[]).some(([key,down])=>!!down!==appliedKeys.has(key))))tourService?.invalidate();
     if(m.type.startsWith('debug-')){
       if(!debugService){send('debug-result',{request:m.request,reason:'unsupported',text:'Instruction debugging is unavailable for this core.'});return;}

@@ -47,3 +47,22 @@ const snap=stateMessages.at(-1).snapshot;
 assert.equal(core._rr_cycle(),cycle);assert.equal(snap.state.cycle,snap.cycle);assert.equal(snap.state.entries.length,6);
 const enemy=snap.state.entries.find(e=>e.id==='enemy-mode');assert.equal(enemy.node.value,'3');assert.equal(enemy.node.raw[0],3);assert.equal(enemy.node.enumLabel,pkg.knowledge.types['enemy-mode'].values['3']);
 console.log('PASS M3 real WASM: Fort watches match backing bytes and CPU snapshot without execution');
+// M9: bounded actual-write conditions, native return stepping and heap plateau.
+put(ram);assert(core._rr_prepare(0x800,0));
+s=(await command('debug-snapshot')).snapshot;
+response=await command('debug-watch',{...action(s),watch:{address:0x200,value:0,mask:255,writer:0x800}});
+assert.equal(response.reason,'write-watchpoint');assert.equal(response.event.value,0);assert.equal(response.event.pc,0x800);assert.equal(response.snapshot.boundary,false);
+s=response.snapshot;response=await command('debug-normalize',action(s));assert.equal(response.reason,'boundary');
+s=response.snapshot;response=await command('debug-watch',{...action(s),watch:{address:0x200,value:2,mask:1,writer:-1}});assert.equal(response.reason,'rejected');
+ram.set([0x20,0,9,0x4c,0,8],0x800);ram.set([0xee,0,2,0x60],0x900);put(ram);assert(core._rr_prepare(0x800,0));
+s=(await command('debug-snapshot')).snapshot;response=await command('debug-over',action(s));assert.equal(response.reason,'return');assert.equal(response.snapshot.nextPC,0x803);
+// Warm up allocations, then 2,000 complete call/return cycles and snapshots.
+for(let i=0;i<10;i++){core._rr_debug_begin(2,0x800,0);core._rr_debug_run(100);core._rr_debug_begin(3,0,0);assert.equal(core._rr_debug_run(100),12);service.snapshot();}
+const heap=core.HEAPU8.length;
+for(let i=0;i<2000;i++){assert(core._rr_debug_begin(2,0x800,0));assert.equal(core._rr_debug_run(100),4);assert(core._rr_debug_begin(3,0,0));assert.equal(core._rr_debug_run(100),12);assert.equal(service.snapshot().nextPC,0x803);}
+assert.equal(core.HEAPU8.length,heap);
+console.log('PASS M9 WASM: masked same-value writes, validation, return stepping, 2,000-call heap plateau '+heap+' bytes');
+// Unsupported cores advertise and reject advanced commands without execution.
+const other=[];const dosService=createDebugService({core,platform:'dos',send:(type,m)=>other.push({type,...m}),sleep:async()=>{},busy:()=>false,paint:()=>{},applyInputs:()=>{},generation:1,knowledge:{status:'unknown'}});
+await dosService.request({type:'debug-capabilities',protocol:1,generation:1,request:1});assert.equal(other.at(-1).capabilities.writeWatchpoint,false);
+const ds=dosService.snapshot(),beforeUnsupported=core._rr_cycle();await dosService.request({type:'debug-over',protocol:1,generation:1,request:2,...action(ds)});assert.equal(other.at(-1).reason,'rejected');assert.equal(core._rr_cycle(),beforeUnsupported);

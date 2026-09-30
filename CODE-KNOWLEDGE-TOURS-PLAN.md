@@ -1,13 +1,11 @@
 # Game knowledge packages, Code workspace, and guided investigations
 
-Status: M0–M3 completed for the initial C64/Fort scope, 2026-09-30; see the
-[M0 contracts and baseline](tools/browser/docs/code-m0/README.md) and
-[M1 schema/package acceptance](tools/browser/docs/code-m1/README.md) and
-[M2 debugger acceptance](tools/browser/docs/code-m2/README.md).
-See also [M3 structured state acceptance](tools/browser/docs/code-m3/README.md).
-Elite remains gated on verified compatibility. M4 onward remain planned. This document records the agreed product direction;
-it does not claim that the interfaces or schema below are implemented. Milestones
-require their own acceptance evidence before being marked complete.
+Status: M0–M9 completed for their accepted release slices, 2026-09-30.
+See the [M9 capability matrix, compatibility policy and release evidence](tools/browser/docs/code-m9/README.md)
+for the supported C64/Fort, DOS/Underworld, 3DO/Need for Speed and static-asset
+scopes, and the linked M0–M8 acceptance reports for their limits. Elite remains
+gated on verified compatibility and research. The broader examples and optional
+future capabilities below are product direction, not blanket implementation claims.
 
 Delivery: commit and push after each completed milestone, as requested.
 
@@ -771,6 +769,14 @@ state; original/patched evidence cannot mix; restoring the initial session works
 The lesson reports the observed result, including a failed repair hypothesis.
 
 ### M9 — Expansion, migration and release hardening
+
+Completed for the accepted scope; see [M9 acceptance](tools/browser/docs/code-m9/README.md).
+C64 now supports bounded step over/out and masked actual-write watchpoints;
+recorded writer links open current bytes in Code. The generated catalog includes
+function and asset provenance. Three additional Fort functions come from M8
+research. Chromium, Safari and Firefox acceptance covers the packaged C64 app,
+ordinary Play/Render/Memory and narrow-screen accessibility checks. Other cores
+retain their explicitly listed capabilities; Elite remains gated.
 
 Depends on accepted slices above; it is not necessary to wait for every optional
 platform before releasing C64 support. Migrate more knowledge incrementally,
