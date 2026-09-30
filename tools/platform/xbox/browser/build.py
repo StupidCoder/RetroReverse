@@ -10,4 +10,5 @@ flags=['-O3','-std=c++20','-fwrapv','-ffp-contract=off','-Wno-parentheses-equali
 if a.reference:flags+=['-DRR_X86_REFERENCE','-DRR_GPU_REFERENCE']
 subprocess.run(['clang++',*flags,str(r/'core/native.cpp'),'-o',str(r/'work'/('xbox-native-reference' if a.reference else 'xbox-native'))],check=True)
 exports='init_file run pad error status proof profile frame state_input state_save state_data state_load capture_begin capture_end capture_info pixel source resource replay_begin replay_seek replay_info replay_frame replay_for_write'.split()
+exports += 'inspect_regions inspect_data activity_begin activity_end activity_count activity_dropped activity_data'.split()
 subprocess.run([a.emcc,*flags,'-msimd128','--profiling-funcs',str(r/'core/api.cpp'),'-sMODULARIZE=1','-sEXPORT_ES6=1','-sENVIRONMENT=web,worker','-sALLOW_MEMORY_GROWTH=1','-sINITIAL_MEMORY=134217728','-sSTACK_SIZE=2097152','-fwasm-exceptions','-sEXPORTED_FUNCTIONS='+str(['_rr_'+x for x in exports]).replace("'",'"'),'-sEXPORTED_RUNTIME_METHODS=["UTF8ToString","HEAPU8"]','-o',str(dest/'core.js')],check=True)

@@ -21,3 +21,9 @@ await service.begin();heap[9]=239;heap[10]=190;const end=service.finish();assert
 service.seek(0);assert.deepEqual([...service.page('ram',0).bytes],[1,2,3,4]);assert.equal(heap[9],239);service.seek(1);assert.equal(service.page('ram',0).bytes[1],239);service.seek(2);assert.equal(service.detail('ram',1).events[0].kind,2);
 await service.liveSnapshot();heap[8]=77;const live=await service.liveSnapshot();assert.equal(live.live,true);assert.equal(live.recording,0);assert.equal(service.page('ram',0).bytes[0],77);assert.equal(live.regions[0].activityMap[1]&2,2);service.stopLive();assert.equal(service.overview().live,false);
 console.log('PASS memory: address edges, aggregation, TAP indexing, forward/backward reconstruction, read-only inspection');
+
+// Large RAM regions must remain drawable even in detailed mode.
+const largeHeap=new Uint8Array(2*1024*1024+16);largeHeap[largeHeap.length-1]=123;
+const largeCore={...core,HEAPU8:largeHeap,_rr_inspect_regions:()=>JSON.stringify({activity:false,regions:[{id:'ram',name:'Large RAM',kind:'ram',index:0,size:largeHeap.length-8,base:0,aliases:[0]}]}),_rr_inspect_data:()=>8};
+const largeService=createMemoryService({core:largeCore,platform:'test',files:[],status:()=>({})});await largeService.snapshot();const detailed=largeService.overview(1).regions[0];assert(detailed.bitmap.length<=1048576);assert.equal(detailed.scale,4);const last=largeService.page('ram',largeHeap.length-9);assert.equal(last.bytes.at(-1),123);
+console.log('PASS large-memory atlas: bounded bitmap and final-byte inspection');

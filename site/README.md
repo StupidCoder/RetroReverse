@@ -113,8 +113,7 @@ Use that directory's preview server when testing the emulator profiling headers.
 Load a local game and choose **Memory** to pause at the current execution boundary.
 The hex pane and physical-storage bitmap stay linked: click a bank or RAM area to
 jump, use arrow/Page Up/Page Down keys in the hex pane, or enter a physical address
-or explicit `rom-5:3430` bank offset. ROM rows show file offsets; RAM rows show their
-base addresses. CPU aliases are labeled separately, including partial GG windows.
+or explicit `rom-5:3430` bank offset. Rows use their listed region base; GB/GG/GBA ROM rows use file offsets. CPU aliases are labeled separately, including partial GG windows.
 
 | Core | Physical snapshots | Recorded activity |
 |---|---|---|
@@ -123,15 +122,35 @@ base addresses. CPU aliases are labeled separately, including partial GG windows
 | GBA | EWRAM, IWRAM, VRAM, palette, OAM, EEPROM, ROM chunks | Not yet available |
 | C64 | Underlying RAM, BASIC/KERNAL/character ROM, color RAM, tape | CPU memory accesses and consumed tape pulses; optional fetches |
 | Amiga | Chip/slow RAM, Kickstart, every ADF track/side | CPU and chip DMA accesses; MFM payload consumption attributed to sectors |
+| PlayStation | Main RAM, scratchpad, GPU VRAM | Not yet available |
+| Dreamcast | Main RAM, VRAM in texture order, AICA RAM, flash | Not yet available |
+| N64 | RDRAM, RSP DMEM/IMEM, PIF RAM, EEPROM, cartridge ROM | Not yet available |
+| 3DO | DRAM, VRAM, simulated kernel item storage | Not yet available |
+| DS | Main/shared/ARM7 RAM, ARM9 TCM, palette, OAM, nine physical VRAM banks | Not yet available |
+| 3DS | Currently allocated code, stack, heap, linear, video and other mapped regions | Not yet available |
+| PSP | Main RAM, VRAM, scratchpad | Not yet available |
+| PS2 | EE RAM/scratchpad, allocated IOP RAM, GS VRAM, VU memories, loaded BIOS | Not yet available |
+| GameCube | Main RAM and audio RAM | Not yet available |
+| DOS | Main backing RAM, VGA planes (real mode), palette | Not yet available |
+| Xbox | Unified CPU/GPU RAM | Not yet available |
 
-Other cores show an explicit unavailable message. Hardware I/O inspection is not
+All sixteen cores expose live snapshots. New adapters read their backing buffers
+only when inspecting; they add no CPU read/write hooks. Unallocated regions are
+omitted and appear when allocated. 3DS entries describe the HLE core's mapped
+allocations, not a complete hardware physical map. Simulated firmware does not
+create a fictitious BIOS region, and disc images are not copied into the atlas.
+Dreamcast VRAM uses the direct 64-bit texture window; its differently ordered
+32-bit framebuffer window is not listed as a linear alias. Detailed maps cap each
+region at one million pixels, with the actual bytes per pixel shown in its caption.
+
+Hardware I/O inspection is not
 implemented using live register reads. Display-chip reads are not generally traced;
 the workspace describes the coverage of each supported recorder.
 
 **Record & run** advances the machine for the selected maximum duration, stopping
 earlier at 524,288 events. Replay/scrubbing reconstructs historical bytes from an
 immutable initial snapshot and actual writes, without changing the paused machine.
-**Resume game** continues from the live endpoint, not the historical cursor.
+**Play** continues from the live endpoint, not the historical cursor.
 Truncation is explicit. Recordings are bounded windows, not an unlimited rewind
 history; a new snapshot or recording replaces the prior recording. CPU mapping
 details describe the start snapshot, while events resolve physical banks at access time.

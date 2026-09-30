@@ -2,11 +2,12 @@
 
 Status: initial review implementation. Shared workspace, GG/GB/GBA snapshots,
 Sonic/Fort annotations, C64 pulse recording/replay, and Amiga ADF/DMA inspection
-are implemented. GG also records CPU reads and RAM/video-port writes. See
+are implemented. All sixteen cores now expose live memory atlases; the eleven
+new adapters expose backing storage without CPU access instrumentation. GG also
+records CPU reads and RAM/video-port writes. See
 [usage and coverage](site/README.md#memory-inspector).
 
-Remaining extensions from this proposal: GB/GBA access recording, additional
-core adapters, checkpoint-backed long histories, historical CPU-mapping changes,
+Remaining extensions from this proposal: access recording for the other cores, checkpoint-backed long histories, historical CPU-mapping changes,
 automatic game-phase annotation activation, and adjustable pane dividers. The
 current UI labels recording coverage and mapping-at-start explicitly. Historical
 navigation reconstructs a bounded recording; it never changes the live machine.

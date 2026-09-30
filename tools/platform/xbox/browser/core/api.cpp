@@ -22,3 +22,5 @@ static void stateWrite(rrstate::Archive&a){a.header(16,1);a(machine);a.raw(machi
 static void stateRead(rrstate::Archive&a){a.header(16,1);xbox_Machine*next=nullptr;a(next);if(!next||!next->CPU||!next->pgraph||next->threads.n>4096||next->push.running)throw std::runtime_error("Invalid Xbox state");a.charge(64*1024*1024);next->RAM=Slice<uint8_t>::make(64*1024*1024);a.raw(next->RAM.p,next->RAM.n);uint64_t nextFrames{};a(nextFrames);a.finish();next->XBE=machine->XBE;next->Disc=machine->Disc;rrBind(next);machine=next;frames=nextFrames;rrTextureEntries.clear();rrTextures.clear();stateOwners=std::move(a.owned);}
 #include "../../../../browser/state/api.inc"
 #include "capture.h"
+
+#include "memory.h"

@@ -19,3 +19,5 @@ static void stateWrite(rrstate::Archive&a){a.header(7,1);a(machine,rrSteps,rrFra
 static void stateRead(rrstate::Archive&a){a.header(7,1);psp_Machine*next=nullptr;uint64_t steps,frames,clock;uint8_t x,y;a(next,steps,frames,clock,x,y);if(!next||!clock||clock>1000000)throw std::runtime_error("Invalid PSP clock state");a.charge(33554432);next->ram=Slice<uint8_t>::make(33554432);a.raw(next->ram.p,33554432);a.finish();rebindState(next,machine->vol);machine=next;rrSteps=steps;rrFrames=frames;rrUntilVBlank=clock;rrAnalogX=x;rrAnalogY=y;stateOwners=std::move(a.owned);}
 #include "../../../../browser/state/api.inc"
 #include "capture.h"
+
+#include "memory.h"

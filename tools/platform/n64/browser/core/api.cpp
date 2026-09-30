@@ -110,3 +110,5 @@ extern "C" const char*rr_replay_begin(){rrreplay::replay.begin();static std::str
 extern "C" int rr_replay_seek(uint32_t step){return rrreplay::replay.seek(step);}
 extern "C" const char*rr_replay_info(){static std::string s;s=rrreplay::replay.info();return s.c_str();}
 extern "C" uint32_t rr_replay_for_write(uint32_t id){return rrreplay::replay.forWrite(id);}
+
+#include "memory.h"

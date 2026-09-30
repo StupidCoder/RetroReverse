@@ -41,3 +41,5 @@ const char*rr_replay_info(){reply=rrreplay::replay.info();reply.pop_back();reply
 uint32_t rr_replay_for_write(uint32_t id){return rrreplay::replay.forWrite(id);}
 uint8_t*rr_replay_frame(){auto&r=rrreplay::replay;pixels.resize(rrds::planeSize*2);if(r.memory.size()<rrds::total)return nullptr;auto first=captureSwap?0:rrds::planeSize;std::memcpy(pixels.data(),r.memory.data()+first,rrds::planeSize);std::memcpy(pixels.data()+rrds::planeSize,r.memory.data()+rrds::planeSize-first,rrds::planeSize);if(replay3DTarget())std::memcpy(pixels.data()+(captureSwap?0:rrds::planeSize),r.memory.data()+rrds::plane3D,rrds::planeSize);return pixels.data();}
 }
+
+#include "memory.h"

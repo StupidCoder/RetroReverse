@@ -21,3 +21,5 @@ static void stateRead(rrstate::Archive&a){a.header(14,1);dc_Machine*next=nullptr
 #include "../../../../browser/state/api.inc"
 
 #include "capture.h"
+
+#include "memory.h"

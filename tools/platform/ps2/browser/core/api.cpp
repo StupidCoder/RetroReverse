@@ -37,3 +37,5 @@ static void stateRead(rrstate::Archive&a){
 #include "../../../../browser/state/api.inc"
 
 #include "capture.h"
+
+#include "memory.h"

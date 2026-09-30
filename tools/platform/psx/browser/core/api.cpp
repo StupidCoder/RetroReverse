@@ -196,3 +196,5 @@ extern "C" uint32_t rr_replay_for_write(uint32_t id){return rrreplay::replay.for
 extern "C" int rr_vram_size(){return captured&&rrcapture::trace.valid&&rrreplay::replay.memory.size()==1024*512*2?1024*512*2:0;}
 extern "C" uint8_t*rr_vram_data(){return rr_vram_size()?rrreplay::replay.memory.data():nullptr;}
 extern "C" const char*rr_vram_info(){text=rr_vram_size()?rrps1::info():"{\"error\":\"Capture a display first\"}";return text.c_str();}
+
+#include "memory.h"

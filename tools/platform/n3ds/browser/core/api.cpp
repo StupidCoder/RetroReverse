@@ -37,3 +37,5 @@ const char*rr_replay_info(){reply=rrreplay::replay.info();return reply.c_str();}
 uint32_t rr_replay_for_write(uint32_t id){return rrreplay::replay.forWrite(id);}
 uint8_t*rr_replay_frame(){pixels=rr3ds::display(rrreplay::replay.memory);return pixels.data();}
 }
+
+#include "memory.h"
