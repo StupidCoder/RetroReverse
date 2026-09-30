@@ -1,4 +1,4 @@
-// Package knowledge validates the implemented M1 profile and compiles read-only
+// Package knowledge validates the implemented knowledge profile and compiles read-only
 // annotations. It does not run guest code, evaluate applicability text or tours.
 package knowledge
 
@@ -64,18 +64,24 @@ type Evidence struct {
 	Description string `json:"description"`
 	Limitations string `json:"limitations,omitempty"`
 }
+type Occupancy struct {
+	Path      []string `json:"path"`
+	NotEquals string   `json:"notEquals"`
+}
 type Definition struct {
-	Label         string   `json:"label"`
-	Description   string   `json:"description,omitempty"`
-	Releases      []string `json:"releases"`
-	Evidence      []string `json:"evidence"`
-	Applicability string   `json:"applicability"`
-	Location      string   `json:"location,omitempty"`
-	Length        uint64   `json:"length,omitempty"`
-	MemoryLabel   bool     `json:"memoryLabel,omitempty"`
-	Type          string   `json:"type,omitempty"`
-	Entry         string   `json:"entry,omitempty"`
-	ISA           string   `json:"isa,omitempty"`
+	Occupancy        *Occupancy `json:"occupancy,omitempty"`
+	RelatedFunctions []string   `json:"relatedFunctions,omitempty"`
+	Label            string     `json:"label"`
+	Description      string     `json:"description,omitempty"`
+	Releases         []string   `json:"releases"`
+	Evidence         []string   `json:"evidence"`
+	Applicability    string     `json:"applicability"`
+	Location         string     `json:"location,omitempty"`
+	Length           uint64     `json:"length,omitempty"`
+	MemoryLabel      bool       `json:"memoryLabel,omitempty"`
+	Type             string     `json:"type,omitempty"`
+	Entry            string     `json:"entry,omitempty"`
+	ISA              string     `json:"isa,omitempty"`
 }
 type Annotation struct {
 	Function string   `json:"function"`
@@ -435,6 +441,56 @@ func (p *Package) validate() error {
 					return e
 				}
 			}
+			for _, function := range d.RelatedFunctions {
+				f, ok := p.Functions[function]
+				if !ok {
+					return fmt.Errorf("unknown related function %s", function)
+				}
+				for _, r := range d.Releases {
+					if !contains(f.Releases, r) {
+						return fmt.Errorf("related function release mismatch")
+					}
+				}
+			}
+			if d.Occupancy != nil {
+				t := p.Types[d.Type]
+				if t.Kind != "array" {
+					return fmt.Errorf("occupancy requires an array")
+				}
+				t = p.Types[t.Element]
+				for _, field := range d.Occupancy.Path {
+					found := false
+					if t.Kind == "struct" {
+						for _, f := range t.Fields {
+							if f.Name == field {
+								t = p.Types[f.Type]
+								found = true
+								break
+							}
+						}
+					}
+					if !found {
+						return fmt.Errorf("invalid occupancy field %s", field)
+					}
+				}
+				if t.Kind == "enum" {
+					t = p.Types[t.Storage]
+				}
+				if t.Kind != "integer" {
+					return fmt.Errorf("occupancy must compare integer storage")
+				}
+				n, ok := new(big.Int).SetString(d.Occupancy.NotEquals, 10)
+				max := new(big.Int).Lsh(big.NewInt(1), uint(t.Bytes*8))
+				min := big.NewInt(0)
+				if t.Signed {
+					max.Rsh(max, 1)
+					min.Neg(new(big.Int).Set(max))
+				}
+				max.Sub(max, big.NewInt(1))
+				if !ok || n.Cmp(min) < 0 || n.Cmp(max) > 0 {
+					return fmt.Errorf("occupancy value exceeds storage")
+				}
+			}
 			if collection.name == "functions" {
 				loc = d.Entry
 				n = 1
@@ -447,7 +503,7 @@ func (p *Package) validate() error {
 				if e != nil {
 					return e
 				}
-				if n >= s.Limit-s.Offset {
+				if n > s.Limit-s.Offset {
 					return fmt.Errorf("%s.%s exceeds resolved space", collection.name, id)
 				}
 				if d.MemoryLabel && s.Kind != "physical" {

@@ -323,3 +323,34 @@ func TestSharedTypeGraphAndSupportedLayouts(t *testing.T) {
 		t.Fatal(n, e)
 	}
 }
+
+func TestM3StateRelationsAndOccupancy(t *testing.T) {
+	fixture := func(m map[string]any) {
+		types := at(m, "types")
+		types["slot"] = map[string]any{"kind": "struct", "size": 2, "fields": []any{map[string]any{"name": "type", "offset": 0, "type": "u8"}, map[string]any{"name": "flags", "offset": 1, "type": "u8"}}}
+		types["slots"] = map[string]any{"kind": "array", "element": "slot", "count": 2, "stride": 2}
+		d := at(m, "state", "enemy-mode")
+		d["type"] = "slots"
+		d["occupancy"] = map[string]any{"path": []string{"type"}, "notEquals": "0"}
+	}
+	if _, e := Parse(changed(t, fixture)); e != nil {
+		t.Fatal(e)
+	}
+	for _, mutate := range []func(map[string]any){
+		func(m map[string]any) { at(m, "state", "enemy-mode")["relatedFunctions"] = []string{"missing"} },
+		func(m map[string]any) { at(m, "state", "enemy-mode", "occupancy")["path"] = []string{"missing"} },
+		func(m map[string]any) { at(m, "state", "enemy-mode", "occupancy")["notEquals"] = "256" },
+		func(m map[string]any) { at(m, "state", "enemy-mode")["type"] = "slot" },
+	} {
+		if _, e := Parse(changed(t, func(m map[string]any) { fixture(m); mutate(m) })); e == nil {
+			t.Fatal("invalid occupancy/relation accepted")
+		}
+	}
+}
+
+func TestM3FinalByteState(t *testing.T) {
+	_, e := Parse(changed(t, func(m map[string]any) { at(m, "locations", "enemy-mode")["address"] = "0xffff" }))
+	if e != nil {
+		t.Fatal("one-byte watch at final CPU address must fit:", e)
+	}
+}

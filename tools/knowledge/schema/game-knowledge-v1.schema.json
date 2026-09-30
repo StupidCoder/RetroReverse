@@ -836,6 +836,37 @@
         "type": {
           "type": "string",
           "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+        },
+        "relatedFunctions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+          },
+          "maxItems": 64,
+          "uniqueItems": true
+        },
+        "occupancy": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "maxItems": 16
+            },
+            "notEquals": {
+              "type": "string",
+              "pattern": "^-?(0|[1-9][0-9]*)$"
+            }
+          },
+          "required": [
+            "path",
+            "notEquals"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [

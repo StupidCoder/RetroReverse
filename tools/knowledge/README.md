@@ -128,3 +128,13 @@ The public check runner tests knowledge and rejects stale generated exports.
    is never a substitute for checking the binary or reproducing game behavior.
 
 Acceptance details: [M1 report](../browser/docs/code-m1/README.md).
+
+## M3 live state additions
+
+The C64 browser decodes bounded arrays/records, integer/enum/bitfield/fixed values,
+and preserves raw bytes. State definitions can now include `relatedFunctions`
+(release-compatible function IDs) and array `occupancy`, for example
+`{"path":["type"],"notEquals":"0"}`. The path is relative to each element;
+an empty path compares the scalar element. This is a bounded storage comparison,
+not an expression or script. The authoring validator checks its type and range.
+See [M3 implementation and limits](../browser/docs/code-m3/README.md).

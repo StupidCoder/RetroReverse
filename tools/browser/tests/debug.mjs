@@ -36,3 +36,14 @@ s=(await command('debug-snapshot')).snapshot;response=await command('debug-step'
 onYield=()=>{assert(service.active());service.cancel();};s=(await command('debug-snapshot')).snapshot;response=await command('debug-until',{...action(s),target:0x900});assert.equal(response.reason,'cancelled');assert(response.cycles<=1000);assert(!service.active());assert.equal(messages.filter(m=>m.request===request&&m.type==='debug-result').length,1);
 onYield=()=>{};s=(await command('debug-snapshot')).snapshot;response=await command('debug-until',{...action(s),target:0x900,cycleBudget:32});assert.equal(response.reason,'budget');assert.equal(response.cycles,32);
 console.log('Decoder (151 official opcodes), execution gate, real WASM jobs, stale requests, current-PC resume, cancellation and budgets: PASS');
+// Real WASM integration: every watch carries bytes from the same stopped CPU.
+const {knowledgePackages}=await import('../../../site/emulators/knowledge-data.js');
+const pkg=knowledgePackages.find(p=>p.id==='fort-apocalypse-c64');
+const stateMessages=[];
+const stateService=createDebugService({core,send:(type,m)=>stateMessages.push({type,...m}),sleep:async()=>{},busy:()=>false,paint:()=>{},applyInputs:()=>{},generation:1,knowledge:{data:pkg.knowledge,releaseId:pkg.releases[0].id}});
+core.HEAPU8[core._rr_ram()+0x6e]=3;
+const cycle=core._rr_cycle();await stateService.request({type:'debug-snapshot',protocol:1,generation:1,request:1});
+const snap=stateMessages.at(-1).snapshot;
+assert.equal(core._rr_cycle(),cycle);assert.equal(snap.state.cycle,snap.cycle);assert.equal(snap.state.entries.length,6);
+const enemy=snap.state.entries.find(e=>e.id==='enemy-mode');assert.equal(enemy.node.value,'3');assert.equal(enemy.node.raw[0],3);assert.equal(enemy.node.enumLabel,pkg.knowledge.types['enemy-mode'].values['3']);
+console.log('PASS M3 real WASM: Fort watches match backing bytes and CPU snapshot without execution');

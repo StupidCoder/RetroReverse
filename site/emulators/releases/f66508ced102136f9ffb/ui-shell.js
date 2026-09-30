@@ -23,7 +23,7 @@ export function shellMarkup(platform) {
       <aside class="play-inspector">
         <p>Open Memory to inspect storage, or Render to capture a display.</p>
         <div class="state-controls"><button id="save" disabled>Save state</button><label>Load state <input id="statefile" type="file" accept=".rrstate"></label></div>
-        <p id="capture-note" class="metrics">${dos?'Open Render to trace RAM rendering and its copies to VGA.':'Open Render to record the next complete display interval.'}</p>
+        <p id="capture-note" class="metrics">${dos?'Open Render to trace RAM rendering and its copies to VGA.':'Use Capture next display in Render to record a complete interval.'}</p>
         <p id="metrics" class="metrics">No machine running</p>
         ${view.firmwareHTML||''}
         <div id="tape" ${platform==='c64'?'':'hidden'}><button id="tapeplay">Play tape</button><button id="tapestop">Stop tape</button><p>Type LOAD, press Enter, then play the tape. Type RUN after loading.</p></div>
@@ -34,8 +34,9 @@ export function shellMarkup(platform) {
     </div>
   </section>
   <section id="memory-workspace" hidden></section>
+  <section id="code-workspace" hidden></section>
   <section id="render-workspace" hidden>
-    <div class="render-heading"><div><h2>Building the screen</h2><p id="render-position">Capture a display to inspect it.</p></div><button id="cancelcapture" hidden>Cancel capture</button><button id="render-resume">Resume game</button></div>
+    <div class="render-heading"><div><h2>Building the screen</h2><p id="render-position">Capture a display to inspect it.</p></div><button id="render-capture">Capture next display</button><button id="cancelcapture" hidden>Cancel capture</button><button id="render-resume">Resume game</button></div>
     <div id="render-toolbar" class="render-toolbar" hidden></div>
     <div class="render-layout">
       <div class="render-stage"><div class="render-buffers"><div id="render-auxiliary" class="render-auxiliary" hidden></div><div id="render-output-slot" class="render-output-slot"></div></div><div id="render-timeline"></div></div>

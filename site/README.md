@@ -193,3 +193,7 @@ address breakpoints and a live game preview. Exact knowledge-package matches
 provide documented functions and annotations. Navigation is read-only; Render
 now uses an explicit “Capture next display” button. See the
 [M2 implementation and acceptance report](../tools/browser/docs/code-m2/README.md).
+
+The shared Game state panel now displays Fort watches, raw bytes, documented
+function links, and bounded records/arrays. It can be hidden or moved above/below
+Code or Memory without losing navigation. See [M3](../tools/browser/docs/code-m3/README.md).

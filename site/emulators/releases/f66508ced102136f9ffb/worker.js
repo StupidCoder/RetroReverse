@@ -1,3 +1,7 @@
+import {createDebugService} from './debug-worker.js';
+import {createExecutionGate} from './execution-gate.js';
+import {identifySingleImage} from './knowledge-model.js';
+import {knowledgePackages} from './knowledge-data.js';
 import {createMemoryService} from './memory-worker.js';
 import {packState, unpackState, digest} from './state.js';
 import {FrameClock} from './pacing.js';
@@ -14,7 +18,8 @@ const inputQueue = [];
 const appliedKeys=new Set();
 const mediaHashes=new WeakMap();
 function mediaHash(file){if(!mediaHashes.has(file))mediaHashes.set(file,sha256File(file));return mediaHashes.get(file);}
-let saving=false;
+let saving=false,debugService=null;
+const executionGate=createExecutionGate();
 let memoryService=null,memoryRecording=false,memoryStop=false,memoryBusy=false;
 let bootOptions, firmwareIdentity=[], mediaIdentity, coreIdentity;
 async function identities(){
@@ -92,7 +97,7 @@ function paint() {
     paintMs,
     heap : core.HEAPU8.length,
     inputDeferred : platform === '3do' && core.deferInput && s.frames < 300,
-    capturing,saving,memoryRecording,
+    capturing,saving,memoryRecording,debugBusy:!!debugService?.active(),
     profile : readProfile()
   });
 }
@@ -377,6 +382,14 @@ async function boot(m) {
     inputs.keys=[];inputs.down.clear();inputs.touch={x:0,y:0,down:false};inputs.touchEvents=[];inputs.touchUntil=0;if(core._rr_touch)core._rr_touch(0,0,0);
   }
   memoryService=createMemoryService({core,platform,files:[f],status});
+  if(platform==='c64'&&core._rr_debug_snapshot){
+    const identity=identifySingleImage(platform,{size:f.size,sha256:await mediaHash(f)});
+    const pkg=knowledgePackages.find(p=>p.id===identity.packageId);
+    debugService=createDebugService({core,send,sleep,paint,applyInputs,generation:session,
+      knowledge:pkg?{...identity,data:pkg.knowledge}:identity,
+      onStart:()=>{cancelCapture();memoryService.stopLive();},
+      busy:includePlay=>!!((executionGate.owner&&(includePlay||!['run','step'].includes(executionGate.owner)))||saving||memoryBusy||memoryRecording||capturing||(includePlay&&running))});
+  }
   loaded = true;
   paint();
   send('ready', {
@@ -384,6 +397,7 @@ async function boot(m) {
   });
 }
 onmessage = async ({data : m}) => {
+  let ownership=null;
   try {
     if (m.type === 'load') {
       await boot(m);
@@ -391,6 +405,27 @@ onmessage = async ({data : m}) => {
     }
     if (m.session !== session || !loaded)
       return;
+    if(m.type.startsWith('debug-')){
+      if(!debugService){send('debug-result',{request:m.request,reason:'unsupported',text:'Instruction debugging is unavailable for this core.'});return;}
+      await debugService.request(m);return;
+    }
+    if(debugService?.active()){
+      if(['pause','hold','cancel-capture'].includes(m.type)){debugService.cancel();return;}
+      if(!['input','turbo'].includes(m.type)){
+        send(m.type.startsWith('memory-')?'memory-error':'message',{request:m.request,text:'Debugger job is active. Cancel it before another operation.'});return;
+      }
+    }
+    const playOwner=['run','step'].includes(executionGate.owner);
+    // These existing controls explicitly pause play before taking ownership.
+    if(playOwner&&['pause','hold','cancel-capture','save','capture-render','memory-snapshot','memory-record'].includes(m.type)){
+      running=false;++epoch;executionGate.cancel(['run','step']);
+    }
+    const liveRead=playOwner&&m.type.startsWith('memory-')&&!['memory-record','memory-snapshot'].includes(m.type);
+    const exclusive=['run','step','save','seek','capture-render','memory-snapshot','memory-record','memory-live-snapshot'];
+    if(executionGate.owner&&!liveRead&&!(playOwner&&m.type==='tape')&&!['input','turbo','pause','hold','memory-stop','cancel-capture','cancel-seek'].includes(m.type)){
+      send(m.type.startsWith('memory-')?'memory-error':'message',{request:m.request,text:`Machine is busy: ${executionGate.owner}.`});return;
+    }
+    if(exclusive.includes(m.type)&&!liveRead)ownership=executionGate.acquire(m.type);
     if(saving&&!['input','turbo','hold'].includes(m.type)){send('message',{text:'Finishing the state save…'});return;}
     if(m.type==='memory-stop'){memoryStop=true;return;}
     if(memoryBusy||memoryRecording){if(m.type==='pause'||m.type==='hold')memoryStop=true;if(!['input','turbo','tape'].includes(m.type))return;}
@@ -443,7 +478,7 @@ onmessage = async ({data : m}) => {
     running = false;
     ++epoch;
     send('error', {text : String(e)});
-  }
+  } finally {if(ownership)executionGate.release(ownership);}
 };
 
 async function memoryRequest(m){

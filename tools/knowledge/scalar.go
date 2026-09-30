@@ -7,7 +7,7 @@ import (
 )
 
 // Scalar preserves the exact numeric value. An unknown enum is not invalid data
-// and is never coerced to the first known label. Structured live decoding is M3.
+// and is never coerced to the first known label. The browser also supports bounded structured live decoding.
 type Scalar struct {
 	Value string `json:"value"`
 	Raw   string `json:"raw"`

@@ -141,3 +141,17 @@ body[data-platform] .files{margin-top:8px}
 #dc-texture-board[data-aux=yes] .buffer-view:first-child{width:min(100%,calc((max(230px,var(--render-space)) - 82px)*.66*var(--texture-ratio,1)))}
 #dc-texture-board[data-aux=yes] .buffer-view:nth-child(2){width:min(100%,calc((max(230px,var(--render-space)) - 82px)*.34*var(--aux-ratio,1)))}
 #dc-texture-board figcaption{font-size:11px}.dc-texture-empty{font-size:13px;color:var(--muted)}
+
+/* Code uses the same preview and transport sizing as Memory. */
+.code-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(240px,1fr);gap:24px}
+.code-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:12px 0}
+#code-disassembly{min-height:24em;max-height:38em;overflow:auto;line-height:1.65;padding:12px;background:var(--panel,#15191e)}
+.code-current{background:#244657;color:#fff}
+#code-functions{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+#code-registers{font-family:monospace;white-space:pre-wrap}
+@media(max-width:850px){.code-layout{grid-template-columns:1fr}}
+
+.game-state-panel{border:1px solid #3d4954;padding:16px;margin:12px 0;max-height:650px;overflow:auto}
+.game-state-panel>section{border-top:1px solid #3d4954;padding:12px 0}
+.game-state-panel details{padding:5px 0 5px 12px}.game-state-panel summary{cursor:pointer;font-family:monospace}
+.game-state-panel p{font-size:.9rem}.game-state-panel button{margin:4px}.state-raw{white-space:pre-wrap;overflow-wrap:anywhere}

@@ -1,12 +1,15 @@
 # Game knowledge packages, Code workspace, and guided investigations
 
-Status: M0, M1 and the C64 M2 vertical slice completed, 2026-09-30; see the
+Status: M0–M3 completed for the initial C64/Fort scope, 2026-09-30; see the
 [M0 contracts and baseline](tools/browser/docs/code-m0/README.md) and
 [M1 schema/package acceptance](tools/browser/docs/code-m1/README.md) and
 [M2 debugger acceptance](tools/browser/docs/code-m2/README.md).
-M3 onward remain planned. This document records the agreed product direction;
+See also [M3 structured state acceptance](tools/browser/docs/code-m3/README.md).
+Elite remains gated on verified compatibility. M4 onward remain planned. This document records the agreed product direction;
 it does not claim that the interfaces or schema below are implemented. Milestones
 require their own acceptance evidence before being marked complete.
+
+Delivery: commit and push after each completed milestone, as requested.
 
 ## 1. Outcome and scope
 
@@ -676,6 +679,10 @@ tested. View navigation cannot change execution. Actual-browser checks cover
 input, tab switching and cancellation; disabled debugging has measured overhead.
 
 ### M3 — Structured state and reusable panels
+
+Completed for Fort watches and bounded fixed arrays/records; see the
+[M3 report](tools/browser/docs/code-m3/README.md). Elite remains gated;
+indirect/parallel-array joining is not claimed by this implementation.
 
 Depends on M1/M2. Add typed arrays/records, occupancy, enum/bitfield decoding,
 raw-byte expansion, state-to-memory/code links, and reusable panel layout.

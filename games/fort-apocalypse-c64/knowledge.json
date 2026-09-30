@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "fort-apocalypse-c64",
-  "revision": 1,
+  "revision": 2,
   "game": {
     "name": "Fort Apocalypse",
     "system": {
@@ -422,7 +422,10 @@
       "evidence": [
         "mechanics"
       ],
-      "applicability": "Gameplay after initialization; not a live phase assertion. Raw byte is authoritative; unknown enum values stay numeric."
+      "applicability": "Gameplay after initialization; not a live phase assertion. Raw byte is authoritative; unknown enum values stay numeric.",
+      "relatedFunctions": [
+        "enemy-ai"
+      ]
     },
     "enemy-column": {
       "label": "Enemy map column",
@@ -434,7 +437,10 @@
       "evidence": [
         "mechanics"
       ],
-      "applicability": "Gameplay after initialization; not a live phase assertion. Raw byte is authoritative; unknown enum values stay numeric."
+      "applicability": "Gameplay after initialization; not a live phase assertion. Raw byte is authoritative; unknown enum values stay numeric.",
+      "relatedFunctions": [
+        "enemy-ai"
+      ]
     },
     "enemy-row": {
       "label": "Enemy map row",
@@ -446,7 +452,10 @@
       "evidence": [
         "mechanics"
       ],
-      "applicability": "Gameplay after initialization; not a live phase assertion. Raw byte is authoritative; unknown enum values stay numeric."
+      "applicability": "Gameplay after initialization; not a live phase assertion. Raw byte is authoritative; unknown enum values stay numeric.",
+      "relatedFunctions": [
+        "enemy-ai"
+      ]
     },
     "player-column": {
       "label": "Player map column",
@@ -458,7 +467,10 @@
       "evidence": [
         "mechanics"
       ],
-      "applicability": "Gameplay after initialization; not a live phase assertion. Raw byte is authoritative; unknown enum values stay numeric."
+      "applicability": "Gameplay after initialization; not a live phase assertion. Raw byte is authoritative; unknown enum values stay numeric.",
+      "relatedFunctions": [
+        "player-movement"
+      ]
     },
     "player-row": {
       "label": "Player map row",
@@ -470,7 +482,10 @@
       "evidence": [
         "mechanics"
       ],
-      "applicability": "Gameplay after initialization; not a live phase assertion. Raw byte is authoritative; unknown enum values stay numeric."
+      "applicability": "Gameplay after initialization; not a live phase assertion. Raw byte is authoritative; unknown enum values stay numeric.",
+      "relatedFunctions": [
+        "player-movement"
+      ]
     },
     "player-bank": {
       "label": "Player bank / tilt",
@@ -482,7 +497,10 @@
       "evidence": [
         "mechanics"
       ],
-      "applicability": "Gameplay after initialization; not a live phase assertion. Raw byte is authoritative; unknown enum values stay numeric."
+      "applicability": "Gameplay after initialization; not a live phase assertion. Raw byte is authoritative; unknown enum values stay numeric.",
+      "relatedFunctions": [
+        "player-movement"
+      ]
     }
   },
   "functions": {

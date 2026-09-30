@@ -1,3 +1,5 @@
+import {createStatePanel} from './state-panel.js';
+import {createPanelLayout} from './panel-layout.js';
 import {createCodeWorkspace} from './code-workspace.js';
 import {createWorkspaces} from './workspaces.js';
 import {createMemoryWorkspace} from './memory-workspace.js';
@@ -41,12 +43,17 @@ $('help').textContent = config.help;
 $('compat').textContent = config.compat;
 $('tape').hidden = platform !== 'c64';
 const send = (type, data = {}) => {const id=++request;worker?.postMessage({type,session,request:id,...data});return id;};
-let memory,code;
-const views=createWorkspaces({navigation:$('workspace-nav'),onChange:id=>{document.body.dataset.workspace=id;memory?.setActive(id==='memory');code?.setActive(id==='code');if(id==='code')code?.present(canvas);if(id==='memory'){memory?.present(canvas);memory?.open();}}});
+let memory,code,statePanel,panelLayout;
+const views=createWorkspaces({navigation:$('workspace-nav'),onChange:id=>{document.body.dataset.workspace=id;panelLayout?.activate(id);memory?.setActive(id==='memory');code?.setActive(id==='code');if(id==='code')code?.present(canvas);if(id==='memory'){memory?.present(canvas);memory?.open();}}});
 views.register({id:'play',label:'Play',panel:$('play-workspace')});
 const render=createRenderWorkspace({workspaces:views,platform,presentation,send,resume:()=>$('run').click(),playCanvas:canvas,beforeCapture:()=>memory.invalidate()});
 memory=createMemoryWorkspace({root:$('memory-workspace'),views,send,transport:id=>transport(id,true),platform});
-code=createCodeWorkspace({root:$('code-workspace'),views,send,transport:id=>transport(id,true),platform});
+if(platform==='c64'){
+ statePanel=createStatePanel({memory:(region,offset)=>{views.select('memory');memory.navigate(region,offset);},code:address=>{views.select('code');code.inspect(address);}});
+ panelLayout=createPanelLayout(statePanel.root);
+}
+code=createCodeWorkspace({root:$('code-workspace'),views,send,transport:id=>transport(id,true),platform,statePanel});
+if(panelLayout){panelLayout.register('code',$('code-workspace'));panelLayout.register('memory',$('memory-workspace'));}
 function controls(on) {
   for (const id of ['run', 'pause', 'reset', 'step', 'save'])
     $(id).disabled = !on;
@@ -121,10 +128,10 @@ function load(stateFile=null) {
     if (m.session !== session)
       return;
     if(m.type.startsWith('debug-')){if(m.type==='debug-started')memory.invalidate();code?.result(m);return;}
-    if(m.type.startsWith('memory-')){memory.result(m);return;}
+    if(m.type.startsWith('memory-')){memory.result(m);if(m.type==='memory-overview'&&views.current()==='memory')code?.refreshState();return;}
     if (m.type === 'state') {
       const s = m.state;
-      memory.state(m);code?.state(m);
+      memory.state(m);code?.state(m);if(views.current()==='memory'&&!m.running&&!m.memoryRecording&&!m.capturing&&!m.saving&&!m.debugBusy)code?.refreshState();
       if(platform==='amiga')canvas.classList.toggle('mouse-active',m.running);
       $('help').textContent =
           config.help +

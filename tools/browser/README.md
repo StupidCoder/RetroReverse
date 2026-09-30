@@ -108,3 +108,5 @@ Amiga’s separate scanline/Copper and blitter/mask views are documented in
 
 The common Play/Render shell, adapter API and UI checks are documented in
 [Shared emulator UI](docs/SHARED-UI.md).
+
+[M3](docs/code-m3/README.md) adds shared Code/Memory state panels and bounded structured decoding.

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "date": "2026-09-30T09:27:28.481Z",
+  "release": "f66508ced102136f9ffb",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+  "result": "PASS",
+  "checks": [
+    "M2 regression",
+    "six Fort watches",
+    "raw/decoded/CPU clock agreement",
+    "raw disclosure persistence",
+    "panel hide/reorder",
+    "shared Code/Memory panel identity",
+    "state-to-memory link",
+    "related-function link",
+    "no navigation execution",
+    "running links disabled",
+    "unknown-image reset"
+  ],
+  "slotPanelFixture": "PASS: empty, unknown, occupied, reused and unavailable slots; record fields; expanded slot persistence.",
+  "provenance": "Transcribed from PASS pages rendered in the Codex in-app Chromium browser.",
+  "limitations": "Reference Fort tape identification and reset/ROM execution only, not gameplay-phase verification. Elite is not enabled. Slot rendering uses synthetic data."
+}

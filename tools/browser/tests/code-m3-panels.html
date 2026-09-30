@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><title>M3 slot panel fixture</title>
+<h1>Synthetic slot panel</h1><pre id="result">Running…</pre><main id="host"></main>
+<script type="module">
+import {createStatePanel} from '/site/emulators/state-panel.js';
+import {createStateSampler} from '/site/emulators/structured-state.js';
+const wait=()=>new Promise(r=>setTimeout(r,30));
+const assert=(ok,text)=>{if(!ok)throw Error(text);};
+try{
+ const k={releaseId:'fixture',data:{types:{u8:{kind:'integer',bytes:1,endian:'little'},type:{kind:'enum',storage:'u8',values:{1:'Known ship'}},slot:{kind:'struct',size:2,fields:[{name:'type',offset:0,type:'type'},{name:'value',offset:1,type:'u8'}]},slots:{kind:'array',element:'slot',count:2,stride:2}},spaces:{cpu:{kind:'cpu'}},locations:{slots:{kind:'cpu',space:'cpu',address:'0x800'}},evidence:{fixture:{status:'verified',description:'Synthetic fixture, not game knowledge'}},state:{slots:{label:'Synthetic slots',location:'slots',type:'slots',releases:['fixture'],evidence:['fixture'],applicability:'Test only',occupancy:{path:['type'],notEquals:'0'}}}}};
+ let bytes=[0,7,99,8];const sample=createStateSampler(k,()=>({bytes:[...bytes],mapping:[0,0,0,0]}));
+ const p=createStatePanel({memory:()=>{},code:()=>{}});p.setKnowledge(k);document.querySelector('#host').append(p.root);
+ let serial=0;const update=()=>p.update({snapshotId:++serial,cycle:String(serial),boundary:true,state:sample({cycle:String(serial),boundary:true})});update();
+ p.root.querySelector('details').open=true;await wait();
+ const slot=i=>[...p.root.querySelectorAll('details')].find(d=>d.dataset.stateKey==='slots/'+i);
+ assert(slot(0).querySelector('summary').textContent.includes('empty'),'zero occupancy distinct');assert(slot(1).querySelector('summary').textContent.includes('occupied'),'unknown type still occupies slot');
+ slot(1).open=true;await wait();assert(slot(1).textContent.includes('unknown enum'),'numeric unknown enum shown');
+ bytes[2]=0;update();await wait();assert(slot(1).querySelector('summary').textContent.includes('empty'),'slot cleared');
+ bytes[2]=1;update();await wait();assert(slot(1).querySelector('summary').textContent.includes('incarnation 2'),'observed slot reused');assert(slot(1).open,'expanded slot survives update');assert(slot(1).textContent.includes('Known ship'),'new type label');
+ bytes[2]=null;update();await wait();assert(slot(1).querySelector('summary').textContent.includes('unavailable'),'unavailable slot distinct');
+ document.querySelector('#result').textContent='PASS: empty, unknown, occupied, reused and unavailable slots; record fields; expanded slot persistence.';document.title='PASS — M3 slot panel fixture';
+}catch(e){document.querySelector('#result').textContent=e.stack;document.title='FAIL — M3 slot panel fixture';}
+</script>
