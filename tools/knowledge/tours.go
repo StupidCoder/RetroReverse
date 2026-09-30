@@ -1,9 +1,12 @@
 package knowledge
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
-// M4 is deliberately data-only: current paused state, sequential stops, C64
-// physical RAM predicates and mapped RAM PC targets. No expressions or scripts.
+// Tours are data-only: current paused state, sequential stops, bounded RAM and
+// architecture-specific predicates. No expressions or executable scripts.
 type TourCondition struct {
 	Mode     string          `json:"mode,omitempty"`
 	Register string          `json:"register,omitempty"`
@@ -42,6 +45,9 @@ type TourStop struct {
 	} `json:"layout"`
 }
 type Tour struct {
+	Iteration *struct {
+		Counter uint64 `json:"counter"`
+	} `json:"iteration,omitempty"`
 	Title        string        `json:"title"`
 	Description  string        `json:"description"`
 	Releases     []string      `json:"releases"`
@@ -76,7 +82,13 @@ func (p *Package) validateTours() error {
 		if p.Game.System.ID == "dos" {
 			limit = 68157440
 		}
-		if p.Game.System.ID != "c64" && p.Game.System.ID != "dos" {
+		if p.Game.System.ID == "3do" {
+			limit = 0x300000
+		}
+		if t.Iteration != nil && p.Game.System.ID != "3do" {
+			return fmt.Errorf("iteration binding requires 3DO")
+		}
+		if p.Game.System.ID != "c64" && p.Game.System.ID != "dos" && p.Game.System.ID != "3do" {
 			return fmt.Errorf("tour %s: unsupported tour platform", id)
 		}
 		if e := p.evidence(t.Evidence); e != nil {
@@ -166,9 +178,16 @@ func (p *Package) checkCondition(c TourCondition, releases []string, limit uint6
 	if e := validateCondition(c, 0, &nodes); e != nil {
 		return e
 	}
-	if p.Game.System.ID != "dos" && (c.Location != "" || c.Register != "" || c.Mode != "") {
+	if p.Game.System.ID != "dos" && p.Game.System.ID != "3do" && (c.Location != "" || c.Register != "" || c.Mode != "") {
 		return fmt.Errorf("DOS condition on another platform")
 	}
+	if p.Game.System.ID == "3do" && (c.Location != "" || c.Mode != "" && c.Mode != "arm32" || c.Register != "" && c.Register != "CPSR" && !strings.HasPrefix(c.Register, "R")) {
+		return fmt.Errorf("unsupported ARM condition")
+	}
+	if p.Game.System.ID == "dos" && (c.Mode == "arm32" || strings.HasPrefix(c.Register, "R") || c.Register == "CPSR") {
+		return fmt.Errorf("ARM condition on DOS")
+	}
+
 	if c.Location != "" {
 		for _, r := range releases {
 			if _, e := p.Resolve(c.Location, r); e != nil {

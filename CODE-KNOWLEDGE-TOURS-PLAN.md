@@ -743,6 +743,10 @@ to make knowledge-package updates part of completing new research.
 
 ### M7 — 3DO adapter and one NFS loop
 
+Completed for the ARM32/HLE core and a guarded City simulation iteration. See the
+[M7 report](tools/browser/docs/code-m7/README.md) for the 17-stop investigation,
+reproduction commands, evidence and supported recording scope.
+
 Depends on M4; reuse M5 lessons where applicable. Add ARM60 debug capabilities,
 task/execution context where needed, car records, loop predicates and selected
 recording. Research/compatibility work is explicitly budgeted if existing evidence

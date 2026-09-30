@@ -116,6 +116,7 @@ inline uint64_t runSlice(threedo_Machine *m, uint64_t budget) {
   // Normal execution keeps bounded diagnostic history; guest state is untouched.
   if(m->SWICalls.n>65536)m->SWICalls=sub(m->SWICalls,m->SWICalls.n-32768,m->SWICalls.n);
   if(m->KernelCalls.n>65536)m->KernelCalls=sub(m->KernelCalls,m->KernelCalls.n-32768,m->KernelCalls.n);
+  rrSchedulerClockBase=totalSteps-runContext.steps;
   auto r=threedo_Machine_RunSlice(m,budget,runContext);
   totalSteps+=r.Steps;
   presentationSeconds+=(m->frame-oldFrame)/30.0;

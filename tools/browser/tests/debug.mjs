@@ -31,7 +31,7 @@ s=response.snapshot;response=await command('debug-step',action(s));assert.equal(
 s=response.snapshot;response=await command('debug-until',{...action(s),target:0x800});assert.equal(response.reason,'target');
 s=response.snapshot;response=await command('debug-until',{...action(s),target:0x800,resume:'next-match'});assert.equal(response.cycles,9);
 s=response.snapshot;response=await command('debug-step',{...action(s),snapshotId:0});assert.equal(response.reason,'rejected');
-occupied=true;response=await command('debug-step',action(s));assert.equal(response.reason,'rejected');occupied=false;
+occupied=true;assert((await command('debug-snapshot')).retryable);response=await command('debug-step',action(s));assert.equal(response.reason,'rejected');occupied=false;
 s=(await command('debug-snapshot')).snapshot;response=await command('debug-step',{...action(s),generation:0});assert.equal(response.reason,'rejected');
 onYield=()=>{assert(service.active());service.cancel();};s=(await command('debug-snapshot')).snapshot;response=await command('debug-until',{...action(s),target:0x900});assert.equal(response.reason,'cancelled');assert(response.cycles<=1000);assert(!service.active());assert.equal(messages.filter(m=>m.request===request&&m.type==='debug-result').length,1);
 onYield=()=>{};s=(await command('debug-snapshot')).snapshot;response=await command('debug-until',{...action(s),target:0x900,cycleBudget:32});assert.equal(response.reason,'budget');assert.equal(response.cycles,32);

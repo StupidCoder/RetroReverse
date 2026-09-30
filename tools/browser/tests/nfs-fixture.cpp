@@ -1,0 +1,3 @@
+// Private-media acceptance fixture: normal boot and recorded controller input only.
+#include "../../platform/threedo/browser/core/api.cpp"
+int main(int argc,char**argv){if(argc!=4){std::cerr<<"usage: nfs-fixture disc.bin inputs.txt output.state\n";return 2;}nativeDisc(argv[1]);machine=boot();std::ifstream in(argv[2]);std::vector<std::pair<int,uint32_t>> pad;int at;uint32_t v;while(in>>at>>v)pad.push_back({at,v});for(int f=0;f<1250;f++){for(auto [at,v]:pad)if(at==f)threedo_Machine_SendPadEvent(machine,v);nextFrame(machine);if(f%100==0)std::cerr<<f<<" "<<proof(machine)<<"\n";}rr_pad(0);auto n=rr_state_save();std::ofstream out(argv[3],std::ios::binary);out.write((char*)rr_state_data(),n);std::cerr<<"saved "<<n<<"\n";}

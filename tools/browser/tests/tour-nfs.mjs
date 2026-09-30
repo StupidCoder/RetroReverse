@@ -1,0 +1,18 @@
+// Private media: node tour-nfs.mjs disc.bin native-race.state [browser.rrstate]
+import fs from 'node:fs';import path from 'node:path';import crypto from 'node:crypto';import assert from 'node:assert/strict';
+import {loadCore} from './wasm-harness.mjs';
+import {create3DOInspector} from '../../../site/emulators/threedo-inspector.js';
+import {createDebugService} from '../../../site/emulators/debug-worker.js';
+import {createTourService} from '../../../site/emulators/tour-worker.js';
+import {packState,digest} from '../../../site/emulators/state.js';
+import {InputQueue} from '../../../site/emulators/input.js';
+const [disc,state,out]=process.argv.slice(2),core=await loadCore('3do',disc),b=fs.readFileSync(state);core.HEAPU8.set(b,core._rr_state_input(b.length));assert(core._rr_state_load(b.length),core.UTF8ToString(core._rr_error()));
+const data=JSON.parse(fs.readFileSync(new URL('../../../games/need-for-speed-3do/knowledge.json',import.meta.url))),hash=crypto.createHash('sha256');for await(const b of fs.createReadStream(disc))hash.update(b);const mediaHash=hash.digest('hex');assert.equal(mediaHash,data.releases['reference-disc'].media[0].sha256);
+const knowledge={status:'matched',releaseId:'reference-disc',data},adapter=create3DOInspector(core,knowledge);let response;
+const common={core,knowledge,generation:1,send:(t,m)=>response=m,sleep:async()=>{},busy:()=>false,paint:()=>{},...adapter};
+const debug=createDebugService({...common,platform:'3do',applyInputs:()=>{}}),initial=debug.snapshot();assert(initial.contextValid);assert.equal(initial.state.entries.length,3);assert.equal(initial.state.entries[0].node?.children?.length??initial.state.entries[0].value?.children?.length,7);
+if(out){const n=core._rr_state_save(),q=new InputQueue(30),wasm=fs.readFileSync(process.env.CORE_DIR?path.join(process.env.CORE_DIR,'core.wasm'):new URL('../../../site/emulators/cores/3do/core.wasm',import.meta.url));fs.writeFileSync(out,await packState({format:1,platform:'3do',media:[{name:path.basename(disc),size:fs.statSync(disc).size,sha256:mediaHash}],firmware:[],core:await digest(wasm),configuration:{compatibility:true,customFirmware:false},input:{...q,pulses:[],down:[],pending:[],appliedKeys:[],lastButtons:0,lastX:0,lastY:0,inputSequence:0,lastInputStep:0}},core.HEAPU8.slice(core._rr_state_data(),core._rr_state_data()+n)));}
+const tour=createTourService({...common,snapshot:()=>debug.snapshot(),maxCheckpointBytes:32*1024*1024}),reports=[];const stops=data.tours['one-iteration'].stops;
+for(let i=0;i<stops.length;i++){await tour.request({type:i?'tour-continue':'tour-start',protocol:1,generation:1,request:i+1,id:'one-iteration'});assert.equal(response.phase,i===stops.length-1?'completed':'paused-at-stop',response.text);assert(response.evidence.complete);assert.equal(response.snapshot.task,response.iteration.task);assert.equal(response.snapshot.state.cycle,response.snapshot.cycle);reports.push({stop:response.stop.id,step:response.snapshot.cycle,task:response.snapshot.task,iteration:response.iteration.counter,display:response.snapshot.frame,pc:response.snapshot.nextPC,r4:response.snapshot.registers.R4,cycles:response.evidence.cycles,writes:response.evidence.writes,changed:response.evidence.changed});}
+const proof=core.UTF8ToString(core._rr_proof());await tour.request({type:'tour-explore',protocol:1,generation:1,request:100});core._rr_run_slice(1000);await tour.request({type:'tour-restore',protocol:1,generation:1,request:101});assert.equal(response.phase,'completed');assert.equal(core.UTF8ToString(core._rr_proof()),proof);
+console.log(JSON.stringify({result:'PASS',initialStep:initial.cycle,reports},null,2));

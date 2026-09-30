@@ -7,7 +7,7 @@ export function createStatePanel({memory,code}){
  function draw(){
   for(const d of root.querySelectorAll('details[data-state-key]')){if(d.open)opened.add(d.dataset.stateKey);else opened.delete(d.dataset.stateKey);}
   const scroll=root.scrollTop;root.replaceChildren(element('h3','Game state'));
-  root.append(element('p',snapshot?`Snapshot ${snapshot.snapshotId} · ${snapshot.architecture==='x86'?'step':'cycle'} ${snapshot.cycle} · ${snapshot.boundary?'instruction boundary':'mid-instruction sample'}. Raw bytes and values come from this same snapshot.`:'No state snapshot yet.'));
+  root.append(element('p',snapshot?`Snapshot ${snapshot.snapshotId} · ${snapshot.architecture==='x86'?'step':snapshot.architecture==='arm60'?'scheduler step':'cycle'} ${snapshot.cycle} · ${snapshot.boundary?'instruction boundary':'mid-instruction sample'}. Raw bytes and values come from this same snapshot.`:'No state snapshot yet.'));
   root.append(element('p','Documented meanings are not a live gameplay-phase assertion. Slot incarnations count observed empty/unavailable → occupied transitions; reuse between samples may be missed.'));
   if(!snapshot?.state.entries.length){root.append(element('p','No matching live state definitions for this image.'));return;}
   function node(n,entry,key,label){

@@ -111,6 +111,7 @@ type Game struct {
 	} `json:"system"`
 }
 type Package struct {
+	LiveGuards    []TourGuard           `json:"liveGuards,omitempty"`
 	Assets        map[string]Asset      `json:"assets"`
 	SchemaVersion int                   `json:"schemaVersion"`
 	ID            string                `json:"id"`
@@ -593,6 +594,16 @@ func (p *Package) validate() error {
 			}
 			if n >= s.Limit-s.Offset {
 				return fmt.Errorf("annotation exceeds space")
+			}
+		}
+	}
+	if len(p.LiveGuards) > 0 {
+		if p.Game.System.ID != "3do" {
+			return fmt.Errorf("live guards require 3DO")
+		}
+		for _, g := range p.LiveGuards {
+			if g.Location != "" || g.Address+uint64(len(g.Bytes)) > 0x300000 {
+				return fmt.Errorf("invalid 3DO live guard")
 			}
 		}
 	}

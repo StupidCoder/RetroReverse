@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {create3DOInspector} from '../../../site/emulators/threedo-inspector.js';
+import {matches,intervalEvidence,createTourService} from '../../../site/emulators/tour-worker.js';
+const bytes=new Uint8Array(0x300000);bytes[16]=42;
+let task=7,boundTask,cycle=0;
+const data={liveGuards:[{address:16,bytes:[42]}],spaces:{ram:{region:'ram'}},locations:{entry:{kind:'cpu',address:32}},functions:{f:{entry:'entry'}}};
+const core={HEAPU8:bytes,_rr_ram:()=>0,_rr_ram_size:()=>bytes.length,_rr_debug_bind:t=>boundTask=t};
+const adapter=create3DOInspector(core,{data}),s=adapter.decorate({mode:'arm32',task});assert(s.contextValid);assert.equal(s.contextKey,'arm32:7');assert.deepEqual(adapter.resolveLocation(data,'entry',s),{kind:'cpu',address:32});adapter.prepareTarget({functionId:'f',target:32},s).bindTarget();assert.equal(boundTask,7);
+assert.throws(()=>adapter.prepareTarget({functionId:'f',target:36},s),/Stale/);bytes[16]=0;assert(!adapter.decorate({...s}).contextValid);assert.throws(adapter.validate,/layout/);bytes[16]=42;
+assert(matches({register:'R4',value:123},{registers:{R4:123}},bytes));assert(!matches({mode:'arm32'},{mode:'real16'},bytes));
+const e=intervalEvidence([{address:0x200010,length:1}],[Uint8Array.of(0)],bytes,[{region:1,offset:16,kind:2}],0,false,adapter.eventAddress);assert.equal(e.writes,1);assert.equal(e.changes[0].address,0x200010);
+// A stop in a different simulation iteration must never receive its explanation.
+const stop={id:'s',until:{pc:32},assertions:[],capture:[],hitCount:1,cycleBudget:100,wallBudget:1000,eventBudget:100,explanation:'verified'};
+const tour={id:'t',releases:['r'],guards:[],start:{pc:32},iteration:{counter:64},stops:[stop,{...stop,id:'next',until:{pc:36}}]};
+let pc=32,response;
+Object.assign(core,{UTF8ToString:x=>x,_rr_cycle:()=>cycle,_rr_debug_snapshot:()=>JSON.stringify({mode:'arm32',task,boundary:true,nextPC:pc,mapping:[0]}),_rr_state_save:()=>1,_rr_state_data:()=>0,_rr_inspect_regions:()=>{},_rr_activity_begin:()=>{},_rr_activity_end:()=>{},_rr_activity_count:()=>0,_rr_activity_dropped:()=>0,_rr_activity_data:()=>0,_rr_debug_begin:()=>1,_rr_debug_run:()=>{cycle++;pc=36;bytes[67]++;return 4;}});
+const service=createTourService({core,knowledge:{status:'matched',releaseId:'r',data:{tours:{t:tour}}},generation:1,send:(type,m)=>response=m,sleep:async()=>{},busy:()=>false,paint:()=>{},snapshot:()=>({})});
+await service.request({type:'tour-start',id:'t',protocol:1,generation:1,request:1});assert.equal(response.phase,'paused-at-stop');await service.request({type:'tour-continue',protocol:1,generation:1,request:2});assert.equal(response.phase,'failed');assert.match(response.text,/iteration changed/);assert.equal(boundTask,7);
+pc=32;bytes[67]=0;cycle=0;task=7;core._rr_debug_run=()=>{cycle++;pc=36;task++;return 4;};
+const other=createTourService({core,knowledge:{status:'matched',releaseId:'r',data:{tours:{t:tour}}},generation:1,send:(type,m)=>response=m,sleep:async()=>{},busy:()=>false,paint:()=>{},snapshot:()=>({})});
+await other.request({type:'tour-start',id:'t',protocol:1,generation:1,request:1});await other.request({type:'tour-continue',protocol:1,generation:1,request:2});assert.equal(response.phase,'failed');assert.match(response.text,/another task/);
+console.log('PASS 3DO guarded layouts, task-bound functions, ARM predicates, VRAM evidence and iteration rejection');

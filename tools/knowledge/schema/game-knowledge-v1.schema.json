@@ -217,6 +217,14 @@
         "$ref": "#/$defs/buffer"
       },
       "maxProperties": 4
+    },
+    "liveGuards": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/tourGuard"
+      },
+      "minItems": 1,
+      "maxItems": 32
     }
   },
   "required": [
@@ -1332,7 +1340,24 @@
                 "ESI",
                 "EDI",
                 "EBP",
-                "ESP"
+                "ESP",
+                "R0",
+                "R1",
+                "R2",
+                "R3",
+                "R4",
+                "R5",
+                "R6",
+                "R7",
+                "R8",
+                "R9",
+                "R10",
+                "R11",
+                "R12",
+                "R13",
+                "R14",
+                "R15",
+                "CPSR"
               ]
             },
             "value": {
@@ -1353,7 +1378,8 @@
             "mode": {
               "enum": [
                 "real16",
-                "protected32"
+                "protected32",
+                "arm32"
               ]
             }
           },
@@ -1602,6 +1628,20 @@
           },
           "minItems": 1,
           "maxItems": 64
+        },
+        "iteration": {
+          "type": "object",
+          "properties": {
+            "counter": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3145724
+            }
+          },
+          "required": [
+            "counter"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [

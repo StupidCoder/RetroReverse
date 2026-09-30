@@ -48,7 +48,7 @@ const views=createWorkspaces({navigation:$('workspace-nav'),onChange:id=>{docume
 views.register({id:'play',label:'Play',panel:$('play-workspace')});
 const render=createRenderWorkspace({workspaces:views,platform,presentation,send,resume:()=>$('run').click(),playCanvas:canvas,beforeCapture:()=>memory.invalidate()});
 memory=createMemoryWorkspace({root:$('memory-workspace'),views,send,transport:id=>transport(id,true),platform});
-if(['c64','dos'].includes(platform)){
+if(['c64','dos','3do'].includes(platform)){
  statePanel=createStatePanel({memory:(region,offset)=>{views.select('memory');memory.navigate(region,offset);},code:(address,functionId)=>{views.select('code');code.inspect(address,functionId);}});
  panelLayout=createPanelLayout(statePanel.root);
 }

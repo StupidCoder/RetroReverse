@@ -1,0 +1,1570 @@
+{
+  "schemaVersion": 1,
+  "id": "need-for-speed-3do",
+  "revision": 1,
+  "game": {
+    "name": "The Need for Speed",
+    "system": {
+      "id": "3do",
+      "name": "3DO Interactive Multiplayer"
+    }
+  },
+  "releases": {
+    "reference-disc": {
+      "label": "Reference raw 2352-byte-sector disc",
+      "media": [
+        {
+          "role": "disc",
+          "size": 771408960,
+          "sha256": "0828e6f43e527f5a11b85b02aa5cd1d0ed93bad03c318d5b6fa735e5e3c9715c"
+        }
+      ]
+    }
+  },
+  "sources": {
+    "drivers": {
+      "path": "games/need-for-speed-3do/need-for-speed-3do.md#part-xi--the-drivers-opponent-cops-and-traffic",
+      "description": "Original ARM code, car layouts and driver gates."
+    }
+  },
+  "evidence": {
+    "race": {
+      "status": "confirmed",
+      "source": "drivers",
+      "description": "Car records, self pointers and driver entries reproduced in the browser core from normal boot and recorded pad inputs. A single even simulation iteration is traced through all seven list entries.",
+      "limitations": "This City allocation/layout is explicitly guarded. Task numbers differ from the old research run and are pinned live at the first stop. HLE kernel/movie services are not guest instructions. Bus-write evidence excludes direct HLE bulk stores."
+    }
+  },
+  "spaces": {
+    "cpu": {
+      "kind": "cpu",
+      "processor": "ARM60",
+      "size": 3145728
+    },
+    "backing": {
+      "kind": "physical",
+      "region": "ram",
+      "size": 3145728
+    }
+  },
+  "locations": {
+    "world": {
+      "kind": "cpu",
+      "space": "cpu",
+      "address": "0x17904"
+    },
+    "dispatch": {
+      "kind": "cpu",
+      "space": "cpu",
+      "address": "0x17a60"
+    },
+    "dormant": {
+      "kind": "cpu",
+      "space": "cpu",
+      "address": "0x2a4d8"
+    },
+    "spacing": {
+      "kind": "cpu",
+      "space": "cpu",
+      "address": "0x2a53c"
+    },
+    "spawn": {
+      "kind": "cpu",
+      "space": "cpu",
+      "address": "0x2a57c"
+    },
+    "road": {
+      "kind": "cpu",
+      "space": "cpu",
+      "address": "0x284e0"
+    },
+    "player": {
+      "kind": "cpu",
+      "space": "cpu",
+      "address": "0xf8d8"
+    },
+    "finish": {
+      "kind": "cpu",
+      "space": "cpu",
+      "address": "0x17eb4"
+    },
+    "cars": {
+      "kind": "physical",
+      "space": "backing",
+      "offset": "0x293f90"
+    },
+    "sim-counter": {
+      "kind": "physical",
+      "space": "backing",
+      "offset": "0x41d24"
+    },
+    "sim-flags": {
+      "kind": "physical",
+      "space": "backing",
+      "offset": "0x41d2c"
+    }
+  },
+  "types": {
+    "u32": {
+      "kind": "integer",
+      "bytes": 4,
+      "signed": false,
+      "endian": "big"
+    },
+    "s32": {
+      "kind": "integer",
+      "bytes": 4,
+      "signed": true,
+      "endian": "big"
+    },
+    "fixed": {
+      "kind": "fixed",
+      "storage": "s32",
+      "fractionBits": 16
+    },
+    "driver": {
+      "kind": "enum",
+      "storage": "u32",
+      "values": {
+        "63704": "Player",
+        "165088": "Road AI",
+        "173272": "Dormant traffic"
+      }
+    },
+    "behavior": {
+      "kind": "bitfield",
+      "storage": "u32",
+      "bits": {
+        "pace": {
+          "offset": 2,
+          "width": 1,
+          "label": "Pace governor"
+        },
+        "cop": {
+          "offset": 3,
+          "width": 1,
+          "label": "Cop module"
+        },
+        "lane": {
+          "offset": 8,
+          "width": 1,
+          "label": "Lane steering"
+        },
+        "oncoming": {
+          "offset": 12,
+          "width": 1,
+          "label": "Oncoming"
+        }
+      }
+    },
+    "car": {
+      "kind": "struct",
+      "size": 1252,
+      "fields": [
+        {
+          "name": "next",
+          "offset": 0,
+          "type": "u32"
+        },
+        {
+          "name": "previous",
+          "offset": 4,
+          "type": "u32"
+        },
+        {
+          "name": "segment",
+          "offset": 80,
+          "type": "u32"
+        },
+        {
+          "name": "speed",
+          "offset": 112,
+          "type": "fixed"
+        },
+        {
+          "name": "lateral",
+          "offset": 128,
+          "type": "fixed"
+        },
+        {
+          "name": "self",
+          "offset": 136,
+          "type": "u32"
+        },
+        {
+          "name": "countdown-record",
+          "offset": 192,
+          "type": "u32"
+        },
+        {
+          "name": "dormant-countdown-storage",
+          "offset": 328,
+          "type": "s32"
+        },
+        {
+          "name": "target-lateral",
+          "offset": 352,
+          "type": "fixed"
+        },
+        {
+          "name": "spawn-flags",
+          "offset": 380,
+          "type": "u32"
+        },
+        {
+          "name": "behavior",
+          "offset": 392,
+          "type": "behavior"
+        },
+        {
+          "name": "driver",
+          "offset": 1220,
+          "type": "driver"
+        },
+        {
+          "name": "ordinal",
+          "offset": 1224,
+          "type": "u32"
+        },
+        {
+          "name": "activity",
+          "offset": 1228,
+          "type": "u32"
+        },
+        {
+          "name": "model",
+          "offset": 1244,
+          "type": "u32"
+        },
+        {
+          "name": "texture-set",
+          "offset": 1248,
+          "type": "u32"
+        }
+      ]
+    },
+    "cars": {
+      "kind": "array",
+      "element": "car",
+      "count": 7,
+      "stride": 1252
+    }
+  },
+  "state": {
+    "cars": {
+      "label": "Seven car records (allocation order; list links show execution order)",
+      "location": "cars",
+      "type": "cars",
+      "releases": [
+        "reference-disc"
+      ],
+      "evidence": [
+        "race"
+      ],
+      "applicability": "Guarded City allocation. Raw model and texture IDs retain unknown meanings. Countdown is valid where countdown-record equals self + 0xC4.",
+      "relatedFunctions": [
+        "dispatch",
+        "dormant",
+        "road",
+        "player"
+      ]
+    },
+    "sim-counter": {
+      "label": "Simulation field counter",
+      "location": "sim-counter",
+      "type": "u32",
+      "releases": [
+        "reference-disc"
+      ],
+      "evidence": [
+        "race"
+      ],
+      "applicability": "Guarded City allocation. Raw model and texture IDs retain unknown meanings. Countdown is valid where countdown-record equals self + 0xC4.",
+      "relatedFunctions": [
+        "dispatch",
+        "dormant",
+        "road",
+        "player"
+      ]
+    },
+    "sim-flags": {
+      "label": "Simulation flags (bit 0 enables vehicle dynamics)",
+      "location": "sim-flags",
+      "type": "u32",
+      "releases": [
+        "reference-disc"
+      ],
+      "evidence": [
+        "race"
+      ],
+      "applicability": "Guarded City allocation. Raw model and texture IDs retain unknown meanings. Countdown is valid where countdown-record equals self + 0xC4.",
+      "relatedFunctions": [
+        "dispatch",
+        "dormant",
+        "road",
+        "player"
+      ]
+    }
+  },
+  "functions": {
+    "world": {
+      "label": "World update",
+      "entry": "world",
+      "isa": "armv3-be32",
+      "releases": [
+        "reference-disc"
+      ],
+      "evidence": [
+        "race"
+      ],
+      "applicability": "Only while the live code and City car-pool layout guards match."
+    },
+    "dispatch": {
+      "label": "Per-car driver dispatch",
+      "entry": "dispatch",
+      "isa": "armv3-be32",
+      "releases": [
+        "reference-disc"
+      ],
+      "evidence": [
+        "race"
+      ],
+      "applicability": "Only while the live code and City car-pool layout guards match."
+    },
+    "dormant": {
+      "label": "Dormant traffic countdown and spawn gates",
+      "entry": "dormant",
+      "isa": "armv3-be32",
+      "releases": [
+        "reference-disc"
+      ],
+      "evidence": [
+        "race"
+      ],
+      "applicability": "Only while the live code and City car-pool layout guards match."
+    },
+    "spacing": {
+      "label": "Spawn spacing comparison",
+      "entry": "spacing",
+      "isa": "armv3-be32",
+      "releases": [
+        "reference-disc"
+      ],
+      "evidence": [
+        "race"
+      ],
+      "applicability": "Only while the live code and City car-pool layout guards match."
+    },
+    "spawn": {
+      "label": "Activate road AI and place the car",
+      "entry": "spawn",
+      "isa": "armv3-be32",
+      "releases": [
+        "reference-disc"
+      ],
+      "evidence": [
+        "race"
+      ],
+      "applicability": "Only while the live code and City car-pool layout guards match."
+    },
+    "road": {
+      "label": "Shared road AI driver",
+      "entry": "road",
+      "isa": "armv3-be32",
+      "releases": [
+        "reference-disc"
+      ],
+      "evidence": [
+        "race"
+      ],
+      "applicability": "Only while the live code and City car-pool layout guards match."
+    },
+    "player": {
+      "label": "Player driver",
+      "entry": "player",
+      "isa": "armv3-be32",
+      "releases": [
+        "reference-disc"
+      ],
+      "evidence": [
+        "race"
+      ],
+      "applicability": "Only while the live code and City car-pool layout guards match."
+    },
+    "finish": {
+      "label": "World update return",
+      "entry": "finish",
+      "isa": "armv3-be32",
+      "releases": [
+        "reference-disc"
+      ],
+      "evidence": [
+        "race"
+      ],
+      "applicability": "Only while the live code and City car-pool layout guards match."
+    }
+  },
+  "annotations": {},
+  "liveGuards": [
+    {
+      "address": 96516,
+      "bytes": [
+        225,
+        160,
+        192,
+        13,
+        233,
+        45,
+        219,
+        240,
+        226,
+        76,
+        176,
+        4,
+        235,
+        0,
+        30,
+        217
+      ]
+    },
+    {
+      "address": 96864,
+      "bytes": [
+        229,
+        148,
+        4,
+        204,
+        227,
+        16,
+        0,
+        4,
+        10,
+        0,
+        0,
+        27,
+        229,
+        148,
+        20,
+        196
+      ]
+    },
+    {
+      "address": 173272,
+      "bytes": [
+        233,
+        45,
+        64,
+        0,
+        229,
+        31,
+        26,
+        172,
+        229,
+        145,
+        16,
+        0,
+        229,
+        145,
+        16,
+        80
+      ]
+    },
+    {
+      "address": 173372,
+      "bytes": [
+        225,
+        83,
+        0,
+        1,
+        202,
+        0,
+        0,
+        9,
+        229,
+        31,
+        31,
+        252,
+        229,
+        177,
+        48,
+        52
+      ]
+    },
+    {
+      "address": 173436,
+      "bytes": [
+        229,
+        31,
+        53,
+        4,
+        229,
+        162,
+        52,
+        196,
+        229,
+        145,
+        32,
+        192,
+        226,
+        66,
+        32,
+        1
+      ]
+    },
+    {
+      "address": 165088,
+      "bytes": [
+        225,
+        160,
+        192,
+        13,
+        233,
+        45,
+        219,
+        240,
+        226,
+        76,
+        176,
+        4,
+        225,
+        160,
+        64,
+        0
+      ]
+    },
+    {
+      "address": 63704,
+      "bytes": [
+        225,
+        160,
+        192,
+        13,
+        233,
+        45,
+        216,
+        16,
+        226,
+        76,
+        176,
+        4,
+        225,
+        160,
+        64,
+        0
+      ]
+    },
+    {
+      "address": 97972,
+      "bytes": [
+        233,
+        27,
+        171,
+        240,
+        0,
+        4,
+        26,
+        252,
+        225,
+        160,
+        16,
+        0,
+        226,
+        143,
+        15,
+        1
+      ]
+    },
+    {
+      "address": 2703384,
+      "bytes": [
+        0,
+        41,
+        63,
+        144
+      ]
+    },
+    {
+      "address": 2703248,
+      "bytes": [
+        0,
+        41,
+        73,
+        88,
+        0,
+        41,
+        78,
+        60
+      ]
+    },
+    {
+      "address": 2704636,
+      "bytes": [
+        0,
+        41,
+        68,
+        116
+      ]
+    },
+    {
+      "address": 2704500,
+      "bytes": [
+        0,
+        41,
+        83,
+        32,
+        0,
+        41,
+        73,
+        88
+      ]
+    },
+    {
+      "address": 2705888,
+      "bytes": [
+        0,
+        41,
+        73,
+        88
+      ]
+    },
+    {
+      "address": 2705752,
+      "bytes": [
+        0,
+        41,
+        68,
+        116,
+        0,
+        41,
+        63,
+        144
+      ]
+    },
+    {
+      "address": 2707140,
+      "bytes": [
+        0,
+        41,
+        78,
+        60
+      ]
+    },
+    {
+      "address": 2707004,
+      "bytes": [
+        0,
+        41,
+        63,
+        144,
+        0,
+        8,
+        31,
+        72
+      ]
+    },
+    {
+      "address": 2708392,
+      "bytes": [
+        0,
+        41,
+        83,
+        32
+      ]
+    },
+    {
+      "address": 2708256,
+      "bytes": [
+        0,
+        41,
+        92,
+        232,
+        0,
+        41,
+        68,
+        116
+      ]
+    },
+    {
+      "address": 2709644,
+      "bytes": [
+        0,
+        41,
+        88,
+        4
+      ]
+    },
+    {
+      "address": 2709508,
+      "bytes": [
+        0,
+        8,
+        31,
+        84,
+        0,
+        41,
+        92,
+        232
+      ]
+    },
+    {
+      "address": 2710896,
+      "bytes": [
+        0,
+        41,
+        92,
+        232
+      ]
+    },
+    {
+      "address": 2710760,
+      "bytes": [
+        0,
+        41,
+        88,
+        4,
+        0,
+        41,
+        83,
+        32
+      ]
+    }
+  ],
+  "tours": {
+    "one-iteration": {
+      "title": "One City simulation iteration: dispatch, traffic gates and road AI",
+      "description": "Follow one authentic vehicle-dynamics iteration, including every selected car and a rejected traffic spawn. The prepared reference has the player at segment 26; other scenarios stay available for free inspection.",
+      "releases": [
+        "reference-disc"
+      ],
+      "evidence": [
+        "race"
+      ],
+      "startPolicy": "current-paused",
+      "requirements": "Enter the reference City race and pause with the documented pool allocated and player at segment 26. The first dormant car must use the dormant driver and its embedded countdown record. Movie HLE must be inactive.",
+      "iteration": {
+        "counter": 269604
+      },
+      "guards": [
+        {
+          "address": 96516,
+          "bytes": [
+            225,
+            160,
+            192,
+            13,
+            233,
+            45,
+            219,
+            240,
+            226,
+            76,
+            176,
+            4,
+            235,
+            0,
+            30,
+            217
+          ]
+        },
+        {
+          "address": 96864,
+          "bytes": [
+            229,
+            148,
+            4,
+            204,
+            227,
+            16,
+            0,
+            4,
+            10,
+            0,
+            0,
+            27,
+            229,
+            148,
+            20,
+            196
+          ]
+        },
+        {
+          "address": 173272,
+          "bytes": [
+            233,
+            45,
+            64,
+            0,
+            229,
+            31,
+            26,
+            172,
+            229,
+            145,
+            16,
+            0,
+            229,
+            145,
+            16,
+            80
+          ]
+        },
+        {
+          "address": 173372,
+          "bytes": [
+            225,
+            83,
+            0,
+            1,
+            202,
+            0,
+            0,
+            9,
+            229,
+            31,
+            31,
+            252,
+            229,
+            177,
+            48,
+            52
+          ]
+        },
+        {
+          "address": 173436,
+          "bytes": [
+            229,
+            31,
+            53,
+            4,
+            229,
+            162,
+            52,
+            196,
+            229,
+            145,
+            32,
+            192,
+            226,
+            66,
+            32,
+            1
+          ]
+        },
+        {
+          "address": 165088,
+          "bytes": [
+            225,
+            160,
+            192,
+            13,
+            233,
+            45,
+            219,
+            240,
+            226,
+            76,
+            176,
+            4,
+            225,
+            160,
+            64,
+            0
+          ]
+        },
+        {
+          "address": 63704,
+          "bytes": [
+            225,
+            160,
+            192,
+            13,
+            233,
+            45,
+            216,
+            16,
+            226,
+            76,
+            176,
+            4,
+            225,
+            160,
+            64,
+            0
+          ]
+        },
+        {
+          "address": 97972,
+          "bytes": [
+            233,
+            27,
+            171,
+            240,
+            0,
+            4,
+            26,
+            252,
+            225,
+            160,
+            16,
+            0,
+            226,
+            143,
+            15,
+            1
+          ]
+        },
+        {
+          "address": 2707196,
+          "bytes": [
+            0,
+            41,
+            79,
+            0
+          ]
+        }
+      ],
+      "start": {
+        "all": [
+          {
+            "mode": "arm32"
+          },
+          {
+            "address": 2710840,
+            "value": 0
+          },
+          {
+            "address": 2710841,
+            "value": 0
+          },
+          {
+            "address": 2710842,
+            "value": 0
+          },
+          {
+            "address": 2710843,
+            "value": 26
+          },
+          {
+            "address": 2708224,
+            "value": 0
+          },
+          {
+            "address": 2708225,
+            "value": 2
+          },
+          {
+            "address": 2708226,
+            "value": 164
+          },
+          {
+            "address": 2708227,
+            "value": 216
+          }
+        ]
+      },
+      "stops": [
+        {
+          "id": "begin",
+          "title": "One vehicle-dynamics iteration",
+          "explanation": "The even simulation flag selects vehicle dynamics. The tour pins this live task and simulation counter; displayed video frames remain a separate clock.",
+          "until": {
+            "all": [
+              {
+                "pc": 96516
+              },
+              {
+                "address": 269615,
+                "mask": 1,
+                "value": 1
+              }
+            ]
+          },
+          "assertions": [],
+          "cycleBudget": 2000000,
+          "wallBudget": 20000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 2703248,
+              "length": 8764
+            },
+            {
+              "address": 269604,
+              "length": 12
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 96516,
+            "gameState": true
+          }
+        },
+        {
+          "id": "car-3",
+          "title": "Visit car record 3",
+          "explanation": "R4 identifies record 3 at 0x294e3c. The dispatcher tests activity bit 2, then reads the driver pointer. A skipped car is still part of this list traversal.",
+          "until": {
+            "all": [
+              {
+                "pc": 96864
+              },
+              {
+                "register": "R4",
+                "value": 2707004
+              }
+            ]
+          },
+          "assertions": [],
+          "cycleBudget": 2000000,
+          "wallBudget": 20000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 2703248,
+              "length": 8764
+            },
+            {
+              "address": 269604,
+              "length": 12
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 96864,
+            "gameState": true
+          }
+        },
+        {
+          "id": "driver-3",
+          "title": "Run record 3 driver",
+          "explanation": "The dispatch reached the driver stored in this record. R4 still identifies the selected car; the raw driver pointer and behavior flags explain its role.",
+          "until": {
+            "all": [
+              {
+                "pc": 173272
+              },
+              {
+                "register": "R4",
+                "value": 2707004
+              }
+            ]
+          },
+          "assertions": [],
+          "cycleBudget": 2000000,
+          "wallBudget": 20000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 2703248,
+              "length": 8764
+            },
+            {
+              "address": 269604,
+              "length": 12
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 173272,
+            "gameState": true
+          }
+        },
+        {
+          "id": "spawn-spacing",
+          "title": "Traffic spawn spacing decision",
+          "explanation": "CMP compared R3 (25 + twice the car ordinal) with R1 (player track segment). BGT rejects spawning when spacing exceeds player progress. Here the guarded setup reaches this comparison with ordinal 3 and player segment 26; the CPU flags show the taken branch. Earlier checks require an expired countdown and remaining track. Later gates, if reached, check density and flags.",
+          "until": {
+            "all": [
+              {
+                "pc": 173376
+              },
+              {
+                "register": "R2",
+                "value": 2707004
+              }
+            ]
+          },
+          "assertions": [
+            {
+              "register": "R1",
+              "value": 26
+            },
+            {
+              "register": "R3",
+              "value": 31
+            }
+          ],
+          "cycleBudget": 2000000,
+          "wallBudget": 20000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 2703248,
+              "length": 8764
+            },
+            {
+              "address": 269604,
+              "length": 12
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 173376,
+            "gameState": true
+          }
+        },
+        {
+          "id": "spawn-rejected",
+          "title": "Spacing rejected; remain dormant",
+          "explanation": "Execution followed BGT to the retry path. The game resets the countdown to one and leaves this car using the dormant driver. No traffic was fabricated or force-spawned.",
+          "until": {
+            "all": [
+              {
+                "pc": 173420
+              },
+              {
+                "register": "R2",
+                "value": 2707004
+              }
+            ]
+          },
+          "assertions": [],
+          "cycleBudget": 2000000,
+          "wallBudget": 20000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 2703248,
+              "length": 8764
+            },
+            {
+              "address": 269604,
+              "length": 12
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 173420,
+            "gameState": true
+          }
+        },
+        {
+          "id": "car-0",
+          "title": "Visit car record 0",
+          "explanation": "R4 identifies record 0 at 0x293f90. The dispatcher tests activity bit 2, then reads the driver pointer. A skipped car is still part of this list traversal.",
+          "until": {
+            "all": [
+              {
+                "pc": 96864
+              },
+              {
+                "register": "R4",
+                "value": 2703248
+              }
+            ]
+          },
+          "assertions": [],
+          "cycleBudget": 2000000,
+          "wallBudget": 20000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 2703248,
+              "length": 8764
+            },
+            {
+              "address": 269604,
+              "length": 12
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 96864,
+            "gameState": true
+          }
+        },
+        {
+          "id": "driver-0",
+          "title": "Run record 0 driver",
+          "explanation": "The dispatch reached the driver stored in this record. R4 still identifies the selected car; the raw driver pointer and behavior flags explain its role.",
+          "until": {
+            "all": [
+              {
+                "pc": 173272
+              },
+              {
+                "register": "R4",
+                "value": 2703248
+              }
+            ]
+          },
+          "assertions": [],
+          "cycleBudget": 2000000,
+          "wallBudget": 20000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 2703248,
+              "length": 8764
+            },
+            {
+              "address": 269604,
+              "length": 12
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 173272,
+            "gameState": true
+          }
+        },
+        {
+          "id": "car-2",
+          "title": "Visit car record 2",
+          "explanation": "R4 identifies record 2 at 0x294958. The dispatcher tests activity bit 2, then reads the driver pointer. A skipped car is still part of this list traversal.",
+          "until": {
+            "all": [
+              {
+                "pc": 96864
+              },
+              {
+                "register": "R4",
+                "value": 2705752
+              }
+            ]
+          },
+          "assertions": [],
+          "cycleBudget": 2000000,
+          "wallBudget": 20000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 2703248,
+              "length": 8764
+            },
+            {
+              "address": 269604,
+              "length": 12
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 96864,
+            "gameState": true
+          }
+        },
+        {
+          "id": "driver-2",
+          "title": "Run record 2 driver",
+          "explanation": "The dispatch reached the driver stored in this record. R4 still identifies the selected car; the raw driver pointer and behavior flags explain its role.",
+          "until": {
+            "all": [
+              {
+                "pc": 173272
+              },
+              {
+                "register": "R4",
+                "value": 2705752
+              }
+            ]
+          },
+          "assertions": [],
+          "cycleBudget": 2000000,
+          "wallBudget": 20000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 2703248,
+              "length": 8764
+            },
+            {
+              "address": 269604,
+              "length": 12
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 173272,
+            "gameState": true
+          }
+        },
+        {
+          "id": "car-1",
+          "title": "Visit car record 1",
+          "explanation": "R4 identifies record 1 at 0x294474. The dispatcher tests activity bit 2, then reads the driver pointer. A skipped car is still part of this list traversal.",
+          "until": {
+            "all": [
+              {
+                "pc": 96864
+              },
+              {
+                "register": "R4",
+                "value": 2704500
+              }
+            ]
+          },
+          "assertions": [],
+          "cycleBudget": 2000000,
+          "wallBudget": 20000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 2703248,
+              "length": 8764
+            },
+            {
+              "address": 269604,
+              "length": 12
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 96864,
+            "gameState": true
+          }
+        },
+        {
+          "id": "driver-1",
+          "title": "Run record 1 driver",
+          "explanation": "The dispatch reached the driver stored in this record. R4 still identifies the selected car; the raw driver pointer and behavior flags explain its role.",
+          "until": {
+            "all": [
+              {
+                "pc": 173272
+              },
+              {
+                "register": "R4",
+                "value": 2704500
+              }
+            ]
+          },
+          "assertions": [],
+          "cycleBudget": 2000000,
+          "wallBudget": 20000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 2703248,
+              "length": 8764
+            },
+            {
+              "address": 269604,
+              "length": 12
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 173272,
+            "gameState": true
+          }
+        },
+        {
+          "id": "car-4",
+          "title": "Visit car record 4",
+          "explanation": "R4 identifies record 4 at 0x295320. The dispatcher tests activity bit 2, then reads the driver pointer. A skipped car is still part of this list traversal.",
+          "until": {
+            "all": [
+              {
+                "pc": 96864
+              },
+              {
+                "register": "R4",
+                "value": 2708256
+              }
+            ]
+          },
+          "assertions": [],
+          "cycleBudget": 2000000,
+          "wallBudget": 20000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 2703248,
+              "length": 8764
+            },
+            {
+              "address": 269604,
+              "length": 12
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 96864,
+            "gameState": true
+          }
+        },
+        {
+          "id": "car-6",
+          "title": "Visit car record 6",
+          "explanation": "R4 identifies record 6 at 0x295ce8. The dispatcher tests activity bit 2, then reads the driver pointer. A skipped car is still part of this list traversal.",
+          "until": {
+            "all": [
+              {
+                "pc": 96864
+              },
+              {
+                "register": "R4",
+                "value": 2710760
+              }
+            ]
+          },
+          "assertions": [],
+          "cycleBudget": 2000000,
+          "wallBudget": 20000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 2703248,
+              "length": 8764
+            },
+            {
+              "address": 269604,
+              "length": 12
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 96864,
+            "gameState": true
+          }
+        },
+        {
+          "id": "driver-6",
+          "title": "Run record 6 driver",
+          "explanation": "The dispatch reached the driver stored in this record. R4 still identifies the selected car; the raw driver pointer and behavior flags explain its role.",
+          "until": {
+            "all": [
+              {
+                "pc": 63704
+              },
+              {
+                "register": "R4",
+                "value": 2710760
+              }
+            ]
+          },
+          "assertions": [],
+          "cycleBudget": 2000000,
+          "wallBudget": 20000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 2703248,
+              "length": 8764
+            },
+            {
+              "address": 269604,
+              "length": 12
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 63704,
+            "gameState": true
+          }
+        },
+        {
+          "id": "car-5",
+          "title": "Visit car record 5",
+          "explanation": "R4 identifies record 5 at 0x295804. The dispatcher tests activity bit 2, then reads the driver pointer. A skipped car is still part of this list traversal.",
+          "until": {
+            "all": [
+              {
+                "pc": 96864
+              },
+              {
+                "register": "R4",
+                "value": 2709508
+              }
+            ]
+          },
+          "assertions": [],
+          "cycleBudget": 2000000,
+          "wallBudget": 20000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 2703248,
+              "length": 8764
+            },
+            {
+              "address": 269604,
+              "length": 12
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 96864,
+            "gameState": true
+          }
+        },
+        {
+          "id": "driver-5",
+          "title": "Run record 5 driver",
+          "explanation": "The dispatch reached the driver stored in this record. R4 still identifies the selected car; the raw driver pointer and behavior flags explain its role.",
+          "until": {
+            "all": [
+              {
+                "pc": 165088
+              },
+              {
+                "register": "R4",
+                "value": 2709508
+              }
+            ]
+          },
+          "assertions": [],
+          "cycleBudget": 2000000,
+          "wallBudget": 20000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 2703248,
+              "length": 8764
+            },
+            {
+              "address": 269604,
+              "length": 12
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 165088,
+            "gameState": true
+          }
+        },
+        {
+          "id": "complete",
+          "title": "World update complete",
+          "explanation": "The original world update has reached its return with the same simulation counter and task. All seven selected records were visited; the inactive cop entry was skipped, four dormant traffic entries ran spawn checks, the player ran its driver and the opponent ran the road AI. No video-frame boundary defines this iteration.",
+          "until": {
+            "all": [
+              {
+                "pc": 97972
+              }
+            ]
+          },
+          "assertions": [],
+          "cycleBudget": 2000000,
+          "wallBudget": 20000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 2703248,
+              "length": 8764
+            },
+            {
+              "address": 269604,
+              "length": 12
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 97972,
+            "gameState": true
+          }
+        }
+      ]
+    }
+  }
+}

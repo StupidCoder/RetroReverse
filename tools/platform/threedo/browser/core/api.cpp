@@ -1,4 +1,5 @@
 #include "host.h"
+#ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 // clang-format off
 EM_JS(int, browserRead, (uint32_t offset, uint8_t *dest, uint32_t n), {
@@ -18,9 +19,13 @@ EM_JS(int, browserRead, (uint32_t offset, uint8_t *dest, uint32_t n), {
   }
 });
 // clang-format on
+#else
+static int browserRead(uint32_t,uint8_t*,uint32_t){return 0;}
+#endif
 static threedo_Machine *machine = nullptr;
 static std::string errorText, reply;
 static std::vector<uint8_t> pixels;
+#include "debug.h"
 extern "C" {
 int rr_init_config(uint32_t size, int nfsProfile) {
   try {
@@ -82,8 +87,8 @@ uint8_t *rr_frame() {
 }
 #include "state.h"
 static std::vector<std::shared_ptr<void>> stateOwners;
-static void stateWrite(rrstate::Archive&a){a.header(4,2);a(machine,totalSteps,runContext,presentationSeconds,movieSeconds);}
-static void stateRead(rrstate::Archive&a){const bool legacy=a.bytes.size()>=12&&a.bytes[8]==1;a.header(4,legacy?1:2);threedo_Machine*next=nullptr;uint64_t ticks=0;RunContext context;a(next,ticks,context);if(!next)throw std::runtime_error("Missing machine");if(legacy&&next->movieQueue.n)throw std::runtime_error("Legacy movie state unsupported");double seconds=next->frame/30.0;double movies=0;if(!legacy)a(seconds,movies);a.finish();rebindState(next);presentationSeconds=seconds;movieSeconds=movies;stateOwners=std::move(a.owned);machine=next;totalSteps=ticks;runContext=std::move(context);fileEntries.clear();discCache.clear();}
+static void stateWrite(rrstate::Archive&a){a.header(4,3);a(machine,totalSteps,runContext,presentationSeconds,movieSeconds,runContext.prepared);}
+static void stateRead(rrstate::Archive&a){const int version=a.bytes.size()>=12?a.bytes[8]:0;if(version<1||version>3)throw std::runtime_error("Unsupported 3DO state version");const bool legacy=version==1;a.header(4,version);threedo_Machine*next=nullptr;uint64_t ticks=0;RunContext context;a(next,ticks,context);if(!next)throw std::runtime_error("Missing machine");if(legacy&&next->movieQueue.n)throw std::runtime_error("Legacy movie state unsupported");double seconds=next->frame/30.0;double movies=0;if(!legacy)a(seconds,movies);if(version>=3)a(context.prepared);a.finish();rebindState(next);rrSchedulerBoundary={};presentationSeconds=seconds;movieSeconds=movies;stateOwners=std::move(a.owned);machine=next;totalSteps=ticks;runContext=std::move(context);fileEntries.clear();discCache.clear();}
 #include "../../../../browser/state/api.inc"
 static uint32_t capBuffer=0;static threedo_CelDraw capCel{};
 extern "C" {
