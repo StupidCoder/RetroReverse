@@ -694,6 +694,11 @@ Code/Memory share definitions without duplicating live state or execution owners
 
 ### M4 — Read-only tours and interval evidence
 
+Completed for sequential read-only C64 tours and the verified Fort terrain
+investigation; see the [M4 report](tools/browser/docs/code-m4/README.md).
+The implemented profile uses PC/physical-RAM predicates and current paused starts.
+Symbolic selectors, automated preparation and the Elite loader remain gated.
+
 Depends on M2/M3. Implement tour lifecycle, conditions, assertions, budgets,
 Continue/free-exploration behavior, layout suggestions, baselines and bounded
 activity capture. Integrate reusable pieces from the C64 lesson prototype.

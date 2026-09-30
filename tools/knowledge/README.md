@@ -1,4 +1,4 @@
-# Game knowledge tools — M1 profile
+# Game knowledge tools — M1–M4 profile
 
 `games/<slug>/knowledge.json` is the hand-maintained source. The initial Fort
 package supplies Memory's existing annotations and records documented state and
@@ -63,10 +63,10 @@ Implemented:
 - Regions, state definitions, function entries and instruction-relative commentary.
 - Deterministic browser data export carrying source SHA-256 and package revision.
 
-M1 does not implement pointer/overlay/filesystem/sector/transform resolution,
+The current profile does not implement pointer/overlay/filesystem/sector/transform resolution,
 sign-magnitude types, dynamic arrays, live struct decoding, runtime signatures,
-phase predicates, tours, experiments, or executable asset recipes. Reserved
-`assets`, `tours` and `experiments` must be empty; unsupported location/type kinds
+general phase predicates, experiments, or executable asset recipes. Reserved
+`assets` and `experiments` must be empty; unsupported location/type kinds
 are rejected. Those features have later milestone gates rather than inert objects
 that look executable. Future v1 extensions must remain fail-closed in older tools.
 
@@ -138,3 +138,10 @@ and preserves raw bytes. State definitions can now include `relatedFunctions`
 an empty path compares the scalar element. This is a bounded storage comparison,
 not an expression or script. The authoring validator checks its type and range.
 See [M3 implementation and limits](../browser/docs/code-m3/README.md).
+
+## M4 read-only tours
+
+`tours` supports validated sequential C64 investigations with byte signatures,
+PC/masked-RAM conditions, assertions, budgets, layout hints and interval write
+evidence. See the [M4 specification and acceptance report](../browser/docs/code-m4/README.md).
+Tour conditions are data; applicability prose is still never evaluated.

@@ -1,5 +1,6 @@
+import {createTourPanel} from './tour-panel.js';
 import {disassemble6502,hex} from './disassembly6502.js';
-export function createCodeWorkspace({root,views,send,transport,platform,statePanel}){
+export function createCodeWorkspace({root,views,send,transport,platform,statePanel,panelLayout}){
  if(platform!=='c64')return null;
  root.innerHTML=`<div class="memory-heading"><div><h2>Code</h2><p id="code-note" role="status">Load a game to inspect its code.</p></div></div>
  <div class="memory-player"><canvas id="code-screen" tabindex="0" width="392" height="272" aria-label="Code game output"></canvas><div><div class="memory-transport"><button id="code-play">Play</button><button id="code-pause">Pause</button><button id="code-frame">Next frame</button></div><p>Click the preview for keyboard controls. Navigation never advances execution.</p><button id="code-tape-play">Play tape</button><button id="code-tape-stop">Stop tape</button></div></div>
@@ -8,6 +9,7 @@ export function createCodeWorkspace({root,views,send,transport,platform,statePan
  <div class="code-toolbar"><button id="code-until">Run to address</button><label>At current PC <select id="code-resume"><option value="stop-if-current">Stop immediately</option><option value="next-match">Run to next visit</option></select></label></div>
  <p>Address stops use the current CPU mapping. They do not prove that a documented function is loaded. Runs stop after 10 seconds or 9,852,480 cycles.</p>
  <pre id="code-disassembly" tabindex="0" aria-label="Mapped 6510 disassembly"></pre></section><aside><h3>Identified functions</h3><p id="code-identity"></p><div id="code-functions"></div><p id="code-annotation"></p></aside></div>`;
+ const tourPanel=createTourPanel({root,send,inspect:at=>{address=at;refresh();},layout:show=>panelLayout?.suggest(show)});
  const $=id=>root.querySelector('#code-'+id);
  let enabled=false,active=false,running=false,busy=false,externalBusy=false,snapshot=null,address=-1,pending=0,snapshotPending=false,job=0,generation=0,timer=null,knowledge=null;
  const command=(type,args={})=>send(type,{protocol:1,generation,...args});
@@ -60,13 +62,14 @@ export function createCodeWorkspace({root,views,send,transport,platform,statePan
   ready(session){enabled=true;generation=session;$('note').textContent='Mapped CPU bytes · snapshots do not advance execution.';views.enable('code',true);command('debug-capabilities');controls();},
   inspect(at){address=at;refresh();},
   refreshState(){refresh(true);},
-  reset(){statePanel?.reset();enabled=false;busy=false;snapshotPending=false;job=0;snapshot=null;address=-1;knowledge=null;clearTimeout(timer);views.enable('code',false);controls();},
+  reset(){tourPanel.reset();statePanel?.reset();enabled=false;busy=false;snapshotPending=false;job=0;snapshot=null;address=-1;knowledge=null;clearTimeout(timer);views.enable('code',false);controls();},
   setActive(value){active=value;clearTimeout(timer);timer=null;if(value)refresh();},
   present(canvas){if(active){const c=$('screen');if(c.width!==canvas.width)c.width=canvas.width;if(c.height!==canvas.height)c.height=canvas.height;c.getContext('2d').drawImage(canvas,0,0);}},
-  state(m){const was=running;running=m.running;statePanel?.setRunning(m.running||m.debugBusy||m.capturing||m.memoryRecording||m.saving);externalBusy=m.capturing||m.saving||m.memoryRecording;controls();if(active&&was&&!running)refresh();schedule();},
+  state(m){tourPanel.state(m);const was=running;running=m.running;statePanel?.setRunning(m.running||m.debugBusy||m.capturing||m.memoryRecording||m.saving);externalBusy=m.capturing||m.saving||m.memoryRecording||(m.debugBusy&&!busy);controls();if(active&&was&&!running)refresh();schedule();},
+  tourResult(m){tourPanel.result(m);if(m.snapshot){address=-1;render(m.snapshot);}},
   result(m){
    if(m.generation!==generation)return;
-   if(m.type==='debug-capabilities'){knowledge=m.knowledge;statePanel?.setKnowledge(knowledge);functions();return;}
+   if(m.type==='debug-capabilities'){knowledge=m.knowledge;tourPanel.ready(knowledge,generation);statePanel?.setKnowledge(knowledge);functions();return;}
    if(m.type==='debug-snapshot'&&m.request===pending){snapshotPending=false;render(m.snapshot);return;}
    if(m.type==='debug-started'&&m.request===job){$('note').textContent='Running a bounded debugger job…';return;}
    if(m.type==='debug-result'){

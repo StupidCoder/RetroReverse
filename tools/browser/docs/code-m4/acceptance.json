@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "date": "2026-09-30",
+  "release": "6c818e9cc0bbde644d08",
+  "coreSHA256": "65969dd2bdfd1512cafe9e74d9b1d7c21ee395b468d87e0cf3aaa8d23bc7546c",
+  "result": "PASS",
+  "publicChecks": ["Go knowledge validation/export", "real-WASM tour fixtures", "debugger regression", "structured state", "knowledge identity", "Memory model", "shared UI shell", "release integrity"],
+  "browserChecks": ["authentic Fort checkpoint", "three verified stops", "native keyboard focus", "read-only layout and Memory navigation", "free exploration and exact restore", "write/diff distinction", "375px picker", "media replacement", "M2 and M3 regression"],
+  "fortStops": [
+    {"id": "entry", "cycle": "118436151", "terrainWrites": 0, "terrainDifferences": 0},
+    {"id": "first-run", "cycle": "118441859", "terrainWrites": 215, "terrainDifferences": 215},
+    {"id": "second-run", "cycle": "118442960", "terrainWrites": 40, "terrainDifferences": 0}
+  ],
+  "limitations": ["C64 sequential current-paused profile", "manual preparation", "Elite remains gated", "no patch experiments or symbolic condition selectors"]
+}

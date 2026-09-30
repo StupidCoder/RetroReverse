@@ -54,5 +54,5 @@ export function createDebugService({core,send,sleep,busy,paint,applyInputs,knowl
   }catch(e){reason='error';text=String(e);}
   finally{if(job===owner)job=null;reply(m,'debug-result',{reason,text,retired,cycles,elapsedMs:performance.now()-began,snapshot:snapshot()});paint();}
  }
- return {request,active:()=>!!job,cancel:()=>{if(job)job.cancel=true;}};
+ return {snapshot,request,active:()=>!!job,cancel:()=>{if(job)job.cancel=true;}};
 }

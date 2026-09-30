@@ -110,6 +110,7 @@ type Package struct {
 	Regions       map[string]Definition `json:"regions"`
 	State         map[string]Definition `json:"state"`
 	Functions     map[string]Definition `json:"functions"`
+	Tours         map[string]Tour       `json:"tours"`
 	Annotations   map[string]Annotation `json:"annotations"`
 	Raw           json.RawMessage       `json:"-"`
 	Hash          string                `json:"-"`
@@ -535,5 +536,5 @@ func (p *Package) validate() error {
 			}
 		}
 	}
-	return nil
+	return p.validateTours()
 }

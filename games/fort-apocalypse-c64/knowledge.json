@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "fort-apocalypse-c64",
-  "revision": 2,
+  "revision": 3,
   "game": {
     "name": "Fort Apocalypse",
     "system": {
@@ -576,6 +576,288 @@
     }
   },
   "assets": {},
-  "tours": {},
+  "tours": {
+    "terrain-runs": {
+      "title": "How Fort expands its terrain",
+      "description": "Follow two runs of the original terrain decompressor, with interval write evidence.",
+      "releases": [
+        "reference-pal"
+      ],
+      "evidence": [
+        "playfield"
+      ],
+      "startPolicy": "current-paused",
+      "requirements": "Load the reference tape normally. At the title screen, press fire and use Code to pause at the first terrain RLE entry $8CDB, with $1A/$1B=$7000, $1C/$1D=$0503 and $21=0. Release controls before starting. A later visit is not the same starting state. This tour does not manufacture RAM or boot inputs.",
+      "guards": [
+        {
+          "address": 36059,
+          "bytes": [
+            32,
+            32,
+            141,
+            160,
+            0,
+            166,
+            33,
+            208,
+            14,
+            217,
+            43,
+            141,
+            240,
+            21,
+            200,
+            192,
+            23,
+            208,
+            246,
+            162,
+            1,
+            208,
+            20,
+            217,
+            66,
+            141,
+            240,
+            7,
+            200,
+            192,
+            4,
+            208,
+            246,
+            240,
+            240,
+            133,
+            30,
+            32,
+            32,
+            141,
+            170,
+            165,
+            30,
+            160,
+            0,
+            41,
+            127,
+            145,
+            28,
+            230,
+            28,
+            208,
+            2,
+            230,
+            29,
+            202,
+            208,
+            241,
+            165,
+            28,
+            197,
+            31,
+            165,
+            29,
+            229,
+            32,
+            144,
+            188,
+            96,
+            160,
+            0,
+            177,
+            26,
+            230,
+            26,
+            208,
+            2,
+            230,
+            27,
+            96
+          ]
+        },
+        {
+          "address": 28672,
+          "bytes": [
+            31,
+            215,
+            0,
+            40
+          ]
+        }
+      ],
+      "start": {
+        "all": [
+          {
+            "pc": 36059
+          },
+          {
+            "address": 26,
+            "value": 0
+          },
+          {
+            "address": 27,
+            "value": 112
+          },
+          {
+            "address": 28,
+            "value": 3
+          },
+          {
+            "address": 29,
+            "value": 5
+          },
+          {
+            "address": 33,
+            "value": 0
+          }
+        ]
+      },
+      "stops": [
+        {
+          "id": "entry",
+          "title": "The compressed terrain stream",
+          "explanation": "The source pointer at $1A/$1B is $7000; the destination at $1C/$1D is $0503. Mode $21 is zero, selecting the terrain run table. The first pair $1F,$D7 expands to 215 copies of $1F. Continue executes the real decompressor.",
+          "until": {
+            "pc": 36059
+          },
+          "assertions": [
+            {
+              "address": 26,
+              "value": 0
+            },
+            {
+              "address": 27,
+              "value": 112
+            },
+            {
+              "address": 28,
+              "value": 3
+            },
+            {
+              "address": 29,
+              "value": 5
+            },
+            {
+              "address": 33,
+              "value": 0
+            }
+          ],
+          "cycleBudget": 20000,
+          "wallBudget": 5000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 1283,
+              "length": 256
+            },
+            {
+              "address": 26,
+              "length": 8
+            }
+          ],
+          "eventBudget": 100000,
+          "layout": {
+            "address": 36059,
+            "gameState": true
+          }
+        },
+        {
+          "id": "first-run",
+          "title": "One pair becomes 215 tiles",
+          "explanation": "The source advanced by two bytes to $7002, while the destination advanced by 215 to $05DA. The interval records writes to the terrain buffer. Endpoint differences only count bytes whose final values differ from the baseline. The next pair $00,$28 emits 40 zero bytes.",
+          "until": {
+            "pc": 36059
+          },
+          "assertions": [
+            {
+              "address": 26,
+              "value": 2
+            },
+            {
+              "address": 27,
+              "value": 112
+            },
+            {
+              "address": 28,
+              "value": 218
+            },
+            {
+              "address": 29,
+              "value": 5
+            },
+            {
+              "address": 33,
+              "value": 0
+            }
+          ],
+          "cycleBudget": 20000,
+          "wallBudget": 5000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 1283,
+              "length": 256
+            },
+            {
+              "address": 26,
+              "length": 8
+            }
+          ],
+          "eventBudget": 100000,
+          "layout": {
+            "address": 36059,
+            "gameState": true
+          }
+        },
+        {
+          "id": "second-run",
+          "title": "Forty zero bytes",
+          "explanation": "The source is now $7004 and the destination $0602. This run wrote forty zero bytes. Writes are recorded even when the old byte was already zero. Explore the code or memory, or restore this stop. This short investigation is complete.",
+          "until": {
+            "pc": 36059
+          },
+          "assertions": [
+            {
+              "address": 26,
+              "value": 4
+            },
+            {
+              "address": 27,
+              "value": 112
+            },
+            {
+              "address": 28,
+              "value": 2
+            },
+            {
+              "address": 29,
+              "value": 6
+            },
+            {
+              "address": 33,
+              "value": 0
+            }
+          ],
+          "cycleBudget": 20000,
+          "wallBudget": 5000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 1283,
+              "length": 256
+            },
+            {
+              "address": 26,
+              "length": 8
+            }
+          ],
+          "eventBudget": 100000,
+          "layout": {
+            "address": 36059,
+            "gameState": true
+          }
+        }
+      ]
+    }
+  },
   "experiments": {}
 }

@@ -1,11 +1,20 @@
+import {createStateSampler} from './structured-state.js';
 // All core calls here are synchronous; cooperative jobs yield between bounded
 // slices. The worker's common execution gate excludes other machine owners.
 export function createDebugService({core,send,sleep,busy,paint,applyInputs,knowledge,generation,onStart=()=>{}}) {
+ const sampleState=createStateSampler(knowledge,(location,size)=>{
+  const address=location.address;
+  if(!Number.isSafeInteger(address)||address<0||address+size>65536)throw Error('State range is outside C64 storage');
+  if(location.kind==='ram'){const p=core._rr_ram();return {bytes:Array.from(core.HEAPU8.slice(p+address,p+address+size)),mapping:Array(size).fill(0)};}
+  const bytes=[],mapping=[];
+  for(let offset=0;offset<size;offset+=256){const s=JSON.parse(core.UTF8ToString(core._rr_debug_snapshot(address+offset)));bytes.push(...s.bytes.slice(0,size-offset));mapping.push(...s.mapping.slice(0,size-offset));}
+  return {bytes,mapping};
+ });
  let job=null,sequence=0,last=null,mappingGeneration=0,lastBank=null;
  const snapshot=(address=-1)=>{
   const s=JSON.parse(core.UTF8ToString(core._rr_debug_snapshot(address)));
   if(s.bank!==lastBank){lastBank=s.bank;mappingGeneration++;}
-  last={...s,snapshotId:++sequence,generation,mappingGeneration};return last;
+  last={...s,snapshotId:++sequence,generation,mappingGeneration,state:sampleState(s)};return last;
  };
  function reply(m,type,data={}){send(type,{protocol:1,generation,request:m.request,jobId:m.request,...data});}
  function reject(m,text){reply(m,'debug-result',{reason:'rejected',text});}
@@ -45,5 +54,5 @@ export function createDebugService({core,send,sleep,busy,paint,applyInputs,knowl
   }catch(e){reason='error';text=String(e);}
   finally{if(job===owner)job=null;reply(m,'debug-result',{reason,text,retired,cycles,elapsedMs:performance.now()-began,snapshot:snapshot()});paint();}
  }
- return {request,active:()=>!!job,cancel:()=>{if(job)job.cancel=true;}};
+ return {snapshot,request,active:()=>!!job,cancel:()=>{if(job)job.cancel=true;}};
 }

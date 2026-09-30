@@ -52,7 +52,7 @@ if(platform==='c64'){
  statePanel=createStatePanel({memory:(region,offset)=>{views.select('memory');memory.navigate(region,offset);},code:address=>{views.select('code');code.inspect(address);}});
  panelLayout=createPanelLayout(statePanel.root);
 }
-code=createCodeWorkspace({root:$('code-workspace'),views,send,transport:id=>transport(id,true),platform,statePanel});
+code=createCodeWorkspace({root:$('code-workspace'),views,send,transport:id=>transport(id,true),platform,statePanel,panelLayout});
 if(panelLayout){panelLayout.register('code',$('code-workspace'));panelLayout.register('memory',$('memory-workspace'));}
 function controls(on) {
   for (const id of ['run', 'pause', 'reset', 'step', 'save'])
@@ -127,6 +127,7 @@ function load(stateFile=null) {
     if(pendingWorker)return;
     if (m.session !== session)
       return;
+    if(m.type.startsWith('tour-')){if(m.phase==='running-to-stop')memory.invalidate();code?.tourResult(m);return;}
     if(m.type.startsWith('debug-')){if(m.type==='debug-started')memory.invalidate();code?.result(m);return;}
     if(m.type.startsWith('memory-')){memory.result(m);if(m.type==='memory-overview'&&views.current()==='memory')code?.refreshState();return;}
     if (m.type === 'state') {

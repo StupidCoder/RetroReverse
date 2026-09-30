@@ -182,8 +182,10 @@
     },
     "tours": {
       "type": "object",
-      "maxProperties": 0,
-      "description": "Reserved. Nonempty definitions are unsupported in the M1 profile."
+      "additionalProperties": {
+        "$ref": "#/$defs/tour"
+      },
+      "maxProperties": 64
     },
     "experiments": {
       "type": "object",
@@ -964,6 +966,285 @@
         "offset",
         "text",
         "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "tourCondition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "pc": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          },
+          "required": [
+            "pc"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "address": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 65535
+            },
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            },
+            "mask": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "address",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "all": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/tourCondition"
+              },
+              "minItems": 1,
+              "maxItems": 16
+            }
+          },
+          "required": [
+            "all"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "any": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/tourCondition"
+              },
+              "minItems": 1,
+              "maxItems": 16
+            }
+          },
+          "required": [
+            "any"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "tourGuard": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 65535
+        },
+        "bytes": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "minItems": 1,
+          "maxItems": 256
+        }
+      },
+      "required": [
+        "address",
+        "bytes"
+      ],
+      "additionalProperties": false
+    },
+    "tourCapture": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 65535
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16384
+        }
+      },
+      "required": [
+        "address",
+        "length"
+      ],
+      "additionalProperties": false
+    },
+    "tourStop": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "explanation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "until": {
+          "$ref": "#/$defs/tourCondition"
+        },
+        "assertions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tourCondition"
+          },
+          "minItems": 0,
+          "maxItems": 32
+        },
+        "cycleBudget": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 29557440
+        },
+        "wallBudget": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30000
+        },
+        "hitCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "capture": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tourCapture"
+          },
+          "minItems": 0,
+          "maxItems": 16
+        },
+        "eventBudget": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 524288
+        },
+        "layout": {
+          "type": "object",
+          "properties": {
+            "address": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "gameState": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "address",
+            "gameState"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "explanation",
+        "until",
+        "assertions",
+        "cycleBudget",
+        "wallBudget",
+        "hitCount",
+        "capture",
+        "eventBudget",
+        "layout"
+      ],
+      "additionalProperties": false
+    },
+    "tour": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "releases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "maxItems": 64
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "maxItems": 64
+        },
+        "startPolicy": {
+          "const": "current-paused"
+        },
+        "requirements": {
+          "type": "string",
+          "minLength": 1
+        },
+        "guards": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tourGuard"
+          },
+          "minItems": 1,
+          "maxItems": 32
+        },
+        "start": {
+          "$ref": "#/$defs/tourCondition"
+        },
+        "stops": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tourStop"
+          },
+          "minItems": 1,
+          "maxItems": 64
+        }
+      },
+      "required": [
+        "title",
+        "description",
+        "releases",
+        "evidence",
+        "startPolicy",
+        "requirements",
+        "guards",
+        "start",
+        "stops"
       ],
       "additionalProperties": false
     }
