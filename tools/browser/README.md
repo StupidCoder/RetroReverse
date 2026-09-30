@@ -1,5 +1,12 @@
 # RetroReverse browser emulators
 
+Code inspection and game knowledge work is tracked in the
+[M0 contracts and baseline](docs/code-m0/README.md) and
+[M1 knowledge schema/package acceptance](docs/code-m1/README.md).
+The [C64 Code workspace and debugger](docs/code-m2/README.md) implement M2. See [knowledge authoring](../knowledge/README.md)
+for validation/export commands. Annotation-only releases can use
+`python3 tools/browser/package.py --site-only` to reuse verified packaged cores.
+
 The deployed application is `site/emulators/`; it is part of the existing
 no-build Cloudflare Pages site. The homepage links to its console gallery.
 All execution is in a Web Worker. Game files remain local, C64 firmware is

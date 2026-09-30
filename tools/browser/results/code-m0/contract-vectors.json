@@ -1,0 +1,22 @@
+{
+  "pass": true,
+  "fixture": "code-m0/contracts.json",
+  "manifest": "rr-media-set-v1\n[[\"a.bin\",3,\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\"],[\"b.bin\",0,\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"]]",
+  "manifestSHA256": "e810b795592a75e63d9630ce5344ac8ee0518b561dc6f293d63d11ec5be9df59",
+  "slots": [
+    {
+      "index": 0,
+      "type": 1,
+      "address": 16,
+      "value": 42,
+      "flags": 3
+    },
+    {
+      "index": 1,
+      "type": 128,
+      "address": 20,
+      "value": 17,
+      "flags": 7
+    }
+  ]
+}

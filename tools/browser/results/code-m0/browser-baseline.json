@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "date": "2026-09-30T08:13:52.857Z",
+  "source": "Observed PASS result from tools/browser/tests/code-m0-browser.html in Codex in-app browser; selected raw fields transcribed from rendered JSON",
+  "revision": "2284b8c8",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+  "crossOriginIsolated": false,
+  "coreSHA256": "1f3a985fa868d9abb2a94b3a128888fc6cc0ede7d80de254c445bc30c6d93e7c",
+  "worker": {
+    "fixture": "C64 ROM reset/BASIC, synthetic one-pulse tape, turbo, no keyboard input",
+    "sampleColumns": ["wallMs", "cycles", "pauseAckMs"],
+    "samples": [
+      [167.19999998807907,668304,2.699999988079071],
+      [166.80000001192093,727272,1.199999988079071],
+      [166.5,727272,4.699999988079071],
+      [158.80000001192093,687960,2.5],
+      [162.5,707616,1.600000023841858],
+      [162.09999999403954,707616,1.300000011920929],
+      [162.19999998807907,707616,1.199999988079071],
+      [165.80000001192093,727272,4.5],
+      [161.19999998807907,707616,4.5999999940395355],
+      [161.59999999403954,707616,5],
+      [160.2000000178814,707616,3.5999999940395355],
+      [161.40000000596046,707616,4.4000000059604645]
+    ],
+    "heapBytesEverySample": 134217728,
+    "maxCoreCallMs": 7.699999988079071
+  },
+  "coreProbe": {
+    "fixture": "synthetic INC/JMP at 0800, dummy ROM, display disabled",
+    "beforePC": 2048, "statusPC": 2048, "nextBusPC": 2051,
+    "cycles": 6, "flags": 3, "checkpointBytes": 230067,
+    "millionCycleTimesMs": [144.69999998807907,142.39999997615814,141.40000000596046],
+    "instructionStepAndStatus": {"count": 1000,"totalMs": 239.90000000596046}
+  },
+  "limitations": [
+    "No real game loaded; worker sample begins at ROM reset.",
+    "Pause request-to-ack includes messaging/framebuffer copy, not input-device or DOM paint latency.",
+    "No cross-origin isolation, small sample, not a p99 or worst-case bound.",
+    "WASM allocation is not browser RSS.",
+    "Code UI is not implemented; step/status is a core-side proxy only."
+  ]
+}

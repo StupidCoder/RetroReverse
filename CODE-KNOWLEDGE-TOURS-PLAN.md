@@ -1,9 +1,12 @@
 # Game knowledge packages, Code workspace, and guided investigations
 
-Status: proposed implementation plan, 2026-09-30. This document records the
-agreed product direction; it does not claim that the interfaces or schema below
-are implemented. Milestones require their own acceptance evidence before being
-marked complete.
+Status: M0, M1 and the C64 M2 vertical slice completed, 2026-09-30; see the
+[M0 contracts and baseline](tools/browser/docs/code-m0/README.md) and
+[M1 schema/package acceptance](tools/browser/docs/code-m1/README.md) and
+[M2 debugger acceptance](tools/browser/docs/code-m2/README.md).
+M3 onward remain planned. This document records the agreed product direction;
+it does not claim that the interfaces or schema below are implemented. Milestones
+require their own acceptance evidence before being marked complete.
 
 ## 1. Outcome and scope
 
@@ -627,6 +630,10 @@ limitations. Report skipped private-media checks as skipped, never passed.
 
 ### M0 — Contracts and inventory
 
+Completed for the initial C64-first scope. The [M0 report](tools/browser/docs/code-m0/README.md)
+records the exact baseline limitations, including a core-side proxy for Code work
+before the Code UI exists. Its contracts refine the illustrative specification here.
+
 - Audit current adapters, instruction boundaries, disassemblers, checkpoint and
   recording capabilities. Separate legacy prototype functionality from shipped UI.
 - Specify debug snapshot/stop semantics, job arbitration and cancellation.
@@ -639,6 +646,10 @@ No platform is marked supported solely because its CPU has a native debugger.
 
 ### M1 — Knowledge schema, validator and first package
 
+Completed for the basic profile. The [M1 report](tools/browser/docs/code-m1/README.md)
+records supported definitions, exact Fort media verification, generated Memory
+labels, browser checks and the intentionally unsupported later-milestone features.
+
 Depends on M0. Implement strict schema and semantic validation, stable references,
 release matching, CPU/physical/image locations, basic types, regions, functions,
 evidence, and Fort's initial package. Export existing applicable memory labels
@@ -650,6 +661,10 @@ The Fort package validates; unknown media retains generic inspection. Round-trip
 or deterministic export proves generated data is reproducible.
 
 ### M2 — C64 debug adapter and Code vertical slice
+
+Completed for C64; see [implementation and acceptance](tools/browser/docs/code-m2/README.md).
+Documented function entries remain explicitly unverified at runtime; address
+breakpoints are available without claiming guided applicability.
 
 Depends on M1. Add consistent boundary snapshots, safe mapped peeks, sufficient
 6510 decoding (including the implicated opcode), instruction step, run-to-function,

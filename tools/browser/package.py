@@ -1,16 +1,28 @@
 #!/usr/bin/env python3
 """Package existing WASM builds into the site's static emulator subtree."""
 from pathlib import Path
-import hashlib,json,shutil,subprocess
+import argparse,hashlib,json,shutil,subprocess
 repo=Path(__file__).resolve().parents[2]
 out=repo/'site/emulators'
+parser=argparse.ArgumentParser()
+parser.add_argument('--site-only',action='store_true',help='Reuse verified packaged cores; refresh only site code/data and release')
+parser.add_argument('--core',action='append',default=[],help='Refresh only these core slugs; retain and verify other packaged cores')
+args=parser.parse_args()
+if args.site_only and args.core:parser.error('--site-only and --core are mutually exclusive')
+packages=sorted((repo/'games').glob('*/knowledge.json'))
+subprocess.run(['go','run','./tools/cmd/knowledgeexport','-out',str(out/'knowledge-data.js'),*map(str,packages)],cwd=repo,check=True)
+existing=json.loads((out/'build-manifest.json').read_text()) if args.site_only or args.core else {}
+subprocess.run(['go','run','./tools/cmd/dis6502export','-out',str(out/'opcodes6502.js')],cwd=repo,check=True)
 manifest={}
 for slug,platform in [('c64','c64'),('ps1','psx'),('n64','n64'),('3do','threedo'),('ds','nds'),('3ds','n3ds'),('psp','psp'),('gb','gameboy'),('gg','gamegear'),('amiga','amiga'),('ps2','ps2'),('gc','gc'),('gba','gba'),('dc','dc'),('dos','dos'),('xbox','xbox')]:
+ reuse=args.site_only or bool(args.core and slug not in args.core)
  dest=out/'cores'/slug;dest.mkdir(parents=True,exist_ok=True)
  for name in ['core.js','core.wasm']:
-  src=repo/f'tools/platform/{platform}/browser/web'/name
+  src=(dest/name) if reuse else repo/f'tools/platform/{platform}/browser/web'/name
   if not src.is_file():raise SystemExit(f'Build {platform} first: missing {src}')
-  shutil.copyfile(src,dest/name)
+  if reuse:
+   if hashlib.sha256(src.read_bytes()).hexdigest()!=existing.get(f'{slug}/{name}'):raise SystemExit(f'Existing core hash mismatch: {src}')
+  else:shutil.copyfile(src,dest/name)
   manifest[f'{slug}/{name}']=hashlib.sha256(src.read_bytes()).hexdigest()
 for p in out.rglob('*'):
  if p.is_file() and p.stat().st_size>25*1024*1024:raise SystemExit(f'Pages asset too large: {p}')

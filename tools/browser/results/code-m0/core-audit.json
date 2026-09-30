@@ -1,0 +1,353 @@
+{
+  "schema": 1,
+  "date": "2026-09-30T08:14:20.203Z",
+  "revision": "2284b8c8e045858d05331619cdff3b9aacef0be6",
+  "environment": {
+    "node": "v26.3.1",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M3 Pro"
+  },
+  "note": "Export presence proves linkage only, not semantic support or game compatibility.",
+  "exportsByPlatform": {
+    "c64": {
+      "sha256": "1f3a985fa868d9abb2a94b3a128888fc6cc0ede7d80de254c445bc30c6d93e7c",
+      "bytes": 408711,
+      "glueSHA256": "ce771f1615475cafa859785389cf80fcf1afd2901ee96b2bf12c52d3fe1231b4",
+      "rawExportCount": 69,
+      "exports": {
+        "rr_status": true,
+        "rr_run": true,
+        "rr_run_slice": false,
+        "rr_state_save": true,
+        "rr_state_load": true,
+        "rr_inspect_regions": true,
+        "rr_inspect_data": true,
+        "rr_activity_begin": true,
+        "rr_bus": true,
+        "rr_bus_flags": true,
+        "rr_stop_reason": true
+      }
+    },
+    "gb": {
+      "sha256": "6cf8d4e70f6eee867b7f72ae1e2071f34f23e089584176d02afd4a00239dc4c1",
+      "bytes": 284596,
+      "glueSHA256": "816147ad1d237750922acfc7ad06251762b54598b181ff16f3f73986a0f52159",
+      "rawExportCount": 48,
+      "exports": {
+        "rr_status": true,
+        "rr_run": true,
+        "rr_run_slice": false,
+        "rr_state_save": true,
+        "rr_state_load": true,
+        "rr_inspect_regions": true,
+        "rr_inspect_data": true,
+        "rr_activity_begin": true,
+        "rr_bus": false,
+        "rr_bus_flags": false,
+        "rr_stop_reason": false
+      }
+    },
+    "gg": {
+      "sha256": "a98f12ab7c943cf61f8163837443a3e9c3685586e4f98518654d4f39e1b154ce",
+      "bytes": 286829,
+      "glueSHA256": "ac7f9a1f13b8bc3419150e598c70a351ebf7d700b7a69734de3faf820e8dfb34",
+      "rawExportCount": 48,
+      "exports": {
+        "rr_status": true,
+        "rr_run": true,
+        "rr_run_slice": false,
+        "rr_state_save": true,
+        "rr_state_load": true,
+        "rr_inspect_regions": true,
+        "rr_inspect_data": true,
+        "rr_activity_begin": true,
+        "rr_bus": false,
+        "rr_bus_flags": false,
+        "rr_stop_reason": false
+      }
+    },
+    "gba": {
+      "sha256": "6da54898bdfe90f1a55671a022eda4d71ee925eb099660b9b932280f32e4d4fd",
+      "bytes": 422213,
+      "glueSHA256": "4cf1568940c4c59c195abf6468731e1e10d59c1e1932ae2131c698c18970e86a",
+      "rawExportCount": 36,
+      "exports": {
+        "rr_status": true,
+        "rr_run": true,
+        "rr_run_slice": false,
+        "rr_state_save": true,
+        "rr_state_load": true,
+        "rr_inspect_regions": true,
+        "rr_inspect_data": true,
+        "rr_activity_begin": true,
+        "rr_bus": false,
+        "rr_bus_flags": false,
+        "rr_stop_reason": false
+      }
+    },
+    "amiga": {
+      "sha256": "60eed9bcacfaffede3abe6a45de8943740dee65d55029bdb5a09af805023ee4f",
+      "bytes": 675431,
+      "glueSHA256": "f5a12cc6330905f0d4924720d1e16e03f09418035884ba5f8e61fb52c9907dc5",
+      "rawExportCount": 53,
+      "exports": {
+        "rr_status": true,
+        "rr_run": true,
+        "rr_run_slice": false,
+        "rr_state_save": true,
+        "rr_state_load": true,
+        "rr_inspect_regions": true,
+        "rr_inspect_data": true,
+        "rr_activity_begin": true,
+        "rr_bus": false,
+        "rr_bus_flags": false,
+        "rr_stop_reason": false
+      }
+    },
+    "ps1": {
+      "sha256": "c0c94e74218bca796b56605c9e77519695d5f1a85e8d01e19f503799c9824131",
+      "bytes": 309878,
+      "glueSHA256": "d6b5092cd0772dac62e2bab9236b4add77ceb00d047bffca3edfeb60c6b50785",
+      "rawExportCount": 52,
+      "exports": {
+        "rr_status": true,
+        "rr_run": true,
+        "rr_run_slice": false,
+        "rr_state_save": true,
+        "rr_state_load": true,
+        "rr_inspect_regions": true,
+        "rr_inspect_data": true,
+        "rr_activity_begin": true,
+        "rr_bus": false,
+        "rr_bus_flags": false,
+        "rr_stop_reason": false
+      }
+    },
+    "n64": {
+      "sha256": "9597bf933af940016fed06916d9c22515c347039f0926c96754c2cdfe590dfc5",
+      "bytes": 466897,
+      "glueSHA256": "8f6f4dff7fd7d8fef500b4f1f905eacec59ea3baab8834f45524f6a99896e620",
+      "rawExportCount": 42,
+      "exports": {
+        "rr_status": true,
+        "rr_run": true,
+        "rr_run_slice": false,
+        "rr_state_save": true,
+        "rr_state_load": true,
+        "rr_inspect_regions": true,
+        "rr_inspect_data": true,
+        "rr_activity_begin": true,
+        "rr_bus": false,
+        "rr_bus_flags": false,
+        "rr_stop_reason": false
+      }
+    },
+    "3do": {
+      "sha256": "ad73f4547b06707217be08bdd5346045f58c3c27832b643c73f38b3ea177a710",
+      "bytes": 805816,
+      "glueSHA256": "d973efbc28ea3e39a6f84b7cec25005f09cfe0e9a2adc7d39817f25d578302a2",
+      "rawExportCount": 43,
+      "exports": {
+        "rr_status": true,
+        "rr_run": true,
+        "rr_run_slice": true,
+        "rr_state_save": true,
+        "rr_state_load": true,
+        "rr_inspect_regions": true,
+        "rr_inspect_data": true,
+        "rr_activity_begin": true,
+        "rr_bus": false,
+        "rr_bus_flags": false,
+        "rr_stop_reason": false
+      }
+    },
+    "ds": {
+      "sha256": "6381464f86fd5d18f3c5230ab8a053a7644124a2244968323dabd79653c009dc",
+      "bytes": 622916,
+      "glueSHA256": "c172681322938b8a98351b7cbd377caf08e5e10842250419312ab1f2c53de3da",
+      "rawExportCount": 43,
+      "exports": {
+        "rr_status": true,
+        "rr_run": true,
+        "rr_run_slice": false,
+        "rr_state_save": true,
+        "rr_state_load": true,
+        "rr_inspect_regions": true,
+        "rr_inspect_data": true,
+        "rr_activity_begin": true,
+        "rr_bus": false,
+        "rr_bus_flags": false,
+        "rr_stop_reason": false
+      }
+    },
+    "3ds": {
+      "sha256": "e175a0dfe310b9a1f4fd338401e95b0695bfd51828e7c35ae364072a8e60597d",
+      "bytes": 1816965,
+      "glueSHA256": "15149802b58ee27c0e676520d51e3dc569a4554442c0787daed2cdc7bc4c3018",
+      "rawExportCount": 43,
+      "exports": {
+        "rr_status": true,
+        "rr_run": true,
+        "rr_run_slice": false,
+        "rr_state_save": true,
+        "rr_state_load": true,
+        "rr_inspect_regions": true,
+        "rr_inspect_data": true,
+        "rr_activity_begin": true,
+        "rr_bus": false,
+        "rr_bus_flags": false,
+        "rr_stop_reason": false
+      }
+    },
+    "psp": {
+      "sha256": "bc83568b4649c771743e099ef30780b5a4df45a0625ed9e29a34c7c32e4c04d4",
+      "bytes": 1082553,
+      "glueSHA256": "9f0bd42108e7ff42e8fee7d6cb7acb643f726e5a229ac63d7084ab529ac08f18",
+      "rawExportCount": 41,
+      "exports": {
+        "rr_status": true,
+        "rr_run": true,
+        "rr_run_slice": false,
+        "rr_state_save": true,
+        "rr_state_load": true,
+        "rr_inspect_regions": true,
+        "rr_inspect_data": true,
+        "rr_activity_begin": true,
+        "rr_bus": false,
+        "rr_bus_flags": false,
+        "rr_stop_reason": false
+      }
+    },
+    "ps2": {
+      "sha256": "05f1711b661390150ef93bbf9a5d94bee9920860bff315eee18cec223313fd24",
+      "bytes": 1560264,
+      "glueSHA256": "c4e7adfa2ce88f9c782e85bdc0677d528ea337fea515d89cab19585cfee07d98",
+      "rawExportCount": 36,
+      "exports": {
+        "rr_status": true,
+        "rr_run": true,
+        "rr_run_slice": false,
+        "rr_state_save": true,
+        "rr_state_load": true,
+        "rr_inspect_regions": true,
+        "rr_inspect_data": true,
+        "rr_activity_begin": true,
+        "rr_bus": false,
+        "rr_bus_flags": false,
+        "rr_stop_reason": false
+      }
+    },
+    "gc": {
+      "sha256": "dae6b56b8c43cf7d024021430a315f4016dd8afc1e38986a1c300ae5e2554158",
+      "bytes": 737933,
+      "glueSHA256": "dc0cb2a5f98b51d509fb24060a7ec4d28a56e6b1b3a8584a88aaa0ffb09ed698",
+      "rawExportCount": 33,
+      "exports": {
+        "rr_status": true,
+        "rr_run": true,
+        "rr_run_slice": false,
+        "rr_state_save": true,
+        "rr_state_load": true,
+        "rr_inspect_regions": true,
+        "rr_inspect_data": true,
+        "rr_activity_begin": true,
+        "rr_bus": false,
+        "rr_bus_flags": false,
+        "rr_stop_reason": false
+      }
+    },
+    "dc": {
+      "sha256": "e3a0a5f3964e25ee732962d902997b0972be94044e7c810087f6dfd7b70e70b5",
+      "bytes": 726459,
+      "glueSHA256": "ce8011dbac458e326a528dce4428985cfcbe9d6827601c6eca7959e932cccca2",
+      "rawExportCount": 37,
+      "exports": {
+        "rr_status": true,
+        "rr_run": true,
+        "rr_run_slice": false,
+        "rr_state_save": true,
+        "rr_state_load": true,
+        "rr_inspect_regions": true,
+        "rr_inspect_data": true,
+        "rr_activity_begin": true,
+        "rr_bus": false,
+        "rr_bus_flags": false,
+        "rr_stop_reason": false
+      }
+    },
+    "dos": {
+      "sha256": "d6d8049b8fd3fb6b6140f8720e761b47c5c8442a882179a121271e4c825bd189",
+      "bytes": 1611471,
+      "glueSHA256": "98cc1fce55d08425661e983018803bedf0a38e67147af08ed6c753fc3518134f",
+      "rawExportCount": 38,
+      "exports": {
+        "rr_status": true,
+        "rr_run": true,
+        "rr_run_slice": false,
+        "rr_state_save": true,
+        "rr_state_load": true,
+        "rr_inspect_regions": true,
+        "rr_inspect_data": true,
+        "rr_activity_begin": true,
+        "rr_bus": false,
+        "rr_bus_flags": false,
+        "rr_stop_reason": false
+      }
+    },
+    "xbox": {
+      "sha256": "55b69572da994206625f501ccb61419e7d3f28ba1f9bce8f3142c7478678e6b9",
+      "bytes": 1331347,
+      "glueSHA256": "dc0cb2a5f98b51d509fb24060a7ec4d28a56e6b1b3a8584a88aaa0ffb09ed698",
+      "rawExportCount": 33,
+      "exports": {
+        "rr_status": true,
+        "rr_run": true,
+        "rr_run_slice": false,
+        "rr_state_save": true,
+        "rr_state_load": true,
+        "rr_inspect_regions": true,
+        "rr_inspect_data": true,
+        "rr_activity_begin": true,
+        "rr_bus": false,
+        "rr_bus_flags": false,
+        "rr_stop_reason": false
+      }
+    }
+  },
+  "c64": {
+    "fixture": "synthetic INC/JMP at 0800, dummy ROM, display disabled",
+    "boundary": {
+      "beforePC": 2048,
+      "statusPC": 2048,
+      "nextBusPC": 2051,
+      "flags": 3,
+      "cycles": 6,
+      "statusIsNextPC": false
+    },
+    "checkpointBytes": 230067,
+    "wasmHeapBytes": 134217728,
+    "throughput": [
+      {
+        "cycles": 1000000,
+        "ms": 136.05600000000004,
+        "cyclesPerSecond": 7349914.740989002
+      },
+      {
+        "cycles": 1000000,
+        "ms": 135.808833,
+        "cyclesPerSecond": 7363291.311103454
+      },
+      {
+        "cycles": 1000000,
+        "ms": 135.18045899999993,
+        "cyclesPerSecond": 7397518.8973134095
+      }
+    ],
+    "instructionStepAndStatus": {
+      "count": 1000,
+      "totalMs": 242.42125
+    },
+    "limitations": "Core-only synthetic workload. Status hashes RAM/framebuffer. No disassembly, DOM or real gameplay in this measurement."
+  }
+}

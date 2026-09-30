@@ -54,6 +54,7 @@ static void samples(const float* data,int n,void*){int take=std::min(n,8192-audi
 static uint32_t hash(const uint8_t* p,size_t n){uint32_t h=2166136261u;for(size_t i=0;i<n;i++)h=(h^p[i])*16777619u;return h;}
 static bool initialized=false;
 static int stopReason=0;
+static void invalidateDebug();
 }
 #include "observe.inc"
 #include "raster.inc"
@@ -69,7 +70,7 @@ int rr_width(){return 392;} int rr_height(){return 272;}
 int rr_init(int b,int k,int c){
  if(b!=8192||k!=8192||c!=4096){fail("Expected BASIC 8192, KERNAL 8192 and character ROM 4096 bytes.");return 0;}
  c64_desc_t desc={};desc.roms.basic={input,8192};desc.roms.kernal={input+8192,8192};desc.roms.chars={input+16384,4096};desc.audio.sample_rate=44100;desc.audio.num_samples=256;desc.audio.callback={samples,nullptr};
- c64_init(&machine,&desc);ctx={};observation::reset();tracing=false;traceMask=31;ctx.generation=++generation;event_count=dropped=0;audio_count=0;error[0]=0;initialized=true;pulse_count=0;for(auto& cp:checkpoints)cp.valid=false;return 1;
+ c64_init(&machine,&desc);invalidateDebug();ctx={};observation::reset();tracing=false;traceMask=31;ctx.generation=++generation;event_count=dropped=0;audio_count=0;error[0]=0;initialized=true;pulse_count=0;for(auto& cp:checkpoints)cp.valid=false;return 1;
 }
 int rr_tape(int size){
  if(!initialized){fail("Initialize the machine first.");return 0;}
@@ -83,7 +84,7 @@ int rr_tape(int size){
 }
 int rr_prepare(int pc,int pulse){
  if(!initialized||pulse<0||uint32_t(pulse)>=pulse_count||pc<0||pc>65535){fail("Invalid prepared segment.");return 0;}
- memcpy(machine.ram,input,65536);ctx.synthetic=true;ctx.pulse=pulse;ctx.remaining=durations[pulse];
+ invalidateDebug();memcpy(machine.ram,input,65536);ctx.synthetic=true;ctx.pulse=pulse;ctx.remaining=durations[pulse];
  // Explicit prototype bootstrap; no CPU instructions or ROM calls are replaced during execution.
  machine.cpu.io_ddr=0x2f;machine.cpu.io_out=0x37;machine.cpu.io_pins=0x37;_c64_cpu_port_out(0x37,&machine);
  machine.cpu.PC=pc;machine.cpu.P=M6502_IF;machine.cpu.S=0xfd;machine.cpu.brk_flags=0;machine.cpu.irq_pip=0;machine.cpu.nmi_pip=0;
@@ -135,7 +136,7 @@ int rr_run(int ticks,int stop_kind,int target){
  return done;
 }
 int rr_checkpoint(int slot){if(slot<0||slot>=16||!initialized)return 0;auto& cp=checkpoints[slot];cp.version=c64_save_snapshot(&machine,&cp.machine);cp.ctx=ctx;cp.valid=true;if(!observation::saved[slot])observation::saved[slot]=std::make_unique<observation::History>();*observation::saved[slot]=observation::history;return 1;}
-int rr_restore(int slot){if(slot<0||slot>=16)return 0;auto& cp=checkpoints[slot];if(!cp.valid||cp.ctx.generation!=ctx.generation){fail("Checkpoint belongs to a different machine or tape generation.");return 0;}if(!c64_load_snapshot(&machine,cp.version,&cp.machine))return 0;ctx=cp.ctx;observation::history=*observation::saved[slot];observation::capturing=false;event_count=dropped=0;audio_count=0;return 1;}
+int rr_restore(int slot){if(slot<0||slot>=16)return 0;auto& cp=checkpoints[slot];if(!cp.valid||cp.ctx.generation!=ctx.generation){fail("Checkpoint belongs to a different machine or tape generation.");return 0;}if(!c64_load_snapshot(&machine,cp.version,&cp.machine))return 0;invalidateDebug();ctx=cp.ctx;observation::history=*observation::saved[slot];observation::capturing=false;event_count=dropped=0;audio_count=0;return 1;}
 int rr_corrupt(int pulse,int duration){if(pulse<0||uint32_t(pulse)>=pulse_count||duration<=0)return 0;durations[pulse]=duration;ctx.generation=++generation;return 1;}
 uint32_t* rr_frame(){const auto* palette=static_cast<const uint32_t*>(m6569_palette().ptr);for(int y=0;y<272;y++)for(int x=0;x<392;x++)pixels[y*392+x]=palette[machine.fb[y*M6569_FRAMEBUFFER_WIDTH+x]&15];return pixels;}
 float* rr_audio(){return audio;}int rr_audio_count(){return audio_count;}
@@ -148,6 +149,7 @@ const char* rr_events(){
  event_json[pos++]=']';event_json[pos]=0;return event_json;
 }
 }
+#include "debug.inc"
 #include "../../../../browser/state/archive.h"
 #include "state-fields.h"
 static void contextFields(rrstate::Archive&a,Context&v){a(v.cycles,v.sequence,v.pulse,v.remaining,v.frames,v.pc,v.play,v.synthetic);}
@@ -155,7 +157,7 @@ static void stateWrite(rrstate::Archive&a){a.header(1,1);a(machine);contextField
 static void stateRead(rrstate::Archive&a){
  a.header(1,1);auto next=std::make_unique<c64_t>(machine);Context context=ctx;a(*next);contextFields(a,context);a.finish();
  if(context.pulse>pulse_count||next->audio.num_samples<1||next->audio.num_samples>C64_MAX_AUDIO_SAMPLES||next->audio.sample_pos<0||next->audio.sample_pos>=next->audio.num_samples)throw std::runtime_error("Invalid C64 state");
- machine=*next;ctx=context;_c64_update_memory_map(&machine);observation::reset();tracing=false;audio_count=0;event_count=dropped=0;for(auto&cp:checkpoints)cp.valid=false;
+ invalidateDebug();machine=*next;ctx=context;_c64_update_memory_map(&machine);observation::reset();tracing=false;audio_count=0;event_count=dropped=0;for(auto&cp:checkpoints)cp.valid=false;
 }
 #include "../../../../browser/state/api.inc"
 extern "C" const char* rr_capture_info(){static std::string s;s="{\"rasterBytes\":"+std::to_string(sizeof(raster::lines)+sizeof(raster::charROM)+sizeof(raster::usedMemory)+(raster::initialWriters?sizeof(*raster::initialWriters):0)+raster::writes.size()*sizeof(observation::Write))+",\"events\":"+std::to_string(observation::refCount)+",\"writes\":"+std::to_string(observation::graphCount)+",\"overflow\":"+std::to_string(observation::overflow)+",\"bytes\":"+std::to_string(sizeof(observation::captured)+observation::refCount*sizeof(observation::Ref)+observation::graphCount*sizeof(observation::Graphics)+observation::controlCount*sizeof(observation::Control))+"}";return s.c_str();}

@@ -1,0 +1,27 @@
+{
+  "description": "M0 synthetic contract vectors, not a schema-valid game package",
+  "identity": {
+    "validPaths": [
+      {"input":"DATA\\MODEL.BIN","policy":"ascii-insensitive","canonical":"data/model.bin"},
+      {"input":"DATA/MODEL.BIN","policy":"exact","canonical":"DATA/MODEL.BIN"},
+      {"input":"café/model.bin","policy":"exact","canonical":"café/model.bin"}
+    ],
+    "invalidPaths": ["/model.bin","C:\\model.bin","a/../b","a/./b","a//b","a/",""],
+    "collision": ["DATA/model.bin","data/MODEL.BIN"],
+    "members": [
+      {"path":"B.BIN","hex":"","sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+      {"path":"A.BIN","hex":"616263","sha256":"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"}
+    ]
+  },
+  "state": {
+    "description":"Synthetic parallel type/pointer tables, two 4-byte records and a terminator; not Elite game data",
+    "hex":"018000001000140000000000000000002a00030011000700",
+    "typeOffset":0,"pointerOffset":4,"maxSlots":3,"recordBytes":4,
+    "expectedSlots":[
+      {"index":0,"type":1,"address":16,"value":42,"flags":3},
+      {"index":1,"type":128,"address":20,"value":17,"flags":7}
+    ]
+  },
+  "activity": {"initial":0,"writes":[1,0],"final":0,"endpointChanged":false,"writeCount":2},
+  "code": {"isa":"mos6510","start":"0x800","hex":"ee00024c0008","afterOne":{"nextPC":"0x803","cycles":6,"memory0200":1}}
+}

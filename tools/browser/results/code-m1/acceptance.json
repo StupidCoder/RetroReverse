@@ -1,0 +1,35 @@
+{
+  "date": "2026-09-30",
+  "sourceBase": "2284b8c8 plus uncommitted M0 and M1 work; unrelated local changes retained",
+  "package": "fort-apocalypse-c64",
+  "packageRevision": 1,
+  "packageSHA256": "2c21f86dc3cd2ca287e904cc809aed4f5be3f1c9752f456f4e3d93a747df3580",
+  "release": "a164c618f7aa82e20dbb",
+  "wasmRebuilt": false,
+  "goValidationAndExport": "passed",
+  "mediaVerification": {
+    "release": "reference-pal",
+    "size": 225817,
+    "sha256": "9e444c4576bac52ba691f0ffe2c0a7efb0f62f3fe2be7cbe78dba08672dda00b",
+    "result": "exact local TAP verified; no image committed"
+  },
+  "node": {
+    "knowledge": "passed including actual Fort media hashing",
+    "memoryRegression": "passed"
+  },
+  "browser": {
+    "fixture": "tools/browser/tests/knowledge-ui.html?fort=1",
+    "environment": "Codex in-app browser",
+    "observation": "Rendered PASS result, transcribed selected fields",
+    "unknown": {"labels": 0, "physicalRegions": 6},
+    "fort": {"labels": 13, "physicalRegions": 6}
+  },
+  "releaseIntegrity": "passed: 73 pinned assets, firmware hashes, sixteen routes",
+  "limitations": [
+    "M1 supports the documented basic schema profile only.",
+    "No instruction debugger or tour execution exists yet.",
+    "Fort annotations are documentation, not automatically detected gameplay state.",
+    "Actual Fort image identity verified; bug behavior and runtime addresses not newly reproduced.",
+    "No full all-platform native suite or Safari/Firefox matrix run for this data/tooling change."
+  ]
+}

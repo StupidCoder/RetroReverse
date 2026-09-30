@@ -162,6 +162,11 @@ cylinder/side, with 11 sectors per track. Sector highlights identify the underly
 payload bits being consumed as encoded MFM, not a fictitious decoded-byte DMA copy.
 
 Exact-hash annotations cover the documented Sonic GG and Fort tape revisions.
+Fort's annotations now come from its canonical
+[knowledge package](../games/fort-apocalypse-c64/knowledge.json), validated and
+compiled by the [knowledge tools](../tools/knowledge/README.md). The package also
+records documented function and state definitions for later Code inspection.
+These definitions do not assert that a gameplay phase is currently active.
 Sonic map spans are read from its actual act descriptors and split at ROM bank
 boundaries. Unknown revisions still expose hardware regions without guessed labels.
 Game-phase descriptions are documentation, not automatic phase detection.
@@ -180,3 +185,11 @@ Run `node tools/browser/tests/memory.mjs` for media-free model/service checks an
 `node tools/browser/tests/memory-wasm.mjs <platform> <local-image>` for optional
 WASM validation. The native GG/C64/Amiga memory tests are included in
 `python3 tools/browser/check.py` alongside the existing rendering checks.
+
+### C64 Code workspace
+
+The Code tab adds mapped disassembly, registers, instruction stepping, bounded
+address breakpoints and a live game preview. Exact knowledge-package matches
+provide documented functions and annotations. Navigation is read-only; Render
+now uses an explicit “Capture next display” button. See the
+[M2 implementation and acceptance report](../tools/browser/docs/code-m2/README.md).

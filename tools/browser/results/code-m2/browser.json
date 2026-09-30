@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "date": "2026-09-30T09:11:26.536Z",
+  "release": "f1c914db1a6bb313b3a8",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+  "fixture": "exact reference Fort tape at reset (not gameplay)",
+  "checks": [
+    "Code load",
+    "read-only navigation",
+    "safe I/O peek",
+    "explicit normalization",
+    "instruction step",
+    "keyboard input",
+    "live samples",
+    "Memory/Code/Render tab switching",
+    "explicit Render capture and debug invalidation",
+    "pause",
+    "run-to cancellation"
+  ],
+  "pauseMs": 21.400000005960464,
+  "cancelMs": 20.700000017881393,
+  "heap": 134217728,
+  "provenance": "Transcribed from the PASS page rendered in the Codex in-app Chromium browser; timings include the test polling interval of 20 ms.",
+  "limitations": "Reset/ROM execution and reference-image identification; not loaded Fort gameplay. Keyboard coverage uses dispatched DOM events through the actual app input handlers."
+}

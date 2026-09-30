@@ -1,0 +1,940 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:retroreverse:game-knowledge:1",
+  "title": "RetroReverse game knowledge v1 (M1 profile)",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "game": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "system": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "enum": [
+                "c64",
+                "gb",
+                "gg",
+                "gba",
+                "amiga",
+                "ps1",
+                "n64",
+                "3do",
+                "ds",
+                "3ds",
+                "psp",
+                "ps2",
+                "gc",
+                "dc",
+                "dos",
+                "xbox"
+              ]
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "name",
+        "system"
+      ],
+      "additionalProperties": false
+    },
+    "releases": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/release"
+      },
+      "maxProperties": 64,
+      "minProperties": 1
+    },
+    "sources": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/source"
+      },
+      "maxProperties": 4096
+    },
+    "evidence": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/evidence"
+      },
+      "maxProperties": 4096
+    },
+    "spaces": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/space"
+      },
+      "maxProperties": 4096
+    },
+    "locations": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/location"
+      },
+      "maxProperties": 4096
+    },
+    "types": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/type"
+      },
+      "maxProperties": 4096
+    },
+    "regions": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/region"
+      },
+      "maxProperties": 4096
+    },
+    "state": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/state"
+      },
+      "maxProperties": 4096
+    },
+    "functions": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/function"
+      },
+      "maxProperties": 4096
+    },
+    "annotations": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/annotation"
+      },
+      "maxProperties": 4096
+    },
+    "assets": {
+      "type": "object",
+      "maxProperties": 0,
+      "description": "Reserved. Nonempty definitions are unsupported in the M1 profile."
+    },
+    "tours": {
+      "type": "object",
+      "maxProperties": 0,
+      "description": "Reserved. Nonempty definitions are unsupported in the M1 profile."
+    },
+    "experiments": {
+      "type": "object",
+      "maxProperties": 0,
+      "description": "Reserved. Nonempty definitions are unsupported in the M1 profile."
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z0-9.-]+:[a-z0-9.-]+$"
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "id",
+    "revision",
+    "game",
+    "releases"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "member": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "path",
+        "size",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "media": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "md5": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "role",
+        "size",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "release": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "media": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/media"
+          },
+          "minItems": 1,
+          "maxItems": 32
+        },
+        "fileSet": {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "const": "rr-media-set-v1"
+            },
+            "pathPolicy": {
+              "enum": [
+                "exact",
+                "ascii-insensitive"
+              ]
+            },
+            "members": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/member"
+              },
+              "minItems": 1,
+              "maxItems": 65536
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "algorithm",
+            "pathPolicy",
+            "members",
+            "sha256"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "media"
+          ]
+        },
+        {
+          "required": [
+            "fileSet"
+          ]
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "confirmed",
+            "inferred",
+            "hypothesis"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "limitations": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "status",
+        "source",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "space": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "cpu"
+            },
+            "processor": {
+              "type": "string",
+              "minLength": 1
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "kind",
+            "processor",
+            "size"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "physical"
+            },
+            "region": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "kind",
+            "region",
+            "size"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "location": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "cpu"
+            },
+            "space": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+            },
+            "address": {
+              "type": "string",
+              "pattern": "^0x(0|[1-9a-f][0-9a-f]*)$"
+            }
+          },
+          "required": [
+            "kind",
+            "space",
+            "address"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "physical"
+            },
+            "space": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+            },
+            "offset": {
+              "type": "string",
+              "pattern": "^0x(0|[1-9a-f][0-9a-f]*)$"
+            }
+          },
+          "required": [
+            "kind",
+            "space",
+            "offset"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "image"
+            },
+            "role": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+            },
+            "offset": {
+              "type": "string",
+              "pattern": "^0x(0|[1-9a-f][0-9a-f]*)$"
+            }
+          },
+          "required": [
+            "kind",
+            "role",
+            "offset"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "relative"
+            },
+            "base": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+            },
+            "offset": {
+              "type": "string",
+              "pattern": "^0x(0|[1-9a-f][0-9a-f]*)$"
+            }
+          },
+          "required": [
+            "kind",
+            "base",
+            "offset"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "field": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "type": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "name",
+        "offset",
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "type": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "integer"
+            },
+            "bytes": {
+              "enum": [
+                1,
+                2,
+                4,
+                8
+              ]
+            },
+            "signed": {
+              "type": "boolean"
+            },
+            "endian": {
+              "enum": [
+                "little",
+                "big"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "bytes",
+            "signed",
+            "endian"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "enum"
+            },
+            "storage": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+            },
+            "values": {
+              "type": "object",
+              "propertyNames": {
+                "pattern": "^-?(0|[1-9][0-9]*)$"
+              },
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minProperties": 1
+            }
+          },
+          "required": [
+            "kind",
+            "storage",
+            "values"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "bitfield"
+            },
+            "storage": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+            },
+            "bits": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+              },
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "offset": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "width": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "offset",
+                  "width",
+                  "label"
+                ],
+                "additionalProperties": false
+              },
+              "minProperties": 1
+            }
+          },
+          "required": [
+            "kind",
+            "storage",
+            "bits"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "fixed"
+            },
+            "storage": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+            },
+            "fractionBits": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "kind",
+            "storage",
+            "fractionBits"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "struct"
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "fields": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/field"
+              },
+              "minItems": 1,
+              "maxItems": 256
+            }
+          },
+          "required": [
+            "kind",
+            "size",
+            "fields"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "array"
+            },
+            "element": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "stride": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "kind",
+            "element",
+            "count",
+            "stride"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "region": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "releases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+          },
+          "minItems": 1,
+          "maxItems": 65536,
+          "uniqueItems": true
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+          },
+          "minItems": 1,
+          "maxItems": 65536,
+          "uniqueItems": true
+        },
+        "applicability": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "memoryLabel": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "label",
+        "location",
+        "length",
+        "releases",
+        "evidence",
+        "applicability"
+      ],
+      "additionalProperties": false
+    },
+    "state": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "releases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+          },
+          "minItems": 1,
+          "maxItems": 65536,
+          "uniqueItems": true
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+          },
+          "minItems": 1,
+          "maxItems": 65536,
+          "uniqueItems": true
+        },
+        "applicability": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+        },
+        "type": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+        }
+      },
+      "required": [
+        "label",
+        "location",
+        "type",
+        "releases",
+        "evidence",
+        "applicability"
+      ],
+      "additionalProperties": false
+    },
+    "function": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "releases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+          },
+          "minItems": 1,
+          "maxItems": 65536,
+          "uniqueItems": true
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+          },
+          "minItems": 1,
+          "maxItems": 65536,
+          "uniqueItems": true
+        },
+        "applicability": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entry": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+        },
+        "isa": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "label",
+        "entry",
+        "isa",
+        "releases",
+        "evidence",
+        "applicability"
+      ],
+      "additionalProperties": false
+    },
+    "annotation": {
+      "type": "object",
+      "properties": {
+        "function": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+        },
+        "offset": {
+          "type": "string",
+          "pattern": "^0x(0|[1-9a-f][0-9a-f]*)$"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+          },
+          "minItems": 1,
+          "maxItems": 65536,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "function",
+        "offset",
+        "text",
+        "evidence"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
