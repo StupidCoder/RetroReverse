@@ -131,4 +131,11 @@ cartridges, more drives and broader protection compatibility are follow-on work.
 ## Progress
 
 C0 complete: scope, architecture, acceptance gates and isolated implementation
-location are recorded. C1 in progress. The production C64 core remains unchanged.
+location are recorded.
+
+C1 complete: independently authored documented-instruction CPU, native/WASM
+build harness, pinned offline instruction/bus vectors and microstate replay
+checks. Both targets pass 9,664 vectors / 38,749 bus cycles with trace digest
+`6a229904`; native UBSan passes. See `tools/platform/c64/owned/README.md` for
+reproduction and the precise CPU limitations. C2–C7 remain pending. The
+production C64 core remains unchanged.

@@ -17,4 +17,5 @@ with tempfile.TemporaryDirectory(prefix='rr-check-') as d:
   subprocess.run([out]+([str(Path(d)/'dc-samples.jsonl')] if name=='texture-dc' else []),cwd=root,check=True)
   if name=='texture-dc':subprocess.run([node,'tools/browser/tests/dc-texture.mjs',str(Path(d)/'dc-samples.jsonl')],cwd=root,check=True)
 subprocess.run(['python3','tools/platform/amiga/browser/build.py','--native-only','--test'],cwd=root,check=True)
+subprocess.run(['python3','tools/platform/c64/owned/check.py','--native-only'],cwd=root,check=True)
 subprocess.run(['python3','tools/browser/check-release.py'],cwd=root,check=True)
