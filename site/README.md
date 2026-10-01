@@ -215,3 +215,9 @@ tape inspectors keep their own navigation. The C64 Loader preset shows code,
 physical RAM activity and pulse lengths together. The top bar switches systems
 and suspends/restores sessions within the current page. See the
 [viewport guide and acceptance](../tools/browser/docs/viewport-workspace/README.md).
+
+
+Prepared lessons are reachable from Session / controls and Code's Lesson pane.
+Fort terrain/AI and Elite's verified loader introduction prepare from local media
+and cache validated starts on-device. The full Elite loader remains compatibility
+gated; see [scope and verification](../tools/browser/docs/prepared-lessons/README.md).

@@ -163,3 +163,10 @@ See the [M9 compatibility policy and capability matrix](../browser/docs/code-m9/
 and asset/provenance tables from the same validated packages as browser data.
 Package revision changes track research; schema-version changes track incompatible
 contracts. Unknown executable actions are rejected, never silently skipped.
+
+
+### Prepared lesson profile
+
+`preparedStarts` is an optional C64 recipe/checkpoint contract. It binds a tour or
+experiment to exact core/firmware and full-state hashes; only bounded execution,
+key/joystick and tape controls are supported. See the [prepared lesson spec](../browser/docs/prepared-lessons/README.md).

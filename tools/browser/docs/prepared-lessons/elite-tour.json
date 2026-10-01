@@ -1,0 +1,40 @@
+{
+  "result": "PASS",
+  "compatibility": {
+    "status": "blocked",
+    "firstMismatch": {
+      "address": 774,
+      "expected": 168,
+      "actual": 177
+    },
+    "note": "Expected prefix from independently extracted segment-2 vector block; later loader stages and gameplay remain unvalidated."
+  },
+  "coreSHA256": "5cd52834dca1457e8a6715719a28b4fcb1de3de4a0df7b0510395cee4643f999",
+  "stops": [
+    {
+      "id": "timer",
+      "cycle": "37906393",
+      "pulse": 52797,
+      "writes": 0
+    },
+    {
+      "id": "sync",
+      "cycle": "39937830",
+      "pulse": 55188,
+      "writes": 4763
+    },
+    {
+      "id": "destination",
+      "cycle": "39955621",
+      "pulse": 55224,
+      "writes": 76
+    },
+    {
+      "id": "first-write",
+      "cycle": "39960873",
+      "pulse": 55233,
+      "writes": 19
+    }
+  ],
+  "scope": "Initial loader prefix only; full loading remains incompatible"
+}

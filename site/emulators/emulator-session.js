@@ -1,3 +1,5 @@
+import {createPreparedPanel} from './prepared-panel.js';
+import {checkpointCache} from './checkpoint-cache.js';
 import {createCodeWorkspace} from './code-workspace.js';
 import {createViewportWorkspace} from './viewport-workspace.js';
 import {createViewportPanels} from './viewport-panels.js';
@@ -56,7 +58,7 @@ memory=createMemoryWorkspace({root:$('memory-workspace'),views,send,transport:id
 if(['c64','dos','3do'].includes(platform)){
  statePanel={update:s=>paneSet?.snapshot(s),setKnowledge(){},setRunning(){},reset(){}};
 }
-code=createCodeWorkspace({root:$('code-workspace'),views,send,transport:id=>transport(id,true),platform,statePanel,panelLayout,onInspect:at=>paneSet?.inspect(at)});
+code=createCodeWorkspace({root:$('code-workspace'),views,send,transport:id=>transport(id,true),platform,statePanel,panelLayout,onTourLayout:()=>views.tourLayout(),onInspect:at=>paneSet?.inspect(at)});
 function controls(on) {
   for (const id of ['run', 'pause', 'reset', 'step', 'save'])
     $(id).disabled = !on;
@@ -89,8 +91,8 @@ function showProfile(p, captureWork=false) {
           ? (captureWork?'Capture work. ':'')+'Sampled chip ticks (1 in 1,021). Sample-only milliseconds and exclusive shares; timer overhead affects tiny samples.'
           : (captureWork?'Capture work only. ':'')+'Exclusive wall time since the previous update. CPU remainder includes uninstrumented devices and scheduling. Idle time and display copies excluded.';
 }
-let pendingWorker;
-function load(stateFile=null) {
+let pendingWorker, cancelPreparation, preparedPanel, lessonShortcut;
+function load(stateFile=null,preparedStart=null) {
   if(stateFile instanceof Event)stateFile=null;
   if (!selected.length) {
     $('status').textContent = 'Select a game image first.';
@@ -101,19 +103,25 @@ function load(stateFile=null) {
   const previousWorker=worker, previousLoaded=loaded, nextSession=session+1;
   const candidate=new Worker(new URL('./worker.js',import.meta.url),{type:'module'});pendingWorker=candidate;
   let bufferedState;
+  const recover=text=>{candidate.terminate();pendingWorker=null;cancelPreparation=null;loaded=previousLoaded;controls(loaded);preparedPanel?.pending(false);$('system-select').disabled=false;if(loaded){memory.ready();code?.ready(session);paneSet?.ready(session);feed.ready();}$("pause").disabled=true;$('status').textContent=text+' Current machine retained.';preparedPanel?.message(text);};
+  cancelPreparation=()=>recover('Preparation cancelled.');
+  if(preparedStart){preparedPanel.pending(true);$('system-select').disabled=true;}else preparedPanel?.state({saving:true});
+
   candidate.onmessage=({data:m})=>{
     if(pendingWorker!==candidate||m.session!==nextSession)return;
+    if(m.type==='prepared-cache-get'){checkpointCache('get',m.key).then(bytes=>{if(pendingWorker===candidate)candidate.postMessage({type:'prepared-cache-reply',session:nextSession,bytes});});return;}
+    if(m.type==='prepared-cache-put'){checkpointCache('put',m.key,m.bytes);return;}
     if(m.type==='state'){bufferedState=m;return;}
     if(m.type==='ready'){
       previousWorker?.terminate();worker=candidate;session=nextSession;pendingWorker=null;
-      candidate.onmessage=handleMessage;loaded=true;
+      candidate.onmessage=handleMessage;loaded=true;cancelPreparation=null;preparedPanel?.pending(false);$('system-select').disabled=false;
       handleMessage({data:m});if(bufferedState)handleMessage({data:bufferedState});
+      if(preparedStart){const r=preparedPanel.recipe(preparedStart);preparedPanel.message('Prepared start ready.');if(r.layout==='loader')views.tourLayout();else views.reveal('lesson');send(r.target.kind==='tour'?'tour-start':'experiment-prepare',{protocol:1,generation:session,id:r.target.id});}
     }else if(m.type==='error'){
-      candidate.terminate();pendingWorker=null;loaded=previousLoaded;controls(loaded);if(loaded)memory.ready();$("pause").disabled=true;
-      $('status').textContent=m.text+' Current machine retained.';
+      recover(m.text);
     }else if(m.type==='message')$('status').textContent=m.text;
   };
-  candidate.onerror=e=>{candidate.terminate();pendingWorker=null;loaded=previousLoaded;controls(loaded);if(loaded)memory.ready();$("pause").disabled=true;$('status').textContent='State/load worker failed: '+e.message+'. Current machine retained.';};
+  candidate.onerror=e=>recover('State/load worker failed: '+e.message+'.');
   render.reset();memory.reset();code?.reset();paneSet?.reset();feed.reset();sources.clear();
   c64Keys.clear();
   lastInput = '';
@@ -132,10 +140,11 @@ function load(stateFile=null) {
       return;
     if(m.type.startsWith('experiment-')){memory.invalidate();code?.experimentResult(m);if(m.snapshot)paneSet?.snapshot(m.snapshot);return;}
     if(m.type.startsWith('tour-')){if(m.phase==='running-to-stop')memory.invalidate();code?.tourResult(m);if(m.snapshot)paneSet?.snapshot(m.snapshot);return;}
+    if(m.type==='debug-capabilities'){const count=preparedPanel?.ready(m.knowledge);if(lessonShortcut)lessonShortcut.hidden=!count;}
     if(m.type.startsWith('debug-')){if(m.type==='debug-started')memory.invalidate();code?.result(m);paneSet?.result(m);return;}
     if(m.type.startsWith('memory-')){memory.result(m);feed.result(m);return;}
     if (m.type === 'state') {
-      const s = m.state;
+      const s = m.state;preparedPanel?.state(m);
       latestState=m;memory.state(m);code?.state(m);feed.state(m);paneSet?.state(m);$('system-select').disabled=!!(m.saving||m.memoryRecording||m.debugBusy||m.experimentOwned||m.capturing);
       if(platform==='amiga')canvas.classList.toggle('mouse-active',m.running);
       $('help').textContent =
@@ -212,7 +221,7 @@ function load(stateFile=null) {
       }
     }
   };
-  candidate.postMessage({type:'load',session:nextSession,platform,files:selected,firmware,compatibility,stateFile,...(platform==='dos'?{executable:$('program').value}:{})});
+  candidate.postMessage({type:'load',session:nextSession,platform,files:selected,firmware,compatibility,stateFile,preparedStart,...(platform==='dos'?{executable:$('program').value}:{})});
 }
 $('load').onclick = () => {
   selected = [...$('files').files ];
@@ -530,6 +539,8 @@ if(platform==='dos'){
 bindPointerInput(canvas);
 const warehouse=$('panel-warehouse');$('session-options').append($('pad'),$('fullscreen'));if($('mouse-speed'))$('session-options').append($('mouse-speed').closest('label'));
 const lesson=document.createElement('div');lesson.className='lesson-pane';warehouse.append(lesson);for(const node of $('code-workspace').querySelectorAll('.tour-panel'))lesson.append(node);
+preparedPanel=createPreparedPanel({root:lesson,start:id=>{if(pendingWorker||!loaded||latestState?.experimentOwned||latestState?.debugBusy||latestState?.capturing||latestState?.saving||latestState?.memoryRecording)return;release();load(null,id);},cancel:()=>cancelPreparation?.()});
+lessonShortcut=document.createElement('button');lessonShortcut.textContent='Open prepared lessons';lessonShortcut.hidden=true;lessonShortcut.onclick=()=>views.reveal('lesson');$('session-options').prepend(lessonShortcut);
 const renderSources=$('render-auxiliary'),renderDetails=$('render-details');warehouse.append(renderSources,renderDetails);
 paneSet=createViewportPanels({views,platform,send,transport:id=>transport(id,true),feed,canvas,warehouse,recording:memory,presentation,renderTemplate,legacy:{lesson,recording:$('memory-workspace'),render:$('render-workspace'),'render-sources':renderSources,'render-details':renderDetails,session:$('session-options')},bindGameInput(c){
  c.onclick=()=>c.focus();c.onblur=release;

@@ -1,0 +1,10 @@
+{
+  "result": "PASS",
+  "release": "754ae11c8642e9f65378",
+  "checks": [
+    "cancel preserves initial session",
+    "cold preparation starts Fort terrain tour",
+    "repeat start uses verified local cache",
+    "cold prepared experiment applies reviewed setup"
+  ]
+}

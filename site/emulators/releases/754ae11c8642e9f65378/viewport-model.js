@@ -6,7 +6,7 @@ export function replace(node,id,value){if(!node.axis)return node.id===id?value:n
 export function close(node,id){if(!node.axis)return node.id===id?null:node;const a=close(node.a,id),b=close(node.b,id);return !a?b:!b?a:{...node,a,b};}
 export function validLayout(n,types,ids=new Set(),depth=0){if(!n||depth>3)return false;if(n.axis)return ['x','y'].includes(n.axis)&&Number.isFinite(n.ratio)&&n.ratio>=.15&&n.ratio<=.85&&validLayout(n.a,types,ids,depth+1)&&validLayout(n.b,types,ids,depth+1)&&ids.size<=4;if(typeof n.id!=='string'||!/^[a-z0-9-]{1,80}$/.test(n.id)||ids.has(n.id)||!types.includes(n.kind))return false;ids.add(n.id);return ids.size<=4;}
 export function preset(name,debug=true,tape=false){const l=(id,kind)=>leaf(name+'-'+id,kind);
- if(name==='play')return l('game','game');
+ if(name==='play')return split('x',l('game','game'),l('session','session'),.7);
  if(name==='code')return split('x',split('y',l('game','game'),l('state','state')),split('y',l('code','code'),l('lesson','lesson'),.65));
  if(name==='loader')return split('x',l('code','code'),split('y',l('ram','atlas'),l('tape','tape')),.55);
  if(name==='memory')return split('x',split('y',l('game','game'),l('atlas','atlas')),split('y',l('hex','hex'),l('record','recording')));

@@ -111,28 +111,29 @@ type Game struct {
 	} `json:"system"`
 }
 type Package struct {
-	Experiments   map[string]Experiment `json:"experiments"`
-	LiveGuards    []TourGuard           `json:"liveGuards,omitempty"`
-	Assets        map[string]Asset      `json:"assets"`
-	SchemaVersion int                   `json:"schemaVersion"`
-	ID            string                `json:"id"`
-	Revision      uint64                `json:"revision"`
-	Game          Game                  `json:"game"`
-	Releases      map[string]Release    `json:"releases"`
-	Sources       map[string]Source     `json:"sources"`
-	Evidence      map[string]Evidence   `json:"evidence"`
-	Spaces        map[string]Space      `json:"spaces"`
-	Locations     map[string]Location   `json:"locations"`
-	Types         map[string]Type       `json:"types"`
-	Regions       map[string]Definition `json:"regions"`
-	State         map[string]Definition `json:"state"`
-	Functions     map[string]Definition `json:"functions"`
-	Modules       map[string]Module     `json:"modules"`
-	Buffers       map[string]Buffer     `json:"buffers"`
-	Tours         map[string]Tour       `json:"tours"`
-	Annotations   map[string]Annotation `json:"annotations"`
-	Raw           json.RawMessage       `json:"-"`
-	Hash          string                `json:"-"`
+	PreparedStarts map[string]PreparedStart `json:"preparedStarts,omitempty"`
+	Experiments    map[string]Experiment    `json:"experiments"`
+	LiveGuards     []TourGuard              `json:"liveGuards,omitempty"`
+	Assets         map[string]Asset         `json:"assets"`
+	SchemaVersion  int                      `json:"schemaVersion"`
+	ID             string                   `json:"id"`
+	Revision       uint64                   `json:"revision"`
+	Game           Game                     `json:"game"`
+	Releases       map[string]Release       `json:"releases"`
+	Sources        map[string]Source        `json:"sources"`
+	Evidence       map[string]Evidence      `json:"evidence"`
+	Spaces         map[string]Space         `json:"spaces"`
+	Locations      map[string]Location      `json:"locations"`
+	Types          map[string]Type          `json:"types"`
+	Regions        map[string]Definition    `json:"regions"`
+	State          map[string]Definition    `json:"state"`
+	Functions      map[string]Definition    `json:"functions"`
+	Modules        map[string]Module        `json:"modules"`
+	Buffers        map[string]Buffer        `json:"buffers"`
+	Tours          map[string]Tour          `json:"tours"`
+	Annotations    map[string]Annotation    `json:"annotations"`
+	Raw            json.RawMessage          `json:"-"`
+	Hash           string                   `json:"-"`
 }
 
 func Read(path string) (*Package, error) {
@@ -615,6 +616,9 @@ func (p *Package) validate() error {
 		return e
 	}
 	if e := p.validateExperiments(); e != nil {
+		return e
+	}
+	if e := p.validatePreparedStarts(); e != nil {
 		return e
 	}
 	return p.validateTours()

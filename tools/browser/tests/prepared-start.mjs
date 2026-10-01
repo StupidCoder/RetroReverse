@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {prepareStart} from '../../../site/emulators/prepared-start.js';
+import {digest} from '../../../site/emulators/state.js';
+const identity={core:'core',firmware:['basic','kernal','chars']};let ran=0,loaded=0;
+const bytes=new Uint8Array([1,2,3]),core={HEAPU8:new Uint8Array(100),_rr_run:n=>{ran+=n;return n;},_rr_debug_snapshot:()=>0,UTF8ToString:()=>JSON.stringify({boundary:true,nextPC:888}),_rr_state_save:()=>3,_rr_state_data:()=>0,_rr_state_input:()=>10,_rr_state_load:()=>{loaded++;return 1;}};core.HEAPU8.set(bytes);
+const recipe={...identity,pc:888,sha256:await digest(bytes),actions:[{run:200001}]};
+await assert.rejects(prepareStart({core,recipe,identity:{...identity,core:'other'}}),/core and firmware/);assert.equal(ran,0);
+let r=await prepareStart({core,recipe,identity,cached:bytes.buffer});assert(r.cached);assert.equal(loaded,1);assert.equal(ran,0);
+r=await prepareStart({core,recipe,identity,cached:new Uint8Array([9]).buffer});assert(!r.cached);assert.equal(ran,200001);
+await assert.rejects(prepareStart({core,recipe:{...recipe,sha256:'bad'},identity}),/differs/);
+await assert.rejects(prepareStart({core,recipe:{...recipe,pc:999},identity}),/boundary/);
+console.log('PASS prepared starts: identity gate, verified cache, corrupt-cache regeneration, full-state and boundary rejection');

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "fort-apocalypse-c64",
-  "revision": 5,
+  "revision": 6,
   "game": {
     "name": "Fort Apocalypse",
     "system": {
@@ -42,6 +42,10 @@
     "experiment": {
       "path": "/tools/browser/docs/code-m8/README.md",
       "description": "M8 reproducible experiment, original tape bytes and measured original/modified outcomes."
+    },
+    "prepared": {
+      "path": "/tools/browser/docs/prepared-lessons/README.md",
+      "description": "Verified authentic boot recipes and prepared-state acceptance."
     }
   },
   "evidence": {
@@ -74,6 +78,11 @@
       "source": "experiment",
       "description": "Reference tape has $55 $76 at $A000 (EOR $76,X). A prepared underground spawn reproduces original death and a different trajectory after $55 \u2192 $A5.",
       "limitations": "The LDA repair is a hypothesis tested in one 200-frame scenario. Adjacency to the ASCII signature does not establish how the opcode became corrupted. No universal AI fix is claimed."
+    },
+    "prepared": {
+      "status": "confirmed",
+      "source": "prepared",
+      "description": "Exact tape, shipped C64 core and firmware. Deterministic input recipe and complete checkpoint hash, rechecked before use."
     }
   },
   "spaces": {
@@ -1389,6 +1398,471 @@
         }
       ],
       "interpretation": "Compare the measured contact and dying-state observations, and the enemy trajectory. The reference run dies after climbing into the underground terrain; the LDA variant survives the 200-frame interval. If a different run still dies, or neither run dies, report that result: this is a candidate repair, not a universal success assertion."
+    }
+  },
+  "preparedStarts": {
+    "terrain": {
+      "title": "Terrain decoding",
+      "description": "Boot directly to the terrain decoding investigation. First use generates a local checkpoint; subsequent visits reuse it. This replaces the current session on success.",
+      "releases": [
+        "reference-pal"
+      ],
+      "evidence": [
+        "prepared"
+      ],
+      "target": {
+        "kind": "tour",
+        "id": "terrain-runs"
+      },
+      "core": "5cd52834dca1457e8a6715719a28b4fcb1de3de4a0df7b0510395cee4643f999",
+      "firmware": [
+        "89878cea0a268734696de11c4bae593eaaa506465d2029d619c0e0cbccdfa62d",
+        "83c60d47047d7beab8e5b7bf6f67f80daa088b7a6a27de0d7e016f6484042721",
+        "fd0d53b8480e86163ac98998976c72cc58d5dd8eb824ed7b829774e74213b420"
+      ],
+      "sha256": "c9733abaf81888cc0980c44c198fa61d58f7b84178939840b54c5e70c76eb2c4",
+      "pc": 36059,
+      "actions": [
+        {
+          "run": 3000000
+        },
+        {
+          "key": [
+            76,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            76,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            79,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            79,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            65,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            65,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            68,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            68,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            13,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            13,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "play": 1
+        },
+        {
+          "run": 10292136
+        },
+        {
+          "run": 10942
+        },
+        {
+          "run": 20162695
+        },
+        {
+          "key": [
+            82,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            82,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            85,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            85,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            78,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            78,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            13,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            13,
+            0
+          ]
+        },
+        {
+          "run": 1803843
+        },
+        {
+          "run": 7002955
+        },
+        {
+          "run": 74330
+        },
+        {
+          "run": 71329225
+        },
+        {
+          "run": 3000000
+        },
+        {
+          "joystick": [
+            2,
+            16
+          ]
+        },
+        {
+          "run": 60025
+        },
+        {
+          "joystick": [
+            2,
+            0
+          ]
+        }
+      ]
+    },
+    "enemy-ai": {
+      "title": "Enemy helicopter AI",
+      "description": "Boot to the enemy AI experiment prerequisites, then apply its reviewed setup. The candidate patch is still a separate explicit action. This replaces the current session on success.",
+      "releases": [
+        "reference-pal"
+      ],
+      "evidence": [
+        "prepared"
+      ],
+      "target": {
+        "kind": "experiment",
+        "id": "upward-probe"
+      },
+      "core": "5cd52834dca1457e8a6715719a28b4fcb1de3de4a0df7b0510395cee4643f999",
+      "firmware": [
+        "89878cea0a268734696de11c4bae593eaaa506465d2029d619c0e0cbccdfa62d",
+        "83c60d47047d7beab8e5b7bf6f67f80daa088b7a6a27de0d7e016f6484042721",
+        "fd0d53b8480e86163ac98998976c72cc58d5dd8eb824ed7b829774e74213b420"
+      ],
+      "sha256": "e2cc1a30c9c08db9e21883741d2f3bb93953cf70a5e7b06cba362cb4b1164ae2",
+      "pc": 40018,
+      "actions": [
+        {
+          "run": 3000000
+        },
+        {
+          "key": [
+            76,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            76,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            79,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            79,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            65,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            65,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            68,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            68,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            13,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            13,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "play": 1
+        },
+        {
+          "run": 10292136
+        },
+        {
+          "run": 10942
+        },
+        {
+          "run": 20162695
+        },
+        {
+          "key": [
+            82,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            82,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            85,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            85,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            78,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            78,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            13,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            13,
+            0
+          ]
+        },
+        {
+          "run": 1803843
+        },
+        {
+          "run": 7002955
+        },
+        {
+          "run": 74330
+        },
+        {
+          "run": 71329225
+        },
+        {
+          "run": 3000000
+        },
+        {
+          "joystick": [
+            2,
+            16
+          ]
+        },
+        {
+          "run": 60025
+        },
+        {
+          "joystick": [
+            2,
+            0
+          ]
+        },
+        {
+          "run": 6000000
+        },
+        {
+          "until": 40018,
+          "budget": 100000
+        }
+      ]
     }
   }
 }

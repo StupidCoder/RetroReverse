@@ -39,6 +39,7 @@ export function createViewportWorkspace({root,navigation,platform,onChange=()=>{
   visible(kind){return [...root.querySelectorAll('.viewport')].some(p=>p.dataset.kind===kind);},
   each(fn){for(const v of instances.values())fn(v.panel);},
   reveal(kind){const found=leaves(tree).find(n=>n.kind===kind);if(found){maximized=null;mobileId=found.id;draw();return instances.get(found.id).panel;}const n=leaves(tree).at(-1);instances.get(n.id)?.panel.dispose?.();instances.delete(n.id);tree=replace(tree,n.id,leaf(n.id,kind));mobileId=n.id;maximized=null;commit();return instances.get(n.id).panel;},
+  tourLayout(){active='loader';maximized=null;mobileId='loader-lesson';tree=split('x',split('y',leaf('loader-code','code'),leaf('loader-lesson','lesson'),.65),split('y',leaf('loader-ram','atlas'),leaf('loader-tape','tape')),.55);for(const n of leaves(tree)){const v=instances.get(n.id);if(v&&v.element.dataset.kind!==n.kind){v.panel.dispose?.();instances.delete(n.id);}}commit();},
   restorePreset(){for(const n of leaves(tree)){instances.get(n.id)?.panel.dispose?.();instances.delete(n.id);}tree=preset(active);maximized=null;commit();},
   dispose(){mobile.removeEventListener('change',draw);for(const v of instances.values())v.panel.dispose?.();instances.clear();}
  };

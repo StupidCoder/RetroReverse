@@ -236,3 +236,9 @@ body[data-platform] .viewport-header{padding:3px 7px;font-size:12px;gap:6px}
 .viewport-body.code-embedded [id$="-disassembly"]{scrollbar-gutter:stable}
 .mobile-pane-picker{flex:none;align-self:flex-start;margin:0 0 6px;font:inherit;font-size:13px;padding:4px;max-width:100%}
 @media(max-width:700px){:is(#viewport-root,[data-local-id=viewport-root]){flex-direction:column}.viewport-header{min-height:30px}body[data-platform] .emulator-topbar{position:sticky;top:0;z-index:40}}
+
+/* Compact global controls; preset selection lives in the same toolbar. */
+.emulator-topbar #workspace-nav{display:inline-block;border:1px solid var(--line);background:white;max-width:120px}
+.emulator-topbar .icon-button{display:inline-flex;align-items:center;justify-content:center;width:32px;height:30px;padding:5px;flex:none}
+.emulator-topbar .icon-button svg{pointer-events:none}
+.emulator-topbar #game-name{flex:1;min-width:0}

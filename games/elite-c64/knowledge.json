@@ -1,0 +1,647 @@
+{
+  "schemaVersion": 1,
+  "id": "elite-c64",
+  "revision": 1,
+  "game": {
+    "name": "Elite",
+    "system": {
+      "id": "c64",
+      "name": "Commodore 64"
+    }
+  },
+  "releases": {
+    "reference-pal": {
+      "label": "Reference PAL tape \u2014 verified loader prefix only",
+      "media": [
+        {
+          "role": "tape",
+          "size": 801592,
+          "sha256": "c73bf1c8d20afb1818a42f76c0083d127db36c8dae024c9f057deea619ca0952",
+          "md5": "d51b7f84fd1bec6eb24f4bf210c8cc74"
+        }
+      ]
+    }
+  },
+  "sources": {
+    "loader": {
+      "path": "/games/elite-c64/elite-c64.md",
+      "description": "Repository research: Part I fastloader encoding and Part II boot chain."
+    },
+    "acceptance": {
+      "path": "/tools/browser/docs/prepared-lessons/README.md",
+      "description": "Current WASM loader-prefix acceptance and compatibility boundary."
+    }
+  },
+  "evidence": {
+    "prefix": {
+      "status": "confirmed",
+      "source": "acceptance",
+      "description": "Exact tape boot to the first fastloader payload store in the shipped core.",
+      "limitations": "Later bytes in this first block diverge from the extracted tape payload. Full loader, self-modification tour and gameplay slots are not enabled."
+    },
+    "research": {
+      "status": "inferred",
+      "source": "loader",
+      "description": "Static loader analysis corroborated by the independent extraction driver; only the initial prefix has browser-runtime acceptance."
+    }
+  },
+  "spaces": {
+    "cpu": {
+      "kind": "cpu",
+      "processor": "6510",
+      "size": 65536
+    },
+    "ram": {
+      "kind": "physical",
+      "region": "ram",
+      "size": 65536
+    }
+  },
+  "locations": {
+    "read-bit": {
+      "kind": "cpu",
+      "space": "cpu",
+      "address": "0x334"
+    },
+    "read-byte": {
+      "kind": "cpu",
+      "space": "cpu",
+      "address": "0x34a"
+    },
+    "loader-entry": {
+      "kind": "cpu",
+      "space": "cpu",
+      "address": "0x378"
+    },
+    "block-header": {
+      "kind": "cpu",
+      "space": "cpu",
+      "address": "0x3a3"
+    },
+    "block-store": {
+      "kind": "cpu",
+      "space": "cpu",
+      "address": "0x3ae"
+    }
+  },
+  "types": {},
+  "regions": {},
+  "state": {},
+  "functions": {
+    "read-bit": {
+      "label": "Discriminate a tape pulse",
+      "entry": "read-bit",
+      "isa": "mos6510",
+      "releases": [
+        "reference-pal"
+      ],
+      "evidence": [
+        "prefix",
+        "research"
+      ],
+      "applicability": "Original initial loader bytes only, before later code replacements. Full-game execution is not validated."
+    },
+    "read-byte": {
+      "label": "Read a framed byte",
+      "entry": "read-byte",
+      "isa": "mos6510",
+      "releases": [
+        "reference-pal"
+      ],
+      "evidence": [
+        "prefix",
+        "research"
+      ],
+      "applicability": "Original initial loader bytes only, before later code replacements. Full-game execution is not validated."
+    },
+    "loader-entry": {
+      "label": "Configure the fastloader",
+      "entry": "loader-entry",
+      "isa": "mos6510",
+      "releases": [
+        "reference-pal"
+      ],
+      "evidence": [
+        "prefix",
+        "research"
+      ],
+      "applicability": "Original initial loader bytes only, before later code replacements. Full-game execution is not validated."
+    },
+    "block-header": {
+      "label": "Read block destination and end",
+      "entry": "block-header",
+      "isa": "mos6510",
+      "releases": [
+        "reference-pal"
+      ],
+      "evidence": [
+        "prefix",
+        "research"
+      ],
+      "applicability": "Original initial loader bytes only, before later code replacements. Full-game execution is not validated."
+    },
+    "block-store": {
+      "label": "Load payload bytes into RAM",
+      "entry": "block-store",
+      "isa": "mos6510",
+      "releases": [
+        "reference-pal"
+      ],
+      "evidence": [
+        "prefix",
+        "research"
+      ],
+      "applicability": "Original initial loader bytes only, before later code replacements. Full-game execution is not validated."
+    }
+  },
+  "annotations": {
+    "read-bit": {
+      "function": "read-bit",
+      "offset": "0x0",
+      "text": "CIA1 FLAG marks tape edges; CIA2 timer A distinguishes pulse duration. Initial pulses are 384 or 744 CPU cycles.",
+      "evidence": [
+        "research"
+      ]
+    },
+    "read-byte": {
+      "function": "read-byte",
+      "offset": "0x0",
+      "text": "Initially read nine pulses: one start bit, then eight data bits. ROL $FC shifts the payload MSB first.",
+      "evidence": [
+        "research"
+      ]
+    },
+    "loader-entry": {
+      "function": "loader-entry",
+      "offset": "0x0",
+      "text": "Load CIA2 timer latch $0243 (579 cycles), between the two fastloader pulse lengths.",
+      "evidence": [
+        "research"
+      ]
+    },
+    "block-header": {
+      "function": "block-header",
+      "offset": "0x0",
+      "text": "Four decoded bytes populate $AF,$AE,$AD,$AC: exclusive end address, then destination.",
+      "evidence": [
+        "research"
+      ]
+    },
+    "block-store": {
+      "function": "block-store",
+      "offset": "0x3",
+      "text": "STA ($AC,X), with X=0, stores the decoded byte into the destination. KERNAL helpers increment and compare the pointers.",
+      "evidence": [
+        "research"
+      ]
+    }
+  },
+  "tours": {
+    "first-byte": {
+      "title": "Elite: the first fastloader byte",
+      "description": "Inspect pulse timing, block addressing and the first payload store. This verified introduction ends before the current core\u2019s later decoding failure; it does not demonstrate the full self-modifying load chain.",
+      "releases": [
+        "reference-pal"
+      ],
+      "evidence": [
+        "prefix"
+      ],
+      "startPolicy": "current-paused",
+      "requirements": "Use the prepared lesson start, or pause the exact tape at the initial $0378 entry. No later loader invocation is accepted.",
+      "guards": [
+        {
+          "address": 820,
+          "bytes": [
+            169,
+            16,
+            44,
+            13,
+            220,
+            240,
+            251,
+            169,
+            17,
+            141,
+            14,
+            221,
+            173,
+            13,
+            221,
+            74,
+            44,
+            13,
+            220,
+            38,
+            252,
+            96,
+            162,
+            9,
+            32,
+            52,
+            3,
+            238,
+            32,
+            208,
+            202,
+            208,
+            247,
+            165,
+            252,
+            96,
+            234,
+            234,
+            169,
+            129,
+            141,
+            13,
+            220,
+            88,
+            169,
+            0,
+            32,
+            113,
+            168,
+            76,
+            234,
+            167,
+            220,
+            88,
+            169,
+            0,
+            32,
+            113,
+            168,
+            76,
+            234,
+            167,
+            0,
+            0,
+            0,
+            0,
+            0,
+            141,
+            169,
+            67,
+            141,
+            4,
+            221,
+            169,
+            2,
+            141,
+            5,
+            221,
+            160,
+            127,
+            140,
+            13,
+            221,
+            140,
+            13,
+            220,
+            169,
+            7,
+            133,
+            1,
+            132,
+            252,
+            32,
+            52,
+            3,
+            208,
+            251,
+            32,
+            74,
+            3,
+            208,
+            244,
+            32,
+            74,
+            3,
+            240,
+            251,
+            201,
+            22,
+            208,
+            235,
+            160,
+            3,
+            32,
+            74,
+            3,
+            153,
+            172,
+            0,
+            136,
+            16,
+            247,
+            32,
+            74,
+            3,
+            129,
+            172,
+            32,
+            219,
+            252,
+            32,
+            209,
+            252,
+            144,
+            243,
+            176,
+            230
+          ]
+        }
+      ],
+      "start": {
+        "pc": 888
+      },
+      "stops": [
+        {
+          "id": "timer",
+          "title": "Pulse discrimination",
+          "explanation": "The original loader is about to set the CIA2 timer to 579 cycles. Initial fastloader pulses are 384 and 744 cycles; the timer distinguishes their lengths. Open the suggested layout to keep code, RAM and tape pulses visible.",
+          "until": {
+            "pc": 888
+          },
+          "assertions": [],
+          "cycleBudget": 5000000,
+          "wallBudget": 10000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 172,
+              "length": 4
+            },
+            {
+              "address": 252,
+              "length": 1
+            },
+            {
+              "address": 768,
+              "length": 192
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 888,
+            "gameState": false,
+            "preset": "loader"
+          }
+        },
+        {
+          "id": "sync",
+          "title": "Pilot and sync found",
+          "explanation": "The loader has recognized the pilot and sync byte $16. It now reads the four-byte block header.",
+          "until": {
+            "pc": 931
+          },
+          "assertions": [],
+          "cycleBudget": 5000000,
+          "wallBudget": 10000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 172,
+              "length": 4
+            },
+            {
+              "address": 252,
+              "length": 1
+            },
+            {
+              "address": 768,
+              "length": 192
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 931,
+            "gameState": false,
+            "preset": "loader"
+          }
+        },
+        {
+          "id": "destination",
+          "title": "The first block targets $0300",
+          "explanation": "The original header describes $0300 through $0333, with exclusive end $0334. These are the system vectors that the tape rewrites before later loader stages.",
+          "until": {
+            "pc": 942
+          },
+          "assertions": [
+            {
+              "address": 172,
+              "value": 0
+            },
+            {
+              "address": 173,
+              "value": 3
+            },
+            {
+              "address": 174,
+              "value": 52
+            },
+            {
+              "address": 175,
+              "value": 3
+            }
+          ],
+          "cycleBudget": 5000000,
+          "wallBudget": 10000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 172,
+              "length": 4
+            },
+            {
+              "address": 252,
+              "length": 1
+            },
+            {
+              "address": 768,
+              "length": 192
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 942,
+            "gameState": false,
+            "preset": "loader"
+          }
+        },
+        {
+          "id": "first-write",
+          "title": "First payload byte stored",
+          "explanation": "STA ($AC,X) has written $8B to $0300. The interval evidence records the store even though this byte already had that value. This is the end of the verified introduction: later decoding currently diverges, so the longer self-modifying-loader tour remains unavailable.",
+          "until": {
+            "pc": 947
+          },
+          "assertions": [
+            {
+              "address": 768,
+              "value": 139
+            },
+            {
+              "address": 172,
+              "value": 0
+            },
+            {
+              "address": 173,
+              "value": 3
+            }
+          ],
+          "cycleBudget": 5000000,
+          "wallBudget": 10000,
+          "hitCount": 1,
+          "capture": [
+            {
+              "address": 172,
+              "length": 4
+            },
+            {
+              "address": 252,
+              "length": 1
+            },
+            {
+              "address": 768,
+              "length": 192
+            }
+          ],
+          "eventBudget": 524288,
+          "layout": {
+            "address": 947,
+            "gameState": false,
+            "preset": "loader"
+          }
+        }
+      ]
+    }
+  },
+  "preparedStarts": {
+    "loader-prefix": {
+      "title": "Elite fastloader introduction",
+      "description": "Skip the standard tape boot and inspect the original fastloader\u2019s first payload byte. Full loading is not yet compatible. This replaces the current session on success.",
+      "releases": [
+        "reference-pal"
+      ],
+      "evidence": [
+        "prefix"
+      ],
+      "target": {
+        "kind": "tour",
+        "id": "first-byte"
+      },
+      "layout": "loader",
+      "core": "5cd52834dca1457e8a6715719a28b4fcb1de3de4a0df7b0510395cee4643f999",
+      "firmware": [
+        "89878cea0a268734696de11c4bae593eaaa506465d2029d619c0e0cbccdfa62d",
+        "83c60d47047d7beab8e5b7bf6f67f80daa088b7a6a27de0d7e016f6484042721",
+        "fd0d53b8480e86163ac98998976c72cc58d5dd8eb824ed7b829774e74213b420"
+      ],
+      "sha256": "2d0bf0217ef908c7caafc8b4f8b6ec9c926bb151cbb9f47fea925fc06ffdc7c9",
+      "pc": 888,
+      "actions": [
+        {
+          "run": 3000000
+        },
+        {
+          "key": [
+            76,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            76,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            79,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            79,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            65,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            65,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            68,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            68,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            13,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            13,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "play": 1
+        },
+        {
+          "until": 888,
+          "budget": 50000000
+        }
+      ]
+    }
+  }
+}

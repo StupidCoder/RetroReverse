@@ -1,0 +1,8 @@
+{
+  "result": "PASS",
+  "release": "754ae11c8642e9f65378",
+  "checks": [
+    "cancel preserves initial session",
+    "Elite loader prefix completes with Code, lesson, RAM and pulses visible"
+  ]
+}

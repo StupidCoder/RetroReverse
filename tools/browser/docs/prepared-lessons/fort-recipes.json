@@ -1,0 +1,42 @@
+{
+  "result": "PASS",
+  "game": "fort-apocalypse-c64",
+  "reports": [
+    {
+      "id": "terrain",
+      "mode": "recipe",
+      "cycle": "118436151",
+      "sha256": "c9733abaf81888cc0980c44c198fa61d58f7b84178939840b54c5e70c76eb2c4"
+    },
+    {
+      "id": "terrain",
+      "mode": "recipe",
+      "cycle": "118436151",
+      "sha256": "c9733abaf81888cc0980c44c198fa61d58f7b84178939840b54c5e70c76eb2c4"
+    },
+    {
+      "id": "terrain",
+      "mode": "cache",
+      "cycle": "118436151",
+      "sha256": "c9733abaf81888cc0980c44c198fa61d58f7b84178939840b54c5e70c76eb2c4"
+    },
+    {
+      "id": "enemy-ai",
+      "mode": "recipe",
+      "cycle": "124450324",
+      "sha256": "e2cc1a30c9c08db9e21883741d2f3bb93953cf70a5e7b06cba362cb4b1164ae2"
+    },
+    {
+      "id": "enemy-ai",
+      "mode": "recipe",
+      "cycle": "124450324",
+      "sha256": "e2cc1a30c9c08db9e21883741d2f3bb93953cf70a5e7b06cba362cb4b1164ae2"
+    },
+    {
+      "id": "enemy-ai",
+      "mode": "cache",
+      "cycle": "124450324",
+      "sha256": "e2cc1a30c9c08db9e21883741d2f3bb93953cf70a5e7b06cba362cb4b1164ae2"
+    }
+  ]
+}

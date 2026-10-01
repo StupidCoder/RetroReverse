@@ -1,7 +1,7 @@
 import {createExperimentPanel} from './experiment-panel.js';
 import {createTourPanel} from './tour-panel.js';
 import {disassemble6502,hex} from './disassembly6502.js';
-export function createCodeWorkspace({root,views,send,transport,platform,statePanel,panelLayout,idPrefix="code",embedded=false,lessons=true,onInspect}){
+export function createCodeWorkspace({root,views,send,transport,platform,statePanel,panelLayout,idPrefix="code",embedded=false,lessons=true,onInspect,onTourLayout}){
  if(!['c64','dos','3do'].includes(platform))return null;
  root.innerHTML=`<div class="memory-heading"><div><h2>Code</h2><p id="code-note" role="status">Load a game to inspect its code.</p></div></div>
  <div class="memory-player"><canvas id="code-screen" tabindex="0" width="392" height="272" aria-label="Code game output"></canvas><div><div class="memory-transport"><button id="code-play">Play</button><button id="code-pause">Pause</button><button id="code-frame">Next frame</button></div><p>Click the preview for keyboard controls. Navigation never advances execution.</p><button id="code-tape-play">Play tape</button><button id="code-tape-stop">Stop tape</button></div></div>
@@ -17,7 +17,7 @@ export function createCodeWorkspace({root,views,send,transport,platform,statePan
  if(embedded){root.classList.add('code-embedded');root.querySelector('.memory-player').hidden=true;const aside=root.querySelector('aside'),fold=document.createElement('details');fold.className='code-functions-fold';const summary=document.createElement('summary');summary.textContent='Identified functions';aside.before(fold);fold.append(summary,aside);const watch=root.querySelector('[id$="-watch"]'),advanced=document.createElement('details'),title=document.createElement('summary');advanced.className='code-watch-fold';title.textContent='Write watchpoint';watch.before(advanced);advanced.append(title,watch);}
  const bufferPanel=document.createElement('section');bufferPanel.className='code-buffers';root.append(bufferPanel);
  const experimentPanel=lessons&&platform==='c64'?createExperimentPanel({root,send}):null;
- const tourPanel=lessons?createTourPanel({root,send,inspect:at=>{if(onInspect)onInspect(at);else{address=at;refresh();}},layout:show=>panelLayout?.suggest(show)}):{ready(){},reset(){},state(){},result(){}};
+ const tourPanel=lessons?createTourPanel({root,send,inspect:at=>{if(onInspect)onInspect(at);else{address=at;refresh();}},layout:(show,preset)=>preset&&onTourLayout?onTourLayout(preset):panelLayout?.suggest(show)}):{ready(){},reset(){},state(){},result(){}};
  const $=id=>root.querySelector('#'+idPrefix+'-'+id);
  let enabled=false,active=false,running=false,busy=false,externalBusy=false,experimentOwned=false,snapshot=null,address=-1,pending=0,snapshotPending=false,waitingSnapshot=false,job=0,generation=0,timer=null,knowledge=null,functionId=null;
  const command=(type,args={})=>send(type,{protocol:1,generation,client:idPrefix,...args});

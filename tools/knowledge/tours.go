@@ -40,6 +40,7 @@ type TourStop struct {
 	Capture     []TourCapture   `json:"capture"`
 	EventBudget uint64          `json:"eventBudget"`
 	Layout      struct {
+		Preset    string `json:"preset,omitempty"`
 		Address   uint64 `json:"address"`
 		GameState bool   `json:"gameState"`
 	} `json:"layout"`

@@ -1,0 +1,10 @@
+import {checkpointCache} from './checkpoint-cache.js';
+export function createPreparedPanel({root,start,cancel}){
+ const panel=document.createElement('section');panel.className='tour-panel';panel.innerHTML='<h3>Prepared lessons</h3><label>Lesson <select aria-label="Prepared lesson"></select></label><p class="prepared-description"></p><div class="code-toolbar"><button data-prepared="start">Prepare and start</button><button data-prepared="cancel" disabled>Cancel preparation</button><button data-prepared="clear">Clear saved lesson starts</button></div><p class="prepared-status" role="status"></p>';
+ root.prepend(panel);const select=panel.querySelector('select'),description=panel.querySelector('.prepared-description'),status=panel.querySelector('.prepared-status'),button=a=>panel.querySelector('[data-prepared="'+a+'"]');let recipes={},pending=false,locked=true;
+ function controls(){button('start').disabled=pending||locked||!select.value;button('cancel').disabled=!pending;button('clear').disabled=pending;select.disabled=pending;}
+ select.onchange=()=>{description.textContent=recipes[select.value]?.description||'No verified prepared lessons for this image.';controls();};
+ button('start').onclick=()=>start(select.value);button('cancel').onclick=cancel;button('clear').onclick=async()=>{await checkpointCache('clear');status.textContent='Local saved lesson starts cleared. The next launch will prepare again.';};
+ controls();
+ return {ready(k){const previous=select.value;recipes=k?.status==='matched'?Object.fromEntries(Object.entries(k.data?.preparedStarts||{}).filter(([,r])=>r.releases.includes(k.releaseId))):{};select.replaceChildren(...Object.entries(recipes).map(([id,r])=>{const o=document.createElement('option');o.value=id;o.textContent=r.title;return o;}));if(recipes[previous])select.value=previous;select.onchange();return Object.keys(recipes).length;},state(s){locked=!!(s.debugBusy||s.capturing||s.saving||s.memoryRecording||s.experimentOwned);controls();},pending(v){pending=v;controls();},message(text){status.textContent=text;},recipe:id=>recipes[id]};
+}

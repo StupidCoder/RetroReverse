@@ -1,0 +1,24 @@
+{
+  "result": "PASS",
+  "game": "elite-c64",
+  "reports": [
+    {
+      "id": "loader-prefix",
+      "mode": "recipe",
+      "cycle": "37906393",
+      "sha256": "2d0bf0217ef908c7caafc8b4f8b6ec9c926bb151cbb9f47fea925fc06ffdc7c9"
+    },
+    {
+      "id": "loader-prefix",
+      "mode": "recipe",
+      "cycle": "37906393",
+      "sha256": "2d0bf0217ef908c7caafc8b4f8b6ec9c926bb151cbb9f47fea925fc06ffdc7c9"
+    },
+    {
+      "id": "loader-prefix",
+      "mode": "cache",
+      "cycle": "37906393",
+      "sha256": "2d0bf0217ef908c7caafc8b4f8b6ec9c926bb151cbb9f47fea925fc06ffdc7c9"
+    }
+  ]
+}

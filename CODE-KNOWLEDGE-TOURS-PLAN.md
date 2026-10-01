@@ -862,7 +862,7 @@ for a useful first Code tab.
 
 Replace mutually exclusive workspace tabs with presets over independently
 addressable pane instances. A shared toolbar owns system selection, media loading
-and transport. Play uses one Game pane; Render, Memory and Code supply useful
+and transport. Play uses a 70/30 Game and Session split; Render, Memory and Code supply useful
 split layouts. A generic C64 Loader preset combines Code, RAM atlas and tape pulse
 inspection without claiming Elite lesson readiness. See the
 [implementation and acceptance](tools/browser/docs/viewport-workspace/README.md).
@@ -873,3 +873,18 @@ and guards; distributable binary checkpoints would be referenced assets, while
 local generation and caching remain an alternative. Checkpoints contain loaded
 game content and require compatible core/media/firmware identities. This remains
 a separate work item from the viewport conversion.
+
+## Follow-on: prepared starts and Elite prefix (2026-10-01)
+
+Implemented local prepared checkpoints for Fort's terrain tour and enemy-AI
+experiment, plus Elite's first fastloader byte. The knowledge package owns the
+bounded input recipe, exact core/firmware identities, target and full-state hash.
+Candidate-worker preparation preserves the current session on cancellation or
+failure; validated local caching skips boot on subsequent launches. No checkpoint
+binary is distributed. See [specification and acceptance](tools/browser/docs/prepared-lessons/README.md).
+
+The longer Elite self-modification tour remains gated by a reproduced core
+compatibility failure: the first payload mismatch is $0306, expected $A8 but
+observed $B1. The shipped introduction ends before that mismatch. Next milestone:
+isolate pulse/byte timing at the first disagreement, fix and validate the authentic
+load chain, then author protocol-mutation stops and validate flight/object slots.

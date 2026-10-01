@@ -1,13 +1,16 @@
 import {platforms} from './platforms.js';
 import {presentation} from './ui-platforms.js';
 
+const icon=(path)=>`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+const icons={load:icon('<path d="M3 7h7l2 2h9v11H3zM3 7V4h7l2 3"/>'),run:icon('<path d="m7 4 14 8-14 8z"/>'),pause:icon('<path d="M8 4v16M16 4v16"/>'),step:icon('<path d="m4 4 12 8-12 8zM20 4v16"/>')};
+const iconButton=(id,label,graphic,disabled=false)=>`<button id="${id}" class="icon-button" aria-label="${label}" title="${label}" ${disabled?'disabled':''}>${graphic}</button>`;
+
 // Only trusted, checked-in presentation metadata is interpolated here.
 export function shellMarkup(platform) {
   const config=platforms[platform], view=presentation[platform], dos=platform==='dos';
   if(!config||!view)throw new Error('Unknown emulator platform');
-  return `<header class="emulator-topbar"><a href="../../">RetroReverse</a><label class="sr-only" for="system-select">System</label><select id="system-select">${Object.entries(platforms).map(([id,p])=>`<option value="${id}">${p.name}</option>`).join('')}</select><button id="open-media">Load game…</button><span id="game-name">No game loaded</span><div id="global-transport"></div><button id="session-settings">Session</button></header>
+  return `<header class="emulator-topbar"><a href="../../">RetroReverse</a><label class="sr-only" for="system-select">System</label><select id="system-select">${Object.entries(platforms).map(([id,p])=>`<option value="${id}">${p.name}</option>`).join('')}</select>${iconButton("open-media","Load game",icons.load)}<label class="sr-only" for="workspace-nav">Layout</label><select id="workspace-nav"></select><button id="restore-layout">Reset layout</button><span id="game-name">No game loaded</span><div id="global-transport"></div></header>
 <main><h1 class="sr-only">${config.name} emulator</h1>
-  <div class="workspace-heading"><nav id="workspace-nav"></nav><button id="restore-layout">Reset layout</button></div>
   <p id="status" class="status" role="status">Select a local game ${dos?'folder':'image'} to begin. Nothing is uploaded.</p>
   <div id="viewport-root"></div><div id="panel-warehouse" hidden>
   <section id="play-workspace">
@@ -17,7 +20,7 @@ export function shellMarkup(platform) {
     <div class="play-layout">
       <section class="play-stage">
         <div class="monitor"><canvas id="screen" width="${view.width}" height="${view.height}" tabindex="0" aria-label="${config.name} display and keyboard controls"></canvas></div>
-        <div class="transport"><button id="run" disabled>Run</button><button id="pause" disabled>Pause</button><button id="reset" disabled>Reset</button><button id="step" disabled>${dos?'Advance':'Next frame'}</button><label><input id="turbo" type="checkbox"> Fast forward</label><button id="fullscreen">Full screen</button></div>
+        <div class="transport">${iconButton("run","Run",icons.run,true)}${iconButton("pause","Pause",icons.pause,true)}<button id="reset" disabled>Reset</button>${iconButton("step",dos?"Advance":"Next frame",icons.step,true)}<label><input id="turbo" type="checkbox"> Fast forward</label><button id="fullscreen">Full screen</button></div>
         <div id="pad" class="pad"></div>
         ${platform==='amiga'?'<label class="mouse-speed">Mouse speed <select id="mouse-speed"><option value="1">1× — games</option><option value="2">2×</option><option value="4" selected>4× — Workbench</option></select></label>':''}
       </section>

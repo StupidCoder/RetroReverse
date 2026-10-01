@@ -1,3 +1,4 @@
+import {prepareStart} from './prepared-start.js';
 import {createExperimentService} from './experiment-worker.js';
 import {create3DOInspector} from './threedo-inspector.js';
 import {createDOSInspector} from './dos-inspector.js';
@@ -23,6 +24,7 @@ const inputQueue = [];
 const appliedKeys=new Set();
 const mediaHashes=new WeakMap();
 function mediaHash(file){if(!mediaHashes.has(file))mediaHashes.set(file,sha256File(file));return mediaHashes.get(file);}
+let cacheReply=null;
 let saving=false,debugService=null,tourService=null,experimentService=null;
 const executionGate=createExecutionGate();
 let memoryService=null,memoryRecording=false,memoryStop=false,memoryBusy=false;
@@ -386,6 +388,16 @@ async function boot(m) {
     if(platform==='amiga'){for(const code of q.appliedKeys||inputs.down.keys())core._rr_key(code,0);appliedKeys.clear();inputs.mousePending={x:0,y:0};inputs.mouseMask=96;inputs.mouseButtons=0;inputs.mouseButtonEvents=[];inputs.mouseButtonCursor=0;}
     inputs.keys=[];inputs.down.clear();inputs.touch={x:0,y:0,down:false};inputs.touchEvents=[];inputs.touchUntil=0;if(core._rr_touch)core._rr_touch(0,0,0);
   }
+  if(m.preparedStart){
+    if(platform!=='c64'||restored)throw Error('Unsupported prepared start request');
+    const match=identifySingleImage(platform,{size:f.size,sha256:await mediaHash(f)}),pkg=knowledgePackages.find(p=>p.id===match.packageId),recipe=pkg?.knowledge.preparedStarts?.[m.preparedStart];
+    if(match.status!=='matched'||!recipe?.releases.includes(match.releaseId))throw Error('No verified prepared start for this exact image');
+    const identity=await identities(),key=await digest(new TextEncoder().encode(JSON.stringify({package:pkg.sourceSHA256,id:m.preparedStart,...identity})));
+    const cached=await new Promise(resolve=>{const timer=setTimeout(()=>{cacheReply=null;resolve(null);},1500);cacheReply=bytes=>{clearTimeout(timer);resolve(bytes);};send('prepared-cache-get',{key});});
+    const result=await prepareStart({core,recipe,identity,cached,sleep,progress:cycles=>send('message',{text:'Preparing '+recipe.title+' · '+(cycles/985248).toFixed(1)+' emulated seconds. You can cancel without losing the current session.'})});
+    if(!result.cached)send('prepared-cache-put',{key,bytes:result.bytes});
+    send('message',{text:result.cached?'Loaded verified local lesson checkpoint.':'Verified lesson checkpoint prepared and saved locally.'});
+  }
   memoryService=createMemoryService({core,platform,files:[f],status});
   if(['c64','dos','3do'].includes(platform)&&core._rr_debug_snapshot){
     const identity=platform==='dos'?await identifyDOSFiles(dosMedia.entries,knowledgePackages,mediaHash,dosMedia.entry):identifySingleImage(platform,{size:f.size,sha256:await mediaHash(f)});
@@ -416,6 +428,7 @@ async function boot(m) {
 onmessage = async ({data : m}) => {
   let ownership=null;
   try {
+    if(m.type==='prepared-cache-reply'&&m.session===session){cacheReply?.(m.bytes);cacheReply=null;return;}
     if (m.type === 'load') {
       await boot(m);
       return;
