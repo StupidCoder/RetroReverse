@@ -10,7 +10,7 @@ try{
  const files=new DataTransfer();files.items.add(new File([await (await fetch('/games/fort-apocalypse-c64/Fort_Apocalypse.tap')).arrayBuffer()],'Fort_Apocalypse.tap'));
  $('files').files=files.files;$('files').dispatchEvent(new w.Event('change'));
  const states=new DataTransfer();states.items.add(new File([await (await fetch('/tools/platform/c64/browser/work/viewport-experiment.rrstate')).arrayBuffer()],'m8.rrstate'));$('statefile').files=states.files;$('statefile').dispatchEvent(new w.Event('change'));
- await until(()=>!$('view-code').disabled,'Code enabled');$('view-code').click();
+ await until(()=>!$('view-code').disabled,'Code enabled');$('workspace-nav').value='code';$('workspace-nav').dispatchEvent(new w.Event('change'));
  const action=a=>d.querySelector('[data-experiment="'+a+'"]'),state=()=>latest('experiment-state');await until(()=>!action('prepare').disabled,'experiment matched');
  await until(()=>latest('debug-snapshot'),'snapshot');const initial=latest('debug-snapshot').snapshot.cycle;
  assert(d.querySelector('.experiment-edits').textContent.includes('55 → a5'),'review exact patch');assert($('code-registers').textContent.includes('A=$08'),'C64 register width');

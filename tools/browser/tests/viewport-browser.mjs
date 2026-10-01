@@ -19,7 +19,7 @@ try{
  function file(id,bytes,name){const dt=new w.DataTransfer();dt.items.add(new w.File([bytes],name));$(id).files=dt.files;$(id).dispatchEvent(new w.Event('change'));}
  file('files',tape,'synthetic.tap');file('statefile',state,'synthetic.rrstate');
 
- await until(()=>!$('view-code').disabled,'ready');$('view-code').click();
+ await until(()=>!$('view-code').disabled,'ready');$('workspace-nav').value='code';$('workspace-nav').dispatchEvent(new w.Event('change'));
  await until(()=>d.querySelectorAll('#viewport-root .viewport').length===4,'four panes');
  const panes=()=>[...d.querySelectorAll('#viewport-root .viewport')],kind=k=>panes().find(p=>p.dataset.kind===k),part=(k,suffix)=>kind(k)?.querySelector('[id$="-'+suffix+'"]');
  await until(()=>part('code','step')&&!part('code','step').disabled,'Code ready');
@@ -31,24 +31,24 @@ try{
  await until(()=>panes().filter(p=>p.dataset.kind==='code').length===2,'two code panes');await sleep(250);
  const codes=panes().filter(p=>p.dataset.kind==='code');for(let i=0;i<2;i++){codes[i].querySelector('[id$="-address"]').value=i?'0900':'0800';codes[i].querySelector('[id$="-go"]').requestSubmit();}
  await until(()=>codes[0].querySelector('[id$="-disassembly"]').textContent.includes('$0800')&&codes[1].querySelector('[id$="-disassembly"]').textContent.includes('$0900'),'independent code addresses');
- const cycle=latest('state').state.cycle;$('view-loader').click();await until(()=>kind('atlas')&&kind('tape'),'loader panes');await until(()=>kind('tape').querySelector('.memory-selection').textContent.includes('Pulses'),'pulse stream');
+ const cycle=latest('state').state.cycle;$('workspace-nav').value='loader';$('workspace-nav').dispatchEvent(new w.Event('change'));await until(()=>kind('atlas')&&kind('tape'),'loader panes');await until(()=>kind('tape').querySelector('.memory-selection').textContent.includes('Pulses'),'pulse stream');
  assert(latest('state').state.cycle===cycle,'loader layout does not execute');checks.push('independent Code instances and Code/RAM/tape loader preset');
  // Split / merge and keyboard resizing change only presentation.
  let pane=kind('atlas');pane.querySelector('details').open=true;[...pane.querySelectorAll('.viewport-menu button')].find(b=>b.textContent==='Split side by side').click();assert(panes().length===4,'split');
  const bar=d.querySelector('#viewport-root [role=separator]'),before=bar.getAttribute('aria-valuenow');bar.dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));assert(bar.getAttribute('aria-valuenow')!==before,'keyboard resize');
  pane=kind('hex');pane.querySelector('details').open=true;[...pane.querySelectorAll('.viewport-menu button')].find(b=>b.textContent.startsWith('Close')).click();assert(panes().length===3,'merge');
  checks.push('split, merge and accessible resize');
- $('view-memory').click();await until(()=>kind('hex')?.querySelector('pre').textContent,'memory bytes');
+ $('workspace-nav').value='memory';$('workspace-nav').dispatchEvent(new w.Event('change'));await until(()=>kind('hex')?.querySelector('pre').textContent,'memory bytes');
  const memorySelect=kind('game').querySelector('.viewport-header select');memorySelect.value='hex';memorySelect.dispatchEvent(new w.Event('change'));await sleep(250);
  const hexes=panes().filter(p=>p.dataset.kind==='hex');for(let i=0;i<2;i++){hexes[i].querySelector('input').value=i?'200':'100';hexes[i].querySelector('form').requestSubmit();}
  await until(()=>hexes[0].querySelector('pre').textContent.startsWith('$00000100')&&hexes[1].querySelector('pre').textContent.startsWith('$00000200'),'independent memory offsets');checks.push('independent memory ranges');
  $('run').click();await until(()=>latest('state')?.running,'run in Memory');await sleep(250);assert(kind('atlas'),'play retains layout');$('pause').click();await until(()=>!latest('state')?.running,'pause');checks.push('global transport retains Memory layout');
- $('view-render').click();await until(()=>!$('render-capture').disabled,'render');$('render-capture').click();await until(()=>latest('capture'),'capture');checks.push('Rendering preset capture and source/detail panes');
+ $('workspace-nav').value='render';$('workspace-nav').dispatchEvent(new w.Event('change'));await until(()=>!$('render-capture').disabled,'render');$('render-capture').click();await until(()=>latest('capture'),'capture');checks.push('Rendering preset capture and source/detail panes');
  let renderSelect=kind('render-details').querySelector('.viewport-header select');renderSelect.value='render';renderSelect.dispatchEvent(new w.Event('change'));
  await until(()=>panes().filter(p=>p.dataset.kind==='render').length===2,'independent render instances');await sleep(300);
  const renderCopies=panes().filter(p=>p.dataset.kind==='render'),sliders=renderCopies.map(p=>p.querySelector('input[type=range]'));assert(sliders.every(Boolean),'separate render timelines');
  const otherPosition=sliders[0].value;sliders[1].value=sliders[1].min;sliders[1].dispatchEvent(new w.Event('input'));await sleep(100);assert(sliders[0].value===otherPosition,'render timeline selection isolated');checks.push('independent Rendering instances');
- $('view-play').click();await until(()=>d.querySelector('#viewport-root .viewport-game canvas'),'Play viewport');const screen=d.querySelector('#viewport-root .viewport-game canvas');screen.focus();assert(d.activeElement===screen,'game focus');
+ $('workspace-nav').value='play';$('workspace-nav').dispatchEvent(new w.Event('change'));await until(()=>d.querySelector('#viewport-root .viewport-game canvas'),'Play viewport');const screen=d.querySelector('#viewport-root .viewport-game canvas');screen.focus();assert(d.activeElement===screen,'game focus');
  const beforeSwitch=latest('state').state.cycle;$('system-select').value='gb';$('system-select').dispatchEvent(new w.Event('change'));await until(()=>$('system-select')?.value==='gb'&&d.body.dataset.platform==='gb','switch system');
  $('system-select').value='c64';$('system-select').dispatchEvent(new w.Event('change'));await until(()=>d.body.dataset.platform==='c64'&&!$('view-code').disabled,'restore C64');assert(latest('state').state.cycle===beforeSwitch,'suspended cycle restored');checks.push('system switch restores exact paused cycle');
  const systems=[...$('system-select').options].map(o=>o.value);for(const system of systems.filter(s=>s!=='c64')){$('system-select').value=system;$('system-select').dispatchEvent(new w.Event('change'));await until(()=>d.body.dataset.platform===system,'shell '+system);await sleep(30);assert(d.querySelector('#viewport-root .viewport'),'viewport shell '+system);}

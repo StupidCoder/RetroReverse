@@ -544,7 +544,6 @@ views.configure(entries,(kind,id,root)=>paneSet.make(kind,id,root));
 $('restore-layout').onclick=()=>views.restorePreset();
 $('system-select').value=platform;$('system-select').onchange=()=>onSystem($('system-select').value);
 $('open-media').onclick=()=>$('media-dialog').showModal();$('close-media').onclick=()=>$('media-dialog').close();
-$('session-settings').onclick=()=>views.reveal('session');
 // State watches are independent of Code visibility; one shared 5 Hz sampler.
 sampler=setInterval(()=>{if(loaded&&debug&&views.visible('state')&&!latestState?.debugBusy&&!latestState?.capturing&&!latestState?.saving&&!latestState?.memoryRecording)code?.refreshState();},200);
 return {

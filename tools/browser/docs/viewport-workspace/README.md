@@ -7,8 +7,9 @@ Elite lesson has been validated.
 
 ## Interaction
 
-The shared toolbar selects the system, loads media, controls execution and opens
-session settings. Load game opens the appropriate file/folder and firmware form.
+The shared toolbar selects the system and layout, loads media and controls
+execution. Play places Game on the left (70%) and Session / controls on the right.
+Load game, Run, Pause and Next frame use icons with accessible names and tooltips. Load game opens the appropriate file/folder and firmware form.
 Session exposes save/load state, tape controls, keyboard/gamepad help, on-screen
 buttons, compatibility and performance information.
 
@@ -110,3 +111,11 @@ Safari and final manual visual acceptance were not completed: computer use was
 blocked by the locked Mac. Earlier visual inspection informed the compact pane
 header and embedded Code spacing fixes; the final automated fixtures check
 1280×780 bounds, unique IDs and the 375px single-pane presentation.
+
+## Compact toolbar follow-up — 2026-10-01
+
+Release `9d4abc47ebb6c77fbf4c` passed the viewport browser fixture in Chrome 154
+and Firefox 157, plus the shell, layout-model and pinned-release checks. The
+in-app browser confirms Play exposes Game, Session / controls and a 70% divider,
+with layout selection and labelled transport icons in the top bar. Existing
+customized layouts are preserved; the previous single-Game default is migrated.

@@ -1,10 +1,11 @@
+import {localElement} from './panel-dom.js';
 import {createTileset} from './tileset.js';
 const hex=(n,digits=4)=>'0x'+(Number(n)>>>0).toString(16).padStart(digits,'0');
 const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
 export function createRaster({platform,send,ui}) {
   const c64=platform==='c64',gg=platform==='gg',width=c64?392:160,height=c64?272:144;
   const labels=c64?['Graphics / border','Sprites','Screen so far']:[gg?'Background':'Background / window','Sprites','Screen so far'];
-  const $=id=>document.getElementById(id),timeline=ui.timeline;
+  const $=id=>localElement(ui.root,id),timeline=ui.timeline;
   ui.auxiliary.hidden=false;
   const buffers=[
     ui.buffer(ui.auxiliary,{id:'raster-background',title:labels[0],description:c64?'Current character or bitmap memory':'Current tilemap and scrolling'}),

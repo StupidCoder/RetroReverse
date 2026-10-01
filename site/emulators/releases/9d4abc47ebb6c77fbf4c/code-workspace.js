@@ -1,7 +1,7 @@
 import {createExperimentPanel} from './experiment-panel.js';
 import {createTourPanel} from './tour-panel.js';
 import {disassemble6502,hex} from './disassembly6502.js';
-export function createCodeWorkspace({root,views,send,transport,platform,statePanel,panelLayout}){
+export function createCodeWorkspace({root,views,send,transport,platform,statePanel,panelLayout,idPrefix="code",embedded=false,lessons=true,onInspect}){
  if(!['c64','dos','3do'].includes(platform))return null;
  root.innerHTML=`<div class="memory-heading"><div><h2>Code</h2><p id="code-note" role="status">Load a game to inspect its code.</p></div></div>
  <div class="memory-player"><canvas id="code-screen" tabindex="0" width="392" height="272" aria-label="Code game output"></canvas><div><div class="memory-transport"><button id="code-play">Play</button><button id="code-pause">Pause</button><button id="code-frame">Next frame</button></div><p>Click the preview for keyboard controls. Navigation never advances execution.</p><button id="code-tape-play">Play tape</button><button id="code-tape-stop">Stop tape</button></div></div>
@@ -11,14 +11,16 @@ export function createCodeWorkspace({root,views,send,transport,platform,statePan
  <div class="code-toolbar"><button id="code-until">Run to address</button><label>At current PC <select id="code-resume"><option value="stop-if-current">Stop immediately</option><option value="next-match">Run to next visit</option></select></label></div>
  <p>Address stops use the current CPU mapping. They do not prove that a documented function is loaded. Runs stop after 10 seconds or 9,852,480 cycles.</p>
  <pre id="code-disassembly" tabindex="0" aria-label="Mapped 6510 disassembly"></pre></section><aside><h3>Identified functions</h3><p id="code-identity"></p><div id="code-functions"></div><p id="code-annotation"></p></aside></div>`;
- if(platform!=='c64'){for(const id of ['over','out','watch'])root.querySelector('#code-'+id).hidden=true;root.querySelector('#code-tape-play').hidden=true;root.querySelector('#code-tape-stop').hidden=true;root.querySelector('#code-normalize').hidden=true;root.querySelector('#code-disassembly').setAttribute('aria-label','Live x86 disassembly');root.querySelector('#code-until').parentElement.nextElementSibling.textContent='Linear-address stops use the current CPU mode. Near branch targets are shown in linear display coordinates. REP remains one instruction; oversized atomic operations are rejected.';}
+ if(platform!=='c64'){for(const id of ['over','out','watch'])root.querySelector('#'+idPrefix+'-'+id).hidden=true;root.querySelector('#code-tape-play').hidden=true;root.querySelector('#code-tape-stop').hidden=true;root.querySelector('#code-normalize').hidden=true;root.querySelector('#code-disassembly').setAttribute('aria-label','Live x86 disassembly');root.querySelector('#code-until').parentElement.nextElementSibling.textContent='Linear-address stops use the current CPU mode. Near branch targets are shown in linear display coordinates. REP remains one instruction; oversized atomic operations are rejected.';}
  if(platform==='3do'){root.querySelector('#code-disassembly').setAttribute('aria-label','Live ARM60 disassembly');root.querySelector('#code-until').parentElement.nextElementSibling.textContent='ARM32 big-endian. Task switches and Portfolio HLE services are separate boundaries; movies cannot be instruction-stepped. Named stops bind the current task.';}
+ if(idPrefix!=='code')for(const el of root.querySelectorAll('[id]'))el.id=el.id.replace(/^code-/,idPrefix+'-');
+ if(embedded){root.classList.add('code-embedded');root.querySelector('.memory-player').hidden=true;const aside=root.querySelector('aside'),fold=document.createElement('details');fold.className='code-functions-fold';const summary=document.createElement('summary');summary.textContent='Identified functions';aside.before(fold);fold.append(summary,aside);const watch=root.querySelector('[id$="-watch"]'),advanced=document.createElement('details'),title=document.createElement('summary');advanced.className='code-watch-fold';title.textContent='Write watchpoint';watch.before(advanced);advanced.append(title,watch);}
  const bufferPanel=document.createElement('section');bufferPanel.className='code-buffers';root.append(bufferPanel);
- const experimentPanel=platform==='c64'?createExperimentPanel({root,send}):null;
- const tourPanel=createTourPanel({root,send,inspect:at=>{address=at;refresh();},layout:show=>panelLayout?.suggest(show)});
- const $=id=>root.querySelector('#code-'+id);
+ const experimentPanel=lessons&&platform==='c64'?createExperimentPanel({root,send}):null;
+ const tourPanel=lessons?createTourPanel({root,send,inspect:at=>{if(onInspect)onInspect(at);else{address=at;refresh();}},layout:show=>panelLayout?.suggest(show)}):{ready(){},reset(){},state(){},result(){}};
+ const $=id=>root.querySelector('#'+idPrefix+'-'+id);
  let enabled=false,active=false,running=false,busy=false,externalBusy=false,experimentOwned=false,snapshot=null,address=-1,pending=0,snapshotPending=false,waitingSnapshot=false,job=0,generation=0,timer=null,knowledge=null,functionId=null;
- const command=(type,args={})=>send(type,{protocol:1,generation,...args});
+ const command=(type,args={})=>send(type,{protocol:1,generation,client:idPrefix,...args});
  function refresh(force=false){clearTimeout(timer);timer=null;if(!enabled||(!active&&!force))return;snapshotPending=true;pending=command('debug-snapshot',{address});controls();}
  function schedule(){if(!timer&&active&&enabled&&running)timer=setTimeout(refresh,200);}
  function controls(){
@@ -28,7 +30,7 @@ export function createCodeWorkspace({root,views,send,transport,platform,statePan
   for(const e of $('watch').elements)e.disabled=locked||experimentOwned;
   $('step').disabled=locked||experimentOwned||!snapshot?.boundary;$('normalize').disabled=locked||experimentOwned||!snapshot||snapshot.boundary;
   $('tape-play').disabled=$('tape-stop').disabled=!enabled||busy||externalBusy||experimentOwned;
-  $('pause').disabled=!running&&!busy;$('cancel').disabled=!busy;
+  $('pause').disabled=!running&&!busy;$('cancel').disabled=!busy;if(embedded){$('cancel').hidden=!busy;$('normalize').hidden=!!snapshot?.boundary;}
   for(const b of $('functions').querySelectorAll('button'))b.disabled=locked;
  }
  function render(s){
@@ -72,15 +74,16 @@ export function createCodeWorkspace({root,views,send,transport,platform,statePan
  $('cancel').onclick=()=>command('debug-cancel');
  for(const [id,type] of [['play','run'],['pause','pause'],['frame','step']])$(id).onclick=()=>transport(type);
  $('tape-play').onclick=()=>send('tape',{down:1});$('tape-stop').onclick=()=>send('tape',{down:0});
- views.register({id:'code',label:'Code',panel:root,enabled:false});
+ views.register({id:idPrefix,label:'Code',panel:root,enabled:false});
  return {
-  ready(session){enabled=true;generation=session;$('note').textContent='Mapped CPU bytes · snapshots do not advance execution.';views.enable('code',true);command('debug-capabilities');controls();},
+  dispose(){clearTimeout(timer);active=false;enabled=false;},
+  ready(session){enabled=true;generation=session;$('note').textContent='Mapped CPU bytes · snapshots do not advance execution.';views.enable(idPrefix,true);command('debug-capabilities');controls();},
   inspect(at,id=null){functionId=id;address=at;refresh();},
   refreshState(){refresh(true);},
-  reset(){$('event').replaceChildren();experimentPanel?.reset();tourPanel.reset();statePanel?.reset();enabled=false;busy=false;snapshotPending=false;job=0;snapshot=null;functionId=null;address=-1;knowledge=null;bufferPanel.replaceChildren();clearTimeout(timer);views.enable('code',false);controls();},
+  reset(){$('event').replaceChildren();experimentPanel?.reset();tourPanel.reset();statePanel?.reset();enabled=false;busy=false;snapshotPending=false;job=0;snapshot=null;functionId=null;address=-1;knowledge=null;bufferPanel.replaceChildren();clearTimeout(timer);views.enable(idPrefix,false);controls();},
   setActive(value){active=value;clearTimeout(timer);timer=null;if(value)refresh();},
   present(canvas){if(active){const c=$('screen');if(c.width!==canvas.width)c.width=canvas.width;if(c.height!==canvas.height)c.height=canvas.height;c.getContext('2d').drawImage(canvas,0,0);}},
-  state(m){experimentPanel?.state(m);tourPanel.state(m);const was=running;running=m.running;statePanel?.setRunning(m.running||m.debugBusy||m.capturing||m.memoryRecording||m.saving);experimentOwned=!!m.experimentOwned;externalBusy=m.capturing||m.saving||m.memoryRecording||(m.debugBusy&&!busy);controls();if(active&&was&&!running)refresh();schedule();},
+  state(m){experimentPanel?.state(m);tourPanel.state(m);const was=running,wasBlocked=externalBusy;running=m.running;statePanel?.setRunning(m.running||m.debugBusy||m.capturing||m.memoryRecording||m.saving);experimentOwned=!!m.experimentOwned;externalBusy=m.capturing||m.saving||m.memoryRecording||(m.debugBusy&&!busy);controls();if(active&&((was&&!running)||(wasBlocked&&!externalBusy)))refresh();schedule();},
   experimentResult(m){experimentPanel?.result(m);functionId=null;if(m.snapshot){address=-1;render(m.snapshot);}$('note').textContent='Experiment: '+m.phase;},
   tourResult(m){functionId=null;tourPanel.result(m);$('note').textContent='Tour: '+m.phase;if(m.snapshot){functionId=null;address=-1;render(m.snapshot);}},
   result(m){
