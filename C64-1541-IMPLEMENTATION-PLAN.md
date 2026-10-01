@@ -164,7 +164,8 @@ corner cases; SID audio and complete analog behavior are not claimed. Local
 comparison fixtures can be regenerated with `owned/tests/fixtures`, and no
 media or game-derived captures were added to the repository.
 
-C6–C7 remain pending. The production C64 core remains unchanged.
+C6 is in progress (see the checkpoint foundation below); C7 remains pending.
+The production C64 core remains unchanged.
 
 
 ### C4 completion — 2026-10-01
@@ -212,3 +213,35 @@ named corpus and precise limits are in the compatibility ledger; the new
 A longer exploratory run reaches the release's animated intro, but full Giana
 gameplay, other custom loaders, weak-bit protection and analog timing are not
 certified. No production backend switch or shipped WASM changes were made.
+
+
+### C6 progress — portable checkpoint foundation — 2026-10-01
+
+Implemented versioned field-wise hardware serialization for a standalone C64
+or the complete C64/1541/IEC system. Checkpoints retain in-flight instructions,
+device pipelines, video/fetch state, SID noise, tape position, mutable raw disk
+tracks/speed zones, and sampled IEC inputs. Host-supplied core/firmware/media
+identities and configuration must match; bounded parsing and validation occur
+before an atomic restore. See `owned/PORTABLE-STATE.md` for the exact contract.
+
+Acceptance includes native-produced checkpoint bytes imported into WASM,
+thirteen clock-phase replay cases, dirty-media and G64 speed-map restoration,
+malformed/mismatched input rejection, plus portable Fort and Giana replay.
+The separate Elite gate boots its real tape through KERNAL and checks the
+initial 52-byte vector block against raw pulses, then repeats from a checkpoint.
+It exposed an I/O-selection bug during VIC BA stalls: the PLA deselects I/O
+reads during the warning phase, while writes still drain. Fixing that rule
+prevents an early CIA ICR acknowledgement from corrupting Elite's byte `$032F`.
+
+C6 is **not complete**. Remaining integration gates:
+
+- Owned browser ABI and explicit development backend selection.
+- Code/Memory/Rendering/Storage parity, including exact pixel provenance.
+- Browser recording, debugger partial-instruction behavior, experiments and
+  cancellation with the owned core.
+- Regenerated prepared lesson identities/checkpoints and browser acceptance.
+- Continue recording Elite's later loader progress separately from Fort;
+  the first-block check does not certify the full self-modifying loader or game.
+
+The shipped backend, WASM artifacts and existing knowledge-package recipes
+remain unchanged. C7's default switch is still gated on full C6 acceptance.

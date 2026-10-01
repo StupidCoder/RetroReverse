@@ -34,8 +34,10 @@ caller. `loadTape()` validates TAP v0/v1 before replacing current media.
 `CpuState` and `BoardState` contain value-owned registers, device state, pending
 transactions, timing phases and interrupt latches. Copying board state resumes
 partial instructions and tape pulses with the **same firmware and media**.
-Firmware and decoded pulses live outside that state. This is not a versioned
-portable checkpoint format, nor compatible with the previous core's snapshots.
+Firmware and decoded pulses live outside that state. For persistent/native-WASM
+transport use the separately versioned `state.h` codec described in
+[PORTABLE-STATE.md](PORTABLE-STATE.md). Neither representation is compatible
+with the previous core's snapshots.
 
 `Vic` performs scheduled phi1/phi2 memory fetches, controls BA/RDY and AEC,
 and emits eight palette-index pixels per clock. The framebuffer is a raw
@@ -143,7 +145,22 @@ each case has opcode u8, source index u16, initial and final
 `(cycleCount:u8,(address:u16,value:u8,write:u8)[])`.
 
 Nothing here changes the existing Go analysis CPU, shipped WASM or lesson cache
-identities. Browser integration and portable snapshots remain later milestones.
+identities. Portable hardware checkpoints are implemented; browser integration
+and regenerated lesson recipes remain C6 work.
+
+## Elite and portable checkpoint acceptance
+
+Add `--elite-tap games/elite-c64/Elite.tap` alongside `--firmware-dir` to run the
+separate authentic Elite gate. It types LOAD through physical switches, lets
+the tape autostart, and checks every byte of the initial 52-byte vector block
+against an independent decoder of the initial raw pulse format. The complete
+block is repeated from a serialized checkpoint. Later self-modifying stages,
+full loading and gameplay are not certified by this check.
+
+The media-free suite always exercises the portable codec, including a real
+native-to-WASM file transfer, dirty disk continuation and rejected-load
+atomicity. Fort and Giana acceptance also use serialized replay. See
+[PORTABLE-STATE.md](PORTABLE-STATE.md) for the format and host identity contract.
 
 ## 1541 and media contracts
 

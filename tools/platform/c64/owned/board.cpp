@@ -50,7 +50,16 @@ bool Board::tick(bool cpuReady){
  state.lastBus={state.cycles,bus.address,cpu.state.pc,0,state.vic.aec,bus.write,cpuReady&&state.vic.ba&&state.vic.aec,bus.sync};
  // AEC disconnects the CPU. BA gives it three clocks to finish writes first.
  for(unsigned i=0;i<state.vic.fetchCount;i++)state.bus=state.vic.fetches[i].value;
- if(state.vic.aec){data=bus.write?bus.data:read(bus.address);if(bus.write)write(bus.address,data);}
+ if(state.vic.aec){
+  // The PLA gates I/O READ selection with BA (original terms p9/p11).
+  // During the three-clock warning, a held CPU read sees underlying RAM,
+  // not the device. Otherwise repeated stalled ICR reads acknowledge the
+  // interrupt before the CPU can consume it (Elite's pulse discriminator).
+  // I/O writes have separate terms without BA and must still drain here.
+  const bool hiddenIo=!state.vic.ba&&bus.address>=0xd000&&bus.address<0xe000&&ioVisible();
+  data=bus.write?bus.data:hiddenIo?state.ram[bus.address]:read(bus.address);
+  if(bus.write)write(bus.address,data);else state.bus=data;
+ }
 
  state.lastBus.value=data;
  cpu.tick(data,state.cia1.irq||state.vic.irq(),state.cia2.irq||state.restore,cpuReady&&state.vic.ba&&state.vic.aec);state.cpu=cpu.state;return !cpu.faulted();

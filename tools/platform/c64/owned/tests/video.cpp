@@ -52,6 +52,21 @@ static void video(){auto ptr=std::make_unique<Board>();auto& b=*ptr;setup(b);aut
  // A late CPU write drains during the BA warning, before AEC takes the bus.
  setup(b);at(b,51,11);Cpu cpu;cpu.start(0x300);cpu.state.a=0xa7;cpu.tick(0x8d);cpu.tick(0x00);cpu.tick(0x30);b.state.cpu=cpu.state;assert(b.tick());assert(!v.ba&&v.aec&&b.state.ram[0x3000]==0xa7&&b.state.lastBus.write&&b.state.lastBus.valid);
  at(b,51,15);assert(!b.state.lastBus.valid);
+ // PLA BA gating prevents the early read from clearing CIA ICR while the
+ // CPU is stalled. This is device selection, not a general RDY read cache.
+ for(uint16_t address:{0xdc0d,0xdd0d}){
+  setup(b);at(b,51,11);auto& cia=address==0xdc0d?b.state.cia1:b.state.cia2;cia.flags=1;
+  b.state.ram[address]=0x5a;cpu.start(0x300);cpu.tick(0xad);cpu.tick(uint8_t(address));cpu.tick(uint8_t(address>>8));b.state.cpu=cpu.state;
+  for(unsigned i=0;i<3;i++){assert(b.tick());assert(v.aec&&!v.ba&&cia.flags==1&&b.state.lastBus.value==0x5a&&b.state.cpu.stage==Stage::Read);}
+  for(unsigned i=0;i<40;i++){assert(b.tick());assert(!v.aec&&cia.flags==1);}
+  assert(b.tick());assert(v.ba&&cia.flags==0&&b.state.cpu.a==1&&b.state.cpu.stage==Stage::Fetch);
+ }
+ // Writes remain selected with BA low, while an unrelated external RDY
+ // stall with BA high still performs real device reads.
+ setup(b);at(b,51,11);cpu.start(0x300);cpu.state.a=0x1a;cpu.tick(0x8d);cpu.tick(0x00);cpu.tick(0xdd);b.state.cpu=cpu.state;
+ assert(b.tick());assert(!v.ba&&v.aec&&b.state.cia2.pra==0x1a);
+ setup(b);b.state.cia1.flags=1;cpu.start(0x300);cpu.tick(0xad);cpu.tick(0x0d);cpu.tick(0xdc);b.state.cpu=cpu.state;
+ assert(b.tick(false));assert(v.ba&&b.state.cia1.flags==0&&b.state.cpu.stage==Stage::Read);
  // D018 writes between g-accesses change the next fetch, not earlier pixels.
  setup(b);b.state.ram[0x400]=b.state.ram[0x401]=1;b.state.color[0]=b.state.color[1]=5;b.state.ram[0x2008]=255;b.state.ram[0x2808]=0;at(b,51,16);b.write(0xd018,0x1a);at(b,51,22);assert(v.cells[0].graphics.address==0x2008&&v.cells[1].graphics.address==0x2808);assert(v.pixels[51*504+24]==5&&v.pixels[51*504+32]==0);
  // Board checkpoint includes the partial scanline and captured bytes.

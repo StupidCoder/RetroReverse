@@ -248,3 +248,46 @@ inspected locally. This is separate from automated loader acceptance; gameplay
 is not certified. The [inspection guide](DRIVE-INSPECTION.md) explains the full
 repeatable sequence and trace format. No game-derived images or firmware are
 redistributed. Production browser/WASM artifacts remain unchanged.
+
+## C6 in progress — portable state and Elite's first block
+
+The [portable state codec](PORTABLE-STATE.md) now has media-free native/WASM
+acceptance, including a checkpoint file produced natively and loaded in WASM.
+Thirteen ordered clock-edge checkpoints reproduce the full serialized end
+state; digest `5884074885261132794` covers the saved fixture bytes. Dirty D64
+writes and G64 half-track/per-byte speed maps survive restore. Identity, version,
+machine-kind, checksum, truncation, allocation-size and device-state failures
+leave the current machine intact. The normal authored D64 snapshot is 733,405
+bytes. Native UBSan covers the same paths.
+
+Fort's loading/gameplay replay and Giana's custom-loader IEC replay now pass
+through the portable codec rather than only copying C++ state objects. The
+ordinary real-ROM drive, CPU, board, video and debugger regression gates remain
+part of the same acceptance run.
+
+Elite uses `Elite.tap`, SHA256
+`c73bf1c8d20afb1818a42f76c0083d127db36c8dae024c9f057deea619ca0952`,
+with the same pinned C64 firmware. Physical LOAD/RETURN enters `$0378` at cycle
+37,906,392 / pulse 52,797. Every store in the initial `$0300–$0333` vector block
+matches the raw tape's start-plus-eight-bit format, independently decoded at
+file offset `$D7A5`. The 52-byte FNV-1a is `3965641827`; the final store is at
+cycle 40,228,209 / pulse 55,692. Replaying from the loader-entry checkpoint
+reproduces the complete end state. This is a stronger prefix check than the
+previous production-core lesson's first-byte gate, **not full Elite acceptance**.
+The production knowledge package still describes its existing shipped core.
+
+This gate exposed a missing PLA rule. With AEC high and BA low, CPU I/O reads
+must select underlying RAM; I/O writes still select the device. The previous
+implementation cleared CIA2 ICR during a stalled read at cycle 40,205,289, then
+gave the CPU the cleared value when it resumed. That changed the byte written
+to `$032F` from `$FE` to `$FA`. The corrected selection follows the original
+PLA's read/write product terms and RAM-selection sum in
+[The C64 PLA Dissected, section 2.7, pp. 11–14](https://skoe.de/docs/c64-dissected/pla/c64_pla_dissected_a4ss.pdf).
+Focused tests cover both CIAs, all three BA warning clocks, the subsequent
+40 stolen clocks, resumption, writes during the warning and an unrelated RDY
+stall with BA high. This is an independently authored decoder fix; no emulator
+implementation was copied.
+
+Browser ABI, inspection/provenance parity, recording/cancellation and regenerated
+prepared lessons remain pending. Later Elite loader stages, protocol mutations,
+gameplay and object slots remain unvalidated by this bounded gate.

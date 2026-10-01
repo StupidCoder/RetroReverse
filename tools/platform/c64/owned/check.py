@@ -3,7 +3,7 @@
 import argparse,hashlib,json,os,subprocess,sys,tempfile
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
-p=argparse.ArgumentParser();p.add_argument('--native-only',action='store_true');p.add_argument('--emcc',default=os.environ.get('EMXX','em++'));p.add_argument('--node',default=os.environ.get('NODE','node'));p.add_argument('--out',type=Path);p.add_argument('--firmware-dir',type=Path);p.add_argument('--functional-rom',type=Path);p.add_argument('--fort-tap',type=Path);p.add_argument('--fort-fixtures',type=Path);p.add_argument('--drive-rom',type=Path);p.add_argument('--giana-g64',type=Path);a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--native-only',action='store_true');p.add_argument('--emcc',default=os.environ.get('EMXX','em++'));p.add_argument('--node',default=os.environ.get('NODE','node'));p.add_argument('--out',type=Path);p.add_argument('--firmware-dir',type=Path);p.add_argument('--functional-rom',type=Path);p.add_argument('--elite-tap',type=Path);p.add_argument('--fort-tap',type=Path);p.add_argument('--fort-fixtures',type=Path);p.add_argument('--drive-rom',type=Path);p.add_argument('--giana-g64',type=Path);a=p.parse_args()
 subprocess.run([sys.executable,str(HERE/'generate-opcodes.py'),'--check'],check=True)
 manifest=json.loads((HERE/'tests/vectors.json').read_text());vectors=HERE/'tests/vectors.bin'
 assert hashlib.sha256(vectors.read_bytes()).hexdigest()==manifest['sha256'],'Independent vector hash mismatch'
@@ -21,6 +21,13 @@ if a.fort_tap or a.fort_fixtures:
  if not (a.fort_tap and a.fort_fixtures and firmware):p.error('Fort acceptance requires --fort-tap, --fort-fixtures and --firmware-dir')
  fort=[a.fort_tap.resolve(),*[(a.fort_fixtures/name).resolve() for name in ['expected.bin','pages.bin','graphics.bin','graphics-mask.bin']]]
  for path in fort:print(path.name+' SHA256 '+hashlib.sha256(path.read_bytes()).hexdigest(),flush=True)
+elite=[]
+if a.elite_tap:
+ if not firmware:p.error('--elite-tap requires --firmware-dir')
+ path=a.elite_tap.resolve()
+ assert hashlib.sha256(path.read_bytes()).hexdigest()=='c73bf1c8d20afb1818a42f76c0083d127db36c8dae024c9f057deea619ca0952','Unexpected Elite TAP image'
+ elite=firmware+[path]
+ print('Elite SHA256 '+hashlib.sha256(path.read_bytes()).hexdigest(),flush=True)
 drive=[]
 if a.drive_rom:
  if not firmware:p.error('--drive-rom requires --firmware-dir')
@@ -31,11 +38,12 @@ if a.giana_g64:
  if not drive:p.error('--giana-g64 requires --drive-rom and --firmware-dir')
  image=a.giana_g64.resolve();assert hashlib.sha256(image.read_bytes()).hexdigest()=='5ce29ce04786eca6518fb08dfe659abb3eee079b4135a3f7606f9d17a501ec77','Unexpected Giana G64 image'
  drive.append(image)
-def target(out,name,sources,files,images=False):
+def target(out,name,sources,files,images=False,transfer=False):
  sources=[str(HERE/source) for source in sources]
  native=out/(name+'-native')
  subprocess.run([os.environ.get('CXX','clang++'),*flags,*sources,'-o',str(native)],check=True)
- arguments=[*map(str,files)]+([str(out/name)] if images else [])
+ checkpoint=out/(name+'-native.state')
+ arguments=[*map(str,files)]+([str(out/name)] if images else [])+(['--write',str(checkpoint)] if transfer else [])
  expected=subprocess.check_output([str(native),*arguments],text=True,timeout=300);print(expected,end='',flush=True)
  sanitized=out/(name+'-ubsan')
  subprocess.run([os.environ.get('CXX','clang++'),*flags,'-fsanitize=undefined','-fno-sanitize-recover=all',*sources,'-o',str(sanitized)],check=True)
@@ -44,7 +52,9 @@ def target(out,name,sources,files,images=False):
  if not a.native_only:
   wasm=out/(name+'-wasm.mjs');embedded=[];arguments=[]
   for f in files:embedded+=['--embed-file',str(f)+'@/'+f.name];arguments.append('/'+f.name)
-  subprocess.run([a.emcc,*flags,*sources,'-sENVIRONMENT=node','-sEXIT_RUNTIME=1','-sALLOW_MEMORY_GROWTH=1','-sSTACK_SIZE=8388608',*embedded,'-o',str(wasm)],check=True)
+  if transfer:
+   embedded+=['--embed-file',str(checkpoint)+'@/native.state'];arguments+=['--read','/native.state']
+  subprocess.run([a.emcc,*flags,*sources,'-fexceptions','-sENVIRONMENT=node','-sEXIT_RUNTIME=1','-sALLOW_MEMORY_GROWTH=1','-sSTACK_SIZE=8388608',*embedded,'-o',str(wasm)],check=True)
   runner=out/('run-'+name+'-wasm.mjs')
   runner.write_text('import create from '+json.dumps('./'+wasm.name)+'; await create({arguments:'+json.dumps(arguments)+'});\n')
   actual=subprocess.check_output([a.node,str(runner)],text=True,timeout=300)
@@ -60,9 +70,11 @@ def run(out):
  drivecore=core+['via.cpp','disk.cpp','drive.cpp','system.cpp']
  target(out,'driveunit',drivecore+['tests/driveunit.cpp'],[])
  target(out,'debugger',drivecore+['debugger.cpp','tests/debugger.cpp'],[])
+ target(out,'state',drivecore+['state.cpp','tests/state.cpp'],[],transfer=True)
  if drive:target(out,'drive',drivecore+['tests/drive.cpp'],drive)
- if a.giana_g64:target(out,'giana',drivecore+['debugger.cpp','tests/giana.cpp'],drive)
- if fort:target(out,'fort',core+['tests/fort.cpp'],firmware+fort,images=True)
+ if a.giana_g64:target(out,'giana',drivecore+['debugger.cpp','state.cpp','tests/giana.cpp'],drive)
+ if elite:target(out,'elite',core+['state.cpp','tests/elite.cpp'],elite)
+ if fort:target(out,'fort',core+['state.cpp','tests/fort.cpp'],firmware+fort,images=True)
 if a.out:run(a.out.resolve())
 else:
  with tempfile.TemporaryDirectory(prefix='rr-c64-owned-') as temp:run(Path(temp))
