@@ -14,7 +14,7 @@ try{
  const choose=id=>{const select=d.querySelector('[aria-label="Prepared lesson"]');select.value=id;select.dispatchEvent(new w.Event('change'));};choose(elite?'loader-prefix':'terrain');b('start').click();await until(()=>!b('cancel').disabled,'preparing');b('cancel').click();await until(()=>!b('start').disabled,'cancelled');assert(latest('state').state.cycle===initial,'cancel preserves session');checks.push('cancel preserves initial session');
  if(elite){
   b('start').click();await until(()=>latest('tour-state')?.phase==='paused-at-stop','loader entry');
-  for(const kind of ['code','lesson','atlas','tape'])assert(d.querySelector('#viewport-root [data-kind="'+kind+'"]'),'loader panel '+kind);
+  for(const kind of ['code','lesson','atlas','storage'])assert(d.querySelector('#viewport-root [data-kind="'+kind+'"]'),'loader panel '+kind);
   for(let i=1;i<4;i++){const button=d.querySelector('[data-action="continue"]');await until(()=>!button.disabled,'continue enabled');button.click();await until(()=>latest('tour-state')?.index===i,'loader stop '+i);}
   assert(latest('tour-state').phase==='completed','loader complete');checks.push('Elite loader prefix completes with Code, lesson, RAM and pulses visible');
  }else{

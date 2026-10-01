@@ -1,9 +1,9 @@
 # Viewport workspace
 
-Play, Render, Memory and Code are now layouts over one machine session. A C64
-Loader preset places independent Code, RAM atlas and tape-pulse panels together.
-This is generic tape inspection, not a claim that Elite compatibility or an
-Elite lesson has been validated.
+Play, Render, Memory and Code are now layouts over one machine session. The Loader preset places Game / Session above Storage / Memory atlas.
+Guided tour uses separate Code, lesson, RAM atlas and Storage panes. See the
+[Storage follow-up](../storage/README.md) for supported media formats and the
+[prepared lessons](../prepared-lessons/README.md) for the verified Elite prefix.
 
 ## Interaction
 

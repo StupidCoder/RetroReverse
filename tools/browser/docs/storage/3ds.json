@@ -1,0 +1,11 @@
+{
+  "result": "PASS",
+  "platform": "3ds",
+  "format": "Nintendo 3DS",
+  "imageBytes": 536870912,
+  "entries": 3834,
+  "directories": 87,
+  "totalRead": 305742,
+  "maxRead": 512,
+  "sectors": 1048576
+}

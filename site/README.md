@@ -221,3 +221,9 @@ Prepared lessons are reachable from Session / controls and Code's Lesson pane.
 Fort terrain/AI and Elite's verified loader introduction prepare from local media
 and cache validated starts on-device. The full Elite loader remains compatibility
 gated; see [scope and verification](../tools/browser/docs/prepared-lessons/README.md).
+
+
+Loader now uses Game / Session above Storage / Memory atlas. Storage offers live
+C64 tape pulses, D64/ADF/ISO sectors and supported filesystem trees, including
+decrypted 3DS ExeFS/RomFS. **Inspect storage** browses media without booting it.
+See [format support and acceptance](../tools/browser/docs/storage/README.md).

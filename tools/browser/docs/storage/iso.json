@@ -1,0 +1,11 @@
+{
+  "result": "PASS",
+  "platform": "ps2",
+  "format": "ISO 9660",
+  "imageBytes": 1745796096,
+  "entries": 347,
+  "directories": 10,
+  "totalRead": 45968,
+  "maxRead": 2448,
+  "sectors": 713152
+}

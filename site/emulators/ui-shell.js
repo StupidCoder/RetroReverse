@@ -16,7 +16,7 @@ export function shellMarkup(platform) {
   <section id="play-workspace">
     <div class="files"><label for="files">Game ${dos?'folder':'image'}</label><input type="file" id="files" multiple ${dos?'webkitdirectory':''}>
       ${dos?'<label for="program">Executable</label><select id="program" aria-label="DOS executable"></select>':''}
-      <button id="load" class="primary">Load ${dos?'executable':'image'}</button></div>
+      <button id="load" class="primary">Load ${dos?'executable':'image'}</button><button id="inspect-storage">Inspect storage</button></div>
     <div class="play-layout">
       <section class="play-stage">
         <div class="monitor"><canvas id="screen" width="${view.width}" height="${view.height}" tabindex="0" aria-label="${config.name} display and keyboard controls"></canvas></div>

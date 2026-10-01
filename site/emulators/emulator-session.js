@@ -98,6 +98,7 @@ function load(stateFile=null,preparedStart=null) {
     $('status').textContent = 'Select a game image first.';
     return;
   }
+  paneSet?.media(selected);
   pendingWorker?.terminate();
   send('hold');
   const previousWorker=worker, previousLoaded=loaded, nextSession=session+1;
@@ -206,7 +207,7 @@ function load(stateFile=null,preparedStart=null) {
       console.warn('Long emulation slice', JSON.stringify(m));
     } else if (m.type === 'ready') {
       loaded = true;
-      controls(true);memory.ready();code?.ready(session);paneSet?.ready(session);feed.ready();$('game-name').textContent=selected[0]?.name||config.name;$('media-dialog').close();
+      controls(true);paneSet?.mediaReady(selected);memory.ready();code?.ready(session);paneSet?.ready(session);feed.ready();$('game-name').textContent=selected[0]?.name||config.name;$('media-dialog').close();
       $('pause').disabled = true;
       $('status').textContent = m.text;
       lastTime = performance.now();
@@ -548,12 +549,14 @@ paneSet=createViewportPanels({views,platform,send,transport:id=>transport(id,tru
  return()=>{c.onblur=null;c.onclick=null;};
 }});
 const debug=['c64','dos','3do'].includes(platform);
-if(debug)views.register({id:'loader',label:'Loader',panel:document.createElement('div'),enabled:platform==='c64'});
-const entries=[['game','Game'],['atlas','Memory atlas'],['hex','Memory bytes'],['recording','Memory recording'],['render','Rendering'],['render-sources','Render sources'],['render-details','Render details'],['session','Session / controls']];
-if(debug)entries.push(['code','Code'],['state','Game state'],['lesson','Lesson / experiment']);if(platform==='c64')entries.push(['tape','Tape pulses']);
+views.register({id:'loader',label:'Loader',panel:document.createElement('div')});
+if(platform==='c64')views.register({id:'guided',label:'Guided tour',panel:document.createElement('div')});
+const entries=[['game','Game'],['storage','Storage'],['atlas','Memory atlas'],['hex','Memory bytes'],['recording','Memory recording'],['render','Rendering'],['render-sources','Render sources'],['render-details','Render details'],['session','Session / controls']];
+if(debug)entries.push(['code','Code'],['state','Game state'],['lesson','Lesson / experiment']);
 views.configure(entries,(kind,id,root)=>paneSet.make(kind,id,root));
 $('restore-layout').onclick=()=>views.restorePreset();
 $('system-select').value=platform;$('system-select').onchange=()=>onSystem($('system-select').value);
+$('inspect-storage').onclick=()=>{const files=[...$('files').files];if(!files.length){$('status').textContent='Select local media to inspect.';return;}paneSet.media(files);views.select('loader');$('media-dialog').close();$('status').textContent='Inspecting selected media. The current machine is unchanged.';};
 $('open-media').onclick=()=>$('media-dialog').showModal();$('close-media').onclick=()=>$('media-dialog').close();
 // State watches are independent of Code visibility; one shared 5 Hz sampler.
 sampler=setInterval(()=>{if(loaded&&debug&&views.visible('state')&&!latestState?.debugBusy&&!latestState?.capturing&&!latestState?.saving&&!latestState?.memoryRecording)code?.refreshState();},200);

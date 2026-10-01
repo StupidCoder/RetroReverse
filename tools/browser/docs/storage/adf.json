@@ -1,0 +1,11 @@
+{
+  "result": "PASS",
+  "platform": "amiga",
+  "format": "Amiga ADF",
+  "imageBytes": 901120,
+  "entries": 54,
+  "directories": 4,
+  "totalRead": 30720,
+  "maxRead": 512,
+  "sectors": 1760
+}

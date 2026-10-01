@@ -8,7 +8,17 @@ export function validLayout(n,types,ids=new Set(),depth=0){if(!n||depth>3)return
 export function preset(name,debug=true,tape=false){const l=(id,kind)=>leaf(name+'-'+id,kind);
  if(name==='play')return split('x',l('game','game'),l('session','session'),.7);
  if(name==='code')return split('x',split('y',l('game','game'),l('state','state')),split('y',l('code','code'),l('lesson','lesson'),.65));
- if(name==='loader')return split('x',l('code','code'),split('y',l('ram','atlas'),l('tape','tape')),.55);
+ if(name==='loader')return split('x',split('y',l('game','game'),l('storage','storage')),split('y',l('session','session'),l('ram','atlas')));
+ if(name==='guided')return split('x',split('y',l('code','code'),l('lesson','lesson'),.65),split('y',l('ram','atlas'),l('storage','storage')),.55);
  if(name==='memory')return split('x',split('y',l('game','game'),l('atlas','atlas')),split('y',l('hex','hex'),l('record','recording')));
  return split('x',l('render','render'),split('y',l('sources','render-sources'),l('details','render-details')),.62);
+}
+
+// Upgrade shipped defaults and old tape instances, preserving custom geometry.
+export function migrateLayouts(saved){
+ if(!saved||typeof saved!=='object')return {};
+ const old=split('x',leaf('loader-code','code'),split('y',leaf('loader-ram','atlas'),leaf('loader-tape','tape')),.55);
+ const guided=split('x',split('y',leaf('loader-code','code'),leaf('loader-lesson','lesson'),.65),split('y',leaf('loader-ram','atlas'),leaf('loader-tape','tape')),.55);
+ if(JSON.stringify(saved.loader)===JSON.stringify(old)||JSON.stringify(saved.loader)===JSON.stringify(guided))saved.loader=preset('loader');
+ const visit=(n,depth=0)=>{if(!n||depth>3)return;if(n.axis){visit(n.a,depth+1);visit(n.b,depth+1);}else if(n.kind==='tape')n.kind='storage';};for(const n of Object.values(saved))visit(n);return saved;
 }

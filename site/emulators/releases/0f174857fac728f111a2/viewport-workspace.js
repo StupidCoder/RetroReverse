@@ -1,10 +1,11 @@
-import {leaf,split,leaves,replace,close,validLayout,preset} from './viewport-model.js';
+import {leaf,split,leaves,replace,close,validLayout,preset,migrateLayouts} from './viewport-model.js';
 // Stable pane instances survive presets, resizing and maximization. Only an
 // explicit content replacement/close disposes an instance.
 export function createViewportWorkspace({root,navigation,platform,onChange=()=>{}}){
  const registered=new Map(),instances=new Map(),layouts=new Map(),types=new Map();let active='play',tree=preset('play'),maximized=null,mobileId=null,sequence=0,factory=null;
  const mobile=matchMedia('(max-width:700px)');
  const storageKey='rr.viewport.v1.'+platform;let saved={};try{saved=JSON.parse(localStorage.getItem(storageKey)||'{}');}catch{}
+ saved=migrateLayouts(saved);
  navigation.setAttribute('aria-label','Layout');navigation.onchange=()=>select(navigation.value);
  // Upgrade the former default without discarding customized Play layouts.
  if(saved.play?.id==='play-game'&&saved.play.kind==='game'&&!saved.play.axis)saved.play=preset('play');
@@ -39,6 +40,7 @@ export function createViewportWorkspace({root,navigation,platform,onChange=()=>{
   visible(kind){return [...root.querySelectorAll('.viewport')].some(p=>p.dataset.kind===kind);},
   each(fn){for(const v of instances.values())fn(v.panel);},
   reveal(kind){const found=leaves(tree).find(n=>n.kind===kind);if(found){maximized=null;mobileId=found.id;draw();return instances.get(found.id).panel;}const n=leaves(tree).at(-1);instances.get(n.id)?.panel.dispose?.();instances.delete(n.id);tree=replace(tree,n.id,leaf(n.id,kind));mobileId=n.id;maximized=null;commit();return instances.get(n.id).panel;},
+  tourLayout(){active='guided';maximized=null;mobileId='guided-lesson';tree=preset('guided');for(const n of leaves(tree)){const v=instances.get(n.id);if(v&&v.element.dataset.kind!==n.kind){v.panel.dispose?.();instances.delete(n.id);}}commit();},
   restorePreset(){for(const n of leaves(tree)){instances.get(n.id)?.panel.dispose?.();instances.delete(n.id);}tree=preset(active);maximized=null;commit();},
   dispose(){mobile.removeEventListener('change',draw);for(const v of instances.values())v.panel.dispose?.();instances.clear();}
  };

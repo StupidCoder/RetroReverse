@@ -1,0 +1,13 @@
+const release=(await(await fetch('/site/emulators/release.json')).json()).id;
+const {createStorageSource,createStoragePanel}=await import('/site/emulators/releases/'+release+'/storage-panel.js');
+const assert=(v,t)=>{if(!v)throw Error(t);},sleep=ms=>new Promise(r=>setTimeout(r,ms));async function until(fn){for(let i=0;i<400&&!fn();i++)await sleep(20);assert(fn(),'Timed out');}
+let report;try{
+ const source=createStorageSource('amiga'),left=document.querySelector('#left'),right=document.querySelector('#right');for(const root of [left,right])createStoragePanel({root,source,platform:'amiga'}).setActive(true);
+ const b=new Uint8Array(901120),v=new DataView(b.buffer),text=(at,s)=>b.set(new TextEncoder().encode(s),at);text(0,'DOS');for(const [block,type,name]of [[880,1,'Volume'],[900,2,'Folder'],[901,0xfffffffd,'File.bin']]){v.setUint32(block*512,2);v.setUint32(block*512+508,type);b[block*512+432]=name.length;text(block*512+433,name);}v.setUint32(880*512+24,900);v.setUint32(900*512+24,901);v.setUint32(901*512+324,1234);
+ source.set([new File([b],'fixture.adf')]);await until(()=>left.querySelector('summary'));
+ left.querySelector('summary').click();await until(()=>left.querySelectorAll('summary').length===2);[...left.querySelectorAll('summary')][1].click();await until(()=>left.textContent.includes('File.bin'));assert(left.textContent.includes('1.2 KB'),'one-decimal file size');assert(right.querySelectorAll('summary').length===1,'independent tree expansion');
+ const file=[...left.querySelectorAll('.storage-entry button')].find(e=>e.textContent==='File.bin');file.click();await until(()=>left.querySelector('pre').textContent);assert(left.querySelector('[aria-label="Storage sector"]').value==='901','file navigates to header sector');assert(right.querySelector('[aria-label="Storage view"]').value==='files','other view unchanged');
+ const view=right.querySelector('[aria-label="Storage view"]');view.value='sectors';view.dispatchEvent(new Event('change'));await until(()=>right.querySelector('pre').textContent);assert(right.querySelector('[aria-label="Storage sector"]').value==='0','independent sector');
+ report={result:'PASS',release,checks:['expandable filesystem tree','human-readable sizes','file-to-sector navigation','independent panel navigation']};
+}catch(e){report={result:'FAIL',release,error:e.stack||String(e)};}
+document.querySelector('#result').textContent=JSON.stringify(report,null,2);document.title=report.result+' — Storage';const id=new URLSearchParams(location.search).get('report');if(id)await fetch('/__viewport_result__?id='+encodeURIComponent(id),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(report)});

@@ -1,0 +1,10 @@
+{
+  "result": "PASS",
+  "release": "0f174857fac728f111a2",
+  "checks": [
+    "expandable filesystem tree",
+    "human-readable sizes",
+    "file-to-sector navigation",
+    "independent panel navigation"
+  ]
+}

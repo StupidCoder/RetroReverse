@@ -1,0 +1,19 @@
+{
+  "result": "PASS",
+  "release": "0f174857fac728f111a2",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.0.0 Safari/537.36",
+  "checks": [
+    "four-pane Code with native execution",
+    "independent Code instances and Game/Session/Storage/atlas Loader preset",
+    "split, merge and accessible resize",
+    "independent memory ranges",
+    "global transport retains Memory layout",
+    "Rendering preset capture and source/detail panes",
+    "independent Rendering instances",
+    "system switch restores exact paused cycle",
+    "all sixteen system shells mount",
+    "D64 inspection without replacing or executing the game",
+    "live tape stream stays bound to the loaded image",
+    "375px single-pane adaptation without changing desktop layout"
+  ]
+}
