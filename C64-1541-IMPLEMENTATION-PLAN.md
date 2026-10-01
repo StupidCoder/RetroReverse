@@ -235,13 +235,38 @@ prevents an early CIA ICR acknowledgement from corrupting Elite's byte `$032F`.
 
 C6 is **not complete**. Remaining integration gates:
 
-- Owned browser ABI and explicit development backend selection.
+- Explicit development backend selection and production host identity binding
+  (the owned development browser ABI is implemented; see progress below).
 - Code/Memory/Rendering/Storage parity, including exact pixel provenance.
-- Browser recording, debugger partial-instruction behavior, experiments and
-  cancellation with the owned core.
+- Browser UI recording and real-game experiment parity. Authored debugger,
+  experiment and cancellation service tests now pass against the owned ABI.
 - Regenerated prepared lesson identities/checkpoints and browser acceptance.
 - Continue recording Elite's later loader progress separately from Fort;
   the first-block check does not certify the full self-modifying loader or game.
 
 The shipped backend, WASM artifacts and existing knowledge-package recipes
 remain unchanged. C7's default switch is still gated on full C6 acceptance.
+
+### C6 progress — development browser services — 2026-10-01
+
+Added an isolated owned WASM adapter with execution, keyboard/joystick, display,
+Code debugging, memory/tape activity and portable checkpoints. It runs the
+existing tour and experiment service suites without substituting execution or
+state methods. Tests cover partial instructions, interrupts/RDY, step-over/out,
+write watches, checked edits, cancellation, budgets, replay and atomic rollback.
+Capabilities explicitly leave render capture, pixel provenance and audio output
+unavailable. Build output goes to an explicit scratch directory.
+
+The real Elite first-byte tour, independently decoded 52-byte vector block,
+and fresh/cached prepared-start service replay pass. The owned recipe hash is
+generated only in the test; shipped knowledge still targets the old core. Fort
+passes authentic boot and its three-stop terrain tour. Its AI preparation
+selects a different native teleport destination (player/camera X=209/188 versus
+53/34), so the package correctly rejects it and restores the session. This is
+a recorded compatibility gap, not a completed AI comparison.
+
+C6 remains **in progress**. Next gates include the development selector and
+production host binding, rendering provenance/capture, recording and Storage/
+drive-debug UI integration, and accepted game-specific prepared recipes. See
+[the browser adapter contract](tools/platform/c64/owned/browser/README.md) for
+reproduction and precise limits. C7 remains pending.

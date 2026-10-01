@@ -261,3 +261,14 @@ Fort Apocalypse KERNAL/Novaload TAP path. Each optional test requires local medi
 no emulator-only patch or file-loading trap is used. Other disk loaders,
 protection schemes and full Giana gameplay are unvalidated. C6 brings these core
 capabilities into the browser; the production core still uses the previous backend.
+
+## C6 browser adapter (development)
+
+The [owned browser adapter](browser/README.md) now exports bounded execution,
+debugging, memory activity, display/input and identity-bound portable state.
+The existing JavaScript tour/experiment suites run against either backend,
+and real-media tests cover Elite's first loader lesson/prepared-start replay
+and Fort's terrain lesson. Fort's existing AI experiment safely rejects a
+different teleport result; its original/patched comparison remains a follow-up.
+The adapter guide documents build commands, ABI semantics and remaining C6
+gates. No production backend or shipped WASM is changed.

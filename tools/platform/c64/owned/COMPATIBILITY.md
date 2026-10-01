@@ -288,6 +288,33 @@ Focused tests cover both CIAs, all three BA warning clocks, the subsequent
 stall with BA high. This is an independently authored decoder fix; no emulator
 implementation was copied.
 
-Browser ABI, inspection/provenance parity, recording/cancellation and regenerated
-prepared lessons remain pending. Later Elite loader stages, protocol mutations,
+The development browser ABI now passes the existing debugger, memory, tour and
+experiment service tests with authored programs, including cancellation and
+rollback. Rendering/provenance parity, production worker/UI integration,
+recording and regenerated shipped prepared lessons remain pending. Later Elite loader stages, protocol mutations,
 gameplay and object slots remain unvalidated by this bounded gate.
+
+### C6 browser-service acceptance
+
+See [the adapter contract](browser/README.md). The exported module passes native,
+UBSan and WASM tests for partial/RDY/interrupt stepping, over/out, mapping-bound
+breakpoints, real-write watches, atomic edits, input, observation and portable
+state. Observer history is excluded from deterministic machine digests. Shared
+JavaScript suites validate execution budgets, cancellation, stale requests,
+tour evidence, replay determinism and session/input rollback.
+
+Elite's existing four-stop first-byte tour passes against the owned module; all
+52 initial stores also match raw TAP decoding. Fresh and cached prepared starts
+pass using a recipe with an owned WASM identity and measured digest generated
+in memory. The shipped recipe still targets the existing production core.
+
+Fort's authentic boot and three-stop terrain tour pass (215/40 measured writes).
+The existing AI experiment passes its start guard but rejects its subsequent
+teleport: player/camera X=209/188 versus required 53/34. The test verifies this
+known guarded failure and restores the complete machine and host input queue.
+The original/patched gameplay comparison remains unvalidated on the owned
+core; no guards were weakened or machine state forced to hide this difference.
+
+Drive scheduling and state work through the adapter, but drive-specific UI,
+render capture, pixel provenance and audio output are not advertised as
+available. The default backend remains unchanged.

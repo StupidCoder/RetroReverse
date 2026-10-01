@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import {createTourService,matches,intervalEvidence} from '../../../site/emulators/tour-worker.js';
-import factory from '../../../site/emulators/cores/c64/core.js';
-const core=await factory({wasmBinary:fs.readFileSync(new URL('../../../site/emulators/cores/c64/core.wasm',import.meta.url))});
+import {createC64TestCore} from './c64-test-core.mjs';
+const core=await createC64TestCore();
 const put=b=>core.HEAPU8.set(b,core._rr_input());put(new Uint8Array(20480));assert(core._rr_init(8192,8192,4096));
 const tape=new Uint8Array(21);tape.set(new TextEncoder().encode('C64-TAPE-RAW'));tape[16]=tape[20]=1;put(tape);assert(core._rr_tape(21));
 // A genuine write then restore in one interval, deliberately no endpoint diff.

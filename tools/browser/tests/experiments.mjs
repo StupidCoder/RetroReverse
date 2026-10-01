@@ -1,7 +1,7 @@
-import fs from 'node:fs';import assert from 'node:assert/strict';
-import factory from '../../../site/emulators/cores/c64/core.js';
+import assert from 'node:assert/strict';
+import {createC64TestCore} from './c64-test-core.mjs';
 import {createExperimentService} from '../../../site/emulators/experiment-worker.js';
-const core=await factory({wasmBinary:fs.readFileSync(new URL('../../../site/emulators/cores/c64/core.wasm',import.meta.url))});
+const core=await createC64TestCore();
 const put=b=>core.HEAPU8.set(b,core._rr_input()),ram=()=>core.HEAPU8.subarray(core._rr_ram(),core._rr_ram()+65536),snapshot=()=>JSON.parse(core.UTF8ToString(core._rr_debug_snapshot(-1)));
 const save=()=>{const n=core._rr_state_save();return core.HEAPU8.slice(core._rr_state_data(),core._rr_state_data()+n);};
 const edit=(address,before,after)=>({kind:'ram',address,before:[before],after:[after],explanation:'test'});
