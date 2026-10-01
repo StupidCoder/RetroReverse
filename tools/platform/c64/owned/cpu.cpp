@@ -60,7 +60,10 @@ bool Cpu::branch()const{switch(state.op){
 void Cpu::poll(bool masked){state.interruptPending|=state.pollNmi||(state.pollIrq&&!masked);}
 void Cpu::finish(bool masked,bool sample){++state.retired;if(sample)poll(masked);read(Stage::Fetch,state.pc,true);}
 void Cpu::access(){if(store())write(Stage::Write,state.address,state.op==Op::STA?state.a:state.op==Op::STX?state.x:state.op==Op::SAX?uint8_t(state.a&state.x):state.y);else read(Stage::Read,state.address);}
-void Cpu::tick(uint8_t data,bool irq,bool nmi,bool rdy){
+void Cpu::tick(uint8_t data,bool irq,bool nmi,bool rdy,bool so){
+ // SO is an asserted input (the physical pin is active low). An edge wins over
+ // same-cycle flag updates, including CLV, and is sampled during RDY stalls.
+ struct OverflowEdge {CpuState& s;bool edge;~OverflowEdge(){if(edge)s.p|=V;}} overflow{state,so&&!state.soLine};state.soLine=so;
  ++state.clocks;state.pollIrq=state.irq;state.pollNmi=state.nmiPending;state.irq=irq;if(nmi&&!state.nmiLine)state.nmiPending=true;state.nmiLine=nmi;
  if(!rdy&&!state.bus.write)return;
  const bool masked=state.p&I;

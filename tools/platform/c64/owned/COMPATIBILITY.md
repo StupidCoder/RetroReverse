@@ -58,7 +58,7 @@ CIA reference: Wolfgang Lorenz,
 [A Software Model of the CIA6526, EDK 2.15](https://ist.uwaterloo.ca/~schepers/MJK/cia6526.html).
 Keyboard reference: [How the keyboard works](https://www.c64os.com/post/howthekeyboardworks).
 CIA2 IRQ and RESTORE are wired to NMI; CIA1 and VIC scaffold IRQ to IRQ.
-The board has no IEC devices or 1541 yet. VIA will be a separate implementation.
+At C2 the board had no IEC devices or 1541. C4 adds the drive and a separate VIA implementation.
 
 Real boot runs 3,000,000 cycles, types through matrix switches (100,000 cycles
 each pressed/released), then runs another 300,000: 5,300,000 total, final PC
@@ -157,6 +157,54 @@ or third-party-emulator golden frames. Image palette/cropping is presentation.
 
 ## Next acceptance gates
 
-C4 adds the independent 1541 and IEC bus, then C5 validates fastloaders and drive
+C4 provides the independent 1541 and IEC bus. C5 validates fastloaders and drive
 inspection. C6 integrates the browser, full pixel provenance and portable states;
 C7 governs the default switch. The production third-party core remains active.
+
+
+## C4 — independent 1541 and ordinary DOS media
+
+Two independently clocked CPUs communicate over resolved IEC lines. Drive RAM,
+ROM, both 6522 VIAs, motor/stepper, recovered GCR bits, sync and CA1/SO byte-ready
+signals are modeled. No guest file-loading calls are intercepted.
+
+Acceptance includes an authored 35-track disk with six linked sectors on tracks
+1/17/19/25/31/35 (all four zones); every one of its 1,522 payload bytes is checked.
+Real ROM directory loading, BASIC SAVE/export/reload, protected SAVE and a
+protected-to-protected disk swap pass. Snapshots during an IEC load and during
+an actual disk write reproduce 20,000 clocks of CPU PCs, head bits and IEC events,
+plus final RAM, raw tracks and dirty flags. Media-free checks cover timers,
+handshakes, latches, IRQ acknowledgement, external shift, SO edges, exact clock
+ratio, wired-AND/ATN behavior, D64 35/40-track roundtrips and G64 half-track/speed
+maps. Invalid mounts leave the old media intact.
+
+The optional firmware is the 16 KiB concatenation of the Commodore 1541
+`325302-01` C000 and `901229-05` E000 halves. SHA256:
+`d1d45afb46fd4e2b48d93ca367b889d75654a3b7acf73044e51f6d880c09369e`.
+Local-only source archive: [Zimmers 1541 firmware](https://www.zimmers.net/anonftp/pub/cbm/firmware/drives/new/1541/).
+No firmware is redistributed in this milestone.
+
+The user-supplied `Great_Giana_Sisters_The.g64` is 333,744 bytes, 84 half-track
+slots with 42 populated whole tracks. SHA256:
+`5ce29ce04786eca6518fb08dfe659abb3eee079b4135a3f7606f9d17a501ec77`.
+Its real-ROM directory reads `GIANA-GAME`; `LOAD"F",8,1` loads 992 bytes at
+$CC00 with FNV-1a `735537004`. The independent Python GCR/checksum/chain oracle
+reports PRG SHA256 `f6e28e64d68e9bd1c4dcc9e853adafa7782f93888da64d7b97f88aa597f2e6b4`
+(including the two-byte load address). This does **not** certify full game startup.
+The image is optional local test input, not redistributed here.
+
+C4 limitations: read timing follows recorded GCR speed zones, without analog PLL
+acquisition or weak-bit randomness; missing half-tracks read empty. Angular
+position across head moves is approximate. Normal same-density writes are tested;
+arbitrary formatting/density changes are not. No analog head overlap, motor
+spin-up or exhaustive NMOS VIA shift-register corner-case validation is claimed.
+The optical insertion/removal sensor sequence is deterministic (200 ms), not a
+model of the user's physical insertion speed. C5 owns custom-loader validation.
+
+Hardware/format references used for the independently authored implementation:
+
+- [6522 register/timer/handshake documentation](https://www.westerndesigncenter.com/wdc/documentation/w65c22.pdf) (modern W65C22; NMOS edge quirks require separate validation).
+- [Commodore IEC circuit description](https://www.commodore.ca/manuals/funet/cbm/schematics/drives/new/1541/service/Page_09.html).
+- [1541 sync and byte-ready hardware investigation](https://luigidifraia.wordpress.com/2020/12/09/how-the-block-sync-and-byte-sync-signals-of-a-commodore-1541-drive-work/).
+- [G64 format specification](https://vice-emu.sourceforge.io/vice_17.html) (format documentation only; no VICE device implementation copied).
+- [D64 sector/BAM/directory format](https://www.theflatnet.de/pub/cbm/65xx/text/d64.html).

@@ -23,7 +23,7 @@ struct BoardState {
  Vic vic;
  Sid sid;
  std::array<uint8_t,8> keys{}; // Each entry is one PA column; bits are PB rows.
- uint8_t ddr=0,data=0,bus=0xff,joy1=0,joy2=0;
+ uint8_t ddr=0,data=0,bus=0xff,joy1=0,joy2=0,iecInputs=255;
  uint32_t todPhase=0;
  uint64_t cycles=0;
  TapeState tape;

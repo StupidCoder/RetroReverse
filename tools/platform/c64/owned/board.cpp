@@ -17,7 +17,7 @@ uint8_t Board::io(uint16_t address,bool effects){
  if(address<0xd800)return effects?state.sid.read(address&31):state.sid.peek(address&31);
  if(address<0xdc00)return (state.bus&0xf0)|state.color[address&1023];
  if(address<0xdd00){const auto pins=keyboard();return effects?state.cia1.read(address&15,pins[0],pins[1]):state.cia1.peek(address&15,pins[0],pins[1]);}
- if(address<0xde00)return effects?state.cia2.read(address&15):state.cia2.peek(address&15);
+ if(address<0xde00)return effects?state.cia2.read(address&15,state.iecInputs):state.cia2.peek(address&15,state.iecInputs);
  return state.bus;
 }
 uint8_t Board::peek(uint16_t address)const{

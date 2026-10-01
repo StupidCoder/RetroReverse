@@ -25,7 +25,7 @@ struct CpuState {
  Op op=Op::Unknown;Mode mode=Mode::imp;Stage stage=Stage::Fetch;
  Bus bus{};
  uint64_t clocks=0,retired=0;
- bool nmiLine=false,nmiPending=false,interruptPending=false,softwareInterrupt=false,irq=false,pollIrq=false,pollNmi=false;
+ bool soLine=false,nmiLine=false,nmiPending=false,interruptPending=false,softwareInterrupt=false,irq=false,pollIrq=false,pollNmi=false;
 };
 class Cpu {
 public:
@@ -36,7 +36,7 @@ public:
  bool boundary()const{return state.stage==Stage::Fetch;}
  bool faulted()const{return state.stage==Stage::Fault||state.stage==Stage::Jam;}
  // irq/nmi are asserted levels, rdy=false stalls reads but never writes.
- void tick(uint8_t data,bool irq=false,bool nmi=false,bool rdy=true);
+ void tick(uint8_t data,bool irq=false,bool nmi=false,bool rdy=true,bool so=false);
 private:
  void read(Stage stage,uint16_t address,bool sync=false);
  void write(Stage stage,uint16_t address,uint8_t data);

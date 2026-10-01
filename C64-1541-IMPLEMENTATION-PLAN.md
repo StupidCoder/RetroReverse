@@ -92,7 +92,8 @@ file-loading trap may stand in for this gate.
 ### C5 — Fastloaders and drive investigation
 
 Validate uploaded drive routines and timing-sensitive transfers using a named
-media corpus. Add G64 when nonstandard track contents are required; D64 does
+media corpus. G64 parsing was brought forward into C4 for the supplied Giana image; validate
+nonstandard track behavior here. D64 does
 not preserve arbitrary protection/track layouts. Expose drive CPU disassembly,
 breakpoints, memory, VIA state, head/bit position and IEC transitions. Global
 pause freezes both machines; stepping either CPU keeps the other synchronized.
@@ -163,4 +164,26 @@ corner cases; SID audio and complete analog behavior are not claimed. Local
 comparison fixtures can be regenerated with `owned/tests/fixtures`, and no
 media or game-derived captures were added to the repository.
 
-C4–C7 remain pending. The production C64 core remains unchanged.
+C5–C7 remain pending. The production C64 core remains unchanged.
+
+
+### C4 completion — 2026-10-01
+
+Implemented the independent drive CPU/RAM/ROM map, two 6522 VIAs, CPU SO,
+open-collector IEC including ATN acknowledgement, rational dual-machine clocks,
+head/motor/LED state, GCR sync/byte-ready and mutable encoded media. D64 synthesis
+and G64 v0 raw half-tracks/per-byte speed metadata share the same drive path.
+G64 support was brought forward in response to the supplied Giana Sisters disk.
+
+Acceptance uses real C64 and 1541 firmware with physical keyboard commands:
+directory loading, a verified authored payload across six tracks/all four zones,
+SAVE/reload, write protection, protected-to-protected disk swaps, and in-flight
+read/write snapshot replay. The supplied Giana G64 directory and file `F` are
+separate normal-DOS checks with an independent checksum-validating GCR oracle.
+Full Giana startup/custom-loader/protection acceptance remains C5 work.
+
+Native, WASM and native UBSan checks cover these gates and the earlier CPU,
+board, video and authentic Fort acceptance. The compatibility ledger records
+media identities and limits. C4's bit-cell model is not an analog flux/PLL model;
+weak bits, changed-density formatting and exhaustive NMOS VIA quirks remain
+unvalidated. The production browser core and shipped artifacts are unchanged.
