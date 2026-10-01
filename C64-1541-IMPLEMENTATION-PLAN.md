@@ -137,5 +137,14 @@ C1 complete: independently authored documented-instruction CPU, native/WASM
 build harness, pinned offline instruction/bus vectors and microstate replay
 checks. Both targets pass 9,664 vectors / 38,749 bus cycles with trace digest
 `6a229904`; native UBSan passes. See `tools/platform/c64/owned/README.md` for
-reproduction and the precise CPU limitations. C2–C7 remain pending. The
-production C64 core remains unchanged.
+reproduction and the precise CPU limitations at that milestone.
+
+C2 complete: 237 supported CPU encodings, explicit unstable/JAM diagnostics,
+interrupt-edge tests, 6510 banking, both CIAs, keyboard/joystick and TAP wiring.
+Native/WASM pass 15,168 independent vectors / 66,181 bus cycles (digest
+`1d597cc1`) and the sustained Klaus Dormann test (30,646,176 instructions).
+Real KERNAL/BASIC boots to READY and executes PRINT 2+2 entered through physical
+keyboard switches; CIA/tape timing and replay checks pass. Native UBSan passes.
+See [the compatibility ledger](tools/platform/c64/owned/COMPATIBILITY.md) for
+identities, evidence and limits. VIC raster registers and SID are scaffolds;
+C3–C7 remain pending. The production C64 core remains unchanged.

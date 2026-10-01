@@ -23,9 +23,17 @@ void Cpu::sbc(uint8_t v){
  if(state.p&D){int low=(a&15)-(v&15)-borrow,high=(a>>4)-(v>>4);if(low<0){low-=6;high--;}if(high<0)high-=6;state.a=uint8_t((high*16)+(low&15));}
  else state.a=uint8_t(result);
 }
-bool Cpu::store()const{return state.op==Op::STA||state.op==Op::STX||state.op==Op::STY;}
-bool Cpu::modifying()const{switch(state.op){case Op::ASL:case Op::LSR:case Op::ROL:case Op::ROR:case Op::INC:case Op::DEC:return true;default:return false;}}
+bool Cpu::store()const{return state.op==Op::STA||state.op==Op::STX||state.op==Op::STY||state.op==Op::SAX;}
+bool Cpu::modifying()const{switch(state.op){case Op::SLO:case Op::RLA:case Op::SRE:case Op::RRA:case Op::DCP:case Op::ISC:case Op::ASL:case Op::LSR:case Op::ROL:case Op::ROR:case Op::INC:case Op::DEC:return true;default:return false;}}
 void Cpu::operand(uint8_t v){switch(state.op){
+ case Op::LAX:state.a=state.x=v;nz(v);break;
+ case Op::LAS:state.a=state.x=state.s=v&state.s;nz(state.a);break;
+ case Op::ANC:state.a&=v;nz(state.a);flag(C,state.a&128);break;
+ case Op::ALR:state.a&=v;flag(C,state.a&1);state.a>>=1;nz(state.a);break;
+ case Op::AXS:{const auto a=uint8_t(state.a&state.x);state.x=uint8_t(a-v);flag(C,a>=v);nz(state.x);break;}
+ case Op::ARR:{const auto a=uint8_t(state.a&v);state.a=uint8_t((a>>1)|((state.p&C)<<7));nz(state.a);flag(V,((state.a>>6)^(state.a>>5))&1);
+  if(state.p&D){if((a&15)+(a&1)>5)state.a=(state.a&0xf0)|((state.a+6)&15);const bool carry=(a&0xf0)+(a&0x10)>0x50;if(carry)state.a+=0x60;flag(C,carry);}else flag(C,state.a&64);break;}
+
  case Op::LDA:state.a=v;nz(v);break;case Op::LDX:state.x=v;nz(v);break;case Op::LDY:state.y=v;nz(v);break;
  case Op::ORA:state.a|=v;nz(state.a);break;case Op::AND:state.a&=v;nz(state.a);break;case Op::EOR:state.a^=v;nz(state.a);break;
  case Op::ADC:adc(v);break;case Op::SBC:sbc(v);break;
@@ -33,10 +41,10 @@ void Cpu::operand(uint8_t v){switch(state.op){
  case Op::BIT:flag(Z,(state.a&v)==0);flag(N,v&128);flag(V,v&64);break;default:break;
 }}
 uint8_t Cpu::modify(uint8_t v){const uint8_t carry=(state.p&C)?1:0;switch(state.op){
- case Op::ASL:flag(C,v&128);v<<=1;break;case Op::LSR:flag(C,v&1);v>>=1;break;
- case Op::ROL:flag(C,v&128);v=uint8_t((v<<1)|carry);break;case Op::ROR:flag(C,v&1);v=uint8_t((v>>1)|(carry<<7));break;
- case Op::INC:v++;break;case Op::DEC:v--;break;default:break;
- }nz(v);return v;}
+ case Op::SLO:case Op::ASL:flag(C,v&128);v<<=1;break;case Op::SRE:case Op::LSR:flag(C,v&1);v>>=1;break;
+ case Op::RLA:case Op::ROL:flag(C,v&128);v=uint8_t((v<<1)|carry);break;case Op::RRA:case Op::ROR:flag(C,v&1);v=uint8_t((v>>1)|(carry<<7));break;
+ case Op::ISC:case Op::INC:v++;break;case Op::DCP:case Op::DEC:v--;break;default:break;
+ }nz(v);switch(state.op){case Op::SLO:state.a|=v;nz(state.a);break;case Op::RLA:state.a&=v;nz(state.a);break;case Op::SRE:state.a^=v;nz(state.a);break;case Op::RRA:adc(v);break;case Op::DCP:compare(state.a,v);break;case Op::ISC:sbc(v);break;default:break;}return v;}
 void Cpu::implied(){switch(state.op){
  case Op::CLC:flag(C,false);break;case Op::SEC:flag(C,true);break;case Op::CLI:flag(I,false);break;case Op::SEI:flag(I,true);break;
  case Op::CLD:flag(D,false);break;case Op::SED:flag(D,true);break;case Op::CLV:flag(V,false);break;
@@ -49,10 +57,11 @@ bool Cpu::branch()const{switch(state.op){
  case Op::BCC:return !(state.p&C);case Op::BCS:return state.p&C;case Op::BEQ:return state.p&Z;case Op::BNE:return !(state.p&Z);
  case Op::BMI:return state.p&N;case Op::BPL:return !(state.p&N);case Op::BVS:return state.p&V;case Op::BVC:return !(state.p&V);default:return false;
 }}
-void Cpu::finish(bool masked){++state.retired;state.interruptPending=state.nmiPending||(state.irq&&!masked);read(Stage::Fetch,state.pc,true);}
-void Cpu::access(){if(store())write(Stage::Write,state.address,state.op==Op::STA?state.a:state.op==Op::STX?state.x:state.y);else read(Stage::Read,state.address);}
+void Cpu::poll(bool masked){state.interruptPending|=state.pollNmi||(state.pollIrq&&!masked);}
+void Cpu::finish(bool masked,bool sample){++state.retired;if(sample)poll(masked);read(Stage::Fetch,state.pc,true);}
+void Cpu::access(){if(store())write(Stage::Write,state.address,state.op==Op::STA?state.a:state.op==Op::STX?state.x:state.op==Op::SAX?uint8_t(state.a&state.x):state.y);else read(Stage::Read,state.address);}
 void Cpu::tick(uint8_t data,bool irq,bool nmi,bool rdy){
- ++state.clocks;state.irq=irq;if(nmi&&!state.nmiLine)state.nmiPending=true;state.nmiLine=nmi;
+ ++state.clocks;state.pollIrq=state.irq;state.pollNmi=state.nmiPending;state.irq=irq;if(nmi&&!state.nmiLine)state.nmiPending=true;state.nmiLine=nmi;
  if(!rdy&&!state.bus.write)return;
  const bool masked=state.p&I;
  const auto nextByte=[&](Stage s){read(s,state.pc++);};
@@ -63,6 +72,7 @@ void Cpu::tick(uint8_t data,bool irq,bool nmi,bool rdy){
   state.opcode=data;state.op=instructions[data].op;state.mode=instructions[data].mode;state.pc++;
   switch(state.op){
    case Op::Unknown:read(Stage::Fault,state.pc);return;
+   case Op::JAM:read(Stage::Jam,state.pc);return;
    case Op::BRK:state.softwareInterrupt=true;state.vector=0xfffe;nextByte(Stage::BrkPad);return;
    case Op::JSR:nextByte(Stage::SubLow);return;
    case Op::RTS:read(Stage::ReturnDummy,state.pc);return;
@@ -105,10 +115,10 @@ void Cpu::tick(uint8_t data,bool irq,bool nmi,bool rdy){
  case Stage::ModifyOld:state.value=modify(state.value);write(Stage::ModifyNew,state.address,state.value);break;
  case Stage::ModifyNew:finish(masked);break;
  case Stage::BranchOffset:
-  if(!branch()){finish(masked);break;}state.target=uint16_t(state.pc+int8_t(data));read(Stage::BranchDummy,state.pc);break;
+  poll(masked);if(!branch()){finish(masked,false);break;}state.target=uint16_t(state.pc+int8_t(data));read(Stage::BranchDummy,state.pc);break;
  case Stage::BranchDummy:
   if((state.pc&0xff00)!=(state.target&0xff00))read(Stage::BranchCross,uint16_t((state.pc&0xff00)|(state.target&255)));
-  else{state.pc=state.target;finish(masked);}break;
+  else{state.pc=state.target;finish(masked,false);}break;
  case Stage::BranchCross:state.pc=state.target;finish(masked);break;
  case Stage::JumpLow:state.low=data;read(Stage::JumpHigh,uint16_t((state.address&0xff00)|uint8_t(state.address+1)));break;
  case Stage::JumpHigh:state.pc=uint16_t(state.low|(data<<8));finish(masked);break;
@@ -135,8 +145,8 @@ void Cpu::tick(uint8_t data,bool irq,bool nmi,bool rdy){
  case Stage::BrkPad:case Stage::InterruptDummy:write(Stage::InterruptHigh,uint16_t(0x100|state.s),uint8_t(state.pc>>8));break;
  case Stage::InterruptHigh:--state.s;write(Stage::InterruptLow,uint16_t(0x100|state.s),uint8_t(state.pc));break;
  case Stage::InterruptLow:--state.s;write(Stage::InterruptP,uint16_t(0x100|state.s),uint8_t((state.p|U)&~B)|(state.softwareInterrupt?B:0));break;
- case Stage::InterruptP:--state.s;flag(I,true);if(state.nmiPending){state.vector=0xfffa;state.nmiPending=false;}read(Stage::VectorLow,state.vector);break;
- case Stage::VectorLow:state.low=data;read(Stage::VectorHigh,uint16_t(state.vector+1));break;
+ case Stage::InterruptP:--state.s;if(state.pollNmi){state.vector=0xfffa;state.nmiPending=false;}read(Stage::VectorLow,state.vector);break;
+ case Stage::VectorLow:flag(I,true);state.low=data;read(Stage::VectorHigh,uint16_t(state.vector+1));break;
  case Stage::VectorHigh:state.pc=uint16_t(state.low|(data<<8));if(state.softwareInterrupt)++state.retired;state.softwareInterrupt=false;read(Stage::Fetch,state.pc,true);break;
  case Stage::ResetDummy:if(state.value++==0)read(Stage::ResetDummy,state.pc);else stack(Stage::ResetStack1);break;
  case Stage::ResetStack1:--state.s;stack(Stage::ResetStack2);break;
@@ -144,7 +154,7 @@ void Cpu::tick(uint8_t data,bool irq,bool nmi,bool rdy){
  case Stage::ResetStack3:--state.s;flag(I,true);read(Stage::ResetLow,0xfffc);break;
  case Stage::ResetLow:state.low=data;read(Stage::ResetHigh,0xfffd);break;
  case Stage::ResetHigh:state.pc=uint16_t(state.low|(data<<8));read(Stage::Fetch,state.pc,true);break;
- case Stage::Fault:break;
+ case Stage::Jam:case Stage::Fault:break;
  }
 }
 } // namespace rr::c64

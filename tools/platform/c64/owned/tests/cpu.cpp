@@ -39,6 +39,35 @@ static void unit(){
  m.cpu.start(0x200);m.ram[0x200]=2;m.tick();assert(m.cpu.faulted());
  std::cout<<"PASS owned NMOS CPU: RMW bus writes, RDY, mid-cycle replay, reset, IRQ/NMI and unsupported-opcode stop\n";
 }
+// Cycle expectations from NESdev/Visual6502 interrupt polling and hijacking
+// traces, independent of this engine's control flow. Inputs are phi2 samples.
+static void interruptTests(){
+ for(unsigned asserted=0;asserted<4;asserted++){
+  Machine m;m.cpu.start(0x200);m.cpu.state.p=U;m.ram[0x200]=0xad;m.ram[0x201]=0;m.ram[0x202]=4;
+  for(unsigned i=0;i<4;i++)m.tick(i==asserted);assert(m.cpu.state.interruptPending==(asserted==2));
+ }
+ for(auto op:{0x58,0x78}){Machine m;m.cpu.start(0x200);m.cpu.state.p=U|(op==0x58?I:0);m.ram[0x200]=uint8_t(op);m.tick(true);m.tick(true);assert(m.cpu.state.interruptPending==(op==0x78));}
+ for(bool initialMask:{false,true}){Machine m;m.cpu.start(0x200);m.cpu.state.p=U|(initialMask?I:0);m.cpu.state.s=0xfc;m.ram[0x200]=0x28;m.ram[0x1fd]=U|(initialMask?0:I);for(int i=0;i<4;i++)m.tick(true);assert(m.cpu.state.interruptPending==!initialMask);}
+ {Machine m;m.cpu.start(0x200);m.cpu.state.s=0xfa;m.ram[0x200]=0x40;m.ram[0x1fb]=U;m.ram[0x1fc]=0;m.ram[0x1fd]=4;for(int i=0;i<6;i++)m.tick(true);assert(m.cpu.state.pc==0x400&&m.cpu.state.interruptPending);}
+ for(bool taken:{false,true})for(bool crossing:{false,true})for(unsigned asserted=0;asserted<4;asserted++){
+  Machine m;const uint16_t pc=crossing?0x2fd:0x200;m.cpu.start(pc);m.cpu.state.p=U|(taken?0:Z);m.ram[pc]=0xd0;m.ram[pc+1]=2;
+  const unsigned cycles=taken?(crossing?4:3):2;for(unsigned i=0;i<cycles;i++)m.tick(i==asserted);
+  assert(m.cpu.state.interruptPending==(asserted==0||(taken&&crossing&&asserted==2)));
+ }
+ for(unsigned edge=0;edge<7;edge++){
+  Machine m;m.cpu.start(0x200);m.cpu.state.s=0xfd;m.ram[0x200]=0;m.ram[0xfffa]=0;m.ram[0xfffb]=4;m.ram[0xfffe]=0;m.ram[0xffff]=3;m.ram[0x300]=m.ram[0x400]=0xea;
+  for(unsigned i=0;i<7;i++)m.tick(false,i==edge);assert(m.cpu.state.pc==(edge<4?0x400:0x300));assert(m.ram[0x1fc]==2&&(m.ram[0x1fb]&B));
+  if(edge>=4){assert(!m.cpu.state.interruptPending);m.tick();m.tick();assert(m.cpu.state.interruptPending);}
+ }
+ // Reset cancels an in-flight write transaction; reset cycles must all read.
+ {Machine m;m.cpu.start(0x200);m.cpu.state.a=0x55;m.ram[0x200]=0x8d;m.ram[0x201]=0;m.ram[0x202]=4;m.tick();m.tick();m.tick();assert(m.cpu.bus().write);m.cpu.reset();for(int i=0;i<7;i++){assert(!m.cpu.bus().write);m.tick();}assert(m.ram[0x400]==0);}
+ // A held NMI is one edge even when the CPU resumes from a read stall.
+ {Machine m;m.cpu.start(0x200);m.ram[0x200]=m.ram[0x400]=m.ram[0x401]=0xea;m.ram[0xfffa]=0;m.ram[0xfffb]=4;for(int i=0;i<3;i++)m.tick(false,true,false);m.tick(false,true);m.tick(false,true);for(int i=0;i<7;i++)m.tick(false,true);m.tick(false,true);m.tick(false,true);assert(m.cpu.state.pc==0x401&&!m.cpu.state.interruptPending);}
+ // Seven silicon-dependent encodings fail explicitly; JAM is separately identified.
+ for(auto op:{0x8b,0xab,0x93,0x9f,0x9b,0x9c,0x9e}){Machine m;m.cpu.start(0x200);m.ram[0x200]=uint8_t(op);m.tick();assert(m.cpu.state.stage==Stage::Fault);}
+ {Machine m;m.cpu.start(0x200);m.ram[0x200]=2;m.tick();assert(m.cpu.state.stage==Stage::Jam);m.cpu.reset();for(int i=0;i<7;i++)m.tick();assert(m.cpu.boundary());}
+ std::cout<<"PASS CPU timing: phi2 polling, CLI/SEI/PLP/RTI, branch polling windows, NMI/BRK hijacking, RDY/NMI and mid-write reset\n";
+}
 static uint32_t number(FILE* f,unsigned n){uint32_t v=0;for(unsigned i=0;i<n;i++){int c=std::fgetc(f);require(c!=EOF,"Truncated vectors");v|=uint32_t(c)<<(i*8);}return v;}
 static CpuState registers(FILE* f){CpuState s;s.pc=number(f,2);s.s=number(f,1);s.a=number(f,1);s.x=number(f,1);s.y=number(f,1);s.p=number(f,1);return s;}
 static void vectors(const char* path){
@@ -62,4 +91,4 @@ static void vectors(const char* path){
  }
  require(std::fgetc(f)==EOF,"Unexpected trailing vector data");std::fclose(f);std::cout<<"PASS "<<count<<" independent instruction vectors / "<<clocks<<" bus cycles; trace digest "<<std::hex<<digest<<std::dec<<"\n";
 }
-int main(int argc,char** argv){unit();if(argc==2)vectors(argv[1]);return 0;}
+int main(int argc,char** argv){unit();interruptTests();if(argc==2)vectors(argv[1]);return 0;}

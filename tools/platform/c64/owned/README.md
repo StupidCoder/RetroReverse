@@ -1,91 +1,99 @@
 # Owned C64/1541 hardware core
 
-This directory starts RetroReverse's independently authored C++20 C64/1541
-replacement. It is not yet a playable C64 and is not selected by the production
-browser app. See [the implementation plan](../../../../C64-1541-IMPLEMENTATION-PLAN.md).
-The existing `browser/core` and its vendored dependencies remain intact until
-machine-level acceptance is complete.
+RetroReverse's independently authored C++20 replacement now has a tested NMOS
+CPU and a C64 board that boots real KERNAL/BASIC and accepts keyboard input.
+It is not yet a playable C64 or selected by the production browser app. See
+[the implementation plan](../../../../C64-1541-IMPLEMENTATION-PLAN.md) and
+[the compatibility ledger](COMPATIBILITY.md). The existing `browser/core` and
+vendored dependencies remain intact until machine-level acceptance is complete.
 
-## C1: documented NMOS CPU foundation
+## CPU and board contracts
 
-`cpu.h`/`cpu.cpp` implement one pending bus transaction per CPU cycle. A host
+`cpu.h`/`cpu.cpp` expose one pending bus transaction per CPU cycle. A host
 services `cpu.bus()` and supplies its read value to `cpu.tick()`. Writes use the
 value already on the bus. Opcode fetches have `sync=true`; RDY stalls reads,
-not writes. The board will handle the 6510 processor port and VIC bus arbitration.
-The drive will use another instance with its own clock and memory map.
+not writes. The future drive uses another instance with its own clock and map.
 
-Implemented: all 151 documented opcodes, indexed and indirect addressing,
-page-cross and branch cycles, zero-page wrapping, NMOS indirect JMP wrapping,
-stack traffic, old/new RMW writes, decimal arithmetic, BRK/RTI, seven-cycle reset,
-basic level IRQ/edge NMI and explicit unsupported-opcode stop. `CpuState` holds
-registers, pending bus transaction, execution phase, temporary operands and
-interrupt latches without pointers. Copying it preserves partial instructions;
-this is not yet a versioned portable on-disk machine-state format.
+`start(pc)` is a debug/test entry point. Machines use `reset()` and tick its
+seven-cycle read sequence. `boundary()` denotes a pending opcode fetch before
+consumption. `faulted()` distinguishes unsupported instructions and JAM from an
+ordinary boundary. Execution requests must remain bounded.
 
-`start(pc)` is a test/debug entry point, not a simulated reset. Boards use
-`reset()` and tick the reset bus sequence. `boundary()` denotes a pending opcode
-fetch, before that fetch is consumed. Hosts must distinguish `faulted()` from an
-ordinary instruction boundary and keep all execution requests bounded.
+`board.h`/`board.cpp` connect the processor port, banking, RAM/ROM/color RAM,
+both CIAs, keyboard switches, joysticks and TAP media. `power()` clears machine
+state; `resetCpu()` resets only the CPU. `read()` performs device side effects;
+`peek()` is safe for inspection. Keyboard coordinates are physical matrix
+columns/rows, not character codes. Firmware arrays must be populated by the
+caller. `loadTape()` validates TAP v0/v1 before replacing current media.
 
-The opcode table is generated from RetroReverse's existing instruction metadata:
+`CpuState` and `BoardState` contain value-owned registers, device state, pending
+transactions, timing phases and interrupt latches. Copying board state resumes
+partial instructions and tape pulses with the **same firmware and media**.
+Firmware and decoded pulses live outside that state. This is not a versioned
+portable checkpoint format, nor compatible with the previous core's snapshots.
+
+The PAL raster clock/register scaffold lets firmware read raster progress; it
+has no fetches, pixels, badlines, sprite DMA or CPU arbitration yet. SID writes
+are retained; OSC3/ENV3 reads return zero and set `unimplementedSidRead` so use
+is visible to tests. Neither is a substitute for C3's devices. The board ticks
+CIAs before the CPU bus access; tape pulse boundaries inject CIA1 FLAG events.
+
+The opcode table uses existing RetroReverse documented metadata and authored
+undocumented-instruction metadata in `instruction_set.py`:
 
 ```
 python3 tools/platform/c64/owned/generate-opcodes.py
 ```
 
-No vendored CPU or device code is compiled into this implementation. The
-independent test corpus is third-party MIT-licensed data with attribution below.
+No vendored CPU or device implementation is compiled into this core.
 
-## Reproduce acceptance offline
+## Reproduce acceptance
+
+Offline, without game media or firmware:
 
 ```
 python3 tools/platform/c64/owned/check.py --native-only
 python3 tools/platform/c64/owned/check.py --emcc /path/to/emscripten/em++
 ```
 
-The default uses temporary build outputs. `--out /absolute/scratch/path` retains
-them. `CXX`, `EMXX` and `NODE` select toolchains. Native-only acceptance is also
-called by `tools/browser/check.py`. WASM acceptance runs the same C++ harness
-under Node, including the independent vectors embedded in its test filesystem.
-No game media, ROMs or browser deployment are required for C1.
+Optional real firmware boot and independent sustained functional test:
+
+```
+python3 tools/platform/c64/owned/check.py \
+  --emcc /path/to/emscripten/em++ \
+  --firmware-dir site/emulators/firmware/c64 \
+  --functional-rom /absolute/path/6502_functional_test.bin
+```
+
+The ledger records exact firmware and functional-test identities. The harness
+never downloads media. Optional files are embedded only in scratch WASM test
+outputs; they are not redistributed here. `--out /absolute/scratch/path` retains
+builds; otherwise outputs are temporary. `CXX`, `EMXX` and `NODE` select tools.
+`tools/browser/check.py` also calls native-only, media-free acceptance.
+
+Native and WASM run the same assertions and compare output, including the CPU
+bus/register digest. A native undefined-behavior sanitizer run must also agree.
+AddressSanitizer previously stalled during macOS runtime initialization before
+main; it is not claimed as passing.
+
+## Independent instruction fixtures
 
 The harness verifies every read/write address, value and cycle count, final
-registers, and final memory from 64 cases per documented opcode. Fixtures are a
-bounded sample, **not** the complete upstream suite. `vectors.json` records the
-source revision, selection rule and content hash. Run `tests/fetch-vectors.py`
-explicitly to reproduce downloads; ordinary checks never use the network.
-The source is [SingleStepTests/65x02](https://github.com/SingleStepTests/65x02),
-revision `2f6980a2d95757486c7bee24355c360e40e2a224`, NMOS `6502/v1`.
-The redistributed data's license is [SingleStepTests-LICENSE](tests/SingleStepTests-LICENSE).
-`vectors.bin` is a compact lossless encoding of the selected states and cycles:
-LE `CPV1` magic and u32 count; each case has opcode u8, source index u16, initial
-and final `(PC:u16,S,A,X,Y,P:u8)`, initial/final RAM lists `(count:u16,(address:u16,
-value:u8)[])`, and `(cycleCount:u8,(address:u16,value:u8,write:u8)[])`.
+registers, and final memory for 64 cases per supported encoding. This is a
+bounded sample, **not** the complete upstream suite. `tests/vectors.json` records
+the source revision, selection and hash. `tests/fetch-vectors.py` explicitly
+reproduces downloads; ordinary checks never use the network.
 
-Additional authored tests cover multiple instructions, repeated RDY reads,
-un-stalled writes, reset stack reads, IRQ stack contents and CLI delay, an NMI
-edge during a read stall, unsupported-opcode stopping, and replay across the two
-writes of an in-progress RMW instruction.
+Source: [SingleStepTests/65x02](https://github.com/SingleStepTests/65x02), revision
+`2f6980a2d95757486c7bee24355c360e40e2a224`, NMOS `6502/v1`.
+The redistributed data's license is
+[SingleStepTests-LICENSE](tests/SingleStepTests-LICENSE).
+`vectors.bin` is a compact lossless encoding: LE `CPV1` magic and u32 count;
+each case has opcode u8, source index u16, initial and final
+`(PC:u16,S,A,X,Y,P:u8)`, initial/final RAM lists
+`(count:u16,(address:u16,value:u8)[])`, and
+`(cycleCount:u8,(address:u16,value:u8,write:u8)[])`.
 
-Validated on 2026-10-01 with Apple clang, Emscripten 4.0.16 and Node 26.3.1:
-
-- 9,664 independent vectors, 38,749 observed bus cycles.
-- Native and WASM bus/register trace digest: `6a229904`.
-- All authored control-line and replay cases pass in both builds.
-- Native undefined-behavior sanitizer passes with the same digest.
-- AddressSanitizer was attempted but stalled during macOS sanitizer runtime
-  initialization, before main; it is not claimed as passing.
-
-## Remaining CPU acceptance before board integration
-
-C2 must complete undocumented opcodes, characterize unstable variants, and test
-interrupt polling at precise cycle edges (including branch timing, NMI/BRK
-hijacking and reset/RDY interactions). Current IRQ/NMI logic provides the basic
-state contract and tested cases; it is not an exhaustive NMOS timing claim.
-The complete upstream vectors, sustained functional ROM tests and independent
-hardware timing tests remain broader gates. C1 passes alone do not demonstrate
-KERNAL boot, a working VIC/CIA/SID, tape compatibility or 1541 behavior.
-
-Nothing here changes the existing Go analysis CPU, shipped WASM, prepared lesson
-cache identities, or third-party-core save states. Those are addressed by the
-later board, device and integration milestones.
+Nothing here changes the existing Go analysis CPU, shipped WASM or lesson cache
+identities. Browser integration, portable snapshots and the 1541 remain later
+milestones.

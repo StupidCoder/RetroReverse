@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Refresh the bounded, pinned independent NMOS instruction/bus regression corpus."""
+import sys
 import concurrent.futures,hashlib,json,struct,time,urllib.request
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
@@ -7,7 +8,9 @@ ROOT=HERE.parents[4]
 REV='2f6980a2d95757486c7bee24355c360e40e2a224'
 BASE='https://raw.githubusercontent.com/SingleStepTests/65x02/'+REV+'/'
 PER_OPCODE=64
-ops=json.loads((ROOT/'site/emulators/opcodes6502.js').read_text().split('export const opcodes = ',1)[1].strip().removesuffix(';'))
+sys.path.insert(0,str(HERE.parent))
+from instruction_set import opcodes
+ops={code:value for code,value in opcodes().items() if value[0]!='JAM'}
 def fetch(code):
  for attempt in range(3):
   try:
@@ -34,5 +37,5 @@ for code,tests in sorted(cases.items()):
 license=urllib.request.urlopen(BASE+'LICENSE',timeout=45).read()
 (HERE/'SingleStepTests-LICENSE').write_bytes(license)
 (HERE/'vectors.bin').write_bytes(out)
-(HERE/'vectors.json').write_text(json.dumps({'source':'https://github.com/SingleStepTests/65x02','revision':REV,'path':'6502/v1','selection':'first 64 cases of each of the 151 documented opcodes; not exhaustive','cases':len(cases)*PER_OPCODE,'sha256':hashlib.sha256(out).hexdigest()},indent=2)+'\n')
+(HERE/'vectors.json').write_text(json.dumps({'source':'https://github.com/SingleStepTests/65x02','revision':REV,'path':'6502/v1','selection':'first 64 cases of each of 237 documented/stable undocumented opcodes; JAM and seven unstable encodings excluded; not exhaustive','cases':len(cases)*PER_OPCODE,'sha256':hashlib.sha256(out).hexdigest()},indent=2)+'\n')
 print('Pinned',len(cases)*PER_OPCODE,'cases,',len(out),'bytes',flush=True)

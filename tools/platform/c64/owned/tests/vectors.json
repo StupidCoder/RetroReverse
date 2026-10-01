@@ -2,7 +2,7 @@
   "source": "https://github.com/SingleStepTests/65x02",
   "revision": "2f6980a2d95757486c7bee24355c360e40e2a224",
   "path": "6502/v1",
-  "selection": "first 64 cases of each of the 151 documented opcodes; not exhaustive",
-  "cases": 9664,
-  "sha256": "4dae9d065dffa242e4a084df6e89440c1196f357fde4b8edb8f187b31910da70"
+  "selection": "first 64 cases of each of 237 documented/stable undocumented opcodes; JAM and seven unstable encodings excluded; not exhaustive",
+  "cases": 15168,
+  "sha256": "97caa6890b52fe38eda493b643df29862205f453551f03e92793496b29f6a93d"
 }
