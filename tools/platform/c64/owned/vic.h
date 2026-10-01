@@ -18,6 +18,11 @@ struct VicSprite {
  uint8_t pointer=0,mc=0,base=0,pixel=24,repeat=0;
  bool dma=false,display=false,advance=true,active=false;
 };
+struct Vic;
+struct VicPixel {unsigned x;uint8_t color,background,spriteColor,hits;int winner;bool foreground,border;std::array<uint8_t,8> positions;};
+// Optional observers receive actual fetch/output decisions; they are external
+// to serialized hardware and cannot modify the VIC through this interface.
+struct VicObserver {virtual ~VicObserver()=default;virtual void fetch(const VicFetch&)=0;virtual void pixel(const Vic&,const VicPixel&)=0;};
 struct Vic {
  static constexpr unsigned Width=504,Height=312,CyclesPerLine=63;
  std::array<uint8_t,64> regs{};
@@ -33,10 +38,10 @@ struct Vic {
  uint8_t read(uint8_t reg);
  void write(uint8_t reg,uint8_t value);
  // tick prepares phi1/phi2 VIC accesses and the BA/AEC state for the CPU bus.
- void tick(std::span<const uint8_t,65536> ram,std::span<const uint8_t,4096> chars,std::span<const uint8_t,1024> color,uint16_t bank);
+ void tick(std::span<const uint8_t,65536> ram,std::span<const uint8_t,4096> chars,std::span<const uint8_t,1024> color,uint16_t bank,VicObserver* observer=nullptr);
  bool irq()const{return flags&mask;}
 private:
  void rasterIrq();
- void draw();
+ void draw(VicObserver* observer);
 };
 }

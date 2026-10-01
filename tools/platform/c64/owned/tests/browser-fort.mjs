@@ -29,19 +29,29 @@ for(let i=0;i<3;i++){
 }
 putState(terrainAnchor);
 function putState(bytes){const p=core._rr_state_input(bytes.length);assert(p);core.HEAPU8.set(bytes,p);assert(core._rr_state_load(bytes.length));}
-run(6000000);until(0x9c52,1000000);const anchor=save();let host={pending:[{buttons:4}],sequence:9};
+run(6000000);until(0x9c52,1000000);run(2162162);assert.equal(core._rr_cycle(),126553519);const anchor=save();let host={pending:[{buttons:4}],sequence:9};
 const experiment=createExperimentService({core,knowledge,generation:2,send:(type,m)=>response={type,...m},sleep:async()=>{},busy:()=>false,paint:()=>{},snapshot,captureHost:()=>host,restoreHost:v=>host=v,clearInput:()=>{host={};core._rr_joystick(2,0);}});
-// The shipped experiment targets the previous core's timing/RNG context.
-// Its start predicate passes here, but the native teleport produces another
-// horizontal location. Preserve the exact package guards and verify rollback;
-// this is a known compatibility gap, not a successful AI comparison.
-const experimentAnchor=snapshot();
-assert.equal(experimentAnchor.nextPC,0x9c52);
-let beforeRollback=null;const load=core._rr_state_load;
-core._rr_state_load=n=>{const ram=core.HEAPU8.subarray(core._rr_ram(),core._rr_ram()+65536);beforeRollback={pc:snapshot().nextPC,x:ram[105],cameraX:ram[86]};return load(n);};
+// The owned recipe reaches a later natural AI invocation. These unchanged
+// guards still require the game itself to choose the documented spawn point.
 await experiment.request({type:'experiment-prepare',protocol:1,generation:2,request:1,id:'upward-probe'});
-assert.equal(response.phase,'failed');assert.match(response.text,/Experiment invariant failed/);
-assert.deepEqual(beforeRollback,{pc:0x9c52,x:209,cameraX:188});
+assert.equal(response.phase,'prepared',response.text);
+await experiment.request({type:'experiment-original',protocol:1,generation:2,request:2,id:'upward-probe'});
+assert.equal(response.phase,'original-complete',response.text);assert(response.deterministic);
+await experiment.request({type:'experiment-modified',protocol:1,generation:2,request:3,id:'upward-probe'});
+assert.equal(response.phase,'completed',response.text);
+for(const b of response.branches){const predicates=b.observations.flatMap(o=>o.predicates);assert(predicates.includes('visible'));assert.equal(predicates.includes('dying'),b.label!=='modified');assert.equal(predicates.includes('terrain-contact'),b.label!=='modified');}
+await experiment.request({type:'experiment-return',protocol:1,generation:2,request:4,id:'upward-probe'});
 assert.deepEqual(save(),anchor);assert.deepEqual(host,{pending:[{buttons:4}],sequence:9});assert.equal(experiment.owns(),false);
-console.log('PASS owned Fort browser adapter: authentic KERNAL/Novaload boot, terrain tour (215/40 writes), safe rejection and full rollback of incompatible AI preparation');
-console.log('KNOWN GAP: shipped AI teleport preparation expects player/camera X=53/34; owned boot produces 209/188. Original/patched gameplay comparison remains unvalidated.');
+// Inspect the real gameplay frame, including the scanner's charset split.
+for(let i=0;i<2;i++)assert(core._rr_run(20000,7,0)>0);
+assert(core._rr_capture_begin());assert(core._rr_run(20000,7,0)>0);assert(core._rr_capture_end());
+const json=name=>JSON.parse(core.UTF8ToString(core[name]())),capturedState=save(),info=json('_rr_raster_info');assert(info.complete);assert.equal(info.lines.length,272);
+const charsets=new Set();let sources=0,writers=0;
+for(const {line} of info.lines){
+ const state=JSON.parse(core.UTF8ToString(core._rr_raster_seek(line)));charsets.add(state.charsetBase);
+ for(let x=24;x<392;x+=37){const p=JSON.parse(core.UTF8ToString(core._rr_raster_pixel(2,x,line)));assert(p.complete);for(const r of p.contributors){if(r.missing||r.space!==0)continue;sources++;if(r.writer){writers++;assert.equal(r.writer.value,r.value);assert(r.writer.cycle<r.fetchCycle);}}}
+}
+assert(charsets.size>=2&&sources>1000&&writers>0);assert.deepEqual(save(),capturedState);
+const rgba=p=>core.HEAPU8.slice(p,p+392*272*4);assert.deepEqual(rgba(core._rr_raster_frame(2)),rgba(core._rr_frame()));
+console.log('PASS owned Fort rendering: 272 historical lines, charset split, actual fetch/writer evidence, final frame equality and unchanged machine state');
+console.log('PASS owned Fort browser adapter: authentic KERNAL/Novaload boot, terrain tour (215/40 writes), unchanged AI setup guards, deterministic original death / patched survival, full session rollback');

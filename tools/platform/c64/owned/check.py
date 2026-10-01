@@ -72,6 +72,7 @@ def run(out):
  target(out,'debugger',drivecore+['debugger.cpp','tests/debugger.cpp'],[])
  target(out,'state',drivecore+['state.cpp','tests/state.cpp'],[],transfer=True)
  target(out,'browser',drivecore+['state.cpp','tests/browser.cpp'],[])
+ target(out,'render',drivecore+['state.cpp','tests/render.cpp'],[])
  if not a.native_only:
   adapter=out/'adapter'
   subprocess.run([sys.executable,str(HERE/'browser/build.py'),'--emcc',a.emcc,'--out',str(adapter)],check=True)
@@ -80,6 +81,7 @@ def run(out):
    subprocess.run([a.node,str(script)],env=env,check=True,timeout=120)
   if elite:subprocess.run([a.node,str(HERE/'tests/browser-elite.mjs'),str(a.firmware_dir.resolve()),str(a.elite_tap.resolve())],env=env,check=True,timeout=300)
   if fort:subprocess.run([a.node,str(HERE/'tests/browser-fort.mjs'),str(a.firmware_dir.resolve()),str(a.fort_tap.resolve())],env=env,check=True,timeout=300)
+  if elite and fort:subprocess.run([a.node,str(HERE/'tests/prepare-lessons.mjs'),str(a.firmware_dir.resolve()),str(a.fort_tap.resolve()),str(a.elite_tap.resolve())],env=env,check=True,timeout=600)
  if drive:target(out,'drive',drivecore+['tests/drive.cpp'],drive)
  if a.giana_g64:target(out,'giana',drivecore+['debugger.cpp','state.cpp','tests/giana.cpp'],drive)
  if elite:target(out,'elite',core+['state.cpp','tests/elite.cpp'],elite)

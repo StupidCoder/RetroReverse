@@ -1,3 +1,4 @@
+import {selectedC64Backend} from './core-backend.js';
 import {createPreparedPanel} from './prepared-panel.js';
 import {checkpointCache} from './checkpoint-cache.js';
 import {createCodeWorkspace} from './code-workspace.js';
@@ -12,6 +13,7 @@ import {platforms} from './platforms.js';
 import {dosFiles,dosKeys} from './dos-media.js';
 import {amigaKeys} from './amiga-input.js';
 export function mountEmulatorSession(system,{onSystem=()=>{}}={}){
+let backend=system==='c64'?selectedC64Backend(location.search):'production',capabilities={};
 let disposed=false,pendingSuspend=null,latestState=null,sampler=null;const lifetime=new AbortController();let paneSet;
 document.body.dataset.platform=system;
 const $ = id => document.getElementById(id),
@@ -19,7 +21,8 @@ const $ = id => document.getElementById(id),
       presentation = mountShell(platform),
       canvas = $('screen'), ctx = canvas.getContext('2d');
 const renderTemplate=$('render-workspace').innerHTML;
-let worker, session = 0, request = 0, selected = [], firmware = null,
+let activeMedia=null;
+let worker, session = 0, request = 0, selected = [], firmware = null, driveFirmware=null,
             compatibility = true, loaded = false;
 let lastSeconds = 0, lastSteps = null, lastFrames = 0, lastTime = performance.now(), rate = '',
     lastProfile = {}, profileTime = 0;
@@ -44,7 +47,8 @@ function queuePresentation(m){
 const sources = new Map(), c64Keys = new Set();
 let lastInput = '', gamepadLabel = '';
 let inputTouch={x:0,y:0,down:false};
-$('files').accept = config.accept;
+function backendControls(){ $('files').accept=platform==='c64'&&backend==='owned'?'.tap,.d64,.g64':config.accept;if($('drive-firmware-group'))$('drive-firmware-group').hidden=backend!=='owned';}
+backendControls();
 $('help').textContent = config.help;
 $('compat').textContent = config.compat;
 $('tape').hidden = platform !== 'c64';
@@ -62,7 +66,7 @@ code=createCodeWorkspace({root:$('code-workspace'),views,send,transport:id=>tran
 function controls(on) {
   for (const id of ['run', 'pause', 'reset', 'step', 'save'])
     $(id).disabled = !on;
-  render.ready(on);
+  render.ready(on&&capabilities.renderCapture!==false);
 }
 function showProfile(p, captureWork=false) {
   if (!p || (!captureWork&&performance.now() - profileTime < 500))
@@ -92,19 +96,20 @@ function showProfile(p, captureWork=false) {
           : (captureWork?'Capture work only. ':'')+'Exclusive wall time since the previous update. CPU remainder includes uninstrumented devices and scheduling. Idle time and display copies excluded.';
 }
 let pendingWorker, cancelPreparation, preparedPanel, lessonShortcut;
-function load(stateFile=null,preparedStart=null) {
+function load(stateFile=null,preparedStart=null,requestedBackend=backend) {
   if(stateFile instanceof Event)stateFile=null;
   if (!selected.length) {
     $('status').textContent = 'Select a game image first.';
     return;
   }
+  const requestedMedia={files:selected,firmware,driveFirmware,compatibility};
   paneSet?.media(selected);
   pendingWorker?.terminate();
   send('hold');
   const previousWorker=worker, previousLoaded=loaded, nextSession=session+1;
   const candidate=new Worker(new URL('./worker.js',import.meta.url),{type:'module'});pendingWorker=candidate;
   let bufferedState;
-  const recover=text=>{candidate.terminate();pendingWorker=null;cancelPreparation=null;loaded=previousLoaded;controls(loaded);preparedPanel?.pending(false);$('system-select').disabled=false;if(loaded){memory.ready();code?.ready(session);paneSet?.ready(session);feed.ready();}$("pause").disabled=true;$('status').textContent=text+' Current machine retained.';preparedPanel?.message(text);};
+  const recover=text=>{candidate.terminate();pendingWorker=null;cancelPreparation=null;loaded=previousLoaded;if(activeMedia){selected=activeMedia.files;firmware=activeMedia.firmware;driveFirmware=activeMedia.driveFirmware;compatibility=activeMedia.compatibility;paneSet?.media(selected);paneSet?.mediaReady(selected);}controls(loaded);preparedPanel?.pending(false);$('system-select').disabled=false;if(loaded){memory.ready();code?.ready(session);paneSet?.ready(session);feed.ready();}$("pause").disabled=true;$('status').textContent=text+' Current machine retained.';preparedPanel?.message(text);};
   cancelPreparation=()=>recover('Preparation cancelled.');
   if(preparedStart){preparedPanel.pending(true);$('system-select').disabled=true;}else preparedPanel?.state({saving:true});
 
@@ -114,7 +119,7 @@ function load(stateFile=null,preparedStart=null) {
     if(m.type==='prepared-cache-put'){checkpointCache('put',m.key,m.bytes);return;}
     if(m.type==='state'){bufferedState=m;return;}
     if(m.type==='ready'){
-      previousWorker?.terminate();worker=candidate;session=nextSession;pendingWorker=null;
+      previousWorker?.terminate();activeMedia=requestedMedia;worker=candidate;session=nextSession;pendingWorker=null;
       candidate.onmessage=handleMessage;loaded=true;cancelPreparation=null;preparedPanel?.pending(false);$('system-select').disabled=false;
       handleMessage({data:m});if(bufferedState)handleMessage({data:bufferedState});
       if(preparedStart){const r=preparedPanel.recipe(preparedStart);preparedPanel.message('Prepared start ready.');if(r.layout==='loader')views.tourLayout();else views.reveal('lesson');send(r.target.kind==='tour'?'tour-start':'experiment-prepare',{protocol:1,generation:session,id:r.target.id});}
@@ -139,6 +144,7 @@ function load(stateFile=null,preparedStart=null) {
     if(disposed||pendingWorker)return;
     if (m.session !== session)
       return;
+    if(m.type.startsWith('drive-debug-')){paneSet?.driveResult(m);return;}
     if(m.type.startsWith('experiment-')){memory.invalidate();code?.experimentResult(m);if(m.snapshot)paneSet?.snapshot(m.snapshot);return;}
     if(m.type.startsWith('tour-')){if(m.phase==='running-to-stop')memory.invalidate();code?.tourResult(m);if(m.snapshot)paneSet?.snapshot(m.snapshot);return;}
     if(m.type==='debug-capabilities'){const count=preparedPanel?.ready(m.knowledge);if(lessonShortcut)lessonShortcut.hidden=!count;}
@@ -181,7 +187,7 @@ function load(stateFile=null,preparedStart=null) {
       showProfile(m.profile);
       if (loaded) {
         $('reset').disabled = !!(m.saving||m.experimentOwned);
-        render.ready(!m.saving&&!m.memoryRecording&&!m.debugBusy&&!m.experimentOwned);
+        render.ready(capabilities.renderCapture!==false&&!m.saving&&!m.memoryRecording&&!m.debugBusy&&!m.experimentOwned);
         $('run').disabled = m.running||m.capturing||m.saving||m.memoryRecording||m.debugBusy||m.experimentOwned;
         $('step').disabled = m.running||m.capturing||m.saving||m.memoryRecording||m.debugBusy||m.experimentOwned;
         $('save').disabled = m.capturing||m.saving||m.memoryRecording||m.debugBusy||m.experimentOwned;
@@ -194,19 +200,21 @@ function load(stateFile=null,preparedStart=null) {
     } else if(['raster-seek','raster-pixel','blit-seek','blit-pixel','seek','seek-progress','pixel','source','resource'].includes(m.type)){render.result(m);paneSet?.renderResult(m);
     } else if(m.type==='capture-cleared'){
       render.reset({starting:m.starting});paneSet?.clearCapture({starting:m.starting});
-      $('capture-note').textContent=platform==='dos'?'Open Render to trace RAM rendering and its copies to VGA.':'Use Capture next display in Render to record a complete interval.';$('cancelcapture').hidden=true;
+      $('capture-note').textContent=capabilities.renderCapture===false?'Rendering capture is unavailable in this development core.':platform==='dos'?'Open Render to trace RAM rendering and its copies to VGA.':'Use Capture next display in Render to record a complete interval.';$('cancelcapture').hidden=true;
     } else if(m.type==='capture'){
       render.setCapture(m);paneSet?.capture(m);showProfile(m.profile,true);lastTime=performance.now();lastSteps=m.end.steps;lastFrames=m.end.frames;lastSeconds=m.end.seconds??0;rate='';
       $('cancelcapture').hidden=true;
       $('capture-note').textContent=`Captured display ${m.start.frames}–${m.end.frames} · ${(m.elapsedMs/1000).toFixed(2)} s capture · longest call ${m.maxCall.toFixed(1)} ms · ${((m.info.bytes+(m.info.rasterBytes||0)+m.checkpointBytes)/1048576).toFixed(1)} MiB evidence/checkpoints${m.info.overflow?' · incomplete: trace limit reached':''}${m.info.renderBuffers?' · '+m.info.producerPixels.toLocaleString()+' pixels mapped to RAM'+(m.info.timedOut?' · bounded window ended before two VGA bursts':''):''}`;
     } else if(m.type==='saved'){
-      if(pendingSuspend){const done=pendingSuspend;pendingSuspend=null;done.resolve({files:selected,firmware,compatibility,executable:$('program')?.value,stateFile:new File([m.bytes],platform+'.rrstate')});return;}
+      if(pendingSuspend){const done=pendingSuspend;pendingSuspend=null;done.resolve({files:selected,firmware,driveFirmware,compatibility,backend,executable:$('program')?.value,stateFile:new File([m.bytes],platform+'.rrstate')});return;}
       const url=URL.createObjectURL(new Blob([m.bytes],{type:'application/octet-stream'}));
       const a=document.createElement('a');a.href=url;a.download=platform+'-'+Date.now()+'.rrstate';a.textContent='Download state';$('status').replaceChildren(document.createTextNode('State ready. Machine paused. '),a);a.click();setTimeout(()=>URL.revokeObjectURL(url),300000);
     } else if (m.type === 'slow') {
       console.warn('Long emulation slice', JSON.stringify(m));
     } else if (m.type === 'ready') {
-      loaded = true;
+      loaded = true;backend=m.backend||'production';capabilities=m.capabilities||{};
+      backendControls();render.capabilities(capabilities);paneSet?.capabilities(capabilities);
+      $('capture-note').textContent=capabilities.renderCapture===false?'Rendering capture is unavailable in this development core.':'Use Capture next display in Render to record a complete interval.';
       controls(true);paneSet?.mediaReady(selected);memory.ready();code?.ready(session);paneSet?.ready(session);feed.ready();$('game-name').textContent=selected[0]?.name||config.name;$('media-dialog').close();
       $('pause').disabled = true;
       $('status').textContent = m.text;
@@ -222,7 +230,7 @@ function load(stateFile=null,preparedStart=null) {
       }
     }
   };
-  candidate.postMessage({type:'load',session:nextSession,platform,files:selected,firmware,compatibility,stateFile,preparedStart,...(platform==='dos'?{executable:$('program').value}:{})});
+  candidate.postMessage({type:'load',session:nextSession,platform,backend:requestedBackend,files:selected,firmware,driveFirmware,compatibility,stateFile,preparedStart,...(platform==='dos'?{executable:$('program').value}:{})});
 }
 $('load').onclick = () => {
   selected = [...$('files').files ];
@@ -230,12 +238,12 @@ $('load').onclick = () => {
   firmware = platform === 'c64'
                  ? [ 'basic', 'kernal', 'chargen' ].map(id => $(id).files[0])
                  : platform==='amiga'?[$('kickstart').files[0]]:platform==='ps2'?[$('bios').files[0]]:null;
-  load();
+  driveFirmware=$('drive-firmware')?.files[0]||null;load();
 };
 $('reset').onclick = ()=>load();
 $('cancelcapture').onclick=()=>send('cancel-capture');
 $('save').onclick=()=>{release();controls(false);$('status').textContent='Saving state…';send('save');};
-$('statefile').onchange=()=>{const f=$('statefile').files[0];if(!f)return;if(!selected.length){selected=[...$('files').files];firmware=platform==='c64'?['basic','kernal','chargen'].map(id=>$(id).files[0]):platform==='amiga'?[$('kickstart').files[0]]:platform==='ps2'?[$('bios').files[0]]:null;compatibility=$('compatprofile')?.checked??true;}load(f);$('statefile').value='';};
+$('statefile').onchange=()=>{const f=$('statefile').files[0];if(!f)return;if(!selected.length){selected=[...$('files').files];firmware=platform==='c64'?['basic','kernal','chargen'].map(id=>$(id).files[0]):platform==='amiga'?[$('kickstart').files[0]]:platform==='ps2'?[$('bios').files[0]]:null;compatibility=$('compatprofile')?.checked??true;driveFirmware=$('drive-firmware')?.files[0]||null;}load(f);$('statefile').value='';};
 function transport(id,stay=false) {
     $('status').textContent =
         id === 'pause' ? 'Pausing at the current execution boundary…'
@@ -552,6 +560,7 @@ const debug=['c64','dos','3do'].includes(platform);
 views.register({id:'loader',label:'Loader',panel:document.createElement('div')});
 if(platform==='c64')views.register({id:'guided',label:'Guided tour',panel:document.createElement('div')});
 const entries=[['game','Game'],['storage','Storage'],['atlas','Memory atlas'],['hex','Memory bytes'],['recording','Memory recording'],['render','Rendering'],['render-sources','Render sources'],['render-details','Render details'],['session','Session / controls']];
+if(platform==='c64')entries.push(['drive','1541 drive']);
 if(debug)entries.push(['code','Code'],['state','Game state'],['lesson','Lesson / experiment']);
 views.configure(entries,(kind,id,root)=>paneSet.make(kind,id,root));
 $('restore-layout').onclick=()=>views.restorePreset();
@@ -562,7 +571,7 @@ $('open-media').onclick=()=>$('media-dialog').showModal();$('close-media').oncli
 sampler=setInterval(()=>{if(loaded&&debug&&views.visible('state')&&!latestState?.debugBusy&&!latestState?.capturing&&!latestState?.saving&&!latestState?.memoryRecording)code?.refreshState();},200);
 return {
  platform,
- restore(saved){selected=saved.files;firmware=saved.firmware;compatibility=saved.compatibility;if($('program')&&saved.executable){const o=document.createElement('option');o.value=o.textContent=saved.executable;$('program').append(o);$('program').value=saved.executable;}load(saved.stateFile);},
+ restore(saved){selected=saved.files;firmware=saved.firmware;driveFirmware=saved.driveFirmware||null;compatibility=saved.compatibility;if($('program')&&saved.executable){const o=document.createElement('option');o.value=o.textContent=saved.executable;$('program').append(o);$('program').value=saved.executable;}load(saved.stateFile,null,saved.backend||'production');},
  async suspend(){if(!loaded)return null;if(latestState&&(latestState.debugBusy||latestState.capturing||latestState.saving||latestState.memoryRecording||latestState.experimentOwned))throw Error('Finish the active inspection or experiment before switching systems.');release();return new Promise((resolve,reject)=>{const timeout=setTimeout(()=>{pendingSuspend=null;reject(Error('Could not suspend the current game. It remains open.'));},30000);pendingSuspend={resolve:v=>{clearTimeout(timeout);resolve(v);},reject:e=>{clearTimeout(timeout);reject(e);}};send('save');});},
  dispose(){disposed=true;clearInterval(sampler);lifetime.abort();release();pendingWorker?.terminate();worker?.terminate();feed.dispose();views.dispose();code?.dispose();memory.setActive(false);},
  status(text){$('status').textContent=text;$('system-select').value=platform;}

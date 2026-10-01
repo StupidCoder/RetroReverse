@@ -1,9 +1,9 @@
 # Owned C64 portable checkpoints
 
-This is the hardware-state foundation of C6, not yet a production browser
-checkpoint or a regenerated prepared lesson. The owned core remains isolated
-development work; the existing browser core and its lesson identities are
-unchanged.
+This is the hardware-state codec used by the C6 development browser adapter.
+The browser adds a separate version-2 envelope documented in
+[browser/README.md](browser/README.md). Owned prepared recipes have distinct
+identities; existing production checkpoints remain incompatible and unchanged.
 
 ## API and host responsibilities
 
@@ -95,6 +95,6 @@ boots through the real KERNAL to `$0378`, checks all 52 stores in the initial
 `$0300–$0333` vector block against raw tape pulses, and repeats that block after
 restore. None of these tests injects expected game bytes into the machine.
 
-Browser ABI integration, rendering provenance parity, cancellation/recording,
-prepared lesson regeneration and longer Elite loader/tour acceptance remain C6
-work. These native/WASM hardware checks do not claim browser UI parity.
+C6 browser ABI, rendering provenance, cancellation/recording and regenerated
+prepared lessons are validated separately in [the compatibility ledger](COMPATIBILITY.md).
+Later Elite loader stages remain unvalidated; the initial-block gate is bounded.

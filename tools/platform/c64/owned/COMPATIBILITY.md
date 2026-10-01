@@ -1,8 +1,9 @@
 # Owned C64 compatibility and evidence ledger
 
 Validated 2026-10-01 with Apple clang, Emscripten 4.0.16 and Node 26.3.1.
-All checks below pass natively and in WASM; native UBSan also passes. This is
-bounded evidence, not a claim of exhaustive NMOS or C64 hardware conformance.
+Hardware checks pass natively, in WASM and under native UBSan. Browser/service
+gates are listed separately below. This is bounded evidence, not a claim of
+exhaustive NMOS or C64 hardware conformance.
 Reproduction commands are in [README.md](README.md).
 
 ## C2: CPU
@@ -249,7 +250,7 @@ is not certified. The [inspection guide](DRIVE-INSPECTION.md) explains the full
 repeatable sequence and trace format. No game-derived images or firmware are
 redistributed. Production browser/WASM artifacts remain unchanged.
 
-## C6 in progress — portable state and Elite's first block
+## C6 — portable state and Elite's first block
 
 The [portable state codec](PORTABLE-STATE.md) now has media-free native/WASM
 acceptance, including a checkpoint file produced natively and loaded in WASM.
@@ -288,42 +289,40 @@ Focused tests cover both CIAs, all three BA warning clocks, the subsequent
 stall with BA high. This is an independently authored decoder fix; no emulator
 implementation was copied.
 
-The development browser ABI now passes the existing debugger, memory, tour and
-experiment service tests with authored programs, including cancellation and
-rollback. Rendering/provenance parity, disk/drive UI integration and regenerated shipped
-prepared lessons remain pending. The worker/UI now supports opt-in TAP sessions
-and memory recording/cancellation. Later Elite loader stages, protocol mutations,
-gameplay and object slots remain unvalidated by this bounded gate.
+### C6 browser and research acceptance
 
-### C6 browser-service acceptance
+C6 is complete behind explicit development selection. See
+[the adapter contract](browser/README.md) for commands and exact API behavior.
+The development WASM SHA256 is
+`5ca6046fc4361164e5e5bdc7e084b054c54361b82b021e2f085ce0a4899a878e`
+(Emscripten 4.0.16, adapter envelope version 2). Rebuilding with a different
+compiler may require deliberate lesson identity regeneration.
 
-See [the adapter contract](browser/README.md). The exported module passes native,
-UBSan and WASM tests for partial/RDY/interrupt stepping, over/out, mapping-bound
-breakpoints, real-write watches, atomic edits, input, observation and portable
-state. Observer history is excluded from deterministic machine digests. Shared
-JavaScript suites validate execution budgets, cancellation, stale requests,
-tour evidence, replay determinism and session/input rollback.
+| Gate | Evidence | Limits |
+| --- | --- | --- |
+| Debugger/services | Native, UBSan and WASM partial/RDY/IRQ stepping, over/out, mapped breakpoints, actual-write watches, checked edits, keyboard, state identity/restore; shared JS tour/experiment cancellation and rollback | No drive over/out/watchpoint UI |
+| Rendering | Live owned-VIC fetch/pixel observations; all five valid video modes, character ROM, sprite priority, glyph changes, charset split, same-value register writers, actual instruction bytes after partial restore; exact machine-state equality with observation on/off | Frozen layer previews are projections; actual screen retains historical pixels. Incomplete/overflow captures are explicit |
+| Memory/recording | CPU RAM/ROM/color and tape activity, same-value writes, backward/forward scrubbing, live samples, recording cancellation | Drive RAM is snapshot only; I/O/VIC/drive accesses have no Memory heatmap |
+| Storage/drive | Protected D64/G64 loading with local 1541 ROM; logical sector/raw half-track atlas and live head; independent drive panels, safe VIA/CPU peeks, stepping/breakpoints, IEC state, global cancellation and bound save/restore | G64 filesystem and physical angular positions are not inferred; media source files unchanged |
+| Real Fort | KERNAL/Novaload boot, terrain tour with 215/40 writes; all 272 gameplay render lines, charset switching, source/writer evidence and final frame equality | Pinned reference image only |
+| Fort AI experiment | Owned prepared cycle 126,553,519, unchanged teleport/spawn/invariant guards; original twice has identical endpoint/observations and dies; $55-to-$A5 branch survives 200 frames; complete session/input restore | One scenario and a candidate repair hypothesis; no provenance claim about the original corrupted opcode |
+| Real Elite | Entry cycle 37,906,392/pulse 52,797; four-stop first-byte tour; all 52 initial vector bytes independently match raw pulses | Later loader stages, changing pulse protocols, gameplay and object slots remain unvalidated |
+| Prepared lessons | Owned recipes in original game packages; verified complete state SHA256; fresh physical-input replay and cached restore; original production recipes retained and filtered by identity | Private media supplied locally; no game-derived state redistributed |
+| Actual browser | Owned worker, complete render capture/replay/provenance, recording cancellation, frame/debug steps, cross-core/configuration rejection, independent render/drive panels, live disk head, drive firmware binding, system suspension and failed-load recovery | Development opt-in; ordinary production core remains unchanged |
+| Actual game UI | Fort fresh terrain preparation, cancellation preserving prior machine, cached restart and guarded AI preparation; Elite fresh lesson and all four stops with Code/Memory/Storage visible | Initial cold boot still executes the original loader locally |
 
-Elite's existing four-stop first-byte tour passes against the owned module; all
-52 initial stores also match raw TAP decoding. Fresh and cached prepared starts
-pass using a recipe with an owned WASM identity and measured digest generated
-in memory. The shipped recipe still targets the existing production core.
+The earlier Fort preparation at cycle 124,391,357 selected a different native
+teleport destination (player/camera X=209/188). The accepted owned recipe waits
+110 more natural AI invocations before starting. No hardware change, guard
+relaxation or injected game bytes were used to obtain the desired RNG context.
 
-Fort's authentic boot and three-stop terrain tour pass (215/40 measured writes).
-The existing AI experiment passes its start guard but rejects its subsequent
-teleport: player/camera X=209/188 versus required 53/34. The test verifies this
-known guarded failure and restores the complete machine and host input queue.
-The original/patched gameplay comparison remains unvalidated on the owned
-core; no guards were weakened or machine state forced to hide this difference.
+Native, UBSan and WASM regressions retain the previous CPU, board, VIC/SID,
+ordinary IEC LOAD/SAVE, protected media, Giana raw-G64 custom-loader and portable
+state results. Giana still reaches its real unpacker after 512 uploaded drive
+bytes, 20,168 IEC protocol bytes and 20,086 payload stores; this is not full
+Giana gameplay certification.
 
-Drive scheduling and state work through the adapter, but drive-specific UI,
-render capture, pixel provenance and audio output are not advertised as
-available. The default backend remains unchanged.
-
-The source development UI accepts `c64Core=owned` and loads a separately built,
-manifest-verified module. Actual-browser checks cover worker identity binding,
-recording cancellation, save/restore, debugger stepping, cross-core/configuration
-rejection, independent panel capability handling and failed-load recovery. The
-production backend remains the default and keeps its state metadata compatible.
-Development binaries are excluded from release bundles. This is standalone TAP
-integration; browser disk loading and drive-head telemetry are still pending.
+C7 remains pending: benchmark ordinary execution and instrumented capture
+separately, verify the new shipped bundle, preserve rollback and explain state
+incompatibility before removing the third-party runtime. Audio synthesis, NTSC,
+cartridges, additional drives and broader protection coverage are not added by C6.

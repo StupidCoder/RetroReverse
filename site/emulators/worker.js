@@ -26,8 +26,9 @@ const appliedKeys=new Set();
 const mediaHashes=new WeakMap();
 function mediaHash(file){if(!mediaHashes.has(file))mediaHashes.set(file,sha256File(file));return mediaHashes.get(file);}
 let cacheReply=null;
-let saving=false,debugService=null,tourService=null,experimentService=null;
+let saving=false,driveDebugService=null,debugService=null,tourService=null,experimentService=null;
 const executionGate=createExecutionGate();
+function debugActive(){return !!(debugService?.active()||driveDebugService?.active());}
 let memoryService=null,memoryRecording=false,memoryStop=false,memoryBusy=false;
 let coreCapabilities={}, backend='production';
 let bootOptions, firmwareIdentity=[], mediaIdentity, coreIdentity;
@@ -75,6 +76,7 @@ function status() {
              : platform === '3do' ? s.frame
              : platform === 'ps1' ? s.fields
                                   : s.frames;
+  if(platform==='c64'&&core._rr_drive_status){const d=json('_rr_drive_status');if(d.enabled){s.drive=d;s.track=d.track;}}
   s.steps ??= s.cycle;
   s.inputSequence = inputSequence;
   s.lastInputStep = lastInputStep;
@@ -97,7 +99,7 @@ function paint() {
   paintMs += performance.now() - start;
   send('state', {
     state : s,
-    capabilities:coreCapabilities,backend,
+    capabilities:coreCapabilities,backend,drive:platform==='c64'&&core._rr_drive_debug_snapshot&&s.drive?JSON.parse(core.UTF8ToString(core._rr_drive_debug_snapshot(-1))):null,
     width : w,
     height : h,
     pixels : pixels.buffer,
@@ -107,7 +109,7 @@ function paint() {
     paintMs,
     heap : core.HEAPU8.length,
     inputDeferred : platform === '3do' && core.deferInput && s.frames < 300,
-    capturing,saving,memoryRecording,debugBusy:!!(debugService?.active()||tourService?.active()||experimentService?.active()),experimentOwned:!!experimentService?.owns(),
+    capturing,saving,memoryRecording,debugBusy:!!(debugActive()||tourService?.active()||experimentService?.active()),experimentOwned:!!experimentService?.owns(),
     profile : readProfile()
   });
 }
@@ -318,11 +320,16 @@ async function boot(m) {
       pos += b.length;
     }
     check(core._rr_init(8192, 8192, 4096));
-    if (f.size > 2 * 1024 * 1024)
-      throw Error('TAP exceeds current 2 MiB core limit');
-    core.HEAPU8.set(new Uint8Array(await f.arrayBuffer()), core._rr_input());
-    check(core._rr_tape(f.size));
-    if(assets.owned)bindOwnedIdentity(core,{core:coreIdentity,firmware:firmwareIdentity,tape:await mediaHash(f)});
+    if(f.size>2*1024*1024)throw Error('C64 media exceeds the 2 MiB limit');
+    const disk=/\.(d64|g64)$/i.test(f.name);let driveRom=null;
+    if(disk){
+      if(!assets.owned)throw Error('D64/G64 execution requires the owned development backend');
+      if(!m.driveFirmware||m.driveFirmware.size!==16384)throw Error('Select the 16 KiB 1541 firmware for disk execution');
+      const bytes=new Uint8Array(await m.driveFirmware.arrayBuffer());driveRom=await digest(bytes);firmwareIdentity.push(driveRom);core.HEAPU8.set(bytes,core._rr_input());check(core._rr_drive_rom(bytes.length));
+    }
+    core.HEAPU8.set(new Uint8Array(await f.arrayBuffer()),core._rr_input());
+    check(disk?core._rr_disk(f.size,1):core._rr_tape(f.size));
+    if(assets.owned)bindOwnedIdentity(core,{core:coreIdentity,firmware:firmwareIdentity.slice(0,3),driveRom,...(disk?{disk:await mediaHash(f)}:{tape:await mediaHash(f)})});
     core._rr_trace(0, 0, 0);
   } else if(platform==='dos'){
     core.gameFiles=files;const put=s=>{const b=new TextEncoder().encode(s),p=core._rr_input(b.length);check(p);core.HEAPU8.set(b,p);return b.length;};
@@ -416,14 +423,19 @@ async function boot(m) {
     debugService=createDebugService({core,send,sleep,paint,applyInputs,generation:session,platform,...adapter,
       knowledge,
       onStart:()=>{cancelCapture();memoryService.stopLive();},
-      busy:includePlay=>!!(experimentService?.active()||tourService?.active()||(executionGate.owner&&(includePlay||!['run','step'].includes(executionGate.owner)))||saving||memoryBusy||memoryRecording||capturing||(includePlay&&running))});
+      busy:includePlay=>!!(experimentService?.active()||tourService?.active()||driveDebugService?.active()||(executionGate.owner&&(includePlay||!['run','step'].includes(executionGate.owner)))||saving||memoryBusy||memoryRecording||capturing||(includePlay&&running))});
+    if(platform==='c64'&&core._rr_drive_debug_snapshot&&json('_rr_drive_status').enabled){
+      const driveCore=new Proxy(core,{get:(target,key)=>({'_rr_debug_snapshot':target._rr_drive_debug_snapshot,'_rr_debug_begin':target._rr_drive_debug_begin,'_rr_debug_run':target._rr_drive_debug_run,'_rr_cycle':target._rr_drive_cycle}[key]??target[key])});
+      driveDebugService=createDebugService({core:driveCore,platform:'1541',generation:session,knowledge:{status:'unknown'},send:(type,m)=>send('drive-'+type,m),sleep,paint,applyInputs,
+        busy:includePlay=>!!(debugService?.active()||experimentService?.owns()||tourService?.active()||executionGate.owner||saving||memoryBusy||memoryRecording||capturing||(includePlay&&running)),onStart:()=>{cancelCapture();memoryService.stopLive();}});
+    }
     if(platform==='c64')experimentService=createExperimentService({core,knowledge,generation:session,send,sleep,paint,snapshot:()=>debugService.snapshot(),
-      busy:()=>!!(running||executionGate.owner||debugService.active()||tourService?.active()||saving||memoryBusy||memoryRecording||capturing),captureHost:queueState,
+      busy:()=>!!(running||executionGate.owner||debugActive()||tourService?.active()||saving||memoryBusy||memoryRecording||capturing),captureHost:queueState,
       clearInput:()=>{inputs=new InputQueue(50);inputQueue.length=0;appliedKeys.clear();lastButtons=lastX=lastY=0;for(let k=0;k<256;k++)core._rr_key(k,0);core._rr_joystick(1,0);core._rr_joystick(2,0);},
       restoreHost:q=>{inputs=new InputQueue(50);Object.assign(inputs,q,{pulses:new Map(q.pulses),down:new Map(q.down)});inputQueue.length=0;inputQueue.push(...q.pending);appliedKeys.clear();for(const k of q.appliedKeys)appliedKeys.add(k);lastButtons=q.lastButtons;lastX=q.lastX;lastY=q.lastY;inputSequence=q.inputSequence;lastInputStep=q.lastInputStep;},
       onStart:()=>{cancelCapture();memoryService.stopLive();tourService?.invalidate('An explicit experiment replaced this tour context.');}});
     tourService=createTourService({core,knowledge,generation:session,send,sleep,paint,...adapter,maxCheckpointBytes:platform==='dos'?128*1024*1024:platform==='3do'?32*1024*1024:4*1024*1024,
-      snapshot:()=>debugService.snapshot(),busy:()=>!!(experimentService?.owns()||running||executionGate.owner||debugService.active()||saving||memoryBusy||memoryRecording||capturing),
+      snapshot:()=>debugService.snapshot(),busy:()=>!!(experimentService?.owns()||running||executionGate.owner||debugActive()||saving||memoryBusy||memoryRecording||capturing),
       onStart:()=>{cancelCapture();memoryService.stopLive();if(platform==='3do'&&lastButtons)core._rr_pad(0);inputs=new InputQueue(platforms[platform].hz);if(platform==='dos')inputs.mouseMask=768;inputQueue.length=0;appliedKeys.clear();lastButtons=lastX=lastY=0;if(platform!=='3do')for(let k=0;k<(platform==='dos'?128:256);k++)core._rr_key(k,0);if(platform==='dos'){core._rr_pad(0);core._rr_mouse(0,0,0);}else if(platform==='c64')core._rr_joystick(2,0);},
       onRestore:()=>{inputs=new InputQueue(platforms[platform].hz);if(platform==='dos')inputs.mouseMask=768;inputQueue.length=0;appliedKeys.clear();lastButtons=lastX=lastY=0;}
     });
@@ -432,7 +444,7 @@ async function boot(m) {
   paint();
   send('ready', {
     capabilities:coreCapabilities,backend,
-    text : (restored?'State restored, paused. ':'') + f.name + ' loaded. ' + (assets.owned?'Owned C64 development core · rendering capture and prepared lessons unavailable. ':'') + (core.compatProfile || '') + ' Ready in '+((performance.now()-bootBegan)/1000).toFixed(2)+' s. Press Run.'
+    text : (restored?'State restored, paused. ':'') + f.name + ' loaded. ' + (assets.owned?'Owned C64 development core. ':'') + (core.compatProfile || '') + ' Ready in '+((performance.now()-bootBegan)/1000).toFixed(2)+' s. Press Run.'
   });
 }
 onmessage = async ({data : m}) => {
@@ -464,12 +476,13 @@ onmessage = async ({data : m}) => {
     }
     if(['run','step','seek','capture-render','memory-record','tape','debug-normalize','debug-step','debug-until','debug-over','debug-out','debug-watch'].includes(m.type))tourService?.invalidate();
     if(m.type==='input'&&((m.buttons??0)!==lastButtons||(m.keys||[]).some(([key,down])=>!!down!==appliedKeys.has(key))))tourService?.invalidate();
+    if(m.type.startsWith('drive-debug-')){if(!driveDebugService){send('drive-debug-result',{request:m.request,generation:session,reason:'unsupported',text:'Attach a disk and 1541 firmware first.'});return;}if(!['drive-debug-snapshot','drive-debug-capabilities'].includes(m.type))tourService?.invalidate();await driveDebugService.request({...m,type:m.type.slice(6)});return;}
     if(m.type.startsWith('debug-')){
       if(!debugService){send('debug-result',{request:m.request,reason:'unsupported',text:'Instruction debugging is unavailable for this core.'});return;}
       await debugService.request(m);return;
     }
-    if(debugService?.active()){
-      if(['pause','hold','cancel-capture'].includes(m.type)){debugService.cancel();return;}
+    if(debugActive()){
+      if(['pause','hold','cancel-capture'].includes(m.type)){debugService?.cancel();driveDebugService?.cancel();return;}
       if(!['input','turbo'].includes(m.type)){
         send(m.type.startsWith('memory-')?'memory-error':'message',{request:m.request,text:'Debugger job is active. Cancel it before another operation.'});return;
       }

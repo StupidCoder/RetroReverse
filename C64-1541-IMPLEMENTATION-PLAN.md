@@ -164,7 +164,7 @@ corner cases; SID audio and complete analog behavior are not claimed. Local
 comparison fixtures can be regenerated with `owned/tests/fixtures`, and no
 media or game-derived captures were added to the repository.
 
-C6 is in progress (see the checkpoint foundation below); C7 remains pending.
+C6 is complete (see the acceptance report below); C7 remains pending.
 The production C64 core remains unchanged.
 
 
@@ -215,7 +215,7 @@ gameplay, other custom loaders, weak-bit protection and analog timing are not
 certified. No production backend switch or shipped WASM changes were made.
 
 
-### C6 progress — portable checkpoint foundation — 2026-10-01
+### Historical C6 progress — portable checkpoint foundation — 2026-10-01
 
 Implemented versioned field-wise hardware serialization for a standalone C64
 or the complete C64/1541/IEC system. Checkpoints retain in-flight instructions,
@@ -233,7 +233,7 @@ It exposed an I/O-selection bug during VIC BA stalls: the PLA deselects I/O
 reads during the warning phase, while writes still drain. Fixing that rule
 prevents an early CIA ICR acknowledgement from corrupting Elite's byte `$032F`.
 
-C6 is **not complete**. Remaining integration gates:
+At this checkpoint, C6 was **not complete**. The then-remaining gates were:
 
 - Development backend selection and host identity binding are implemented for
   standalone TAP sessions; drive firmware/media UI integration remains.
@@ -247,7 +247,7 @@ C6 is **not complete**. Remaining integration gates:
 The shipped backend, WASM artifacts and existing knowledge-package recipes
 remain unchanged. C7's default switch is still gated on full C6 acceptance.
 
-### C6 progress — development browser services — 2026-10-01
+### Historical C6 progress — development browser services — 2026-10-01
 
 Added an isolated owned WASM adapter with execution, keyboard/joystick, display,
 Code debugging, memory/tape activity and portable checkpoints. It runs the
@@ -265,13 +265,13 @@ selects a different native teleport destination (player/camera X=209/188 versus
 53/34), so the package correctly rejects it and restores the session. This is
 a recorded compatibility gap, not a completed AI comparison.
 
-C6 remains **in progress**. Next gates include the development selector and
+At this checkpoint, C6 remained **in progress**. Next gates included the development selector and
 production host binding, rendering provenance/capture, recording and Storage/
 drive-debug UI integration, and accepted game-specific prepared recipes. See
 [the browser adapter contract](tools/platform/c64/owned/browser/README.md) for
 reproduction and precise limits. C7 remains pending.
 
-### C6 progress — opt-in browser integration — 2026-10-01
+### Historical C6 progress — opt-in browser integration — 2026-10-01
 
 The actual emulator worker now selects the owned core with `c64Core=owned` in
 the source development UI. A fixed module path and verified WASM manifest are
@@ -292,6 +292,62 @@ recovery. The default production core still captures rendering and retains its
 existing checkpoint configuration. Site packaging keeps all sixteen existing
 core hashes and excludes development binaries.
 
-C6 remains in progress: rendering capture/provenance, disk/drive UI integration,
+At this checkpoint, C6 remained in progress: rendering capture/provenance, disk/drive UI integration,
 accepted owned prepared recipes and Fort's AI experiment remain outstanding.
 See `owned/browser/README.md` for local build and browser acceptance instructions.
+
+
+### C6 complete — browser and research parity — 2026-10-01
+
+The owned core now supplies the existing Code, Memory, Rendering and Storage
+workflows behind explicit development selection. C7 remains a separate gate;
+no production WASM or default backend has changed.
+
+- Rendering uses live owned-VIC fetch/pixel callbacks, immutable per-line RAM
+  and video state, historical source bytes and CPU writer versions. Frozen
+  background/sprite/charset views and full-frame replay do not mutate hardware.
+  Same-value stores, self-modifying instruction bytes, CPU-port/VIC separation,
+  partial-instruction restore and incomplete/overflow reporting are covered.
+- D64/G64 browser loading accepts local 1541 firmware and binds its digest with
+  the disk identity. Independent drive viewports expose safe disassembly, CPU
+  and VIA registers, IEC levels/transitions, head/bit position, instruction
+  completion/stepping and run-to-address. Global pause stops either debugger;
+  executing either CPU keeps the peer synchronized. Browser disks are protected.
+- Storage shows logical D64 sectors and raw G64 half-track bytes, with live head
+  telemetry. RAM/ROM views include the drive; drive RAM is explicitly snapshot
+  only. G64 filesystem decoding and real physical sector angles are not claimed.
+- Existing debugger/tour/experiment services pass partial/RDY/interrupt cases,
+  checked edits, stale ownership, recording/scrubbing, cancellation, bounds,
+  deterministic replay and full session/input rollback. Failed replacement
+  loads retain the active media, firmware, backend and machine.
+- Exact-hash owned recipes are in each game's existing knowledge package.
+  `terrain-owned`, `enemy-ai-owned` and `loader-prefix-owned` coexist with the
+  original production recipes. Physical-input recipes generate checkpoints
+  locally; no game-derived checkpoint or private media is committed.
+
+Fort acceptance: authentic KERNAL/Novaload boot; all 21,504 loader stores and
+2,251 extracted graphics bytes; terrain stops with 215/40 writes; 272 gameplay
+render lines with charset switching, fetch/writer evidence and unchanged state
+under inspection. The AI recipe reaches cycle 126,553,519, a later natural
+invocation with the required SID-noise phase. The existing setup guards pass
+unchanged. Original replay is deterministic and records terrain contact/death;
+the candidate opcode patch survives the same 200-frame scenario. The repair
+remains a scenario-specific hypothesis, not a universal AI fix.
+
+Elite acceptance is separate: authentic entry at cycle 37,906,392 / pulse
+52,797, the existing four-stop first-byte lesson, and all 52 vector stores
+against independent tape decoding. Later encoding changes, the complete loader,
+gameplay and object-slot tours remain unvalidated. Giana retains the C5 raw-G64
+custom-loader gate and dual-machine replay; full gameplay is not certified.
+
+Validation: native, native UBSan and WASM CPU/board/video/drive/debugger/state/
+adapter/render suites; real Fort, Elite and Giana gates; authored JS service and
+Storage suites; actual-browser worker/render/recording/save/restore/drive-panel
+checks; actual-browser fresh/cached/cancelled Fort preparation and Elite guided
+lesson. Package/schema and release integrity checks keep all sixteen production
+core hashes unchanged and exclude owned development binaries.
+
+Reproduction and limits: [browser adapter guide](tools/platform/c64/owned/browser/README.md)
+and [compatibility ledger](tools/platform/c64/owned/COMPATIBILITY.md).
+Next: C7 execution/capture benchmarks, verified production rollout with rollback
+and checkpoint messaging, then removal of the vendored runtime dependency.

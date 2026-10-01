@@ -16,6 +16,17 @@ export async function openStorage(file,platform=''){
  result.describeSector=n=>`${result.unit} ${n}`;
  result.readSector=async n=>{if(!Number.isSafeInteger(n)||n<0||n>=result.sectorCount)throw Error('Sector is outside the image');return read(n*result.sectorSize,Math.min(result.sectorSize,file.size-n*result.sectorSize));};
  if(ascii(head.slice(0,12))==='C64-TAPE-RAW'){result.format='C64 TAP';result.tape=true;result.note='Tape pulse stream';return result;}
+ if(platform==='c64'&&/\.g64$/i.test(file.name)){
+  if(file.size>2*1024*1024)throw Error('G64 exceeds 2 MiB inspection limit');const raw=await read(0,file.size),v=new DataView(raw.buffer,raw.byteOffset,raw.byteLength);
+  if(ascii(raw.slice(0,8))!=='GCR-1541'||raw[8]!==0||!raw[9]||raw[9]>84)throw Error('Unsupported G64 header');
+  const n=raw[9],maximum=v.getUint16(10,true);range(12,n*8,raw.length);const chunks=[],counts=[];
+  for(let i=0;i<n;i++){const at=v.getUint32(12+i*4,true),speed=v.getUint32(12+n*4+i*4,true);if(!at){counts.push(0);continue;}if(at<12+n*8)throw Error('G64 track overlaps header');range(at,2,raw.length);const length=v.getUint16(at,true);if(!length||length>maximum)throw Error('Invalid G64 track length');range(at+2,length,raw.length);if(speed>3){if(speed<12+n*8)throw Error('G64 speed map overlaps header');range(speed,Math.ceil(length/4),raw.length);}counts.push(length);chunks.push(raw.slice(at+2,at+2+length));}
+  const bytes=new Uint8Array(counts.reduce((a,b)=>a+b,0));let at=0;for(const chunk of chunks){bytes.set(chunk,at);at+=chunk.length;}if(!bytes.length)throw Error('G64 contains no recorded tracks');
+  geometry('C64 G64 raw GCR tracks',1,bytes.length);result.unit='GCR byte';result.note='Original encoded track bytes; half-track rings preserve recorded lengths. Blank half-tracks stay empty. No decoded filesystem or guest writes are inferred.';
+  result.diskGeometry={cylinders:n,sides:1,firstTrack:1,trackStep:.5,counts,raw:true};result.diskBytes=()=>Promise.resolve(bytes);
+  result.describeSector=offset=>{let i=0;while(i<n-1&&offset>=counts[i])offset-=counts[i++];return `Track ${1+i/2} · encoded byte ${offset}`;};
+  result.readSector=async offset=>{if(!Number.isSafeInteger(offset)||offset<0||offset>=bytes.length)throw Error('GCR byte is outside the image');return bytes.slice(offset,offset+1);};return result;
+ }
  if(platform==='c64'&&/\.d64$/i.test(file.name)){
   const sectors=tracks=>Array.from({length:tracks},(_,i)=>i<17?21:i<24?19:i<30?18:17),tracks=[35,40,42].find(t=>{const n=sectors(t).reduce((a,b)=>a+b,0);return file.size===n*256||file.size===n*257;});
   if(!tracks)throw Error('Unsupported D64 track geometry');const counts=sectors(tracks),total=counts.reduce((a,b)=>a+b,0),raw=await read(0,total*256);

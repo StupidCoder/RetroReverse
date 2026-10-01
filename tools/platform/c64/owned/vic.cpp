@@ -15,7 +15,7 @@ void Vic::write(uint8_t reg,uint8_t value){
  regs[reg]=reg>=0x20?value&15:value;
  if(reg==0x11||reg==0x12)rasterIrq();
 }
-void Vic::tick(std::span<const uint8_t,65536> ram,std::span<const uint8_t,4096> chars,std::span<const uint8_t,1024> color,uint16_t bank){
+void Vic::tick(std::span<const uint8_t,65536> ram,std::span<const uint8_t,4096> chars,std::span<const uint8_t,1024> color,uint16_t bank,VicObserver* observer){
  ++clocks;fetchCount=0;if(++cycle==64){cycle=1;if(++raster==312){raster=0;++frames;}}
  if(cycle==1){if(!raster){base=0;den=false;}else rasterIrq();}if(!raster&&cycle==2)rasterIrq();
  if(raster==0x30&&(regs[0x11]&16))den=true;
@@ -34,7 +34,7 @@ void Vic::tick(std::span<const uint8_t,65536> ram,std::span<const uint8_t,4096> 
   VicFetch f;f.cycle=clocks;f.address=uint16_t(bank|(address&0x3fff));f.kind=kind;f.phase=phase;f.slot=slot;
   f.rom=(f.address&0x7000)==0x1000;f.value=f.rom?chars[f.address&4095]:ram[f.address];
   if(kind==VicAccess::Matrix)f.color=color[address&1023]&15;
-  fetches[fetchCount++]=f;return f;
+  fetches[fetchCount++]=f;if(observer)observer->fetch(f);return f;
  };
  // Sprite pointer/data slots: 0..2 at 58/60/62; 3..7 at 1/3/5/7/9.
  int sprite=-1;bool second=false;
@@ -57,10 +57,10 @@ void Vic::tick(std::span<const uint8_t,65536> ram,std::span<const uint8_t,4096> 
   if(display){vc=(vc+1)&1023;++index;}
  }else fetch(0x3fff,VicAccess::Idle,1);
  if(bad&&cycle>=15&&cycle<=54){const auto column=cycle-15;cells[column].matrix=fetch(uint16_t(((regs[0x18]&0xf0)<<6)|vc),VicAccess::Matrix,2,uint8_t(column));}
- draw();
+ draw(observer);
  if(cycle==58){if(row==7){base=vc;display=bad;}if(display)row=(row+1)&7;}
 }
-void Vic::draw(){
+void Vic::draw(VicObserver* observer){
  const unsigned start=((cycle-1)*8+396)%Width; // Common eight-dot output delay removed.
  const unsigned left=regs[0x16]&8?24:31,right=regs[0x16]&8?344:335;
  const unsigned top=regs[0x11]&8?51:55,bottom=regs[0x11]&8?251:247;
@@ -78,8 +78,9 @@ void Vic::draw(){
    }else{foreground=(data>>bit)&1;ink=foreground?(bitmap?cell.code>>4:((regs[0x16]&16)?cell.color&7:cell.color)):(bitmap?cell.code&15:regs[0x21+(ecm?(cell.code>>6):0)]);}
    if(ecm&&(bitmap||(regs[0x16]&16)))ink=0;
   }
+  const uint8_t background=ink;std::array<uint8_t,8> positions{};
   uint8_t hits=0,spriteInk=0;int winner=-1;
-  for(unsigned i=0;i<8;i++){auto& s=sprites[i];const auto bit=1<<i;
+  for(unsigned i=0;i<8;i++){auto& s=sprites[i];const auto bit=1<<i;positions[i]=s.pixel;
    const unsigned sx=regs[2*i]|((regs[0x10]&bit)?256:0);
    if(s.display&&x==sx&&s.pixel==0)s.active=true;
    if(!s.active||!s.display||s.pixel>=24)continue;
@@ -91,6 +92,7 @@ void Vic::draw(){
   if(hits&&foreground){if(!collisionGraphics)flags|=2;collisionGraphics|=hits;}
   if(winner>=0&&(!(regs[0x1b]&(1<<winner))||!foreground))ink=spriteInk;
   pixels[raster*Width+x]=border?regs[0x20]:ink;
+  if(observer)observer->pixel(*this,{x,pixels[raster*Width+x],uint8_t(border?regs[0x20]:background),spriteInk,hits,winner,foreground,border,positions});
  }
  if(cycle==63){if(raster==bottom)verticalBorder=true;if(raster==top&&(regs[0x11]&16))verticalBorder=false;}
 }

@@ -47,7 +47,7 @@ color nibbles, ROM/RAM identity, phase, kind, slot and emulated cycle. Matrix,
 graphics and sprite latches retain captured values. Observers must consume
 fetch records as execution advances; later RAM reads cannot reconstruct them.
 `BoardState::lastBus` separately exposes the actual CPU transaction (including
-held reads and AEC disconnection). Full browser pixel provenance is C6 work.
+held reads and AEC disconnection). C6 adds browser pixel history and writer provenance.
 
 `Sid` clocks all three oscillators/envelopes, exposing voice 3 through OSC3 and
 ENV3. Noise uses its own chip-clocked shift register, with no host randomness.
@@ -144,9 +144,9 @@ each case has opcode u8, source index u16, initial and final
 `(count:u16,(address:u16,value:u8)[])`, and
 `(cycleCount:u8,(address:u16,value:u8,write:u8)[])`.
 
-Nothing here changes the existing Go analysis CPU, shipped WASM or lesson cache
-identities. Portable hardware checkpoints are implemented; browser integration
-and regenerated lesson recipes remain C6 work.
+The existing Go analysis CPU and shipped WASM are unchanged. C6 adds owned-core
+prepared recipes alongside the original production recipes, with distinct core
+and checkpoint identities.
 
 ## Elite and portable checkpoint acceptance
 
@@ -264,12 +264,13 @@ capabilities into the browser; the production core still uses the previous backe
 
 ## C6 browser adapter (development)
 
-The [owned browser adapter](browser/README.md) now exports bounded execution,
-debugging, memory activity, display/input and identity-bound portable state.
-The existing JavaScript tour/experiment suites run against either backend,
-and real-media tests cover Elite's first loader lesson/prepared-start replay
-and Fort's terrain lesson. Fort's existing AI experiment safely rejects a
-different teleport result; its original/patched comparison remains a follow-up.
-The adapter guide documents build commands, ABI semantics and remaining C6
-gates. The worker/UI supports explicit development opt-in for TAP sessions, including
-memory recording and save/restore. No default backend or shipped WASM is changed.
+C6 is complete behind explicit development selection. The [adapter guide](browser/README.md)
+documents local builds, Code/Memory/Rendering/Storage integration, independent
+1541 inspectors, D64/G64 media, synchronized stepping, state identity binding,
+recording, provenance, cancellation and prepared lessons.
+
+Fort passes its terrain tour and unchanged guarded original/patched AI
+experiment. Elite passes the four-stop first-byte tour and all 52 initial vector
+stores; later loading/gameplay remains unvalidated. Native, UBSan, WASM and
+actual-browser evidence are recorded in [COMPATIBILITY.md](COMPATIBILITY.md).
+C7's performance/default-switch work remains pending; shipped WASM is unchanged.

@@ -14,3 +14,5 @@ const recipe={core:identity.core,firmware:identity.firmware},knowledge={status:'
 const filtered=matchingPreparedKnowledge(knowledge,identity);
 assert.deepEqual(Object.keys(filtered.data.preparedStarts),['matching']);assert.equal(filtered.data.functions,knowledge.data.functions);assert.equal(Object.keys(knowledge.data.preparedStarts).length,2);
 console.log('PASS backend selection, verified identity binding and nonmutating prepared-lesson filtering');
+
+bindOwnedIdentity(core,{...identity,tape:null,driveRom:'06'.repeat(32),disk:'07'.repeat(32)});assert.equal(core.HEAPU8[16+128],6);assert.equal(core.HEAPU8[16+192],7);assert.equal(core.HEAPU8[16+224],1);assert.throws(()=>bindOwnedIdentity(core,{...identity,tape:null,disk:'07'.repeat(32)}));

@@ -6,7 +6,7 @@ const outer=246,inner=54,size=512;
 export function diskPoint(geometry,side,x,y,tracks=diskTracks(geometry)){
  const radius=Math.hypot(x-256,y-256);if(radius<inner||radius>=outer)return null;
  const cylinder=Math.floor((outer-radius)/(outer-inner)*geometry.cylinders),track=tracks[cylinder*geometry.sides+side];
- if(!track)return null;
+ if(!track||!track.count)return null;
  const angle=(Math.atan2(y-256,x-256)+Math.PI/2+Math.PI*2)%(Math.PI*2);
  return {track,sector:track.start+Math.floor(angle/(Math.PI*2)*track.count),fraction:angle/(Math.PI*2)};
 }
@@ -17,9 +17,9 @@ export function createDiskAtlas({root,onSector}){
   canvases.forEach((canvas,side)=>{const ctx=canvas.getContext('2d');ctx.putImageData(backgrounds[side],0,0);
    const selected=tracks.find(t=>selection>=t.start&&selection<t.start+t.count&&t.side===side);
    if(selected){ctx.strokeStyle='#1678c8';ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.beginPath();ctx.arc(256,256,outer-(selected.cylinder+.5)*pitch,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);const angle=(selection-selected.start)/selected.count*Math.PI*2-Math.PI/2;ctx.strokeStyle='#1678c8';ctx.lineWidth=Math.max(2,pitch);ctx.beginPath();ctx.arc(256,256,outer-(selected.cylinder+.5)*pitch,angle,angle+Math.PI*2/selected.count);ctx.stroke();}
-   if(Number.isInteger(head)&&tracks[head]?.side===side){ctx.strokeStyle='#ff7b24';ctx.lineWidth=2;ctx.beginPath();ctx.arc(256,256,outer-(tracks[head].cylinder+.5)*pitch,0,Math.PI*2);ctx.stroke();}
+   if(Number.isFinite(head)&&tracks[Math.floor(head)]?.side===side){ctx.strokeStyle='#ff7b24';ctx.lineWidth=2;ctx.beginPath();ctx.arc(256,256,outer-(tracks[Math.floor(head)].cylinder+(head%1)/geometry.sides+.5)*pitch,0,Math.PI*2);ctx.stroke();}
   });
-  legend.textContent='Darker bytes = 0, lighter bytes = 255. Outer to inner tracks; logical sectors clockwise from the top (angular placement is schematic). Blue = selected track and sector. '+(Number.isInteger(head)&&tracks[head]?`Orange = live head, track ${tracks[head].cylinder+geometry.firstTrack}, side ${tracks[head].side}.`:'Live head position unavailable for this image.');
+  legend.textContent=(geometry.raw?'Raw GCR bytes: darker = 0, lighter = 255. Half-tracks outside to inside; recorded byte order clockwise (angle origin is schematic). Blue = selected byte. ':'Darker bytes = 0, lighter bytes = 255. Outer to inner tracks; logical sectors clockwise from the top (angular placement is schematic). Blue = selected track and sector. ')+(Number.isFinite(head)&&tracks[Math.floor(head)]?`Orange = live head, track ${(tracks[Math.floor(head)].cylinder+(head%1)/geometry.sides)*(geometry.trackStep??1)+geometry.firstTrack}, side ${tracks[Math.floor(head)].side}.`:'Live head position unavailable for this image.');
  }
  return {
   load(g,bytes,sectorSize){geometry=g;tracks=diskTracks(g);head=null;selection=0;surfaces.replaceChildren();canvases=[];backgrounds=[];

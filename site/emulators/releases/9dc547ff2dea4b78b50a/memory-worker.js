@@ -12,12 +12,13 @@ export function createMemoryService({core,platform,files,status}){
   const info=JSON.parse(core.UTF8ToString(core._rr_inspect_regions()));
   const regions=info.regions.flatMap(r=>{const p=core._rr_inspect_data(r.index);if(r.kind==='disk')return Array.from({length:r.size/5632},(_,track)=>({...r,index:r.index+track,id:'disk-'+track,name:`ADF · cylinder ${Math.floor(track/2)} / side ${track%2} · sectors 0–10`,size:5632,base:track*5632,bytes:core.HEAPU8.slice(p+track*5632,p+(track+1)*5632)}));return [{...r,bytes:(r.kind==='rom'&&immutable.has(r.id))?immutable.get(r.id):core.HEAPU8.slice(p,p+r.size)}];});
   for(const r of regions)if(r.kind==='rom')immutable.set(r.id,r.bytes);
-  if(platform==='c64'){
-   const bytes=asset??=new Uint8Array(await files[0].arrayBuffer());tape??=tapIndex(bytes);
+  if(platform==='c64')asset??=new Uint8Array(await files[0].arrayBuffer());
+  if(platform==='c64'&&String.fromCharCode(...asset.subarray(0,12))==='C64-TAPE-RAW'){
+   const bytes=asset;tape??=tapIndex(bytes);
    regions.push({id:'tape',index:regions.length,name:'Tape · pulse stream',kind:'tape',size:bytes.length,base:0,aliases:[],bytes});
   }
   labels=labelCache??=await memoryLabels(platform,files[0]);
-  return {id:id(),regions,activity:info.activity,fetches:platform==='c64',coverage:({gg:'CPU reads include fetches; RAM and video-port writes. PPU reads are not traced.',c64:'CPU RAM/ROM accesses and tape pulses. I/O and VIC reads are not traced.',amiga:'CPU reads include fetches; chip DMA accesses and encoded disk payload consumption. I/O is not traced.'})[platform],state:status()};
+  return {id:id(),regions,activity:info.activity,fetches:platform==='c64',coverage:({gg:'CPU reads include fetches; RAM and video-port writes. PPU reads are not traced.',c64:'CPU RAM/ROM accesses and tape pulses. I/O, VIC and drive accesses are not traced; drive RAM is snapshot-only.',amiga:'CPU reads include fetches; chip DMA accesses and encoded disk payload consumption. I/O is not traced.'})[platform],state:status()};
  }
  function overview(scale=0,window=20000){
   if(!snapshot)return null;

@@ -43,6 +43,12 @@
       "status": "inferred",
       "source": "loader",
       "description": "Static loader analysis corroborated by the independent extraction driver; only the initial prefix has browser-runtime acceptance."
+    },
+    "owned-prepared": {
+      "status": "confirmed",
+      "source": "acceptance",
+      "description": "Owned C64 core: exact image, firmware and WASM identities; authentic keyboard boot, fresh replay and cached checkpoint hash verified.",
+      "limitations": "Four-stop first-byte tour and 52 independently decoded vector stores pass. Later loader stages, full gameplay and object slots remain unvalidated."
     }
   },
   "spaces": {
@@ -199,7 +205,7 @@
   "tours": {
     "first-byte": {
       "title": "Elite: the first fastloader byte",
-      "description": "Inspect pulse timing, block addressing and the first payload store. This verified introduction ends before the current core\u2019s later decoding failure; it does not demonstrate the full self-modifying load chain.",
+      "description": "Inspect pulse timing, block addressing and the first payload store. This verified introduction does not demonstrate the full self-modifying load chain.",
       "releases": [
         "reference-pal"
       ],
@@ -472,7 +478,7 @@
         {
           "id": "first-write",
           "title": "First payload byte stored",
-          "explanation": "STA ($AC,X) has written $8B to $0300. The interval evidence records the store even though this byte already had that value. This is the end of the verified introduction: later decoding currently diverges, so the longer self-modifying-loader tour remains unavailable.",
+          "explanation": "STA ($AC,X) has written $8B to $0300. The interval evidence records the store even though this byte already had that value. This is the end of the verified introduction: later loader stages are outside this tour. The production core diverges later in this block; the owned core separately verifies all 52 initial vector stores. The longer self-modifying-loader tour remains unavailable.",
           "until": {
             "pc": 947
           },
@@ -520,7 +526,7 @@
   "preparedStarts": {
     "loader-prefix": {
       "title": "Elite fastloader introduction",
-      "description": "Skip the standard tape boot and inspect the original fastloader\u2019s first payload byte. Full loading is not yet compatible. This replaces the current session on success.",
+      "description": "Skip the standard tape boot and inspect the original fastloader\u2019s first payload byte. Full loading is not yet validated. This replaces the current session on success.",
       "releases": [
         "reference-pal"
       ],
@@ -539,6 +545,131 @@
         "fd0d53b8480e86163ac98998976c72cc58d5dd8eb824ed7b829774e74213b420"
       ],
       "sha256": "2d0bf0217ef908c7caafc8b4f8b6ec9c926bb151cbb9f47fea925fc06ffdc7c9",
+      "pc": 888,
+      "actions": [
+        {
+          "run": 3000000
+        },
+        {
+          "key": [
+            76,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            76,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            79,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            79,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            65,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            65,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            68,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            68,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            13,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            13,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "play": 1
+        },
+        {
+          "until": 888,
+          "budget": 50000000
+        }
+      ]
+    },
+    "loader-prefix-owned": {
+      "title": "Elite fastloader introduction",
+      "description": "Skip the standard tape boot and inspect the original fastloader\u2019s first payload byte. Full loading is not yet validated. This replaces the current session on success.",
+      "releases": [
+        "reference-pal"
+      ],
+      "evidence": [
+        "owned-prepared"
+      ],
+      "target": {
+        "kind": "tour",
+        "id": "first-byte"
+      },
+      "layout": "loader",
+      "core": "5ca6046fc4361164e5e5bdc7e084b054c54361b82b021e2f085ce0a4899a878e",
+      "firmware": [
+        "89878cea0a268734696de11c4bae593eaaa506465d2029d619c0e0cbccdfa62d",
+        "83c60d47047d7beab8e5b7bf6f67f80daa088b7a6a27de0d7e016f6484042721",
+        "fd0d53b8480e86163ac98998976c72cc58d5dd8eb824ed7b829774e74213b420"
+      ],
+      "sha256": "69e5a756ae74a785b53e8b1cfac8e43b7d98f521d5f30723361dfacc1560b86c",
       "pc": 888,
       "actions": [
         {

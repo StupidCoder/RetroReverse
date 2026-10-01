@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 // Existing browser execution/debug protocol, implemented by the owned core.
-// Capture/provenance exports are deliberately absent until their C6 parity gate.
+// Capture is observational and uses the owned VIC for live output and previews.
 extern "C" {
 uint8_t* rr_input();
 int rr_init(int basic_size,int kernal_size,int chars_size);
@@ -56,4 +56,14 @@ void rr_activity_end();
 uint32_t rr_activity_count();
 uint32_t rr_activity_dropped();
 const uint8_t* rr_activity_data();
+}
+
+extern "C" {
+int rr_capture_begin();int rr_capture_end();const char* rr_capture_info();
+const char* rr_pixel(int x,int y);const char* rr_raster_info();const char* rr_raster_seek(int line);uint32_t* rr_raster_frame(int panel);const char* rr_raster_pixel(int panel,int x,int y);
+const char* rr_replay_info();const char* rr_replay_begin();int rr_replay_seek(unsigned count);uint32_t* rr_replay_frame();uint32_t rr_replay_for_write(uint32_t y);
+int rr_tileset_size();uint8_t* rr_tileset_data();const char* rr_memory(int space,int address);
+}
+extern "C" {
+const char* rr_drive_debug_snapshot(int address);int rr_drive_debug_begin(int mode,int target,int next);int rr_drive_debug_run(int edges);double rr_drive_cycle();
 }

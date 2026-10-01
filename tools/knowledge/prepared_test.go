@@ -3,8 +3,15 @@ package knowledge
 import "testing"
 
 func TestPreparedStarts(t *testing.T) {
-	if len(fort(t).PreparedStarts) != 2 {
+	if len(fort(t).PreparedStarts) != 4 {
 		t.Fatal("missing prepared lessons")
+	}
+	p := fort(t)
+	for _, id := range []string{"terrain", "enemy-ai"} {
+		old, owned := p.PreparedStarts[id], p.PreparedStarts[id+"-owned"]
+		if old.Core == owned.Core || old.SHA256 == owned.SHA256 || old.Target != owned.Target || owned.PC != old.PC {
+			t.Fatal("owned lessons must bind distinct core/state identities and the same reviewed target", id)
+		}
 	}
 	for name, change := range map[string]func(map[string]any){
 		"missing target": func(m map[string]any) { at(m, "preparedStarts", "terrain", "target")["id"] = "missing" },

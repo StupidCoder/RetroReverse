@@ -9,7 +9,7 @@ function setup(program=[0xee,0,2,0x4c,0,8]){
  put(new Uint8Array(20480));assert(core._rr_init(8192,8192,4096));put(tape);assert(core._rr_tape(tape.length));
  const ram=new Uint8Array(65536).fill(0xea);ram[0x200]=0;ram.set(program,0x800);put(ram);assert(core._rr_prepare(0x800,0));
 }
-setup();assert.equal(json('_rr_capabilities').renderCapture,false);assert.equal(core._rr_capture_begin,undefined);
+setup();assert.equal(json('_rr_capabilities').renderCapture,true);assert.equal(typeof core._rr_capture_begin,'function');
 const messages=[];let onYield=()=>{},busy=false;
 const debug=createDebugService({core,send:(type,m)=>messages.push({type,...m}),sleep:async()=>onYield(),busy:()=>busy,paint:()=>{},applyInputs:()=>{},knowledge:{status:'unknown'},generation:9});
 let request=0;

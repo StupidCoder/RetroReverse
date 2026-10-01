@@ -23,7 +23,7 @@ export function createDebugService({core,send,sleep,busy,paint,applyInputs,knowl
  async function request(m){
   if(!Number.isSafeInteger(m.request)||m.request<1||m.protocol!==1||m.generation!==generation){reject(m,'Stale debugger generation or unsupported protocol.');return;}
   const client=m.client??'default';if(typeof client!=='string'||!/^[a-zA-Z0-9-]{1,100}$/.test(client)){reject(m,'Invalid inspector identity.');return;}
-  if(m.type==='debug-capabilities'){reply(m,'debug-capabilities',{capabilities:{instructionStep:true,stepOver:platform==='c64',stepOut:platform==='c64',writeWatchpoint:platform==='c64',runToAddress:true,safePeek:true,normalizeBoundary:platform==='c64',liveSampleHz:5,architecture:platform==='dos'?'x86':platform==='3do'?'arm60':'6510'},knowledge});return;}
+  if(m.type==='debug-capabilities'){reply(m,'debug-capabilities',{capabilities:{instructionStep:true,stepOver:platform==='c64',stepOut:platform==='c64',writeWatchpoint:platform==='c64',runToAddress:true,safePeek:true,normalizeBoundary:['c64','1541'].includes(platform),liveSampleHz:5,architecture:platform==='dos'?'x86':platform==='3do'?'arm60':platform==='1541'?'6502':'6510'},knowledge});return;}
   if(m.type==='debug-cancel'){if(job)job.cancel=true;reply(m,'debug-cancelled',{activeJob:job?.id??null});return;}
   if(m.type==='debug-snapshot'){
    if(busy()&&!job){reply(m,'debug-result',{reason:'rejected',text:'Another inspection job owns the machine.',retryable:true});return;}

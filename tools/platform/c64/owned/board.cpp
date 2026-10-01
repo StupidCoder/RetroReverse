@@ -40,7 +40,7 @@ void Board::write(uint16_t address,uint8_t value){
  state.ram[address]=value;
 }
 bool Board::tick(bool cpuReady){
- Cpu cpu;cpu.state=state.cpu;if(cpu.faulted())return false;++state.cycles;state.vic.tick(state.ram,chars,state.color,uint16_t((~state.cia2.outputA()&3)<<14));state.sid.tick();
+ Cpu cpu;cpu.state=state.cpu;if(cpu.faulted())return false;++state.cycles;state.vic.tick(state.ram,chars,state.color,uint16_t((~state.cia2.outputA()&3)<<14),observer);state.sid.tick();
  state.tape.flag=true;
  if(state.tape.play&&motor()&&state.tape.pulse<pulses.size()){
   if(state.tape.remaining&&!--state.tape.remaining){state.tape.flag=false;if(++state.tape.pulse<pulses.size())state.tape.remaining=pulses[state.tape.pulse];}

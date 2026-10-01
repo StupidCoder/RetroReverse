@@ -8,6 +8,7 @@ static void rrMemoryRegions(){
  add("kernal","KERNAL ROM","rom",board.kernal.data(),8192,p&2?"[57344]":"[]",0xe000);
  add("chars","Character ROM","rom",board.chars.data(),4096,(p&3)&&!(p&4)?"[53248]":"[]",0xd000);
  add("color","Color RAM","ram",board.state.color.data(),1024,(p&3)&&(p&4)?"[55296]":"[]",0xd800);
- // Index 5 remains reserved for the worker's decoded tape-pulse region.
+ if(driveEnabled){add("drive-ram","1541 RAM (snapshot only)","ram",machine.drive.state.ram.data(),2048,"[]",0);add("drive-rom","1541 firmware","rom",machine.drive.rom.data(),16384,"[]",0xc000);}
+ // The worker appends decoded TAP at index 5, or 7 with an attached drive.
 }
 #include "../../../../browser/core/memory-api.inc"

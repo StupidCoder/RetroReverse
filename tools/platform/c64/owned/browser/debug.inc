@@ -85,7 +85,7 @@ int rr_debug_edit(int count){
   if(a<2||space(a)!=0||board.state.ram[a]!=input[i*4+2])return 0;
   for(int j=0;j<i;j++)if(a==(input[j*4]|unsigned(input[j*4+1])<<8))return 0;
  }
- for(int i=0;i<count;i++)board.state.ram[input[i*4]|unsigned(input[i*4+1])<<8]=input[i*4+3];
+ for(int i=0;i<count;i++){const auto a=uint16_t(input[i*4]|unsigned(input[i*4+1])<<8);board.state.ram[a]=input[i*4+3];render::edited(a);}
  // The owned CPU has a pending fetch, so an edit at PC needs no synthetic
  // prefetch replacement. The actual next read consumes the patched byte.
  invalidateDebug();return 1;

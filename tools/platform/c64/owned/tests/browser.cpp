@@ -62,6 +62,7 @@ int main(){
  setup();rr_inspect_regions();rr_activity_begin(7);assert(rr_run(30,0,0)==30);rr_activity_end();bool dummy=false,write=false,fetch=false;
  for(const auto& e:rrmem::events){if(e.offset==0x200&&e.kind==2){dummy|=e.value==0;write|=e.value==1;}fetch|=e.kind==4;}assert(dummy&&write&&fetch);
  const auto count=rr_activity_count();const auto before=rr_cycle();rr_inspect_regions();rr_inspect_data(0);assert(rr_activity_count()==count&&rr_cycle()==before);
+ setup();board.pulses={1};board.state.tape.pulse=0;board.state.tape.remaining=1;board.state.data=0x17;rr_play(1);rr_activity_begin(1);assert(rr_run(1,0,0)==1);assert(board.state.tape.pulse==1);assert(rrmem::events.back().region==5&&rrmem::events.back().offset==0&&rrmem::events.back().value==1);rr_activity_end(); // EOF advances the cursor; activity identifies the last consumed pulse.
  setup();const uint8_t under[]={0xa9,0x42,0x8d,0,0xa0};std::copy(std::begin(under),std::end(under),rr_ram()+0x800);rr_inspect_regions();rr_activity_begin(3);assert(rr_run(6,0,0)==6);assert(rrmem::events.back().region==0&&rrmem::events.back().offset==0xa000&&rrmem::events.back().value==0x42);rr_activity_end();
  // Keyboard mapping is switch-based, including simultaneous shifted keys.
  setup();rr_key('"',1);rr_key('!',1);assert(board.state.keys[1]&128);rr_key('"',0);assert(board.state.keys[1]&128);rr_key('!',0);assert(!(board.state.keys[1]&128));rr_key(255,1);assert(board.state.restore);rr_key(255,0);assert(!board.state.restore);
@@ -74,7 +75,11 @@ int main(){
  // Observer IDs and trace settings cannot change deterministic machine bytes.
  setup();bind();const auto unobserved=saved();rr_trace(1,0,65535);rr_run(100,0,0);assert(!events.empty());const auto observed=saved();assert(load(unobserved)&&!tracing);rr_run(100,0,0);assert(saved()==observed);
  setup();std::fill_n(rr_input(),16384,0xea);rr_input()[0]=0x4c;rr_input()[1]=0;rr_input()[2]=0xc0;rr_input()[0x3ffc]=0;rr_input()[0x3ffd]=0xc0;assert(rr_drive_rom(16384));bind();assert(rr_run(100,0,0)==100&&machine.drive.state.clocks>board.state.cycles);
- const auto dual=saved();rr_run(100,0,0);const auto dualEnd=saved();assert(load(dual));rr_run(100,0,0);assert(saved()==dualEnd);assert(!rr_drive_rom(16384));
+ const auto driveBefore=saveState(machine,identity);rr_drive_debug_snapshot(0x1800);assert(saveState(machine,identity)==driveBefore);
+ assert(rr_drive_debug_begin(0,0,0));int dr=0;while(!dr)dr=rr_drive_debug_run(100);assert(dr==1);
+ const auto retired=machine.drive.state.cpu.retired;assert(rr_drive_debug_begin(1,0,0));dr=0;while(!dr)dr=rr_drive_debug_run(100);assert(dr==2&&machine.drive.state.cpu.retired==retired+1);
+ assert(rr_drive_debug_begin(2,0xc000,1));dr=0;while(!dr)dr=rr_drive_debug_run(100);assert(dr==4&&machine.drive.state.cpu.pc==0xc000);
+ const auto dual=saved();rr_run(100,0,0);const auto dualEnd=saved();assert(load(dual));assert(rr_drive_debug_run(10)==-1);rr_run(100,0,0);assert(saved()==dualEnd);assert(!rr_drive_rom(16384));
  setup();bind();const auto noDrive=saved();assert(!load(dual)&&saved()==noDrive);
  std::cout<<"PASS owned browser ABI: execution, IRQ/partial/RDY stepping, over/out, actual-write watches, atomic edits, banking, memory activity, input, slots and bound portable state\n";
 }

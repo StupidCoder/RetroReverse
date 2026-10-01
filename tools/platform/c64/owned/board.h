@@ -32,6 +32,7 @@ struct BoardState {
 class Board {
 public:
  BoardState state;
+ VicObserver* observer=nullptr; // host observation only, never checkpoint state
  std::array<uint8_t,8192> basic{},kernal{};
  std::array<uint8_t,4096> chars{};
  std::vector<uint32_t> pulses;

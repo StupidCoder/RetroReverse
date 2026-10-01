@@ -6,6 +6,11 @@
 #include <algorithm>
 #include <memory>
 #include <sstream>
+#include <map>
+#include <tuple>
+#include <cstdio>
+namespace driveDebug {void reset();}
+namespace render {void reset();void beforeTick();void afterTick(const rr::c64::CpuState&,int,uint8_t);void edited(uint16_t);}
 
 namespace bridge {
 using namespace rr::c64;
@@ -15,10 +20,12 @@ struct Context {
  uint16_t pc=0;
  uint64_t instructionCycle=0,sequence=0;
  bool synthetic=false;
+ std::array<uint8_t,3> instruction{};
+ uint32_t interruptDepth=0;
  std::array<bool,256> keys{};
 };
 Context ctx;
-static void stateFields(rrstate::Archive& a,Context& s){a(s.pc,s.instructionCycle,s.synthetic,s.keys);}
+static void stateFields(rrstate::Archive& a,Context& s){a(s.pc,s.instructionCycle,s.synthetic,s.keys,s.instruction,s.interruptDepth);}
 bool initialized=false,driveEnabled=false,bound=false;
 uint32_t generation=0;
 StateIdentity identity;
@@ -50,7 +57,7 @@ bool boundary(){return board.state.cpu.stage==Stage::Fetch;}
 bool interrupt(){return board.state.cpu.interruptPending;}
 bool fault(){return board.state.cpu.stage==Stage::Fault||board.state.cpu.stage==Stage::Jam;}
 void invalidateDebug(){job={};writeEvent="null";lastExecuted=-1;lastExecutedCycle=0;}
-void clearObservation(){events.clear();dropped=0;ctx.sequence=0;tracing=false;rrmem::events.clear();rrmem::dropped=0;rrmem::active=false;invalidateDebug();}
+void clearObservation(){driveDebug::reset();render::reset();events.clear();dropped=0;ctx.sequence=0;tracing=false;rrmem::events.clear();rrmem::dropped=0;rrmem::active=false;invalidateDebug();}
 void mediaChanged(){++generation;bound=false;stateOutput.clear();for(auto& c:checkpoints)c={};clearObservation();}
 int space(uint16_t a,bool writing=false){
  if(a<2)return 2;
@@ -74,7 +81,9 @@ bool tick(){
  const auto before=board.state.cpu;const auto pulse=board.state.tape.pulse;
  const int mapped=space(before.bus.address,before.bus.write);
  if(before.stage==Stage::Fetch){ctx.pc=before.pc;ctx.instructionCycle=board.state.cycles;}
+ const auto old=!before.bus.write?uint8_t(0):mapped==0?board.state.ram[before.bus.address]:mapped==1?board.state.color[before.bus.address&1023]:board.peek(before.bus.address);render::beforeTick();
  const bool ok=driveEnabled?machine.tickEdge():board.tick();
+ render::afterTick(before,mapped,old);
  const auto& s=board.state;const auto& b=s.lastBus;
  if(before.retired!=s.cpu.retired){lastExecuted=ctx.pc;lastExecutedCycle=s.cycles;}
  if(b.valid&&(b.write||b.ready)){
@@ -89,7 +98,7 @@ bool tick(){
    else if(traceReads)record(4,b.address,b.value);
   }
  }
- if(pulse!=s.tape.pulse){record(0,0,0);rrmem::access(s.cycles,5,pulse,board.pulses[pulse],1,17,ctx.pc,0);}
+ if(pulse!=s.tape.pulse){record(0,0,0);rrmem::access(s.cycles,driveEnabled?7:5,pulse,pulse<board.pulses.size()?board.pulses[pulse]:0,1,17,ctx.pc,0);}
  if(!ok)error="C64 CPU halted on a JAM or unsupported opcode.";
  return ok;
 }
@@ -113,14 +122,14 @@ void applyKeys(){
 }
 std::vector<uint8_t> snapshot(){
  auto hardware=driveEnabled?saveState(machine,identity):saveState(board,identity);
- rrstate::Archive a;a.header(0x41343643,1);a(driveEnabled,ctx,hardware);auto checksum=hash(a.bytes);a(checksum);return std::move(a.bytes);
+ rrstate::Archive a;a.header(0x41343643,2);a(driveEnabled,ctx,hardware);auto checksum=hash(a.bytes);a(checksum);return std::move(a.bytes);
 }
 bool restore(std::span<const uint8_t> bytes){
  try{
   if(bytes.size()<4||bytes.size()>MaxState)throw std::runtime_error("Invalid adapter state size");
   const auto n=bytes.size()-4;uint32_t checksum=0;for(unsigned i=0;i<4;i++)checksum|=uint32_t(bytes[n+i])<<(i*8);
   if(checksum!=hash(bytes.first(n)))throw std::runtime_error("Adapter state checksum mismatch");
-  rrstate::Archive a(bytes.data(),n);a.header(0x41343643,1);bool drive=false;Context next;a(drive,next);
+  rrstate::Archive a(bytes.data(),n);a.header(0x41343643,2);bool drive=false;Context next;a(drive,next);
   if(drive!=driveEnabled)throw std::runtime_error("Checkpoint drive configuration mismatch");
   const auto count=a.count(0);if(count!=a.bytes.size()-a.pos)throw std::runtime_error("Invalid hardware state length");
   const std::span<const uint8_t> hardware(a.bytes.data()+a.pos,count);
@@ -133,7 +142,7 @@ bool restore(std::span<const uint8_t> bytes){
 }
 using namespace bridge;
 extern "C" {
-const char* rr_capabilities(){return R"({"core":"owned-c64","development":true,"execution":true,"debugger":true,"memoryActivity":true,"portableState":true,"stateIdentityBinding":true,"renderCapture":false,"pixelProvenance":false,"audio":false})";}
+const char* rr_capabilities(){return R"({"core":"owned-c64","development":true,"execution":true,"debugger":true,"memoryActivity":true,"portableState":true,"stateIdentityBinding":true,"renderCapture":true,"pixelProvenance":true,"audio":false})";}
 uint8_t* rr_input(){return input.data();}
 const char* rr_error(){return error.c_str();}
 const char* rr_profile(){return rrprof::json();}
@@ -199,7 +208,7 @@ const char* rr_status(){
   <<",\"pulse\":"<<s.tape.pulse<<",\"pulseCount\":"<<board.pulses.size()<<",\"remaining\":"<<s.tape.remaining<<",\"frames\":"<<s.vic.frames<<",\"raster\":"<<s.vic.raster<<",\"timer\":"<<s.cia1.a.counter<<",\"bank\":"<<unsigned(board.port())
   <<",\"motor\":"<<(board.motor()?"true":"false")<<",\"prepared\":"<<(ctx.synthetic?"true":"false")<<",\"ramHash\":"<<hash(s.ram)<<",\"frameHash\":"<<hash(s.vic.pixels)<<",\"events\":"<<events.size()<<",\"dropped\":"<<dropped<<",\"generation\":"<<generation<<"}";status=o.str();return status.c_str();
 }
-const char* rr_drive_status(){static std::string out;const auto& d=machine.drive.state;std::ostringstream o;o<<"{\"enabled\":"<<(driveEnabled?"true":"false")<<",\"cycle\":\""<<d.clocks<<"\",\"pc\":"<<d.cpu.pc<<",\"halfTrack\":"<<unsigned(d.halfTrack)<<",\"bit\":"<<d.position<<",\"motor\":"<<(d.motor?"true":"false")<<",\"led\":"<<(d.led?"true":"false")<<",\"dirty\":"<<(d.media.changed()?"true":"false")<<"}";out=o.str();return out.c_str();}
+const char* rr_drive_status(){static std::string out;const auto& d=machine.drive.state;std::ostringstream o;o<<"{\"enabled\":"<<(driveEnabled?"true":"false")<<",\"cycle\":\""<<d.clocks<<"\",\"pc\":"<<d.cpu.pc<<",\"halfTrack\":"<<unsigned(d.halfTrack)<<",\"g64\":"<<(d.media.g64?"true":"false")<<",\"track\":"<<(d.media.g64?double(d.halfTrack-2):double(d.halfTrack-2)/2)<<",\"bitCount\":"<<d.media.tracks[d.halfTrack-2].size()*8<<",\"bit\":"<<d.position<<",\"motor\":"<<(d.motor?"true":"false")<<",\"led\":"<<(d.led?"true":"false")<<",\"dirty\":"<<(d.media.changed()?"true":"false")<<"}";out=o.str();return out.c_str();}
 const char* rr_events(){std::ostringstream o;o<<'[';bool comma=false;for(const auto& e:events){if(comma)o<<',';comma=true;o<<"{\"id\":"<<e.id<<",\"cycle\":"<<e.cycle<<",\"pulse\":"<<e.pulse<<",\"kind\":"<<unsigned(e.kind)<<",\"pc\":"<<e.pc<<",\"address\":"<<e.address<<",\"value\":"<<unsigned(e.value)<<",\"timer\":"<<e.timer<<",\"a\":"<<unsigned(e.a)<<",\"x\":"<<unsigned(e.x)<<",\"y\":"<<unsigned(e.y)<<",\"p\":"<<unsigned(e.p)<<",\"bank\":"<<unsigned(e.bank)<<'}';}o<<']';eventsJSON=o.str();return eventsJSON.c_str();}
 int rr_checkpoint(int slot){if(!initialized||slot<0||slot>=16)return 0;try{auto bytes=snapshot();checkpoints[slot]={generation,std::move(bytes)};return 1;}catch(const std::exception& e){error=e.what();return 0;}}
 int rr_restore(int slot){if(slot<0||slot>=16||checkpoints[slot].bytes.empty()||checkpoints[slot].generation!=generation){error="Checkpoint belongs to another machine or media generation.";return 0;}return restore(checkpoints[slot].bytes);}
@@ -215,3 +224,7 @@ int rr_state_load(uint32_t n){if(!initialized||!bound||n!=stateInput.size()){err
 }
 #include "debug.inc"
 #include "memory.inc"
+
+#include "render.inc"
+
+#include "drive-debug.inc"

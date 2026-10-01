@@ -28,7 +28,7 @@ export const presentation = {
     "aspect": "392/272",
     "render": "raster",
     "compatibilityHTML": "<p>Inspection uses the recorded state at each scanline, with memory and registers held fixed in the source previews. Actual output retains cycle-level VIC fetches, priority decisions and changes within a scanline. The previews do not reproduce the CPU’s later writes. Character ROM, RAM, color RAM and I/O writers remain distinct.</p>",
-    "firmwareHTML": "<details><summary>Optional firmware override</summary><p>Leave empty to use the hosted ROMs.</p><label>BASIC ROM <input id=\"basic\" type=\"file\"></label><label>KERNAL ROM <input id=\"kernal\" type=\"file\"></label><label>Character ROM <input id=\"chargen\" type=\"file\"></label></details>"
+    "firmwareHTML": "<details><summary>Optional firmware override</summary><p>Leave empty to use the hosted ROMs.</p><label>BASIC ROM <input id=\"basic\" type=\"file\"></label><label>KERNAL ROM <input id=\"kernal\" type=\"file\"></label><label>Character ROM <input id=\"chargen\" type=\"file\"></label><label id=\"drive-firmware-group\" hidden>1541 ROM (16 KiB, disk sessions only) <input id=\"drive-firmware\" type=\"file\" accept=\".rom,.bin\"></label></details>"
   },
   "dc": {
     "width": 640,
