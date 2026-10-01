@@ -1,4 +1,4 @@
-import {summarize,applyEvents,EVENT_WORDS,tapIndex} from './memory-model.js';
+import {summarize,applyEvents,EVENT_WORDS,tapIndex,pulseShades} from './memory-model.js';
 import {memoryLabels} from './memory-labels.js';
 
 // Owns copies only: inspecting and scrubbing never invokes device read handlers.
@@ -24,8 +24,8 @@ export function createMemoryService({core,platform,files,status}){
   const total=snapshot.regions.reduce((n,r)=>n+r.size,0);
   const bytesPerPixel=scale===1?1:Math.max(1,2**Math.ceil(Math.log2(Math.max(1,total/65536))));
   const regions=snapshot.regions.map(r=>{
-   const data=r.kind==='tape'?(tapeBitmap??=Uint8Array.from(tape.durations,n=>Math.min(255,Math.round(Math.log2(n+1)*18)))):r.bytes;
-   const s=r.kind==='tape'?Math.max(1,Math.ceil(data.length/65536)):Math.max(bytesPerPixel,2**Math.ceil(Math.log2(Math.max(1,data.length/1048576))));
+   const data=r.kind==='tape'?(tapeBitmap??=pulseShades(tape.durations)):r.bytes;
+   const s=r.kind==='tape'?Math.max(1,Math.ceil(data.length/1048576)):Math.max(bytesPerPixel,2**Math.ceil(Math.log2(Math.max(1,data.length/1048576))));
    let cached=bitmaps.get(data);if(!cached){cached=new Map();bitmaps.set(data,cached);}if(!cached.has(s))cached.set(s,summarize(data,s));
    return {...r,bytes:undefined,bitmap:cached.get(s),scale:s,units:r.kind==='tape'?'pulses':'bytes',mapSize:data.length,activityMap:new Uint8Array(Math.ceil(data.length/s))};
   });

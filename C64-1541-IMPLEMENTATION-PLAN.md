@@ -235,11 +235,11 @@ prevents an early CIA ICR acknowledgement from corrupting Elite's byte `$032F`.
 
 C6 is **not complete**. Remaining integration gates:
 
-- Explicit development backend selection and production host identity binding
-  (the owned development browser ABI is implemented; see progress below).
+- Development backend selection and host identity binding are implemented for
+  standalone TAP sessions; drive firmware/media UI integration remains.
 - Code/Memory/Rendering/Storage parity, including exact pixel provenance.
-- Browser UI recording and real-game experiment parity. Authored debugger,
-  experiment and cancellation service tests now pass against the owned ABI.
+- Real-game experiment parity. Browser memory recording/cancellation and
+  authored debugger/experiment service tests now pass against the owned ABI.
 - Regenerated prepared lesson identities/checkpoints and browser acceptance.
 - Continue recording Elite's later loader progress separately from Fort;
   the first-block check does not certify the full self-modifying loader or game.
@@ -270,3 +270,28 @@ production host binding, rendering provenance/capture, recording and Storage/
 drive-debug UI integration, and accepted game-specific prepared recipes. See
 [the browser adapter contract](tools/platform/c64/owned/browser/README.md) for
 reproduction and precise limits. C7 remains pending.
+
+### C6 progress — opt-in browser integration — 2026-10-01
+
+The actual emulator worker now selects the owned core with `c64Core=owned` in
+the source development UI. A fixed module path and verified WASM manifest are
+used; ordinary pages still select the previous production core. The owned build
+is ignored locally and explicitly excluded from release packaging. The normal
+worker binds actual core, firmware and tape identities before checkpoints.
+
+Backend identity survives system suspension. Failed candidate loads retain the
+active backend and capabilities. Unsupported rendering capture is rejected
+before execution and disabled in every independent Render panel. Prepared
+lessons are filtered by core/firmware identity rather than offering old-core
+checkpoints that cannot load.
+
+Actual-browser acceptance exercises TAP boot, frame/instruction stepping,
+memory recording and cancellation, save/restore, cross-core/configuration
+rejection, two independent Render panels, system suspension and failed-load
+recovery. The default production core still captures rendering and retains its
+existing checkpoint configuration. Site packaging keeps all sixteen existing
+core hashes and excludes development binaries.
+
+C6 remains in progress: rendering capture/provenance, disk/drive UI integration,
+accepted owned prepared recipes and Fort's AI experiment remain outstanding.
+See `owned/browser/README.md` for local build and browser acceptance instructions.

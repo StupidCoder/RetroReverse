@@ -271,4 +271,5 @@ and real-media tests cover Elite's first loader lesson/prepared-start replay
 and Fort's terrain lesson. Fort's existing AI experiment safely rejects a
 different teleport result; its original/patched comparison remains a follow-up.
 The adapter guide documents build commands, ABI semantics and remaining C6
-gates. No production backend or shipped WASM is changed.
+gates. The worker/UI supports explicit development opt-in for TAP sessions, including
+memory recording and save/restore. No default backend or shipped WASM is changed.

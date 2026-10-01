@@ -290,8 +290,9 @@ implementation was copied.
 
 The development browser ABI now passes the existing debugger, memory, tour and
 experiment service tests with authored programs, including cancellation and
-rollback. Rendering/provenance parity, production worker/UI integration,
-recording and regenerated shipped prepared lessons remain pending. Later Elite loader stages, protocol mutations,
+rollback. Rendering/provenance parity, disk/drive UI integration and regenerated shipped
+prepared lessons remain pending. The worker/UI now supports opt-in TAP sessions
+and memory recording/cancellation. Later Elite loader stages, protocol mutations,
 gameplay and object slots remain unvalidated by this bounded gate.
 
 ### C6 browser-service acceptance
@@ -318,3 +319,11 @@ core; no guards were weakened or machine state forced to hide this difference.
 Drive scheduling and state work through the adapter, but drive-specific UI,
 render capture, pixel provenance and audio output are not advertised as
 available. The default backend remains unchanged.
+
+The source development UI accepts `c64Core=owned` and loads a separately built,
+manifest-verified module. Actual-browser checks cover worker identity binding,
+recording cancellation, save/restore, debugger stepping, cross-core/configuration
+rejection, independent panel capability handling and failed-load recovery. The
+production backend remains the default and keeps its state metadata compatible.
+Development binaries are excluded from release bundles. This is standalone TAP
+integration; browser disk loading and drive-head telemetry are still pending.

@@ -2,8 +2,8 @@
 
 This is C6 work in progress. It builds the owned hardware as an ES module with
 an Emscripten ABI compatible with the existing debugger, memory, tour,
-experiment and prepared-start services. It is not selected by the production
-worker and does not replace a shipped WASM file.
+experiment and prepared-start services. The production worker can select it explicitly for development; the default
+backend and shipped WASM remain unchanged.
 
 ## Build and test
 
@@ -24,6 +24,37 @@ Firmware/game/checkpoint bytes are never fetched or committed by these tests.
 Without `RR_C64_CORE`, the shared tour/experiment tests still use the production
 core. The test host hashes actual WASM, firmware and media bytes; it does not
 replace any execution or checkpoint implementation.
+
+## Local browser integration
+
+Build the opt-in artifacts, then serve the repository root:
+
+```sh
+python3 tools/platform/c64/owned/browser/build.py \
+  --emcc /path/to/emscripten/em++ --out site/emulators/cores/c64-owned
+python3 -m http.server 8765 --bind 127.0.0.1
+```
+
+Open `/tools/browser/owned-c64.html?c64Core=owned` on that local server.
+Without the query parameter, the same source UI uses the production backend.
+Only the fixed `owned` and `production` choices are accepted. Generated owned
+artifacts are ignored by Git and excluded from release packaging. The build
+writes a SHA256 manifest; the worker verifies the WASM before initialization.
+Missing development artifacts produce a load error and retain any live session.
+
+The normal worker binds actual WASM/firmware/TAP identities before permitting
+checkpoint operations. Save files include the owned backend in configuration;
+system suspension retains it. A failed candidate load cannot change the active
+backend or capabilities. Prepared lessons are listed only when their core and
+firmware identities match, so old-core starts are not offered here.
+
+Run `/tools/browser/tests/owned-c64-browser.html` on the server for actual-browser
+acceptance with a generated TAP and local bundled firmware. It exercises the
+worker, DOM panels, memory recording/cancellation, debugger, state transport,
+identity rejection and failed-load recovery. The worker also rejects unsupported
+render capture directly; every independent Render panel disables that action.
+This integration currently accepts TAP only: drive firmware/disk selection and
+Storage head telemetry still need UI/worker integration.
 
 ## Execution and inspection contract
 
@@ -67,8 +98,8 @@ Before portable save/load, the host must write 228 bytes to `rr_input` and call
 `rr_state_bind`: seven raw SHA256 digests (core, BASIC, KERNAL, characters,
 1541 firmware, original TAP, original disk), then a little-endian configuration
 word. An absent optional input uses a zero digest. The current test host uses
-bit 0 for drive presence and bit 1 for writable disk media. Production host
-integration must hash the actual current inputs and preserve these semantics.
+bit 0 for drive presence and bit 1 for writable disk media. The browser worker hashes the actual current inputs and binds standalone TAP
+sessions with configuration zero; drive sessions remain a test-host API.
 Media replacement or pulse editing invalidates the binding and internal slots.
 
 The adapter wraps the [hardware codec](../PORTABLE-STATE.md) with format magic
@@ -107,7 +138,6 @@ four random drop points; a core/timing-specific recipe needs investigation.
 The acceptance test retains the guards and verifies complete rollback on this
 known rejection. It does not claim a successful original/patched AI comparison.
 
-C6 still needs the development backend selector, production identity binding,
-render capture/pixel provenance, UI recording/Storage/drive-debug integration,
+C6 still needs render capture/pixel provenance, Storage/drive-debug integration,
 and regenerated accepted lesson/experiment recipes. C7's default switch remains
 blocked on those acceptance gates.

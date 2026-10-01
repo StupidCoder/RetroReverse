@@ -76,7 +76,7 @@ def run(out):
   adapter=out/'adapter'
   subprocess.run([sys.executable,str(HERE/'browser/build.py'),'--emcc',a.emcc,'--out',str(adapter)],check=True)
   env={**os.environ,'RR_C64_CORE':str(adapter/'core.mjs')}
-  for script in [HERE/'tests/browser-services.mjs',HERE.parents[2]/'browser/tests/tours.mjs',HERE.parents[2]/'browser/tests/experiments.mjs']:
+  for script in [HERE.parents[2]/'browser/tests/core-backend.mjs',HERE/'tests/browser-services.mjs',HERE.parents[2]/'browser/tests/tours.mjs',HERE.parents[2]/'browser/tests/experiments.mjs']:
    subprocess.run([a.node,str(script)],env=env,check=True,timeout=120)
   if elite:subprocess.run([a.node,str(HERE/'tests/browser-elite.mjs'),str(a.firmware_dir.resolve()),str(a.elite_tap.resolve())],env=env,check=True,timeout=300)
   if fort:subprocess.run([a.node,str(HERE/'tests/browser-fort.mjs'),str(a.firmware_dir.resolve()),str(a.fort_tap.resolve())],env=env,check=True,timeout=300)

@@ -1,3 +1,4 @@
+import {backendAssets,bindOwnedIdentity,matchingPreparedKnowledge} from './core-backend.js';
 import {prepareStart} from './prepared-start.js';
 import {createExperimentService} from './experiment-worker.js';
 import {create3DOInspector} from './threedo-inspector.js';
@@ -28,10 +29,11 @@ let cacheReply=null;
 let saving=false,debugService=null,tourService=null,experimentService=null;
 const executionGate=createExecutionGate();
 let memoryService=null,memoryRecording=false,memoryStop=false,memoryBusy=false;
+let coreCapabilities={}, backend='production';
 let bootOptions, firmwareIdentity=[], mediaIdentity, coreIdentity;
 async function identities(){
  if(!mediaIdentity){send("message",{text:"Verifying local media identity…"});mediaIdentity=[];const names=platform==='dos'?dosFiles(files).map(e=>e.path):files.map(f=>f.name);for(const [i,f] of files.entries())mediaIdentity.push({name:names[i],size:f.size,sha256:await mediaHash(f)});mediaIdentity.sort((a,b)=>a.name.localeCompare(b.name));}
- return {media:mediaIdentity,firmware:firmwareIdentity,core:coreIdentity,configuration:{compatibility:bootOptions.compatibility!==false,customFirmware:!!bootOptions.firmware?.some(Boolean),...(platform==='dos'?{executable:bootOptions.executable}:{})}};
+ return {media:mediaIdentity,firmware:firmwareIdentity,core:coreIdentity,configuration:{compatibility:bootOptions.compatibility!==false,customFirmware:!!bootOptions.firmware?.some(Boolean),...(platform==='dos'?{executable:bootOptions.executable}:{}),...(backend==='owned'?{c64Backend:backend}:{})}};
 }
 function queueState(){return {...inputs,appliedKeys:[...appliedKeys],pulses:[...inputs.pulses],down:[...inputs.down],pending:inputQueue,lastButtons,lastX,lastY,inputSequence,lastInputStep};}
 async function saveState(){
@@ -95,6 +97,7 @@ function paint() {
   paintMs += performance.now() - start;
   send('state', {
     state : s,
+    capabilities:coreCapabilities,backend,
     width : w,
     height : h,
     pixels : pixels.buffer,
@@ -265,14 +268,19 @@ async function boot(m) {
   if (!files?.length)
     throw Error('Select a game image');
   send('message', {text : 'Loading emulator…'});
-  const manifest=await (await fetch('./build-manifest.json')).json();
-  coreIdentity=manifest[platform+'/core.wasm'];
-  const response=await fetch(`./cores/${platform}/core.wasm`);
+  backend=m.backend||'production';
+  const assets=backendAssets(platform,backend);
+  const manifestResponse=await fetch(assets.manifest);
+  if(!manifestResponse.ok)throw Error(assets.owned?'Owned development core is not built. See owned/browser/README.md.':'Emulator manifest download failed');
+  const manifest=await manifestResponse.json();coreIdentity=manifest[assets.key];
+  const response=await fetch(assets.wasm);
   if(!response.ok)throw Error('Emulator binary download failed');
   const wasmBinary=new Uint8Array(await response.arrayBuffer());
-  if(await digest(wasmBinary)!==coreIdentity)throw Error('Emulator build mismatch. Reload the page to obtain a matching release.');
-  const factory = (await import(`./cores/${platform}/core.js`)).default;
+  if(await digest(wasmBinary)!==coreIdentity)throw Error('Emulator build mismatch. Rebuild the development core or reload the matching release.');
+  const factory = (await import(assets.module)).default;
   core = await factory({wasmBinary});
+  coreCapabilities=core._rr_capabilities?json('_rr_capabilities'):{};
+  if(assets.owned&&coreCapabilities.core!=='owned-c64')throw Error('Expected the owned C64 development core');
   const dcMedia=platform==='dc'?await selectDreamcastMedia(files):null;
   const dosMedia=platform==='dos'?selectDOSMedia(files,m.executable):null;
   const f = dosMedia?dosMedia.entries.find(e=>e.path===dosMedia.entry).file:dcMedia?dcMedia.file:await selectMedia(files);
@@ -314,6 +322,7 @@ async function boot(m) {
       throw Error('TAP exceeds current 2 MiB core limit');
     core.HEAPU8.set(new Uint8Array(await f.arrayBuffer()), core._rr_input());
     check(core._rr_tape(f.size));
+    if(assets.owned)bindOwnedIdentity(core,{core:coreIdentity,firmware:firmwareIdentity,tape:await mediaHash(f)});
     core._rr_trace(0, 0, 0);
   } else if(platform==='dos'){
     core.gameFiles=files;const put=s=>{const b=new TextEncoder().encode(s),p=core._rr_input(b.length);check(p);core.HEAPU8.set(b,p);return b.length;};
@@ -402,10 +411,10 @@ async function boot(m) {
   if(['c64','dos','3do'].includes(platform)&&core._rr_debug_snapshot){
     const identity=platform==='dos'?await identifyDOSFiles(dosMedia.entries,knowledgePackages,mediaHash,dosMedia.entry):identifySingleImage(platform,{size:f.size,sha256:await mediaHash(f)});
     const pkg=knowledgePackages.find(p=>p.id===identity.packageId);
-    const knowledge=pkg?{...identity,data:pkg.knowledge}:identity;
+    const knowledge=matchingPreparedKnowledge(pkg?{...identity,data:pkg.knowledge}:identity,{core:coreIdentity,firmware:firmwareIdentity});
     const adapter=platform==='dos'?createDOSInspector(core,knowledge):platform==='3do'?create3DOInspector(core,knowledge):{};
     debugService=createDebugService({core,send,sleep,paint,applyInputs,generation:session,platform,...adapter,
-      knowledge:pkg?{...identity,data:pkg.knowledge}:identity,
+      knowledge,
       onStart:()=>{cancelCapture();memoryService.stopLive();},
       busy:includePlay=>!!(experimentService?.active()||tourService?.active()||(executionGate.owner&&(includePlay||!['run','step'].includes(executionGate.owner)))||saving||memoryBusy||memoryRecording||capturing||(includePlay&&running))});
     if(platform==='c64')experimentService=createExperimentService({core,knowledge,generation:session,send,sleep,paint,snapshot:()=>debugService.snapshot(),
@@ -422,7 +431,8 @@ async function boot(m) {
   loaded = true;
   paint();
   send('ready', {
-    text : (restored?'State restored, paused. ':'') + f.name + ' loaded. ' + (core.compatProfile || '') + ' Ready in '+((performance.now()-bootBegan)/1000).toFixed(2)+' s. Press Run.'
+    capabilities:coreCapabilities,backend,
+    text : (restored?'State restored, paused. ':'') + f.name + ' loaded. ' + (assets.owned?'Owned C64 development core · rendering capture and prepared lessons unavailable. ':'') + (core.compatProfile || '') + ' Ready in '+((performance.now()-bootBegan)/1000).toFixed(2)+' s. Press Run.'
   });
 }
 onmessage = async ({data : m}) => {
@@ -435,6 +445,7 @@ onmessage = async ({data : m}) => {
     }
     if (m.session !== session || !loaded)
       return;
+    if(m.type==='capture-render'&&coreCapabilities.renderCapture===false){send('message',{text:'Rendering capture is not available in this development core.'});return;}
     if(m.type.startsWith('experiment-')){if(experimentService)await experimentService.request(m);else send('experiment-rejected',{generation:session,request:m.request,text:'Experiments are unavailable for this core.'});return;}
     if(experimentService?.owns()){
       if(['pause','hold','cancel-capture'].includes(m.type)){experimentService.cancel();return;}

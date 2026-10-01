@@ -47,3 +47,6 @@ games/*/extract/unpacked/
 games/*/extract/decode
 games/*/extract/unpack
 games/*/extract/runlauncher
+
+# Opt-in owned C64 development build (C6; never a production artifact)
+/site/emulators/cores/c64-owned/

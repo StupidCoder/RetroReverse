@@ -35,7 +35,7 @@ print('Packaged sixteen cores; all emulator assets below Pages file limit.')
 assets={}
 for pattern in ['*.js','style.css','build-manifest.json','cores/**/*','firmware/**/*']:
  for p in out.glob(pattern):
-  if p.is_file():assets[p.relative_to(out).as_posix()]=hashlib.sha256(p.read_bytes()).hexdigest()
+  if p.is_file() and not p.is_relative_to(out/'cores/c64-owned'):assets[p.relative_to(out).as_posix()]=hashlib.sha256(p.read_bytes()).hexdigest()
 release_id=hashlib.sha256(json.dumps(assets,sort_keys=True,separators=(',',':')).encode()).hexdigest()[:20]
 release=out/'releases'/release_id
 old=json.loads((out/'release.json').read_text()) if (out/'release.json').is_file() else {}

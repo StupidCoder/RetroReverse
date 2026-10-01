@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build the development adapter into an explicit scratch directory; never ship it."""
-import argparse,json,os,subprocess
+import argparse,hashlib,json,os,subprocess
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 p=argparse.ArgumentParser()
@@ -12,3 +12,5 @@ exports='capabilities input init tape drive_rom disk drive_status prepare run st
 subprocess.run([a.emcc,'-std=c++20','-O2','-Wall','-Wextra','-Werror','-fexceptions',*map(str,sources),
  '-sMODULARIZE=1','-sEXPORT_ES6=1','-sENVIRONMENT=web,worker,node','-sALLOW_MEMORY_GROWTH=1','-sINITIAL_MEMORY=33554432','-sSTACK_SIZE=2097152',
  '-sEXPORTED_FUNCTIONS='+json.dumps(['_rr_'+n for n in exports]),'-sEXPORTED_RUNTIME_METHODS=["UTF8ToString","HEAPU8"]','-o',str(a.out/'core.mjs')],check=True)
+
+(a.out/'manifest.json').write_text(json.dumps({"c64-owned/core.wasm":hashlib.sha256((a.out/'core.wasm').read_bytes()).hexdigest()},indent=2)+"\n")

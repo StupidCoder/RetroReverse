@@ -6,7 +6,7 @@ import {createStatePanel} from './state-panel.js';
 import {createMemoryPanel} from './memory-panel.js';
 export function createViewportPanels({views,platform,send,transport,feed,canvas,legacy,warehouse,bindGameInput,recording,presentation,renderTemplate}){
  const storageSource=createStorageSource(platform);
- const renderPanels=new Set();let capture=null;
+ const renderPanels=new Set();let capture=null,capabilities={};
  const codePanels=new Set(),statePanels=new Set(),games=new Set(),borrowed=new Map();let generation=0,knowledge=null,last=null,machine=null;
  const inspect=(at,id)=>{views.reveal('code').inspect?.(at,id);};
  const stateNavigation={code:inspect,memory:(region,offset)=>views.reveal('hex').navigate?.(region,offset)};
@@ -23,7 +23,7 @@ export function createViewportPanels({views,platform,send,transport,feed,canvas,
    if(kind.startsWith('render')&&({render:'render-render','render-sources':'render-sources','render-details':'render-details'})[kind]!==id){
     const host=document.createElement('div');host.className='render-embedded';host.dataset.renderView=kind;host.innerHTML=renderTemplate;root.append(host);
     const panel=createRenderWorkspace({platform,presentation,send,resume:()=>transport('run'),playCanvas:canvas,workspaces:noViews,root:host});
-    localElement(host,'cancelcapture').onclick=()=>send('cancel-capture');namespacePanel(host,id);const entry={panel,host,id};renderPanels.add(entry);if(generation)panel.ready(true);if(capture){panel.setCapture(capture);namespacePanel(host,id);}
+    panel.capabilities(capabilities);localElement(host,'cancelcapture').onclick=()=>send('cancel-capture');namespacePanel(host,id);const entry={panel,host,id};renderPanels.add(entry);if(generation)panel.ready(true);if(capture){panel.setCapture(capture);namespacePanel(host,id);}
     return {setActive(){},dispose(){renderPanels.delete(entry);}};
    }
    if(kind==='state'){const p=createStatePanel(stateNavigation);p.active=false;statePanels.add(p);root.append(p.root);p.setKnowledge(knowledge);if(last)p.update(last);return {setActive(v){p.active=v;if(v&&last)p.update(last);},dispose(){statePanels.delete(p);},...stateNavigation};}
@@ -33,6 +33,7 @@ export function createViewportPanels({views,platform,send,transport,feed,canvas,
   },
   mediaReady(files){storageSource.loaded(files[0]);},
   media(files){storageSource.set(files);},
+  capabilities(c){capabilities=c;for(const r of renderPanels)r.panel.capabilities(c);},
   ready(g){generation=g;for(const p of codePanels)p.ready(g);},
   state(m){machine=m;for(const r of renderPanels)r.panel.ready(!!generation&&!m.running&&!m.capturing&&!m.saving&&!m.debugBusy&&!m.memoryRecording&&!m.experimentOwned);for(const p of codePanels)p.state(m);for(const p of statePanels)p.setRunning(m.running||m.debugBusy||m.capturing||m.memoryRecording);},
   result(m){if(m.type==='debug-capabilities'){knowledge=m.knowledge;for(const p of statePanels)p.setKnowledge(knowledge);}for(const p of codePanels)p.result(m);if(m.snapshot)api.snapshot(m.snapshot);},

@@ -30,15 +30,16 @@ export function createRenderWorkspace({platform,presentation,send,resume,playCan
   const ui={root,output,position:$('render-position'),auxiliary:$('render-auxiliary'),toolbar:$('render-toolbar'),sidebar:$('render-details'),timeline:createTimeline($('render-timeline')),
     buffer(parent,options){return createBufferView(parent,{width:presentation.width,height:presentation.height,aspect:presentation.aspect,...options});}};
   const adapter=adapters[presentation.render]({platform,send,ui});
-  let capture=null,pending=false,available=false;
+  let capture=null,pending=false,available=false,supported=true;
   $('render-resume').onclick=resume;
   $('render-capture').onclick=open;
-  function ready(value=true){available=value;$('render-capture').disabled=!value||pending;views.enable('render',value);}
+  function ready(value=true){value=!!value&&supported;available=value;$('render-capture').disabled=!value||pending;views.enable('render',value);}
   function open(){if(!available||pending)return;pending=true;$('render-capture').disabled=true;beforeCapture();ui.position.textContent='Capturing the next complete display interval…';$('cancelcapture').hidden=false;send('capture-render');}
   function reset({starting=false,unload=false}={}){capture=null;adapter.reset();if(starting)return;pending=false;$('render-capture').disabled=!available;if(unload)available=false;views.enable('render',available);}
   function progress(text){ui.position.textContent=text;}
 
   function setCapture(c){const requested=pending;pending=false;$('render-capture').disabled=!available;capture=c;output.copy(playCanvas);adapter.setCapture(c);views.enable('render',true);if(!requested)views.select('render',{focus:true});}
   function result(m){if(capture&&m.capture===capture.id)adapter.result(m);}
-  reset();return {reset,ready,progress,setCapture,result,isInspecting:()=>!!capture};
+  function capabilities(c){const wasSupported=supported;supported=c.renderCapture!==false;if(!supported){ready(false);ui.position.textContent='Rendering capture is unavailable in this development core.';}else if(!wasSupported)ui.position.textContent='Capture next display to inspect rendering.';}
+  reset();return {reset,ready,capabilities,progress,setCapture,result,isInspecting:()=>!!capture};
 }
