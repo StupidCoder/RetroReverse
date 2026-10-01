@@ -104,3 +104,39 @@ packaged app while the actual tape loads. No checkpoint or game bytes are saved.
 Release `8abb1aa0986735222938` passed in Chrome 154 and Firefox 157: repeated
 live samples, followed scrolling, fixed manual window with advancing head,
 paused stability, immediate re-follow, pulse progress and live RAM atlas.
+
+### Whole-medium atlases
+
+The Tape pulses view now shows the entire stream in row order, left to right
+and then top to bottom. Fort Apocalypse uses one pulse per source pixel; streams
+above 1,048,576 pulses average adjacent pulses to keep the atlas bounded. The
+atlas scales to fit the available Loader panel height. Orange marks the actual
+head and blue marks the inspected location. Clicking or using arrow/page keys
+changes the inspected pulse range only. Follow head applies to the expandable
+pulse-length detail; the whole-tape atlas always retains its full extent.
+Grayscale encodes logarithmic duration, with the shortest pulses black and the
+99th percentile white. Longer gaps saturate at white, preserving contrast between
+ordinary encoding bands. The legend tooltip describes this mapping.
+
+D64 and ADF images offer **Disk atlas / sectors**. D64 uses its actual variable
+sector counts across 35, 40 or 42 tracks. ADF shows its two sides separately,
+with 80 cylinders and 11 or 22 sectors per track. Tracks run outer to inner;
+logical sector order runs clockwise from the top. Each raster point samples an
+original image byte, with 0 black and 255 white. Angular placement is schematic:
+these image formats do not preserve physical gaps, encoding, or rotational sector
+positions. Selecting a sector highlights its track and sector in blue and opens
+its bytes. Both instances retain independent selections.
+
+The Amiga core's existing `track = cylinder * 2 + side` status drives an orange
+head ring, only for the image actually loaded in the session. It remains visible
+when paused. No rotational head position or disk writes are inferred. C64's
+current core does not expose a D64 drive head; its atlas explicitly says live
+head position is unavailable. Inspected images remain snapshots of the original
+files, even when a live Amiga head is shown.
+
+Release `d77035721ecda939d822`: Chrome 154 and Firefox 157 passed the private
+Fort loading atlas fixture (including viewport fit, exact head pixel and read-only
+click navigation). Chrome passed the full viewport suite and the disk UI fixture;
+the latter injects Amiga track updates to test ring rendering and loaded-image
+binding. Geometry, pulse contrast, storage, sampler, shell and release checks
+also pass. No emulator core changes or game media are included.

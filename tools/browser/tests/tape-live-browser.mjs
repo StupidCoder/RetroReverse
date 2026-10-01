@@ -12,7 +12,7 @@ try{
  const put=b=>core.HEAPU8.set(b,core._rr_input()),firmware=new Uint8Array(20480);let offset=0;for(const r of roms){firmware.set(r,offset);offset+=r.length;}put(firmware);assert(core._rr_init(8192,8192,4096),'init');
  const tape=new Uint8Array(await (await fetch('/games/fort-apocalypse-c64/Fort_Apocalypse.tap')).arrayBuffer());put(tape);assert(core._rr_tape(tape.length),'tape');
  const recipe=await (await fetch('./fort-tour-boot.json')).json();
- for(const action of recipe){if(action.run)core._rr_run(action.run);if(action.key)core._rr_key(...action.key);if(action.play!==undefined){core._rr_play(action.play);break;}}
+ for(const action of recipe){if(action.run)for(let left=action.run;left>0;){const n=Math.min(left,1000000);assert(core._rr_run(n)>=0,'boot run');left-=n;}if(action.key)core._rr_key(...action.key);if(action.play!==undefined){core._rr_play(action.play);break;}}
  core._rr_run(300000);
  const n=core._rr_state_save(),q=new InputQueue(50),state=await packState({format:1,platform:'c64',media:[{name:'Fort_Apocalypse.tap',size:tape.length,sha256:await digest(tape)}],firmware:await Promise.all(roms.map(digest)),core:await digest(wasm),configuration:{compatibility:true,customFirmware:false},input:{...q,pulses:[],down:[],pending:[],appliedKeys:[],lastButtons:0,lastX:0,lastY:0,inputSequence:0,lastInputStep:0}},core.HEAPU8.slice(core._rr_state_data(),core._rr_state_data()+n));
  frame.srcdoc=`<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="${base}/style.css"><body data-platform="c64"><div id="emulator-app"></div><script>localStorage.removeItem('rr.viewport.v1.c64');localStorage.removeItem('rr.viewport.v1.gb');window.received=[];window.errors=[];addEventListener('error',e=>errors.push(e.message+' '+e.filename+':'+e.lineno));const BaseWorker=Worker;window.Worker=class extends BaseWorker{constructor(...a){super(...a);this.addEventListener('message',e=>{received.push(e.data);if(received.length>1000)received.shift();});}};<\/script><script type="module" src="${base}/app.js"><\/script>`;
@@ -37,6 +37,14 @@ try{
  assert(pane().querySelector('.pane-status').textContent.includes('%'),'visible pulse progress');
  const atlas=d.querySelector('[data-kind="atlas"] .pane-status');assert(atlas.textContent.includes('Live memory'),'shared atlas also samples');
  checks.push('tape progress and shared live atlas');
+ const atlasCanvas=pane().querySelector('.tape-atlas');assert(atlasCanvas.getBoundingClientRect().bottom<=pane().getBoundingClientRect().bottom,'whole atlas fits the Loader viewport');const ctx=atlasCanvas.getContext('2d');
+ assert(atlasCanvas.width*atlasCanvas.height>=progress().max,'entire Fort tape at one pulse per pixel');
+ const hx=paused%512,hy=Math.floor(paused/512),color=ctx.getImageData(hx,hy,1,1).data;
+ assert(color[0]===255&&color[1]===123&&color[2]===36,'colored live head pixel');
+ const rect=atlasCanvas.getBoundingClientRect(),click=new w.MouseEvent('click',{clientX:Math.ceil(rect.left)+5,clientY:Math.ceil(rect.top)+5,bubbles:true}),selected=Math.floor((click.clientY-rect.top)*atlasCanvas.height/rect.height)*512+Math.floor((click.clientX-rect.left)*512/rect.width);atlasCanvas.dispatchEvent(click);
+ assert(Number(input().value)===selected&&!follow().checked,'atlas click selects pulse range without moving head');
+ assert(progress().value===paused,'inspection does not seek the tape');
+ checks.push('whole-tape grayscale atlas, exact head pixel and click navigation');
  report={result:'PASS',release,userAgent:navigator.userAgent,checks};
 }catch(e){report={result:'FAIL',userAgent:navigator.userAgent,checks,error:e.stack||String(e),errors:frame.contentWindow?.errors,messages:frame.contentWindow?.received?.filter(m=>['error','message'].includes(m.type)).slice(-6)};}
 output.textContent=JSON.stringify(report,null,2);document.title=report.result+' — Live tape acceptance';

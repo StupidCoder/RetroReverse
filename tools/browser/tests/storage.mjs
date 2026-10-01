@@ -24,3 +24,15 @@ v=await openStorage(file(rom,'test.cxi'),'3ds');let roots=await v.roots[0].child
 rom[399]=0;v=await openStorage(file(rom,'encrypted.cxi'),'3ds');assert.match((await v.roots[0].children())[0].name,/Encrypted/);
 const local=file(new Uint8Array(12),'file');Object.defineProperty(local,'webkitRelativePath',{value:'folder/nested/file'});const tree=selectedFileTree([local]);assert.equal((await(await tree[0].children())[0].children())[0].size,12);
 console.log('PASS Storage: decimal sizes, D64 sectors/chains, AmigaDOS hierarchy, cooked/raw ISO files, decrypted/encrypted 3DS RomFS, local folders and corrupt cycles');
+
+// Circular disk mapping uses track-specific sector counts and alternating ADF sides.
+const {diskTracks,diskPoint}=await import('../../../site/emulators/disk-atlas.js');
+const d64Geometry={cylinders:35,sides:1,counts:Array.from({length:35},(_,i)=>i<17?21:i<24?19:i<30?18:17)};
+assert.equal(diskTracks(d64Geometry).at(-1).start,666);
+assert.equal(diskPoint(d64Geometry,0,256,11).sector,0);
+assert.equal(diskPoint(d64Geometry,0,256,256),null);
+assert.equal(diskPoint(d64Geometry,0,256,0),null);
+const adfGeometry={cylinders:80,sides:2,counts:Array(160).fill(11)};
+assert.equal(diskPoint(adfGeometry,1,256,11).sector,11);
+assert.equal(diskTracks(adfGeometry).at(-1).start,1749);
+console.log('PASS circular geometry: D64 variable sectors, ADF side ordering, outer track and hub bounds');

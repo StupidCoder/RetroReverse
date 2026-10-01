@@ -27,3 +27,10 @@ const largeHeap=new Uint8Array(2*1024*1024+16);largeHeap[largeHeap.length-1]=123
 const largeCore={...core,HEAPU8:largeHeap,_rr_inspect_regions:()=>JSON.stringify({activity:false,regions:[{id:'ram',name:'Large RAM',kind:'ram',index:0,size:largeHeap.length-8,base:0,aliases:[0]}]}),_rr_inspect_data:()=>8};
 const largeService=createMemoryService({core:largeCore,platform:'test',files:[],status:()=>({})});await largeService.snapshot();const detailed=largeService.overview(1).regions[0];assert(detailed.bitmap.length<=1048576);assert.equal(detailed.scale,4);const last=largeService.page('ram',largeHeap.length-9);assert.equal(last.bytes.at(-1),123);
 console.log('PASS large-memory atlas: bounded bitmap and final-byte inspection');
+
+const {pulseShades}=await import('../../../site/emulators/memory-model.js');
+assert.deepEqual([...pulseShades([256,512,1024])],[0,127,255]);
+assert.deepEqual([...pulseShades([512,512])],[128,128]);
+assert.equal(pulseShades([]).length,0);
+const outliers=pulseShades([...Array(100).fill(300),...Array(100).fill(600),7000000]);assert.equal(outliers[100],255,'long gaps do not obscure the data bands');
+console.log('PASS pulse atlas: duration contrast, uniform stream and empty tape');

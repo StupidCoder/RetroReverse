@@ -24,3 +24,12 @@ export function tapIndex(bytes){
  for(let i=20;i<bytes.length;){offsets.push(i);let n=bytes[i++]*8;if(!n){if(bytes[12]===0)n=2048;else{if(i+3>bytes.length)throw Error('Truncated TAP pulse');n=bytes[i]|bytes[i+1]<<8|bytes[i+2]<<16;i+=3;}}durations.push(n);}
  return {offsets:Uint32Array.from(offsets),durations:Uint32Array.from(durations)};
 }
+
+// Normalize logarithmic pulse durations so short/long encoding bands remain visible.
+export function pulseShades(durations){
+ if(!durations.length)return new Uint8Array();
+ // Rare inter-block gaps should not flatten the contrast of ordinary data pulses.
+ const sorted=Uint32Array.from(durations).sort(),low=sorted[0],high=sorted[Math.ceil(sorted.length*.99)-1];
+ const a=Math.log2(low+1),span=Math.log2(high+1)-a;
+ return Uint8Array.from(durations,n=>span?Math.min(255,Math.round((Math.log2(n+1)-a)/span*255)):n===low?128:255);
+}

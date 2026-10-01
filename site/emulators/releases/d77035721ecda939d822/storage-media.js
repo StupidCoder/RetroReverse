@@ -20,12 +20,12 @@ export async function openStorage(file,platform=''){
   const sectors=tracks=>Array.from({length:tracks},(_,i)=>i<17?21:i<24?19:i<30?18:17),tracks=[35,40,42].find(t=>{const n=sectors(t).reduce((a,b)=>a+b,0);return file.size===n*256||file.size===n*257;});
   if(!tracks)throw Error('Unsupported D64 track geometry');const counts=sectors(tracks),total=counts.reduce((a,b)=>a+b,0),raw=await read(0,total*256);
   const index=(t,s)=>{if(t<1||t>tracks||s<0||s>=counts[t-1])throw Error('Invalid D64 track/sector link');return counts.slice(0,t-1).reduce((a,b)=>a+b,0)+s;};
-  geometry('C64 D64',256,total);result.describeSector=n=>{let t=1;while(n>=counts[t-1])n-=counts[t++-1];return `Track ${t} · sector ${n}`;};
+  geometry('C64 D64',256,total);result.diskGeometry={cylinders:tracks,sides:1,firstTrack:1,counts};result.diskBytes=()=>Promise.resolve(raw);result.describeSector=n=>{let t=1;while(n>=counts[t-1])n-=counts[t++-1];return `Track ${t} · sector ${n}`;};
   const name=b=>Array.from(b).map(v=>v===160?' ':v>=32&&v<=126?String.fromCharCode(v):v>=193&&v<=218?String.fromCharCode(v-128):'�').join('').trimEnd();
   result.roots=[directory('Disk directory',async()=>{const entries=[],seen=new Set();let t=18,s=1;while(t){const sector=index(t,s);bounded(seen,sector);const b=raw.subarray(sector*256,sector*256+256);for(let p=0;p<256;p+=32){const type=b[p+2]&7;if(!type)continue;let ft=b[p+3],fs=b[p+4],size=0;const chain=new Set();while(ft){const at=index(ft,fs);bounded(chain,at);const next=raw.subarray(at*256,at*256+256);if(!next[0]&&next[1]<1)throw Error('Invalid D64 final sector length');size+=next[0]?254:next[1]-1;ft=next[0];fs=next[1];}entries.push({...fileNode(name(b.slice(p+5,p+21)),size,b[p+3]?index(b[p+3],b[p+4])*256:0),note:['DEL','SEQ','PRG','USR','REL'][type]||'Unknown type'});}t=b[0];s=b[1];}return entries;},index(18,1)*256)];return result;
  }
  if(platform==='amiga'&&/\.adf$/i.test(file.name)){
-  if(![901120,1802240].includes(file.size))throw Error('Unsupported ADF geometry');geometry('Amiga ADF',512);const perTrack=file.size===901120?11:22;
+  if(![901120,1802240].includes(file.size))throw Error('Unsupported ADF geometry');geometry('Amiga ADF',512);const perTrack=file.size===901120?11:22;result.diskGeometry={cylinders:80,sides:2,firstTrack:0,counts:Array(160).fill(perTrack)};result.diskBytes=()=>read(0,file.size);
   result.describeSector=n=>`Cylinder ${Math.floor(n/(perTrack*2))} · side ${Math.floor(n/perTrack)%2} · sector ${n%perTrack}`;
   if(ascii(head.slice(0,3))!=='DOS'){result.note+=' No AmigaDOS filesystem signature (custom loader disk).';return result;}
   const root=file.size/1024,block=async n=>{range(n*512,512,file.size);return read(n*512,512);},name=b=>{if(b[432]>30)throw Error('Invalid AmigaDOS name');return ascii(b.slice(433,433+b[432]));};
