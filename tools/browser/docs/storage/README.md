@@ -83,3 +83,24 @@ Firefox, the tree UI fixture, the loaded-tape identity check and the prepared
 Elite guided-tour fixture. Source syntax, storage/model/shell tests and the
 100-asset release audit also pass. Emulator core binaries are unchanged.
 Safari was not run for this change.
+
+### Live tape refresh correction
+
+The shared inspection sampler now keeps its pending 200 ms deadline when game
+frames arrive. Previously each frame restarted that deadline, starving live
+inspection during continuous playback. Hiding all inspectors cancels sampling;
+showing one or loading another game restarts it. Tape inspection also shows an
+explicit pulse-position progress bar, pulse count/percentage and sampled motor
+state. The percentage measures pulse count, not estimated loading time. Follow
+head recenters immediately when enabled, including while paused. Repeating pilot
+pulses can still look identical; the counter and position bar show advancement.
+
+`node tools/browser/tests/inspection-feed.mjs` exercises continuous frame traffic,
+rate limiting and hide/reset lifecycles with a deterministic clock.
+`tools/browser/tests/tape-live-browser.html`, served with `serve-viewport.py`,
+requires the private Fort Apocalypse TAP at its repository-local path. It builds
+a loading checkpoint in memory from the existing boot recipe and tests the
+packaged app while the actual tape loads. No checkpoint or game bytes are saved.
+Release `8abb1aa0986735222938` passed in Chrome 154 and Firefox 157: repeated
+live samples, followed scrolling, fixed manual window with advancing head,
+paused stability, immediate re-follow, pulse progress and live RAM atlas.
