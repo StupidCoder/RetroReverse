@@ -45,7 +45,7 @@ bool Drive::tick(IecLines lines){
  const bool light=state.mediaChange?(state.mediaChange<=100000):(!state.media.present()||!state.media.writeProtected);
  const uint8_t diskInputs=uint8_t(0x6f|(light?16:0)|(state.sync?0:128));
  state.disk.tick(state.readShift,diskInputs,!state.byteReady);
- const auto bus=cpu.bus();const auto data=bus.write?bus.data:read(bus.address);if(bus.write)write(bus.address,data);
+ const auto bus=cpu.bus();state.lastBus=bus;const auto data=bus.write?bus.data:read(bus.address);if(bus.write)write(bus.address,data);state.lastBus.data=data;
  cpu.tick(data,state.serial.irq()||state.disk.irq(),false,true,state.byteReady);state.cpu=cpu.state;return !cpu.faulted();
 }
 }

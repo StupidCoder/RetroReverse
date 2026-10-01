@@ -7,6 +7,7 @@ namespace rr::c64 {
 struct IecLines {bool atn=true,clock=true,data=true;}; // True is released/high.
 struct DriveState {
  CpuState cpu;
+ Bus lastBus;
  Via serial,disk;
  std::array<uint8_t,2048> ram{};
  Disk media;

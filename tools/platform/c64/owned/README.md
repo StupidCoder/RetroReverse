@@ -2,7 +2,8 @@
 
 RetroReverse's independently authored C++20 replacement now has a tested NMOS
 CPU, C64 board, PAL video, SID register-visible behavior and an independent
-1541 with ROM-driven IEC disk loading and saving. The reference Fort
+1541 with ROM-driven IEC disk loading/saving, dual-machine debugging and
+verified Giana custom-loader transfers. The reference Fort
 Apocalypse TAP boots through KERNAL and Novaload into rendered gameplay. This
 core is still isolated from the production browser app. See
 [the implementation plan](../../../../C64-1541-IMPLEMENTATION-PLAN.md) and
@@ -181,8 +182,8 @@ for read timing and selected VIA density for writing. It does not model analog
 PLL acquisition, weak bits, head width, motor spin-up, or arbitrary changed-density
 formatting. Half-track moves approximate angular continuity by scaling bit
 position. VIA shift behavior has bounded authored tests, not an exhaustive NMOS
-silicon suite. These limits matter for protection and fastloaders; C5 is the
-separate acceptance gate for named custom loaders and drive inspection.
+silicon suite. These limits matter for protection and fastloaders. C5 verifies one named Giana
+custom loader; that does not imply compatibility with arbitrary protection.
 
 ## Reproduce disk acceptance
 
@@ -206,7 +207,8 @@ firmware, physical keyboard commands load the authored directory and a
 program, replay live IEC reads/writes and attempt a write-protected SAVE. With
 the pinned G64, a protected-to-protected media swap must yield `GIANA-GAME`,
 and `LOAD"F",8,1` must reproduce the independently decoded 992-byte payload.
-This is normal DOS loading acceptance, not a claim that Giana gameplay boots.
+The additional C5 Giana test validates the uploaded drive routine and custom
+transfer through entry into the unpacker; it does not certify full gameplay.
 
 Reproduce the independent G64 payload identity without emulating either CPU:
 
@@ -217,3 +219,28 @@ python3 tools/platform/c64/owned/tests/g64fixture.py \
 
 That oracle validates GCR header/data checksums, follows DOS chains and prints
 lengths/hashes only. It is never used to inject bytes into a running machine.
+
+
+## C5 debugging and custom-loader acceptance
+
+`debugger.h` exposes processor-qualified breakpoints, bounded execution,
+synchronized instruction stepping, live disassembly, safe memory peeks and a
+bounded IEC event queue. Global pause freezes both CPUs and all devices.
+`System::tickEdge` orders individual CPU clocks; the scheduler also preserves
+CIA/VIA IEC input samples from each clock's PHI2 rising read phase. These samples
+and phase markers are part of the whole-system snapshot.
+
+The optional `--giana-g64` acceptance now exercises the release's uploaded `F`
+loader: 512 uploaded bytes, all 20,168 protocol bytes compared at sender/receiver,
+20,086 payload stores checked against an independently decoded hash, and the
+real unpacker entry. It also stops and steps the drive, prints IEC transitions
+and replays a transfer from a checkpoint. Follow
+[the repeatable inspection guide](DRIVE-INSPECTION.md) for addresses, code
+observations, API semantics and the timing regression that this loader exposed.
+
+The named corpus currently consists of authored ordinary D64/DOS transfers,
+the pinned Giana G64's ordinary/custom loaders, and the previously validated
+Fort Apocalypse KERNAL/Novaload TAP path. Each optional test requires local media;
+no emulator-only patch or file-loading trap is used. Other disk loaders,
+protection schemes and full Giana gameplay are unvalidated. C6 brings these core
+capabilities into the browser; the production core still uses the previous backend.

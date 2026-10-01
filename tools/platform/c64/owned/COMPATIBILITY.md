@@ -157,8 +157,8 @@ or third-party-emulator golden frames. Image palette/cropping is presentation.
 
 ## Next acceptance gates
 
-C4 provides the independent 1541 and IEC bus. C5 validates fastloaders and drive
-inspection. C6 integrates the browser, full pixel provenance and portable states;
+C4 provides the independent 1541 and IEC bus. C5 validates the named Giana
+custom loader and drive inspection. C6 integrates the browser, full pixel provenance and portable states;
 C7 governs the default switch. The production third-party core remains active.
 
 
@@ -208,3 +208,43 @@ Hardware/format references used for the independently authored implementation:
 - [1541 sync and byte-ready hardware investigation](https://luigidifraia.wordpress.com/2020/12/09/how-the-block-sync-and-byte-sync-signals-of-a-commodore-1541-drive-work/).
 - [G64 format specification](https://vice-emu.sourceforge.io/vice_17.html) (format documentation only; no VICE device implementation copied).
 - [D64 sector/BAM/directory format](https://www.theflatnet.de/pub/cbm/65xx/text/d64.html).
+
+
+## C5 — named custom loader and synchronized investigation
+
+The debugger is an isolated C++ API, ready for C6 browser integration. Its
+media-free tests cover global pause, both processors' stepping/breakpoints,
+consecutive drive edges, peer breakpoints, resume re-arming, safe live
+self-modifying disassembly, partial-instruction budgets, fault stops, bounded
+IEC history and restore semantics. VIA/head/bit/media state and actual drive bus
+accesses are inspectable without acknowledging device registers.
+
+The scheduler now preserves each CIA/VIA IEC input sample from the PHI2 rising
+read phase until its CPU read. C4's end-of-cycle wire sampling passed ordinary
+DOS but corrupted Giana's four-sample transfer. Focused tests change wire levels
+between sampling and consumption in both directions. The digital model follows
+the [MOS 6526 read diagram, page 4](https://www.emuverse.ru/downloads/datasheets/peripherals/PIA/6526/mos_6526_cia.pdf)
+and [MOS 6522 Figure 21](https://www.retrodocs.fr/wp-content/uploads/pdf/MOS-6522.pdf);
+analog gate/cable delays and silicon setup/hold violations remain unmodeled.
+
+| Named case | Automated evidence | Not implied |
+| --- | --- | --- |
+| Authored D64, ordinary 1541 DOS | C4 directory/payload, six tracks/four zones, SAVE/reload, protection and media swaps continue to pass | Arbitrary custom disk layouts |
+| Pinned Giana G64, file `F` via DOS | Directory and 992-byte payload hash `735537004` | Full game compatibility |
+| Same G64, `LADER` → uploaded `F` drive routine → file `2` | 512 uploaded bytes match live C64 source; FNV-1a `440266918`. All 20,168 protocol bytes match sender to receiver. All 20,086 payload stores occur; RAM `$0801` payload hash `1795265874`. Reaches real unpacker `$0810` | Later game stages, all protection schemes or drive ROM revisions |
+| Fort reference TAP, KERNAL/Novaload | Existing 21,504 loader stores, 2,251 graphics bytes, gameplay and replay still pass | Other tape releases or Elite's loader |
+
+Giana's independent GCR oracle records file `2` PRG SHA256
+`389ec667bab8bf119facad9706191d0ac79103950f3fa45dd3fe74e20c2676e0`
+(including its load address). No expected payload is inserted into emulated RAM.
+A drive breakpoint at `$04DF`, inspection of `TAX`/`BIT $1800`, synchronized step
+and whole-machine replay cover an actual byte transfer. The first 1,000 edges
+produce IEC event digest `5268906646534690957`, including timestamps, post-edge
+PCs and disk positions; native/WASM and UBSan agree. This is a core-profile
+reproducibility digest, not a hardware trace golden file.
+
+A longer native exploration reached the animated Time Warp intro, visually
+inspected locally. This is separate from automated loader acceptance; gameplay
+is not certified. The [inspection guide](DRIVE-INSPECTION.md) explains the full
+repeatable sequence and trace format. No game-derived images or firmware are
+redistributed. Production browser/WASM artifacts remain unchanged.

@@ -92,9 +92,9 @@ file-loading trap may stand in for this gate.
 ### C5 — Fastloaders and drive investigation
 
 Validate uploaded drive routines and timing-sensitive transfers using a named
-media corpus. G64 parsing was brought forward into C4 for the supplied Giana image; validate
-nonstandard track behavior here. D64 does
-not preserve arbitrary protection/track layouts. Expose drive CPU disassembly,
+media corpus. G64 parsing was brought forward into C4 for the supplied Giana
+image; validate nonstandard track behavior here. D64 does not preserve arbitrary
+protection/track layouts. Expose drive CPU disassembly,
 breakpoints, memory, VIA state, head/bit position and IEC transitions. Global
 pause freezes both machines; stepping either CPU keeps the other synchronized.
 Gate: ordinary and selected custom loaders, drive-side breakpoints and a
@@ -164,7 +164,7 @@ corner cases; SID audio and complete analog behavior are not claimed. Local
 comparison fixtures can be regenerated with `owned/tests/fixtures`, and no
 media or game-derived captures were added to the repository.
 
-C5–C7 remain pending. The production C64 core remains unchanged.
+C6–C7 remain pending. The production C64 core remains unchanged.
 
 
 ### C4 completion — 2026-10-01
@@ -180,10 +180,35 @@ directory loading, a verified authored payload across six tracks/all four zones,
 SAVE/reload, write protection, protected-to-protected disk swaps, and in-flight
 read/write snapshot replay. The supplied Giana G64 directory and file `F` are
 separate normal-DOS checks with an independent checksum-validating GCR oracle.
-Full Giana startup/custom-loader/protection acceptance remains C5 work.
+At C4, custom-loader validation remained C5 work; the current evidence and
+remaining game/protection limits are recorded below.
 
 Native, WASM and native UBSan checks cover these gates and the earlier CPU,
 board, video and authentic Fort acceptance. The compatibility ledger records
 media identities and limits. C4's bit-cell model is not an analog flux/PLL model;
 weak bits, changed-density formatting and exhaustive NMOS VIA quirks remain
 unvalidated. The production browser core and shipped artifacts are unchanged.
+
+
+### C5 completion — 2026-10-01
+
+Added processor-qualified breakpoints, safe live disassembly/memory inspection,
+VIA/head/bit state, bounded IEC event history and actual drive CPU bus records.
+Global pause and stepping operate on an individually ordered dual-clock timeline,
+including consecutive drive edges. Restore preserves in-flight port samples and
+clears obsolete debugger trace/bypass state. Browser presentation remains C6.
+
+The pinned Giana G64 is the first real custom disk-loader gate: boot `LADER`,
+verify 512 bytes uploaded through real DOS `M-W`, stop/step drive code, replay a
+byte transfer, compare all 20,168 protocol bytes and all 20,086 resulting payload
+stores, then reach the authentic unpacker. The independent GCR oracle supplies
+the payload identity. The test exposed and fixed late IEC input sampling by
+preserving each CIA/VIA sample from its PHI2 rising read phase.
+
+Native, WASM and native UBSan agree on debugger and custom-loader checks;
+ordinary C4 disk gates and earlier CPU/board/video/Fort regressions pass. The
+named corpus and precise limits are in the compatibility ledger; the new
+`owned/DRIVE-INSPECTION.md` provides a repeatable code/trace investigation.
+A longer exploratory run reaches the release's animated intro, but full Giana
+gameplay, other custom loaders, weak-bit protection and analog timing are not
+certified. No production backend switch or shipped WASM changes were made.

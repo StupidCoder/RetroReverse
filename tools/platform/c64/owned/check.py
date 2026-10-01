@@ -59,7 +59,9 @@ def run(out):
  target(out,'video',core+['tests/video.cpp'],[])
  drivecore=core+['via.cpp','disk.cpp','drive.cpp','system.cpp']
  target(out,'driveunit',drivecore+['tests/driveunit.cpp'],[])
+ target(out,'debugger',drivecore+['debugger.cpp','tests/debugger.cpp'],[])
  if drive:target(out,'drive',drivecore+['tests/drive.cpp'],drive)
+ if a.giana_g64:target(out,'giana',drivecore+['debugger.cpp','tests/giana.cpp'],drive)
  if fort:target(out,'fort',core+['tests/fort.cpp'],firmware+fort,images=True)
 if a.out:run(a.out.resolve())
 else:
