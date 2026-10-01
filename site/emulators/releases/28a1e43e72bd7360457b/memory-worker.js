@@ -60,6 +60,7 @@ export function createMemoryService({core,platform,files,status}){
    return {region,offset,events:out,...(pulse===undefined?{}:{pulse,duration:tape.durations[pulse]})};
   },
   mapOffset(region,pixel,scale){const r=snapshot?.regions.find(r=>r.id===region);const off=pixel*scale;return r?.kind==='tape'?tape.offsets[Math.min(off,tape.offsets.length-1)]:off;},
+  pulses(start,count){if(!snapshot||!tape)return null;start=Math.max(0,Math.min(tape.durations.length-1,Math.floor(Number(start)||0)));count=Math.max(1,Math.min(256,Math.floor(Number(count)||128)));return {id:snapshot.id,start,total:tape.durations.length,cursor:snapshot.state?.pulse??0,durations:tape.durations.slice(start,start+count)};},
   pulseForOffset(offset){let i=0;while(i+1<tape.offsets.length&&tape.offsets[i+1]<=offset)i++;return i;}
  };
 }

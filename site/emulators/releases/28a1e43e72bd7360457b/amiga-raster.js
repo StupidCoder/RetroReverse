@@ -1,3 +1,4 @@
+import {localElement} from './panel-dom.js';
 const hex=(n,d=4)=>'$'+(Number(n)>>>0).toString(16).padStart(d,'0');
 const swap=n=>((n&255)<<8)|(n>>>8&255);
 const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
@@ -13,7 +14,7 @@ export function createAmigaRaster({send,ui}){
    <section><h3>Pixel and source</h3><div class="raster-pixel-controls"><label id="amiga-panel-label">Layer <select id="amiga-panel"><option value="2">Screen</option><option value="0">Playfield</option><option value="1">Sprites</option></select></label><label>X<input id="amiga-x" type="number" min="0" value="320"></label><label>Y<input id="amiga-y" type="number" min="0" value="128"></label><button id="amiga-inspect">Inspect</button></div><div id="amiga-pixel"></div><div id="amiga-history" aria-live="polite"></div></section>`;
  const guide=timeline.toggle('amiga-guide','Show scanline',{checked:true,onChange:()=>{paint();highlightChange();}});
  const shared={position:ui.position,cursor:timeline.label,timeline:timeline.slider,markers:timeline.markers,note:timeline.note,guide:guide.input,'guide-text':guide.caption};
- const $=id=>shared[id]||document.getElementById('amiga-'+id);
+ const $=id=>shared[id]||localElement(ui.root,'amiga-'+id);
  const scanBuffers=[ui.buffer($('scan-board'),{id:'amiga-playfield',title:'Playfield memory',description:'Includes objects drawn by the blitter'}),ui.buffer($('scan-board'),{id:'amiga-sprites',title:'Hardware sprites',description:'Before playfield priority'}),ui.output];
  const channels=[['a','A · mask','After edge masks and shift'],['b','B · image','After shift'],['c','C · background','Read before writing'],['d','D · result','The Boolean function combines A, B and C']];
  const blitBuffers=channels.map(([id,title,description])=>ui.buffer(ui.auxiliary.querySelector('.amiga-channel-grid'),{id:'amiga-'+id,title,description,fit:'contain',aspect:'2/1'}));

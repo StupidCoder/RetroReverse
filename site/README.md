@@ -206,3 +206,12 @@ writer address; they do not reconstruct historical code. The generated
 See the [release capability matrix, schema policy and browser evidence](../tools/browser/docs/code-m9/README.md)
 for the exact C64/DOS/3DO scopes, tours, controlled experiments and remaining
 Elite compatibility gate.
+
+### Flexible viewport workspace
+
+The former tabs are now presets. Each viewport can choose its content; split,
+resize, maximize or merge panes through its Layout menu. Code, state, memory and
+tape inspectors keep their own navigation. The C64 Loader preset shows code,
+physical RAM activity and pulse lengths together. The top bar switches systems
+and suspends/restores sessions within the current page. See the
+[viewport guide and acceptance](../tools/browser/docs/viewport-workspace/README.md).

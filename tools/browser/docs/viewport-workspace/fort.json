@@ -1,0 +1,20 @@
+{
+  "result": "PASS",
+  "checks": [
+    "review checked edits",
+    "native teleport and spawn invariants",
+    "execution ownership",
+    "two identical original replays",
+    "observed terrain contact and death",
+    "candidate survives 200 frames",
+    "unique branch evidence",
+    "explicit modified continuation",
+    "return to original session",
+    "cancellation rollback",
+    "375px controls and keyboard focus"
+  ],
+  "release": "28a1e43e72bd7360457b",
+  "initial": "124450324",
+  "originalHash": "cce7fd76d00194c36d4ea860562b1acc9f165e82d855d1bfecb78529d93084cd",
+  "modifiedHash": "b7e1e782eb721743a772ac99f5dcbf893419489fb33d926c6f13bb6f089ae6fc"
+}

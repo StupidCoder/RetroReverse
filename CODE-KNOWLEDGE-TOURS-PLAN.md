@@ -857,3 +857,19 @@ function discovery, unlimited history, automatic explanations generated from raw
 assembly, or an exhaustive migration of every game's research. The architecture
 must accommodate these games without making every future capability a prerequisite
 for a useful first Code tab.
+
+## Follow-on: viewport workspace (2026-10-01)
+
+Replace mutually exclusive workspace tabs with presets over independently
+addressable pane instances. A shared toolbar owns system selection, media loading
+and transport. Play uses one Game pane; Render, Memory and Code supply useful
+split layouts. A generic C64 Loader preset combines Code, RAM atlas and tape pulse
+inspection without claiming Elite lesson readiness. See the
+[implementation and acceptance](tools/browser/docs/viewport-workspace/README.md).
+
+Next, prepared lesson starts should eliminate manual boot/menu/prerequisite work.
+The knowledge package should describe checkpoint identity, preparation recipes
+and guards; distributable binary checkpoints would be referenced assets, while
+local generation and caching remain an alternative. Checkpoints contain loaded
+game content and require compatible core/media/firmware identities. This remains
+a separate work item from the viewport conversion.

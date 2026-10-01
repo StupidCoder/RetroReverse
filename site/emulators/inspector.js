@@ -1,3 +1,4 @@
+import {localElement} from './panel-dom.js';
 export function decodedColor(platform, value, size, format) {
   // GameCube EFB RGB precedes a lossy YUY2 copy and is not a scanout color.
   if(platform==='gc'||platform==='dos')return null;
@@ -50,7 +51,7 @@ const hex = (n, width = 8) =>
     '0x' + (Number(n) >>> 0).toString(16).padStart(width, '0');
 export function createInspector({platform, canvas, buffer, root, send, jump}) {
   root.innerHTML=`<section class="inspector" aria-label="Pixel inspector"><h3>Pixel and source</h3><div class="pixel-controls"><label>X <input id="pixel-x" type="number" min="0" value="160"></label><label>Y <input id="pixel-y" type="number" min="0" value="120"></label><button id="inspect-pixel" disabled>Inspect pixel</button></div><div id="pixel-summary" aria-live="polite"></div><div id="contributors" class="contributors" aria-label="Ordered contributors"></div><div id="event-detail" class="event-detail"></div><div id="source-detail" class="source-detail" aria-live="polite"></div></section>`;
-  const $ = id => document.getElementById(id);
+  const $ = id => localElement(root,id);
   let capture = null, pixels = null, latest = 0, current = null,
       selected = null, rows = [];
   function reset() {

@@ -438,7 +438,7 @@ onmessage = async ({data : m}) => {
       if(['pause','hold','cancel-capture'].includes(m.type)){tourService.cancel();return;}
       send(m.type.startsWith('memory-')?'memory-error':m.type.startsWith('debug-')?'debug-result':'message',{generation:session,request:m.request,reason:'rejected',text:'Tour is running. Cancel it before another operation.'});return;
     }
-    if(['run','step','seek','capture-render','memory-record','tape','debug-normalize','debug-step','debug-until'].includes(m.type))tourService?.invalidate();
+    if(['run','step','seek','capture-render','memory-record','tape','debug-normalize','debug-step','debug-until','debug-over','debug-out','debug-watch'].includes(m.type))tourService?.invalidate();
     if(m.type==='input'&&((m.buttons??0)!==lastButtons||(m.keys||[]).some(([key,down])=>!!down!==appliedKeys.has(key))))tourService?.invalidate();
     if(m.type.startsWith('debug-')){
       if(!debugService){send('debug-result',{request:m.request,reason:'unsupported',text:'Instruction debugging is unavailable for this core.'});return;}
@@ -540,6 +540,7 @@ async function memoryRequest(m){
    if(page?.id===m.snapshot){if(m.region==='tape'){page.pulseStart=memoryService.pulseForOffset(page.offset);page.pulseEnd=memoryService.pulseForOffset(page.offset+page.bytes.length)+1;}send('memory-page',{request:m.request,page});}
   }
   if(m.type==='memory-map')send('memory-map',{request:m.request,region:m.region,offset:memoryService.mapOffset(m.region,m.pixel,m.scale)});
+  if(m.type==='memory-pulses'){const pulses=memoryService.pulses(m.start,m.count);if(pulses?.id===m.snapshot)send('memory-pulses',{request:m.request,pulses});}
   if(m.type==='memory-detail')send('memory-detail',{request:m.request,snapshot:m.snapshot,detail:memoryService.detail(m.region,m.offset)});
  }catch(e){send('memory-error',{request:m.request,text:String(e)});}
  finally{const recorded=memoryRecording;if(recorded)core._rr_activity_end();memoryBusy=false;memoryRecording=false;if(recorded)paint();}

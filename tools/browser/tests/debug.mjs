@@ -66,3 +66,8 @@ console.log('PASS M9 WASM: masked same-value writes, validation, return stepping
 const other=[];const dosService=createDebugService({core,platform:'dos',send:(type,m)=>other.push({type,...m}),sleep:async()=>{},busy:()=>false,paint:()=>{},applyInputs:()=>{},generation:1,knowledge:{status:'unknown'}});
 await dosService.request({type:'debug-capabilities',protocol:1,generation:1,request:1});assert.equal(other.at(-1).capabilities.writeWatchpoint,false);
 const ds=dosService.snapshot(),beforeUnsupported=core._rr_cycle();await dosService.request({type:'debug-over',protocol:1,generation:1,request:2,...action(ds)});assert.equal(other.at(-1).reason,'rejected');assert.equal(core._rr_cycle(),beforeUnsupported);
+// A second inspector's sampling must not expire the first inspector's snapshot.
+const stable=(await command('debug-snapshot',{client:'left'})).snapshot;
+for(let i=0;i<100;i++)await command('debug-snapshot',{client:'right',address:0x900});
+const stepped=await command('debug-step',{client:'left',...action(stable)});assert.equal(stepped.reason,'instruction');
+console.log('PASS independent inspector snapshot ownership across 100 peer refreshes');

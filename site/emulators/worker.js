@@ -540,6 +540,7 @@ async function memoryRequest(m){
    if(page?.id===m.snapshot){if(m.region==='tape'){page.pulseStart=memoryService.pulseForOffset(page.offset);page.pulseEnd=memoryService.pulseForOffset(page.offset+page.bytes.length)+1;}send('memory-page',{request:m.request,page});}
   }
   if(m.type==='memory-map')send('memory-map',{request:m.request,region:m.region,offset:memoryService.mapOffset(m.region,m.pixel,m.scale)});
+  if(m.type==='memory-pulses'){const pulses=memoryService.pulses(m.start,m.count);if(pulses?.id===m.snapshot)send('memory-pulses',{request:m.request,pulses});}
   if(m.type==='memory-detail')send('memory-detail',{request:m.request,snapshot:m.snapshot,detail:memoryService.detail(m.region,m.offset)});
  }catch(e){send('memory-error',{request:m.request,text:String(e)});}
  finally{const recorded=memoryRecording;if(recorded)core._rr_activity_end();memoryBusy=false;memoryRecording=false;if(recorded)paint();}

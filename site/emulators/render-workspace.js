@@ -1,3 +1,4 @@
+import {localElement} from './panel-dom.js';
 import {createDCTexture} from './dc-texture.js';
 import {createPS1VRAM} from './ps1-vram.js';
 import {createTileset} from './tileset.js';
@@ -20,8 +21,8 @@ function createCommands({platform,send,ui}) {
   return {reset(){replay.reset();inspector.reset();tileset?.reset();vram?.reset();},setCapture(c){inspector.setCapture(c);replay.setCapture(c);tileset?.update(c.tileset);vram?.update(c.vram);},result(m){replay.result(m);inspector.result(m);}};
 }
 
-export function createRenderWorkspace({platform,presentation,send,resume,playCanvas,workspaces,beforeCapture=()=>{}}) {
-  const $=id=>document.getElementById(id),root=$('render-workspace');
+export function createRenderWorkspace({platform,presentation,send,resume,playCanvas,workspaces,root:panelRoot,beforeCapture=()=>{}}) {
+  const root=panelRoot||document.getElementById('render-workspace'),$=id=>localElement(root,id)||document.getElementById(id);
   const views=workspaces||createWorkspaces({navigation:$('workspace-nav'),onChange:id=>document.body.dataset.workspace=id});
   if(!workspaces)views.register({id:'play',label:'Play',panel:$('play-workspace')});
   views.register({id:'render',label:'Render',panel:root,enabled:false});
@@ -34,7 +35,7 @@ export function createRenderWorkspace({platform,presentation,send,resume,playCan
   $('render-capture').onclick=open;
   function ready(value=true){available=value;$('render-capture').disabled=!value||pending;views.enable('render',value);}
   function open(){if(!available||pending)return;pending=true;$('render-capture').disabled=true;beforeCapture();ui.position.textContent='Capturing the next complete display interval…';$('cancelcapture').hidden=false;send('capture-render');}
-  function reset({starting=false,unload=false}={}){capture=null;adapter.reset();if(starting)return;pending=false;$('render-capture').disabled=!available;if(unload)available=false;if(views.current()==='render')views.select('play');views.enable('render',available);}
+  function reset({starting=false,unload=false}={}){capture=null;adapter.reset();if(starting)return;pending=false;$('render-capture').disabled=!available;if(unload)available=false;views.enable('render',available);}
   function progress(text){ui.position.textContent=text;}
 
   function setCapture(c){const requested=pending;pending=false;$('render-capture').disabled=!available;capture=c;output.copy(playCanvas);adapter.setCapture(c);views.enable('render',true);if(!requested)views.select('render',{focus:true});}

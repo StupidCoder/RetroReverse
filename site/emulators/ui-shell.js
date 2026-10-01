@@ -5,10 +5,11 @@ import {presentation} from './ui-platforms.js';
 export function shellMarkup(platform) {
   const config=platforms[platform], view=presentation[platform], dos=platform==='dos';
   if(!config||!view)throw new Error('Unknown emulator platform');
-  return `<header><a href="../../">RetroReverse</a><a href="../">All emulators</a><span>${config.name}</span></header>
-<main>
-  <div class="workspace-heading"><h1>${config.name}</h1><nav id="workspace-nav"></nav></div>
+  return `<header class="emulator-topbar"><a href="../../">RetroReverse</a><label class="sr-only" for="system-select">System</label><select id="system-select">${Object.entries(platforms).map(([id,p])=>`<option value="${id}">${p.name}</option>`).join('')}</select><button id="open-media">Load game…</button><span id="game-name">No game loaded</span><div id="global-transport"></div><button id="session-settings">Session</button></header>
+<main><h1 class="sr-only">${config.name} emulator</h1>
+  <div class="workspace-heading"><nav id="workspace-nav"></nav><button id="restore-layout">Reset layout</button></div>
   <p id="status" class="status" role="status">Select a local game ${dos?'folder':'image'} to begin. Nothing is uploaded.</p>
+  <div id="viewport-root"></div><div id="panel-warehouse" hidden>
   <section id="play-workspace">
     <div class="files"><label for="files">Game ${dos?'folder':'image'}</label><input type="file" id="files" multiple ${dos?'webkitdirectory':''}>
       ${dos?'<label for="program">Executable</label><select id="program" aria-label="DOS executable"></select>':''}
@@ -43,12 +44,17 @@ export function shellMarkup(platform) {
       <aside id="render-details" class="render-inspector" aria-label="Render inspector"></aside>
     </div>
   </section>
-</main>`;
+</div><dialog id="media-dialog"><div class="dialog-heading"><h2>Load a game</h2><button id="close-media">Close</button></div><div id="media-controls"></div></dialog></main>`;
 }
 
 export function mountShell(platform) {
   const view=presentation[platform];
   document.getElementById('emulator-app').innerHTML=shellMarkup(platform);
+  const $=id=>document.getElementById(id);
+  $('global-transport').append(document.querySelector('.transport'));
+  const options=document.querySelector('.play-inspector');options.id='session-options';
+  $('media-controls').append(document.querySelector('.files'));
+  if(options.querySelector('details')){const firmware=options.querySelector('details');if(firmware.textContent.includes('firmware'))$('media-controls').append(firmware);}
   document.body.style.setProperty('--display-aspect',view.aspect);
   document.body.style.setProperty('--display-ratio',String(Number(view.aspect.split('/')[0])/Number(view.aspect.split('/')[1])));
   return view;

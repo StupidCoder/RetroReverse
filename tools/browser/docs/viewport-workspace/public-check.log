@@ -1,0 +1,69 @@
+?   	retroreverse.com/tools/cmd/knowledgecheck	[no test files]
+?   	retroreverse.com/tools/cmd/knowledgeexport	[no test files]
+?   	retroreverse.com/tools/cmd/knowledgeasset	[no test files]
+?   	retroreverse.com/tools/cmd/dis6502export	[no test files]
+ok  	retroreverse.com/tools/knowledge	(cached)
+ok  	retroreverse.com/tools/cpu/arm60	(cached)
+ok  	retroreverse.com/tools/cpu/mos6502	(cached)
+CURRENT site/knowledge/index.html
+CURRENT site/emulators/knowledge-data.js
+PASS viewport presets, independent identity, split replacement, merge and persisted-layout validation
+PASS experiments: atomic edits, identical replay, branch provenance, failed hypothesis, cancellation in every stage, stale/busy requests, rollback, nondeterminism and complete session/input restoration
+PASS 3DO guarded layouts, task-bound functions, ARM predicates, VRAM evidence and iteration rejection
+PASS DOS modules: load relocation, live overlay movement/absence/ambiguity, mode gates, resolved targets and executable/file identity
+PASS tours: real WASM stops, write/restore evidence, restore, divergence, cancellation, budgets, overflow, assertions, hit counts, stale requests, ownership, identity and signatures
+PASS M3 structured state: endian/signed/64-bit/fixed/bitfields, partial reads, unknown enums, arrays/records, occupancy/reuse, locations and budgets
+Decoder (151 official opcodes), execution gate, real WASM jobs, stale requests, current-PC resume, cancellation and budgets: PASS
+PASS M3 real WASM: Fort watches match backing bytes and CPU snapshot without execution
+PASS M9 WASM: masked same-value writes, validation, return stepping, 2,000-call heap plateau 134217728 bytes
+PASS knowledge: source integrity, label migration, exact identity, ambiguity, defensive copies, unknown-image generic Memory
+PASS memory: address edges, aggregation, TAP indexing, forward/backward reconstruction, read-only inspection
+PASS large-memory atlas: bounded bitmap and final-byte inspection
+SHA-256 boundary vectors and CUE validation passed
+Dreamcast media bounds, track mapping and companion checks pass
+DOS directory paths, entry selection and input map pass
+Short controller taps, unsigned masks, and rapid C64 typing preserve ordered emulated-time edges.
+State container round trip, corruption and truncation checks passed
+Coordinate scaling/letterboxing and modeled scanout colors passed
+50/60 Hz pacing, turbo transitions and bounded slow-frame catch-up passed
+Shared shell covers all sixteen systems and preserves media/firmware controls
+Tileset decoding: C64 per-cell modes/ECM, GB palettes/signed IDs, GG bitplanes/palettes, GBA banks/depth/affine/OBJ pass
+PS1 VRAM decode: packed 4/8-bit indices, CLUT resolution, RGB555, transparency, UV window, wrap and explicit color overrides pass
+Dreamcast texture addressing, palette, VQ, mip offsets and alpha tests pass
+PASS ARM60 live decoding, safe backing snapshots, instruction/target boundaries, pending-prelude state restore and selected bus writes
+DOS safe peeks, live 16/32-bit decoding, descriptor bases, SMC, single-step, target contexts, IRQ boundary/restore and REP bound: PASS
+C64 debug boundary, target, branch, interrupt, banking, stall and JAM: PASS
+C64 nested over/out and masked actual-write watchpoints: PASS
+PASS GG memory: physical bank attribution, fixed window, mapper writes, no timing-probe reads
+PASS C64 memory: actual CPU reads and same-value writes, immutable peeks, bounded overflow
+PASS: CIA FLAG/ICR, timer discrimination/reload, banking, raster IRQ, badline stalls, device/audio checkpoint, live charset/sprite fetches, SID output, malformed TAP
+C64 raster: frozen VIC layers, priority, charset split, glyph writers, accumulated output and unchanged state pass
+PS1 GPU inspection: packet page/depth/CLUT overrides, no-write state commands, UV layouts, historical VRAM, backwards seeks and immutable inspection pass
+3DO token boundaries, truncated reads, clear spans and watched-write fallbacks passed
+DS bus mirrors, TCM boundaries, WRAM modes, unaligned access and watched byte order passed
+PSP: 6000 fragments, 20000 filters, 160 triangles and four scanout formats match reference
+Game Boy CPU, window, object priority/limit, source history, replay and states passed
+Game Boy raster: historical scroll, window counter, sprite priority, source addresses, partial output, immutable seeks and blank LCD pass
+Game Gear CPU, mapper, VDP ports, sprite priority/limit, source history, replay and states passed
+Game Gear Z80 cycles/prefixes/HALT/EI, VDP interrupts/counters, scroll latches, atomic CRAM, mirrored ports and timing states pass
+Game Gear raster: real Z80 line-IRQ scroll splits, historical layers/palettes/tilemap/sprites, CPU writers, partial output and immutable seeks pass
+GBA pixel, replay, blending and state checks pass
+GBA direct reads match reference
+Dreamcast TA primitives, clear, replay and state checks pass
+Dreamcast historical bindings, palette/VRAM rewind, strips/sprites and 34 sampler fixtures pass
+Dreamcast JS decoder matches native sampler: 34 formats/layouts, 2023 texels
+Dreamcast texture addressing, palette, VQ, mip offsets and alpha tests pass
+Dreamcast direct reads, texture addressing and field timing match reference
+DOS MZ boot, VGA/palette provenance, replay, file-overlay restore and combined inputs pass
+DOS render buffers: CPU writer PCs, MOVS ancestry, Mode X, reverse/wrapped copies, RAM reuse and reveal replay pass
+Shared x86 wide reads/fetches: real-mode wrapping, unaligned RAM, VGA and watch hooks pass
+Xbox NV2A triangle/provenance/replay, thread closures, SHA1 continuation, state aliases and bounded texture ownership pass
+Xbox SIMD combiner maps/ops match scalar reference for random bit patterns, NaNs and infinities
+ld: warning: reducing alignment of section __DATA,__common from 0x8000 to 0x4000 because it exceeds segment maximum alignment
+ld: warning: reducing alignment of section __DATA,__common from 0x8000 to 0x4000 because it exceeds segment maximum alignment
+Amiga 68000, CIA, MFM, floppy DMA, blitter, Copper wrap, pixel sources, replay and portable states passed
+ld: warning: reducing alignment of section __DATA,__common from 0x8000 to 0x4000 because it exceeds segment maximum alignment
+Amiga scanline/Copper palette positions, planar previews, cookie-cut inputs, source history and immutable inspection passed
+ld: warning: reducing alignment of section __DATA,__common from 0x8000 to 0x4000 because it exceeds segment maximum alignment
+PASS Amiga memory: CPU/DMA accesses, actual MFM payload attribution, no host-loading activity
+PASS: release 3960b2a78acbc40321df, 95 pinned assets, firmware hashes, sixteen direct routes and static network contract
