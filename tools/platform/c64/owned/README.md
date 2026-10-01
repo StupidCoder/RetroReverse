@@ -1,8 +1,9 @@
 # Owned C64/1541 hardware core
 
 RetroReverse's independently authored C++20 replacement now has a tested NMOS
-CPU and a C64 board that boots real KERNAL/BASIC and accepts keyboard input.
-It is not yet a playable C64 or selected by the production browser app. See
+CPU, C64 board, PAL video and SID register-visible behavior. The reference Fort
+Apocalypse TAP boots through KERNAL and Novaload into rendered gameplay. This
+core is still isolated from the production browser app and has no 1541 yet. See
 [the implementation plan](../../../../C64-1541-IMPLEMENTATION-PLAN.md) and
 [the compatibility ledger](COMPATIBILITY.md). The existing `browser/core` and
 vendored dependencies remain intact until machine-level acceptance is complete.
@@ -32,11 +33,25 @@ partial instructions and tape pulses with the **same firmware and media**.
 Firmware and decoded pulses live outside that state. This is not a versioned
 portable checkpoint format, nor compatible with the previous core's snapshots.
 
-The PAL raster clock/register scaffold lets firmware read raster progress; it
-has no fetches, pixels, badlines, sprite DMA or CPU arbitration yet. SID writes
-are retained; OSC3/ENV3 reads return zero and set `unimplementedSidRead` so use
-is visible to tests. Neither is a substitute for C3's devices. The board ticks
-CIAs before the CPU bus access; tape pulse boundaries inject CIA1 FLAG events.
+`Vic` performs scheduled phi1/phi2 memory fetches, controls BA/RDY and AEC,
+and emits eight palette-index pixels per clock. The framebuffer is a raw
+504×312 PAL raster in VIC X coordinates; presentation should crop blanking.
+`Vic::fetches[0..fetchCount)` records this clock's addresses, sampled bytes,
+color nibbles, ROM/RAM identity, phase, kind, slot and emulated cycle. Matrix,
+graphics and sprite latches retain captured values. Observers must consume
+fetch records as execution advances; later RAM reads cannot reconstruct them.
+`BoardState::lastBus` separately exposes the actual CPU transaction (including
+held reads and AEC disconnection). Full browser pixel provenance is C6 work.
+
+`Sid` clocks all three oscillators/envelopes, exposing voice 3 through OSC3 and
+ENV3. Noise uses its own chip-clocked shift register, with no host randomness.
+Audio synthesis remains deferred. Combined waveforms, power-on state, TEST
+noise discharge and bus decay are explicit approximations; see the ledger
+before treating this as a transistor-accurate SID reference.
+
+Devices keep running during VIC CPU stalls. CIA/tape timing precedes the CPU
+transaction; the SID also advances on every machine clock. AEC prevents CPU
+memory accesses, while BA allows pending writes to finish during its warning.
 
 The opcode table uses existing RetroReverse documented metadata and authored
 undocumented-instruction metadata in `instruction_set.py`:
@@ -75,6 +90,35 @@ Native and WASM run the same assertions and compare output, including the CPU
 bus/register digest. A native undefined-behavior sanitizer run must also agree.
 AddressSanitizer previously stalled during macOS runtime initialization before
 main; it is not claimed as passing.
+
+## Authentic Fort acceptance
+
+Generate local comparison data using the existing Go tape/graphics extractors:
+
+```
+GOCACHE=/private/tmp/retroreverse-go-cache go run ./tools/platform/c64/owned/tests/fixtures \
+  -image games/fort-apocalypse-c64/Fort_Apocalypse.tap \
+  -out /private/tmp/rr-owned-fixtures
+python3 tools/platform/c64/owned/check.py \
+  --emcc /path/to/emscripten/em++ \
+  --out /private/tmp/rr-owned-acceptance \
+  --firmware-dir site/emulators/firmware/c64 \
+  --fort-tap games/fort-apocalypse-c64/Fort_Apocalypse.tap \
+  --fort-fixtures /private/tmp/rr-owned-fixtures
+```
+
+Only the documented reference release is covered. The generator checks its
+SHA256 and all KERNAL/fastloader checksums. Expected bytes are comparison data;
+the harness never injects them, patches the game or traps ROM calls. It enters
+LOAD and RUN through keyboard switches, starts the tape and presses joystick
+fire. It checks every payload store, immutable generated graphics, title/game
+modes, loading/gameplay replay, framebuffer and actual guest OSC3 reads.
+
+Native runs write `fort-loading.ppm`, `fort-title.ppm` and `fort-gameplay.ppm`
+into the output directory. The 392×272 images use a fixed presentation palette,
+not an analog PAL color model. Game-derived data and images remain scratch
+artifacts and must not be committed. Native UBSan and WASM repeat the complete
+boot; the latter compares the same acceptance output/digests.
 
 ## Independent instruction fixtures
 

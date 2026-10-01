@@ -146,5 +146,21 @@ Native/WASM pass 15,168 independent vectors / 66,181 bus cycles (digest
 Real KERNAL/BASIC boots to READY and executes PRINT 2+2 entered through physical
 keyboard switches; CIA/tape timing and replay checks pass. Native UBSan passes.
 See [the compatibility ledger](tools/platform/c64/owned/COMPATIBILITY.md) for
-identities, evidence and limits. VIC raster registers and SID are scaffolds;
-C3–C7 remain pending. The production C64 core remains unchanged.
+identities, evidence and limits. VIC raster registers and SID were scaffolds at
+this milestone.
+
+C3 complete: independently authored PAL VIC fetch/render pipeline, badlines,
+sprite DMA and CPU bus arbitration, text/bitmap/multicolor/ECM display, scrolling,
+borders, raster IRQs, sprite priority/collisions and captured source fetches.
+SID oscillator/noise/envelope state supplies actual OSC3/ENV3 reads and survives
+replay. Authentic Fort TAP boot passes without ROM traps or injected game RAM:
+21,504 loader writes and 2,251 immutable generated graphics bytes match the
+independent Go extractors; title and gameplay render, and loading/gameplay
+replays agree. Native/WASM match gameplay RAM/framebuffer and 1,357 guest OSC3
+reads; native UBSan passes. Synthetic display/bus/SID cases and all prior CPU
+vectors pass. The ledger records exact inputs, digests and unvalidated VIC/SID
+corner cases; SID audio and complete analog behavior are not claimed. Local
+comparison fixtures can be regenerated with `owned/tests/fixtures`, and no
+media or game-derived captures were added to the repository.
+
+C4–C7 remain pending. The production C64 core remains unchanged.

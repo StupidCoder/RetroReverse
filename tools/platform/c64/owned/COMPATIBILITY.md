@@ -1,11 +1,11 @@
-# C2 compatibility and evidence ledger
+# Owned C64 compatibility and evidence ledger
 
 Validated 2026-10-01 with Apple clang, Emscripten 4.0.16 and Node 26.3.1.
 All checks below pass natively and in WASM; native UBSan also passes. This is
 bounded evidence, not a claim of exhaustive NMOS or C64 hardware conformance.
 Reproduction commands are in [README.md](README.md).
 
-## CPU
+## C2: CPU
 
 | Area | Implemented and checked | Limits |
 | --- | --- | --- |
@@ -42,7 +42,7 @@ revision `7954e2dbb49c469ea286070bf46cdd71aeb29e4b`, SHA256
 The harness enforces this hash, starts at $0400 and caps execution at 200 million
 cycles. It does not redistribute this binary.
 
-## CIA and board
+## C2: CIA and board
 
 | Area | Evidence | Limits |
 | --- | --- | --- |
@@ -74,10 +74,89 @@ unsupported SID reads occur in this boot. Firmware SHA256 identities:
 The boot harness accepts correctly sized locally supplied ROMs and reports their
 hashes; the evidence above applies to these exact images.
 
+## C3: VIC-II and SID-visible behavior
+
+The independently authored `vic.cpp` and `sid.cpp` replace the C2 scaffolds.
+CPU conformance results above remain unchanged. Native, native UBSan and WASM
+run the same synthetic device assertions and authentic Fort acceptance.
+
+| Area | Acceptance evidence | Limits |
+| --- | --- | --- |
+| PAL VIC schedule | 63 clocks/line, 312 lines; c/g/p/s, refresh and idle accesses; 40 c-accesses on badlines; BA three-clock warning and AEC isolation; pending CPU write drains under BA | Not a complete transistor/revision conformance suite; dynamic badline cancellation/late activation, VSP/FLI, sprite crunch and NTSC remain unvalidated |
+| Display | Standard/multicolor text and bitmap, ECM text, scrolling, independent border flip-flops, banked character ROM, color RAM latches | Illegal mode output approximated; no analog PAL signal or lightpen implementation |
+| Raster effects | Compare IRQ and acknowledgement, delayed line-zero IRQ, D018 changes between glyph fetches, writes after a fetch preserve earlier pixels | Subcycle register-write effects and unstable chip-specific effects remain unvalidated |
+| Sprites | Pointer and data DMA slots, X/Y expansion, multicolor, foreground/lower-sprite priority, collision latches and IRQs | Extreme right-edge start timing and sprite-crunch tricks remain unvalidated |
+| Source capture | Each actual fetch exposes cycle/phase/address/value/kind/slot/ROM identity; matrix, graphics and sprite latches retain fetched bytes | Current-cycle/line records, not yet browser per-pixel history; C6 adds that integration |
+| SID readback | Free-running 24-bit oscillators, saw/triangle/pulse, ring/sync, TEST phase reset, noise reference prefix, ADSR attack/sustain/release and rate-change delay | Digital approximation; combined waveforms use AND, without analog coupling/noise feedback. `combinedWaveformUsed` records such writes |
+| SID replay | All oscillator, noise, envelope, divider and bus phases are value state; synthetic readback digest `3546492723`; real Fort read stream below | Not matched to a physical chip's initial analog state or exhaustive hardware vectors |
+
+The SID profile starts noise at $7FFFF8, clocks the 23-bit polynomial from
+accumulator bit 19 with a two-clock shift delay, and models TEST discharge after
+$8000 clocks. Clearing TEST shifts using the inverted bit-17 feedback. The
+fixed post-shift noise prefix FE/FC/FC/FC/F8 agrees with Alstrup's reported
+sequence; the onset timing is a chosen profile, **not** hardware-validated.
+TEST discharge and power-on state vary physically. Bus retention is simplified
+to $2000 clocks, disconnected pots read $FF, and combined-waveform behavior is
+not a complete SID model. Envelope stepping uses published periods and an
+exponential divider; fine gate-write pipelines and LFSR rate-counter phase on
+mid-period rate changes remain unvalidated. Audio/filter output is deferred.
+
+Reference material (hardware descriptions and measurements, not copied emulator
+implementations):
+
+- [Christian Bauer's VIC-II description](https://www.cebix.net/VIC-Article.txt),
+  2024-09-29 edition, for bus/display scheduling and border/sprite rules.
+- [MOS 6581 datasheet reproduction](https://www.waitingforfriday.com/?p=661),
+  for register-visible oscillator/envelope behavior.
+- [Graham's SID reference](https://www.oxyron.de/html/registers_sid.html),
+  for the digital noise polynomial and output taps.
+- [Asger Alstrup's noise measurements](https://codebase64.net/doku.php?id=base%3Anoise_waveform),
+  for the fixed noise prefix; initial TEST timing is explicitly not a conformance
+  claim. Earlier write-ups use a shifted register convention for output taps.
+- [Thorsten Klose's SID experiments](https://forum.midibox.org/t/mb-sid-v2-discussion/6341?page=3),
+  for the free-running envelope rate counter/delay behavior.
+
+### Authentic Fort Apocalypse acceptance
+
+Reference: U.S. Gold / SYNSOFT, NOVALOAD D100701, PAL. TAP SHA256:
+`9e444c4576bac52ba691f0ffe2c0a7efb0f62f3fe2be7cbe78dba08672dda00b`.
+Firmware identities are the same as the C2 table above.
+
+The test starts from power-on, types LOAD/RUN, advances real tape pulses and
+presses joystick fire. It uses no loading traps, supplied game RAM or game-code
+patches. Comparisons use independently decoded Go extractor output:
+
+| Fixture | SHA256 |
+| --- | --- |
+| expected.bin | `598fa977a379f114a4b03fb8cbe485e9ce85fbd09ba5e812439e5902f00d9039` |
+| pages.bin | `7b32cdcc1b0b4bb6e0fd4c6b5cd09490fe608a12809f120c66604a11b23d8f32` |
+| graphics.bin | `a2baf6f329350171a93a287ce1ef7eb323548e6582c8585cac5831013ff3abab` |
+| graphics-mask.bin | `0983c70662f816657829eb2f3efe44f3f074f5dfa672fc444d4ddf051d7a9547` |
+
+Acceptance checks 21,504 live Novaload writes, all main-program bytes before
+entry, 2,251 immutable generated charset/sprite bytes, title mode 1 and gameplay
+mode 2. Animated/scanner/noise-modified glyphs are intentionally excluded from
+the immutable-byte comparison; actual OSC3 reads are checked separately.
+
+Native loading/title/gameplay PPM captures were inspected. The accepted run:
+
+| Observation | Machine cycle | PC | Tape pulse |
+| --- | ---: | --- | ---: |
+| KERNAL loaded | 34,220,000 | $FCDB | 48,236 |
+| Loading screen | 46,400,677 | $038C | 73,083 |
+| Game entry | 115,317,157 | $8600 | 225,787 |
+| Title | 118,317,157 | $8AA1 | 225,787 |
+| Gameplay | 123,997,157 | $ADF5 | 225,787 |
+
+Loading replay covers 50,000 clocks. Gameplay replay covers 2,000,000 clocks,
+with identical RAM and framebuffer hashes plus 1,357 completed guest OSC3 reads.
+Native/WASM acceptance digests (unsigned 32-bit FNV-1a): RAM `1676350321`, raw
+palette-index framebuffer `3657676438`, guest OSC3 stream `1563375142`.
+These are reproducibility digests for this core/profile, not physical-hardware
+or third-party-emulator golden frames. Image palette/cropping is presentation.
+
 ## Next acceptance gates
 
-C3 must replace the raster/SID scaffolds with actual VIC-II scheduling, pixels,
-DMA/arbitration, sprite/collision behavior and SID-visible oscillator/noise and
-envelope evolution. Real Fort Apocalypse loading/gameplay remains unproven on
-this core. Later milestones add 1541/IEC, debugger/browser APIs, portable states,
-and prepared lesson migration. The shipped third-party core is still active.
+C4 adds the independent 1541 and IEC bus, then C5 validates fastloaders and drive
+inspection. C6 integrates the browser, full pixel provenance and portable states;
+C7 governs the default switch. The production third-party core remains active.

@@ -13,8 +13,8 @@ std::array<uint8_t,2> Board::keyboard()const{
  }if(oldA==pa&&oldB==pb)break;}return {pa,pb};
 }
 uint8_t Board::io(uint16_t address,bool effects){
- if(address<0xd400){const auto reg=address&63;switch(reg){case 0x11:return (state.vic[reg]&0x7f)|((state.raster&256)?128:0);case 0x12:return uint8_t(state.raster);case 0x19:return state.vicFlags|0x70|((state.vicFlags&state.vicMask)?128:0);case 0x1a:return state.vicMask|0xf0;default:return reg>=0x2f?255:state.vic[reg];}}
- if(address<0xd800){const auto reg=address&31;if(effects&&reg>=0x1b&&reg<=0x1c)state.unimplementedSidRead=true;return reg==0x19||reg==0x1a?255:reg==0x1b||reg==0x1c?0:state.bus;}
+ if(address<0xd400)return effects?state.vic.read(address&63):state.vic.peek(address&63);
+ if(address<0xd800)return effects?state.sid.read(address&31):state.sid.peek(address&31);
  if(address<0xdc00)return (state.bus&0xf0)|state.color[address&1023];
  if(address<0xdd00){const auto pins=keyboard();return effects?state.cia1.read(address&15,pins[0],pins[1]):state.cia1.peek(address&15,pins[0],pins[1]);}
  if(address<0xde00)return effects?state.cia2.read(address&15):state.cia2.peek(address&15);
@@ -31,28 +31,29 @@ uint8_t Board::read(uint16_t address){const auto value=address>=0xd000&&address<
 void Board::write(uint16_t address,uint8_t value){
  state.bus=value;if(address==0){state.ddr=value;return;}if(address==1){state.data=value;return;}
  if(address>=0xd000&&address<0xe000&&ioVisible()){
-  if(address<0xd400){const auto reg=address&63;if(reg==0x11)state.rasterCompare=(state.rasterCompare&255)|((value&128)<<1);if(reg==0x12)state.rasterCompare=(state.rasterCompare&256)|value;
-   if(reg==0x19)state.vicFlags&=uint8_t(~value);else if(reg==0x1a)state.vicMask=value&15;else if(reg<0x2f)state.vic[reg]=value;return;}
-  if(address<0xd800){state.sid[address&31]=value;return;}
+  if(address<0xd400){state.vic.write(address&63,value);return;}
+  if(address<0xd800){state.sid.write(address&31,value);return;}
   if(address<0xdc00){state.color[address&1023]=value&15;return;}
   if(address<0xdd00){state.cia1.write(address&15,value);return;}
   if(address<0xde00){state.cia2.write(address&15,value);return;}return;
  }
  state.ram[address]=value;
 }
-void Board::rasterTick(){
- // C2 timing/register scaffold only. C3 supplies VIC fetches, contention and pixels.
- if(++state.rasterCycle==63){state.rasterCycle=0;state.raster=uint16_t((state.raster+1)%312);if(state.raster==state.rasterCompare)state.vicFlags|=1;}
-}
 bool Board::tick(bool cpuReady){
- Cpu cpu;cpu.state=state.cpu;if(cpu.faulted())return false;++state.cycles;rasterTick();
+ Cpu cpu;cpu.state=state.cpu;if(cpu.faulted())return false;++state.cycles;state.vic.tick(state.ram,chars,state.color,uint16_t((~state.cia2.outputA()&3)<<14));state.sid.tick();
  state.tape.flag=true;
  if(state.tape.play&&motor()&&state.tape.pulse<pulses.size()){
   if(state.tape.remaining&&!--state.tape.remaining){state.tape.flag=false;if(++state.tape.pulse<pulses.size())state.tape.remaining=pulses[state.tape.pulse];}
  }
  state.cia1.tick();if(!state.tape.flag)state.cia1.event(16);state.cia2.tick();state.todPhase+=50;if(state.todPhase>=985248){state.todPhase-=985248;state.cia1.todEdge();state.cia2.todEdge();}
- const auto bus=cpu.bus();const auto data=bus.write?bus.data:read(bus.address);if(bus.write)write(bus.address,data);
- cpu.tick(data,state.cia1.irq||bool(state.vicFlags&state.vicMask),state.cia2.irq||state.restore,cpuReady);state.cpu=cpu.state;return !cpu.faulted();
+ const auto bus=cpu.bus();uint8_t data=state.bus;
+ state.lastBus={state.cycles,bus.address,cpu.state.pc,0,state.vic.aec,bus.write,cpuReady&&state.vic.ba&&state.vic.aec,bus.sync};
+ // AEC disconnects the CPU. BA gives it three clocks to finish writes first.
+ for(unsigned i=0;i<state.vic.fetchCount;i++)state.bus=state.vic.fetches[i].value;
+ if(state.vic.aec){data=bus.write?bus.data:read(bus.address);if(bus.write)write(bus.address,data);}
+
+ state.lastBus.value=data;
+ cpu.tick(data,state.cia1.irq||state.vic.irq(),state.cia2.irq||state.restore,cpuReady&&state.vic.ba&&state.vic.aec);state.cpu=cpu.state;return !cpu.faulted();
 }
 bool Board::run(uint64_t cycles){while(cycles--)if(!tick())return false;return true;}
 void Board::key(unsigned column,unsigned row,bool down){if(column>=8||row>=8)return;if(down)state.keys[column]|=uint8_t(1<<row);else state.keys[column]&=uint8_t(~(1<<row));}

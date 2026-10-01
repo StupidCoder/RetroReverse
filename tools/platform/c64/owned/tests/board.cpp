@@ -62,7 +62,7 @@ static void boot(const char* basic,const char* kernal,const char* chars){
  assert(screen(b).find("38911 BASIC BYTES FREE")!=std::string::npos);
  // Physical matrix: PRINT 2+2 followed by Return; no KERNAL hooks or buffer injection.
  for(const auto pair:std::array<std::array<unsigned,2>,10>{{{5,1},{2,1},{4,1},{4,7},{2,6},{7,4},{7,3},{5,0},{7,3},{0,1}}})type(b,pair[0],pair[1]);
- assert(b.run(300000));const auto output=screen(b);std::cout<<output.substr(0,400)<<'\n';assert(output.find("PRINT 2+2")!=std::string::npos);assert(output.find(" 4 ")!=std::string::npos);assert(!b.state.unimplementedSidRead);
+ assert(b.run(300000));const auto output=screen(b);std::cout<<output.substr(0,400)<<'\n';assert(output.find("PRINT 2+2")!=std::string::npos);assert(output.find(" 4 ")!=std::string::npos);
  std::cout<<"PASS owned KERNAL/BASIC boot and physical-keyboard PRINT 2+2; PC="<<std::hex<<b.state.cpu.pc<<std::dec<<" cycles="<<b.state.cycles<<'\n';
 }
 int main(int argc,char** argv){timerTests();boardTests();if(argc==4)boot(argv[1],argv[2],argv[3]);}
