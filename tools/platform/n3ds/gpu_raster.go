@@ -320,9 +320,7 @@ func (g *GPU) draw(indexed bool) {
 	n := len(outs)
 	tris := g.tris[:0]
 	emit := func(a, b, c int) {
-		if t, ok := g.setupTri(&outs[a], &outs[b], &outs[c], &fb); ok {
-			tris = append(tris, t)
-		}
+		tris = g.clipTri(tris, outs[a], outs[b], outs[c], &fb)
 	}
 	switch prim {
 	case 0, 3:
@@ -706,11 +704,8 @@ func edgeFn(ax, ay, bx, by, px, py float32) float32 {
 // for the triangles it discards.
 func (g *GPU) setupTri(a, b, c *vsOut, fb *fbState) (rasterTri, bool) {
 	var t rasterTri
-	// Reject any triangle touching w<=0 rather than clip — a bring-up
-	// shortcut; counted so it can't hide. Written as !(w > 0) so NaN
-	// positions are rejected too: the game deliberately poisons its
-	// projection uniforms with NaN at frame start, and hardware clipping
-	// drops such triangles (every plane test fails).
+	// clipTri removes invisible portions before projection. Keep this guard
+	// for invalid positions and direct callers of the setup helper.
 	if !(a.pos[3] > 0) || !(b.pos[3] > 0) || !(c.pos[3] > 0) ||
 		a.pos[0] != a.pos[0] || b.pos[0] != b.pos[0] || c.pos[0] != c.pos[0] {
 		g.RejectedTris++
@@ -1173,4 +1168,114 @@ func stencilValue(op uint32, old, ref uint8) uint8 {
 		return old - 1
 	}
 	return old
+}
+
+// Clip in homogeneous coordinates before perspective division. Large ground
+// triangles can cross the camera plane; discarding the whole triangle loses
+// their visible part. Keep every varying on the same interpolated edge.
+func clipDistance(v vsOut, plane int) float32 {
+	switch plane {
+	case 0:
+		return v.pos[3] + v.pos[0]
+	case 1:
+		return v.pos[3] - v.pos[0]
+	case 2:
+		return v.pos[3] + v.pos[1]
+	case 3:
+		return v.pos[3] - v.pos[1]
+	case 4:
+		return v.pos[3] + v.pos[2]
+	case 5:
+		return -v.pos[2]
+	default:
+		return v.pos[3] - 0.00001
+	}
+}
+
+func clipVertex(a, b vsOut, t float32) vsOut {
+	var v vsOut
+	for i := 0; i < 4; i++ {
+		v.pos[i] = a.pos[i] + (b.pos[i]-a.pos[i])*t
+		v.color[i] = a.color[i] + (b.color[i]-a.color[i])*t
+		v.quat[i] = a.quat[i] + (b.quat[i]-a.quat[i])*t
+	}
+	for i := 0; i < 3; i++ {
+		v.view[i] = a.view[i] + (b.view[i]-a.view[i])*t
+		for j := 0; j < 2; j++ {
+			v.uv[i][j] = a.uv[i][j] + (b.uv[i][j]-a.uv[i][j])*t
+		}
+	}
+	v.uv0w = a.uv0w + (b.uv0w-a.uv0w)*t
+	return v
+}
+
+func (g *GPU) clipTri(tris []rasterTri, a, b, c vsOut, fb *fbState) []rasterTri {
+	// A triangle gains at most one vertex per clipping plane.
+	vertices := [3]vsOut{a, b, c}
+	outside, common := uint32(0), uint32(127)
+	for i := 0; i < 3; i++ {
+		for _, p := range vertices[i].pos {
+			// p-p rejects both NaN and infinity without allowing them into projection.
+			if p-p != 0 {
+				g.RejectedTris++
+				return tris
+			}
+		}
+		mask := uint32(0)
+		for plane := 0; plane < 7; plane++ {
+			if clipDistance(vertices[i], plane) < 0 {
+				mask |= 1 << uint(plane)
+			}
+		}
+		outside |= mask
+		common &= mask
+	}
+	if common != 0 {
+		g.RejectedTris++
+		return tris
+	}
+	if outside == 0 {
+		if t, ok := g.setupTri(&a, &b, &c, fb); ok {
+			tris = append(tris, t)
+		}
+		return tris
+	}
+	input := [12]vsOut{a, b, c}
+	var output [12]vsOut
+	count := 3
+	for plane := 0; plane < 7; plane++ {
+		if outside&(1<<uint(plane)) == 0 {
+			continue
+		}
+		n := 0
+		prev := input[count-1]
+		pd := clipDistance(prev, plane)
+		for i := 0; i < count; i++ {
+			curr := input[i]
+			cd := clipDistance(curr, plane)
+			if (pd >= 0) != (cd >= 0) {
+				output[n] = clipVertex(prev, curr, pd/(pd-cd))
+				n++
+			}
+			if cd >= 0 {
+				output[n] = curr
+				n++
+			}
+			prev, pd = curr, cd
+		}
+		if n < 3 {
+			g.RejectedTris++
+			return tris
+		}
+		count = n
+		for i := 0; i < count; i++ {
+			input[i] = output[i]
+		}
+	}
+	for i := 1; i+1 < count; i++ {
+		if t, ok := g.setupTri(&input[0], &input[i], &input[i+1], fb); ok {
+			tris = append(tris, t)
+		}
+	}
+	return tris
 }

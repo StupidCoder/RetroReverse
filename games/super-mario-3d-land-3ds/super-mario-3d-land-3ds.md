@@ -795,3 +795,15 @@ depth rejection, all stencil operations, watched and direct memory writes, and
 replay after source-buffer reuse. The browser title image matches the native
 renderer; replay checks require distinct intermediate stages, exact final pixels,
 deterministic seeking and unchanged guest continuation.
+
+The grass around the title-screen path exposed a second, independent omission:
+the rasterizer discarded entire triangles when any vertex lay behind the camera.
+Large ground polygons crossed that plane, so their visible portions disappeared
+and exposed the sky. Triangle assembly now clips against the homogeneous view
+volume before perspective division, interpolating colour, all texture
+coordinates, lighting quaternion and view vector at the new vertices. Fully
+visible triangles retain the existing setup path; invalid positions are rejected.
+The restored grass was checked in the title-screen fixture with matching native
+and browser pixels. `gpu_clip_test.go` and `clip-3ds.cpp` cover the camera-crossing
+ground case, bounded projection and invalid positions; the Go tests also verify
+unchanged visible triangles, wholly invisible triangles and varying interpolation.

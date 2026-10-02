@@ -1669,6 +1669,9 @@ float n3ds_max3f(float a,float b,float c);
 int64_t n3ds_GPU_vertexWorkers(n3ds_GPU* g,uint32_t count);
 uint32_t n3ds_GPU_stencilDepthTest(n3ds_GPU* g,n3ds_fbState* fb,uint32_t off,float depth);
 uint8_t n3ds_stencilValue(uint32_t op,uint8_t old,uint8_t ref);
+float n3ds_clipDistance(n3ds_vsOut v,int64_t plane);
+n3ds_vsOut n3ds_clipVertex(n3ds_vsOut a,n3ds_vsOut b,float t);
+Slice<n3ds_rasterTri> n3ds_GPU_clipTri(n3ds_GPU* g,Slice<n3ds_rasterTri> tris,n3ds_vsOut a,n3ds_vsOut b,n3ds_vsOut c,n3ds_fbState* fb);
 bool n3ds_GPU_shaderRun(n3ds_GPU* g,std::array<std::array<float,4>,16>* v,std::array<std::array<float,4>,16>* out,int64_t entry);
 bool n3ds_shaderState_exec(n3ds_shaderState* s,int64_t pc,int64_t end);
 bool n3ds_shaderState_cond(n3ds_shaderState* s,uint32_t in);
@@ -10095,14 +10098,7 @@ uint32_t prim = cast<uint32_t>((shr<uint32_t>(g->Regs[cast<int64_t>(606ULL)],cas
 int64_t n = len(outs);
 Slice<n3ds_rasterTri> tris = sub(g->tris,0,cast<int64_t>(0ULL));
 auto emit = [&](int64_t a,int64_t b,int64_t c)->void{
-{
-auto tmp157 = n3ds_GPU_setupTri(g,(&outs[a]),(&outs[b]),(&outs[c]),(&fb));
-n3ds_rasterTri t = std::get<0>(tmp157);
-bool ok = std::get<1>(tmp157);
-if (ok) {
-tris = append(tris,t);
-}
-}
+tris = n3ds_GPU_clipTri(g,tris,outs[a],outs[b],outs[c],(&fb));
 }
 ;
 {
@@ -10139,7 +10135,7 @@ n3ds_GPU_invalidateTextures(g,fb.colorAddr,cast<uint32_t>((cast<uint32_t>(((((ca
 }
 }
 }
-// tools/platform/n3ds/gpu_raster.go:381:1
+// tools/platform/n3ds/gpu_raster.go:379:1
 void n3ds_GPU_fill(n3ds_GPU* g,n3ds_fbState* fb,n3ds_lightState* ls,n3ds_tevState* tv,Slice<n3ds_rasterTri> tris){
 rrprof::Scope profile(2,"PICA software rasterizer");{
 if ((len(tris) == cast<int64_t>(0ULL))) {
@@ -10148,9 +10144,9 @@ return ;
 int64_t workers = n3ds_GPU_rasterWorkers(g,fb,tris);
 if ((workers <= cast<int64_t>(1ULL))) {
 n3ds_rstats st={};
-{auto&& tmp158 = tris;
-for(int64_t tmp159=0;tmp159<len(tmp158);++tmp159){
-auto i=tmp159;n3ds_GPU_fillTri(g,fb,ls,tv,(&tris[i]),tris[i].minY,tris[i].maxY,(&st));
+{auto&& tmp157 = tris;
+for(int64_t tmp158=0;tmp158<len(tmp157);++tmp158){
+auto i=tmp158;n3ds_GPU_fillTri(g,fb,ls,tv,(&tris[i]),tris[i].minY,tris[i].maxY,(&st));
 }}
 n3ds_GPU_mergeStats(g,(&st));
 return ;
@@ -10173,15 +10169,15 @@ int64_t yHi = cast<int64_t>((yLo + cast<int64_t>(8ULL)));
 if ((yHi > height)) {
 yHi = height;
 }
-{auto&& tmp160 = tris;
-for(int64_t tmp161=0;tmp161<len(tmp160);++tmp161){
-auto i=tmp161;n3ds_rasterTri* t = (&tris[i]);
+{auto&& tmp159 = tris;
+for(int64_t tmp160=0;tmp160<len(tmp159);++tmp160){
+auto i=tmp160;n3ds_rasterTri* t = (&tris[i]);
 if (((t->maxY <= yLo) || (t->minY >= yHi))) {
 continue;
 }
-auto tmp162 = std::make_tuple(t->minY,t->maxY);
-int64_t lo = std::get<0>(tmp162);
-int64_t hi = std::get<1>(tmp162);
+auto tmp161 = std::make_tuple(t->minY,t->maxY);
+int64_t lo = std::get<0>(tmp161);
+int64_t hi = std::get<1>(tmp161);
 if ((lo < yLo)) {
 lo = yLo;
 }
@@ -10193,13 +10189,13 @@ n3ds_GPU_fillTri(g,fb,ls,tv,t,lo,hi,st);
 }
 }}
 );
-{auto&& tmp163 = stats;
-for(int64_t tmp164=0;tmp164<len(tmp163);++tmp164){
-auto i=tmp164;n3ds_GPU_mergeStats(g,(&stats[i]));
+{auto&& tmp162 = stats;
+for(int64_t tmp163=0;tmp163<len(tmp162);++tmp163){
+auto i=tmp163;n3ds_GPU_mergeStats(g,(&stats[i]));
 }}
 }
 }
-// tools/platform/n3ds/gpu_raster.go:448:1
+// tools/platform/n3ds/gpu_raster.go:446:1
 int64_t n3ds_GPU_rasterWorkers(n3ds_GPU* g,n3ds_fbState* fb,Slice<n3ds_rasterTri> tris){
 {
 n3ds_Machine* m = g->m;
@@ -10208,9 +10204,9 @@ return cast<int64_t>(1ULL);
 }
 constexpr int64_t minPixels=256ULL;
 int64_t work = cast<int64_t>(0ULL);
-{auto&& tmp165 = tris;
-for(int64_t tmp166=0;tmp166<len(tmp165);++tmp166){
-auto i=tmp166;n3ds_rasterTri* t = (&tris[i]);
+{auto&& tmp164 = tris;
+for(int64_t tmp165=0;tmp165<len(tmp164);++tmp165){
+auto i=tmp165;n3ds_rasterTri* t = (&tris[i]);
 work += cast<int64_t>(((cast<int64_t>((t->maxX - t->minX))) * (cast<int64_t>((t->maxY - t->minY)))));
 if ((work >= cast<int64_t>(1024ULL))) {
 break;
@@ -10232,14 +10228,14 @@ n = cast<int64_t>(1ULL);
 return n;
 }
 }
-// tools/platform/n3ds/gpu_raster.go:481:1
+// tools/platform/n3ds/gpu_raster.go:479:1
 void n3ds_GPU_warmTextures(n3ds_GPU* g){
 {
 {int64_t u = cast<int64_t>(0ULL);for (;(u < cast<int64_t>(3ULL));u++){
-auto tmp167 = n3ds_texUnitRegs(u);
-uint32_t dimR = std::get<0>(tmp167);
-uint32_t addrR = std::get<2>(tmp167);
-uint32_t typR = std::get<3>(tmp167);
+auto tmp166 = n3ds_texUnitRegs(u);
+uint32_t dimR = std::get<0>(tmp166);
+uint32_t addrR = std::get<2>(tmp166);
+uint32_t typR = std::get<3>(tmp166);
 uint32_t w = cast<uint32_t>((shr<uint32_t>(g->Regs[dimR],cast<int64_t>(16ULL)) & cast<uint32_t>(2047ULL)));
 uint32_t h = cast<uint32_t>((g->Regs[dimR] & cast<uint32_t>(2047ULL)));
 if (((w == cast<uint32_t>(0ULL)) || (h == cast<uint32_t>(0ULL)))) {
@@ -10249,19 +10245,19 @@ n3ds_GPU_texture(g,n3ds_Machine_gpuAddrToVirt(g->m,shl<uint32_t>(g->Regs[addrR],
 }
 }}
 }
-// tools/platform/n3ds/gpu_raster.go:505:1
+// tools/platform/n3ds/gpu_raster.go:503:1
 void n3ds_mapAttrsToInputs(std::array<std::array<float,4>,16>* v,std::array<std::array<float,4>,16>* attrs,uint64_t perm,int64_t nAttr){
 {
-{auto&& tmp168 = (*v);
-for(int64_t tmp169=0;tmp169<len(tmp168);++tmp169){
-auto j=tmp169;(*v)[j] = std::array<float,4>{cast<float>(0.00000000000000000e+00),cast<float>(0.00000000000000000e+00),cast<float>(0.00000000000000000e+00),cast<float>(1.00000000000000000e+00)};
+{auto&& tmp167 = (*v);
+for(int64_t tmp168=0;tmp168<len(tmp167);++tmp168){
+auto j=tmp168;(*v)[j] = std::array<float,4>{cast<float>(0.00000000000000000e+00),cast<float>(0.00000000000000000e+00),cast<float>(0.00000000000000000e+00),cast<float>(1.00000000000000000e+00)};
 }}
 {int64_t a = cast<int64_t>(0ULL);for (;((a < nAttr) && (a < cast<int64_t>(16ULL)));a++){
 (*v)[cast<uint64_t>((shr<uint64_t>(perm,(cast<uint64_t>((cast<uint64_t>(4ULL) * cast<uint64_t>(a))))) & cast<uint64_t>(15ULL)))] = (*attrs)[a];
 }
 }}
 }
-// tools/platform/n3ds/gpu_raster.go:517:1
+// tools/platform/n3ds/gpu_raster.go:515:1
 void n3ds_GPU_mapOutputs(n3ds_GPU* g,std::array<std::array<float,4>,16>* o,n3ds_vsOut* dst){
 {
 n3ds_vsOut out={};
@@ -10298,13 +10294,13 @@ else if (((s >= cast<uint32_t>(18ULL)) && (s <= cast<uint32_t>(20ULL)))){
 out.view[cast<uint32_t>((s - cast<uint32_t>(18ULL)))] = v;
 }
 }
-tmp170:;
+tmp169:;
 }
 }}
 }(*dst) = out;
 }
 }
-// tools/platform/n3ds/gpu_raster.go:575:1
+// tools/platform/n3ds/gpu_raster.go:573:1
 n3ds_fbState n3ds_GPU_fbstate(n3ds_GPU* g){
 {
 uint32_t dim = g->Regs[cast<int64_t>(286ULL)];
@@ -10318,16 +10314,16 @@ cmask = cast<uint32_t>(0ULL);
 }
 n3ds_fbState fb = n3ds_fbState{n3ds_Machine_gpuAddrToVirt(g->m,shl<uint32_t>(g->Regs[cast<int64_t>(285ULL)],cast<int64_t>(3ULL))),n3ds_Machine_gpuAddrToVirt(g->m,shl<uint32_t>(g->Regs[cast<int64_t>(284ULL)],cast<int64_t>(3ULL))),cast<uint32_t>((dim & cast<uint32_t>(2047ULL))),cast<uint32_t>(((cast<uint32_t>((shr<uint32_t>(dim,cast<int64_t>(12ULL)) & cast<uint32_t>(1023ULL)))) + cast<uint32_t>(1ULL))),((cast<uint32_t>((dcm & cast<uint32_t>(1ULL))) != cast<uint32_t>(0ULL)) && depthRd),((cast<uint32_t>((shr<uint32_t>(dcm,cast<int64_t>(12ULL)) & cast<uint32_t>(1ULL))) != cast<uint32_t>(0ULL)) && depthWr),cast<uint32_t>((shr<uint32_t>(dcm,cast<int64_t>(4ULL)) & cast<uint32_t>(7ULL))),cmask,n3ds_f24bits(g->Regs[cast<int64_t>(65ULL)]),n3ds_f24bits(g->Regs[cast<int64_t>(67ULL)]),n3ds_f24bits(g->Regs[cast<int64_t>(77ULL)]),n3ds_f24bits(g->Regs[cast<int64_t>(78ULL)]),(cast<uint32_t>((g->Regs[cast<int64_t>(109ULL)] & cast<uint32_t>(1ULL))) != cast<uint32_t>(0ULL)),(cast<uint32_t>((g->Regs[cast<int64_t>(256ULL)] & cast<uint32_t>(3ULL))) == cast<uint32_t>(3ULL)),{},{},{},{}};
 uint32_t size = cast<uint32_t>((cast<uint32_t>(((((cast<uint32_t>((fb.width + cast<uint32_t>(7ULL)))) & ~(cast<uint32_t>(7ULL)))) * (((cast<uint32_t>((fb.height + cast<uint32_t>(7ULL)))) & ~(cast<uint32_t>(7ULL)))))) * cast<uint32_t>(4ULL)));
-auto tmp171 = n3ds_Machine_directRange(g->m,fb.colorAddr,size);
-fb.colorBuf = std::get<0>(tmp171);
-fb.colorOff = std::get<1>(tmp171);
-auto tmp172 = n3ds_Machine_directRange(g->m,fb.depthAddr,size);
-fb.depthBuf = std::get<0>(tmp172);
-fb.depthOff32 = std::get<1>(tmp172);
+auto tmp170 = n3ds_Machine_directRange(g->m,fb.colorAddr,size);
+fb.colorBuf = std::get<0>(tmp170);
+fb.colorOff = std::get<1>(tmp170);
+auto tmp171 = n3ds_Machine_directRange(g->m,fb.depthAddr,size);
+fb.depthBuf = std::get<0>(tmp171);
+fb.depthOff32 = std::get<1>(tmp171);
 return fb;
 }
 }
-// tools/platform/n3ds/gpu_raster.go:627:1
+// tools/platform/n3ds/gpu_raster.go:625:1
 void n3ds_GPU_shadowMapWrite(n3ds_GPU* g,n3ds_fbState* fb,uint32_t off,float depth,uint8_t density){
 {
 uint32_t p = cast<uint32_t>((fb->colorAddr + off));
@@ -10351,10 +10347,10 @@ return ;
 }
 if ((density == cast<uint8_t>(0ULL))) {
 if (bool(dst)) {
-auto tmp173 = std::make_tuple(cast<uint8_t>(shr<uint32_t>(z,cast<int64_t>(16ULL))),cast<uint8_t>(shr<uint32_t>(z,cast<int64_t>(8ULL))),cast<uint8_t>(z));
-dst[cast<int64_t>(0ULL)] = std::get<0>(tmp173);
-dst[cast<int64_t>(1ULL)] = std::get<1>(tmp173);
-dst[cast<int64_t>(2ULL)] = std::get<2>(tmp173);
+auto tmp172 = std::make_tuple(cast<uint8_t>(shr<uint32_t>(z,cast<int64_t>(16ULL))),cast<uint8_t>(shr<uint32_t>(z,cast<int64_t>(8ULL))),cast<uint8_t>(z));
+dst[cast<int64_t>(0ULL)] = std::get<0>(tmp172);
+dst[cast<int64_t>(1ULL)] = std::get<1>(tmp172);
+dst[cast<int64_t>(2ULL)] = std::get<2>(tmp172);
 return ;
 }
 n3ds_Machine_Write(g->m,p,cast<uint8_t>(shr<uint32_t>(z,cast<int64_t>(16ULL))));
@@ -10363,9 +10359,9 @@ n3ds_Machine_Write(g->m,cast<uint32_t>((p + cast<uint32_t>(2ULL))),cast<uint8_t>
 return ;
 }
 uint32_t cfg = g->Regs[cast<int64_t>(304ULL)];
-auto tmp174 = std::make_tuple(n3ds_f16(cfg),n3ds_f16(shr<uint32_t>(cfg,cast<int64_t>(16ULL))));
-float k = std::get<0>(tmp174);
-float lin = std::get<1>(tmp174);
+auto tmp173 = std::make_tuple(n3ds_f16(cfg),n3ds_f16(shr<uint32_t>(cfg,cast<int64_t>(16ULL))));
+float k = std::get<0>(tmp173);
+float lin = std::get<1>(tmp173);
 float d = cast<float>(density);
 if ((refZ != cast<uint32_t>(0ULL))) {
 {
@@ -10387,7 +10383,7 @@ n3ds_Machine_Write(g->m,cast<uint32_t>((p + cast<uint32_t>(3ULL))),s);
 }
 }
 }
-// tools/platform/n3ds/gpu_raster.go:692:1
+// tools/platform/n3ds/gpu_raster.go:690:1
 void n3ds_GPU_mergeStats(n3ds_GPU* g,n3ds_rstats* st){
 {
 g->PixelsDrawn += st->pixelsDrawn;
@@ -10397,13 +10393,13 @@ g->ShadowSamples += st->shadowSamples;
 g->ShadowOccluded += st->shadowOccluded;
 }
 }
-// tools/platform/n3ds/gpu_raster.go:700:1
+// tools/platform/n3ds/gpu_raster.go:698:1
 float n3ds_edgeFn(float ax,float ay,float bx,float by,float px,float py){
 {
 return cast<float>((cast<float>(((cast<float>((bx - ax))) * (cast<float>((py - ay))))) - cast<float>(((cast<float>((by - ay))) * (cast<float>((px - ax)))))));
 }
 }
-// tools/platform/n3ds/gpu_raster.go:707:1
+// tools/platform/n3ds/gpu_raster.go:705:1
 std::tuple<n3ds_rasterTri,bool> n3ds_GPU_setupTri(n3ds_GPU* g,n3ds_vsOut* a,n3ds_vsOut* b,n3ds_vsOut* c,n3ds_fbState* fb){
 {
 n3ds_rasterTri t={};
@@ -10416,10 +10412,10 @@ float iw = cast<float>((cast<float>(1.00000000000000000e+00) / v->pos[cast<int64
 return n3ds_scrVert{cast<float>(((cast<float>((cast<float>((v->pos[cast<int64_t>(0ULL)] * iw)) + cast<float>(1.00000000000000000e+00)))) * fb->vpHalfW)),cast<float>(((cast<float>((cast<float>((v->pos[cast<int64_t>(1ULL)] * iw)) + cast<float>(1.00000000000000000e+00)))) * fb->vpHalfH)),cast<float>((v->pos[cast<int64_t>(2ULL)] * iw)),iw,v->color,v->uv,v->uv0w,v->quat,v->view};
 }
 ;
-auto tmp175 = std::make_tuple(toScreen(a),toScreen(b),toScreen(c));
-n3ds_scrVert v0 = std::get<0>(tmp175);
-n3ds_scrVert v1 = std::get<1>(tmp175);
-n3ds_scrVert v2 = std::get<2>(tmp175);
+auto tmp174 = std::make_tuple(toScreen(a),toScreen(b),toScreen(c));
+n3ds_scrVert v0 = std::get<0>(tmp174);
+n3ds_scrVert v1 = std::get<1>(tmp174);
+n3ds_scrVert v2 = std::get<2>(tmp174);
 float area = n3ds_edgeFn(v0.x,v0.y,v1.x,v1.y,v2.x,v2.y);
 if ((area == cast<float>(0.00000000000000000e+00))) {
 g->ZeroAreaTris++;
@@ -10432,9 +10428,9 @@ g->CulledTris++;
 return {t,false};
 }
 if ((area < cast<float>(0.00000000000000000e+00))) {
-auto tmp176 = std::make_tuple(v2,v1);
-v1 = std::get<0>(tmp176);
-v2 = std::get<1>(tmp176);
+auto tmp175 = std::make_tuple(v2,v1);
+v1 = std::get<0>(tmp175);
+v2 = std::get<1>(tmp175);
 area = cast<float>(-area);
 }
 int64_t minX = cast<int64_t>(n3ds_min3f(v0.x,v1.x,v2.x));
@@ -10456,39 +10452,39 @@ maxY = cast<int64_t>(fb->height);
 return {n3ds_rasterTri{v0,v1,v2,area,minX,maxX,minY,maxY},true};
 }
 }
-// tools/platform/n3ds/gpu_raster.go:778:1
+// tools/platform/n3ds/gpu_raster.go:773:1
 void n3ds_GPU_fillTri(n3ds_GPU* g,n3ds_fbState* fb,n3ds_lightState* ls,n3ds_tevState* tv,n3ds_rasterTri* t,int64_t yLo,int64_t yHi,n3ds_rstats* st){
 {
-auto tmp177 = std::make_tuple((&t->v0),(&t->v1),(&t->v2));
-n3ds_scrVert* v0 = std::get<0>(tmp177);
-n3ds_scrVert* v1 = std::get<1>(tmp177);
-n3ds_scrVert* v2 = std::get<2>(tmp177);
+auto tmp176 = std::make_tuple((&t->v0),(&t->v1),(&t->v2));
+n3ds_scrVert* v0 = std::get<0>(tmp176);
+n3ds_scrVert* v1 = std::get<1>(tmp176);
+n3ds_scrVert* v2 = std::get<2>(tmp176);
 float area = t->area;
 bool stencil = (((cast<uint32_t>((g->Regs[cast<int64_t>(261ULL)] & cast<uint32_t>(1ULL))) != cast<uint32_t>(0ULL)) && (cast<uint32_t>((g->Regs[cast<int64_t>(278ULL)] & cast<uint32_t>(3ULL))) == cast<uint32_t>(3ULL))) && (!fb->shadowMode));
-auto tmp178 = std::make_tuple(t->minX,t->maxX);
-int64_t minX = std::get<0>(tmp178);
-int64_t maxX = std::get<1>(tmp178);
-auto tmp179 = std::make_tuple(yLo,yHi);
-int64_t minY = std::get<0>(tmp179);
-int64_t maxY = std::get<1>(tmp179);
+auto tmp177 = std::make_tuple(t->minX,t->maxX);
+int64_t minX = std::get<0>(tmp177);
+int64_t maxX = std::get<1>(tmp177);
+auto tmp178 = std::make_tuple(yLo,yHi);
+int64_t minY = std::get<0>(tmp178);
+int64_t maxY = std::get<1>(tmp178);
 auto edge = n3ds_edgeFn;
 {int64_t y = minY;for (;(y < maxY);y++){
 uint32_t ty = cast<uint32_t>(cast<int64_t>((cast<int64_t>((cast<int64_t>(fb->height) - cast<int64_t>(1ULL))) - y)));
 {int64_t x = minX;for (;(x < maxX);x++){
 uint32_t off = n3ds_tiledOffset(cast<uint32_t>(x),ty,fb->width);
-auto tmp180 = std::make_tuple(cast<float>((cast<float>(x) + cast<float>(5.00000000000000000e-01))),cast<float>((cast<float>(y) + cast<float>(5.00000000000000000e-01))));
-float px = std::get<0>(tmp180);
-float py = std::get<1>(tmp180);
+auto tmp179 = std::make_tuple(cast<float>((cast<float>(x) + cast<float>(5.00000000000000000e-01))),cast<float>((cast<float>(y) + cast<float>(5.00000000000000000e-01))));
+float px = std::get<0>(tmp179);
+float py = std::get<1>(tmp179);
 float w0 = edge(v1->x,v1->y,v2->x,v2->y,px,py);
 float w1 = edge(v2->x,v2->y,v0->x,v0->y,px,py);
 float w2 = edge(v0->x,v0->y,v1->x,v1->y,px,py);
 if ((((w0 < cast<float>(0.00000000000000000e+00)) || (w1 < cast<float>(0.00000000000000000e+00))) || (w2 < cast<float>(0.00000000000000000e+00)))) {
 continue;
 }
-auto tmp181 = std::make_tuple(cast<float>((w0 / area)),cast<float>((w1 / area)),cast<float>((w2 / area)));
-float l0 = std::get<0>(tmp181);
-float l1 = std::get<1>(tmp181);
-float l2 = std::get<2>(tmp181);
+auto tmp180 = std::make_tuple(cast<float>((w0 / area)),cast<float>((w1 / area)),cast<float>((w2 / area)));
+float l0 = std::get<0>(tmp180);
+float l1 = std::get<1>(tmp180);
+float l2 = std::get<2>(tmp180);
 float iw = cast<float>((cast<float>((cast<float>((l0 * v0->iw)) + cast<float>((l1 * v1->iw)))) + cast<float>((l2 * v2->iw))));
 float z = cast<float>((cast<float>((cast<float>((l0 * v0->z)) + cast<float>((l1 * v1->z)))) + cast<float>((l2 * v2->z))));
 float depth = cast<float>((cast<float>((z * fb->depthScale)) + fb->depthOff));
@@ -10530,13 +10526,13 @@ q[i] = pc(v0->quat[i],v1->quat[i],v2->quat[i]);
 vw[i] = pc(v0->view[i],v1->view[i],v2->view[i]);
 }
 }}
-auto tmp182 = n3ds_GPU_fragment(g,col,uv,uv0w,ls,tv,q,vw,st);
-uint8_t r8 = std::get<0>(tmp182);
-uint8_t g8 = std::get<1>(tmp182);
-uint8_t b8 = std::get<2>(tmp182);
-uint8_t a8 = std::get<3>(tmp182);
-bool discard = std::get<4>(tmp182);
-bool ok = std::get<5>(tmp182);
+auto tmp181 = n3ds_GPU_fragment(g,col,uv,uv0w,ls,tv,q,vw,st);
+uint8_t r8 = std::get<0>(tmp181);
+uint8_t g8 = std::get<1>(tmp181);
+uint8_t b8 = std::get<2>(tmp181);
+uint8_t a8 = std::get<3>(tmp181);
+bool discard = std::get<4>(tmp181);
+bool ok = std::get<5>(tmp181);
 if ((!ok)) {
 return ;
 }
@@ -10566,7 +10562,7 @@ st->pixelsDrawn++;
 }}
 }}
 }
-// tools/platform/n3ds/gpu_raster.go:945:1
+// tools/platform/n3ds/gpu_raster.go:940:1
 uint32_t n3ds_tiledOffset(uint32_t x,uint32_t y,uint32_t width){
 {
 uint32_t tile = cast<uint32_t>((cast<uint32_t>(((divi<uint32_t>(y,cast<uint32_t>(8ULL))) * (divi<uint32_t>(width,cast<uint32_t>(8ULL))))) + divi<uint32_t>(x,cast<uint32_t>(8ULL))));
@@ -10574,7 +10570,7 @@ uint32_t mo = cast<uint32_t>((cast<uint32_t>((cast<uint32_t>((cast<uint32_t>((ca
 return cast<uint32_t>(((cast<uint32_t>((cast<uint32_t>((tile * cast<uint32_t>(64ULL))) + mo))) * cast<uint32_t>(4ULL)));
 }
 }
-// tools/platform/n3ds/gpu_raster.go:958:1
+// tools/platform/n3ds/gpu_raster.go:953:1
 bool n3ds_GPU_depthCompare(n3ds_GPU* g,n3ds_fbState* fb,uint32_t off,float depth){
 {
 if ((!fb->depthTest)) {
@@ -10619,7 +10615,7 @@ break;}
 }}
 }
 }
-// tools/platform/n3ds/gpu_raster.go:991:1
+// tools/platform/n3ds/gpu_raster.go:986:1
 void n3ds_GPU_depthWrite(n3ds_GPU* g,n3ds_fbState* fb,uint32_t off,float depth){
 {
 if (((!fb->depthTest) || (!fb->depthWr))) {
@@ -10628,10 +10624,10 @@ return ;
 uint32_t nv = cast<uint32_t>(cast<float>((depth * cast<float>(1.67772150000000000e+07))));
 if (bool(fb->depthBuf)) {
 Slice<uint8_t> d = borrowSub(fb->depthBuf,cast<uint32_t>((fb->depthOff32 + off)),len(fb->depthBuf));
-auto tmp183 = std::make_tuple(cast<uint8_t>(nv),cast<uint8_t>(shr<uint32_t>(nv,cast<int64_t>(8ULL))),cast<uint8_t>(shr<uint32_t>(nv,cast<int64_t>(16ULL))));
-d[cast<int64_t>(0ULL)] = std::get<0>(tmp183);
-d[cast<int64_t>(1ULL)] = std::get<1>(tmp183);
-d[cast<int64_t>(2ULL)] = std::get<2>(tmp183);
+auto tmp182 = std::make_tuple(cast<uint8_t>(nv),cast<uint8_t>(shr<uint32_t>(nv,cast<int64_t>(8ULL))),cast<uint8_t>(shr<uint32_t>(nv,cast<int64_t>(16ULL))));
+d[cast<int64_t>(0ULL)] = std::get<0>(tmp182);
+d[cast<int64_t>(1ULL)] = std::get<1>(tmp182);
+d[cast<int64_t>(2ULL)] = std::get<2>(tmp182);
 return ;
 }
 uint32_t p = cast<uint32_t>((fb->depthAddr + off));
@@ -10640,7 +10636,7 @@ n3ds_Machine_Write(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL))),cast<uint8_t>
 n3ds_Machine_Write(g->m,cast<uint32_t>((p + cast<uint32_t>(2ULL))),cast<uint8_t>(shr<uint32_t>(nv,cast<int64_t>(16ULL))));
 }
 }
-// tools/platform/n3ds/gpu_raster.go:1009:1
+// tools/platform/n3ds/gpu_raster.go:1004:1
 void n3ds_GPU_writePixel(n3ds_GPU* g,n3ds_fbState* fb,uint32_t x,uint32_t y,uint32_t off,uint8_t r,uint8_t gr,uint8_t b,uint8_t a){
 {
 Slice<uint8_t> dst={};
@@ -10650,26 +10646,26 @@ uint8_t dg={};
 uint8_t dr={};
 if (bool(fb->colorBuf)) {
 dst = borrowSub(fb->colorBuf,cast<uint32_t>((fb->colorOff + off)),len(fb->colorBuf));
-auto tmp184 = std::make_tuple(dst[cast<int64_t>(0ULL)],dst[cast<int64_t>(1ULL)],dst[cast<int64_t>(2ULL)],dst[cast<int64_t>(3ULL)]);
-da = std::get<0>(tmp184);
-db = std::get<1>(tmp184);
-dg = std::get<2>(tmp184);
-dr = std::get<3>(tmp184);
+auto tmp183 = std::make_tuple(dst[cast<int64_t>(0ULL)],dst[cast<int64_t>(1ULL)],dst[cast<int64_t>(2ULL)],dst[cast<int64_t>(3ULL)]);
+da = std::get<0>(tmp183);
+db = std::get<1>(tmp183);
+dg = std::get<2>(tmp183);
+dr = std::get<3>(tmp183);
 }
 else {
 uint32_t p = cast<uint32_t>((fb->colorAddr + off));
-auto tmp185 = std::make_tuple(n3ds_Machine_Read(g->m,p),n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL)))));
-da = std::get<0>(tmp185);
-db = std::get<1>(tmp185);
-auto tmp186 = std::make_tuple(n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(2ULL)))),n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(3ULL)))));
-dg = std::get<0>(tmp186);
-dr = std::get<1>(tmp186);
+auto tmp184 = std::make_tuple(n3ds_Machine_Read(g->m,p),n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL)))));
+da = std::get<0>(tmp184);
+db = std::get<1>(tmp184);
+auto tmp185 = std::make_tuple(n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(2ULL)))),n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(3ULL)))));
+dg = std::get<0>(tmp185);
+dr = std::get<1>(tmp185);
 }
-auto tmp187 = n3ds_GPU_blend(g,r,gr,b,a,dr,dg,db,da);
-r = std::get<0>(tmp187);
-gr = std::get<1>(tmp187);
-b = std::get<2>(tmp187);
-a = std::get<3>(tmp187);
+auto tmp186 = n3ds_GPU_blend(g,r,gr,b,a,dr,dg,db,da);
+r = std::get<0>(tmp186);
+gr = std::get<1>(tmp186);
+b = std::get<2>(tmp186);
+a = std::get<3>(tmp186);
 n3ds_GPU_pixelEvent(g,x,y,n3ds_PixelEvent{(fb->colorMask != cast<uint32_t>(0ULL)),{},{},{},r,gr,b,a});
 if (bool(dst)) {
 if ((cast<uint32_t>((fb->colorMask & cast<uint32_t>(1ULL))) != cast<uint32_t>(0ULL))) {
@@ -10701,7 +10697,7 @@ n3ds_Machine_Write(g->m,p,a);
 }
 }
 }
-// tools/platform/n3ds/gpu_raster.go:1055:1
+// tools/platform/n3ds/gpu_raster.go:1050:1
 float n3ds_min3f(float a,float b,float c){
 {
 if ((b < a)) {
@@ -10713,7 +10709,7 @@ a = c;
 return a;
 }
 }
-// tools/platform/n3ds/gpu_raster.go:1065:1
+// tools/platform/n3ds/gpu_raster.go:1060:1
 float n3ds_max3f(float a,float b,float c){
 {
 if ((b > a)) {
@@ -10725,7 +10721,7 @@ a = c;
 return a;
 }
 }
-// tools/platform/n3ds/gpu_raster.go:1087:1
+// tools/platform/n3ds/gpu_raster.go:1082:1
 int64_t n3ds_GPU_vertexWorkers(n3ds_GPU* g,uint32_t count){
 {
 constexpr int64_t minPerWorker=8ULL;
@@ -10746,12 +10742,12 @@ n = cast<int64_t>(1ULL);
 return n;
 }
 }
-// tools/platform/n3ds/gpu_raster.go:1108:1
+// tools/platform/n3ds/gpu_raster.go:1103:1
 uint32_t n3ds_GPU_stencilDepthTest(n3ds_GPU* g,n3ds_fbState* fb,uint32_t off,float depth){
 {
-auto tmp188 = std::make_tuple(g->Regs[cast<int64_t>(261ULL)],g->Regs[cast<int64_t>(262ULL)]);
-uint32_t cfg = std::get<0>(tmp188);
-uint32_t ops = std::get<1>(tmp188);
+auto tmp187 = std::make_tuple(g->Regs[cast<int64_t>(261ULL)],g->Regs[cast<int64_t>(262ULL)]);
+uint32_t cfg = std::get<0>(tmp187);
+uint32_t ops = std::get<1>(tmp187);
 uint8_t old={};
 if (bool(fb->depthBuf)) {
 old = fb->depthBuf[cast<uint32_t>((cast<uint32_t>((fb->depthOff32 + off)) + cast<uint32_t>(3ULL)))];
@@ -10759,12 +10755,12 @@ old = fb->depthBuf[cast<uint32_t>((cast<uint32_t>((fb->depthOff32 + off)) + cast
 else {
 old = n3ds_Machine_Read(g->m,cast<uint32_t>((cast<uint32_t>((fb->depthAddr + off)) + cast<uint32_t>(3ULL))));
 }
-auto tmp189 = std::make_tuple(cast<uint8_t>(shr<uint32_t>(cfg,cast<int64_t>(16ULL))),cast<uint8_t>(shr<uint32_t>(cfg,cast<int64_t>(24ULL))));
-uint8_t ref = std::get<0>(tmp189);
-uint8_t mask = std::get<1>(tmp189);
-auto tmp190 = std::make_tuple(cast<uint8_t>((ref & mask)),cast<uint8_t>((old & mask)));
-uint8_t a = std::get<0>(tmp190);
-uint8_t b = std::get<1>(tmp190);
+auto tmp188 = std::make_tuple(cast<uint8_t>(shr<uint32_t>(cfg,cast<int64_t>(16ULL))),cast<uint8_t>(shr<uint32_t>(cfg,cast<int64_t>(24ULL))));
+uint8_t ref = std::get<0>(tmp188);
+uint8_t mask = std::get<1>(tmp188);
+auto tmp189 = std::make_tuple(cast<uint8_t>((ref & mask)),cast<uint8_t>((old & mask)));
+uint8_t a = std::get<0>(tmp189);
+uint8_t b = std::get<1>(tmp189);
 bool pass = false;
 {
 switch(cast<uint32_t>((shr<uint32_t>(cfg,cast<int64_t>(4ULL)) & cast<uint32_t>(7ULL)))){
@@ -10790,18 +10786,18 @@ case cast<uint32_t>(7ULL):{
 pass = (a >= b);
 break;}
 }}
-auto tmp191 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>((shr<uint32_t>(ops,cast<int64_t>(8ULL)) & cast<uint32_t>(7ULL))));
-uint32_t reject = std::get<0>(tmp191);
-uint32_t op = std::get<1>(tmp191);
+auto tmp190 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>((shr<uint32_t>(ops,cast<int64_t>(8ULL)) & cast<uint32_t>(7ULL))));
+uint32_t reject = std::get<0>(tmp190);
+uint32_t op = std::get<1>(tmp190);
 if ((!pass)) {
-auto tmp192 = std::make_tuple(cast<uint32_t>(1ULL),cast<uint32_t>((ops & cast<uint32_t>(7ULL))));
-reject = std::get<0>(tmp192);
-op = std::get<1>(tmp192);
+auto tmp191 = std::make_tuple(cast<uint32_t>(1ULL),cast<uint32_t>((ops & cast<uint32_t>(7ULL))));
+reject = std::get<0>(tmp191);
+op = std::get<1>(tmp191);
 }
 else if ((!n3ds_GPU_depthCompare(g,fb,off,depth))) {
-auto tmp193 = std::make_tuple(cast<uint32_t>(2ULL),cast<uint32_t>((shr<uint32_t>(ops,cast<int64_t>(4ULL)) & cast<uint32_t>(7ULL))));
-reject = std::get<0>(tmp193);
-op = std::get<1>(tmp193);
+auto tmp192 = std::make_tuple(cast<uint32_t>(2ULL),cast<uint32_t>((shr<uint32_t>(ops,cast<int64_t>(4ULL)) & cast<uint32_t>(7ULL))));
+reject = std::get<0>(tmp192);
+op = std::get<1>(tmp192);
 }
 if (((g->Regs[cast<int64_t>(277ULL)] != cast<uint32_t>(0ULL)) && (op != cast<uint32_t>(0ULL)))) {
 uint8_t value = n3ds_stencilValue(op,old,ref);
@@ -10817,7 +10813,7 @@ n3ds_Machine_Write(g->m,cast<uint32_t>((cast<uint32_t>((fb->depthAddr + off)) + 
 return reject;
 }
 }
-// tools/platform/n3ds/gpu_raster.go:1154:1
+// tools/platform/n3ds/gpu_raster.go:1149:1
 uint8_t n3ds_stencilValue(uint32_t op,uint8_t old,uint8_t ref){
 {
 {
@@ -10849,6 +10845,140 @@ return cast<uint8_t>((old - cast<uint8_t>(1ULL)));
 break;}
 }}
 return old;
+}
+}
+// tools/platform/n3ds/gpu_raster.go:1176:1
+float n3ds_clipDistance(n3ds_vsOut v,int64_t plane){
+{
+{
+switch(plane){
+case cast<int64_t>(0ULL):{
+return cast<float>((v.pos[cast<int64_t>(3ULL)] + v.pos[cast<int64_t>(0ULL)]));
+break;}
+case cast<int64_t>(1ULL):{
+return cast<float>((v.pos[cast<int64_t>(3ULL)] - v.pos[cast<int64_t>(0ULL)]));
+break;}
+case cast<int64_t>(2ULL):{
+return cast<float>((v.pos[cast<int64_t>(3ULL)] + v.pos[cast<int64_t>(1ULL)]));
+break;}
+case cast<int64_t>(3ULL):{
+return cast<float>((v.pos[cast<int64_t>(3ULL)] - v.pos[cast<int64_t>(1ULL)]));
+break;}
+case cast<int64_t>(4ULL):{
+return cast<float>((v.pos[cast<int64_t>(3ULL)] + v.pos[cast<int64_t>(2ULL)]));
+break;}
+case cast<int64_t>(5ULL):{
+return cast<float>(-v.pos[cast<int64_t>(2ULL)]);
+break;}
+default:{
+return cast<float>((v.pos[cast<int64_t>(3ULL)] - cast<float>(9.99999974737875164e-06)));
+break;}
+}}
+}
+}
+// tools/platform/n3ds/gpu_raster.go:1195:1
+n3ds_vsOut n3ds_clipVertex(n3ds_vsOut a,n3ds_vsOut b,float t){
+{
+n3ds_vsOut v={};
+{int64_t i = cast<int64_t>(0ULL);for (;(i < cast<int64_t>(4ULL));i++){
+v.pos[i] = cast<float>((a.pos[i] + cast<float>(((cast<float>((b.pos[i] - a.pos[i]))) * t))));
+v.color[i] = cast<float>((a.color[i] + cast<float>(((cast<float>((b.color[i] - a.color[i]))) * t))));
+v.quat[i] = cast<float>((a.quat[i] + cast<float>(((cast<float>((b.quat[i] - a.quat[i]))) * t))));
+}
+}{int64_t i = cast<int64_t>(0ULL);for (;(i < cast<int64_t>(3ULL));i++){
+v.view[i] = cast<float>((a.view[i] + cast<float>(((cast<float>((b.view[i] - a.view[i]))) * t))));
+{int64_t j = cast<int64_t>(0ULL);for (;(j < cast<int64_t>(2ULL));j++){
+v.uv[i][j] = cast<float>((a.uv[i][j] + cast<float>(((cast<float>((b.uv[i][j] - a.uv[i][j]))) * t))));
+}
+}}
+}v.uv0w = cast<float>((a.uv0w + cast<float>(((cast<float>((b.uv0w - a.uv0w))) * t))));
+return v;
+}
+}
+// tools/platform/n3ds/gpu_raster.go:1212:1
+Slice<n3ds_rasterTri> n3ds_GPU_clipTri(n3ds_GPU* g,Slice<n3ds_rasterTri> tris,n3ds_vsOut a,n3ds_vsOut b,n3ds_vsOut c,n3ds_fbState* fb){
+{
+std::array<n3ds_vsOut,3> vertices = std::array<n3ds_vsOut,3>{a,b,c};
+auto tmp193 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>(127ULL));
+uint32_t outside = std::get<0>(tmp193);
+uint32_t common = std::get<1>(tmp193);
+{int64_t i = cast<int64_t>(0ULL);for (;(i < cast<int64_t>(3ULL));i++){
+{auto&& tmp194 = vertices[i].pos;
+for(int64_t tmp195=0;tmp195<len(tmp194);++tmp195){
+auto p=tmp194[tmp195];if ((cast<float>((p - p)) != cast<float>(0.00000000000000000e+00))) {
+g->RejectedTris++;
+return tris;
+}
+}}
+uint32_t mask = cast<uint32_t>(0ULL);
+{int64_t plane = cast<int64_t>(0ULL);for (;(plane < cast<int64_t>(7ULL));plane++){
+if ((n3ds_clipDistance(vertices[i],plane) < cast<float>(0.00000000000000000e+00))) {
+mask |= shl<uint32_t>(cast<uint32_t>(1ULL),cast<uint64_t>(plane));
+}
+}
+}outside |= mask;
+common &= mask;
+}
+}if ((common != cast<uint32_t>(0ULL))) {
+g->RejectedTris++;
+return tris;
+}
+if ((outside == cast<uint32_t>(0ULL))) {
+{
+auto tmp196 = n3ds_GPU_setupTri(g,(&a),(&b),(&c),fb);
+n3ds_rasterTri t = std::get<0>(tmp196);
+bool ok = std::get<1>(tmp196);
+if (ok) {
+tris = append(tris,t);
+}
+}
+return tris;
+}
+std::array<n3ds_vsOut,12> input = std::array<n3ds_vsOut,12>{a,b,c};
+std::array<n3ds_vsOut,12> output={};
+int64_t count = cast<int64_t>(3ULL);
+{int64_t plane = cast<int64_t>(0ULL);for (;(plane < cast<int64_t>(7ULL));plane++){
+if ((cast<uint32_t>((outside & (shl<uint32_t>(cast<uint32_t>(1ULL),cast<uint64_t>(plane))))) == cast<uint32_t>(0ULL))) {
+continue;
+}
+int64_t n = cast<int64_t>(0ULL);
+n3ds_vsOut prev = input[cast<int64_t>((count - cast<int64_t>(1ULL)))];
+float pd = n3ds_clipDistance(prev,plane);
+{int64_t i = cast<int64_t>(0ULL);for (;(i < count);i++){
+n3ds_vsOut curr = input[i];
+float cd = n3ds_clipDistance(curr,plane);
+if ((((pd >= cast<float>(0.00000000000000000e+00))) != ((cd >= cast<float>(0.00000000000000000e+00))))) {
+output[n] = n3ds_clipVertex(prev,curr,cast<float>((pd / (cast<float>((pd - cd))))));
+n++;
+}
+if ((cd >= cast<float>(0.00000000000000000e+00))) {
+output[n] = curr;
+n++;
+}
+auto tmp197 = std::make_tuple(curr,cd);
+prev = std::get<0>(tmp197);
+pd = std::get<1>(tmp197);
+}
+}if ((n < cast<int64_t>(3ULL))) {
+g->RejectedTris++;
+return tris;
+}
+count = n;
+{int64_t i = cast<int64_t>(0ULL);for (;(i < count);i++){
+input[i] = output[i];
+}
+}}
+}{int64_t i = cast<int64_t>(1ULL);for (;(cast<int64_t>((i + cast<int64_t>(1ULL))) < count);i++){
+{
+auto tmp198 = n3ds_GPU_setupTri(g,(&input[cast<int64_t>(0ULL)]),(&input[i]),(&input[cast<int64_t>((i + cast<int64_t>(1ULL)))]),fb);
+n3ds_rasterTri t = std::get<0>(tmp198);
+bool ok = std::get<1>(tmp198);
+if (ok) {
+tris = append(tris,t);
+}
+}
+}
+}return tris;
 }
 }
 // tools/platform/n3ds/gpu_shader.go:32:1
@@ -10891,18 +11021,18 @@ uint32_t op = shr<uint32_t>(in,cast<int64_t>(26ULL));
 {
 switch(op){
 case cast<uint32_t>(36ULL):{
-auto tmp194 = std::make_tuple(cast<int64_t>(cast<uint32_t>((shr<uint32_t>(in,cast<int64_t>(10ULL)) & cast<uint32_t>(4095ULL)))),cast<int64_t>(cast<uint32_t>((in & cast<uint32_t>(255ULL)))));
-int64_t dst = std::get<0>(tmp194);
-int64_t num = std::get<1>(tmp194);
+auto tmp199 = std::make_tuple(cast<int64_t>(cast<uint32_t>((shr<uint32_t>(in,cast<int64_t>(10ULL)) & cast<uint32_t>(4095ULL)))),cast<int64_t>(cast<uint32_t>((in & cast<uint32_t>(255ULL)))));
+int64_t dst = std::get<0>(tmp199);
+int64_t num = std::get<1>(tmp199);
 if ((!n3ds_shaderState_exec(s,dst,cast<int64_t>((dst + num))))) {
 return false;
 }
 pc++;
 break;}
 case cast<uint32_t>(37ULL):case cast<uint32_t>(38ULL):{
-auto tmp195 = std::make_tuple(cast<int64_t>(cast<uint32_t>((shr<uint32_t>(in,cast<int64_t>(10ULL)) & cast<uint32_t>(4095ULL)))),cast<int64_t>(cast<uint32_t>((in & cast<uint32_t>(255ULL)))));
-int64_t dst = std::get<0>(tmp195);
-int64_t num = std::get<1>(tmp195);
+auto tmp200 = std::make_tuple(cast<int64_t>(cast<uint32_t>((shr<uint32_t>(in,cast<int64_t>(10ULL)) & cast<uint32_t>(4095ULL)))),cast<int64_t>(cast<uint32_t>((in & cast<uint32_t>(255ULL)))));
+int64_t dst = std::get<0>(tmp200);
+int64_t num = std::get<1>(tmp200);
 bool taken = false;
 if ((op == cast<uint32_t>(38ULL))) {
 taken = n3ds_shaderState_boolReg(s,in);
@@ -10918,9 +11048,9 @@ return false;
 pc++;
 break;}
 case cast<uint32_t>(39ULL):case cast<uint32_t>(40ULL):{
-auto tmp196 = std::make_tuple(cast<int64_t>(cast<uint32_t>((shr<uint32_t>(in,cast<int64_t>(10ULL)) & cast<uint32_t>(4095ULL)))),cast<int64_t>(cast<uint32_t>((in & cast<uint32_t>(255ULL)))));
-int64_t dst = std::get<0>(tmp196);
-int64_t num = std::get<1>(tmp196);
+auto tmp201 = std::make_tuple(cast<int64_t>(cast<uint32_t>((shr<uint32_t>(in,cast<int64_t>(10ULL)) & cast<uint32_t>(4095ULL)))),cast<int64_t>(cast<uint32_t>((in & cast<uint32_t>(255ULL)))));
+int64_t dst = std::get<0>(tmp201);
+int64_t num = std::get<1>(tmp201);
 bool taken = false;
 if ((op == cast<uint32_t>(39ULL))) {
 taken = n3ds_shaderState_boolReg(s,in);
@@ -11017,10 +11147,10 @@ uint32_t op = cast<uint32_t>(d->op);
 {
 switch(d->kind){
 case cast<uint8_t>(5ULL):{
-auto tmp197 = std::make_tuple(n3ds_shaderState_src(s,(&d->src[cast<int64_t>(0ULL)])),n3ds_shaderState_src(s,(&d->src[cast<int64_t>(1ULL)])),n3ds_shaderState_src(s,(&d->src[cast<int64_t>(2ULL)])));
-std::array<float,4> s1 = std::get<0>(tmp197);
-std::array<float,4> s2 = std::get<1>(tmp197);
-std::array<float,4> s3 = std::get<2>(tmp197);
+auto tmp202 = std::make_tuple(n3ds_shaderState_src(s,(&d->src[cast<int64_t>(0ULL)])),n3ds_shaderState_src(s,(&d->src[cast<int64_t>(1ULL)])),n3ds_shaderState_src(s,(&d->src[cast<int64_t>(2ULL)])));
+std::array<float,4> s1 = std::get<0>(tmp202);
+std::array<float,4> s2 = std::get<1>(tmp202);
+std::array<float,4> s3 = std::get<2>(tmp202);
 std::array<float,4> out={};
 {int64_t i = cast<int64_t>(0ULL);for (;(i < cast<int64_t>(4ULL));i++){
 out[i] = cast<float>((cast<float>((s1[i] * s2[i])) + s3[i]));
@@ -11029,24 +11159,24 @@ out[i] = cast<float>((cast<float>((s1[i] * s2[i])) + s3[i]));
 return true;
 break;}
 case cast<uint8_t>(6ULL):{
-auto tmp198 = std::make_tuple(n3ds_shaderState_src(s,(&d->src[cast<int64_t>(0ULL)])),n3ds_shaderState_src(s,(&d->src[cast<int64_t>(1ULL)])));
-std::array<float,4> s1 = std::get<0>(tmp198);
-std::array<float,4> s2 = std::get<1>(tmp198);
+auto tmp203 = std::make_tuple(n3ds_shaderState_src(s,(&d->src[cast<int64_t>(0ULL)])),n3ds_shaderState_src(s,(&d->src[cast<int64_t>(1ULL)])));
+std::array<float,4> s1 = std::get<0>(tmp203);
+std::array<float,4> s2 = std::get<1>(tmp203);
 s->cc[cast<int64_t>(0ULL)] = n3ds_compare(cast<uint32_t>(d->cmpX),s1[cast<int64_t>(0ULL)],s2[cast<int64_t>(0ULL)]);
 s->cc[cast<int64_t>(1ULL)] = n3ds_compare(cast<uint32_t>(d->cmpY),s1[cast<int64_t>(1ULL)],s2[cast<int64_t>(1ULL)]);
 return true;
 break;}
 }}
-auto tmp199 = std::make_tuple(n3ds_shaderState_src(s,(&d->src[cast<int64_t>(0ULL)])),n3ds_shaderState_src(s,(&d->src[cast<int64_t>(1ULL)])));
-std::array<float,4> s1 = std::get<0>(tmp199);
-std::array<float,4> s2 = std::get<1>(tmp199);
+auto tmp204 = std::make_tuple(n3ds_shaderState_src(s,(&d->src[cast<int64_t>(0ULL)])),n3ds_shaderState_src(s,(&d->src[cast<int64_t>(1ULL)])));
+std::array<float,4> s1 = std::get<0>(tmp204);
+std::array<float,4> s2 = std::get<1>(tmp204);
 std::array<float,4> out={};
 {
 switch(op){
 case cast<uint32_t>(0ULL):{
-{auto&& tmp200 = out;
-for(int64_t tmp201=0;tmp201<len(tmp200);++tmp201){
-auto i=tmp201;out[i] = cast<float>((s1[i] + s2[i]));
+{auto&& tmp205 = out;
+for(int64_t tmp206=0;tmp206<len(tmp205);++tmp206){
+auto i=tmp206;out[i] = cast<float>((s1[i] + s2[i]));
 }}
 break;}
 case cast<uint32_t>(1ULL):{
@@ -11062,37 +11192,37 @@ float dp = cast<float>((cast<float>((cast<float>((cast<float>((s1[cast<int64_t>(
 out = std::array<float,4>{dp,dp,dp,dp};
 break;}
 case cast<uint32_t>(8ULL):{
-{auto&& tmp202 = out;
-for(int64_t tmp203=0;tmp203<len(tmp202);++tmp203){
-auto i=tmp203;out[i] = cast<float>((s1[i] * s2[i]));
+{auto&& tmp207 = out;
+for(int64_t tmp208=0;tmp208<len(tmp207);++tmp208){
+auto i=tmp208;out[i] = cast<float>((s1[i] * s2[i]));
 }}
 break;}
 case cast<uint32_t>(9ULL):case cast<uint32_t>(26ULL):{
-{auto&& tmp204 = out;
-for(int64_t tmp205=0;tmp205<len(tmp204);++tmp205){
-auto i=tmp205;if ((s1[i] >= s2[i])) {
+{auto&& tmp209 = out;
+for(int64_t tmp210=0;tmp210<len(tmp209);++tmp210){
+auto i=tmp210;if ((s1[i] >= s2[i])) {
 out[i] = cast<float>(1.00000000000000000e+00);
 }
 }}
 break;}
 case cast<uint32_t>(10ULL):case cast<uint32_t>(27ULL):{
-{auto&& tmp206 = out;
-for(int64_t tmp207=0;tmp207<len(tmp206);++tmp207){
-auto i=tmp207;if ((s1[i] < s2[i])) {
+{auto&& tmp211 = out;
+for(int64_t tmp212=0;tmp212<len(tmp211);++tmp212){
+auto i=tmp212;if ((s1[i] < s2[i])) {
 out[i] = cast<float>(1.00000000000000000e+00);
 }
 }}
 break;}
 case cast<uint32_t>(11ULL):{
-{auto&& tmp208 = out;
-for(int64_t tmp209=0;tmp209<len(tmp208);++tmp209){
-auto i=tmp209;out[i] = n3ds_floor32(s1[i]);
+{auto&& tmp213 = out;
+for(int64_t tmp214=0;tmp214<len(tmp213);++tmp214){
+auto i=tmp214;out[i] = n3ds_floor32(s1[i]);
 }}
 break;}
 case cast<uint32_t>(12ULL):{
-{auto&& tmp210 = out;
-for(int64_t tmp211=0;tmp211<len(tmp210);++tmp211){
-auto i=tmp211;if ((s1[i] > s2[i])) {
+{auto&& tmp215 = out;
+for(int64_t tmp216=0;tmp216<len(tmp215);++tmp216){
+auto i=tmp216;if ((s1[i] > s2[i])) {
 out[i] = s1[i];
 }
 else {
@@ -11101,9 +11231,9 @@ out[i] = s2[i];
 }}
 break;}
 case cast<uint32_t>(13ULL):{
-{auto&& tmp212 = out;
-for(int64_t tmp213=0;tmp213<len(tmp212);++tmp213){
-auto i=tmp213;if ((s1[i] < s2[i])) {
+{auto&& tmp217 = out;
+for(int64_t tmp218=0;tmp218<len(tmp217);++tmp218){
+auto i=tmp218;if ((s1[i] < s2[i])) {
 out[i] = s1[i];
 }
 else {
@@ -11177,11 +11307,11 @@ return (*base);
 }
 std::array<float,4> out = std::array<float,4>{(*base)[o->sw[cast<int64_t>(0ULL)]],(*base)[o->sw[cast<int64_t>(1ULL)]],(*base)[o->sw[cast<int64_t>(2ULL)]],(*base)[o->sw[cast<int64_t>(3ULL)]]};
 if (o->neg) {
-auto tmp214 = std::make_tuple(cast<float>(-out[cast<int64_t>(0ULL)]),cast<float>(-out[cast<int64_t>(1ULL)]),cast<float>(-out[cast<int64_t>(2ULL)]),cast<float>(-out[cast<int64_t>(3ULL)]));
-out[cast<int64_t>(0ULL)] = std::get<0>(tmp214);
-out[cast<int64_t>(1ULL)] = std::get<1>(tmp214);
-out[cast<int64_t>(2ULL)] = std::get<2>(tmp214);
-out[cast<int64_t>(3ULL)] = std::get<3>(tmp214);
+auto tmp219 = std::make_tuple(cast<float>(-out[cast<int64_t>(0ULL)]),cast<float>(-out[cast<int64_t>(1ULL)]),cast<float>(-out[cast<int64_t>(2ULL)]),cast<float>(-out[cast<int64_t>(3ULL)]));
+out[cast<int64_t>(0ULL)] = std::get<0>(tmp219);
+out[cast<int64_t>(1ULL)] = std::get<1>(tmp219);
+out[cast<int64_t>(2ULL)] = std::get<2>(tmp219);
+out[cast<int64_t>(3ULL)] = std::get<3>(tmp219);
 }
 return out;
 }
@@ -11278,9 +11408,9 @@ void n3ds_GPU_decodeAll(n3ds_GPU* g){
 if ((g->decodedAll == g->shEpoch)) {
 return ;
 }
-{auto&& tmp215 = g->Code;
-for(int64_t tmp216=0;tmp216<len(tmp215);++tmp216){
-auto pc=tmp216;if ((g->decEpoch[pc] != g->shEpoch)) {
+{auto&& tmp220 = g->Code;
+for(int64_t tmp221=0;tmp221<len(tmp220);++tmp221){
+auto pc=tmp221;if ((g->decEpoch[pc] != g->shEpoch)) {
 n3ds_GPU_decode(g,pc);
 g->decEpoch[pc] = g->shEpoch;
 }
@@ -11361,21 +11491,21 @@ break;}
 }}
 }
 }
-tmp217:;
+tmp222:;
 }
 }
 // tools/platform/n3ds/gpu_shader_cache.go:182:1
 void n3ds_shInst_setDst(n3ds_shInst* d,int64_t reg,uint32_t desc){
 {
 if ((reg < cast<int64_t>(16ULL))) {
-auto tmp218 = std::make_tuple(false,cast<uint8_t>(reg));
-d->dstTmp = std::get<0>(tmp218);
-d->dst = std::get<1>(tmp218);
+auto tmp223 = std::make_tuple(false,cast<uint8_t>(reg));
+d->dstTmp = std::get<0>(tmp223);
+d->dst = std::get<1>(tmp223);
 }
 else {
-auto tmp219 = std::make_tuple(true,cast<uint8_t>(cast<int64_t>((reg - cast<int64_t>(16ULL)))));
-d->dstTmp = std::get<0>(tmp219);
-d->dst = std::get<1>(tmp219);
+auto tmp224 = std::make_tuple(true,cast<uint8_t>(cast<int64_t>((reg - cast<int64_t>(16ULL)))));
+d->dstTmp = std::get<0>(tmp224);
+d->dst = std::get<1>(tmp224);
 }
 d->maskAll = true;
 {uint64_t i = cast<uint64_t>(0ULL);for (;(i < cast<uint64_t>(4ULL));i++){
@@ -11390,23 +11520,23 @@ n3ds_shSrc n3ds_decodeSrc(int64_t reg,int64_t idx,uint32_t desc,int64_t n){
 n3ds_shSrc s={};
 {
 if ((reg < cast<int64_t>(16ULL))){
-auto tmp221 = std::make_tuple(cast<uint8_t>(0ULL),cast<uint8_t>(reg));
-s.bank = std::get<0>(tmp221);
-s.reg = std::get<1>(tmp221);
+auto tmp226 = std::make_tuple(cast<uint8_t>(0ULL),cast<uint8_t>(reg));
+s.bank = std::get<0>(tmp226);
+s.reg = std::get<1>(tmp226);
 }
 else if ((reg < cast<int64_t>(32ULL))){
-auto tmp222 = std::make_tuple(cast<uint8_t>(1ULL),cast<uint8_t>(cast<int64_t>((reg - cast<int64_t>(16ULL)))));
-s.bank = std::get<0>(tmp222);
-s.reg = std::get<1>(tmp222);
+auto tmp227 = std::make_tuple(cast<uint8_t>(1ULL),cast<uint8_t>(cast<int64_t>((reg - cast<int64_t>(16ULL)))));
+s.bank = std::get<0>(tmp227);
+s.reg = std::get<1>(tmp227);
 }
 else {
-auto tmp223 = std::make_tuple(cast<uint8_t>(2ULL),cast<uint8_t>(cast<int64_t>((reg - cast<int64_t>(32ULL)))));
-s.bank = std::get<0>(tmp223);
-s.reg = std::get<1>(tmp223);
+auto tmp228 = std::make_tuple(cast<uint8_t>(2ULL),cast<uint8_t>(cast<int64_t>((reg - cast<int64_t>(32ULL)))));
+s.bank = std::get<0>(tmp228);
+s.reg = std::get<1>(tmp228);
 s.idx = cast<uint8_t>(idx);
 }
 }
-tmp220:;
+tmp225:;
 uint64_t shift = n3ds_shSrcShift[n];
 s.neg = (cast<uint32_t>((shr<uint32_t>(desc,shift) & cast<uint32_t>(1ULL))) != cast<uint32_t>(0ULL));
 uint32_t sw = cast<uint32_t>((shr<uint32_t>(desc,(cast<uint64_t>((shift + cast<uint64_t>(1ULL))))) & cast<uint32_t>(255ULL)));
@@ -11431,27 +11561,27 @@ std::array<n3ds_rgba,3> tex={};
 {int64_t u = cast<int64_t>(0ULL);for (;(u < cast<int64_t>(3ULL));u++){
 if ((cast<uint32_t>((shr<uint32_t>(tv->texEnable,cast<uint64_t>(u)) & cast<uint32_t>(1ULL))) != cast<uint32_t>(0ULL))) {
 bool oks={};
-auto tmp224 = n3ds_GPU_sampleTextureSt(g,u,uv[u][cast<int64_t>(0ULL)],uv[u][cast<int64_t>(1ULL)],uv0w,st);
-tex[u] = std::get<0>(tmp224);
-oks = std::get<1>(tmp224);
+auto tmp229 = n3ds_GPU_sampleTextureSt(g,u,uv[u][cast<int64_t>(0ULL)],uv[u][cast<int64_t>(1ULL)],uv0w,st);
+tex[u] = std::get<0>(tmp229);
+oks = std::get<1>(tmp229);
 if ((!oks)) {
 return {cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),false,false};
 }
 }
 }
-}auto tmp225 = std::make_tuple(vertex,n3ds_rgba{cast<int32_t>(0ULL),cast<int32_t>(0ULL),cast<int32_t>(0ULL),cast<int32_t>(0ULL)});
-n3ds_rgba fragPrim = std::get<0>(tmp225);
-n3ds_rgba fragSec = std::get<1>(tmp225);
+}auto tmp230 = std::make_tuple(vertex,n3ds_rgba{cast<int32_t>(0ULL),cast<int32_t>(0ULL),cast<int32_t>(0ULL),cast<int32_t>(0ULL)});
+n3ds_rgba fragPrim = std::get<0>(tmp230);
+n3ds_rgba fragSec = std::get<1>(tmp230);
 if (ls->enabled) {
-auto tmp226 = n3ds_GPU_shade(g,ls,quat,view,(&tex));
-std::array<float,4> p = std::get<0>(tmp226);
-std::array<float,4> sc = std::get<1>(tmp226);
+auto tmp231 = n3ds_GPU_shade(g,ls,quat,view,(&tex));
+std::array<float,4> p = std::get<0>(tmp231);
+std::array<float,4> sc = std::get<1>(tmp231);
 fragPrim = n3ds_rgba{n3ds_clamp255(cast<float>((p[cast<int64_t>(0ULL)] * cast<float>(2.55000000000000000e+02)))),n3ds_clamp255(cast<float>((p[cast<int64_t>(1ULL)] * cast<float>(2.55000000000000000e+02)))),n3ds_clamp255(cast<float>((p[cast<int64_t>(2ULL)] * cast<float>(2.55000000000000000e+02)))),n3ds_clamp255(cast<float>((p[cast<int64_t>(3ULL)] * cast<float>(2.55000000000000000e+02))))};
 fragSec = n3ds_rgba{n3ds_clamp255(cast<float>((sc[cast<int64_t>(0ULL)] * cast<float>(2.55000000000000000e+02)))),n3ds_clamp255(cast<float>((sc[cast<int64_t>(1ULL)] * cast<float>(2.55000000000000000e+02)))),n3ds_clamp255(cast<float>((sc[cast<int64_t>(2ULL)] * cast<float>(2.55000000000000000e+02)))),n3ds_clamp255(cast<float>((sc[cast<int64_t>(3ULL)] * cast<float>(2.55000000000000000e+02))))};
 }
-auto tmp227 = n3ds_tevState_run(tv,vertex,fragPrim,fragSec,tex);
-n3ds_rgba prev = std::get<0>(tmp227);
-bool okr = std::get<1>(tmp227);
+auto tmp232 = n3ds_tevState_run(tv,vertex,fragPrim,fragSec,tex);
+n3ds_rgba prev = std::get<0>(tmp232);
+bool okr = std::get<1>(tmp232);
 if ((!okr)) {
 arm_CPU_Halt(g->m->CPU,std::string("gpu tev: a stage uses a source or combine op this model does not implement",74));
 return {cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),cast<uint8_t>(0ULL),false,false};
@@ -11659,21 +11789,21 @@ uint32_t lop = cast<uint32_t>((g->Regs[cast<int64_t>(258ULL)] & cast<uint32_t>(1
 return {n3ds_logicOp(lop,sr,dr),n3ds_logicOp(lop,sg,dg),n3ds_logicOp(lop,sb,db),n3ds_logicOp(lop,sa,da)};
 }
 uint32_t cfg = g->Regs[cast<int64_t>(257ULL)];
-auto tmp228 = std::make_tuple(cast<uint32_t>((cfg & cast<uint32_t>(7ULL))),cast<uint32_t>((shr<uint32_t>(cfg,cast<int64_t>(8ULL)) & cast<uint32_t>(7ULL))));
-uint32_t eqC = std::get<0>(tmp228);
-uint32_t eqA = std::get<1>(tmp228);
-auto tmp229 = std::make_tuple(cast<uint32_t>((shr<uint32_t>(cfg,cast<int64_t>(16ULL)) & cast<uint32_t>(15ULL))),cast<uint32_t>((shr<uint32_t>(cfg,cast<int64_t>(20ULL)) & cast<uint32_t>(15ULL))));
-uint32_t fsC = std::get<0>(tmp229);
-uint32_t fdC = std::get<1>(tmp229);
-auto tmp230 = std::make_tuple(cast<uint32_t>((shr<uint32_t>(cfg,cast<int64_t>(24ULL)) & cast<uint32_t>(15ULL))),cast<uint32_t>((shr<uint32_t>(cfg,cast<int64_t>(28ULL)) & cast<uint32_t>(15ULL))));
-uint32_t fsA = std::get<0>(tmp230);
-uint32_t fdA = std::get<1>(tmp230);
+auto tmp233 = std::make_tuple(cast<uint32_t>((cfg & cast<uint32_t>(7ULL))),cast<uint32_t>((shr<uint32_t>(cfg,cast<int64_t>(8ULL)) & cast<uint32_t>(7ULL))));
+uint32_t eqC = std::get<0>(tmp233);
+uint32_t eqA = std::get<1>(tmp233);
+auto tmp234 = std::make_tuple(cast<uint32_t>((shr<uint32_t>(cfg,cast<int64_t>(16ULL)) & cast<uint32_t>(15ULL))),cast<uint32_t>((shr<uint32_t>(cfg,cast<int64_t>(20ULL)) & cast<uint32_t>(15ULL))));
+uint32_t fsC = std::get<0>(tmp234);
+uint32_t fdC = std::get<1>(tmp234);
+auto tmp235 = std::make_tuple(cast<uint32_t>((shr<uint32_t>(cfg,cast<int64_t>(24ULL)) & cast<uint32_t>(15ULL))),cast<uint32_t>((shr<uint32_t>(cfg,cast<int64_t>(28ULL)) & cast<uint32_t>(15ULL))));
+uint32_t fsA = std::get<0>(tmp235);
+uint32_t fdA = std::get<1>(tmp235);
 auto factor = [&](uint32_t code,int32_t s,int32_t d,int32_t sA,int32_t dA,bool isA)->std::tuple<int32_t,int32_t,int32_t>{
 uint32_t cc = g->Regs[cast<int64_t>(259ULL)];
-auto tmp231 = std::make_tuple(cast<int32_t>(cast<uint32_t>((cc & cast<uint32_t>(255ULL)))),cast<int32_t>(cast<uint32_t>((shr<uint32_t>(cc,cast<int64_t>(8ULL)) & cast<uint32_t>(255ULL)))),cast<int32_t>(cast<uint32_t>((shr<uint32_t>(cc,cast<int64_t>(16ULL)) & cast<uint32_t>(255ULL)))));
-int32_t cr = std::get<0>(tmp231);
-int32_t cg2 = std::get<1>(tmp231);
-int32_t cb2 = std::get<2>(tmp231);
+auto tmp236 = std::make_tuple(cast<int32_t>(cast<uint32_t>((cc & cast<uint32_t>(255ULL)))),cast<int32_t>(cast<uint32_t>((shr<uint32_t>(cc,cast<int64_t>(8ULL)) & cast<uint32_t>(255ULL)))),cast<int32_t>(cast<uint32_t>((shr<uint32_t>(cc,cast<int64_t>(16ULL)) & cast<uint32_t>(255ULL)))));
+int32_t cr = std::get<0>(tmp236);
+int32_t cg2 = std::get<1>(tmp236);
+int32_t cb2 = std::get<2>(tmp236);
 int32_t ca = cast<int32_t>(cast<uint32_t>((shr<uint32_t>(cc,cast<int64_t>(24ULL)) & cast<uint32_t>(255ULL))));
 {
 switch(code){
@@ -11766,32 +11896,32 @@ arm_CPU_Halt(g->m->CPU,std::string("gpu: blend equation %d unimplemented",36),eq
 return s;
 }
 ;
-auto tmp232 = std::make_tuple(cast<int32_t>(sr),cast<int32_t>(sg),cast<int32_t>(sb),cast<int32_t>(sa));
-int32_t sri = std::get<0>(tmp232);
-int32_t sgi = std::get<1>(tmp232);
-int32_t sbi = std::get<2>(tmp232);
-int32_t sai = std::get<3>(tmp232);
-auto tmp233 = std::make_tuple(cast<int32_t>(dr),cast<int32_t>(dg),cast<int32_t>(db),cast<int32_t>(da));
-int32_t dri = std::get<0>(tmp233);
-int32_t dgi = std::get<1>(tmp233);
-int32_t dbi = std::get<2>(tmp233);
-int32_t dai = std::get<3>(tmp233);
-auto tmp234 = factor(fsC,sri,dri,sai,dai,false);
-int32_t fsr = std::get<0>(tmp234);
-auto tmp235 = factor(fsC,sgi,dgi,sai,dai,false);
-int32_t fsg = std::get<1>(tmp235);
-auto tmp236 = factor(fsC,sbi,dbi,sai,dai,false);
-int32_t fsb = std::get<2>(tmp236);
-auto tmp237 = factor(fdC,sri,dri,sai,dai,false);
-int32_t fdr = std::get<0>(tmp237);
-auto tmp238 = factor(fdC,sgi,dgi,sai,dai,false);
-int32_t fdg = std::get<1>(tmp238);
-auto tmp239 = factor(fdC,sbi,dbi,sai,dai,false);
-int32_t fdb = std::get<2>(tmp239);
-auto tmp240 = factor(fsA,sai,dai,sai,dai,true);
-int32_t fsa = std::get<0>(tmp240);
-auto tmp241 = factor(fdA,sai,dai,sai,dai,true);
-int32_t fda = std::get<0>(tmp241);
+auto tmp237 = std::make_tuple(cast<int32_t>(sr),cast<int32_t>(sg),cast<int32_t>(sb),cast<int32_t>(sa));
+int32_t sri = std::get<0>(tmp237);
+int32_t sgi = std::get<1>(tmp237);
+int32_t sbi = std::get<2>(tmp237);
+int32_t sai = std::get<3>(tmp237);
+auto tmp238 = std::make_tuple(cast<int32_t>(dr),cast<int32_t>(dg),cast<int32_t>(db),cast<int32_t>(da));
+int32_t dri = std::get<0>(tmp238);
+int32_t dgi = std::get<1>(tmp238);
+int32_t dbi = std::get<2>(tmp238);
+int32_t dai = std::get<3>(tmp238);
+auto tmp239 = factor(fsC,sri,dri,sai,dai,false);
+int32_t fsr = std::get<0>(tmp239);
+auto tmp240 = factor(fsC,sgi,dgi,sai,dai,false);
+int32_t fsg = std::get<1>(tmp240);
+auto tmp241 = factor(fsC,sbi,dbi,sai,dai,false);
+int32_t fsb = std::get<2>(tmp241);
+auto tmp242 = factor(fdC,sri,dri,sai,dai,false);
+int32_t fdr = std::get<0>(tmp242);
+auto tmp243 = factor(fdC,sgi,dgi,sai,dai,false);
+int32_t fdg = std::get<1>(tmp243);
+auto tmp244 = factor(fdC,sbi,dbi,sai,dai,false);
+int32_t fdb = std::get<2>(tmp244);
+auto tmp245 = factor(fsA,sai,dai,sai,dai,true);
+int32_t fsa = std::get<0>(tmp245);
+auto tmp246 = factor(fdA,sai,dai,sai,dai,true);
+int32_t fda = std::get<0>(tmp246);
 return {cast<uint8_t>(apply(eqC,sri,dri,fsr,fdr)),cast<uint8_t>(apply(eqC,sgi,dgi,fsg,fdg)),cast<uint8_t>(apply(eqC,sbi,dbi,fsb,fdb)),cast<uint8_t>(apply(eqA,sai,dai,fsa,fda))};
 }
 }
@@ -11856,22 +11986,22 @@ break;}
 return {n3ds_rgba{},false};
 }
 ;
-{auto&& tmp242 = t->stages;
-for(int64_t tmp243=0;tmp243<len(tmp242);++tmp243){
-auto i=tmp243;n3ds_tevStage* s = (&t->stages[i]);
+{auto&& tmp247 = t->stages;
+for(int64_t tmp248=0;tmp248<len(tmp247);++tmp248){
+auto i=tmp248;n3ds_tevStage* s = (&t->stages[i]);
 std::array<n3ds_rgba,3> cin={};
 {int64_t j = cast<int64_t>(0ULL);for (;(j < cast<int64_t>(3ULL));j++){
 n3ds_tevOperand o = s->colr[j];
-auto tmp244 = std::make_tuple(n3ds_rgba{},true);
-n3ds_rgba src = std::get<0>(tmp244);
-bool okf = std::get<1>(tmp244);
+auto tmp249 = std::make_tuple(n3ds_rgba{},true);
+n3ds_rgba src = std::get<0>(tmp249);
+bool okf = std::get<1>(tmp249);
 if ((o.src == cast<uint8_t>(14ULL))) {
 src = s->konst;
 }
 else {
-auto tmp245 = fetch(o.src);
-src = std::get<0>(tmp245);
-okf = std::get<1>(tmp245);
+auto tmp250 = fetch(o.src);
+src = std::get<0>(tmp250);
+okf = std::get<1>(tmp250);
 if ((!okf)) {
 return {n3ds_rgba{},false};
 }
@@ -11881,42 +12011,42 @@ cin[j] = n3ds_tevColorOperand(src,cast<uint32_t>(o.op));
 }std::array<int32_t,3> ain={};
 {int64_t j = cast<int64_t>(0ULL);for (;(j < cast<int64_t>(3ULL));j++){
 n3ds_tevOperand o = s->alph[j];
-auto tmp246 = std::make_tuple(n3ds_rgba{},true);
-n3ds_rgba src = std::get<0>(tmp246);
-bool okf = std::get<1>(tmp246);
+auto tmp251 = std::make_tuple(n3ds_rgba{},true);
+n3ds_rgba src = std::get<0>(tmp251);
+bool okf = std::get<1>(tmp251);
 if ((o.src == cast<uint8_t>(14ULL))) {
 src = s->konst;
 }
 else {
-auto tmp247 = fetch(o.src);
-src = std::get<0>(tmp247);
-okf = std::get<1>(tmp247);
+auto tmp252 = fetch(o.src);
+src = std::get<0>(tmp252);
+okf = std::get<1>(tmp252);
 if ((!okf)) {
 return {n3ds_rgba{},false};
 }
 }
 ain[j] = n3ds_tevAlphaOperand(src,cast<uint32_t>(o.op));
 }
-}auto tmp248 = n3ds_tevCombine(cast<uint32_t>(s->combC),cin[cast<int64_t>(0ULL)].r,cin[cast<int64_t>(1ULL)].r,cin[cast<int64_t>(2ULL)].r);
-int32_t cr = std::get<0>(tmp248);
-bool okc = std::get<1>(tmp248);
-auto tmp249 = n3ds_tevCombine(cast<uint32_t>(s->combC),cin[cast<int64_t>(0ULL)].g,cin[cast<int64_t>(1ULL)].g,cin[cast<int64_t>(2ULL)].g);
-int32_t cg = std::get<0>(tmp249);
-auto tmp250 = n3ds_tevCombine(cast<uint32_t>(s->combC),cin[cast<int64_t>(0ULL)].b,cin[cast<int64_t>(1ULL)].b,cin[cast<int64_t>(2ULL)].b);
-int32_t cb = std::get<0>(tmp250);
-auto tmp251 = n3ds_tevCombine(cast<uint32_t>(s->combA),ain[cast<int64_t>(0ULL)],ain[cast<int64_t>(1ULL)],ain[cast<int64_t>(2ULL)]);
-int32_t ca = std::get<0>(tmp251);
-bool oka = std::get<1>(tmp251);
+}auto tmp253 = n3ds_tevCombine(cast<uint32_t>(s->combC),cin[cast<int64_t>(0ULL)].r,cin[cast<int64_t>(1ULL)].r,cin[cast<int64_t>(2ULL)].r);
+int32_t cr = std::get<0>(tmp253);
+bool okc = std::get<1>(tmp253);
+auto tmp254 = n3ds_tevCombine(cast<uint32_t>(s->combC),cin[cast<int64_t>(0ULL)].g,cin[cast<int64_t>(1ULL)].g,cin[cast<int64_t>(2ULL)].g);
+int32_t cg = std::get<0>(tmp254);
+auto tmp255 = n3ds_tevCombine(cast<uint32_t>(s->combC),cin[cast<int64_t>(0ULL)].b,cin[cast<int64_t>(1ULL)].b,cin[cast<int64_t>(2ULL)].b);
+int32_t cb = std::get<0>(tmp255);
+auto tmp256 = n3ds_tevCombine(cast<uint32_t>(s->combA),ain[cast<int64_t>(0ULL)],ain[cast<int64_t>(1ULL)],ain[cast<int64_t>(2ULL)]);
+int32_t ca = std::get<0>(tmp256);
+bool oka = std::get<1>(tmp256);
 if (((!okc) || (!oka))) {
 return {n3ds_rgba{},false};
 }
 n3ds_rgba out = n3ds_rgba{n3ds_clampi(shl<int32_t>(cr,s->scaleC),cast<int32_t>(0ULL),cast<int32_t>(255ULL)),n3ds_clampi(shl<int32_t>(cg,s->scaleC),cast<int32_t>(0ULL),cast<int32_t>(255ULL)),n3ds_clampi(shl<int32_t>(cb,s->scaleC),cast<int32_t>(0ULL),cast<int32_t>(255ULL)),n3ds_clampi(shl<int32_t>(ca,s->scaleA),cast<int32_t>(0ULL),cast<int32_t>(255ULL))};
 buf = next;
 if (s->updC) {
-auto tmp252 = std::make_tuple(out.r,out.g,out.b);
-next.r = std::get<0>(tmp252);
-next.g = std::get<1>(tmp252);
-next.b = std::get<2>(tmp252);
+auto tmp257 = std::make_tuple(out.r,out.g,out.b);
+next.r = std::get<0>(tmp257);
+next.g = std::get<1>(tmp257);
+next.b = std::get<2>(tmp257);
 }
 if (s->updA) {
 next.a = out.a;
@@ -11991,11 +12121,11 @@ break;}
 // tools/platform/n3ds/gpu_texture.go:47:1
 std::tuple<n3ds_rgba,bool> n3ds_GPU_sampleTextureSt(n3ds_GPU* g,int64_t u,float s,float t,float q,n3ds_rstats* st){
 {
-auto tmp253 = n3ds_texUnitRegs(u);
-uint32_t dimR = std::get<0>(tmp253);
-uint32_t paramR = std::get<1>(tmp253);
-uint32_t addrR = std::get<2>(tmp253);
-uint32_t typR = std::get<3>(tmp253);
+auto tmp258 = n3ds_texUnitRegs(u);
+uint32_t dimR = std::get<0>(tmp258);
+uint32_t paramR = std::get<1>(tmp258);
+uint32_t addrR = std::get<2>(tmp258);
+uint32_t typR = std::get<3>(tmp258);
 uint32_t w = cast<uint32_t>((shr<uint32_t>(g->Regs[dimR],cast<int64_t>(16ULL)) & cast<uint32_t>(2047ULL)));
 uint32_t h = cast<uint32_t>((g->Regs[dimR] & cast<uint32_t>(2047ULL)));
 if (((w == cast<uint32_t>(0ULL)) || (h == cast<uint32_t>(0ULL)))) {
@@ -12012,23 +12142,23 @@ float shadowZ={};
 switch(typ){
 case cast<uint32_t>(2ULL):{
 if (((cast<uint32_t>((g->Regs[cast<int64_t>(139ULL)] & cast<uint32_t>(1ULL))) == cast<uint32_t>(0ULL)) && (q != cast<float>(0.00000000000000000e+00)))) {
-auto tmp254 = std::make_tuple(cast<float>((s / q)),cast<float>((t / q)));
-s = std::get<0>(tmp254);
-t = std::get<1>(tmp254);
+auto tmp259 = std::make_tuple(cast<float>((s / q)),cast<float>((t / q)));
+s = std::get<0>(tmp259);
+t = std::get<1>(tmp259);
 }
 shadowZ = n3ds_absf(q);
 break;}
 case cast<uint32_t>(3ULL):{
 if ((q != cast<float>(0.00000000000000000e+00))) {
-auto tmp255 = std::make_tuple(cast<float>((s / q)),cast<float>((t / q)));
-s = std::get<0>(tmp255);
-t = std::get<1>(tmp255);
+auto tmp260 = std::make_tuple(cast<float>((s / q)),cast<float>((t / q)));
+s = std::get<0>(tmp260);
+t = std::get<1>(tmp260);
 }
 break;}
 }}
-auto tmp256 = n3ds_GPU_texture(g,addr,format,w,h);
-n3ds_texImage* img = std::get<0>(tmp256);
-bool ok = std::get<1>(tmp256);
+auto tmp261 = n3ds_GPU_texture(g,addr,format,w,h);
+n3ds_texImage* img = std::get<0>(tmp261);
+bool ok = std::get<1>(tmp261);
 if ((!ok)) {
 return {n3ds_rgba{},false};
 }
@@ -12108,23 +12238,23 @@ std::tuple<n3ds_texImage*,bool> n3ds_GPU_texture(n3ds_GPU* g,uint32_t addr,uint3
 {
 n3ds_texKey k = n3ds_texKey{addr,format,w,h};
 {
-auto tmp257 = lookup(g->texCache,k);
-n3ds_texImage* img = std::get<0>(tmp257);
-bool hit = std::get<1>(tmp257);
+auto tmp262 = lookup(g->texCache,k);
+n3ds_texImage* img = std::get<0>(tmp262);
+bool hit = std::get<1>(tmp262);
 if (hit) {
 return {img,true};
 }
 }
 time_Time t = n3ds_Machine_profStart(g->m);
-auto tmp258=defer([&](){n3ds_Machine_profEnd(g->m,cast<int64_t>(3ULL),t);});
+auto tmp263=defer([&](){n3ds_Machine_profEnd(g->m,cast<int64_t>(3ULL),t);});
 n3ds_texImage* img = rrNewTexture(n3ds_texImage{w,h,Slice<uint8_t>::make(cast<uint32_t>((cast<uint32_t>((w * h)) * cast<uint32_t>(4ULL))))});
 auto put = [&](uint32_t x,uint32_t y,uint8_t r,uint8_t gr,uint8_t b,uint8_t a)->void{
 uint32_t p = cast<uint32_t>(((cast<uint32_t>((cast<uint32_t>((y * w)) + x))) * cast<uint32_t>(4ULL)));
-auto tmp259 = std::make_tuple(r,gr,b,a);
-img->pix[p] = std::get<0>(tmp259);
-img->pix[cast<uint32_t>((p + cast<uint32_t>(1ULL)))] = std::get<1>(tmp259);
-img->pix[cast<uint32_t>((p + cast<uint32_t>(2ULL)))] = std::get<2>(tmp259);
-img->pix[cast<uint32_t>((p + cast<uint32_t>(3ULL)))] = std::get<3>(tmp259);
+auto tmp264 = std::make_tuple(r,gr,b,a);
+img->pix[p] = std::get<0>(tmp264);
+img->pix[cast<uint32_t>((p + cast<uint32_t>(1ULL)))] = std::get<1>(tmp264);
+img->pix[cast<uint32_t>((p + cast<uint32_t>(2ULL)))] = std::get<2>(tmp264);
+img->pix[cast<uint32_t>((p + cast<uint32_t>(3ULL)))] = std::get<3>(tmp264);
 }
 ;
 {
@@ -12170,9 +12300,9 @@ put(x,y,cast<uint8_t>((cast<uint8_t>(shr<uint16_t>(v,cast<int64_t>(12ULL))) * ca
 break;}
 case cast<uint32_t>(5ULL):{
 n3ds_GPU_eachTexel(g,addr,w,h,cast<uint32_t>(2ULL),[&](uint32_t x,uint32_t y,uint32_t p)->void{
-auto tmp260 = std::make_tuple(n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL)))),n3ds_Machine_Read(g->m,p));
-uint8_t l = std::get<0>(tmp260);
-uint8_t a = std::get<1>(tmp260);
+auto tmp265 = std::make_tuple(n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL)))),n3ds_Machine_Read(g->m,p));
+uint8_t l = std::get<0>(tmp265);
+uint8_t a = std::get<1>(tmp265);
 put(x,y,l,l,l,a);
 }
 );
@@ -12320,12 +12450,12 @@ void n3ds_GPU_invalidateTextures(n3ds_GPU* g,uint32_t addr,uint32_t size){
 if (((!g->texCache) || (size == cast<uint32_t>(0ULL)))) {
 return ;
 }
-auto tmp261 = std::make_tuple(addr,cast<uint32_t>((addr + size)));
-uint32_t lo = std::get<0>(tmp261);
-uint32_t hi = std::get<1>(tmp261);
-{auto&& tmp262 = g->texCache;
-for(auto [tmp263,tmp264]:tmp262){
-auto k=tmp263;uint32_t klo = k.addr;
+auto tmp266 = std::make_tuple(addr,cast<uint32_t>((addr + size)));
+uint32_t lo = std::get<0>(tmp266);
+uint32_t hi = std::get<1>(tmp266);
+{auto&& tmp267 = g->texCache;
+for(auto [tmp268,tmp269]:tmp267){
+auto k=tmp268;uint32_t klo = k.addr;
 uint32_t khi = cast<uint32_t>((klo + n3ds_texBytes(k)));
 if (((klo < hi) && (lo < khi))) {
 removeKey(g->texCache,k);
@@ -12344,16 +12474,16 @@ else if (((a >= cast<uint32_t>(536870912ULL)) && (a < cast<uint32_t>(671088640UL
 return cast<uint32_t>((a - cast<uint32_t>(201326592ULL)));
 }
 }
-tmp265:;
+tmp270:;
 return a;
 }
 }
 // tools/platform/n3ds/gsp_mem.go:60:1
 void n3ds_Machine_svcMapMemoryBlock(n3ds_Machine* m,arm_CPU* c){
 {
-auto tmp266 = std::make_tuple(c->R[cast<int64_t>(0ULL)],c->R[cast<int64_t>(1ULL)]);
-uint32_t handle = std::get<0>(tmp266);
-uint32_t addr = std::get<1>(tmp266);
+auto tmp271 = std::make_tuple(c->R[cast<int64_t>(0ULL)],c->R[cast<int64_t>(1ULL)]);
+uint32_t handle = std::get<0>(tmp271);
+uint32_t addr = std::get<1>(tmp271);
 n3ds_kobject* obj = get(m->handles,handle);
 if ((!obj)) {
 arm_CPU_Halt(c,std::string("MapMemoryBlock: unknown handle 0x%08X at 0x%08X after %d instructions",69),handle,arm_CPU_PC(c),c->Instrs);
@@ -12391,9 +12521,9 @@ c->R[cast<int64_t>(0ULL)] = cast<uint32_t>(0ULL);
 // tools/platform/n3ds/gsp_mem.go:99:1
 void n3ds_Machine_svcUnmapMemoryBlock(n3ds_Machine* m,arm_CPU* c){
 {
-auto tmp267 = std::make_tuple(c->R[cast<int64_t>(0ULL)],c->R[cast<int64_t>(1ULL)]);
-uint32_t handle = std::get<0>(tmp267);
-uint32_t addr = std::get<1>(tmp267);
+auto tmp272 = std::make_tuple(c->R[cast<int64_t>(0ULL)],c->R[cast<int64_t>(1ULL)]);
+uint32_t handle = std::get<0>(tmp272);
+uint32_t addr = std::get<1>(tmp272);
 n3ds_kobject* obj = get(m->handles,handle);
 if ((!obj)) {
 arm_CPU_Halt(c,std::string("UnmapMemoryBlock: unknown handle 0x%08X at 0x%08X after %d instructions",71),handle,arm_CPU_PC(c),c->Instrs);
@@ -12403,9 +12533,9 @@ if ((obj->blockAddr != addr)) {
 arm_CPU_Halt(c,std::string("UnmapMemoryBlock: handle 0x%08X (%s) mapped at 0x%08X, not 0x%08X, at 0x%08X",76),handle,obj->kind,obj->blockAddr,addr,arm_CPU_PC(c));
 return ;
 }
-{auto&& tmp268 = m->regions;
-for(int64_t tmp269=0;tmp269<len(tmp268);++tmp269){
-auto i=tmp269;auto r=tmp268[tmp269];if ((r->base == addr)) {
+{auto&& tmp273 = m->regions;
+for(int64_t tmp274=0;tmp274<len(tmp273);++tmp274){
+auto i=tmp274;auto r=tmp273[tmp274];if ((r->base == addr)) {
 m->regions = append(sub(m->regions,0,i),sub(m->regions,cast<int64_t>((i + cast<int64_t>(1ULL))),len(m->regions)));
 break;
 }
@@ -12534,9 +12664,9 @@ r.Instr = m->CPU->Instrs;
 r.Words[i] = n3ds_Machine_ReadWord(m,cast<uint32_t>((cmd + cast<uint32_t>((i * cast<uint32_t>(4ULL))))));
 }
 }if ((id == cast<uint32_t>(1ULL))) {
-auto tmp270 = std::make_tuple(r.Words[cast<int64_t>(1ULL)],r.Words[cast<int64_t>(2ULL)]);
-uint32_t addr = std::get<0>(tmp270);
-uint32_t size = std::get<1>(tmp270);
+auto tmp275 = std::make_tuple(r.Words[cast<int64_t>(1ULL)],r.Words[cast<int64_t>(2ULL)]);
+uint32_t addr = std::get<0>(tmp275);
+uint32_t size = std::get<1>(tmp275);
 if (((size > cast<uint32_t>(0ULL)) && (size < cast<uint32_t>(16777216ULL)))) {
 r.Buf = Slice<uint8_t>::make(size);
 {uint32_t i = cast<uint32_t>(0ULL);for (;(i < size);i++){
@@ -12550,10 +12680,10 @@ m->gxLog = append(m->gxLog,r);
 // tools/platform/n3ds/gx.go:93:1
 void n3ds_Machine_gxMemoryFill(n3ds_Machine* m,uint32_t start,uint32_t value,uint32_t end,uint32_t ctl){
 rrprof::Scope profile(3,"GX memory / display transfers");rr3ds::Command command(m,"GX memory fill",start,value,end,ctl);{
-auto tmp271=defer([&](){n3ds_Machine_profEnd(m,cast<int64_t>(4ULL),n3ds_Machine_profStart(m));});
-auto tmp272 = std::make_tuple(n3ds_Machine_gpuAddrToVirt(m,start),n3ds_Machine_gpuAddrToVirt(m,end));
-start = std::get<0>(tmp272);
-end = std::get<1>(tmp272);
+auto tmp276=defer([&](){n3ds_Machine_profEnd(m,cast<int64_t>(4ULL),n3ds_Machine_profStart(m));});
+auto tmp277 = std::make_tuple(n3ds_Machine_gpuAddrToVirt(m,start),n3ds_Machine_gpuAddrToVirt(m,end));
+start = std::get<0>(tmp277);
+end = std::get<1>(tmp277);
 uint32_t unit={};
 {
 switch(cast<uint32_t>((shr<uint32_t>(ctl,cast<int64_t>(8ULL)) & cast<uint32_t>(3ULL)))){
@@ -12582,16 +12712,16 @@ n3ds_Machine_Write(m,cast<uint32_t>((a + j)),cast<uint8_t>(shr<uint32_t>(value,(
 // tools/platform/n3ds/gx.go:119:1
 void n3ds_Machine_gxTextureCopy(n3ds_Machine* m,uint32_t src,uint32_t dst,uint32_t size,uint32_t inDim,uint32_t outDim){
 rrprof::Scope profile(3,"GX memory / display transfers");rr3ds::Command command(m,"GX texture copy",src,dst,size,inDim);{
-auto tmp273=defer([&](){n3ds_Machine_profEnd(m,cast<int64_t>(4ULL),n3ds_Machine_profStart(m));});
-auto tmp274 = std::make_tuple(n3ds_Machine_gpuAddrToVirt(m,src),n3ds_Machine_gpuAddrToVirt(m,dst));
-src = std::get<0>(tmp274);
-dst = std::get<1>(tmp274);
-auto tmp275 = std::make_tuple(cast<uint32_t>((cast<uint32_t>((inDim & cast<uint32_t>(65535ULL))) * cast<uint32_t>(2ULL))),cast<uint32_t>((shr<uint32_t>(inDim,cast<int64_t>(16ULL)) * cast<uint32_t>(2ULL))));
-uint32_t inW = std::get<0>(tmp275);
-uint32_t inGap = std::get<1>(tmp275);
-auto tmp276 = std::make_tuple(cast<uint32_t>((cast<uint32_t>((outDim & cast<uint32_t>(65535ULL))) * cast<uint32_t>(2ULL))),cast<uint32_t>((shr<uint32_t>(outDim,cast<int64_t>(16ULL)) * cast<uint32_t>(2ULL))));
-uint32_t outW = std::get<0>(tmp276);
-uint32_t outGap = std::get<1>(tmp276);
+auto tmp278=defer([&](){n3ds_Machine_profEnd(m,cast<int64_t>(4ULL),n3ds_Machine_profStart(m));});
+auto tmp279 = std::make_tuple(n3ds_Machine_gpuAddrToVirt(m,src),n3ds_Machine_gpuAddrToVirt(m,dst));
+src = std::get<0>(tmp279);
+dst = std::get<1>(tmp279);
+auto tmp280 = std::make_tuple(cast<uint32_t>((cast<uint32_t>((inDim & cast<uint32_t>(65535ULL))) * cast<uint32_t>(2ULL))),cast<uint32_t>((shr<uint32_t>(inDim,cast<int64_t>(16ULL)) * cast<uint32_t>(2ULL))));
+uint32_t inW = std::get<0>(tmp280);
+uint32_t inGap = std::get<1>(tmp280);
+auto tmp281 = std::make_tuple(cast<uint32_t>((cast<uint32_t>((outDim & cast<uint32_t>(65535ULL))) * cast<uint32_t>(2ULL))),cast<uint32_t>((shr<uint32_t>(outDim,cast<int64_t>(16ULL)) * cast<uint32_t>(2ULL))));
+uint32_t outW = std::get<0>(tmp281);
+uint32_t outGap = std::get<1>(tmp281);
 if (((inW == cast<uint32_t>(0ULL)) && (inGap == cast<uint32_t>(0ULL)))) {
 inW = size;
 }
@@ -12602,29 +12732,29 @@ if ((((inW == cast<uint32_t>(0ULL)) || (outW == cast<uint32_t>(0ULL))) || (modi<
 arm_CPU_Halt(m->CPU,std::string("gx: TextureCopy dims in=0x%08X out=0x%08X size=0x%X don't divide after %d instructions",86),inDim,outDim,size,m->CPU->Instrs);
 return ;
 }
-auto tmp277 = std::make_tuple(src,dst);
-uint32_t sp = std::get<0>(tmp277);
-uint32_t dp = std::get<1>(tmp277);
-auto tmp278 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>(0ULL));
-uint32_t sn = std::get<0>(tmp278);
-uint32_t dn = std::get<1>(tmp278);
+auto tmp282 = std::make_tuple(src,dst);
+uint32_t sp = std::get<0>(tmp282);
+uint32_t dp = std::get<1>(tmp282);
+auto tmp283 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>(0ULL));
+uint32_t sn = std::get<0>(tmp283);
+uint32_t dn = std::get<1>(tmp283);
 {uint32_t i = cast<uint32_t>(0ULL);for (;(i < size);i++){
 n3ds_Machine_Write(m,dp,n3ds_Machine_Read(m,sp));
-auto tmp279 = std::make_tuple(cast<uint32_t>((sp + cast<uint32_t>(1ULL))),cast<uint32_t>((sn + cast<uint32_t>(1ULL))));
-sp = std::get<0>(tmp279);
-sn = std::get<1>(tmp279);
+auto tmp284 = std::make_tuple(cast<uint32_t>((sp + cast<uint32_t>(1ULL))),cast<uint32_t>((sn + cast<uint32_t>(1ULL))));
+sp = std::get<0>(tmp284);
+sn = std::get<1>(tmp284);
 if ((sn == inW)) {
-auto tmp280 = std::make_tuple(cast<uint32_t>((sp + inGap)),cast<uint32_t>(0ULL));
-sp = std::get<0>(tmp280);
-sn = std::get<1>(tmp280);
+auto tmp285 = std::make_tuple(cast<uint32_t>((sp + inGap)),cast<uint32_t>(0ULL));
+sp = std::get<0>(tmp285);
+sn = std::get<1>(tmp285);
 }
-auto tmp281 = std::make_tuple(cast<uint32_t>((dp + cast<uint32_t>(1ULL))),cast<uint32_t>((dn + cast<uint32_t>(1ULL))));
-dp = std::get<0>(tmp281);
-dn = std::get<1>(tmp281);
+auto tmp286 = std::make_tuple(cast<uint32_t>((dp + cast<uint32_t>(1ULL))),cast<uint32_t>((dn + cast<uint32_t>(1ULL))));
+dp = std::get<0>(tmp286);
+dn = std::get<1>(tmp286);
 if ((dn == outW)) {
-auto tmp282 = std::make_tuple(cast<uint32_t>((dp + outGap)),cast<uint32_t>(0ULL));
-dp = std::get<0>(tmp282);
-dn = std::get<1>(tmp282);
+auto tmp287 = std::make_tuple(cast<uint32_t>((dp + outGap)),cast<uint32_t>(0ULL));
+dp = std::get<0>(tmp287);
+dn = std::get<1>(tmp287);
 }
 }
 }n3ds_GPU_invalidateTextures(m->gpu,dst,cast<uint32_t>((dp - dst)));
@@ -12633,24 +12763,24 @@ dn = std::get<1>(tmp282);
 // tools/platform/n3ds/gx.go:162:1
 void n3ds_Machine_gxDisplayTransfer(n3ds_Machine* m,uint32_t src,uint32_t dst,uint32_t srcDims,uint32_t dstDims,uint32_t flags){
 rrprof::Scope profile(3,"GX memory / display transfers");rr3ds::Command command(m,"GX display transfer",src,dst,srcDims,flags);{
-auto tmp283=defer([&](){n3ds_Machine_profEnd(m,cast<int64_t>(4ULL),n3ds_Machine_profStart(m));});
-auto tmp284 = std::make_tuple(cast<uint32_t>((srcDims & cast<uint32_t>(65535ULL))),shr<uint32_t>(srcDims,cast<int64_t>(16ULL)));
-uint32_t srcW = std::get<0>(tmp284);
-uint32_t srcH = std::get<1>(tmp284);
-auto tmp285 = std::make_tuple(cast<uint32_t>((dstDims & cast<uint32_t>(65535ULL))),shr<uint32_t>(dstDims,cast<int64_t>(16ULL)));
-uint32_t dstW = std::get<0>(tmp285);
-uint32_t dstH = std::get<1>(tmp285);
-auto tmp286 = std::make_tuple(cast<uint32_t>((shr<uint32_t>(flags,cast<int64_t>(8ULL)) & cast<uint32_t>(7ULL))),cast<uint32_t>((shr<uint32_t>(flags,cast<int64_t>(12ULL)) & cast<uint32_t>(7ULL))));
-uint32_t inFmt = std::get<0>(tmp286);
-uint32_t outFmt = std::get<1>(tmp286);
+auto tmp288=defer([&](){n3ds_Machine_profEnd(m,cast<int64_t>(4ULL),n3ds_Machine_profStart(m));});
+auto tmp289 = std::make_tuple(cast<uint32_t>((srcDims & cast<uint32_t>(65535ULL))),shr<uint32_t>(srcDims,cast<int64_t>(16ULL)));
+uint32_t srcW = std::get<0>(tmp289);
+uint32_t srcH = std::get<1>(tmp289);
+auto tmp290 = std::make_tuple(cast<uint32_t>((dstDims & cast<uint32_t>(65535ULL))),shr<uint32_t>(dstDims,cast<int64_t>(16ULL)));
+uint32_t dstW = std::get<0>(tmp290);
+uint32_t dstH = std::get<1>(tmp290);
+auto tmp291 = std::make_tuple(cast<uint32_t>((shr<uint32_t>(flags,cast<int64_t>(8ULL)) & cast<uint32_t>(7ULL))),cast<uint32_t>((shr<uint32_t>(flags,cast<int64_t>(12ULL)) & cast<uint32_t>(7ULL))));
+uint32_t inFmt = std::get<0>(tmp291);
+uint32_t outFmt = std::get<1>(tmp291);
 bool flip = (cast<uint32_t>((flags & cast<uint32_t>(1ULL))) != cast<uint32_t>(0ULL));
 if ((((inFmt != cast<uint32_t>(0ULL)) || (cast<uint32_t>((shr<uint32_t>(flags,cast<int64_t>(1ULL)) & cast<uint32_t>(1ULL))) != cast<uint32_t>(0ULL))) || (cast<uint32_t>((shr<uint32_t>(flags,cast<int64_t>(24ULL)) & cast<uint32_t>(3ULL))) != cast<uint32_t>(0ULL)))) {
 arm_CPU_Halt(m->CPU,std::string("gx: DisplayTransfer flags 0x%08X unimplemented (in-format %d, tiled-out %d, scale %d) after %d instructions",107),flags,inFmt,cast<uint32_t>((shr<uint32_t>(flags,cast<int64_t>(1ULL)) & cast<uint32_t>(1ULL))),cast<uint32_t>((shr<uint32_t>(flags,cast<int64_t>(24ULL)) & cast<uint32_t>(3ULL))),m->CPU->Instrs);
 return ;
 }
-auto tmp287 = std::make_tuple(n3ds_Machine_gpuAddrToVirt(m,src),n3ds_Machine_gpuAddrToVirt(m,dst));
-src = std::get<0>(tmp287);
-dst = std::get<1>(tmp287);
+auto tmp292 = std::make_tuple(n3ds_Machine_gpuAddrToVirt(m,src),n3ds_Machine_gpuAddrToVirt(m,dst));
+src = std::get<0>(tmp292);
+dst = std::get<1>(tmp292);
 uint32_t dstBPP={};
 {
 switch(outFmt){
@@ -12668,9 +12798,9 @@ arm_CPU_Halt(m->CPU,std::string("gx: DisplayTransfer out-format %d unimplemented
 return ;
 break;}
 }}
-auto tmp288 = std::make_tuple(srcW,srcH);
-uint32_t w = std::get<0>(tmp288);
-uint32_t h = std::get<1>(tmp288);
+auto tmp293 = std::make_tuple(srcW,srcH);
+uint32_t w = std::get<0>(tmp293);
+uint32_t h = std::get<1>(tmp293);
 if ((dstW < w)) {
 w = dstW;
 }
@@ -12683,12 +12813,12 @@ uint32_t tilesPerRow = divi<uint32_t>(srcW,cast<uint32_t>(8ULL));
 uint32_t tile = cast<uint32_t>((cast<uint32_t>(((divi<uint32_t>(y,cast<uint32_t>(8ULL))) * tilesPerRow)) + divi<uint32_t>(x,cast<uint32_t>(8ULL))));
 uint32_t mo = cast<uint32_t>((cast<uint32_t>((cast<uint32_t>((cast<uint32_t>((cast<uint32_t>((cast<uint32_t>(((cast<uint32_t>((x & cast<uint32_t>(1ULL)))) & cast<uint32_t>(1ULL))) | shl<uint32_t>((cast<uint32_t>((y & cast<uint32_t>(1ULL)))),cast<int64_t>(1ULL)))) | shl<uint32_t>((cast<uint32_t>((x & cast<uint32_t>(2ULL)))),cast<int64_t>(1ULL)))) | shl<uint32_t>((cast<uint32_t>((y & cast<uint32_t>(2ULL)))),cast<int64_t>(2ULL)))) | shl<uint32_t>((cast<uint32_t>((x & cast<uint32_t>(4ULL)))),cast<int64_t>(2ULL)))) | shl<uint32_t>((cast<uint32_t>((y & cast<uint32_t>(4ULL)))),cast<int64_t>(3ULL))));
 uint32_t p = cast<uint32_t>((src + cast<uint32_t>(((cast<uint32_t>((cast<uint32_t>((tile * cast<uint32_t>(64ULL))) + mo))) * cast<uint32_t>(4ULL)))));
-auto tmp289 = std::make_tuple(n3ds_Machine_Read(m,p),n3ds_Machine_Read(m,cast<uint32_t>((p + cast<uint32_t>(1ULL)))));
-uint8_t a = std::get<0>(tmp289);
-uint8_t b = std::get<1>(tmp289);
-auto tmp290 = std::make_tuple(n3ds_Machine_Read(m,cast<uint32_t>((p + cast<uint32_t>(2ULL)))),n3ds_Machine_Read(m,cast<uint32_t>((p + cast<uint32_t>(3ULL)))));
-uint8_t g = std::get<0>(tmp290);
-uint8_t r = std::get<1>(tmp290);
+auto tmp294 = std::make_tuple(n3ds_Machine_Read(m,p),n3ds_Machine_Read(m,cast<uint32_t>((p + cast<uint32_t>(1ULL)))));
+uint8_t a = std::get<0>(tmp294);
+uint8_t b = std::get<1>(tmp294);
+auto tmp295 = std::make_tuple(n3ds_Machine_Read(m,cast<uint32_t>((p + cast<uint32_t>(2ULL)))),n3ds_Machine_Read(m,cast<uint32_t>((p + cast<uint32_t>(3ULL)))));
+uint8_t g = std::get<0>(tmp295);
+uint8_t r = std::get<1>(tmp295);
 uint32_t dy = y;
 if (flip) {
 dy = cast<uint32_t>((cast<uint32_t>((h - cast<uint32_t>(1ULL))) - y));
@@ -12850,9 +12980,9 @@ n3ds_GPU_invalidateTextures(m->gpu,w[cast<int64_t>(2ULL)],w[cast<int64_t>(3ULL)]
 raised = append(raised,cast<uint8_t>(6ULL));
 break;}
 }}
-{auto&& tmp291 = raised;
-for(int64_t tmp292=0;tmp292<len(tmp291);++tmp292){
-auto id=tmp291[tmp292];n3ds_Machine_pushGSPInterrupt(m,id);
+{auto&& tmp296 = raised;
+for(int64_t tmp297=0;tmp297<len(tmp296);++tmp297){
+auto id=tmp296[tmp297];n3ds_Machine_pushGSPInterrupt(m,id);
 }}
 if ((len(raised) > cast<int64_t>(0ULL))) {
 n3ds_Machine_signalGSPEvent(m);
@@ -12864,15 +12994,15 @@ n3ds_Machine_signalGSPEvent(m);
 Error n3ds_Machine_SetKeys(n3ds_Machine* m,std::string list){
 {
 uint32_t mask={};
-{auto&& tmp293 = go_strings_Split(list,std::string(",",1));
-for(int64_t tmp294=0;tmp294<len(tmp293);++tmp294){
-auto name=tmp293[tmp294];name = go_strings_TrimSpace(go_strings_ToLower(name));
+{auto&& tmp298 = go_strings_Split(list,std::string(",",1));
+for(int64_t tmp299=0;tmp299<len(tmp298);++tmp299){
+auto name=tmp298[tmp299];name = go_strings_TrimSpace(go_strings_ToLower(name));
 if ((name == std::string("",0))) {
 continue;
 }
-auto tmp295 = lookup(n3ds_hidButtonNames,name);
-uint32_t bit = std::get<0>(tmp295);
-bool ok = std::get<1>(tmp295);
+auto tmp300 = lookup(n3ds_hidButtonNames,name);
+uint32_t bit = std::get<0>(tmp300);
+bool ok = std::get<1>(tmp300);
 if ((!ok)) {
 return go_fmt_Errorf(std::string("unknown key %q (valid: a,b,x,y,l,r,up,down,left,right,start,select)",67),name);
 }
@@ -12932,9 +13062,9 @@ n3ds_Machine_WriteWord(m,cast<uint32_t>((ent + cast<uint32_t>(8ULL))),cast<uint3
 n3ds_Machine_WriteWord(m,cast<uint32_t>((ent + cast<uint32_t>(12ULL))),rr3dsCirclePad);
 writeHeader(cast<uint32_t>(168ULL));
 uint32_t tent = cast<uint32_t>((cast<uint32_t>((cast<uint32_t>((m->hidSharedAddr + cast<uint32_t>(168ULL))) + cast<uint32_t>(32ULL))) + cast<uint32_t>((idx * cast<uint32_t>(8ULL)))));
-auto tmp296 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>(0ULL));
-uint32_t pos = std::get<0>(tmp296);
-uint32_t valid = std::get<1>(tmp296);
+auto tmp301 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>(0ULL));
+uint32_t pos = std::get<0>(tmp301);
+uint32_t valid = std::get<1>(tmp301);
 if (m->hidTouchDown) {
 pos = cast<uint32_t>((cast<uint32_t>(m->hidTouchX) | shl<uint32_t>(cast<uint32_t>(m->hidTouchY),cast<int64_t>(16ULL))));
 valid = cast<uint32_t>(1ULL);
@@ -12965,17 +13095,17 @@ go_fmt_Println(std::string("  (none \342\200\224 the game did not read the HID b
 return ;
 }
 Slice<uint32_t> offs = Slice<uint32_t>::make(cast<int64_t>(0ULL),len(m->hidReadHist));
-{auto&& tmp297 = m->hidReadHist;
-for(auto [tmp298,tmp299]:tmp297){
-auto o=tmp298;offs = append(offs,o);
+{auto&& tmp302 = m->hidReadHist;
+for(auto [tmp303,tmp304]:tmp302){
+auto o=tmp303;offs = append(offs,o);
 }}
 go_sort_Slice(offs,[&](int64_t i,int64_t j)->bool{
 return (offs[i] < offs[j]);
 }
 );
-{auto&& tmp300 = offs;
-for(int64_t tmp301=0;tmp301<len(tmp300);++tmp301){
-auto o=tmp300[tmp301];go_fmt_Printf(std::string("  +0x%03X  %d reads (last reader pc=0x%08X)\012",44),o,get(m->hidReadHist,o),get(m->hidReadPC,o));
+{auto&& tmp305 = offs;
+for(int64_t tmp306=0;tmp306<len(tmp305);++tmp306){
+auto o=tmp305[tmp306];go_fmt_Printf(std::string("  +0x%03X  %d reads (last reader pc=0x%08X)\012",44),o,get(m->hidReadHist,o),get(m->hidReadPC,o));
 }}
 }
 }
@@ -12996,9 +13126,9 @@ void n3ds_Machine_ipcReply(n3ds_Machine* m,uint16_t cmd,Slice<uint32_t> values){
 {
 n3ds_Machine_WriteWord(m,n3ds_Machine_cmdBuf(m),cast<uint32_t>((shl<uint32_t>(cast<uint32_t>(cmd),cast<int64_t>(16ULL)) | shl<uint32_t>(cast<uint32_t>(cast<int64_t>((len(values) + cast<int64_t>(1ULL)))),cast<int64_t>(6ULL)))));
 n3ds_Machine_WriteWord(m,cast<uint32_t>((n3ds_Machine_cmdBuf(m) + cast<uint32_t>(4ULL))),cast<uint32_t>(0ULL));
-{auto&& tmp302 = values;
-for(int64_t tmp303=0;tmp303<len(tmp302);++tmp303){
-auto i=tmp303;auto v=tmp302[tmp303];n3ds_Machine_WriteWord(m,cast<uint32_t>((cast<uint32_t>((n3ds_Machine_cmdBuf(m) + cast<uint32_t>(8ULL))) + cast<uint32_t>((cast<uint32_t>(i) * cast<uint32_t>(4ULL))))),v);
+{auto&& tmp307 = values;
+for(int64_t tmp308=0;tmp308<len(tmp307);++tmp308){
+auto i=tmp308;auto v=tmp307[tmp308];n3ds_Machine_WriteWord(m,cast<uint32_t>((cast<uint32_t>((n3ds_Machine_cmdBuf(m) + cast<uint32_t>(8ULL))) + cast<uint32_t>((cast<uint32_t>(i) * cast<uint32_t>(4ULL))))),v);
 }}
 }
 }
@@ -13008,9 +13138,9 @@ bool n3ds_Machine_handleIPC(n3ds_Machine* m,uint32_t handle){
 n3ds_ipcHeader hdr = n3ds_parseIPCHeader(n3ds_Machine_ReadWord(m,n3ds_Machine_cmdBuf(m)));
 std::string name = get(m->ports,handle);
 {
-auto tmp304 = lookup(m->services,handle);
-std::string svc = std::get<0>(tmp304);
-bool ok = std::get<1>(tmp304);
+auto tmp309 = lookup(m->services,handle);
+std::string svc = std::get<0>(tmp309);
+bool ok = std::get<1>(tmp309);
 if (ok) {
 name = svc;
 }
@@ -13026,15 +13156,15 @@ if (((name == std::string("",0)) && n3ds_Machine_isDirSession(m,handle))) {
 return n3ds_Machine_ipcDir(m,handle,hdr);
 }
 {
-auto tmp306=name;
-if (tmp306==(std::string("srv:",4)) || tmp306==(std::string("srv:pm",6))){
+auto tmp311=name;
+if (tmp311==(std::string("srv:",4)) || tmp311==(std::string("srv:pm",6))){
 return n3ds_Machine_ipcSrv(m,hdr);
 }
 else {
 return n3ds_Machine_ipcService(m,name,hdr);
 }
 }
-tmp305:;
+tmp310:;
 }
 }
 // tools/platform/n3ds/ipc.go:79:1
@@ -13086,9 +13216,9 @@ return true;
 void n3ds_Machine_publishNotification(n3ds_Machine* m,uint32_t id){
 {
 Slice<uint32_t> rest = sub(m->notifyWaiters,0,cast<int64_t>(0ULL));
-{auto&& tmp307 = m->notifyWaiters;
-for(int64_t tmp308=0;tmp308<len(tmp307);++tmp308){
-auto tid=tmp307[tmp308];n3ds_thread* t = n3ds_Machine_threadByID(m,tid);
+{auto&& tmp312 = m->notifyWaiters;
+for(int64_t tmp313=0;tmp313<len(tmp312);++tmp313){
+auto tid=tmp312[tmp313];n3ds_thread* t = n3ds_Machine_threadByID(m,tid);
 if (((!t) || (t->state != cast<n3ds_threadState>(2ULL)))) {
 continue;
 }
@@ -13107,21 +13237,21 @@ m->notifyWaiters = rest;
 bool n3ds_knownService(std::string name){
 {
 {
-auto tmp310=n3ds_serviceBase(name);
-if (tmp310==(std::string("APT",3)) || tmp310==(std::string("gsp",3)) || tmp310==(std::string("hid",3)) || tmp310==(std::string("cfg",3)) || tmp310==(std::string("fs",2)) || tmp310==(std::string("ndm",3)) || tmp310==(std::string("ptm",3)) || tmp310==(std::string("ac",2)) || tmp310==(std::string("act",3)) || tmp310==(std::string("frd",3)) || tmp310==(std::string("cecd",4)) || tmp310==(std::string("boss",4)) || tmp310==(std::string("nim",3)) || tmp310==(std::string("mic",3)) || tmp310==(std::string("csnd",4)) || tmp310==(std::string("dsp",3)) || tmp310==(std::string("y2r",3)) || tmp310==(std::string("am",2)) || tmp310==(std::string("ns",2)) || tmp310==(std::string("nfc",3)) || tmp310==(std::string("pxi",3)) || tmp310==(std::string("srv",3)) || tmp310==(std::string("cam",3)) || tmp310==(std::string("mcu",3))){
+auto tmp315=n3ds_serviceBase(name);
+if (tmp315==(std::string("APT",3)) || tmp315==(std::string("gsp",3)) || tmp315==(std::string("hid",3)) || tmp315==(std::string("cfg",3)) || tmp315==(std::string("fs",2)) || tmp315==(std::string("ndm",3)) || tmp315==(std::string("ptm",3)) || tmp315==(std::string("ac",2)) || tmp315==(std::string("act",3)) || tmp315==(std::string("frd",3)) || tmp315==(std::string("cecd",4)) || tmp315==(std::string("boss",4)) || tmp315==(std::string("nim",3)) || tmp315==(std::string("mic",3)) || tmp315==(std::string("csnd",4)) || tmp315==(std::string("dsp",3)) || tmp315==(std::string("y2r",3)) || tmp315==(std::string("am",2)) || tmp315==(std::string("ns",2)) || tmp315==(std::string("nfc",3)) || tmp315==(std::string("pxi",3)) || tmp315==(std::string("srv",3)) || tmp315==(std::string("cam",3)) || tmp315==(std::string("mcu",3))){
 return true;
 }
 }
-tmp309:;
+tmp314:;
 return false;
 }
 }
 // tools/platform/n3ds/ipc.go:159:1
 std::string n3ds_Machine_readServiceName(n3ds_Machine* m){
 {
-{auto&& tmp311 = Slice<uint64_t>{cast<uint64_t>(0ULL),cast<uint64_t>(16ULL),cast<uint64_t>(8ULL),cast<uint64_t>(24ULL)};
-for(int64_t tmp312=0;tmp312<len(tmp311);++tmp312){
-auto rot=tmp311[tmp312];{
+{auto&& tmp316 = Slice<uint64_t>{cast<uint64_t>(0ULL),cast<uint64_t>(16ULL),cast<uint64_t>(8ULL),cast<uint64_t>(24ULL)};
+for(int64_t tmp317=0;tmp317<len(tmp316);++tmp317){
+auto rot=tmp316[tmp317];{
 std::string n = n3ds_Machine_decodeName(m,rot);
 if (n3ds_knownService(n)) {
 return n;
@@ -13181,35 +13311,35 @@ return m->ipcLog;
 bool n3ds_Machine_ipcService(n3ds_Machine* m,std::string name,n3ds_ipcHeader hdr){
 {
 {
-auto tmp314=n3ds_serviceBase(name);
-if (tmp314==(std::string("APT",3))){
+auto tmp319=n3ds_serviceBase(name);
+if (tmp319==(std::string("APT",3))){
 return n3ds_Machine_ipcAPT(m,name,hdr);
 }
-else if (tmp314==(std::string("gsp",3))){
+else if (tmp319==(std::string("gsp",3))){
 return n3ds_Machine_ipcGSP(m,hdr);
 }
-else if (tmp314==(std::string("hid",3))){
+else if (tmp319==(std::string("hid",3))){
 return n3ds_Machine_ipcHID(m,hdr);
 }
-else if (tmp314==(std::string("cfg",3))){
+else if (tmp319==(std::string("cfg",3))){
 return n3ds_Machine_ipcCFG(m,hdr);
 }
-else if (tmp314==(std::string("fs",2))){
+else if (tmp319==(std::string("fs",2))){
 return n3ds_Machine_ipcFS(m,hdr);
 }
-else if (tmp314==(std::string("err",3))){
+else if (tmp319==(std::string("err",3))){
 return n3ds_Machine_ipcErr(m,hdr);
 }
-else if (tmp314==(std::string("dsp",3))){
+else if (tmp319==(std::string("dsp",3))){
 return n3ds_Machine_ipcDSP(m,hdr);
 }
-else if (tmp314==(std::string("act",3))){
+else if (tmp319==(std::string("act",3))){
 if ((hdr.Command == cast<uint16_t>(1ULL))) {
 n3ds_Machine_ipcReply(m,hdr.Command,Slice<uint32_t>{});
 return true;
 }
 }
-else if (tmp314==(std::string("nfc",3))){
+else if (tmp319==(std::string("nfc",3))){
 {
 switch(hdr.Command){
 case cast<uint16_t>(1ULL):{
@@ -13222,12 +13352,12 @@ return true;
 break;}
 }}
 }
-else if (tmp314==(std::string("ndm",3)) || tmp314==(std::string("ptm",3)) || tmp314==(std::string("ac",2)) || tmp314==(std::string("frd",3)) || tmp314==(std::string("cecd",4)) || tmp314==(std::string("boss",4)) || tmp314==(std::string("nim",3)) || tmp314==(std::string("mic",3)) || tmp314==(std::string("csnd",4)) || tmp314==(std::string("y2r",3))){
+else if (tmp319==(std::string("ndm",3)) || tmp319==(std::string("ptm",3)) || tmp319==(std::string("ac",2)) || tmp319==(std::string("frd",3)) || tmp319==(std::string("cecd",4)) || tmp319==(std::string("boss",4)) || tmp319==(std::string("nim",3)) || tmp319==(std::string("mic",3)) || tmp319==(std::string("csnd",4)) || tmp319==(std::string("y2r",3))){
 n3ds_Machine_ipcReply(m,hdr.Command,Slice<uint32_t>{});
 return true;
 }
 }
-tmp313:;
+tmp318:;
 arm_CPU_Halt(m->CPU,std::string("service %q command 0x%04X unimplemented at 0x%08X after %d instructions",71),name,hdr.Command,arm_CPU_PC(m->CPU),m->CPU->Instrs);
 return true;
 }
@@ -13235,9 +13365,9 @@ return true;
 // tools/platform/n3ds/ipc_services.go:73:1
 std::string n3ds_serviceBase(std::string name){
 {
-{auto&& tmp315 = name;
-for(int64_t tmp316=0;tmp316<len(tmp315);++tmp316){
-auto i=tmp316;auto ch=tmp315[tmp316];if ((ch == cast<int32_t>(58ULL))) {
+{auto&& tmp320 = name;
+for(int64_t tmp321=0;tmp321<len(tmp320);++tmp321){
+auto i=tmp321;auto ch=tmp320[tmp321];if ((ch == cast<int32_t>(58ULL))) {
 return sub(name,0,i);
 }
 }}
@@ -13263,9 +13393,9 @@ case cast<uint16_t>(2ULL):case cast<uint16_t>(3ULL):case cast<uint16_t>(4ULL):{
 if ((hdr.Command == cast<uint16_t>(2ULL))) {
 uint32_t ev1 = n3ds_Machine_newHandle(m,std::string("apt-notify",10),true);
 uint32_t ev2 = n3ds_Machine_newHandle(m,std::string("apt-resume",10),true);
-auto tmp317 = std::make_tuple(ev1,ev2);
-m->aptNotifyEv = std::get<0>(tmp317);
-m->aptResumeEv = std::get<1>(tmp317);
+auto tmp322 = std::make_tuple(ev1,ev2);
+m->aptNotifyEv = std::get<0>(tmp322);
+m->aptResumeEv = std::get<1>(tmp322);
 n3ds_Machine_WriteWord(m,n3ds_Machine_cmdBuf(m),cast<uint32_t>((cast<uint32_t>((shl<uint32_t>(cast<uint32_t>(hdr.Command),cast<int64_t>(16ULL)) | cast<uint32_t>(64ULL))) | cast<uint32_t>(4ULL))));
 n3ds_Machine_WriteWord(m,cast<uint32_t>((n3ds_Machine_cmdBuf(m) + cast<uint32_t>(4ULL))),cast<uint32_t>(0ULL));
 n3ds_Machine_WriteWord(m,cast<uint32_t>((n3ds_Machine_cmdBuf(m) + cast<uint32_t>(8ULL))),cast<uint32_t>(0ULL));
@@ -13509,10 +13639,10 @@ bool n3ds_Machine_ipcCFG(n3ds_Machine* m,n3ds_ipcHeader hdr){
 {
 switch(hdr.Command){
 case cast<uint16_t>(1ULL):{
-auto tmp318 = std::make_tuple(n3ds_Machine_ipcArg(m,cast<int64_t>(1ULL)),n3ds_Machine_ipcArg(m,cast<int64_t>(2ULL)),n3ds_Machine_ipcArg(m,cast<int64_t>(4ULL)));
-uint32_t size = std::get<0>(tmp318);
-uint32_t blkID = std::get<1>(tmp318);
-uint32_t out = std::get<2>(tmp318);
+auto tmp323 = std::make_tuple(n3ds_Machine_ipcArg(m,cast<int64_t>(1ULL)),n3ds_Machine_ipcArg(m,cast<int64_t>(2ULL)),n3ds_Machine_ipcArg(m,cast<int64_t>(4ULL)));
+uint32_t size = std::get<0>(tmp323);
+uint32_t blkID = std::get<1>(tmp323);
+uint32_t out = std::get<2>(tmp323);
 n3ds_Machine_writeConfigBlock(m,blkID,out,size);
 n3ds_Machine_ipcReply(m,hdr.Command,Slice<uint32_t>{cast<uint32_t>(0ULL)});
 return true;
@@ -13560,18 +13690,18 @@ buf[cast<int64_t>(0ULL)] = cast<uint8_t>(1ULL);
 break;}
 case cast<uint32_t>(1245184ULL):{
 if ((size >= cast<uint32_t>(4ULL))) {
-auto tmp319 = std::make_tuple(cast<uint8_t>(1ULL),cast<uint8_t>(0ULL));
-buf[cast<int64_t>(0ULL)] = std::get<0>(tmp319);
-buf[cast<int64_t>(1ULL)] = std::get<1>(tmp319);
-auto tmp320 = std::make_tuple(cast<uint8_t>(1ULL),cast<uint8_t>(0ULL));
-buf[cast<int64_t>(2ULL)] = std::get<0>(tmp320);
-buf[cast<int64_t>(3ULL)] = std::get<1>(tmp320);
+auto tmp324 = std::make_tuple(cast<uint8_t>(1ULL),cast<uint8_t>(0ULL));
+buf[cast<int64_t>(0ULL)] = std::get<0>(tmp324);
+buf[cast<int64_t>(1ULL)] = std::get<1>(tmp324);
+auto tmp325 = std::make_tuple(cast<uint8_t>(1ULL),cast<uint8_t>(0ULL));
+buf[cast<int64_t>(2ULL)] = std::get<0>(tmp325);
+buf[cast<int64_t>(3ULL)] = std::get<1>(tmp325);
 }
 break;}
 case cast<uint32_t>(327685ULL):{
-{auto&& tmp321 = n3ds_cfgStereoCamera;
-for(int64_t tmp322=0;tmp322<len(tmp321);++tmp322){
-auto i=tmp322;auto f=tmp321[tmp322];{
+{auto&& tmp326 = n3ds_cfgStereoCamera;
+for(int64_t tmp327=0;tmp327<len(tmp326);++tmp327){
+auto i=tmp327;auto f=tmp326[tmp327];{
 uint32_t off = cast<uint32_t>((cast<uint32_t>(i) * cast<uint32_t>(4ULL)));
 if ((cast<uint32_t>((off + cast<uint32_t>(4ULL))) <= size)) {
 le_PutUint32(sub(buf,off,len(buf)),go_math_Float32bits(f));
@@ -13714,9 +13844,9 @@ Slice<uint32_t> hits={};
 if ((len(pat) == cast<int64_t>(0ULL))) {
 return hits;
 }
-{auto&& tmp323 = m->regions;
-for(int64_t tmp324=0;tmp324<len(tmp323);++tmp324){
-auto r=tmp323[tmp324];Slice<uint8_t> d = r->data;
+{auto&& tmp328 = m->regions;
+for(int64_t tmp329=0;tmp329<len(tmp328);++tmp329){
+auto r=tmp328[tmp329];Slice<uint8_t> d = r->data;
 {int64_t i = cast<int64_t>(0ULL);for (;(cast<int64_t>((i + len(pat))) <= len(d));i++){
 if (((d[i] == pat[cast<int64_t>(0ULL)]) && (cast<std::string>(sub(d,i,cast<int64_t>((i + len(pat))))) == cast<std::string>(pat)))) {
 hits = append(hits,cast<uint32_t>((r->base + cast<uint32_t>(i))));
@@ -13732,45 +13862,45 @@ return hits;
 // tools/platform/n3ds/machine.go:316:1
 std::tuple<n3ds_Machine*,Error> n3ds_NewMachine(Slice<uint8_t> img){
 {
-auto tmp325 = n3ds_ParseNCSD(img);
-n3ds_NCSD* ncsd = std::get<0>(tmp325);
-Error err = std::get<1>(tmp325);
+auto tmp330 = n3ds_ParseNCSD(img);
+n3ds_NCSD* ncsd = std::get<0>(tmp330);
+Error err = std::get<1>(tmp330);
 if (bool(err)) {
 return {{},err};
 }
-auto tmp326 = n3ds_NCSD_Executable(ncsd);
-n3ds_NCCH* cxi = std::get<0>(tmp326);
-err = std::get<1>(tmp326);
+auto tmp331 = n3ds_NCSD_Executable(ncsd);
+n3ds_NCCH* cxi = std::get<0>(tmp331);
+err = std::get<1>(tmp331);
 if (bool(err)) {
 return {{},err};
 }
 if (n3ds_NCCH_Encrypted(cxi)) {
 return {{},go_fmt_Errorf(std::string("n3ds: partition 0 is encrypted (%s); supply a decrypted dump",60),n3ds_NCCH_CryptoMethod(cxi))};
 }
-auto tmp327 = n3ds_NCCH_ExHeader(cxi);
-n3ds_ExHeader* ex = std::get<0>(tmp327);
-err = std::get<1>(tmp327);
+auto tmp332 = n3ds_NCCH_ExHeader(cxi);
+n3ds_ExHeader* ex = std::get<0>(tmp332);
+err = std::get<1>(tmp332);
 if (bool(err)) {
 return {{},err};
 }
-auto tmp328 = n3ds_NCCH_ExeFS(cxi);
-n3ds_ExeFS* efs = std::get<0>(tmp328);
-err = std::get<1>(tmp328);
+auto tmp333 = n3ds_NCCH_ExeFS(cxi);
+n3ds_ExeFS* efs = std::get<0>(tmp333);
+err = std::get<1>(tmp333);
 if (bool(err)) {
 return {{},err};
 }
-auto tmp329 = n3ds_ExeFS_Code(efs,ex);
-Slice<uint8_t> code = std::get<0>(tmp329);
-err = std::get<1>(tmp329);
+auto tmp334 = n3ds_ExeFS_Code(efs,ex);
+Slice<uint8_t> code = std::get<0>(tmp334);
+err = std::get<1>(tmp334);
 if (bool(err)) {
 return {{},err};
 }
 n3ds_Machine* m = arenaNew(n3ds_Machine{{},{},{},{},{},{},ex->Text.Address,{},{},{},{},Map<uint32_t,n3ds_kobject*>{},cast<uint32_t>(65536ULL),Map<uint32_t,std::string>{},Map<uint32_t,std::string>{},{},{},{},{},{},{},{},{},{},{},{},Map<uint32_t,n3ds_fsFile*>{},Map<uint32_t,n3ds_fsDir*>{},Map<uint32_t,uint32_t>{},Map<std::string,Slice<uint8_t>>{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},Map<uint32_t,bool>{},{},{},{},{},{},{},cxi->ProgramID});
 m->gpu = n3ds_newGPU(m);
-auto tmp330 = n3ds_NCCH_RomFS(cxi);
-m->romfs = std::get<0>(tmp330);
-auto tmp331 = n3ds_NCCH_RomFSBytes(cxi);
-m->romfsRaw = std::get<0>(tmp331);
+auto tmp335 = n3ds_NCCH_RomFS(cxi);
+m->romfs = std::get<0>(tmp335);
+auto tmp336 = n3ds_NCCH_RomFSBytes(cxi);
+m->romfsRaw = std::get<0>(tmp336);
 uint32_t total = cast<uint32_t>((n3ds_ExHeader_CodeSize(ex) + ex->BSSSize));
 Slice<uint8_t> codeMem = Slice<uint8_t>::make(total);
 gcopy(codeMem,code);
@@ -13780,9 +13910,9 @@ if ((stackSize == cast<uint32_t>(0ULL))) {
 stackSize = cast<uint32_t>(16384ULL);
 }
 m->stackReg = n3ds_Machine_mapRegion(m,std::string("stack",5),cast<uint32_t>((cast<uint32_t>(268435456ULL) - stackSize)),Slice<uint8_t>::make(stackSize));
-auto tmp332 = std::make_tuple(cast<uint32_t>(134217728ULL),cast<uint32_t>(335544320ULL));
-m->heapPtr = std::get<0>(tmp332);
-m->linearPtr = std::get<1>(tmp332);
+auto tmp337 = std::make_tuple(cast<uint32_t>(134217728ULL),cast<uint32_t>(335544320ULL));
+m->heapPtr = std::get<0>(tmp337);
+m->linearPtr = std::get<1>(tmp337);
 m->heapReg = n3ds_Machine_mapRegion(m,std::string("heap",4),cast<uint32_t>(134217728ULL),{});
 m->linearReg = n3ds_Machine_mapRegion(m,std::string("linear",6),cast<uint32_t>(335544320ULL),{});
 n3ds_Machine_mapRegion(m,std::string("config",6),cast<uint32_t>(536346624ULL),n3ds_Machine_buildConfigPage(m));
@@ -13863,9 +13993,9 @@ return r;
 }
 }
 }
-{auto&& tmp333 = m->regions;
-for(int64_t tmp334=0;tmp334<len(tmp333);++tmp334){
-auto r=tmp333[tmp334];if (n3ds_memRegion_contains(r,a)) {
+{auto&& tmp338 = m->regions;
+for(int64_t tmp339=0;tmp339<len(tmp338);++tmp339){
+auto r=tmp338[tmp339];if (n3ds_memRegion_contains(r,a)) {
 return r;
 }
 }}
@@ -13956,12 +14086,12 @@ void n3ds_Machine_copyRange(n3ds_Machine* m,uint32_t dst,uint32_t src,uint32_t s
 if ((size == cast<uint32_t>(0ULL))) {
 return ;
 }
-auto tmp335 = n3ds_Machine_directRange(m,dst,size);
-Slice<uint8_t> d = std::get<0>(tmp335);
-uint32_t doff = std::get<1>(tmp335);
-auto tmp336 = n3ds_Machine_directRange(m,src,size);
-Slice<uint8_t> s = std::get<0>(tmp336);
-uint32_t soff = std::get<1>(tmp336);
+auto tmp340 = n3ds_Machine_directRange(m,dst,size);
+Slice<uint8_t> d = std::get<0>(tmp340);
+uint32_t doff = std::get<1>(tmp340);
+auto tmp341 = n3ds_Machine_directRange(m,src,size);
+Slice<uint8_t> s = std::get<0>(tmp341);
+uint32_t soff = std::get<1>(tmp341);
 if ((bool(d) && bool(s))) {
 gcopy(sub(d,doff,cast<uint32_t>((doff + size))),sub(s,soff,cast<uint32_t>((soff + size))));
 return ;
@@ -13992,9 +14122,9 @@ out = append(out,b[src]);
 src++;
 }
 else {
-auto tmp337 = std::make_tuple(b[src],b[cast<int64_t>((src + cast<int64_t>(1ULL)))]);
-uint8_t b1 = std::get<0>(tmp337);
-uint8_t b2 = std::get<1>(tmp337);
+auto tmp342 = std::make_tuple(b[src],b[cast<int64_t>((src + cast<int64_t>(1ULL)))]);
+uint8_t b1 = std::get<0>(tmp342);
+uint8_t b2 = std::get<1>(tmp342);
 src += cast<int64_t>(2ULL);
 int64_t dist = cast<int64_t>(((cast<int64_t>((shl<int64_t>(cast<int64_t>(cast<uint8_t>((b1 & cast<uint8_t>(15ULL)))),cast<int64_t>(8ULL)) | cast<int64_t>(b2)))) + cast<int64_t>(1ULL)));
 int64_t n = cast<int64_t>(shr<uint8_t>(b1,cast<int64_t>(4ULL)));
@@ -14043,9 +14173,9 @@ return {{},go_fmt_Errorf(std::string("NARC: GMIF not after BTNF",25))};
 }
 uint32_t gmifData = cast<uint32_t>((gmifOff + cast<uint32_t>(8ULL)));
 Slice<Slice<uint8_t>> files = Slice<Slice<uint8_t>>::make(n);
-{auto&& tmp338 = fat;
-for(int64_t tmp339=0;tmp339<len(tmp338);++tmp339){
-auto i=tmp339;auto ext=tmp338[tmp339];files[i] = sub(d,cast<uint32_t>((gmifData + ext[cast<int64_t>(0ULL)])),cast<uint32_t>((gmifData + ext[cast<int64_t>(1ULL)])));
+{auto&& tmp343 = fat;
+for(int64_t tmp344=0;tmp344<len(tmp343);++tmp344){
+auto i=tmp344;auto ext=tmp343[tmp344];files[i] = sub(d,cast<uint32_t>((gmifData + ext[cast<int64_t>(0ULL)])),cast<uint32_t>((gmifData + ext[cast<int64_t>(1ULL)])));
 }}
 return {files,{}};
 }
@@ -14066,8 +14196,8 @@ std::string mag = cast<std::string>(sub(fd,p,cast<int64_t>((p + cast<int64_t>(4U
 int64_t size = cast<int64_t>(le_Uint32(sub(fd,cast<int64_t>((p + cast<int64_t>(4ULL))),len(fd))));
 Slice<uint8_t> body = sub(fd,cast<int64_t>((p + cast<int64_t>(16ULL))),cast<int64_t>((cast<int64_t>((p + cast<int64_t>(16ULL))) + size)));
 {
-auto tmp341=mag;
-if (tmp341==(std::string("TXT2",4))){
+auto tmp346=mag;
+if (tmp346==(std::string("TXT2",4))){
 int64_t cnt = cast<int64_t>(le_Uint32(sub(body,cast<int64_t>(0ULL),len(body))));
 {int64_t i = cast<int64_t>(0ULL);for (;(i < cnt);i++){
 int64_t start = cast<int64_t>(le_Uint32(sub(body,cast<int64_t>((cast<int64_t>(4ULL) + cast<int64_t>((i * cast<int64_t>(4ULL))))),len(body))));
@@ -14078,7 +14208,7 @@ end = cast<int64_t>(le_Uint32(sub(body,cast<int64_t>((cast<int64_t>(4ULL) + cast
 texts = append(texts,n3ds_decodeUTF16(sub(body,start,end)));
 }
 }}
-else if (tmp341==(std::string("LBL1",4))){
+else if (tmp346==(std::string("LBL1",4))){
 int64_t ngrp = cast<int64_t>(le_Uint32(sub(body,cast<int64_t>(0ULL),len(body))));
 {int64_t g = cast<int64_t>(0ULL);for (;(g < ngrp);g++){
 int64_t num = cast<int64_t>(le_Uint32(sub(body,cast<int64_t>((cast<int64_t>(4ULL) + cast<int64_t>((g * cast<int64_t>(8ULL))))),len(body))));
@@ -14096,14 +14226,14 @@ labels[idx] = name;
 }}
 }}
 }
-tmp340:;
+tmp345:;
 p += cast<int64_t>((cast<int64_t>(16ULL) + size));
 p = ((cast<int64_t>((p + cast<int64_t>(15ULL)))) & ~(cast<int64_t>(15ULL)));
 }
 }Slice<n3ds_MSBTMessage> out = Slice<n3ds_MSBTMessage>::make(len(texts));
-{auto&& tmp342 = texts;
-for(int64_t tmp343=0;tmp343<len(tmp342);++tmp343){
-auto i=tmp343;auto t=tmp342[tmp343];out[i] = n3ds_MSBTMessage{i,get(labels,i),t};
+{auto&& tmp347 = texts;
+for(int64_t tmp348=0;tmp348<len(tmp347);++tmp348){
+auto i=tmp348;auto t=tmp347[tmp348];out[i] = n3ds_MSBTMessage{i,get(labels,i),t};
 }}
 return {out,{}};
 }
@@ -14156,9 +14286,9 @@ c->PlainRegion = rd(cast<int64_t>(144ULL));
 c->LogoRegion = rd(cast<int64_t>(152ULL));
 c->ExeFSRegion = rd(cast<int64_t>(160ULL));
 c->RomFSRegion = rd(cast<int64_t>(176ULL));
-{auto&& tmp344 = Slice<Anon53>{Anon53{std::string("plain",5),c->PlainRegion},Anon53{std::string("logo",4),c->LogoRegion},Anon53{std::string("exefs",5),c->ExeFSRegion},Anon53{std::string("romfs",5),c->RomFSRegion}};
-for(int64_t tmp345=0;tmp345<len(tmp344);++tmp345){
-auto r=tmp344[tmp345];if (((!n3ds_region_empty(r.reg)) && (cast<int64_t>((r.reg.Offset + r.reg.Size)) > cast<int64_t>(len(part))))) {
+{auto&& tmp349 = Slice<Anon53>{Anon53{std::string("plain",5),c->PlainRegion},Anon53{std::string("logo",4),c->LogoRegion},Anon53{std::string("exefs",5),c->ExeFSRegion},Anon53{std::string("romfs",5),c->RomFSRegion}};
+for(int64_t tmp350=0;tmp350<len(tmp349);++tmp350){
+auto r=tmp349[tmp350];if (((!n3ds_region_empty(r.reg)) && (cast<int64_t>((r.reg.Offset + r.reg.Size)) > cast<int64_t>(len(part))))) {
 return {{},go_fmt_Errorf(std::string("n3ds: %s region [0x%x+0x%x] runs past the partition end (0x%x)",62),r.name,r.reg.Offset,r.reg.Size,len(part))};
 }
 }}
@@ -14198,9 +14328,9 @@ std::string n3ds_NCCH_ContentType(n3ds_NCCH* c){
 uint8_t f = c->Flags[cast<int64_t>(5ULL)];
 Slice<Anon54> names = Slice<Anon54>{Anon54{cast<uint8_t>(1ULL),std::string("Data",4)},Anon54{cast<uint8_t>(2ULL),std::string("Executable",10)},Anon54{cast<uint8_t>(4ULL),std::string("SystemUpdate",12)},Anon54{cast<uint8_t>(8ULL),std::string("Manual",6)},Anon54{cast<uint8_t>(16ULL),std::string("Child",5)},Anon54{cast<uint8_t>(32ULL),std::string("Trial",5)}};
 std::string out = std::string("",0);
-{auto&& tmp346 = names;
-for(int64_t tmp347=0;tmp347<len(tmp346);++tmp347){
-auto n=tmp346[tmp347];if ((cast<uint8_t>((f & n.bit)) != cast<uint8_t>(0ULL))) {
+{auto&& tmp351 = names;
+for(int64_t tmp352=0;tmp352<len(tmp351);++tmp352){
+auto n=tmp351[tmp352];if ((cast<uint8_t>((f & n.bit)) != cast<uint8_t>(0ULL))) {
 if ((out != std::string("",0))) {
 out += std::string("|",1);
 }
@@ -14244,9 +14374,9 @@ return {sub(c->raw,start,cast<int64_t>((start + c->ExHeaderSize))),{}};
 // tools/platform/n3ds/ncch.go:174:1
 std::tuple<n3ds_ExHeader*,Error> n3ds_NCCH_ExHeader(n3ds_NCCH* c){
 {
-auto tmp348 = n3ds_NCCH_ExHeaderBytes(c);
-Slice<uint8_t> b = std::get<0>(tmp348);
-Error err = std::get<1>(tmp348);
+auto tmp353 = n3ds_NCCH_ExHeaderBytes(c);
+Slice<uint8_t> b = std::get<0>(tmp353);
+Error err = std::get<1>(tmp353);
 if (bool(err)) {
 return {{},err};
 }
@@ -14272,9 +14402,9 @@ return {sub(c->raw,r.Offset,cast<int64_t>((r.Offset + r.Size))),{}};
 // tools/platform/n3ds/ncch.go:195:1
 std::tuple<n3ds_ExeFS*,Error> n3ds_NCCH_ExeFS(n3ds_NCCH* c){
 {
-auto tmp349 = n3ds_NCCH_ExeFSBytes(c);
-Slice<uint8_t> b = std::get<0>(tmp349);
-Error err = std::get<1>(tmp349);
+auto tmp354 = n3ds_NCCH_ExeFSBytes(c);
+Slice<uint8_t> b = std::get<0>(tmp354);
+Error err = std::get<1>(tmp354);
 if (bool(err)) {
 return {{},err};
 }
@@ -14300,9 +14430,9 @@ return {sub(c->raw,r.Offset,cast<int64_t>((r.Offset + r.Size))),{}};
 // tools/platform/n3ds/ncch.go:216:1
 std::tuple<n3ds_RomFS*,Error> n3ds_NCCH_RomFS(n3ds_NCCH* c){
 {
-auto tmp350 = n3ds_NCCH_RomFSBytes(c);
-Slice<uint8_t> b = std::get<0>(tmp350);
-Error err = std::get<1>(tmp350);
+auto tmp355 = n3ds_NCCH_RomFSBytes(c);
+Slice<uint8_t> b = std::get<0>(tmp355);
+Error err = std::get<1>(tmp355);
 if (bool(err)) {
 return {{},err};
 }
@@ -14312,9 +14442,9 @@ return n3ds_ParseRomFS(b);
 // tools/platform/n3ds/ncch.go:224:1
 Slice<uint8_t> n3ds_trimNul(Slice<uint8_t> b){
 {
-{auto&& tmp351 = b;
-for(int64_t tmp352=0;tmp352<len(tmp351);++tmp352){
-auto i=tmp352;auto v=tmp351[tmp352];if ((v == cast<uint8_t>(0ULL))) {
+{auto&& tmp356 = b;
+for(int64_t tmp357=0;tmp357<len(tmp356);++tmp357){
+auto i=tmp357;auto v=tmp356[tmp357];if ((v == cast<uint8_t>(0ULL))) {
 return sub(b,0,i);
 }
 }}
@@ -14407,9 +14537,9 @@ return cast<uint32_t>((cast<uint32_t>((cast<uint32_t>((cast<uint32_t>(buf[off]) 
 Slice<n3ds_PICAWrite> ws = dst;
 uint32_t off = cast<uint32_t>(0ULL);
 {;for (;(cast<uint32_t>((off + cast<uint32_t>(8ULL))) <= cast<uint32_t>(len(buf)));){
-auto tmp353 = std::make_tuple(word(off),word(cast<uint32_t>((off + cast<uint32_t>(4ULL)))));
-uint32_t param = std::get<0>(tmp353);
-uint32_t hdr = std::get<1>(tmp353);
+auto tmp358 = std::make_tuple(word(off),word(cast<uint32_t>((off + cast<uint32_t>(4ULL)))));
+uint32_t param = std::get<0>(tmp358);
+uint32_t hdr = std::get<1>(tmp358);
 uint16_t reg = cast<uint16_t>(cast<uint32_t>((hdr & cast<uint32_t>(65535ULL))));
 uint8_t mask = cast<uint8_t>(cast<uint32_t>((shr<uint32_t>(hdr,cast<int64_t>(16ULL)) & cast<uint32_t>(15ULL))));
 uint32_t n = cast<uint32_t>((shr<uint32_t>(hdr,cast<int64_t>(20ULL)) & cast<uint32_t>(255ULL)));
@@ -14475,7 +14605,7 @@ else {
 return std::string("unknown-2C0",11);
 }
 }
-tmp354:;
+tmp359:;
 }
 }
 // tools/platform/n3ds/profile.go:109:1
@@ -14510,9 +14640,9 @@ void n3ds_Machine_profRunEnter(n3ds_Machine* m){
 if ((!m->Profile)) {
 return ;
 }
-auto tmp355 = std::make_tuple(go_time_Now(),true);
-m->prof.runStart = std::get<0>(tmp355);
-m->prof.inRun = std::get<1>(tmp355);
+auto tmp360 = std::make_tuple(go_time_Now(),true);
+m->prof.runStart = std::get<0>(tmp360);
+m->prof.inRun = std::get<1>(tmp360);
 }
 }
 // tools/platform/n3ds/profile.go:140:1
@@ -14566,13 +14696,13 @@ n3ds_profCounters d = n3ds_profCounters{cast<int64_t>((now.draws - p->base.draws
 int64_t instrs = cast<int64_t>(cast<uint64_t>((m->instrs - p->baseInstr)));
 p->last = n3ds_FrameProfile{ms(total),buckets,Slice<n3ds_ProfileCounter>{n3ds_ProfileCounter{std::string("draws",5),d.draws},n3ds_ProfileCounter{std::string("fragments drawn",15),d.frags},n3ds_ProfileCounter{std::string("depth-killed",12),d.depthKilled},n3ds_ProfileCounter{std::string("tris culled",11),d.culled},n3ds_ProfileCounter{std::string("tris w-rejected",15),d.rejected},n3ds_ProfileCounter{std::string("shadow writes",13),d.shadowWrites},n3ds_ProfileCounter{std::string("list hops",9),d.listHops},n3ds_ProfileCounter{std::string("arm11 instructions",18),instrs},n3ds_ProfileCounter{std::string("idle skips",10),p->idleSkips}},(d.draws > cast<int64_t>(0ULL))};
 p->has = true;
-auto tmp356 = std::make_tuple(std::array<int64_t,7>{},std::array<int64_t,7>{});
-p->ns = std::get<0>(tmp356);
-p->count = std::get<1>(tmp356);
+auto tmp361 = std::make_tuple(std::array<int64_t,7>{},std::array<int64_t,7>{});
+p->ns = std::get<0>(tmp361);
+p->count = std::get<1>(tmp361);
 p->idleSkips = cast<int64_t>(0ULL);
-auto tmp357 = std::make_tuple(now,m->instrs);
-p->base = std::get<0>(tmp357);
-p->baseInstr = std::get<1>(tmp357);
+auto tmp362 = std::make_tuple(now,m->instrs);
+p->base = std::get<0>(tmp362);
+p->baseInstr = std::get<1>(tmp362);
 }
 }
 // tools/platform/n3ds/profile.go:225:1
@@ -14590,9 +14720,9 @@ void n3ds_Machine_SetProfile(n3ds_Machine* m,bool on){
 m->Profile = on;
 m->prof = n3ds_profState{};
 if (on) {
-auto tmp358 = std::make_tuple(n3ds_Machine_profCounters(m),m->instrs);
-m->prof.base = std::get<0>(tmp358);
-m->prof.baseInstr = std::get<1>(tmp358);
+auto tmp363 = std::make_tuple(n3ds_Machine_profCounters(m),m->instrs);
+m->prof.base = std::get<0>(tmp363);
+m->prof.baseInstr = std::get<1>(tmp363);
 }
 }
 }
@@ -14628,9 +14758,9 @@ return {{},go_fmt_Errorf(std::string("romfs: bad IVFC magic number 0x%08x, want 
 }
 uint64_t masterHashSize = cast<uint64_t>(le_Uint32(sub(b,cast<int64_t>(8ULL),len(b))));
 std::array<n3ds_ivfcLevel,3> lvl={};
-{auto&& tmp359 = lvl;
-for(int64_t tmp360=0;tmp360<len(tmp359);++tmp360){
-auto i=tmp360;int64_t o = cast<int64_t>((cast<int64_t>(12ULL) + cast<int64_t>((i * cast<int64_t>(24ULL)))));
+{auto&& tmp364 = lvl;
+for(int64_t tmp365=0;tmp365<len(tmp364);++tmp365){
+auto i=tmp365;int64_t o = cast<int64_t>((cast<int64_t>(12ULL) + cast<int64_t>((i * cast<int64_t>(24ULL)))));
 lvl[i] = n3ds_ivfcLevel{le_Uint64(sub(b,o,len(b))),le_Uint64(sub(b,cast<int64_t>((o + cast<int64_t>(8ULL))),len(b))),le_Uint32(sub(b,cast<int64_t>((o + cast<int64_t>(16ULL))),len(b)))};
 }}
 uint64_t l3Off = n3ds_align64(cast<uint64_t>((cast<uint64_t>(96ULL) + masterHashSize)),n3ds_ivfcLevel_blockSize(lvl[cast<int64_t>(2ULL)]));
@@ -14655,16 +14785,16 @@ auto u32 = [&](int64_t o)->uint32_t{
 return le_Uint32(sub(l3,o,len(l3)));
 }
 ;
-auto tmp361 = std::make_tuple(u32(cast<int64_t>(12ULL)),u32(cast<int64_t>(16ULL)));
-uint32_t dirMetaOff = std::get<0>(tmp361);
-uint32_t dirMetaLen = std::get<1>(tmp361);
-auto tmp362 = std::make_tuple(u32(cast<int64_t>(28ULL)),u32(cast<int64_t>(32ULL)));
-uint32_t fileMetaOff = std::get<0>(tmp362);
-uint32_t fileMetaLen = std::get<1>(tmp362);
+auto tmp366 = std::make_tuple(u32(cast<int64_t>(12ULL)),u32(cast<int64_t>(16ULL)));
+uint32_t dirMetaOff = std::get<0>(tmp366);
+uint32_t dirMetaLen = std::get<1>(tmp366);
+auto tmp367 = std::make_tuple(u32(cast<int64_t>(28ULL)),u32(cast<int64_t>(32ULL)));
+uint32_t fileMetaOff = std::get<0>(tmp367);
+uint32_t fileMetaLen = std::get<1>(tmp367);
 uint32_t fileDataOff = u32(cast<int64_t>(36ULL));
-{auto&& tmp363 = Slice<Anon67>{Anon67{std::string("dir meta",8),dirMetaOff,dirMetaLen},Anon67{std::string("file meta",9),fileMetaOff,fileMetaLen}};
-for(int64_t tmp364=0;tmp364<len(tmp363);++tmp364){
-auto r=tmp363[tmp364];if ((cast<uint64_t>((cast<uint64_t>((cast<uint64_t>(off) + cast<uint64_t>(r.off))) + cast<uint64_t>(r.len))) > cast<uint64_t>(len(b)))) {
+{auto&& tmp368 = Slice<Anon67>{Anon67{std::string("dir meta",8),dirMetaOff,dirMetaLen},Anon67{std::string("file meta",9),fileMetaOff,fileMetaLen}};
+for(int64_t tmp369=0;tmp369<len(tmp368);++tmp369){
+auto r=tmp368[tmp369];if ((cast<uint64_t>((cast<uint64_t>((cast<uint64_t>(off) + cast<uint64_t>(r.off))) + cast<uint64_t>(r.len))) > cast<uint64_t>(len(b)))) {
 return {{},go_fmt_Errorf(std::string("romfs: %s table [0x%x+0x%x] runs past the region end",52),r.name,r.off,r.len)};
 }
 }}
@@ -14696,9 +14826,9 @@ auto u32 = [&](int64_t o)->uint32_t{
 return le_Uint32(sub(d,o,len(d)));
 }
 ;
-auto tmp365 = std::make_tuple(u32(cast<int64_t>(8ULL)),u32(cast<int64_t>(12ULL)));
-uint32_t firstChild = std::get<0>(tmp365);
-uint32_t firstFile = std::get<1>(tmp365);
+auto tmp370 = std::make_tuple(u32(cast<int64_t>(8ULL)),u32(cast<int64_t>(12ULL)));
+uint32_t firstChild = std::get<0>(tmp370);
+uint32_t firstFile = std::get<1>(tmp370);
 {uint32_t fo = firstFile;for (;(fo != cast<uint32_t>(4294967295ULL));){
 if ((cast<int64_t>((cast<int64_t>(fo) + cast<int64_t>(32ULL))) > len(fileMeta))) {
 return go_fmt_Errorf(std::string("romfs: file entry at 0x%x runs past the metadata table",54),fo);
@@ -14707,9 +14837,9 @@ Slice<uint8_t> f = sub(fileMeta,fo,len(fileMeta));
 int64_t dataOff = cast<int64_t>(le_Uint64(sub(f,cast<int64_t>(8ULL),len(f))));
 int64_t dataLen = cast<int64_t>(le_Uint64(sub(f,cast<int64_t>(16ULL),len(f))));
 uint32_t nameLen = le_Uint32(sub(f,cast<int64_t>(28ULL),len(f)));
-auto tmp366 = n3ds_utf16Name(f,cast<int64_t>(32ULL),nameLen,cast<int64_t>((len(fileMeta) - cast<int64_t>(fo))));
-std::string name = std::get<0>(tmp366);
-Error err = std::get<1>(tmp366);
+auto tmp371 = n3ds_utf16Name(f,cast<int64_t>(32ULL),nameLen,cast<int64_t>((len(fileMeta) - cast<int64_t>(fo))));
+std::string name = std::get<0>(tmp371);
+Error err = std::get<1>(tmp371);
 if (bool(err)) {
 return go_fmt_Errorf(std::string("romfs: file entry at 0x%x: %w",29),fo,err);
 }
@@ -14725,9 +14855,9 @@ return go_fmt_Errorf(std::string("romfs: directory entry at 0x%x runs past the m
 }
 Slice<uint8_t> c = sub(dirMeta,co,len(dirMeta));
 uint32_t nameLen = le_Uint32(sub(c,cast<int64_t>(20ULL),len(c)));
-auto tmp367 = n3ds_utf16Name(c,cast<int64_t>(24ULL),nameLen,cast<int64_t>((len(dirMeta) - cast<int64_t>(co))));
-std::string name = std::get<0>(tmp367);
-Error err = std::get<1>(tmp367);
+auto tmp372 = n3ds_utf16Name(c,cast<int64_t>(24ULL),nameLen,cast<int64_t>((len(dirMeta) - cast<int64_t>(co))));
+std::string name = std::get<0>(tmp372);
+Error err = std::get<1>(tmp372);
 if (bool(err)) {
 return go_fmt_Errorf(std::string("romfs: directory entry at 0x%x: %w",34),co,err);
 }
@@ -14754,9 +14884,9 @@ if ((cast<int64_t>((off + cast<int64_t>(nameLen))) > avail)) {
 return {std::string("",0),go_fmt_Errorf(std::string("name of %d bytes runs past the entry",36),nameLen)};
 }
 Slice<uint16_t> u = Slice<uint16_t>::make(divi<uint32_t>(nameLen,cast<uint32_t>(2ULL)));
-{auto&& tmp368 = u;
-for(int64_t tmp369=0;tmp369<len(tmp368);++tmp369){
-auto i=tmp369;u[i] = le_Uint16(sub(e,cast<int64_t>((off + cast<int64_t>((i * cast<int64_t>(2ULL))))),len(e)));
+{auto&& tmp373 = u;
+for(int64_t tmp374=0;tmp374<len(tmp373);++tmp374){
+auto i=tmp374;u[i] = le_Uint16(sub(e,cast<int64_t>((off + cast<int64_t>((i * cast<int64_t>(2ULL))))),len(e)));
 }}
 std::string name = cast<std::string>(go_utf16_Decode(u));
 if (((name == std::string("",0)) || go_strings_ContainsAny(name,std::string("/\000",2)))) {
@@ -14806,9 +14936,9 @@ n3ds_RomFSFile f{};
 int64_t within{};
 bool ok{};
 {
-{auto&& tmp370 = fs->Files;
-for(int64_t tmp371=0;tmp371<len(tmp370);++tmp371){
-auto cand=tmp370[tmp371];{
+{auto&& tmp375 = fs->Files;
+for(int64_t tmp376=0;tmp376<len(tmp375);++tmp376){
+auto cand=tmp375[tmp376];{
 int64_t s = n3ds_RomFS_L3Offset(fs,cand);
 if (((l3Off >= s) && (l3Off < cast<int64_t>((s + cand.Size))))) {
 return {cand,cast<int64_t>((l3Off - s)),true};
@@ -14824,10 +14954,10 @@ int64_t n3ds_Machine_Run(n3ds_Machine* m,int64_t budget){
 int64_t n = cast<int64_t>(0ULL);
 int64_t idleFrames = cast<int64_t>(0ULL);
 n3ds_Machine_profRunEnter(m);
-auto tmp372=defer([&](){n3ds_Machine_profRunExit(m);});
-auto tmp373 = std::make_tuple(false,false);
-m->stopped = std::get<0>(tmp373);
-m->StopRequested = std::get<1>(tmp373);
+auto tmp377=defer([&](){n3ds_Machine_profRunExit(m);});
+auto tmp378 = std::make_tuple(false,false);
+m->stopped = std::get<0>(tmp378);
+m->StopRequested = std::get<1>(tmp378);
 {;for (;(n < budget);){
 if ((m->CPU->Halted || m->StopRequested)) {
 break;
@@ -14843,49 +14973,49 @@ n3ds_Machine_processGXQueue(m);
 n3ds_thread* t = n3ds_Machine_pickRunnable(m);
 if ((!t)) {
 constexpr uint64_t never=18446744073709551615ULL;
-auto tmp374 = std::make_tuple(cast<uint64_t>(18446744073709551615ULL),std::string("",0));
-uint64_t next = std::get<0>(tmp374);
-std::string kind = std::get<1>(tmp374);
+auto tmp379 = std::make_tuple(cast<uint64_t>(18446744073709551615ULL),std::string("",0));
+uint64_t next = std::get<0>(tmp379);
+std::string kind = std::get<1>(tmp379);
 {
-auto tmp375 = n3ds_Machine_gxDeadline(m);
-uint64_t dl = std::get<0>(tmp375);
-bool ok = std::get<1>(tmp375);
+auto tmp380 = n3ds_Machine_gxDeadline(m);
+uint64_t dl = std::get<0>(tmp380);
+bool ok = std::get<1>(tmp380);
 if ((ok && (dl < next))) {
-auto tmp376 = std::make_tuple(dl,std::string("gx",2));
-next = std::get<0>(tmp376);
-kind = std::get<1>(tmp376);
+auto tmp381 = std::make_tuple(dl,std::string("gx",2));
+next = std::get<0>(tmp381);
+kind = std::get<1>(tmp381);
 }
 }
 {
-auto tmp377 = n3ds_Machine_dspDeadline(m);
-uint64_t dl = std::get<0>(tmp377);
-bool ok = std::get<1>(tmp377);
+auto tmp382 = n3ds_Machine_dspDeadline(m);
+uint64_t dl = std::get<0>(tmp382);
+bool ok = std::get<1>(tmp382);
 if ((ok && (dl < next))) {
-auto tmp378 = std::make_tuple(dl,std::string("dsp",3));
-next = std::get<0>(tmp378);
-kind = std::get<1>(tmp378);
+auto tmp383 = std::make_tuple(dl,std::string("dsp",3));
+next = std::get<0>(tmp383);
+kind = std::get<1>(tmp383);
 }
 }
 {
-auto tmp379 = n3ds_Machine_soonestSleeper(m);
-uint64_t wt = std::get<0>(tmp379);
-bool ok = std::get<1>(tmp379);
+auto tmp384 = n3ds_Machine_soonestSleeper(m);
+uint64_t wt = std::get<0>(tmp384);
+bool ok = std::get<1>(tmp384);
 if (ok) {
 uint64_t dl = m->instrs;
 if ((wt > m->tick)) {
 dl += divi<uint64_t>((cast<uint64_t>((cast<uint64_t>((wt - m->tick)) + cast<uint64_t>(1ULL)))),cast<uint64_t>(2ULL));
 }
 if ((dl < next)) {
-auto tmp380 = std::make_tuple(dl,std::string("sleep",5));
-next = std::get<0>(tmp380);
-kind = std::get<1>(tmp380);
+auto tmp385 = std::make_tuple(dl,std::string("sleep",5));
+next = std::get<0>(tmp385);
+kind = std::get<1>(tmp385);
 }
 }
 }
 if (((m->gspEvent != cast<uint32_t>(0ULL)) && (m->nextFrameInstr < next))) {
-auto tmp381 = std::make_tuple(m->nextFrameInstr,std::string("vblank",6));
-next = std::get<0>(tmp381);
-kind = std::get<1>(tmp381);
+auto tmp386 = std::make_tuple(m->nextFrameInstr,std::string("vblank",6));
+next = std::get<0>(tmp386);
+kind = std::get<1>(tmp386);
 }
 if (((kind == std::string("",0)) || (idleFrames >= cast<int64_t>(40ULL)))) {
 n3ds_Machine_dumpThreads(m);
@@ -14898,24 +15028,24 @@ m->instrs = next;
 m->prof.idleSkips++;
 }
 {
-auto tmp383=kind;
-if (tmp383==(std::string("gx",2))){
+auto tmp388=kind;
+if (tmp388==(std::string("gx",2))){
 n3ds_Machine_pumpGX(m);
 idleFrames = cast<int64_t>(0ULL);
 }
-else if (tmp383==(std::string("dsp",3))){
+else if (tmp388==(std::string("dsp",3))){
 n3ds_Machine_dspTick(m);
 idleFrames++;
 }
-else if (tmp383==(std::string("sleep",5))){
+else if (tmp388==(std::string("sleep",5))){
 idleFrames = cast<int64_t>(0ULL);
 }
-else if (tmp383==(std::string("vblank",6))){
+else if (tmp388==(std::string("vblank",6))){
 n3ds_Machine_deliverVBlank(m);
 idleFrames++;
 }
 }
-tmp382:;
+tmp387:;
 n3ds_Machine_wakeDueSleepers(m);
 continue;
 }
@@ -14985,7 +15115,7 @@ mm->StopRequested = true;
 }
 }
 ;
-auto tmp384=defer([&](){[&]()->void{
+auto tmp389=defer([&](){[&]()->void{
 m->OnFrame = prev;
 }
 ();});
@@ -15054,9 +15184,9 @@ go_fmt_Printf(std::string("[t%d] %08X: %-22s  r0=%08X r1=%08X r2=%08X r3=%08X sp
 // tools/platform/n3ds/run.go:249:1
 void n3ds_Machine_checkWatches(n3ds_Machine* m,uint32_t pc){
 {
-{auto&& tmp385 = m->watches;
-for(int64_t tmp386=0;tmp386<len(tmp385);++tmp386){
-auto i=tmp386;n3ds_watch* w = (&m->watches[i]);
+{auto&& tmp390 = m->watches;
+for(int64_t tmp391=0;tmp391<len(tmp390);++tmp391){
+auto i=tmp391;n3ds_watch* w = (&m->watches[i]);
 {uint32_t off = cast<uint32_t>(0ULL);for (;(off < w->len);off += cast<uint32_t>(4ULL)){
 uint32_t a = cast<uint32_t>((w->addr + off));
 uint32_t v = n3ds_Machine_ReadWord(m,a);
@@ -15132,7 +15262,7 @@ out += go_fmt_Sprintf(std::string(" r%d=%q",7),i,cast<std::string>(b));
 // tools/platform/n3ds/svc.go:81:1
 bool n3ds_Machine_handleSVC(n3ds_Machine* m,arm_CPU* c,uint32_t comment){
 {
-auto tmp387=defer([&](){n3ds_Machine_profEnd(m,cast<int64_t>(6ULL),n3ds_Machine_profStart(m));});
+auto tmp392=defer([&](){n3ds_Machine_profEnd(m,cast<int64_t>(6ULL),n3ds_Machine_profStart(m));});
 uint32_t num = cast<uint32_t>((comment & cast<uint32_t>(255ULL)));
 n3ds_svcEvent ev = n3ds_svcEvent{arm_CPU_PC(c),num,n3ds_svcName(num),{}};
 ev.Args = std::array<uint32_t,4>{c->R[cast<int64_t>(0ULL)],c->R[cast<int64_t>(1ULL)],c->R[cast<int64_t>(2ULL)],c->R[cast<int64_t>(3ULL)]};
@@ -15156,21 +15286,21 @@ c->R[cast<int64_t>(0ULL)] = cast<uint32_t>(m->tick);
 c->R[cast<int64_t>(1ULL)] = cast<uint32_t>(shr<uint64_t>(m->tick,cast<int64_t>(32ULL)));
 break;}
 case cast<uint32_t>(42ULL):{
-auto tmp388 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>(0ULL),cast<uint32_t>(0ULL));
-c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp388);
-c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp388);
-c->R[cast<int64_t>(2ULL)] = std::get<2>(tmp388);
+auto tmp393 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>(0ULL),cast<uint32_t>(0ULL));
+c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp393);
+c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp393);
+c->R[cast<int64_t>(2ULL)] = std::get<2>(tmp393);
 break;}
 case cast<uint32_t>(43ULL):case cast<uint32_t>(44ULL):case cast<uint32_t>(41ULL):{
-auto tmp389 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>(0ULL),cast<uint32_t>(0ULL));
-c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp389);
-c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp389);
-c->R[cast<int64_t>(2ULL)] = std::get<2>(tmp389);
+auto tmp394 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>(0ULL),cast<uint32_t>(0ULL));
+c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp394);
+c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp394);
+c->R[cast<int64_t>(2ULL)] = std::get<2>(tmp394);
 break;}
 case cast<uint32_t>(11ULL):{
-auto tmp390 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>(m->curThread->priority));
-c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp390);
-c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp390);
+auto tmp395 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>(m->curThread->priority));
+c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp395);
+c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp395);
 break;}
 case cast<uint32_t>(12ULL):{
 m->curThread->priority = cast<int32_t>(c->R[cast<int64_t>(1ULL)]);
@@ -15198,45 +15328,45 @@ case cast<uint32_t>(34ULL):{
 n3ds_Machine_svcArbitrateAddress(m,c);
 break;}
 case cast<uint32_t>(53ULL):{
-auto tmp391 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>(1ULL));
-c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp391);
-c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp391);
+auto tmp396 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>(1ULL));
+c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp396);
+c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp396);
 break;}
 case cast<uint32_t>(55ULL):{
-auto tmp392 = std::make_tuple(cast<uint32_t>(0ULL),m->curThread->id);
-c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp392);
-c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp392);
+auto tmp397 = std::make_tuple(cast<uint32_t>(0ULL),m->curThread->id);
+c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp397);
+c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp397);
 break;}
 case cast<uint32_t>(8ULL):{
 uint32_t h = n3ds_Machine_createThread(m,cast<int32_t>(c->R[cast<int64_t>(0ULL)]),c->R[cast<int64_t>(1ULL)],c->R[cast<int64_t>(2ULL)],c->R[cast<int64_t>(3ULL)]);
-auto tmp393 = std::make_tuple(cast<uint32_t>(0ULL),h);
-c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp393);
-c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp393);
+auto tmp398 = std::make_tuple(cast<uint32_t>(0ULL),h);
+c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp398);
+c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp398);
 break;}
 case cast<uint32_t>(23ULL):{
 uint32_t h = n3ds_Machine_newHandle(m,std::string("event",5),false);
 m->handles[h]->manualReset = (c->R[cast<int64_t>(1ULL)] != cast<uint32_t>(0ULL));
-auto tmp394 = std::make_tuple(cast<uint32_t>(0ULL),h);
-c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp394);
-c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp394);
+auto tmp399 = std::make_tuple(cast<uint32_t>(0ULL),h);
+c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp399);
+c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp399);
 break;}
 case cast<uint32_t>(19ULL):{
 uint32_t h = n3ds_Machine_newHandle(m,std::string("mutex",5),false);
 if ((c->R[cast<int64_t>(1ULL)] != cast<uint32_t>(0ULL))) {
-auto tmp395 = std::make_tuple(m->curThread->id,cast<int64_t>(1ULL));
-m->handles[h]->mutexOwner = std::get<0>(tmp395);
-m->handles[h]->mutexDepth = std::get<1>(tmp395);
+auto tmp400 = std::make_tuple(m->curThread->id,cast<int64_t>(1ULL));
+m->handles[h]->mutexOwner = std::get<0>(tmp400);
+m->handles[h]->mutexDepth = std::get<1>(tmp400);
 }
-auto tmp396 = std::make_tuple(cast<uint32_t>(0ULL),h);
-c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp396);
-c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp396);
+auto tmp401 = std::make_tuple(cast<uint32_t>(0ULL),h);
+c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp401);
+c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp401);
 break;}
 case cast<uint32_t>(21ULL):{
 uint32_t h = n3ds_Machine_newHandle(m,std::string("semaphore",9),false);
 m->handles[h]->semCount = cast<int32_t>(c->R[cast<int64_t>(1ULL)]);
-auto tmp397 = std::make_tuple(cast<uint32_t>(0ULL),h);
-c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp397);
-c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp397);
+auto tmp402 = std::make_tuple(cast<uint32_t>(0ULL),h);
+c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp402);
+c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp402);
 break;}
 case cast<uint32_t>(26ULL):{
 n3ds_Machine_svcCreateHandle(m,c,std::string("timer",5),false,cast<int64_t>(1ULL));
@@ -15352,13 +15482,13 @@ void n3ds_Machine_svcQueryMemory(n3ds_Machine* m,arm_CPU* c){
 uint32_t addr = c->R[cast<int64_t>(2ULL)];
 n3ds_memRegion* r = n3ds_Machine_regionOf(m,addr);
 if ((!r)) {
-auto tmp398 = std::make_tuple(cast<uint32_t>(0ULL),addr,cast<uint32_t>(4096ULL),cast<uint32_t>(0ULL),cast<uint32_t>(0ULL),cast<uint32_t>(0ULL));
-c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp398);
-c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp398);
-c->R[cast<int64_t>(2ULL)] = std::get<2>(tmp398);
-c->R[cast<int64_t>(3ULL)] = std::get<3>(tmp398);
-c->R[cast<int64_t>(4ULL)] = std::get<4>(tmp398);
-c->R[cast<int64_t>(5ULL)] = std::get<5>(tmp398);
+auto tmp403 = std::make_tuple(cast<uint32_t>(0ULL),addr,cast<uint32_t>(4096ULL),cast<uint32_t>(0ULL),cast<uint32_t>(0ULL),cast<uint32_t>(0ULL));
+c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp403);
+c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp403);
+c->R[cast<int64_t>(2ULL)] = std::get<2>(tmp403);
+c->R[cast<int64_t>(3ULL)] = std::get<3>(tmp403);
+c->R[cast<int64_t>(4ULL)] = std::get<4>(tmp403);
+c->R[cast<int64_t>(5ULL)] = std::get<5>(tmp403);
 return ;
 }
 if (m->MemTrace) {
@@ -15444,9 +15574,9 @@ n3ds_Machine_WriteWord(m,cast<uint32_t>((off + cast<uint32_t>(4ULL))),cast<uint3
 // tools/platform/n3ds/svc.go:370:1
 void n3ds_Machine_svcOutputDebugString(n3ds_Machine* m,arm_CPU* c){
 {
-auto tmp399 = std::make_tuple(c->R[cast<int64_t>(0ULL)],c->R[cast<int64_t>(1ULL)]);
-uint32_t ptr = std::get<0>(tmp399);
-uint32_t n = std::get<1>(tmp399);
+auto tmp404 = std::make_tuple(c->R[cast<int64_t>(0ULL)],c->R[cast<int64_t>(1ULL)]);
+uint32_t ptr = std::get<0>(tmp404);
+uint32_t n = std::get<1>(tmp404);
 {uint32_t i = cast<uint32_t>(0ULL);for (;((i < n) && (i < cast<uint32_t>(4096ULL)));i++){
 m->debugOut = append(m->debugOut,n3ds_Machine_Read(m,cast<uint32_t>((ptr + i))));
 }
@@ -15473,9 +15603,9 @@ std::string n3ds_svcName(uint32_t n){
 {
 Map<uint32_t,std::string> names = Map<uint32_t,std::string>{{cast<uint32_t>(1ULL),std::string("ControlMemory",13)},{cast<uint32_t>(2ULL),std::string("QueryMemory",11)},{cast<uint32_t>(3ULL),std::string("ExitProcess",11)},{cast<uint32_t>(8ULL),std::string("CreateThread",12)},{cast<uint32_t>(9ULL),std::string("ExitThread",10)},{cast<uint32_t>(10ULL),std::string("SleepThread",11)},{cast<uint32_t>(11ULL),std::string("GetThreadPriority",17)},{cast<uint32_t>(12ULL),std::string("SetThreadPriority",17)},{cast<uint32_t>(19ULL),std::string("CreateMutex",11)},{cast<uint32_t>(20ULL),std::string("ReleaseMutex",12)},{cast<uint32_t>(21ULL),std::string("CreateSemaphore",15)},{cast<uint32_t>(22ULL),std::string("ReleaseSemaphore",16)},{cast<uint32_t>(23ULL),std::string("CreateEvent",11)},{cast<uint32_t>(24ULL),std::string("SignalEvent",11)},{cast<uint32_t>(25ULL),std::string("ClearEvent",10)},{cast<uint32_t>(26ULL),std::string("CreateTimer",11)},{cast<uint32_t>(30ULL),std::string("CreateMemoryBlock",17)},{cast<uint32_t>(31ULL),std::string("MapMemoryBlock",14)},{cast<uint32_t>(33ULL),std::string("CreateAddressArbiter",20)},{cast<uint32_t>(34ULL),std::string("ArbitrateAddress",16)},{cast<uint32_t>(35ULL),std::string("CloseHandle",11)},{cast<uint32_t>(36ULL),std::string("WaitSynchronization1",20)},{cast<uint32_t>(37ULL),std::string("WaitSynchronizationN",20)},{cast<uint32_t>(39ULL),std::string("DuplicateHandle",15)},{cast<uint32_t>(40ULL),std::string("GetSystemTick",13)},{cast<uint32_t>(42ULL),std::string("GetSystemInfo",13)},{cast<uint32_t>(43ULL),std::string("GetProcessInfo",14)},{cast<uint32_t>(44ULL),std::string("GetThreadInfo",13)},{cast<uint32_t>(45ULL),std::string("ConnectToPort",13)},{cast<uint32_t>(50ULL),std::string("SendSyncRequest",15)},{cast<uint32_t>(53ULL),std::string("GetProcessId",12)},{cast<uint32_t>(55ULL),std::string("GetThreadId",11)},{cast<uint32_t>(56ULL),std::string("GetResourceLimit",16)},{cast<uint32_t>(57ULL),std::string("GetResourceLimitCurrentValues",29)},{cast<uint32_t>(58ULL),std::string("GetResourceLimitLimitValues",27)},{cast<uint32_t>(60ULL),std::string("Break",5)},{cast<uint32_t>(61ULL),std::string("OutputDebugString",17)}};
 {
-auto tmp400 = lookup(names,n);
-std::string s = std::get<0>(tmp400);
-bool ok = std::get<1>(tmp400);
+auto tmp405 = lookup(names,n);
+std::string s = std::get<0>(tmp405);
+bool ok = std::get<1>(tmp405);
 if (ok) {
 return s;
 }
@@ -15499,39 +15629,39 @@ return m->ports;
 bool n3ds_Machine_objAvailable(n3ds_Machine* m,n3ds_kobject* obj){
 {
 {
-auto tmp402=obj->kind;
-if (tmp402==(std::string("mutex",5))){
+auto tmp407=obj->kind;
+if (tmp407==(std::string("mutex",5))){
 return ((obj->mutexOwner == cast<uint32_t>(0ULL)) || (obj->mutexOwner == m->curThread->id));
 }
-else if (tmp402==(std::string("semaphore",9))){
+else if (tmp407==(std::string("semaphore",9))){
 return (obj->semCount > cast<int32_t>(0ULL));
 }
 else {
 return obj->signal;
 }
 }
-tmp401:;
+tmp406:;
 }
 }
 // tools/platform/n3ds/sync.go:35:1
 void n3ds_Machine_consume(n3ds_Machine* m,n3ds_kobject* obj,n3ds_thread* t){
 {
 {
-auto tmp404=obj->kind;
-if (tmp404==(std::string("mutex",5))){
+auto tmp409=obj->kind;
+if (tmp409==(std::string("mutex",5))){
 obj->mutexOwner = t->id;
 obj->mutexDepth++;
 }
-else if (tmp404==(std::string("semaphore",9))){
+else if (tmp409==(std::string("semaphore",9))){
 obj->semCount--;
 }
-else if (tmp404==(std::string("event",5))){
+else if (tmp409==(std::string("event",5))){
 if ((!obj->manualReset)) {
 obj->signal = false;
 }
 }
 }
-tmp403:;
+tmp408:;
 }
 }
 // tools/platform/n3ds/sync.go:57:1
@@ -15584,9 +15714,9 @@ handles[i] = n3ds_Machine_ReadWord(m,cast<uint32_t>((handlesPtr + cast<uint32_t>
 }
 }if (waitAll) {
 bool all = true;
-{auto&& tmp405 = handles;
-for(int64_t tmp406=0;tmp406<len(tmp405);++tmp406){
-auto h=tmp405[tmp406];{
+{auto&& tmp410 = handles;
+for(int64_t tmp411=0;tmp411<len(tmp410);++tmp411){
+auto h=tmp410[tmp411];{
 n3ds_kobject* obj = get(m->handles,h);
 if (((!obj) || (!n3ds_Machine_objAvailable(m,obj)))) {
 all = false;
@@ -15595,24 +15725,24 @@ break;
 }
 }}
 if (all) {
-{auto&& tmp407 = handles;
-for(int64_t tmp408=0;tmp408<len(tmp407);++tmp408){
-auto h=tmp407[tmp408];n3ds_Machine_consume(m,get(m->handles,h),m->curThread);
+{auto&& tmp412 = handles;
+for(int64_t tmp413=0;tmp413<len(tmp412);++tmp413){
+auto h=tmp412[tmp413];n3ds_Machine_consume(m,get(m->handles,h),m->curThread);
 }}
 c->R[cast<int64_t>(0ULL)] = cast<uint32_t>(0ULL);
 return ;
 }
 }
 else {
-{auto&& tmp409 = handles;
-for(int64_t tmp410=0;tmp410<len(tmp409);++tmp410){
-auto i=tmp410;auto h=tmp409[tmp410];{
+{auto&& tmp414 = handles;
+for(int64_t tmp415=0;tmp415<len(tmp414);++tmp415){
+auto i=tmp415;auto h=tmp414[tmp415];{
 n3ds_kobject* obj = get(m->handles,h);
 if ((bool(obj) && n3ds_Machine_objAvailable(m,obj))) {
 n3ds_Machine_consume(m,obj,m->curThread);
-auto tmp411 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>(i));
-c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp411);
-c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp411);
+auto tmp416 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>(i));
+c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp416);
+c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp416);
 return ;
 }
 }
@@ -15625,9 +15755,9 @@ return ;
 m->curThread->waitOn = handles;
 m->curThread->waitAll = waitAll;
 n3ds_Machine_armWaitDeadline(m,timeoutNs);
-{auto&& tmp412 = handles;
-for(int64_t tmp413=0;tmp413<len(tmp412);++tmp413){
-auto h=tmp412[tmp413];{
+{auto&& tmp417 = handles;
+for(int64_t tmp418=0;tmp418<len(tmp417);++tmp418){
+auto h=tmp417[tmp418];{
 n3ds_kobject* obj = get(m->handles,h);
 if (bool(obj)) {
 obj->waiters = append(obj->waiters,m->curThread->id);
@@ -15669,25 +15799,25 @@ i++;
 bool n3ds_Machine_tryComplete(n3ds_Machine* m,n3ds_thread* t){
 {
 if (t->waitAll) {
-{auto&& tmp414 = t->waitOn;
-for(int64_t tmp415=0;tmp415<len(tmp414);++tmp415){
-auto h=tmp414[tmp415];{
+{auto&& tmp419 = t->waitOn;
+for(int64_t tmp420=0;tmp420<len(tmp419);++tmp420){
+auto h=tmp419[tmp420];{
 n3ds_kobject* obj = get(m->handles,h);
 if (((!obj) || (!n3ds_Machine_availableFor(m,obj,t)))) {
 return false;
 }
 }
 }}
-{auto&& tmp416 = t->waitOn;
-for(int64_t tmp417=0;tmp417<len(tmp416);++tmp417){
-auto h=tmp416[tmp417];n3ds_Machine_consumeFor(m,get(m->handles,h),t);
+{auto&& tmp421 = t->waitOn;
+for(int64_t tmp422=0;tmp422<len(tmp421);++tmp422){
+auto h=tmp421[tmp422];n3ds_Machine_consumeFor(m,get(m->handles,h),t);
 }}
 n3ds_Machine_setResult(m,t,cast<int64_t>(0ULL),cast<uint32_t>(0ULL));
 return true;
 }
-{auto&& tmp418 = t->waitOn;
-for(int64_t tmp419=0;tmp419<len(tmp418);++tmp419){
-auto i=tmp419;auto h=tmp418[tmp419];{
+{auto&& tmp423 = t->waitOn;
+for(int64_t tmp424=0;tmp424<len(tmp423);++tmp424){
+auto i=tmp424;auto h=tmp423[tmp424];{
 n3ds_kobject* obj = get(m->handles,h);
 if ((bool(obj) && n3ds_Machine_availableFor(m,obj,t))) {
 n3ds_Machine_consumeFor(m,obj,t);
@@ -15704,47 +15834,47 @@ return false;
 bool n3ds_Machine_availableFor(n3ds_Machine* m,n3ds_kobject* obj,n3ds_thread* t){
 {
 {
-auto tmp421=obj->kind;
-if (tmp421==(std::string("mutex",5))){
+auto tmp426=obj->kind;
+if (tmp426==(std::string("mutex",5))){
 return ((obj->mutexOwner == cast<uint32_t>(0ULL)) || (obj->mutexOwner == t->id));
 }
-else if (tmp421==(std::string("semaphore",9))){
+else if (tmp426==(std::string("semaphore",9))){
 return (obj->semCount > cast<int32_t>(0ULL));
 }
 else {
 return obj->signal;
 }
 }
-tmp420:;
+tmp425:;
 }
 }
 // tools/platform/n3ds/sync.go:221:1
 void n3ds_Machine_consumeFor(n3ds_Machine* m,n3ds_kobject* obj,n3ds_thread* t){
 {
 {
-auto tmp423=obj->kind;
-if (tmp423==(std::string("mutex",5))){
+auto tmp428=obj->kind;
+if (tmp428==(std::string("mutex",5))){
 obj->mutexOwner = t->id;
 obj->mutexDepth++;
 }
-else if (tmp423==(std::string("semaphore",9))){
+else if (tmp428==(std::string("semaphore",9))){
 obj->semCount--;
 }
-else if (tmp423==(std::string("event",5))){
+else if (tmp428==(std::string("event",5))){
 if ((!obj->manualReset)) {
 obj->signal = false;
 }
 }
 }
-tmp422:;
+tmp427:;
 }
 }
 // tools/platform/n3ds/sync.go:235:1
 n3ds_thread* n3ds_Machine_threadByID(n3ds_Machine* m,uint32_t id){
 {
-{auto&& tmp424 = m->threads;
-for(int64_t tmp425=0;tmp425<len(tmp424);++tmp425){
-auto t=tmp424[tmp425];if ((t->id == id)) {
+{auto&& tmp429 = m->threads;
+for(int64_t tmp430=0;tmp430<len(tmp429);++tmp430){
+auto t=tmp429[tmp430];if ((t->id == id)) {
 return t;
 }
 }}
@@ -15804,9 +15934,9 @@ obj->semCount += cast<int32_t>(c->R[cast<int64_t>(2ULL)]);
 if (n3ds_Machine_signalObject(m,obj)) {
 m->reschedule = true;
 }
-auto tmp426 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>(prev));
-c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp426);
-c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp426);
+auto tmp431 = std::make_tuple(cast<uint32_t>(0ULL),cast<uint32_t>(prev));
+c->R[cast<int64_t>(0ULL)] = std::get<0>(tmp431);
+c->R[cast<int64_t>(1ULL)] = std::get<1>(tmp431);
 return ;
 }
 c->R[cast<int64_t>(0ULL)] = cast<uint32_t>(0ULL);
@@ -15815,9 +15945,9 @@ c->R[cast<int64_t>(0ULL)] = cast<uint32_t>(0ULL);
 // tools/platform/n3ds/sync.go:297:1
 void n3ds_Machine_signalThreadExit(n3ds_Machine* m,n3ds_thread* t){
 {
-{auto&& tmp427 = m->handles;
-for(auto [tmp428,tmp429]:tmp427){
-auto o=tmp429;if (((o->kind == std::string("thread",6)) && (o->thread == t))) {
+{auto&& tmp432 = m->handles;
+for(auto [tmp433,tmp434]:tmp432){
+auto o=tmp434;if (((o->kind == std::string("thread",6)) && (o->thread == t))) {
 o->signal = true;
 if (n3ds_Machine_signalObject(m,o)) {
 m->reschedule = true;
@@ -15881,9 +16011,9 @@ m->reschedule = true;
 void n3ds_Machine_arbSignal(n3ds_Machine* m,uint32_t addr,int32_t count){
 {
 int32_t n={};
-{auto&& tmp430 = m->threads;
-for(int64_t tmp431=0;tmp431<len(tmp430);++tmp431){
-auto t=tmp430[tmp431];if (((t->state == cast<n3ds_threadState>(2ULL)) && (t->arbAddr == addr))) {
+{auto&& tmp435 = m->threads;
+for(int64_t tmp436=0;tmp436<len(tmp435);++tmp436){
+auto t=tmp435[tmp436];if (((t->state == cast<n3ds_threadState>(2ULL)) && (t->arbAddr == addr))) {
 if (((count >= cast<int32_t>(0ULL)) && (n >= count))) {
 break;
 }
@@ -15959,7 +16089,7 @@ m->curThread->state = cast<n3ds_threadState>(3ULL);
 m->curThread->wakeTick = cast<uint64_t>((m->tick + n3ds_nsToTick(ns)));
 }
 }
-tmp432:;
+tmp437:;
 m->reschedule = true;
 }
 }
@@ -16008,15 +16138,15 @@ uint64_t soonest={};
 bool found = false;
 auto at = [&](uint64_t tick)->void{
 if (((!found) || (tick < soonest))) {
-auto tmp433 = std::make_tuple(tick,true);
-soonest = std::get<0>(tmp433);
-found = std::get<1>(tmp433);
+auto tmp438 = std::make_tuple(tick,true);
+soonest = std::get<0>(tmp438);
+found = std::get<1>(tmp438);
 }
 }
 ;
-{auto&& tmp434 = m->threads;
-for(int64_t tmp435=0;tmp435<len(tmp434);++tmp435){
-auto t=tmp434[tmp435];{
+{auto&& tmp439 = m->threads;
+for(int64_t tmp440=0;tmp440<len(tmp439);++tmp440){
+auto t=tmp439[tmp440];{
 if ((t->state == cast<n3ds_threadState>(3ULL))){
 at(t->wakeTick);
 }
@@ -16024,7 +16154,7 @@ else if (((t->state == cast<n3ds_threadState>(2ULL)) && (t->waitDeadline != cast
 at(t->waitDeadline);
 }
 }
-tmp436:;
+tmp441:;
 }}
 return {soonest,found};
 }
@@ -16032,9 +16162,9 @@ return {soonest,found};
 // tools/platform/n3ds/thread.go:208:1
 void n3ds_Machine_wakeDueSleepers(n3ds_Machine* m){
 {
-{auto&& tmp437 = m->threads;
-for(int64_t tmp438=0;tmp438<len(tmp437);++tmp438){
-auto t=tmp437[tmp438];{
+{auto&& tmp442 = m->threads;
+for(int64_t tmp443=0;tmp443<len(tmp442);++tmp443){
+auto t=tmp442[tmp443];{
 if (((t->state == cast<n3ds_threadState>(3ULL)) && (t->wakeTick <= m->tick))){
 t->state = cast<n3ds_threadState>(0ULL);
 }
@@ -16043,7 +16173,7 @@ n3ds_Machine_setResult(m,t,cast<int64_t>(0ULL),cast<uint32_t>(155196414ULL));
 n3ds_Machine_wake(m,t);
 }
 }
-tmp439:;
+tmp444:;
 }}
 }
 }
@@ -16073,17 +16203,17 @@ void n3ds_Machine_DumpThreads(n3ds_Machine* m){
 {
 n3ds_Machine_dumpThreads(m);
 go_fmt_Printf(std::string("dsp: componentLoaded=%v state=%d semEvent=0x%08X ticks=%d (instrs=%d)\012",70),m->dsp.ComponentLoaded,m->dsp.State,m->dsp.SemEvent,m->dsp.Ticks,m->instrs);
-{auto&& tmp440 = m->dsp.Sources;
-for(int64_t tmp441=0;tmp441<len(tmp440);++tmp441){
-auto i=tmp441;n3ds_dspSource* s = (&m->dsp.Sources[i]);
+{auto&& tmp445 = m->dsp.Sources;
+for(int64_t tmp446=0;tmp446<len(tmp445);++tmp446){
+auto i=tmp446;n3ds_dspSource* s = (&m->dsp.Sources[i]);
 if (((s->Enabled || (len(s->Queue) > cast<int64_t>(0ULL))) || (s->CurBufferID != cast<uint16_t>(0ULL)))) {
 go_fmt_Printf(std::string("  dsp src %2d: enabled=%v sync=%d rate=%g fmt=%d stereo=%v pos=%d remain=%d cur=%d last=%d queued=%d update=%v\012",111),i,s->Enabled,s->SyncCount,s->Rate,s->Format,s->Stereo,s->CurSample,len(s->CurBuf),s->CurBufferID,s->LastBufferID,len(s->Queue),s->BufferUpdate);
 }
 }}
 go_fmt_Printf(std::string("handles:\012",9));
-{auto&& tmp442 = m->handles;
-for(auto [tmp443,tmp444]:tmp442){
-auto h=tmp443;auto o=tmp444;std::string extra = std::string("",0);
+{auto&& tmp447 = m->handles;
+for(auto [tmp448,tmp449]:tmp447){
+auto h=tmp448;auto o=tmp449;std::string extra = std::string("",0);
 if (o->signal) {
 extra = std::string(" signalled",10);
 }
@@ -16098,12 +16228,12 @@ go_fmt_Printf(std::string("  0x%08X %-24s%s\012",17),h,o->kind,extra);
 void n3ds_Machine_dumpThreads(n3ds_Machine* m){
 {
 go_fmt_Printf(std::string("thread states at deadlock (%d GX commands pending):\012",52),len(m->gxPending));
-{auto&& tmp445 = m->threads;
-for(int64_t tmp446=0;tmp446<len(tmp445);++tmp446){
-auto t=tmp445[tmp446];std::string wo = std::string("",0);
-{auto&& tmp447 = t->waitOn;
-for(int64_t tmp448=0;tmp448<len(tmp447);++tmp448){
-auto h=tmp447[tmp448];std::string kind = std::string("?",1);
+{auto&& tmp450 = m->threads;
+for(int64_t tmp451=0;tmp451<len(tmp450);++tmp451){
+auto t=tmp450[tmp451];std::string wo = std::string("",0);
+{auto&& tmp452 = t->waitOn;
+for(int64_t tmp453=0;tmp453<len(tmp452);++tmp453){
+auto h=tmp452[tmp453];std::string kind = std::string("?",1);
 {
 n3ds_kobject* o = get(m->handles,h);
 if (bool(o)) {
@@ -16123,9 +16253,9 @@ go_fmt_Printf(std::string("  thread %d prio %d state %-8s pc=0x%08X sp=0x%08X lr
 int64_t n3ds_Machine_aliveThreads(n3ds_Machine* m){
 {
 int64_t n = cast<int64_t>(0ULL);
-{auto&& tmp449 = m->threads;
-for(int64_t tmp450=0;tmp450<len(tmp449);++tmp450){
-auto t=tmp449[tmp450];if ((t->state != cast<n3ds_threadState>(4ULL))) {
+{auto&& tmp454 = m->threads;
+for(int64_t tmp455=0;tmp455<len(tmp454);++tmp455){
+auto t=tmp454[tmp455];if ((t->state != cast<n3ds_threadState>(4ULL))) {
 n++;
 }
 }}

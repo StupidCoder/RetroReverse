@@ -19,7 +19,8 @@ export function createReplay({ui,send,onPosition=()=>{}}) {
     position.textContent=`Captured display ${c.start.frames}–${c.end.frames}`;
     output.labels('Output buffer','Rendering at the selected step');
     note.textContent=`Final captured display · ${count.toLocaleString()} rendering steps. First shows pre-existing buffer contents. Pixel inspection refers to the final capture.`;
-    if(c.replay.surface)note.textContent+=' '+c.replay.surface+'. This preview projects RAM through the final copies; it is not historical monitor output. Reveal buffer writes dims pixels until their first recorded write.';
+    if(c.replay.surface)note.textContent+=' '+c.replay.surface+'. This preview projects RAM through the final copies; it is not historical monitor output.';
+    if(c.info.producerPixels)note.textContent+=' Reveal buffer writes dims pixels until their first recorded write.';
     if(!c.replay.complete)note.textContent+=' Evidence is incomplete; replay may not reach the final pixels.';
   }
   function seek(step){if(capture===null)return;step=Math.max(0,Math.min(count,step));latest=send('seek',{capture,step,reveal:!revealLabel.hidden&&reveal.checked});cancel.hidden=false;note.textContent=`Seeking to rendering step ${step.toLocaleString()}…`;}
