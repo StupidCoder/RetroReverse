@@ -460,7 +460,7 @@ VRAM position rides in the primitive — with the texture window applied so a re
 within its tile. A texel of index/value zero is treated as transparent and leaves the destination
 untouched.
 
-Textured surfaces are **modulated** by the primitive colour: `out = texel × colour / 128`, so a
+Textured surfaces with the raw-texture opcode bit clear are **modulated** by the primitive colour: `out = texel × colour / 128`, so a
 colour of `0x80` per channel is neutral and brighter or darker colours scale the texel. A fully lit
 model therefore needs real vertex colours, which come from the GTE. The **normal-colour lighting**
 ops (`NCS`/`NCT`, `NCCS`/`NCDS`, `CC`, `CDP`) multiply the light matrix by each vertex normal, add
@@ -469,6 +469,11 @@ the command byte in the word's top lane**, which the game copies into the primit
 `INTPL`/`DPCS` interpolate depth-cue fog. The rasterizer reads that lit colour back as the primitive
 colour and modulates the texture by it; an all-zero colour, left by a depth-cue path the model does
 not fully drive, is treated as a raw unmodulated texel rather than black.
+
+The raw-texture opcode bit bypasses modulation for both triangles of a quad as well as
+single triangles, including Gouraud packets. Ridge Racer leaves unused colour bytes in
+these packets: multiplying by them caused the starting-grid girl and timer digits to flicker.
+See the [polygon command format](https://psx-spx.consoledev.net/ps1/gpu/render-polygon-commands/).
 
 ## 4. Texture staging
 
@@ -597,6 +602,15 @@ read-backs (GP0 `0xC0`); the rotator at `0x800375FC` then pages sets between VRA
 banks (`0x80176D10`, `0x801A6D10`) row by row (paired `0xC0`/`0xA0` 384×1 transfers), tracking each
 row's occupancy in the per-row arrays at `0x801DB460`/`0x801DB560` — the displaced set always lands
 in the bank the incoming set vacated.
+
+The row updater at `0x80037A40` gates transfers on `VSync(1) < 470`. Timer 1 must
+therefore count elapsed HBlank ticks, rather than advance on register reads. The latter
+made every upload miss its deadline, leaving city textures under the seaside palettes
+(green palm trunks and neon strips on the beach). Both emulator cores now derive 263
+HBlank ticks per synthetic NTSC field and reset the counter on mode writes; this remains
+an approximation, without complete timer synchronization or IRQ emulation. The existing
+I/O snapshot stores the counter, so save/restore preserves its phase together with the
+field accumulator. See the [timer registers](https://psx-spx.consoledev.net/ps1/system/timers/).
 
 Which set is in VRAM follows the car's **course progress**: the selector at `0x800374F0` measures
 the circular distance (`0x80037434`, positions modulo 65,536) from the car's progress to two

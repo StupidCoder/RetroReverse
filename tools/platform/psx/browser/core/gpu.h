@@ -224,7 +224,7 @@ struct GPU {
     else addr=((texPageY+v)&511)*W+((texPageX+u)&1023);
     u16 value=vram[pal<0?addr:pal];auto&t=rrcapture::trace;if(t.active){t.source=addr*2;t.palette=pal<0?0:pal*2;t.sourceValue=vram[addr];t.paletteValue=pal<0?0:vram[pal];t.sourceBefore=t.paletteBefore=t.writes.size();t.texel=value;t.u=u;t.v=v;}return value;
   }
-  void tri(Vert a, Vert b, Vert c, bool textured, u32 clut) {
+  void tri(Vert a, Vert b, Vert c, bool textured, bool rawTexture, u32 clut) {
     i64 area = edge(a.x, a.y, b.x, b.y, c.x, c.y);
     if (!area)
       return;
@@ -255,7 +255,7 @@ struct GPU {
               v = int((w0 * a.v + w1 * b.v + w2 * c.v) / area);
           u16 t = texel(u, v, clut);
           if (!t){auto&tr=rrcapture::trace;if(tr.active)tr.record((y*W+x)*2,0,2,0,0,tr.current,4);continue;}
-          px = modulate(t, r, g, bb);
+          px = rawTexture ? t : modulate(t, r, g, bb);
         } else
           px = (r >> 3) | ((g >> 3) << 5) | ((bb >> 3) << 10);
         store(x, y, px);
@@ -289,9 +289,9 @@ struct GPU {
       texPageY = ((tpage >> 4) & 1) * 256;
       texDepth = (tpage >> 7) & 3;
     }
-    tri(vs[0], vs[1], vs[2], textured, clut);
+    tri(vs[0], vs[1], vs[2], textured, op & 1, clut);
     if (nv == 4)
-      tri(vs[1], vs[2], vs[3], textured, clut);
+      tri(vs[1], vs[2], vs[3], textured, op & 1, clut);
   }
   void rect(u8 op) {
     u32 col = fifo[0], xy = fifo[1], clut = 0;

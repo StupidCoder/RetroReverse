@@ -35,6 +35,11 @@ func (m *Machine) Run(maxSteps uint64) Result {
 		}
 		// Synthetic vertical-blank: raise I_STAT bit 0 on a fixed cadence. The game
 		// polls I_STAT for timing (and, in-game, unmasks it for a vectored VBlank).
+		// Approximate NTSC HBlank ticks from the synthetic field clock.
+		// Reading Timer 1 must not advance VSync's texture-upload deadline.
+		if m.io[0x1F801114]&0x100 != 0 && (m.vblankAcc+1)*263/stepsPerVBlank != m.vblankAcc*263/stepsPerVBlank {
+			m.io[0x1F801110] = (m.io[0x1F801110] + 1) & 0xFFFF
+		}
 		if m.vblankAcc++; m.vblankAcc >= stepsPerVBlank {
 			m.vblankAcc = 0
 			m.raiseIRQ(0)

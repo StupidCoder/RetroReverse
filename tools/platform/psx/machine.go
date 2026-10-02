@@ -365,8 +365,8 @@ func (m *Machine) Write(addr uint32, v byte) {
 		// Fire the register side effect when the access completes. Most I/O is
 		// written 32-bit (high byte at a&3==3), but the game drives the 16-bit
 		// interrupt registers with `sh` (I_MASK enable, I_STAT ack), which never
-		// reaches a&3==3 — so also fire I_STAT/I_MASK on their halfword boundary.
-		if a&3 == 3 || ((base == iStat || base == iMask) && a&3 == 1) {
+		// reaches a&3==3. Timer 1 mode also accepts halfword writes.
+		if a&3 == 3 || ((base == iStat || base == iMask || base == 0x1F801114) && a&3 == 1) {
 			m.ioSideEffect(base, m.io[base])
 		}
 	case a >= biosBase && a < biosEnd:
@@ -387,7 +387,12 @@ func (m *Machine) ioReadWord(base uint32) uint32 {
 		return m.gpu.status()
 	case 0x1F801810: // GPUREAD
 		return m.gpu.read()
-	case 0x1F801100, 0x1F801110, 0x1F801120: // timer current values
+	case 0x1F801110:
+		if m.io[0x1F801114]&0x100 != 0 {
+			return m.io[base] & 0xFFFF
+		}
+		fallthrough
+	case 0x1F801100, 0x1F801120: // timer current values
 		m.timer += 0x100
 		return m.timer & 0xFFFF
 	case 0x1F8010F4: // DICR: control bits + per-channel flags + master IRQ flag
@@ -413,6 +418,8 @@ func (m *Machine) ioSideEffect(base, word uint32) {
 		m.gpu.gp0(word)
 	case base == 0x1F801814: // GP1 display/control port
 		m.gpu.gp1(word)
+	case base == 0x1F801114: // Timer 1 mode writes reset its counter.
+		m.io[0x1F801110] = 0
 	case base == 0x1F8010F4: // DICR: bits 24-30 are write-1-to-clear flags
 		m.dmaFlags &^= (word >> 24) & 0x7F
 	case base >= 0x1F801080 && base < 0x1F801100:

@@ -152,3 +152,29 @@ func TestTinyProgram(t *testing.T) {
 		t.Errorf("mem[0x80010000] = 0x%X, want 0x1234 (%s)", got, res)
 	}
 }
+
+func TestTimer1HBlankClock(t *testing.T) {
+	m := NewMachine()
+	m.CPU.SetPC(0x1000)
+	m.write32(0x1F801114, 0x107)
+	m.write32(0x1F801110, 0x1234)
+	for i := 0; i < 20; i++ {
+		if got := m.read32(0x1F801110); got != 0x1234 {
+			t.Fatalf("read advanced timer: %x", got)
+		}
+	}
+	m.Run(stepsPerVBlank)
+	if got := m.read32(0x1F801110); got != 0x1234+263 {
+		t.Fatalf("field cadence: %x", got)
+	}
+	m.Write(0x1F801114, 7)
+	m.Write(0x1F801115, 1)
+	if got := m.read32(0x1F801110); got != 0 {
+		t.Fatalf("mode write did not reset: %x", got)
+	}
+	m.write32(0x1F801110, 0xffff)
+	m.Run(951)
+	if got := m.read32(0x1F801110); got != 0 {
+		t.Fatalf("counter did not wrap: %x", got)
+	}
+}

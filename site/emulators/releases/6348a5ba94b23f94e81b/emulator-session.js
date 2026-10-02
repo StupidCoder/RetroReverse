@@ -546,7 +546,7 @@ if(platform==='dos'){
 
 }
 bindPointerInput(canvas);
-const warehouse=$('panel-warehouse');$('session-options').append($('pad'),$('fullscreen'));if($('mouse-speed'))$('session-options').append($('mouse-speed').closest('label'));
+const warehouse=$('panel-warehouse');$('session-options').append($('pad'));if($('mouse-speed'))$('session-options').append($('mouse-speed').closest('label'));
 const lesson=document.createElement('div');lesson.className='lesson-pane';warehouse.append(lesson);for(const node of $('code-workspace').querySelectorAll('.tour-panel'))lesson.append(node);
 preparedPanel=createPreparedPanel({root:lesson,start:id=>{if(pendingWorker||!loaded||latestState?.experimentOwned||latestState?.debugBusy||latestState?.capturing||latestState?.saving||latestState?.memoryRecording)return;release();load(null,id);},cancel:()=>cancelPreparation?.()});
 lessonShortcut=document.createElement('button');lessonShortcut.textContent='Open prepared lessons';lessonShortcut.hidden=true;lessonShortcut.onclick=()=>views.reveal('lesson');$('session-options').prepend(lessonShortcut);

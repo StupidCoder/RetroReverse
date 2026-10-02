@@ -39,7 +39,13 @@ func drawnFrame(t *testing.T, a *Adapter, withOverdraw bool) *debug.FrameCapture
 			t.Fatal(err)
 		}
 		if len(fc.Commands) > 100 && fc.Prov != nil {
-			return fc
+			// Upload-heavy boot fields can have many commands but no scene yet.
+			img := a.Machine().RenderDrawTarget()
+			for p := 0; p < len(img.Pix); p += 4 {
+				if img.Pix[p] != 0 || img.Pix[p+1] != 0 || img.Pix[p+2] != 0 {
+					return fc
+				}
+			}
 		}
 	}
 	t.Fatal("no drawn frame within the field budget")

@@ -122,3 +122,61 @@ func TestGPUImageLoadAndDisplay(t *testing.T) {
 			g.pixel(0, 0), g.pixel(1, 0), g.pixel(0, 1))
 	}
 }
+
+// Raw textured polygons must ignore even nonzero, changing vertex colours.
+// Ridge Racer uses these for the starting-grid girl and HUD digits.
+func TestGPUTexturedPolygonColorMode(t *testing.T) {
+	for _, depth := range []uint32{0, 1, 2} {
+		for _, op := range []uint32{0x24, 0x25, 0x2c, 0x2d, 0x34, 0x35, 0x3c, 0x3d} {
+			for _, texel := range []uint16{0, 0x8000, 0xc210} {
+				g := newGPU()
+				// Texture at (512,256), palette at (0,300), destination away from both.
+				g.vram[256*vramW+512] = texel
+				if depth < 2 {
+					g.vram[256*vramW+512] = 1
+					g.vram[300*vramW+1] = texel
+				}
+				coords := []uint32{10 | 10<<16, 18 | 10<<16, 10 | 18<<16, 18 | 18<<16}
+				nv := 3
+				if op&8 != 0 {
+					nv = 4
+				}
+				words := []uint32{op<<24 | 0x2040ff}
+				for i := 0; i < nv; i++ {
+					if i > 0 && op&0x10 != 0 {
+						words = append(words, 0x2040ff)
+					}
+					uv := uint32(0)
+					if i == 0 {
+						uv = (300 * 64) << 16
+					}
+					if i == 1 {
+						uv = (8 | 16 | depth<<7) << 16
+					}
+					words = append(words, coords[i], uv)
+				}
+				g.vram[11*vramW+11] = 0x1234
+				g.vram[17*vramW+17] = 0x1234
+				for _, w := range words {
+					g.gp0(w)
+				}
+				want := texel
+				if texel == 0 {
+					want = 0x1234
+				} else if op&1 == 0 {
+					// Independent expected lanes for texel 0xc210 and colour (255,64,32).
+					want = 0x8000
+					if texel == 0xc210 {
+						want = 0x911f
+					}
+				}
+				if got := g.pixel(11, 11); got != want {
+					t.Fatalf("depth=%d op=%02x texel=%04x: got %04x want %04x", depth, op, texel, got, want)
+				}
+				if nv == 4 && g.pixel(17, 17) != want {
+					t.Fatalf("second quad triangle: depth=%d op=%02x", depth, op)
+				}
+			}
+		}
+	}
+}

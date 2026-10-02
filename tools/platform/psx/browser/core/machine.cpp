@@ -33,7 +33,7 @@ void Machine::write(u32 a, u8 v) {
     u32 base = a & ~3u, shift = (a & 3) * 8;
     auto &r = io[(base - 0x1f801000) / 4];
     r = (r & ~(255u << shift)) | (u32(v) << shift);
-    if ((a & 3) == 3 || ((base == 0x1f801070 || base == 0x1f801074) && (a & 3) == 1))
+    if ((a & 3) == 3 || ((base == 0x1f801070 || base == 0x1f801074 || base == 0x1f801114) && (a & 3) == 1))
       ioEffect(base, r);
   }
 }
@@ -47,8 +47,10 @@ u32 Machine::ioRead(u32 base) {
     return gpu.status();
   case 0x1f801810:
     return gpu.read();
-  case 0x1f801100:
   case 0x1f801110:
+    if (io[0x114 / 4] & 0x100) return io[0x110 / 4] & 65535;
+    [[fallthrough]];
+  case 0x1f801100:
   case 0x1f801120:
     timer += 0x100;
     return timer & 65535;
@@ -75,6 +77,9 @@ void Machine::ioEffect(u32 base, u32 w) {
     return;
   case 0x1f801814:
     gpu.gp1(w);
+    return;
+  case 0x1f801114:
+    io[0x110 / 4] = 0;
     return;
   case 0x1f8010f4:
     dmaFlags &= ~((w >> 24) & 127);
@@ -149,6 +154,11 @@ u32 Machine::run(u32 budget, bool stopField) {
   bool stopPending = false;
   while (count < budget && !cpu.halted) {
     bool boundary = false;
+    // Approximate NTSC HBlank ticks using the existing synthetic field clock.
+    // Timer reads must not consume time: VSync(1) uses this for upload deadlines.
+    if ((io[0x114 / 4] & 0x100) &&
+        (vblankAcc + 1) * 263 / 250000 != vblankAcc * 263 / 250000)
+      io[0x110 / 4] = (io[0x110 / 4] + 1) & 65535;
     if (++vblankAcc >= 250000) {
       vblankAcc = 0;
       irq(0);

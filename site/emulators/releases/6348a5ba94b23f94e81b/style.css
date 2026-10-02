@@ -183,7 +183,7 @@ body[data-platform] :is(#emulator-app,[data-local-id="emulator-app"]){height:100
 body[data-platform] .emulator-topbar{flex:none;padding:8px 14px;gap:10px;flex-wrap:wrap;background:#e2e7ef;border-bottom:1px solid #aeb8ca}
 .emulator-topbar select,.emulator-topbar button{font:inherit;font-size:13px;padding:5px 8px}
 .emulator-topbar :is(#game-name,[data-local-id="game-name"]){font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;color:var(--muted)}
-:is(#global-transport,[data-local-id="global-transport"]){margin-left:auto}:is(#global-transport,[data-local-id="global-transport"]) .transport{margin:0;gap:5px;font-size:12px}:is(#global-transport,[data-local-id="global-transport"]) :is(#fullscreen,[data-local-id="fullscreen"]){display:none}
+:is(#global-transport,[data-local-id="global-transport"]){margin-left:auto}:is(#global-transport,[data-local-id="global-transport"]) .transport{margin:0;gap:5px;font-size:12px}
 body[data-platform] main{display:flex;flex-direction:column;min-height:0;flex:1;width:100%;max-width:none;margin:0;padding:0}
 body[data-platform] .workspace-heading{flex:none;gap:10px;padding:5px 12px;border-bottom:1px solid var(--line);justify-content:space-between}
 :is(#workspace-nav,[data-local-id="workspace-nav"]){display:flex;gap:4px;flex-wrap:wrap}:is(#workspace-nav,[data-local-id="workspace-nav"]) button,:is(#restore-layout,[data-local-id="restore-layout"]){font-size:12px;padding:4px 12px;border:0;background:transparent}

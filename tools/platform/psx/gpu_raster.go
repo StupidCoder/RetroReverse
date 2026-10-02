@@ -60,9 +60,9 @@ func (g *gpu) polygon(op byte) {
 		g.texDepth = int((tpage >> 7) & 3)
 	}
 
-	g.tri(vs[0], vs[1], vs[2], textured, clut)
+	g.tri(vs[0], vs[1], vs[2], textured, op&1 != 0, clut)
 	if nv == 4 {
-		g.tri(vs[1], vs[2], vs[3], textured, clut)
+		g.tri(vs[1], vs[2], vs[3], textured, op&1 != 0, clut)
 	}
 }
 
@@ -94,7 +94,7 @@ func modulate(t uint16, r, g, b int) uint16 {
 	return lane(t&0x1F, r) | lane((t>>5)&0x1F, g)<<5 | lane((t>>10)&0x1F, b)<<10 | t&0x8000
 }
 
-func (g *gpu) tri(a, b, c vert, textured bool, clut uint32) {
+func (g *gpu) tri(a, b, c vert, textured, rawTexture bool, clut uint32) {
 	area := edge(a.x, a.y, b.x, b.y, c.x, c.y)
 	if area == 0 {
 		return
@@ -129,10 +129,13 @@ func (g *gpu) tri(a, b, c vert, textured bool, clut uint32) {
 				if !ok {
 					continue // fully transparent texel
 				}
-				// Modulate the texel by the (interpolated, lit) primitive colour:
+				// Unless raw-texture mode is selected, modulate by the primitive colour:
 				// out = texel * colour / 128, so 0x80 is neutral. Games rely on this
 				// to shade lit textured models (GTE NCS/NCT feed the vertex colours).
-				px = modulate(t, r, gg, bb)
+				px = t
+				if !rawTexture {
+					px = modulate(t, r, gg, bb)
+				}
 			} else {
 				px = uint16(r>>3) | uint16(gg>>3)<<5 | uint16(bb>>3)<<10
 			}

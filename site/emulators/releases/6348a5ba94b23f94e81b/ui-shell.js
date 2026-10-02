@@ -3,7 +3,7 @@ import {presentation} from './ui-platforms.js';
 
 const icon=(path)=>`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
 const legacyURL=new URL(import.meta.url.includes('/releases/')?'../../c64/legacy.html':'./c64/legacy.html',import.meta.url).href;
-const icons={load:icon('<path d="M3 7h7l2 2h9v11H3zM3 7V4h7l2 3"/>'),run:icon('<path d="m7 4 14 8-14 8z"/>'),pause:icon('<path d="M8 4v16M16 4v16"/>'),step:icon('<path d="m4 4 12 8-12 8zM20 4v16"/>')};
+const icons={load:icon('<path d="M3 7h7l2 2h9v11H3zM3 7V4h7l2 3"/>'),run:icon('<path d="m7 4 14 8-14 8z"/>'),pause:icon('<path d="M8 4v16M16 4v16"/>'),step:icon('<path d="m4 4 12 8-12 8zM20 4v16"/>'),fullscreen:icon('<path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5"/>')};
 const iconButton=(id,label,graphic,disabled=false)=>`<button id="${id}" class="icon-button" aria-label="${label}" title="${label}" ${disabled?'disabled':''}>${graphic}</button>`;
 
 // Only trusted, checked-in presentation metadata is interpolated here.
@@ -21,7 +21,7 @@ export function shellMarkup(platform) {
     <div class="play-layout">
       <section class="play-stage">
         <div class="monitor"><canvas id="screen" width="${view.width}" height="${view.height}" tabindex="0" aria-label="${config.name} display and keyboard controls"></canvas></div>
-        <div class="transport">${iconButton("run","Run",icons.run,true)}${iconButton("pause","Pause",icons.pause,true)}<button id="reset" disabled>Reset</button>${iconButton("step",dos?"Advance":"Next frame",icons.step,true)}<label><input id="turbo" type="checkbox"> Fast forward</label><button id="fullscreen">Full screen</button></div>
+        <div class="transport">${iconButton("run","Run",icons.run,true)}${iconButton("pause","Pause",icons.pause,true)}<button id="reset" disabled>Reset</button>${iconButton("step",dos?"Advance":"Next frame",icons.step,true)}<label><input id="turbo" type="checkbox"> Fast forward</label>${iconButton("fullscreen","Full screen",icons.fullscreen)}</div>
         <div id="pad" class="pad"></div>
         ${platform==='amiga'?'<label class="mouse-speed">Mouse speed <select id="mouse-speed"><option value="1">1× — games</option><option value="2">2×</option><option value="4" selected>4× — Workbench</option></select></label>':''}
       </section>
