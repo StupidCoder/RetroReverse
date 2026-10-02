@@ -19,10 +19,11 @@ try{
   const restore=()=>{const at=core._rr_state_input(initial.length);core.HEAPU8.set(initial,at);check(core._rr_state_load(initial.length));};
   const save=()=>{let n=core._rr_state_save();check(n);return core.HEAPU8.slice(core._rr_state_data(),core._rr_state_data()+n);};
   const status=()=>JSON.parse(core.UTF8ToString(core._rr_status()));
+  const profile=()=>Object.fromEntries(JSON.parse(core.UTF8ToString(core._rr_profile())).buckets.map(b=>[b.name,b.ms]));
   const hash=async bytes=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),x=>x.toString(16).padStart(2,'0')).join('');
   const presentationCanvas=new OffscreenCanvas(400,480),presentationContext=presentationCanvas.getContext('2d');
   const run=async(mode,delay=0,count=fields)=>{
-   await execution.select('reference');restore();await execution.select(mode);const before=backend.stats(),start=performance.now(),frame=status().frames;
+   await execution.select('reference');restore();await execution.select(mode);const before=backend.stats(),profileBefore=profile(),start=performance.now(),frame=status().frames;
    const original=core.graphicsTransfer;if(delay)core.graphicsTransfer=async packet=>{await new Promise(r=>setTimeout(r,delay));return original(packet);};
    for(let i=0;i<count;i++){
     core._rr_pad(i%5===0?1:0,(i%3-1)*20,0);core._rr_touch(160,120,+(i%7===0));
@@ -30,7 +31,7 @@ try{
     if(mode==='experimental'){const image=backend.present();if(!image)throw Error('GPU presentation unavailable');presentationContext.drawImage(image,0,0);image.close();}
     else {const at=core._rr_frame();presentationContext.putImageData(new ImageData(new Uint8ClampedArray(core.HEAPU8.slice(at,at+400*480*4)),400,480),0,0);}
    }
-   core.graphicsTransfer=original;const ms=performance.now()-start,end=save(),stats=backend.stats();
+   core.graphicsTransfer=original;const ms=performance.now()-start,end=save(),stats=backend.stats(),profileMs=Object.fromEntries(Object.entries(profile()).map(([name,ms])=>[name,ms-(profileBefore[name]||0)]));
    let presentationDifferences=null;
    if(mode==='experimental'){
     const bitmap=backend.present();if(!bitmap)throw Error('GPU scanout presentation unavailable');
@@ -38,7 +39,7 @@ try{
     const actual=ctx.getImageData(0,0,400,480).data,fp=core._rr_frame();presentationDifferences=0;
     for(let i=0;i<actual.length;i++)presentationDifferences+=actual[i]!==core.HEAPU8[fp+i];
    }
-   return {ms,state:await hash(end),bytes:end.length,presentationDifferences,operations:stats.operations.map((n,i)=>n-before.operations[i]),accelerated:stats.accelerated.map((n,i)=>n-before.accelerated[i]),gpuHostMs:stats.hostMs-before.hostMs,allocatedBytes:stats.allocatedBytes};
+   return {ms,state:await hash(end),bytes:end.length,presentationDifferences,operations:stats.operations.map((n,i)=>n-before.operations[i]),accelerated:stats.accelerated.map((n,i)=>n-before.accelerated[i]),gpuHostMs:stats.hostMs-before.hostMs,allocatedBytes:stats.allocatedBytes,profileMs};
   };
   try{
    await run('reference',0,2);await run('experimental',0,2);
@@ -57,5 +58,12 @@ try{
  console.log(JSON.stringify(result));if(out)fs.writeFileSync(out,JSON.stringify(result,null,2)+'\n');
  assert.deepEqual(errors,[]);assert.equal(result.experimental.state,result.reference.state,'GPU continuation differs');if(result.delayed)assert.equal(result.delayed.state,result.reference.state,'Host delay changed guest order');assert(result.experimental.accelerated.some(n=>n>0),'No live GPU operation ran');assert.equal(result.mode,'reference');
  assert.equal(result.experimental.presentationDifferences,0,'GPU scanout differs from reference image');if(result.delayed)assert.equal(result.delayed.presentationDifferences,0);
+ for(const {reference,experimental} of result.measurements){
+  assert.equal(reference.profileMs['WebGPU upload / wait / readback']||0,0);
+  assert.equal(reference.profileMs['PICA coverage / sampling / GPU inputs']||0,0);
+  assert(experimental.profileMs['WebGPU upload / wait / readback']>0,'GPU wait is missing from the profile');
+  assert(Object.values(experimental.profileMs).every(ms=>ms>=0),'Exclusive profiling became negative across Asyncify');
+  if(experimental.accelerated[3]>0)assert(experimental.profileMs['PICA coverage / sampling / GPU inputs']>0,'Hybrid preparation is missing from the profile');
+ }
  result.result='PASS';result.browser=await browser.version();if(out)fs.writeFileSync(out,JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result));
 }finally{await browser.close();}

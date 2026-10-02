@@ -71,3 +71,40 @@ These are menu/welcome checkpoints, not verified interactive gameplay. Chrome
 154 on Apple Metal 3 is the measured environment; no cross-browser or cross-GPU
 performance claim is made. Raw cartridges, checkpoints and graphics streams are
 local only. The next milestone tests repeated handoffs and reference inspection.
+
+## Mobile report and profiling correction
+
+A user run on Galaxy S26 Ultra reported roughly equal Reference and Experimental
+speed, around 1.7 display updates/s, while Experimental had completed 5,360 GPU
+operations and recorded 3,423 reference fallbacks. These are cumulative operation
+counts, not time-weighted coverage. The screenshots do not establish which GPU
+operation types dominate or allow a matched-checkpoint comparison with the Mac
+benchmarks above. No device-specific cause has been measured yet.
+
+The old `PICA software rasterizer` scope wrapped both fragment preparation and
+the entire asynchronous GPU round-trip. Its 92.3% share in that report therefore
+cannot be interpreted as CPU software-raster time. The displayed milliseconds
+also cover the update window, not one frame. Profiling now separates:
+
+- `PICA software rasterizer`: reference draw work and remaining draw dispatch.
+- `PICA coverage / sampling / GPU inputs`: CPU preparation of supported hybrid
+  fragments, including coverage, interpolation, texture sampling and packet data.
+- `WebGPU upload / wait / readback`: the complete awaited operation, including
+  browser scheduling and validation; this is not a GPU timestamp measurement.
+
+A fresh six-interval Mac check with these scopes measured 739.6 ms Experimental
+including presentation: 411.6 ms preparation (55.7%), 232.7 ms round-trips (31.5%),
+67.7 ms ARM/Horizon (9.2%) and 17.1 ms remaining software raster work (2.3%).
+Reference, Experimental and deliberately delayed Experimental all produced the
+same full saved state and pixels. Injected host delay is correctly attributed to
+the round-trip bucket. See the [raw diagnostic report](../results/3ds-acceleration-roundtrip-profile.json).
+This short run diagnoses cost, rather than replacing the repeated M4 benchmarks.
+
+The next performance investigation should use the split on the phone, then target
+CPU fragment preparation and per-operation synchronization. Keeping targets on
+the GPU and batching work requires coherent materialization at guest accesses,
+software fallbacks and inspection transitions; it cannot simply omit readbacks.
+Moving coverage/interpolation/sampling to the GPU also needs renewed exact
+comparisons before entering the live path. The current profiler change does not
+claim a mobile speed improvement, and CPU recompilation alone would not address
+the dominant rendering costs in the supplied sample.

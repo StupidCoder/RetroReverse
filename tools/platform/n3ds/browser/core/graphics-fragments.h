@@ -27,6 +27,7 @@ inline Operation Operation::fragments(n3ds_GPU*g,n3ds_fbState*fb,n3ds_lightState
  }
  // Preparation is bounded and speculative. A fallback has committed no writes.
  if(work<4096||uint64_t(pixels)*4+work*20>16u*1024*1024)return o;
+ rrprof::Scope preparation(6,"PICA coverage / sampling / GPU inputs");
  std::vector<uint32_t> data(pixels,UINT32_MAX),tails(pixels,UINT32_MAX);data.reserve(pixels+work*5);
  for(auto&t:tris){auto&a=t.v0;auto&b=t.v1;auto&c=t.v2;
   for(int64_t y=t.minY;y<t.maxY;y++)for(int64_t x=t.minX;x<t.maxX;x++){

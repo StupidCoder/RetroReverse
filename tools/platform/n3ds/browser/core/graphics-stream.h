@@ -90,6 +90,9 @@ struct Operation {
  bool execute(){
   if(!live||!enabled||!target||params.back()||size<4096)return false;
 #ifdef __EMSCRIPTEN__
+  // Asyncify suspends inside this scope. Attribute upload, GPU completion,
+  // readback and browser scheduling to the round-trip, not software raster CPU.
+  rrprof::Scope roundTrip(5,"WebGPU upload / wait / readback");
   int result=rr_gpu_submit(kind,params.data(),params.size(),source,inputSize,target,size);
   if(result>0){if(statsOwner)statsOwner->PixelsDrawn+=result-1;accelerated[std::min(kind,4u)]++;committedBytes+=size;return true;}
 #endif
