@@ -96,6 +96,8 @@ See [M4 coverage and performance](docs/3DS-ACCELERATION-COVERAGE.md) and
 [M5 handoff acceptance](docs/3DS-ACCELERATION-ACCEPTANCE.md) for the implemented
 browser prototype and its limits. The subsequent [GPU rasterizer](docs/3DS-ACCELERATION-RASTER.md)
 moves coverage, interpolation and sampling off the CPU.
+[GPU submission costs](docs/3DS-ACCELERATION-SUBMISSION.md) covers the next mobile
+profile, reduced submission overhead and on-demand hardware timing.
 
 Game Boy and Game Gear ports are documented in `docs/GB-GG-PORTS.md`.
 The separate Game Boy, Game Gear and C64 Play/Render workspaces and historical

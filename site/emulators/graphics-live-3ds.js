@@ -3,15 +3,15 @@ import {create3DSGraphics} from './graphics-3ds.js';
 // Every operation finishes its readback before WASM resumes. This conservative
 // bridge keeps RAM authoritative across *all* direct views and physical aliases.
 // GPU storage is scratch, never the only copy of guest-visible data.
-export async function createLive3DSGraphics(core,{createGPU=create3DSGraphics,timeoutMs=5000}={}){
+export async function createLive3DSGraphics(core,{createGPU=create3DSGraphics,timeoutMs=5000,measureGPU=false}={}){
  let gpu=null,reason='',closed=false,active=false,pending=null;
- let count=0,totalMs=0;
+ let count=0,totalMs=0;const timing={operations:0,uploadMs:0,submitMs:0,queueAndMapMs:0,readbackMs:0,gpuMs:0,gpuSamples:0};
  const fail=e=>{reason=String(e?.message??e);active=false;};
  const bounded=async(work,label)=>{let timer;try{return await Promise.race([work,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(label+' timed out')),timeoutMs);})]);}finally{clearTimeout(timer);}};
  let initializing=true;
  try{await bounded((async()=>{
-  const candidate=await createGPU({onLost:fail,measureGPU:false});
-  if(!initializing){candidate.destroy();return;}gpu=candidate;
+  const candidate=await createGPU({onLost:fail,measureGPU:true});
+  if(!initializing){candidate.destroy();return;}gpu=candidate;gpu.setTimingEnabled?.(measureGPU);
   const check=await gpu.execute({kind:1,params:[4,0x12345678,4096,0],input:new Uint8Array(),before:new Uint8Array(4096)});
   if(!initializing)return;
   if(!check.supported||!(check.bytes instanceof Uint8Array)||check.bytes.length!==4096||check.bytes.some((b,i)=>b!==[0x78,0x56,0x34,0x12][i%4]))throw Error('WebGPU transfer self-test failed');
@@ -23,7 +23,8 @@ export async function createLive3DSGraphics(core,{createGPU=create3DSGraphics,ti
   if(pending)return Promise.reject(Error('A GPU operation is already in flight'));
   const start=performance.now();
   pending=bounded(Promise.resolve().then(()=>gpu.execute(packet)),'GPU completion')
-   .then(result=>{if(result.supported){count++;totalMs+=performance.now()-start;}return result;})
+   .then(result=>{if(result.supported){count++;totalMs+=performance.now()-start;
+    if(result.timing){timing.operations++;for(const key of ['uploadMs','submitMs','queueAndMapMs','readbackMs'])timing[key]+=result.timing[key]||0;if(Number.isFinite(result.timing.gpuMs)){timing.gpuMs+=result.timing.gpuMs;timing.gpuSamples++;}}}return result;})
    .catch(e=>{fail(e);gpu?.destroy();return {supported:false,reason};})
    .finally(()=>{pending=null;});
   return pending;
@@ -37,8 +38,9 @@ export async function createLive3DSGraphics(core,{createGPU=create3DSGraphics,ti
   async quiesce(){await pending;}
  };
  const result={reference,experimental,get failed(){return !!(reason||core.graphicsError);},get reason(){return reason||core.graphicsError;},
+  measureTiming(enabled){gpu?.setTimingEnabled?.(enabled);},
   present(){if(!active||reason||closed)return null;try{return gpu.present(core);}catch(e){fail(e);return null;}},
-  stats(){return {...JSON.parse(core.UTF8ToString(core._rr_graphics_stats())),hostOperations:count,hostMs:totalMs,allocatedBytes:gpu?.bytesAllocated??0};},
+  stats(){return {...JSON.parse(core.UTF8ToString(core._rr_graphics_stats())),hostOperations:count,hostMs:totalMs,timing:{...timing},timestamps:!!gpu?.info?.timestamps,measuringGPU:!!gpu?.measuringGPU,allocatedBytes:gpu?.bytesAllocated??0};},
   dispose(){closed=true;active=false;gpu?.destroy();core.graphicsTransfer=null;}
  };return result;
 }

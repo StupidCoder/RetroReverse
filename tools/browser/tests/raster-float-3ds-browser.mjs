@@ -14,6 +14,10 @@ try{
   for(let i=0;i<65536;i++)pairs.push([random(),random()]);
   // Cancellation and halfway rounding, not just uniformly random exponents.
   for(let i=0;i<16384;i++){const a=random()&0x7f7fffff;pairs.push([a,(a^0x80000000)>>>0],[a,(a+1)^0x80000000],[a,0x33800000],[a,0x3f800001]);}
+  // Exercise every normal and subnormal power-of-two fast path across signs
+  // and exponent boundaries, including underflow/overflow after scaling.
+  const powers=[...Array.from({length:254},(_,i)=>(i+1)<<23),...Array.from({length:23},(_,i)=>1<<i)];
+  for(const power of powers)for(let i=0;i<32;i++){const a=random(),b=(power|(i%2?0x80000000:0))>>>0;pairs.push([a,b],[b,a]);}
   const input=new Uint32Array(pairs.flat()),U=GPUBufferUsage;
   const source=device.createBuffer({size:input.byteLength,usage:U.STORAGE|U.COPY_DST}),out=device.createBuffer({size:pairs.length*12,usage:U.STORAGE|U.COPY_SRC}),read=device.createBuffer({size:pairs.length*12,usage:U.COPY_DST|U.MAP_READ});
   const module=device.createShaderModule({code:rasterFloatWGSL+`\n@group(0) @binding(0) var<storage,read> inputs:array<vec2<u32>>;@group(0) @binding(1) var<storage,read_write> outputs:array<u32>;

@@ -1,5 +1,8 @@
 # GPU coverage, interpolation and texture sampling
 
+For the subsequent phone profile, submission changes and on-demand GPU timings,
+see [GPU submission costs](3DS-ACCELERATION-SUBMISSION.md).
+
 Experimental now uploads triangles and decoded textures instead of constructing
 per-pixel fragment lists in WASM. For the existing unlit draw subset, WebGPU
 performs inclusive edge coverage, perspective-correct vertex-color/UV

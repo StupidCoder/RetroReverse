@@ -16,7 +16,7 @@ try{
   const hash=async bytes=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),x=>x.toString(16).padStart(2,'0')).join('');
   for(const fault of ['reference','device-loss','timeout','delayed']){
    let calls=0,injected=false;
-   const backend=await createLive3DSGraphics(core,{timeoutMs:fault==='timeout'?1000:5000,createGPU:async options=>{
+   const backend=await createLive3DSGraphics(core,{measureGPU:true,timeoutMs:fault==='timeout'?1000:5000,createGPU:async options=>{
     const gpu=await create3DSGraphics(options),execute=gpu.execute.bind(gpu);
     gpu.execute=packet=>{
      calls++;
@@ -46,6 +46,6 @@ try{
   return {schema:1,trials};
  });
  assert.deepEqual(errors,[]);const baseline=result.trials[0];
- for(const t of result.trials){assert.equal(t.state,baseline.state);assert.equal(t.pixels,baseline.pixels);if(['device-loss','timeout'].includes(t.fault)){assert(t.injected&&t.failed);assert.equal(t.mode,'reference');assert(t.stats.accelerated.some(n=>n>0));}}
+ for(const t of result.trials){assert.equal(t.state,baseline.state);assert.equal(t.pixels,baseline.pixels);if(['device-loss','timeout'].includes(t.fault)){assert(t.injected&&t.failed);assert.equal(t.mode,'reference');assert(t.stats.accelerated.some(n=>n>0));if(t.stats.timestamps)assert(t.stats.timing.gpuSamples>0,'Fault path did not exercise timestamp readback');}}
  result.result='PASS';result.browser=await browser.version();fs.writeFileSync(out,JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify({result:'PASS',faults:result.trials.map(t=>t.fault)}));
 }finally{await browser.close();}

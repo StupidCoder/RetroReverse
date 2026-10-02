@@ -290,7 +290,7 @@ async function boot(m) {
   const wasmBinary=new Uint8Array(await response.arrayBuffer());
   if(await digest(wasmBinary)!==coreIdentity)throw Error('Emulator build mismatch. Rebuild the development core or reload the matching release.');
   if(platform==='3ds'){
-    const rendererFiles=['graphics-3ds.js','graphics-live-3ds.js','presentation-3ds.js','fragment-3ds.js'];
+    const rendererFiles=['graphics-3ds.js','graphics-live-3ds.js','presentation-3ds.js','fragment-3ds.js','raster-3ds.js'];
     const hashes=await Promise.all(rendererFiles.map(async name=>{const r=await fetch(new URL(name,import.meta.url));if(!r.ok)throw Error('Renderer identity unavailable');return digest(new Uint8Array(await r.arrayBuffer()));}));
     coreIdentity=await digest(new TextEncoder().encode(JSON.stringify({wasm:coreIdentity,graphics:hashes})));
   }
@@ -480,6 +480,8 @@ onmessage = async ({data : m}) => {
     }
     if (m.session !== session || !loaded)
       return;
+    // Host-only profiling policy is safe even while Asyncify owns guest state.
+    if(m.type==='graphics-timing'){graphics3DS?.measureTiming(!!m.enabled);return;}
     if(execution3DS?.snapshot().busy&&['pause','hold'].includes(m.type))execution3DS.cancel();
     if(m.type==='capture-render'&&coreCapabilities.renderCapture===false){send('message',{text:'Rendering capture is not available in this development core.'});return;}
     if(m.type.startsWith('experiment-')){if(experimentService)await experimentService.request(m);else send('experiment-rejected',{generation:session,request:m.request,text:'Experiments are unavailable for this core.'});return;}

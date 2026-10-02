@@ -27,6 +27,12 @@ try{
  await page.locator('#execution-mode').selectOption('experimental');
  await page.waitForFunction(()=>window.handoff.state?.execution.effective==='experimental');
  await page.locator('#run').click();await page.waitForFunction(()=>window.handoff.state?.running&&window.handoff.state.execution.graphics.accelerated[3]>0,{timeout:60000});
+ assert.equal(await page.evaluate(()=>window.handoff.state.execution.graphics.timing.gpuSamples),0);
+ await page.locator('#performance-panel > summary').click();
+ await page.waitForFunction(()=>window.handoff.state?.execution.graphics.timing?.gpuSamples>0);
+ await page.waitForFunction(()=>document.querySelector('#graphics-timing')?.textContent.includes('GPU compute within that wait'));
+ await page.locator('#performance-panel > summary').click();
+ await page.waitForFunction(()=>window.handoff.state?.execution.graphics.measuringGPU===false);
  await page.locator('#pause').click();await page.waitForFunction(()=>!window.handoff.state?.running);
  await page.locator('#workspace-nav').selectOption('render');await page.locator('#render-capture').click();
  await page.waitForFunction(()=>!!window.handoff.capture,{timeout:120000});
@@ -71,6 +77,6 @@ try{
  await fallback.goto('http://127.0.0.1:8790/tools/browser/tests/3ds-acceleration.html');await fallback.locator('#open-media').click();await fallback.locator('#files').setInputFiles(media);await fallback.locator('#statefile').setInputFiles(savedPath);
  await fallback.waitForFunction(()=>!document.getElementById('run').disabled,null,{timeout:120000}).catch(async e=>{console.log('Fallback status:',await fallback.locator('#status').textContent(),errors);throw e;});
  assert.equal(await fallback.locator('#execution-mode').inputValue(),'reference');assert.equal(await fallback.locator('#execution-mode option[value=experimental]').isDisabled(),true);assert.match(await fallback.locator('#execution-note').textContent(),/WebGPU is unavailable/);assert.deepEqual(errors,[]);
- const result={result:'PASS',browser:await browser.version(),checks:['Reference default','Experimental live GPU draws','Pause boundary','Reference Render capture with complete replay and pixel evidence','Play preference retained','Resume Experimental','Memory Reference handoff','Preference saved and restored','Pause cancels automatic mode-switch resume','Capture cancellation releases ownership','Reference frame stepping','Reset defaults to Reference','Saved Experimental preference loads in Reference without WebGPU']};
+ const result={result:'PASS',browser:await browser.version(),checks:['Reference default','Experimental live GPU draws','On-demand GPU timestamps without pausing play','Pause boundary','Reference Render capture with complete replay and pixel evidence','Play preference retained','Resume Experimental','Memory Reference handoff','Preference saved and restored','Pause cancels automatic mode-switch resume','Capture cancellation releases ownership','Reference frame stepping','Reset defaults to Reference','Saved Experimental preference loads in Reference without WebGPU']};
  fs.writeFileSync(out,JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result));
 }finally{await browser.close();}

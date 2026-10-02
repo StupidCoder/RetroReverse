@@ -38,6 +38,11 @@ int main(int argc,char**argv){
   fb.colorMask=trial%16;tv.texEnable=1;g->Regs[0x8e]=trial%14;g->Regs[0x83]=((trial%4)<<12)|(((trial/4)%4)<<8);
   tv.bufColor={int32_t(rnd()%256),int32_t(rnd()%256),int32_t(rnd()%256),int32_t(rnd()%256)};tv.alphaTest=trial%2;tv.alphaFunc=(trial/2)%8;tv.alphaRef=rnd()%256;
   for(auto&s:tv.stages){for(int j=0;j<3;j++){s.colr[j]={sources[rnd()%9],uint8_t(rnd()%16)};s.alph[j]={sources[rnd()%9],uint8_t(rnd()%8)};}s.combC=combines[rnd()%8];s.combA=combines[rnd()%8];s.scaleC=rnd()%4;s.scaleA=rnd()%4;s.updC=rnd()%2;s.updA=rnd()%2;s.konst={int32_t(rnd()%256),int32_t(rnd()%256),int32_t(rnd()%256),int32_t(rnd()%256)};}
+  if(trial%4==0){
+   // Identity stages must still advance the delayed buffer and honor updates.
+   for(int i:{1,2}){auto&s=tv.stages[i];s.colr[0]=s.alph[0]={15,0};s.combC=s.combA=s.scaleC=s.scaleA=0;}
+   tv.stages[3].colr[0]=tv.stages[3].alph[0]={13,0};
+  }
   g->Regs[0x100]=trial<80?256:0;g->Regs[0x101]=(trial%5)|(((trial/5)%5)<<8)|((trial%15)<<16)|(((trial+3)%15)<<20)|(((trial+7)%15)<<24)|(((trial+11)%15)<<28);g->Regs[0x102]=trial%16;g->Regs[0x103]=rnd();
   n3ds_GPU_invalidateTextures(g,r->base+0x80000,4096);
   n3ds_GPU_fill(g,&fb,&ls,&tv,Slice<n3ds_rasterTri>{tri,tri});

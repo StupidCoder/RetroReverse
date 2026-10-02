@@ -90,6 +90,7 @@ function rasterSupport(packet){
  return end===words?null:'Trailing raster inputs';
 }
 export const transferWGSL=`
+override operation:u32;
 @group(0) @binding(0) var<storage,read> p:array<u32>;
 @group(0) @binding(1) var<storage,read> src:array<u32>;
 @group(0) @binding(2) var<storage,read> old:array<u32>;
@@ -113,8 +114,8 @@ fn stencil(i:u32)->u32{
 }
 fn byte(i:u32)->u32{
  if(i>=p[2]){return 0u;}
- if(p[0]==1u){if(i<p[6]){return (p[5]>>((i%p[4])*8u))&255u;}return previous(i);}
- if(p[0]==2u){
+ if(operation==1u){if(i<p[6]){return (p[5]>>((i%p[4])*8u))&255u;}return previous(i);}
+ if(operation==2u){
   let row=i/(p[7]+p[8]);let col=i%(p[7]+p[8]);let n=row*p[7]+col;
   if(col>=p[7]||n>=p[4]){return previous(i);}return source((n/p[5])*(p[5]+p[6])+n%p[5]);
  }
@@ -136,9 +137,9 @@ ${fragmentWGSL}
 ${rasterWGSL}
 @compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id:vec3<u32>){
  let index=id.x+id.y*4194240u;let i=index*4u;if(i>=p[2]){return;}
- if(p[0]==4u){dst[index]=stencil(index);return;}
- if(p[0]==5u){dst[index]=fragmentPixel(index);return;}
- if(p[0]==6u){dst[index]=rasterPixel(index);return;}
+ if(operation==4u){dst[index]=stencil(index);return;}
+ if(operation==5u){dst[index]=fragmentPixel(index);return;}
+ if(operation==6u){dst[index]=rasterPixel(index);return;}
  dst[index]=byte(i)|(byte(i+1u)<<8u)|(byte(i+2u)<<16u)|(byte(i+3u)<<24u);
 }`;
 
@@ -146,13 +147,19 @@ export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()
  if(!gpu)throw Error('WebGPU is unavailable in this browser');
  const adapter=await gpu.requestAdapter();if(!adapter)throw Error('No WebGPU adapter is available');
  const timestamps=measureGPU&&adapter.features.has('timestamp-query');
- const device=await adapter.requestDevice({requiredFeatures:timestamps?['timestamp-query']:[]});let lost=null,busy=false,closed=false,allocation=null;
+ const device=await adapter.requestDevice({requiredFeatures:timestamps?['timestamp-query']:[]});let lost=null,busy=false,closed=false,allocation=null,timingEnabled=measureGPU;
  const queries=timestamps?device.createQuerySet({type:'timestamp',count:2}):null;
  device.lost.then(info=>{lost=info.message||'WebGPU device lost';if(!closed)onLost(lost);});
  const warmStart=performance.now();device.pushErrorScope('validation');
  const module=device.createShaderModule({code:transferWGSL});
- let pipeline;
- try{pipeline=await device.createComputePipelineAsync({layout:'auto',compute:{module,entryPoint:'main'}});}
+ let pipelines,bindLayout;
+ try{
+  bindLayout=device.createBindGroupLayout({entries:Array.from({length:5},(_,binding)=>({binding,visibility:GPUShaderStage.COMPUTE,buffer:{type:binding<3?'read-only-storage':'storage'}}))});
+  const layout=device.createPipelineLayout({bindGroupLayouts:[bindLayout]});
+  // Constant operation selection lets the compiler remove the entire rasterizer
+  // from transfer kernels, instead of assigning its register footprint to fills.
+  pipelines=await Promise.all([1,2,3,4,5,6].map(operation=>device.createComputePipelineAsync({layout,compute:{module,entryPoint:'main',constants:{operation}}})));
+ }
  catch(e){const info=await module.getCompilationInfo();device.destroy();throw Error(info.messages.map(m=>`${m.lineNum}:${m.linePos} ${m.message}`).join('\n')||e.message);}
  const error=await device.popErrorScope();if(error){device.destroy();throw Error(error.message);}
  const warmupMs=performance.now()-warmStart;
@@ -163,32 +170,37 @@ export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()
   release();const capacity=2**Math.ceil(Math.log2(Math.max(n,256))),U=GPUBufferUsage;
   const b=[device.createBuffer({size:65536,usage:U.STORAGE|U.COPY_DST}),...Array.from({length:2},()=>device.createBuffer({size:capacity,usage:U.STORAGE|U.COPY_DST})),device.createBuffer({size:capacity,usage:U.STORAGE|U.COPY_SRC}),device.createBuffer({size:capacity,usage:U.COPY_DST|U.MAP_READ})];
   const counter=device.createBuffer({size:4,usage:U.STORAGE|U.COPY_DST|U.COPY_SRC});
-  const bind=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[...b.slice(0,4).map((buffer,binding)=>({binding,resource:{buffer}})),{binding:4,resource:{buffer:counter}}]});
-  if(timestamps){b.push(device.createBuffer({size:16,usage:U.QUERY_RESOLVE|U.COPY_SRC}));b.push(device.createBuffer({size:16,usage:U.COPY_DST|U.MAP_READ}));}
+  const bind=device.createBindGroup({layout:bindLayout,entries:[...b.slice(0,4).map((buffer,binding)=>({binding,resource:{buffer}})),{binding:4,resource:{buffer:counter}}]});
+  if(timestamps)b.push(device.createBuffer({size:16,usage:U.QUERY_RESOLVE|U.COPY_SRC}));
   b.push(counter);return allocation={capacity,buffers:b,bind,counter};
  }
  const padded=b=>{if(b.length%4===0&&b.length)return b;const out=new Uint8Array(Math.max(4,align(b.length)));out.set(b);return out;};
  async function execute(packet){
   const reason=transferSupport(packet);if(reason)return {supported:false,reason};
   if(closed||lost)throw Error(lost||'Graphics backend closed');if(busy)throw Error('Graphics operation already in flight');busy=true;
-  const start=performance.now();let scoped=false;
+  const start=performance.now();let scoped=false,readBuffer=null;
   try{
    device.pushErrorScope('validation');scoped=true;
-   const a=buffers(Math.max(packet.input.length,align(packet.before.length)+4)),[params,src,old,out,read]=a.buffers;
+   const measured=timestamps&&timingEnabled;
+   const outputSize=align(packet.before.length),timestampOffset=Math.ceil((outputSize+4)/8)*8,readSize=measured?timestampOffset+16:outputSize+4;
+   const a=buffers(Math.max(packet.input.length,readSize)),[params,src,old,out,read]=a.buffers;readBuffer=read;
    device.queue.writeBuffer(params,0,new Uint32Array([packet.kind,packet.input.length,packet.before.length,0,...packet.params]));
    device.queue.writeBuffer(src,0,padded(packet.input));device.queue.writeBuffer(old,0,padded(packet.before));
-   const uploaded=performance.now(),encoder=device.createCommandEncoder();encoder.clearBuffer(a.counter);const pass=encoder.beginComputePass(timestamps?{timestampWrites:{querySet:queries,beginningOfPassWriteIndex:0,endOfPassWriteIndex:1}}:{});
-   pass.setPipeline(pipeline);pass.setBindGroup(0,a.bind);const groups=Math.ceil(packet.before.length/256);pass.dispatchWorkgroups(Math.min(groups,65535),Math.ceil(groups/65535));pass.end();encoder.copyBufferToBuffer(out,0,read,0,align(packet.before.length));encoder.copyBufferToBuffer(a.counter,0,read,align(packet.before.length),4);
-   if(timestamps){encoder.resolveQuerySet(queries,0,2,a.buffers[5],0);encoder.copyBufferToBuffer(a.buffers[5],0,a.buffers[6],0,16);}
+   const uploaded=performance.now(),encoder=device.createCommandEncoder();encoder.clearBuffer(a.counter);const pass=encoder.beginComputePass(measured?{timestampWrites:{querySet:queries,beginningOfPassWriteIndex:0,endOfPassWriteIndex:1}}:{});
+   pass.setPipeline(pipelines[packet.kind-1]);pass.setBindGroup(0,a.bind);const groups=Math.ceil(packet.before.length/256);pass.dispatchWorkgroups(Math.min(groups,65535),Math.ceil(groups/65535));pass.end();encoder.copyBufferToBuffer(out,0,read,0,align(packet.before.length));encoder.copyBufferToBuffer(a.counter,0,read,align(packet.before.length),4);
+   if(measured){encoder.resolveQuerySet(queries,0,2,a.buffers[5],0);encoder.copyBufferToBuffer(a.buffers[5],0,read,timestampOffset,16);}
    device.queue.submit([encoder.finish()]);const submitted=performance.now();
-   await Promise.all([read.mapAsync(GPUMapMode.READ,0,align(packet.before.length)+4),...(timestamps?[a.buffers[6].mapAsync(GPUMapMode.READ)]:[])]);const mapped=performance.now();
-   let gpuMs=null;if(timestamps){const t=new BigUint64Array(a.buffers[6].getMappedRange());gpuMs=Number(t[1]-t[0])/1e6;a.buffers[6].unmap();}
-   const mappedBytes=read.getMappedRange(0,align(packet.before.length)+4),drawn=new DataView(mappedBytes).getUint32(align(packet.before.length),true);
-   const result=new Uint8Array(mappedBytes).slice(0,packet.before.length);read.unmap();
-   const err=await device.popErrorScope();scoped=false;if(err)throw Error(err.message);if(lost)throw Error(lost);
+   // Both promises describe work already submitted. Await them together; a
+   // second host round-trip after mapping serves no coherence purpose.
+   const validation=device.popErrorScope();scoped=false;
+   const [,err]=await Promise.all([read.mapAsync(GPUMapMode.READ,0,readSize),validation]);const mapped=performance.now();
+   if(err)throw Error(err.message);if(lost)throw Error(lost);
+   const mappedBytes=read.getMappedRange(0,readSize),drawn=new DataView(mappedBytes).getUint32(outputSize,true);
+   let gpuMs=null;if(measured){const t=new BigUint64Array(mappedBytes,timestampOffset,2);gpuMs=Number(t[1]-t[0])/1e6;}
+   const result=new Uint8Array(mappedBytes).slice(0,packet.before.length);read.unmap();readBuffer=null;
    if(packet.kind===6&&(drawn&0x80000000))return {supported:false,reason:'Raster arithmetic requires Reference'};
    return {supported:true,bytes:result,drawn,timing:{uploadMs:uploaded-start,submitMs:submitted-uploaded,gpuMs,queueAndMapMs:mapped-submitted,readbackMs:performance.now()-mapped,totalMs:performance.now()-start}};
-  }finally{if(scoped)await device.popErrorScope();busy=false;}
+  }finally{readBuffer?.unmap();if(scoped)await device.popErrorScope();busy=false;}
  }
- return {execute,warmupMs,info:{vendor:adapter.info?.vendor,architecture:adapter.info?.architecture,timestamps},async preparePresentation(){presentation??=await create3DSPresentation(device);},present(core){if(closed||lost)return null;return presentation?.present(core)??null;},get bytesAllocated(){return (allocation?65536+allocation.capacity*4+4+(timestamps?32:0):0)+(presentation?.bytesAllocated??0);},get busy(){return busy;},destroy(){closed=true;presentation?.destroy();presentation=null;release();queries?.destroy();device.destroy();}};
+ return {execute,warmupMs,setTimingEnabled(value){timingEnabled=!!value;},get measuringGPU(){return timestamps&&timingEnabled;},info:{vendor:adapter.info?.vendor,architecture:adapter.info?.architecture,timestamps},async preparePresentation(){presentation??=await create3DSPresentation(device);},present(core){if(closed||lost)return null;return presentation?.present(core)??null;},get bytesAllocated(){return (allocation?65536+allocation.capacity*4+4+(timestamps?16:0):0)+(presentation?.bytesAllocated??0);},get busy(){return busy;},destroy(){closed=true;presentation?.destroy();presentation=null;release();queries?.destroy();device.destroy();}};
 }

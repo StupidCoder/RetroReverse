@@ -7,14 +7,14 @@ try{
  const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')console.error(m.text());});
  await page.goto('http://127.0.0.1:8790/tools/browser/tests/graphics-live-3ds.html');
  await page.locator('#media').setInputFiles(media);await page.locator('#checkpoint').setInputFiles(checkpoint);
- const result=await page.evaluate(async ({fields,trials,delay,coreBase,graphicsBase})=>{
+ const result=await page.evaluate(async ({fields,trials,delay,coreBase,graphicsBase,measureGPU})=>{
   const {default:factory}=await import(coreBase+'/core.js');
   const {createLive3DSGraphics}=await import(graphicsBase+'/graphics-live-3ds.js');
   const {create3DSExecution}=await import(graphicsBase+'/execution-3ds.js');
   const core=await factory();let media=new Uint8Array(await document.querySelector('#media').files[0].arrayBuffer());
   const check=ok=>{if(!ok)throw Error(core.UTF8ToString(core._rr_error()));};let p=core._rr_input(media.length);check(p);core.HEAPU8.set(media,p);check(core._rr_init(media.length));media=null;
   const initial=new Uint8Array(await document.querySelector('#checkpoint').files[0].arrayBuffer());
-  const backend=await createLive3DSGraphics(core),execution=create3DSExecution({reference:backend.reference,experimental:backend.experimental});
+  const backend=await createLive3DSGraphics(core,{measureGPU}),execution=create3DSExecution({reference:backend.reference,experimental:backend.experimental});
   if(!backend.experimental.available)throw Error(backend.reason);
   const restore=()=>{const at=core._rr_state_input(initial.length);core.HEAPU8.set(initial,at);check(core._rr_state_load(initial.length));};
   const save=()=>{let n=core._rr_state_save();check(n);return core.HEAPU8.slice(core._rr_state_data(),core._rr_state_data()+n);};
@@ -40,7 +40,7 @@ try{
     const actual=ctx.getImageData(0,0,400,480).data,fp=core._rr_frame();presentationDifferences=0;
     for(let i=0;i<actual.length;i++)presentationDifferences+=actual[i]!==core.HEAPU8[fp+i];
    }
-   return {ms,submittedKinds,supportedKinds,unsupported,inputBytes,state:await hash(end),bytes:end.length,presentationDifferences,operations:stats.operations.map((n,i)=>n-before.operations[i]),accelerated:stats.accelerated.map((n,i)=>n-before.accelerated[i]),gpuHostMs:stats.hostMs-before.hostMs,allocatedBytes:stats.allocatedBytes,profileMs};
+   return {ms,submittedKinds,supportedKinds,unsupported,inputBytes,state:await hash(end),bytes:end.length,presentationDifferences,operations:stats.operations.map((n,i)=>n-before.operations[i]),accelerated:stats.accelerated.map((n,i)=>n-before.accelerated[i]),gpuHostMs:stats.hostMs-before.hostMs,timestamps:stats.timestamps,timing:stats.timing?Object.fromEntries(Object.entries(stats.timing).map(([key,n])=>[key,n-(before.timing?.[key]||0)])):null,allocatedBytes:stats.allocatedBytes,profileMs};
   };
   try{
    await run('reference',0,2);await run('experimental',0,2);
@@ -53,9 +53,9 @@ try{
     measurements.push({reference,experimental,speedup:reference.ms/experimental.ms});
    }
    const delayed=delay?await run('experimental',delay):null;
-   await execution.select('reference');return {schema:1,fields,includesPresentation:true,measurements,reference,experimental,delayed,mode:execution.snapshot().effective};
+   await execution.select('reference');return {schema:1,fields,measureGPU,coreBase,graphicsBase,includesPresentation:true,measurements,reference,experimental,delayed,mode:execution.snapshot().effective};
   }finally{backend.dispose();}
- },{fields:Number(fields),trials:Number(trials),delay:Number(delay),coreBase:process.env.CORE_BASE||'/tools/platform/n3ds/browser/web',graphicsBase:process.env.GRAPHICS_BASE||'/site/emulators'});
+ },{fields:Number(fields),trials:Number(trials),delay:Number(delay),coreBase:process.env.CORE_BASE||'/tools/platform/n3ds/browser/web',graphicsBase:process.env.GRAPHICS_BASE||'/site/emulators',measureGPU:process.env.MEASURE_GPU==='1'});
  console.log(JSON.stringify(result));if(out)fs.writeFileSync(out,JSON.stringify(result,null,2)+'\n');
  assert.deepEqual(errors,[]);assert.equal(result.experimental.state,result.reference.state,'GPU continuation differs');if(result.delayed)assert.equal(result.delayed.state,result.reference.state,'Host delay changed guest order');assert(result.experimental.accelerated.some(n=>n>0),'No live GPU operation ran');assert.equal(result.mode,'reference');assert(result.experimental.supportedKinds[Number(process.env.RASTER_KIND||6)]>0,'No GPU coverage/interpolation/sampling ran');assert.deepEqual(result.experimental.unsupported,{},'GPU packets unexpectedly fell back');
  assert.equal(result.experimental.presentationDifferences,0,'GPU scanout differs from reference image');if(result.delayed)assert.equal(result.delayed.presentationDifferences,0);

@@ -25,7 +25,7 @@ let activeMedia=null;
 let worker, session = 0, request = 0, selected = [], firmware = null, driveFirmware=null,
             compatibility = true, loaded = false;
 let lastSeconds = 0, lastSteps = null, lastFrames = 0, lastTime = performance.now(), rate = '',
-    lastProfile = {}, profileTime = 0;
+    lastProfile = {}, lastGraphicsTiming = {}, profileTime = 0;
 let pendingFrame=null,presentationScheduled=false,presentedCount=0,presentedAt=performance.now(),presentedRate=0,lastCopyMs=0;
 function present(m){
  if(canvas.width!==m.width)canvas.width=m.width;
@@ -107,6 +107,16 @@ function showProfile(p, captureWork=false) {
           ? (captureWork?'Capture work. ':'')+'Sampled chip ticks (1 in 1,021). Sample-only milliseconds and exclusive shares; timer overhead affects tiny samples.'
           : (captureWork?'Capture work only. ':'')+'Exclusive wall time since the previous update. CPU remainder includes uninstrumented devices and scheduling. Idle time and display copies excluded.';
   if(platform==='3ds')$('profile-note').textContent=(captureWork?'Capture work only. ':'')+'Exclusive wall time since the previous update, not per frame. Software rasterizer excludes GPU input preparation and GPU round-trips. The WebGPU row includes uploads, GPU execution, readback and browser scheduling; it is not GPU-only time. Guest idle time and display copies excluded.';
+  const gpuDetails=$('graphics-timing'),graphics=latestState?.execution?.graphics,timing=graphics?.timing;
+  if(gpuDetails){
+    const delta=key=>Math.max(0,(timing?.[key]||0)-(lastGraphicsTiming[key]||0)),operations=delta('operations');
+    gpuDetails.hidden=captureWork||!operations;
+    if(!gpuDetails.hidden){
+      const samples=delta('gpuSamples');
+      gpuDetails.textContent=`WebGPU breakdown for ${operations} operations: upload/submit ${(delta('uploadMs')+delta('submitMs')).toFixed(2)} ms · completion wait ${delta('queueAndMapMs').toFixed(2)} ms · readback copy ${delta('readbackMs').toFixed(2)} ms. `+(samples?`GPU compute within that wait: ${delta('gpuMs').toFixed(2)} ms (${samples} timestamp samples).`:graphics.timestamps?'GPU timestamp samples will appear after the next operation.':'GPU-only timing is unavailable on this adapter.');
+    }
+    lastGraphicsTiming={...timing};
+  }
 }
 let pendingWorker, cancelPreparation, preparedPanel, lessonShortcut;
 function load(stateFile=null,preparedStart=null,requestedBackend=backend) {
@@ -133,7 +143,7 @@ function load(stateFile=null,preparedStart=null,requestedBackend=backend) {
     if(m.type==='state'){bufferedState=m;return;}
     if(m.type==='ready'){
       previousWorker?.terminate();activeMedia=requestedMedia;worker=candidate;session=nextSession;pendingWorker=null;
-      candidate.onmessage=handleMessage;loaded=true;cancelPreparation=null;preparedPanel?.pending(false);$('system-select').disabled=false;
+      candidate.onmessage=handleMessage;loaded=true;if(platform==='3ds')send('graphics-timing',{enabled:$('performance-panel').open});cancelPreparation=null;preparedPanel?.pending(false);$('system-select').disabled=false;
       handleMessage({data:m});if(bufferedState)handleMessage({data:bufferedState});
       if(preparedStart){const r=preparedPanel.recipe(preparedStart);preparedPanel.message('Prepared start ready.');if(r.layout==='loader')views.tourLayout();else views.reveal('lesson');send(r.target.kind==='tour'?'tour-start':'experiment-prepare',{protocol:1,generation:session,id:r.target.id});}
     }else if(m.type==='error'){
@@ -146,7 +156,8 @@ function load(stateFile=null,preparedStart=null,requestedBackend=backend) {
   lastInput = '';
   loaded = false;
   controls(false);
-  lastProfile = {};
+  lastProfile = {};lastGraphicsTiming={};
+  if($('graphics-timing')){$('graphics-timing').textContent='';$('graphics-timing').hidden=true;}
   profileTime = 0;
   rate = '';
   lastSteps=null;lastFrames=0;pendingFrame?.bitmap?.close();pendingFrame=null;presentedCount=0;presentedAt=performance.now();presentedRate=0;
@@ -257,6 +268,7 @@ $('load').onclick = () => {
 };
 $('reset').onclick = ()=>load();
 if($('execution-mode'))$('execution-mode').onchange=()=>send('execution-mode',{mode:$('execution-mode').value});
+if(platform==='3ds')$('performance-panel').addEventListener('toggle',()=>{if(loaded)send('graphics-timing',{enabled:$('performance-panel').open});},{signal:lifetime.signal});
 $('cancelcapture').onclick=()=>send('cancel-capture');
 $('save').onclick=()=>{release();controls(false);$('status').textContent='Saving state…';send('save');};
 $('statefile').onchange=()=>{const f=$('statefile').files[0];if(!f)return;if(!selected.length){selected=[...$('files').files];firmware=platform==='c64'?['basic','kernal','chargen'].map(id=>$(id).files[0]):platform==='amiga'?[$('kickstart').files[0]]:platform==='ps2'?[$('bios').files[0]]:null;compatibility=$('compatprofile')?.checked??true;driveFirmware=$('drive-firmware')?.files[0]||null;}load(f);$('statefile').value='';};

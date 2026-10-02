@@ -35,7 +35,7 @@ export function shellMarkup(platform) {
         ${view.firmwareHTML||''}
         <div id="tape" ${platform==='c64'?'':'hidden'}><button id="tapeplay">Play tape</button><button id="tapestop">Stop tape</button><p>Type LOAD, press Enter, then play the tape. Type RUN after loading.</p></div>
         <details><summary>Controls</summary><p id="help"></p><p id="device" class="metrics">Keyboard and on-screen controls</p></details>
-        <details><summary>Performance</summary><p id="profile-note">Run the machine to measure subsystem timings.</p><table class="stats"><thead><tr><th>Subsystem</th><th>ms</th><th>%</th></tr></thead><tbody id="profile"></tbody></table></details>
+        <details id="performance-panel"><summary>Performance</summary><p id="profile-note">Run the machine to measure subsystem timings.</p>${platform==='3ds'?'<p id="graphics-timing" class="metrics" hidden></p>':''}<table class="stats"><thead><tr><th>Subsystem</th><th>ms</th><th>%</th></tr></thead><tbody id="profile"></tbody></table></details>
         <details><summary>Compatibility</summary><p id="compat"></p>${view.compatibilityHTML}</details>
       </aside>
     </div>
