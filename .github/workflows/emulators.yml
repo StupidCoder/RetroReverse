@@ -1,9 +1,9 @@
 name: Browser emulator release checks
 on:
   push:
-    paths: ['site/emulators/**', 'tools/browser/**', 'tools/platform/**/browser/**', '.github/workflows/emulators.yml']
+    paths: ['site/emulators/**', 'tools/browser/**', 'tools/platform/**/browser/**', 'tools/platform/c64/owned/**', '.github/workflows/emulators.yml']
   pull_request:
-    paths: ['site/emulators/**', 'tools/browser/**', 'tools/platform/**/browser/**', '.github/workflows/emulators.yml']
+    paths: ['site/emulators/**', 'tools/browser/**', 'tools/platform/**/browser/**', 'tools/platform/c64/owned/**', '.github/workflows/emulators.yml']
 jobs:
   static-and-core:
     runs-on: ubuntu-latest
