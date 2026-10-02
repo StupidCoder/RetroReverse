@@ -1,0 +1,8 @@
+[
+  {
+    "file": "kick12.rom",
+    "bytes": 524288,
+    "sha256": "1d68ba18412501d2a4b307a0a632b94a50b839c2c7c5ff2df6de2c38b99a921f",
+    "description": "Kickstart 1.2 (34.5), existing RetroReverse research firmware. The original kick13.rom filename was misleading."
+  }
+]

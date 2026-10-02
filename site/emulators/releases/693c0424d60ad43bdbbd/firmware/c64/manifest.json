@@ -1,0 +1,23 @@
+[
+  {
+    "file": "basic.rom",
+    "sourceName": "basic-901226-01.bin",
+    "bytes": 8192,
+    "sha256": "89878cea0a268734696de11c4bae593eaaa506465d2029d619c0e0cbccdfa62d",
+    "source": "https://raw.githubusercontent.com/VICE-Team/svn-mirror/20e8f7d304b1201411a7f77e80b12838b3314a2c/vice/data/C64/basic-901226-01.bin"
+  },
+  {
+    "file": "kernal.rom",
+    "sourceName": "kernal-901227-03.bin",
+    "bytes": 8192,
+    "sha256": "83c60d47047d7beab8e5b7bf6f67f80daa088b7a6a27de0d7e016f6484042721",
+    "source": "https://raw.githubusercontent.com/VICE-Team/svn-mirror/20e8f7d304b1201411a7f77e80b12838b3314a2c/vice/data/C64/kernal-901227-03.bin"
+  },
+  {
+    "file": "chargen.rom",
+    "sourceName": "chargen-901225-01.bin",
+    "bytes": 4096,
+    "sha256": "fd0d53b8480e86163ac98998976c72cc58d5dd8eb824ed7b829774e74213b420",
+    "source": "https://raw.githubusercontent.com/VICE-Team/svn-mirror/20e8f7d304b1201411a7f77e80b12838b3314a2c/vice/data/C64/chargen-901225-01.bin"
+  }
+]
