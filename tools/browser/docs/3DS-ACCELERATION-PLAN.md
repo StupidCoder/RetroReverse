@@ -7,6 +7,12 @@ with the software renderer, inspected, and resumed without losing machine state.
 Full-speed execution is a target to measure, not a prerequisite to reporting an
 experiment honestly.
 
+Scope is exclusively the browser emulator. **Reference** means the existing
+browser C++/WASM interpreter and software renderer. The Go emulator is outside
+this work: no Go-emulator optimization, feature parity, oracle comparisons or
+cross-language validation is required. Existing Go-based build tools may remain
+build plumbing; they do not define the prototype's reference behavior.
+
 This document is milestone M0: the implementation plan. M1 onward is not yet
 implemented. Complete, validate, commit and push each milestone to `main`
 separately. Keep the default reference mode usable at every milestone.
@@ -49,8 +55,10 @@ verified recovery point, never silently continue with stale graphics memory.
 
 - [The port](../../platform/n3ds/browser/README.md) is a generated C++20/WASM
   ARM11/Horizon HLE machine with software PICA rendering. Its worker pool is
-  serial. Reference semantics originate in the Go implementation; generated
-  source changes must remain reproducible through the port generator.
+  serial. Its existing browser behavior is the reference for this prototype.
+  Keep browser acceleration code in maintained C++/JavaScript/WGSL modules and
+  preserve their integration across any regeneration of the existing core;
+  this does not require changing the Go emulator.
 - [The saved performance run](../results/handheld-performance.json) reports
   approximately 217 ms per display interval in the median optimized welcome
   scene: 179 ms rasterization, 29 ms transfers and 7 ms CPU/scheduler. These are
@@ -77,8 +85,9 @@ verified recovery point, never silently continue with stale graphics memory.
 
 ## Correctness contract
 
-The reference is the current implemented machine model, including its documented
-limitations. Interpreter execution is not by itself proof of hardware accuracy.
+The reference is the current browser C++/WASM machine model, including its
+documented limitations. Interpreter execution is not by itself proof of hardware
+accuracy.
 
 At each supported transition boundary, both modes must agree on observable
 machine state and continuation: ARM/Thumb registers, CPSR and VFP state; active
@@ -282,8 +291,10 @@ Use exact comparisons of a normalized canonical state inventory. Exclude only
 documented host timing, instrumentation and derived caches; include all guest
 state. Compare continued execution as well as the transition instant. Full
 serialized-state hashes are useful where stable but must not mask missing fields
-or replace comparisons after continuation. Retain the Go oracle as a separate
-cross-language check with its already documented rendering differences.
+or replace comparisons after continuation. Compare experimental execution with
+the browser reference backend. Native builds of the same browser C++ sources
+may assist unit testing, but browser WASM/WebGPU runs establish acceptance;
+the Go emulator is not a validation dependency.
 
 Public checks should cover synthetic ARM programs, graphics commands, resource
 aliasing, malformed streams and transition races. Private scene checks should
@@ -300,20 +311,23 @@ Node reference throughput from actual browser WebGPU measurements. Initial
 acceptance uses a specified desktop Chromium/adapter; record actual Safari and
 Firefox capability/results before claiming support there.
 
-Implementation touchpoints are `tools/platform/n3ds/browser/portgen`, the
-hand-maintained browser core adapters/API/state boundary, `site/emulators/worker.js`,
-the execution gate, shared UI metadata/shell and a 3DS-specific renderer module.
-Keep console-specific logic there rather than copying the shared application.
-Add generated artifacts through the established build and release tooling.
+Implementation touchpoints are the C++ sources under
+`tools/platform/n3ds/browser/core`, `site/emulators/worker.js`, the execution gate,
+shared UI metadata/shell and a 3DS-specific renderer module. Limit any port
+generator changes to preserving browser-specific integration hooks; do not
+propagate accelerated behavior into the Go emulator. Keep console-specific logic
+in these browser components rather than copying the shared application. Add
+artifacts through the established build and release tooling.
 
 For each implementation milestone:
 
 1. Update this milestone's status and add a concise result with commands,
    correctness evidence, performance and unresolved limitations.
-2. Run relevant native/WASM/browser tests and the shared public checks. Rebuild
-   the 3DS binary when necessary, package with `--core 3ds` (or `--site-only` for
-   JS-only changes), and run the release audit. Review package-generated changes
-   so unrelated source/build work cannot enter the milestone.
+2. Run relevant tests of the browser C++ sources, WASM and WebGPU, plus the
+   shared browser public checks. Rebuild the 3DS binary when necessary, package
+   with `--core 3ds` (or `--site-only` for JS-only changes), and run the release
+   audit. Review package-generated changes so unrelated source/build work cannot
+   enter the milestone.
 3. Stage only the milestone's source, evidence, documentation and required
    release artifacts. The working tree already contains unrelated changes.
 4. Commit the completed milestone on `main`, push `origin main`, and verify the
