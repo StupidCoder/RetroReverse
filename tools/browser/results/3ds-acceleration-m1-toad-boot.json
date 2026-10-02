@@ -1,0 +1,164 @@
+{
+  "schema": 1,
+  "label": "toad-boot",
+  "backend": "browser-reference",
+  "method": "Node WASM, 3 restored trials, 3 warmup intervals, execution/status timing; hashing and serialization excluded. Display intervals are not presented images.",
+  "checkpointSha256": "e0efc2468ce721948905ab1247c64819c608148f55344269d956a7936c6c6162",
+  "trials": [
+    {
+      "intervals": 60,
+      "totalMs": 13089.047587000006,
+      "intervalsPerSecond": 4.583985167843058,
+      "medianMs": 237.5966249999983,
+      "p95Ms": 250.30495800000062,
+      "longestCallMs": 5.562333000000763,
+      "start": {
+        "steps": 0,
+        "frames": 0,
+        "inputSeconds": 0,
+        "pc": 1048576,
+        "width": 400,
+        "height": 480,
+        "draws": 0
+      },
+      "end": {
+        "steps": 365304798,
+        "frames": 60,
+        "inputSeconds": 1.36251,
+        "pc": 1208824,
+        "width": 400,
+        "height": 480,
+        "draws": 0
+      },
+      "proof": {
+        "steps": 365304798,
+        "frames": 60,
+        "cpu": 408565051,
+        "cpsr": 1073741919,
+        "ram": 2454666043,
+        "rgba": 1274629573
+      },
+      "stateSha256": "a682b0fbcf9dc7968b0fe813ffc7594b99031f2f06a271ae755373eb747ddb66",
+      "heapBytes": 1053687808,
+      "profile": [
+        {
+          "name": "ARM11 / Horizon scheduler",
+          "ms": 12989.500000000002
+        },
+        {
+          "name": "PICA commands / vertex processing",
+          "ms": 0.3337549999999999
+        },
+        {
+          "name": "DSP HLE mixer",
+          "ms": 2.9773300000000003
+        }
+      ]
+    },
+    {
+      "intervals": 60,
+      "totalMs": 12963.01134100003,
+      "intervalsPerSecond": 4.628554154714741,
+      "medianMs": 236.84449999999924,
+      "p95Ms": 248.53095799999937,
+      "longestCallMs": 2.898417000000336,
+      "start": {
+        "steps": 0,
+        "frames": 0,
+        "inputSeconds": 0,
+        "pc": 1048576,
+        "width": 400,
+        "height": 480,
+        "draws": 0
+      },
+      "end": {
+        "steps": 365304798,
+        "frames": 60,
+        "inputSeconds": 1.36251,
+        "pc": 1208824,
+        "width": 400,
+        "height": 480,
+        "draws": 0
+      },
+      "proof": {
+        "steps": 365304798,
+        "frames": 60,
+        "cpu": 408565051,
+        "cpsr": 1073741919,
+        "ram": 2454666043,
+        "rgba": 1274629573
+      },
+      "stateSha256": "a682b0fbcf9dc7968b0fe813ffc7594b99031f2f06a271ae755373eb747ddb66",
+      "heapBytes": 1224474624,
+      "profile": [
+        {
+          "name": "ARM11 / Horizon scheduler",
+          "ms": 12867.399999999998
+        },
+        {
+          "name": "PICA commands / vertex processing",
+          "ms": 0.28892000000000007
+        },
+        {
+          "name": "DSP HLE mixer",
+          "ms": 2.2638
+        }
+      ]
+    },
+    {
+      "intervals": 60,
+      "totalMs": 12990.895621000003,
+      "intervalsPerSecond": 4.618619204591944,
+      "medianMs": 237.0714169999992,
+      "p95Ms": 250.04895800000668,
+      "longestCallMs": 2.8412499999976717,
+      "start": {
+        "steps": 0,
+        "frames": 0,
+        "inputSeconds": 0,
+        "pc": 1048576,
+        "width": 400,
+        "height": 480,
+        "draws": 0
+      },
+      "end": {
+        "steps": 365304798,
+        "frames": 60,
+        "inputSeconds": 1.36251,
+        "pc": 1208824,
+        "width": 400,
+        "height": 480,
+        "draws": 0
+      },
+      "proof": {
+        "steps": 365304798,
+        "frames": 60,
+        "cpu": 408565051,
+        "cpsr": 1073741919,
+        "ram": 2454666043,
+        "rgba": 1274629573
+      },
+      "stateSha256": "a682b0fbcf9dc7968b0fe813ffc7594b99031f2f06a271ae755373eb747ddb66",
+      "heapBytes": 1224474624,
+      "profile": [
+        {
+          "name": "ARM11 / Horizon scheduler",
+          "ms": 12897
+        },
+        {
+          "name": "PICA commands / vertex processing",
+          "ms": 0.2893300000000001
+        },
+        {
+          "name": "DSP HLE mixer",
+          "ms": 2.60501
+        }
+      ]
+    }
+  ],
+  "transitionCheck": {
+    "switches": 32,
+    "canonicalStateMatch": true,
+    "inputContinuationMatch": true
+  }
+}

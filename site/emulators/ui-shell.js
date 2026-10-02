@@ -26,6 +26,7 @@ export function shellMarkup(platform) {
         ${platform==='amiga'?'<label class="mouse-speed">Mouse speed <select id="mouse-speed"><option value="1">1× — games</option><option value="2">2×</option><option value="4" selected>4× — Workbench</option></select></label>':''}
       </section>
       <aside class="play-inspector">
+        ${platform==='3ds'?'<label for="execution-mode">Execution mode</label><select id="execution-mode" disabled aria-describedby="execution-note"><option value="reference">Reference</option><option value="experimental" disabled>Experimental</option></select><p id="execution-note" class="metrics" role="status">ARM interpreter · Software PICA. Experimental rendering is not available in this build.</p>':''}
         <p>Open Memory to inspect storage, or Render to capture a display.</p>
         ${platform==='c64'?`<p class="hint">Checkpoints are core-specific. <a href="${legacyURL}">Open the legacy core for older checkpoints</a>.</p>`:''}
         <div class="state-controls"><button id="save" disabled>Save state</button><label>Load state <input id="statefile" type="file" accept=".rrstate"></label></div>

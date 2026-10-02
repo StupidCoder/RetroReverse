@@ -1,0 +1,176 @@
+{
+  "schema": 1,
+  "label": "mario-title-mii-dialog",
+  "backend": "browser-reference",
+  "method": "Node WASM, 3 restored trials, 3 warmup intervals, execution/status timing; hashing and serialization excluded. Display intervals are not presented images.",
+  "checkpointSha256": "444126aa356a6397e721b05d97c41bd44b0110da1f7f34d379bd4413650d0a3d",
+  "trials": [
+    {
+      "intervals": 30,
+      "totalMs": 6755.760540000001,
+      "intervalsPerSecond": 4.440654730488715,
+      "medianMs": 445.0938329999999,
+      "p95Ms": 455.9079579999998,
+      "longestCallMs": 153.5932499999999,
+      "start": {
+        "steps": 4640269202,
+        "frames": 1011,
+        "inputSeconds": 17.3072,
+        "pc": 2669488,
+        "width": 400,
+        "height": 480,
+        "draws": 61321
+      },
+      "end": {
+        "steps": 4774325102,
+        "frames": 1041,
+        "inputSeconds": 17.8072,
+        "pc": 2669488,
+        "width": 400,
+        "height": 480,
+        "draws": 63421
+      },
+      "proof": {
+        "steps": 4774325102,
+        "frames": 1041,
+        "cpu": 898230725,
+        "cpsr": 1610612959,
+        "ram": 4288078565,
+        "rgba": 4041774307
+      },
+      "stateSha256": "6f2deaf42be54aa27d659c09eb44741486d8d43461bd6ebb8ffb6d933f2453bb",
+      "heapBytes": 1229324288,
+      "profile": [
+        {
+          "name": "ARM11 / Horizon scheduler",
+          "ms": 246.1062
+        },
+        {
+          "name": "PICA commands / vertex processing",
+          "ms": 36.4893
+        },
+        {
+          "name": "PICA software rasterizer",
+          "ms": 5625.219
+        },
+        {
+          "name": "GX memory / display transfers",
+          "ms": 843.219
+        }
+      ]
+    },
+    {
+      "intervals": 30,
+      "totalMs": 6851.509082000004,
+      "intervalsPerSecond": 4.378597421524951,
+      "medianMs": 446.2669999999998,
+      "p95Ms": 465.83849999999984,
+      "longestCallMs": 154.60120800000004,
+      "start": {
+        "steps": 4640269202,
+        "frames": 1011,
+        "inputSeconds": 17.3072,
+        "pc": 2669488,
+        "width": 400,
+        "height": 480,
+        "draws": 61321
+      },
+      "end": {
+        "steps": 4774325102,
+        "frames": 1041,
+        "inputSeconds": 17.8072,
+        "pc": 2669488,
+        "width": 400,
+        "height": 480,
+        "draws": 63421
+      },
+      "proof": {
+        "steps": 4774325102,
+        "frames": 1041,
+        "cpu": 898230725,
+        "cpsr": 1610612959,
+        "ram": 4288078565,
+        "rgba": 4041774307
+      },
+      "stateSha256": "6f2deaf42be54aa27d659c09eb44741486d8d43461bd6ebb8ffb6d933f2453bb",
+      "heapBytes": 1375731712,
+      "profile": [
+        {
+          "name": "ARM11 / Horizon scheduler",
+          "ms": 248.464
+        },
+        {
+          "name": "PICA commands / vertex processing",
+          "ms": 36.2638
+        },
+        {
+          "name": "PICA software rasterizer",
+          "ms": 5702.95
+        },
+        {
+          "name": "GX memory / display transfers",
+          "ms": 859.95
+        }
+      ]
+    },
+    {
+      "intervals": 30,
+      "totalMs": 6916.460875000004,
+      "intervalsPerSecond": 4.337478450638959,
+      "medianMs": 447.91020800000115,
+      "p95Ms": 473.60704199999964,
+      "longestCallMs": 199.19041599999764,
+      "start": {
+        "steps": 4640269202,
+        "frames": 1011,
+        "inputSeconds": 17.3072,
+        "pc": 2669488,
+        "width": 400,
+        "height": 480,
+        "draws": 61321
+      },
+      "end": {
+        "steps": 4774325102,
+        "frames": 1041,
+        "inputSeconds": 17.8072,
+        "pc": 2669488,
+        "width": 400,
+        "height": 480,
+        "draws": 63421
+      },
+      "proof": {
+        "steps": 4774325102,
+        "frames": 1041,
+        "cpu": 898230725,
+        "cpsr": 1610612959,
+        "ram": 4288078565,
+        "rgba": 4041774307
+      },
+      "stateSha256": "6f2deaf42be54aa27d659c09eb44741486d8d43461bd6ebb8ffb6d933f2453bb",
+      "heapBytes": 1375731712,
+      "profile": [
+        {
+          "name": "ARM11 / Horizon scheduler",
+          "ms": 248.17999999999995
+        },
+        {
+          "name": "PICA commands / vertex processing",
+          "ms": 36.35480000000001
+        },
+        {
+          "name": "PICA software rasterizer",
+          "ms": 5771.6
+        },
+        {
+          "name": "GX memory / display transfers",
+          "ms": 857.23
+        }
+      ]
+    }
+  ],
+  "transitionCheck": {
+    "switches": 32,
+    "canonicalStateMatch": true,
+    "inputContinuationMatch": true
+  }
+}

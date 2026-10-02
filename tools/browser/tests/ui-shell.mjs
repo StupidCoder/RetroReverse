@@ -11,6 +11,8 @@ for(const platform of Object.keys(platforms)){
  assert.equal(ids.includes('compatprofile'),['3do','dos'].includes(platform));
  assert.equal(html.includes('webkitdirectory'),platform==='dos');
  assert.equal(html.includes('legacy.html'),platform==='c64');
+ assert.equal(ids.includes('execution-mode'),platform==='3ds');
+ if(platform==='3ds'){assert(ids.includes('execution-note'));assert.match(html,/<option value="experimental" disabled>/);}
  assert.match(presentation[platform].aspect,/^\d+\/\d+$/);
 }
 console.log('Shared shell covers all sixteen systems and preserves media/firmware controls');

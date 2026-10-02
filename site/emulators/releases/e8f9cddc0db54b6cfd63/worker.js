@@ -7,6 +7,7 @@ import {identifyDOSFiles} from './dos-knowledge.js';
 import {createTourService} from './tour-worker.js';
 import {createDebugService} from './debug-worker.js';
 import {createExecutionGate} from './execution-gate.js';
+import {create3DSExecution} from './execution-3ds.js';
 import {identifySingleImage} from './knowledge-model.js';
 import {knowledgePackages} from './knowledge-data.js';
 import {createMemoryService} from './memory-worker.js';
@@ -28,6 +29,7 @@ function mediaHash(file){if(!mediaHashes.has(file))mediaHashes.set(file,sha256Fi
 let cacheReply=null;
 let saving=false,driveDebugService=null,debugService=null,tourService=null,experimentService=null;
 const executionGate=createExecutionGate();
+let execution3DS=null;
 function debugActive(){return !!(debugService?.active()||driveDebugService?.active());}
 let memoryService=null,memoryRecording=false,memoryStop=false,memoryBusy=false;
 let coreCapabilities={}, backend='production';
@@ -99,7 +101,7 @@ function paint() {
   paintMs += performance.now() - start;
   send('state', {
     state : s,
-    capabilities:coreCapabilities,backend,drive:platform==='c64'&&core._rr_drive_debug_snapshot&&s.drive?JSON.parse(core.UTF8ToString(core._rr_drive_debug_snapshot(-1))):null,
+    capabilities:coreCapabilities,backend,execution:execution3DS?.snapshot(),drive:platform==='c64'&&core._rr_drive_debug_snapshot&&s.drive?JSON.parse(core.UTF8ToString(core._rr_drive_debug_snapshot(-1))):null,
     width : w,
     height : h,
     pixels : pixels.buffer,
@@ -257,6 +259,7 @@ function rasterSeek(m){
  postMessage({type:'raster-seek',session,capture:capture.id,request:m.request,info,layers,tileset:info.error?null:tilesetSnapshot()},layers);
 }
 async function boot(m) {
+  execution3DS?.dispose();execution3DS=null;
   const bootBegan=performance.now();
   bootOptions=m;session=m.session;
   const restored=m.stateFile?await unpackState(m.stateFile):null;
@@ -441,9 +444,10 @@ async function boot(m) {
     });
   }
   loaded = true;
+  if(platform==='3ds')execution3DS=create3DSExecution({onChange:execution=>send('execution-state',{execution})});
   paint();
   send('ready', {
-    capabilities:coreCapabilities,backend,
+    capabilities:coreCapabilities,backend,execution:execution3DS?.snapshot(),
     text : (restored?'State restored, paused. ':'') + f.name + ' loaded. ' + (assets.owned?'Owned C64 core. ':'') + (core.compatProfile || '') + ' Ready in '+((performance.now()-bootBegan)/1000).toFixed(2)+' s. Press Run.'
   });
 }
@@ -457,6 +461,7 @@ onmessage = async ({data : m}) => {
     }
     if (m.session !== session || !loaded)
       return;
+    if(execution3DS?.snapshot().busy&&['pause','hold'].includes(m.type))execution3DS.cancel();
     if(m.type==='capture-render'&&coreCapabilities.renderCapture===false){send('message',{text:'Rendering capture is not available in this development core.'});return;}
     if(m.type.startsWith('experiment-')){if(experimentService)await experimentService.request(m);else send('experiment-rejected',{generation:session,request:m.request,text:'Experiments are unavailable for this core.'});return;}
     if(experimentService?.owns()){
@@ -489,15 +494,19 @@ onmessage = async ({data : m}) => {
     }
     const playOwner=['run','step'].includes(executionGate.owner);
     // These existing controls explicitly pause play before taking ownership.
-    if(playOwner&&['pause','hold','cancel-capture','save','capture-render','memory-snapshot','memory-record'].includes(m.type)){
+    if(playOwner&&['pause','hold','cancel-capture','save','capture-render','memory-snapshot','memory-record','execution-mode'].includes(m.type)){
       running=false;++epoch;executionGate.cancel(['run','step']);
     }
     const liveRead=playOwner&&m.type.startsWith('memory-')&&!['memory-record','memory-snapshot'].includes(m.type);
-    const exclusive=['run','step','save','seek','capture-render','memory-snapshot','memory-record','memory-live-snapshot'];
+    const exclusive=['run','step','save','seek','capture-render','memory-snapshot','memory-record','memory-live-snapshot','execution-mode'];
     if(executionGate.owner&&!liveRead&&!(playOwner&&m.type==='tape')&&!['input','turbo','pause','hold','memory-stop','cancel-capture','cancel-seek'].includes(m.type)){
       send(m.type.startsWith('memory-')?'memory-error':'message',{request:m.request,text:`Machine is busy: ${executionGate.owner}.`});return;
     }
     if(exclusive.includes(m.type)&&!liveRead)ownership=executionGate.acquire(m.type);
+    if(m.type==='execution-mode'){
+      if(!execution3DS)throw Error('Execution modes are unavailable for this console');
+      cancelCapture();await execution3DS.select(m.mode);paint();return;
+    }
     if(saving&&!['input','turbo','hold'].includes(m.type)){send('message',{text:'Finishing the state save…'});return;}
     if(m.type==='memory-stop'){memoryStop=true;return;}
     if(memoryBusy||memoryRecording){if(m.type==='pause'||m.type==='hold')memoryStop=true;if(!['input','turbo','tape'].includes(m.type))return;}

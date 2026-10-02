@@ -1,0 +1,188 @@
+{
+  "schema": 1,
+  "label": "mario-welcome",
+  "backend": "browser-reference",
+  "method": "Node WASM, 3 restored trials, 3 warmup intervals, execution/status timing; hashing and serialization excluded. Display intervals are not presented images.",
+  "checkpointSha256": "91fdf1dcb74c562d0fdca167cfc814b400c53293efa305a3be6cf0b64cae4ef8",
+  "trials": [
+    {
+      "intervals": 30,
+      "totalMs": 5709.102125000002,
+      "intervalsPerSecond": 5.25476674670625,
+      "medianMs": 149.85808299999997,
+      "p95Ms": 399.964166,
+      "longestCallMs": 126.23279199999979,
+      "start": {
+        "steps": 1512342978,
+        "frames": 311,
+        "inputSeconds": 5.64072,
+        "pc": 3038260,
+        "width": 400,
+        "height": 480,
+        "draws": 11736
+      },
+      "end": {
+        "steps": 1646348878,
+        "frames": 341,
+        "inputSeconds": 6.14053,
+        "pc": 2681784,
+        "width": 400,
+        "height": 480,
+        "draws": 13435
+      },
+      "proof": {
+        "steps": 1646348878,
+        "frames": 341,
+        "cpu": 948794905,
+        "cpsr": 536871007,
+        "ram": 2438153894,
+        "rgba": 2789987151
+      },
+      "stateSha256": "19b690f7df79e09ca0b424acac1be15459faefb026773c0a3ea8d2f523313e49",
+      "heapBytes": 1233453056,
+      "profile": [
+        {
+          "name": "ARM11 / Horizon scheduler",
+          "ms": 187.01829999999998
+        },
+        {
+          "name": "PICA commands / vertex processing",
+          "ms": 28.21104
+        },
+        {
+          "name": "PICA software rasterizer",
+          "ms": 4707.963
+        },
+        {
+          "name": "GX memory / display transfers",
+          "ms": 780.5896
+        },
+        {
+          "name": "DSP HLE mixer",
+          "ms": 1.1739639999999998
+        }
+      ]
+    },
+    {
+      "intervals": 30,
+      "totalMs": 5682.042789999997,
+      "intervalsPerSecond": 5.27979128435955,
+      "medianMs": 151.1324999999997,
+      "p95Ms": 396.21979100000044,
+      "longestCallMs": 126.46149999999943,
+      "start": {
+        "steps": 1512342978,
+        "frames": 311,
+        "inputSeconds": 5.64072,
+        "pc": 3038260,
+        "width": 400,
+        "height": 480,
+        "draws": 11736
+      },
+      "end": {
+        "steps": 1646348878,
+        "frames": 341,
+        "inputSeconds": 6.14053,
+        "pc": 2681784,
+        "width": 400,
+        "height": 480,
+        "draws": 13435
+      },
+      "proof": {
+        "steps": 1646348878,
+        "frames": 341,
+        "cpu": 948794905,
+        "cpsr": 536871007,
+        "ram": 2438153894,
+        "rgba": 2789987151
+      },
+      "stateSha256": "19b690f7df79e09ca0b424acac1be15459faefb026773c0a3ea8d2f523313e49",
+      "heapBytes": 1366228992,
+      "profile": [
+        {
+          "name": "ARM11 / Horizon scheduler",
+          "ms": 184.746
+        },
+        {
+          "name": "PICA commands / vertex processing",
+          "ms": 27.194900000000004
+        },
+        {
+          "name": "PICA software rasterizer",
+          "ms": 4685.91
+        },
+        {
+          "name": "GX memory / display transfers",
+          "ms": 780.357
+        },
+        {
+          "name": "DSP HLE mixer",
+          "ms": 0.7889499999999998
+        }
+      ]
+    },
+    {
+      "intervals": 30,
+      "totalMs": 5754.499455000005,
+      "intervalsPerSecond": 5.2133118153193,
+      "medianMs": 150.82424999999967,
+      "p95Ms": 406.5896249999987,
+      "longestCallMs": 127.09599999999773,
+      "start": {
+        "steps": 1512342978,
+        "frames": 311,
+        "inputSeconds": 5.64072,
+        "pc": 3038260,
+        "width": 400,
+        "height": 480,
+        "draws": 11736
+      },
+      "end": {
+        "steps": 1646348878,
+        "frames": 341,
+        "inputSeconds": 6.14053,
+        "pc": 2681784,
+        "width": 400,
+        "height": 480,
+        "draws": 13435
+      },
+      "proof": {
+        "steps": 1646348878,
+        "frames": 341,
+        "cpu": 948794905,
+        "cpsr": 536871007,
+        "ram": 2438153894,
+        "rgba": 2789987151
+      },
+      "stateSha256": "19b690f7df79e09ca0b424acac1be15459faefb026773c0a3ea8d2f523313e49",
+      "heapBytes": 1366228992,
+      "profile": [
+        {
+          "name": "ARM11 / Horizon scheduler",
+          "ms": 191.31599999999997
+        },
+        {
+          "name": "PICA commands / vertex processing",
+          "ms": 27.1194
+        },
+        {
+          "name": "PICA software rasterizer",
+          "ms": 4727.200000000001
+        },
+        {
+          "name": "GX memory / display transfers",
+          "ms": 804.4000000000001
+        },
+        {
+          "name": "DSP HLE mixer",
+          "ms": 0.8987099999999999
+        }
+      ]
+    }
+  ],
+  "transitionCheck": {
+    "switches": 32,
+    "canonicalStateMatch": true,
+    "inputContinuationMatch": true
+  }
+}

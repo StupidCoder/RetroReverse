@@ -67,6 +67,15 @@ function controls(on) {
   for (const id of ['run', 'pause', 'reset', 'step', 'save'])
     $(id).disabled = !on;
   render.ready(on&&capabilities.renderCapture!==false);
+  if($('execution-mode'))$('execution-mode').disabled=!on;
+}
+function executionControls(execution){
+  if(!$('execution-mode')||!execution)return;
+  $('execution-mode').value=execution.requested;
+  $('execution-mode').disabled=!loaded||execution.busy||!!(latestState?.saving||latestState?.capturing||latestState?.debugBusy||latestState?.memoryRecording);
+  $('execution-mode').querySelector('[value="experimental"]').disabled=!execution.experimental.available;
+  $('execution-note').textContent=execution.busy?'Switching execution mode…':`${execution.cpu} · ${execution.renderer}.${execution.experimental.available?'':' '+execution.experimental.reason}`;
+  if(execution.busy){for(const id of ['run','step','save'])$(id).disabled=true;render.ready(false);$('pause').disabled=false;}
 }
 function showProfile(p, captureWork=false) {
   if (!p || (!captureWork&&performance.now() - profileTime < 500))
@@ -144,6 +153,7 @@ function load(stateFile=null,preparedStart=null,requestedBackend=backend) {
     if(disposed||pendingWorker)return;
     if (m.session !== session)
       return;
+    if(m.type==='execution-state'){executionControls(m.execution);return;}
     if(m.type.startsWith('drive-debug-')){paneSet?.driveResult(m);return;}
     if(m.type.startsWith('experiment-')){memory.invalidate();code?.experimentResult(m);if(m.snapshot)paneSet?.snapshot(m.snapshot);return;}
     if(m.type.startsWith('tour-')){if(m.phase==='running-to-stop')memory.invalidate();code?.tourResult(m);if(m.snapshot)paneSet?.snapshot(m.snapshot);return;}
@@ -153,6 +163,7 @@ function load(stateFile=null,preparedStart=null,requestedBackend=backend) {
     if (m.type === 'state') {
       const s = m.state;preparedPanel?.state(m);
       latestState=m;memory.state(m);code?.state(m);feed.state(m);paneSet?.state(m);$('system-select').disabled=!!(m.saving||m.memoryRecording||m.debugBusy||m.experimentOwned||m.capturing);
+      executionControls(m.execution);
       if(platform==='amiga')canvas.classList.toggle('mouse-active',m.running);
       $('help').textContent =
           config.help +
@@ -217,6 +228,7 @@ function load(stateFile=null,preparedStart=null,requestedBackend=backend) {
       $('capture-note').textContent=capabilities.renderCapture===false?'Rendering capture is unavailable in this development core.':'Use Capture next display in Render to record a complete interval.';
       controls(true);paneSet?.mediaReady(selected);memory.ready();code?.ready(session);paneSet?.ready(session);feed.ready();$('game-name').textContent=selected[0]?.name||config.name;$('media-dialog').close();
       $('pause').disabled = true;
+      executionControls(m.execution);
       $('status').textContent = m.text;
       lastTime = performance.now();
       send('turbo', {value : $('turbo').checked});
@@ -241,6 +253,7 @@ $('load').onclick = () => {
   driveFirmware=$('drive-firmware')?.files[0]||null;load();
 };
 $('reset').onclick = ()=>load();
+if($('execution-mode'))$('execution-mode').onchange=()=>send('execution-mode',{mode:$('execution-mode').value});
 $('cancelcapture').onclick=()=>send('cancel-capture');
 $('save').onclick=()=>{release();controls(false);$('status').textContent='Saving state…';send('save');};
 $('statefile').onchange=()=>{const f=$('statefile').files[0];if(!f)return;if(!selected.length){selected=[...$('files').files];firmware=platform==='c64'?['basic','kernal','chargen'].map(id=>$(id).files[0]):platform==='amiga'?[$('kickstart').files[0]]:platform==='ps2'?[$('bios').files[0]]:null;compatibility=$('compatprofile')?.checked??true;driveFirmware=$('drive-firmware')?.files[0]||null;}load(f);$('statefile').value='';};
