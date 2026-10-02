@@ -763,3 +763,35 @@ system entry.
 | `games/super-mario-3d-land-3ds/extract/cmd/bootoracle` | boot and run the ARM11 program under the HLE kernel |
 
 Every result here is one command from reproducible against the pinned image.
+
+### Title-screen stencil passes and Render replay
+
+The title-screen level was rendered, then covered by two full-screen passes before
+the birds and logo. The missing stage was D24S8 stencil testing: the shadow pass
+uses `STENCIL_TEST=0xff00ff31` (not equal to zero), and the following clear uses
+`0xff00ff01` (never) with `STENCIL_OP=0x222` (replace with zero on rejection).
+Ignoring that test let the clear write white to the colour buffer. The renderer
+now applies masked stencil comparisons and fail/depth-fail/pass operations after
+alpha rejection, preserving the depth bytes and the stencil write mask. Both Go
+and the generated browser core share this implementation. Register layout and
+operation ordering were cross-checked against [Azahar's framebuffer registers](https://github.com/azahar-emu/azahar/blob/master/src/video_core/pica/regs_framebuffer.h)
+and [software rasterizer](https://github.com/azahar-emu/azahar/blob/master/src/video_core/renderer_software/sw_rasterizer.cpp).
+
+Render replay previously showed only the linear display-copy destination. All
+preceding tiled-target draws could therefore appear unchanged until the single
+copy command. Its preview now maps the recorded final display transfers back to
+their source pixels, follows those pixels through the drawing steps, and stops
+following a source after its copy so later target reuse cannot contaminate the
+image. The UI identifies this as a render-target projection, not historical LCD
+scanout. All five implemented display formats retain their conversion rules.
+
+The three-interval title capture also exceeded the old 16,384-command cap. The
+3DS capture now allows 262,144 commands and stores writes in chunks, avoiding the
+large temporary allocation when a contiguous write vector doubles past four
+million entries. Other cores keep their existing capture limits and storage.
+
+Regression coverage includes stencil-only clears, masked comparisons, alpha and
+depth rejection, all stencil operations, watched and direct memory writes, and
+replay after source-buffer reuse. The browser title image matches the native
+renderer; replay checks require distinct intermediate stages, exact final pixels,
+deterministic seeking and unchanged guest continuation.

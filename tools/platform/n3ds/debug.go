@@ -28,9 +28,9 @@ import (
 // alpha-tested one does carry the colour it would have had, and a drawn one
 // carries the colour after blending — which is what actually reached memory.
 type PixelEvent struct {
-	Drawn                bool
-	ZReject, AlphaReject bool
-	R, G, B, A           uint8
+	Drawn                               bool
+	ZReject, AlphaReject, StencilReject bool
+	R, G, B, A                          uint8
 }
 
 func (g *GPU) pixelEvent(x, y uint32, ev PixelEvent) {

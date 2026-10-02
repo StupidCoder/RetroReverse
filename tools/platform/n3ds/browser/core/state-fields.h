@@ -5,7 +5,7 @@ inline void stateFields(rrstate::Archive&a,arm_Inst&v){a(v.Addr,v.Len,v.Mnem,v.T
 inline void stateFields(rrstate::Archive&a,arm_vfpState&v){a(v.S,v.FPSCR,v.FPEXC);}
 inline void stateFields(rrstate::Archive&a,arm_CPU&v){a(v.R,v.N,v.Z,v.C,v.V,v.Q,v.GE,v.Thumb,v.BigEndian,v.IRQDisable,v.FIQDisable,v.Mode,v.Arch,v.VFP,v.exclValid,v.exclAddr,v.bankR13,v.bankR14,v.bankSPSR,v.fiqR8_12,v.usrR8_12,v.Halted,v.HaltReason,v.Instrs,v.cur,v.branched);}
 inline void stateFields(rrstate::Archive&a,arm_Banks&v){a(v.R13,v.R14,v.SPSR,v.FIQR8_12,v.USRR8_12);}
-inline void stateFields(rrstate::Archive&a,n3ds_PixelEvent&v){a(v.Drawn,v.ZReject,v.AlphaReject,v.R,v.G,v.B,v.A);}
+inline void stateFields(rrstate::Archive&a,n3ds_PixelEvent&v){a(v.Drawn,v.ZReject,v.AlphaReject,v.StencilReject,v.R,v.G,v.B,v.A);}
 inline void stateFields(rrstate::Archive&a,n3ds_MemRegion&v){a(v.Name,v.Base,v.Size);}
 inline void stateFields(rrstate::Archive&a,n3ds_dspFilters&v){a(v.SimpleEnabled,v.BiquadEnabled,v.SB0,v.SA1,v.SY1,v.BA1,v.BA2,v.BB0,v.BB1,v.BB2,v.BX1,v.BX2,v.BY1,v.BY2);}
 inline void stateFields(rrstate::Archive&a,n3ds_dspBuffer&v){a(v.PhysAddr,v.Length,v.AdpcmPS,v.AdpcmYn,v.AdpcmDirty,v.IsLooping,v.BufferID,v.Stereo,v.Format,v.FromQueue,v.PlayPosition,v.HasPlayed);}

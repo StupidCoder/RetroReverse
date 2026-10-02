@@ -207,6 +207,7 @@ export const platforms = {
     keys:{ArrowUp:16,ArrowDown:64,ArrowLeft:128,ArrowRight:32,x:16384,z:32768,c:8192,v:4096,Enter:8,Shift:1,q:256,e:512,i:'up',k:'down',j:'left',l:'right'}
   },
   "3ds": {
+    captureFields: 3,
     name:'Nintendo 3DS',accept:'.cci,.3ds',hz:60,
     help:'Arrows move the circle pad and D-pad. X / Z are A / B, C / V are X / Y. Enter is Start, Shift is Select, Q / E are L / R. Click or drag the lower screen to use the stylus. Pause to inspect either screen.',
     compat:'Decrypted CCI / NCSD cartridge images, at most 1 GiB. ARM11 + Horizon HLE and software PICA200 rendering. No system firmware required. Encrypted images, CIA packages and unsupported GPU features are rejected. Compatibility inherits the experimental Go core. Audio output and stereoscopic display are not exposed.',

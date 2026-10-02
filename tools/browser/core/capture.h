@@ -1,6 +1,9 @@
 #pragma once
 #include <algorithm>
 #include <cstdint>
+#ifdef RR_CAPTURE_CHUNKED_WRITES
+#include <deque>
+#endif
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -41,7 +44,13 @@ struct Recorder {
   int32_t u = 0, v = 0;
   size_t metadata = 0;
   std::vector<uint8_t> initial, shadow, final;
+#ifdef RR_CAPTURE_CHUNKED_WRITES
+  // Large dual-screen captures must grow without temporarily allocating a
+  // second contiguous copy of several million writes in a 32-bit WASM heap.
+  std::deque<Write> writes;
+#else
   std::vector<Write> writes;
+#endif
   std::vector<Event> events;
   std::vector<std::vector<uint8_t>> resources;
   std::unordered_map<uint32_t, std::vector<uint32_t>> resourceHashes;

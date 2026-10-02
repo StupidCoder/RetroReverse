@@ -20,22 +20,22 @@ static std::vector<std::shared_ptr<void>>stateOwners;
 static void stateWrite(rrstate::Archive&a){a.header(6,1);a(machine,rr3dsCirclePad);}
 static void stateRead(rrstate::Archive&a){a.header(6,1);n3ds_Machine*next=nullptr;uint32_t circle=0;a(next,circle);a.finish();rebindState(next,machine->romfs,machine->romfsRaw);machine=next;rr3dsCirclePad=circle;stateOwners=std::move(a.owned);}
 #include "../../../../browser/state/api.inc"
-#include "../../../../browser/core/replay.h"
+#include "replay.h"
 extern "C"{
 int rr_capture_begin(){try{auto b=rr3ds::memory(machine,true);rrcapture::trace.begin(b.data(),b.size());machine->WatchLo=0;machine->WatchHi=UINT32_MAX;
  machine->OnWrite=[](uint32_t a,uint32_t v,uint32_t pc){rr3ds::write(machine,a,v,pc);};
  machine->OnPICACmd=[](n3ds_PICAWrite w){rr3ds::clean();std::ostringstream s;s<<"{\"kind\":\"PICA register write\",\"register\":"<<w.Reg<<",\"mask\":"<<unsigned(w.Mask)<<",\"value\":"<<w.Value<<",\"offset\":"<<w.Off<<"}";rrcapture::trace.event(machine->instrs,machine->CPU->R[15],s.str());};
- machine->OnPixel=[](uint32_t x,uint32_t y,n3ds_PixelEvent ev){if(ev.Drawn)return;auto g=machine->gpu;auto fb=n3ds_GPU_fbstate(g);auto a=rr3ds::address(fb.colorAddr+n3ds_tiledOffset(x,y,fb.width));uint32_t value=uint32_t(ev.A)|uint32_t(ev.B)<<8|uint32_t(ev.G)<<16|uint32_t(ev.R)<<24;rrcapture::trace.record(a,value,4,machine->instrs,machine->CPU->R[15],rrcapture::trace.current,(ev.ZReject?2:0)|(ev.AlphaReject?4:0));};return 1;}catch(const std::exception&e){errorText=e.what();return 0;}}
+ machine->OnPixel=[](uint32_t x,uint32_t y,n3ds_PixelEvent ev){if(ev.Drawn)return;auto g=machine->gpu;auto fb=n3ds_GPU_fbstate(g);auto a=rr3ds::address(fb.colorAddr+n3ds_tiledOffset(x,y,fb.width));uint32_t value=uint32_t(ev.A)|uint32_t(ev.B)<<8|uint32_t(ev.G)<<16|uint32_t(ev.R)<<24;rrcapture::trace.record(a,value,4,machine->instrs,machine->CPU->R[15],rrcapture::trace.current,(ev.ZReject?2:0)|(ev.AlphaReject?4:0)|(ev.StencilReject?16:0));};return 1;}catch(const std::exception&e){errorText=e.what();return 0;}}
 int rr_capture_end(){try{machine->OnWrite={};machine->OnPICACmd={};machine->OnPixel={};rr3ds::screenGeometry(machine);auto b=rr3ds::memory(machine);rrcapture::trace.end(b.data(),b.size());return 1;}catch(const std::exception&e){errorText=e.what();return 0;}}
 const char*rr_capture_info(){reply=rrcapture::trace.info();return reply.c_str();}
 const char*rr_pixel(int x,int y){auto a=rr3ds::pixelAddress(x,y);if(a==UINT32_MAX)return "{\"error\":\"Outside captured screen or screen not presented\"}";reply=rrcapture::trace.pixel(a,rr3ds::screens[y/240].bpp);reply.pop_back();reply+=",\"displayFormat\":"+std::to_string(rr3ds::screens[y/240].format)+"}";return reply.c_str();}
 const char*rr_source(uint32_t a,int size,uint32_t before,uint32_t expected){reply=rrcapture::trace.pixel(a,size,before,expected);return reply.c_str();}
 const char*rr_resource(uint32_t id,uint32_t offset){reply=rrcapture::trace.resourceJSON(id,offset);return reply.c_str();}
-const char*rr_replay_begin(){rrreplay::replay.begin();reply=rrreplay::replay.info();return reply.c_str();}
+const char*rr_replay_begin(){rrreplay::replay.begin();rr3ds::prepareReplay();reply=rr3ds::replayInfo();return reply.c_str();}
 int rr_replay_seek(uint32_t step){return rrreplay::replay.seek(step);}
-const char*rr_replay_info(){reply=rrreplay::replay.info();return reply.c_str();}
+const char*rr_replay_info(){reply=rr3ds::replayInfo();return reply.c_str();}
 uint32_t rr_replay_for_write(uint32_t id){return rrreplay::replay.forWrite(id);}
-uint8_t*rr_replay_frame(){pixels=rr3ds::display(rrreplay::replay.memory);return pixels.data();}
+uint8_t*rr_replay_frame(){pixels=rr3ds::replayDisplay();return pixels.data();}
 }
 
 #include "memory.h"

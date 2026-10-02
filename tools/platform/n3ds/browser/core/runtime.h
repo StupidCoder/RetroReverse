@@ -1,5 +1,8 @@
 #pragma once
 #define RR_CAPTURE_WRITE_CAP 8388608
+#define RR_CAPTURE_CHUNKED_WRITES
+#define RR_CAPTURE_EVENT_CAP 262144
+#define RR_CAPTURE_META_CAP (32 * 1024 * 1024)
 #include <array>
 #include <ostream>
 template<class T,size_t N>std::ostream&operator<<(std::ostream&o,const std::array<T,N>&a){o<<'[';for(auto v:a)o<<v<<' ';return o<<']';}

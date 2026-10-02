@@ -576,12 +576,10 @@ func (g *GPU) fbstate() fbState {
 	dim := g.Regs[regFramebufDim]
 	dcm := g.Regs[regDepthColorMask]
 	// The access enables gate the memory traffic in front of 0x107's test/write
-	// bits. Zero means the pass touches that buffer not at all. (The individual
-	// bits distinguish depth from stencil, which this model does not separate —
-	// what is pinned, by the game's own VRAM map, is that zero means "no
-	// access": Captain Toad's shadow pass leaves 0x107's depth bits set and
+	// bits. Zero means the pass touches that buffer not at all. Captain Toad's
+	// shadow pass leaves 0x107's depth bits set and
 	// zeroes 0x114/0x115, and its depth buffer address still points at the main
-	// pass's — a megabyte that would land on its own colour buffer.)
+	// pass's — a megabyte that would land on its own colour buffer.
 	colorWr := g.Regs[regColorbufWrite] != 0
 	depthRd := g.Regs[regDepthbufRead] != 0
 	depthWr := g.Regs[regDepthbufWrite] != 0
@@ -780,6 +778,7 @@ func (g *GPU) setupTri(a, b, c *vsOut, fb *fbState) (rasterTri, bool) {
 func (g *GPU) fillTri(fb *fbState, ls *lightState, tv *tevState, t *rasterTri, yLo, yHi int, st *rstats) {
 	v0, v1, v2 := &t.v0, &t.v1, &t.v2
 	area := t.area
+	stencil := g.Regs[0x105]&1 != 0 && g.Regs[0x116]&3 == 3 && !fb.shadowMode
 	minX, maxX := t.minX, t.maxX
 	minY, maxY := yLo, yHi
 	edge := edgeFn
@@ -850,7 +849,7 @@ func (g *GPU) fillTri(fb *fbState, ls *lightState, tv *tevState, t *rasterTri, y
 			if depth > 1 {
 				depth = 1
 			}
-			if !g.depthCompare(fb, off, depth) {
+			if !stencil && !fb.shadowMode && !g.depthCompare(fb, off, depth) {
 				st.depthKilled++
 				// A depth-killed fragment carries no colour: the PICA kills it
 				// before the TEV runs, so there is nothing to report but the
@@ -912,6 +911,16 @@ func (g *GPU) fillTri(fb *fbState, ls *lightState, tv *tevState, t *rasterTri, y
 					R: r8, G: g8, B: b8, A: a8, AlphaReject: true,
 				})
 				continue
+			}
+			if stencil {
+				reject := g.stencilDepthTest(fb, off, depth)
+				if reject != 0 {
+					if reject == 2 {
+						st.depthKilled++
+					}
+					g.pixelEvent(uint32(x), ty, PixelEvent{StencilReject: reject == 1, ZReject: reject == 2})
+					continue
+				}
 			}
 			g.depthWrite(fb, off, depth)
 			g.writePixel(fb, uint32(x), ty, off, r8, g8, b8, a8)
@@ -1091,4 +1100,77 @@ func (g *GPU) vertexWorkers(count uint32) int {
 		n = 1
 	}
 	return n
+}
+
+// stencilDepthTest runs after alpha testing. Return 1 for stencil rejection,
+// 2 for depth rejection, or 0 when colour/depth may be written. D24S8 keeps
+// stencil in the fourth byte; depth writes must leave it intact.
+func (g *GPU) stencilDepthTest(fb *fbState, off uint32, depth float32) uint32 {
+	cfg, ops := g.Regs[0x105], g.Regs[0x106]
+	var old uint8
+	if fb.depthBuf != nil {
+		old = fb.depthBuf[fb.depthOff32+off+3]
+	} else {
+		old = g.m.Read(fb.depthAddr + off + 3)
+	}
+	ref, mask := uint8(cfg>>16), uint8(cfg>>24)
+	a, b := ref&mask, old&mask
+	pass := false
+	switch cfg >> 4 & 7 {
+	case 1:
+		pass = true
+	case 2:
+		pass = a == b
+	case 3:
+		pass = a != b
+	case 4:
+		pass = a < b
+	case 5:
+		pass = a <= b
+	case 6:
+		pass = a > b
+	case 7:
+		pass = a >= b
+	}
+	reject, op := uint32(0), ops>>8&7
+	if !pass {
+		reject, op = 1, ops&7
+	} else if !g.depthCompare(fb, off, depth) {
+		reject, op = 2, ops>>4&7
+	}
+	if g.Regs[regDepthbufWrite] != 0 && op != 0 {
+		value := stencilValue(op, old, ref)
+		writeMask := uint8(cfg >> 8)
+		value = old&^writeMask | value&writeMask
+		if fb.depthBuf != nil {
+			fb.depthBuf[fb.depthOff32+off+3] = value
+		} else {
+			g.m.Write(fb.depthAddr+off+3, value)
+		}
+	}
+	return reject
+}
+
+func stencilValue(op uint32, old, ref uint8) uint8 {
+	switch op {
+	case 1:
+		return 0
+	case 2:
+		return ref
+	case 3:
+		if old < 255 {
+			return old + 1
+		}
+	case 4:
+		if old > 0 {
+			return old - 1
+		}
+	case 5:
+		return ^old
+	case 6:
+		return old + 1
+	case 7:
+		return old - 1
+	}
+	return old
 }
