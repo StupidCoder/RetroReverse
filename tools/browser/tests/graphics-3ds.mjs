@@ -8,3 +8,14 @@ const packet={kind:2,params:[128,128,0,128,0,1],input:new Uint8Array(128),before
 assert.match(transferSupport(packet),/Overlapping/);packet.params[5]=0;assert.equal(transferSupport(packet),null);
 packet.params[1]=0;assert.match(transferSupport(packet),/Invalid/);
 console.log('3DS graphics stream validation and overlap fallback pass');
+const params=[8,8,15,0,0,0,0,0,0,1];
+for(let i=0;i<6;i++)params.push(0x0f0f0f,0x0f0f0f,0,0);
+params.push(1,0);
+const words=new Uint32Array(69).fill(0xffffffff);words[0]=64;
+const fragment={kind:5,params,input:new Uint8Array(words.buffer),before:new Uint8Array(256)};
+assert.equal(transferSupport(fragment),null);
+words[64]=64;assert.match(transferSupport(fragment),/link/);words[64]=0xffffffff;
+words[0]=65;assert.match(transferSupport(fragment),/head/);words[0]=64;
+params[10]=6;assert.match(transferSupport(fragment),/TEV/);params[10]=0x0f0f0f;
+params[34]=2;assert.match(transferSupport(fragment),/metadata/);
+console.log('3DS fragment validation rejects cycles, misaligned links, unsupported TEV and invalid counters');

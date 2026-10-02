@@ -10138,7 +10138,7 @@ n3ds_GPU_invalidateTextures(g,fb.colorAddr,cast<uint32_t>((cast<uint32_t>(((((ca
 }
 // tools/platform/n3ds/gpu_raster.go:379:1
 void n3ds_GPU_fill(n3ds_GPU* g,n3ds_fbState* fb,n3ds_lightState* ls,n3ds_tevState* tv,Slice<n3ds_rasterTri> tris){
-rrprof::Scope profile(2,"PICA software rasterizer");auto graphics=rrgpu::Operation::stencil(g,fb,ls,tv,tris);if(graphics.execute())return;{
+rrprof::Scope profile(2,"PICA software rasterizer");auto graphics=rrgpu::Operation::draw(g,fb,ls,tv,tris);if(graphics.execute())return;{
 if ((len(tris) == cast<int64_t>(0ULL))) {
 return ;
 }
@@ -12447,21 +12447,13 @@ return divi<uint32_t>(cast<uint32_t>((cast<uint32_t>((k.w * k.h)) * bpp)),cast<u
 }
 // tools/platform/n3ds/gpu_texture.go:351:1
 void n3ds_GPU_invalidateTextures(n3ds_GPU* g,uint32_t addr,uint32_t size){
-{
-if (((!g->texCache) || (size == cast<uint32_t>(0ULL)))) {
-return ;
-}
-auto tmp266 = std::make_tuple(addr,cast<uint32_t>((addr + size)));
-uint32_t lo = std::get<0>(tmp266);
-uint32_t hi = std::get<1>(tmp266);
-{auto&& tmp267 = g->texCache;
-for(auto [tmp268,tmp269]:tmp267){
-auto k=tmp268;uint32_t klo = k.addr;
-uint32_t khi = cast<uint32_t>((klo + n3ds_texBytes(k)));
-if (((klo < hi) && (lo < khi))) {
-removeKey(g->texCache,k);
-}
-}}
+// Erase through the returned iterator: C++ unordered_map erasure invalidates
+// the current iterator, unlike deletion during a Go map range.
+if(!size)return;
+for(auto it=g->texCache.p->begin();it!=g->texCache.p->end();){
+ auto k=it->first;
+ if(uint64_t(k.addr)<uint64_t(addr)+size&&uint64_t(addr)<uint64_t(k.addr)+n3ds_texBytes(k))it=g->texCache.p->erase(it);
+ else ++it;
 }
 }
 // tools/platform/n3ds/gsp_mem.go:45:1

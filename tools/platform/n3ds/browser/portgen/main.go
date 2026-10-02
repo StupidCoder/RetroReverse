@@ -1040,7 +1040,7 @@ func main() {
 					case "n3ds_GPU_Execute":
 						pre = `rrprof::Scope profile(1,"PICA commands / vertex processing");rr3ds::Command command(g->m,"PICA command list",addr,size);`
 					case "n3ds_GPU_fill":
-						pre = `rrprof::Scope profile(2,"PICA software rasterizer");auto graphics=rrgpu::Operation::stencil(g,fb,ls,tv,tris);if(graphics.execute())return;`
+						pre = `rrprof::Scope profile(2,"PICA software rasterizer");auto graphics=rrgpu::Operation::draw(g,fb,ls,tv,tris);if(graphics.execute())return;`
 					case "n3ds_Machine_dspTick":
 						pre = `rrprof::Scope profile(4,"DSP HLE mixer");`
 					case "n3ds_Machine_gxMemoryFill":
@@ -1073,6 +1073,18 @@ func main() {
 						body = strings.ReplaceAll(body, "arenaNew(n3ds_texImage{", "rrNewTexture(n3ds_texImage{")
 						body = strings.ReplaceAll(body, "n3ds_decodeETC1(data,cast<int64_t>(w),cast<int64_t>(h))->Pix", "rrDecodeETC(data,w,h,false)")
 						body = strings.ReplaceAll(body, "n3ds_decodeETC1A4(data,cast<int64_t>(w),cast<int64_t>(h))->Pix", "rrDecodeETC(data,w,h,true)")
+					}
+					if name == "n3ds_GPU_invalidateTextures" {
+						body = `{
+// Erase through the returned iterator: C++ unordered_map erasure invalidates
+// the current iterator, unlike deletion during a Go map range.
+if(!size)return;
+for(auto it=g->texCache.p->begin();it!=g->texCache.p->end();){
+ auto k=it->first;
+ if(uint64_t(k.addr)<uint64_t(addr)+size&&uint64_t(addr)<uint64_t(k.addr)+n3ds_texBytes(k))it=g->texCache.p->erase(it);
+ else ++it;
+}
+}`
 					}
 					body = pre + body
 					if name == "n3ds_GPU_depthCompare" || name == "n3ds_GPU_depthWrite" || name == "n3ds_GPU_writePixel" {

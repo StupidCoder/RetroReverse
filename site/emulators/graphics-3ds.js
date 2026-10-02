@@ -1,4 +1,5 @@
 import {create3DSPresentation} from './presentation-3ds.js';
+import {fragmentWGSL} from './fragment-3ds.js';
 // Immutable, versioned GX input packets. No private media is stored in this module.
 export function decodeGraphicsStream(bytes){
  const data=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes),v=new DataView(data.buffer,data.byteOffset,data.byteLength);
@@ -16,9 +17,9 @@ export function decodeGraphicsStream(bytes){
 }
 const align=n=>Math.ceil(n/4)*4;
 export function transferSupport(p){
- const a=p.params;if(![1,2,3,4].includes(p.kind))return 'Unsupported graphics operation';
+ const a=p.params;if(![1,2,3,4,5].includes(p.kind))return 'Unsupported graphics operation';
  if(!(p.input instanceof Uint8Array)||!(p.before instanceof Uint8Array)||!p.before.length||p.before.length>16*1024*1024||p.input.length>16*1024*1024)return 'Invalid transfer buffers';
- if(!a.every(n=>Number.isInteger(n)&&n>=0&&n<=0xffffffff))return 'Invalid transfer parameters';
+ if(!Array.isArray(a)||!a.every(n=>Number.isInteger(n)&&n>=0&&n<=0xffffffff))return 'Invalid transfer parameters';
  if(p.kind===1){if(a.length!==4||a[0]<2||a[0]>4||a[2]>p.before.length||a[2]%a[0])return 'Invalid fill';}
  if(p.kind===2){
   const [n,iw,ig,ow,og,overlap]=a;
@@ -34,6 +35,23 @@ export function transferSupport(p){
   const [w,h,cfg,op,write,count]=a;
   if(a.length!==7+count*10||!count||count>1024||!w||!h||w>1024||h>1024||w%8||h%8||w*h*4!==p.before.length||!(cfg&1)||((cfg>>>4)&7)!==0||op>7)return 'Unsupported stencil draw';
   for(let i=6;i<a.length-1;i+=10)if(a[i]>a[i+1]||a[i+1]>w||a[i+2]>a[i+3]||a[i+3]>h||a.slice(i+4,i+10).some(x=>x>2048))return 'Invalid stencil coverage';
+ }
+ if(p.kind===5){
+  const [w,h,mask,,blend]=a,n=w*h;
+  if(a.length!==36||!w||!h||w>1024||h>1024||w%8||h%8||mask>15||p.before.length!==n*4||p.input.length!==n*4+a[9]*20)return 'Invalid fragment packet';
+  if((a[3]&256)&&((blend&7)>4||((blend>>>8)&7)>4||[16,20,24,28].some(s=>((blend>>>s)&15)>14)))return 'Unsupported blend';
+  if(a[35]||(a[34]!==0xffffffff&&a[34]>a[9])||(a[8]&~0xff71))return 'Invalid fragment metadata';
+  const sources=[0,1,2,3,4,5,13,14,15],combines=[0,1,2,3,4,5,8,9];
+  for(let i=10;i<34;i+=4){
+   if(a[i]>>>24||a[i+1]>>>24||[0,8,16].some(s=>!sources.includes((a[i]>>>s)&15)||!sources.includes((a[i+1]>>>s)&15)||((a[i+1]>>>(s+4))&15)>7)||!combines.includes(a[i+2]&255)||!combines.includes((a[i+2]>>>8)&255)||(a[i+2]&~0x03330f0f))return 'Unsupported TEV stage';
+  }
+  // Offline streams are untrusted too. Each link must identify a later record;
+  // this bounds work and prevents cycles before submitting a compute dispatch.
+  const bytes=p.input,words=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),end=bytes.length/4;
+  const referenced=new Uint8Array(a[9]);
+  const valid=(x,min)=>{if(x===0xffffffff)return true;if(x<min||x>=end||(x-n)%5)return false;const i=(x-n)/5;if(referenced[i])return false;referenced[i]=1;return true;};
+  for(let i=0;i<n;i++)if(!valid(words.getUint32(i*4,true),n))return 'Invalid fragment head';
+  for(let i=n;i<end;i+=5)if(!valid(words.getUint32(i*4,true),i+5))return 'Invalid fragment link';
  }
  return null;
 }
@@ -80,16 +98,18 @@ fn byte(i:u32)->u32{
  if(fmt==4u){v=((r>>4u)<<12u)|((g>>4u)<<8u)|((b>>4u)<<4u)|(a>>4u);}
  return (v>>((i%2u)*8u))&255u;
 }
+${fragmentWGSL}
 @compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id:vec3<u32>){
  let index=id.x+id.y*4194240u;let i=index*4u;if(i>=p[2]){return;}
  if(p[0]==4u){dst[index]=stencil(index);return;}
+ if(p[0]==5u){dst[index]=fragmentPixel(index);return;}
  dst[index]=byte(i)|(byte(i+1u)<<8u)|(byte(i+2u)<<16u)|(byte(i+3u)<<24u);
 }`;
 
-export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()=>{}}={}){
+export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()=>{},measureGPU=true}={}){
  if(!gpu)throw Error('WebGPU is unavailable in this browser');
  const adapter=await gpu.requestAdapter();if(!adapter)throw Error('No WebGPU adapter is available');
- const timestamps=adapter.features.has('timestamp-query');
+ const timestamps=measureGPU&&adapter.features.has('timestamp-query');
  const device=await adapter.requestDevice({requiredFeatures:timestamps?['timestamp-query']:[]});let lost=null,busy=false,closed=false,allocation=null;
  const queries=timestamps?device.createQuerySet({type:'timestamp',count:2}):null;
  device.lost.then(info=>{lost=info.message||'WebGPU device lost';if(!closed)onLost(lost);});
@@ -106,9 +126,10 @@ export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()
   if(allocation?.capacity>=n)return allocation;
   release();const capacity=2**Math.ceil(Math.log2(Math.max(n,256))),U=GPUBufferUsage;
   const b=[device.createBuffer({size:65536,usage:U.STORAGE|U.COPY_DST}),...Array.from({length:2},()=>device.createBuffer({size:capacity,usage:U.STORAGE|U.COPY_DST})),device.createBuffer({size:capacity,usage:U.STORAGE|U.COPY_SRC}),device.createBuffer({size:capacity,usage:U.COPY_DST|U.MAP_READ})];
-  const bind=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:b.slice(0,4).map((buffer,binding)=>({binding,resource:{buffer}}))});
+  const counter=device.createBuffer({size:4,usage:U.STORAGE|U.COPY_DST|U.COPY_SRC});
+  const bind=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[...b.slice(0,4).map((buffer,binding)=>({binding,resource:{buffer}})),{binding:4,resource:{buffer:counter}}]});
   if(timestamps){b.push(device.createBuffer({size:16,usage:U.QUERY_RESOLVE|U.COPY_SRC}));b.push(device.createBuffer({size:16,usage:U.COPY_DST|U.MAP_READ}));}
-  return allocation={capacity,buffers:b,bind};
+  b.push(counter);return allocation={capacity,buffers:b,bind,counter};
  }
  const padded=b=>{if(b.length%4===0&&b.length)return b;const out=new Uint8Array(Math.max(4,align(b.length)));out.set(b);return out;};
  async function execute(packet){
@@ -117,19 +138,20 @@ export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()
   const start=performance.now();let scoped=false;
   try{
    device.pushErrorScope('validation');scoped=true;
-   const a=buffers(Math.max(packet.input.length,packet.before.length)),[params,src,old,out,read]=a.buffers;
+   const a=buffers(Math.max(packet.input.length,align(packet.before.length)+4)),[params,src,old,out,read]=a.buffers;
    device.queue.writeBuffer(params,0,new Uint32Array([packet.kind,packet.input.length,packet.before.length,0,...packet.params]));
    device.queue.writeBuffer(src,0,padded(packet.input));device.queue.writeBuffer(old,0,padded(packet.before));
-   const uploaded=performance.now(),encoder=device.createCommandEncoder(),pass=encoder.beginComputePass(timestamps?{timestampWrites:{querySet:queries,beginningOfPassWriteIndex:0,endOfPassWriteIndex:1}}:{});
-   pass.setPipeline(pipeline);pass.setBindGroup(0,a.bind);const groups=Math.ceil(packet.before.length/256);pass.dispatchWorkgroups(Math.min(groups,65535),Math.ceil(groups/65535));pass.end();encoder.copyBufferToBuffer(out,0,read,0,align(packet.before.length));
+   const uploaded=performance.now(),encoder=device.createCommandEncoder();encoder.clearBuffer(a.counter);const pass=encoder.beginComputePass(timestamps?{timestampWrites:{querySet:queries,beginningOfPassWriteIndex:0,endOfPassWriteIndex:1}}:{});
+   pass.setPipeline(pipeline);pass.setBindGroup(0,a.bind);const groups=Math.ceil(packet.before.length/256);pass.dispatchWorkgroups(Math.min(groups,65535),Math.ceil(groups/65535));pass.end();encoder.copyBufferToBuffer(out,0,read,0,align(packet.before.length));encoder.copyBufferToBuffer(a.counter,0,read,align(packet.before.length),4);
    if(timestamps){encoder.resolveQuerySet(queries,0,2,a.buffers[5],0);encoder.copyBufferToBuffer(a.buffers[5],0,a.buffers[6],0,16);}
    device.queue.submit([encoder.finish()]);const submitted=performance.now();
-   await Promise.all([read.mapAsync(GPUMapMode.READ,0,align(packet.before.length)),...(timestamps?[a.buffers[6].mapAsync(GPUMapMode.READ)]:[])]);const mapped=performance.now();
+   await Promise.all([read.mapAsync(GPUMapMode.READ,0,align(packet.before.length)+4),...(timestamps?[a.buffers[6].mapAsync(GPUMapMode.READ)]:[])]);const mapped=performance.now();
    let gpuMs=null;if(timestamps){const t=new BigUint64Array(a.buffers[6].getMappedRange());gpuMs=Number(t[1]-t[0])/1e6;a.buffers[6].unmap();}
-   const result=new Uint8Array(read.getMappedRange(0,align(packet.before.length))).slice(0,packet.before.length);read.unmap();
+   const mappedBytes=read.getMappedRange(0,align(packet.before.length)+4),drawn=new DataView(mappedBytes).getUint32(align(packet.before.length),true);
+   const result=new Uint8Array(mappedBytes).slice(0,packet.before.length);read.unmap();
    const err=await device.popErrorScope();scoped=false;if(err)throw Error(err.message);if(lost)throw Error(lost);
-   return {supported:true,bytes:result,timing:{uploadMs:uploaded-start,submitMs:submitted-uploaded,gpuMs,queueAndMapMs:mapped-submitted,readbackMs:performance.now()-mapped,totalMs:performance.now()-start}};
+   return {supported:true,bytes:result,drawn,timing:{uploadMs:uploaded-start,submitMs:submitted-uploaded,gpuMs,queueAndMapMs:mapped-submitted,readbackMs:performance.now()-mapped,totalMs:performance.now()-start}};
   }finally{if(scoped)await device.popErrorScope();busy=false;}
  }
- return {execute,warmupMs,info:{vendor:adapter.info?.vendor,architecture:adapter.info?.architecture,timestamps},async preparePresentation(){presentation??=await create3DSPresentation(device);},present(core){if(closed||lost)return null;return presentation?.present(core)??null;},get bytesAllocated(){return (allocation?65536+allocation.capacity*4+(timestamps?32:0):0)+(presentation?.bytesAllocated??0);},get busy(){return busy;},destroy(){closed=true;presentation?.destroy();presentation=null;release();queries?.destroy();device.destroy();}};
+ return {execute,warmupMs,info:{vendor:adapter.info?.vendor,architecture:adapter.info?.architecture,timestamps},async preparePresentation(){presentation??=await create3DSPresentation(device);},present(core){if(closed||lost)return null;return presentation?.present(core)??null;},get bytesAllocated(){return (allocation?65536+allocation.capacity*4+4+(timestamps?32:0):0)+(presentation?.bytesAllocated??0);},get busy(){return busy;},destroy(){closed=true;presentation?.destroy();presentation=null;release();queries?.destroy();device.destroy();}};
 }

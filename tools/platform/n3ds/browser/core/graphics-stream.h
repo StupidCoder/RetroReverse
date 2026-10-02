@@ -6,10 +6,11 @@
 EM_ASYNC_JS(int,rr_gpu_submit,(uint32_t kind,const uint32_t* params,uint32_t np,const uint8_t* input,uint32_t ni,uint8_t* target,uint32_t n),{
  if(!Module.graphicsTransfer)return 0;
  try{
-  const packet={kind,params:Array.from(HEAPU32.subarray(params>>>2,(params>>>2)+np)),input:HEAPU8.slice(input,input+ni),before:HEAPU8.slice(target,target+n)};
+  const packet={kind,params:Array.from(HEAPU32.subarray(params>>>2,(params>>>2)+np)),get input(){return HEAPU8.subarray(input,input+ni);},get before(){return HEAPU8.subarray(target,target+n);}};
   const result=await Module.graphicsTransfer(packet);
   if(!result?.supported||!(result.bytes instanceof Uint8Array)||result.bytes.length!==n)return 0;
-  HEAPU8.set(result.bytes,target);return 1;
+  if(kind===5&&(!Number.isInteger(result.drawn)||result.drawn<0||result.drawn>packet.params[9]))return 0;
+  HEAPU8.set(result.bytes,target);return (result.drawn??0)+1;
  }catch(e){Module.graphicsError=String(e);return 0;}
 });
 #endif
@@ -38,7 +39,8 @@ inline uint8_t* range(n3ds_Machine*m,uint32_t a,uint64_t n){
 inline bool overlap(uint8_t*a,size_t an,uint8_t*b,size_t bn){return uintptr_t(a)<uintptr_t(b)+bn&&uintptr_t(b)<uintptr_t(a)+an;}
 struct Operation {
  uint32_t kind=0,src=0,dst=0;std::vector<uint32_t> params;
- uint8_t*target=nullptr,*source=nullptr;size_t size=0,inputSize=0;bool record=false,live=false;std::vector<uint8_t> input,before;
+ n3ds_GPU*statsOwner=nullptr;uint64_t statsBefore=0;
+ uint8_t*target=nullptr,*source=nullptr;size_t size=0,inputSize=0;bool record=false,live=false;std::vector<uint8_t> input,before;std::vector<uint32_t> fragmentWords;
  void start(n3ds_Machine*m,uint32_t k,uint32_t s,uint64_t sn,uint32_t d,uint64_t dn,std::vector<uint32_t>p){
   if(!recording&&!enabled)return;
   auto sp=sn?range(m,s,sn):nullptr;target=range(m,d,dn);
@@ -83,21 +85,27 @@ struct Operation {
   }
   o.start(g->m,4,0,0,fb->depthAddr,uint64_t(fb->width)*fb->height*4,std::move(p));return o;
  }
+ static Operation fragments(n3ds_GPU*,n3ds_fbState*,n3ds_lightState*,n3ds_tevState*,Slice<n3ds_rasterTri>);
+ static Operation draw(n3ds_GPU*,n3ds_fbState*,n3ds_lightState*,n3ds_tevState*,Slice<n3ds_rasterTri>);
  bool execute(){
   if(!live||!enabled||!target||params.back()||size<4096)return false;
 #ifdef __EMSCRIPTEN__
-  if(rr_gpu_submit(kind,params.data(),params.size(),source,inputSize,target,size)){accelerated[kind]++;committedBytes+=size;return true;}
+  int result=rr_gpu_submit(kind,params.data(),params.size(),source,inputSize,target,size);
+  if(result>0){if(statsOwner)statsOwner->PixelsDrawn+=result-1;accelerated[std::min(kind,4u)]++;committedBytes+=size;return true;}
 #endif
   return false;
  }
  ~Operation(){
   if(!target||!record)return;
+  if(statsOwner)params[34]=statsOwner->PixelsDrawn-statsBefore;
   auto begin=stream.size();word(stream,0);word(stream,kind);word(stream,params.size());word(stream,input.size());word(stream,before.size());word(stream,size);word(stream,src);word(stream,dst);
   for(auto p:params)word(stream,p);bytes(stream,input);bytes(stream,before);bytes(stream,std::vector<uint8_t>(target,target+size));
   uint32_t n=stream.size()-begin;for(int j=0;j<4;j++)stream[begin+j]=n>>(j*8);
  }
  Operation()=default;Operation(const Operation&)=delete;Operation&operator=(const Operation&)=delete;
- Operation(Operation&&o):kind(o.kind),src(o.src),dst(o.dst),params(std::move(o.params)),target(o.target),source(o.source),size(o.size),inputSize(o.inputSize),record(o.record),live(o.live),input(std::move(o.input)),before(std::move(o.before)){o.target=nullptr;}
+ Operation(Operation&&o):kind(o.kind),src(o.src),dst(o.dst),params(std::move(o.params)),statsOwner(o.statsOwner),statsBefore(o.statsBefore),target(o.target),source(o.source),size(o.size),inputSize(o.inputSize),record(o.record),live(o.live),input(std::move(o.input)),before(std::move(o.before)),fragmentWords(std::move(o.fragmentWords)){o.target=nullptr;}
 };
 inline void begin(){recording=true;dropped=draws=0;stream.clear();word(stream,magic);word(stream,version);}
 }
+
+#include "graphics-fragments.h"

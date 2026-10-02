@@ -31,13 +31,14 @@ function present(m){
  if(canvas.width!==m.width)canvas.width=m.width;
  if(canvas.height!==m.height)canvas.height=m.height;
  const start=performance.now();
- ctx.putImageData(new ImageData(new Uint8ClampedArray(m.pixels),m.width,m.height),0,0);
+ if(m.bitmap){ctx.drawImage(m.bitmap,0,0);m.bitmap.close();}else ctx.putImageData(new ImageData(new Uint8ClampedArray(m.pixels),m.width,m.height),0,0);
  lastCopyMs=performance.now()-start;
  memory?.present(canvas);code?.present(canvas);paneSet?.present();
  presentedCount++;const elapsed=performance.now()-presentedAt;
  if(elapsed>=1000){presentedRate=presentedCount*1000/elapsed;presentedCount=0;presentedAt=performance.now();}
 }
 function queuePresentation(m){
+ pendingFrame?.bitmap?.close();
  if(!m.running){pendingFrame=null;present(m);return;}
  pendingFrame=m;
  if(presentationScheduled)return;
@@ -74,7 +75,8 @@ function executionControls(execution){
   $('execution-mode').value=execution.requested;
   $('execution-mode').disabled=!loaded||execution.busy||!!(latestState?.saving||latestState?.capturing||latestState?.debugBusy||latestState?.memoryRecording);
   $('execution-mode').querySelector('[value="experimental"]').disabled=!execution.experimental.available;
-  $('execution-note').textContent=execution.busy?'Switching execution mode…':`${execution.cpu} · ${execution.renderer}.${execution.experimental.available?'':' '+execution.experimental.reason}`;
+  const counts=execution.graphics,accelerated=counts?.accelerated?.reduce((a,b)=>a+b,0)||0,total=counts?.operations?.reduce((a,b)=>a+b,0)||0;
+  $('execution-note').textContent=execution.busy?'Switching execution mode…':`${execution.cpu} · ${execution.renderer}.${execution.experimental.available?'':' '+execution.experimental.reason}${execution.effective==='experimental'?` GPU: ${accelerated} operations; reference fallback: ${total-accelerated}.`:''}`;
   if(execution.busy){for(const id of ['run','step','save'])$(id).disabled=true;render.ready(false);$('pause').disabled=false;}
 }
 function showProfile(p, captureWork=false) {
@@ -145,14 +147,13 @@ function load(stateFile=null,preparedStart=null,requestedBackend=backend) {
   lastProfile = {};
   profileTime = 0;
   rate = '';
-  lastSteps=null;lastFrames=0;pendingFrame=null;presentedCount=0;presentedAt=performance.now();presentedRate=0;
+  lastSteps=null;lastFrames=0;pendingFrame?.bitmap?.close();pendingFrame=null;presentedCount=0;presentedAt=performance.now();presentedRate=0;
   $('profile').replaceChildren();
   $('profile-note').textContent='Run the machine to measure subsystem timings.';
   $('status').textContent = 'Loading local image…';
   function handleMessage({data : m}) {
-    if(disposed||pendingWorker)return;
-    if (m.session !== session)
-      return;
+    if(disposed||pendingWorker){m.bitmap?.close();return;}
+    if (m.session !== session){m.bitmap?.close();return;}
     if(m.type==='execution-state'){executionControls(m.execution);return;}
     if(m.type.startsWith('drive-debug-')){paneSet?.driveResult(m);return;}
     if(m.type.startsWith('experiment-')){memory.invalidate();code?.experimentResult(m);if(m.snapshot)paneSet?.snapshot(m.snapshot);return;}
@@ -586,7 +587,7 @@ return {
  platform,
  restore(saved){selected=saved.files;firmware=saved.firmware;driveFirmware=saved.driveFirmware||null;compatibility=saved.compatibility;if($('program')&&saved.executable){const o=document.createElement('option');o.value=o.textContent=saved.executable;$('program').append(o);$('program').value=saved.executable;}load(saved.stateFile,null,saved.backend||'production');},
  async suspend(){if(!loaded)return null;if(latestState&&(latestState.debugBusy||latestState.capturing||latestState.saving||latestState.memoryRecording||latestState.experimentOwned))throw Error('Finish the active inspection or experiment before switching systems.');release();return new Promise((resolve,reject)=>{const timeout=setTimeout(()=>{pendingSuspend=null;reject(Error('Could not suspend the current game. It remains open.'));},30000);pendingSuspend={resolve:v=>{clearTimeout(timeout);resolve(v);},reject:e=>{clearTimeout(timeout);reject(e);}};send('save');});},
- dispose(){disposed=true;clearInterval(sampler);lifetime.abort();release();pendingWorker?.terminate();worker?.terminate();feed.dispose();views.dispose();code?.dispose();memory.setActive(false);},
+ dispose(){pendingFrame?.bitmap?.close();pendingFrame=null;disposed=true;clearInterval(sampler);lifetime.abort();release();pendingWorker?.terminate();worker?.terminate();feed.dispose();views.dispose();code?.dispose();memory.setActive(false);},
  status(text){$('status').textContent=text;$('system-select').value=platform;}
 };
 }

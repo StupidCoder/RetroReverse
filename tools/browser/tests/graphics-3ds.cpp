@@ -24,6 +24,23 @@ int main(int argc,char**argv){
   g->Regs[0x105]=0xffa50001|(mask<<8);g->Regs[0x106]=op;
   n3ds_GPU_fill(g,&fb,&ls,&tv,tris);
  }
+ // General integer fragment tails, fed by exact reference interpolation and
+ // sampling. Exercise six stages, delayed combiner-buffer updates, alpha tests,
+ // all blend equations/factors, logic operations and partial color masks.
+ g->Regs[0x105]=0;fb.width=fb.height=64;g->Regs[0x82]=8|(8<<16);g->Regs[0x85]=(r->base+0x80000)>>3;g->Regs[0x83]=0;
+ tri.v0.x=.1f;tri.v0.y=.3f;tri.v1.x=63.7f;tri.v1.y=.2f;tri.v2.x=.4f;tri.v2.y=63.8f;tri.maxX=tri.maxY=64;
+ tri.v0.iw=.7f;tri.v1.iw=1.3f;tri.v2.iw=.9f;tri.area=n3ds_edgeFn(tri.v0.x,tri.v0.y,tri.v1.x,tri.v1.y,tri.v2.x,tri.v2.y);
+ tri.v0.col={.1f,.7f,.3f,.9f};tri.v1.col={.8f,.2f,.4f,.3f};tri.v2.col={.2f,.9f,.6f,.5f};tri.v0.uv[0]={-.3f,.2f};tri.v1.uv[0]={1.2f,.1f};tri.v2.uv[0]={.1f,1.4f};
+ auto rnd=[&](){seed^=seed<<13;seed^=seed>>17;seed^=seed<<5;return seed;};
+ std::array<uint8_t,9> sources{0,1,2,3,4,5,13,14,15};std::array<uint8_t,8> combines{0,1,2,3,4,5,8,9};
+ for(uint32_t trial=0;trial<96;trial++){
+  fb.colorMask=trial%16;tv.texEnable=1;g->Regs[0x8e]=trial%14;g->Regs[0x83]=((trial%4)<<12)|(((trial/4)%4)<<8);
+  tv.bufColor={int32_t(rnd()%256),int32_t(rnd()%256),int32_t(rnd()%256),int32_t(rnd()%256)};tv.alphaTest=trial%2;tv.alphaFunc=(trial/2)%8;tv.alphaRef=rnd()%256;
+  for(auto&s:tv.stages){for(int j=0;j<3;j++){s.colr[j]={sources[rnd()%9],uint8_t(rnd()%16)};s.alph[j]={sources[rnd()%9],uint8_t(rnd()%8)};}s.combC=combines[rnd()%8];s.combA=combines[rnd()%8];s.scaleC=rnd()%4;s.scaleA=rnd()%4;s.updC=rnd()%2;s.updA=rnd()%2;s.konst={int32_t(rnd()%256),int32_t(rnd()%256),int32_t(rnd()%256),int32_t(rnd()%256)};}
+  g->Regs[0x100]=trial<80?256:0;g->Regs[0x101]=(trial%5)|(((trial/5)%5)<<8)|((trial%15)<<16)|(((trial+3)%15)<<20)|(((trial+7)%15)<<24)|(((trial+11)%15)<<28);g->Regs[0x102]=trial%16;g->Regs[0x103]=rnd();
+  n3ds_GPU_invalidateTextures(g,r->base+0x80000,4096);
+  n3ds_GPU_fill(g,&fb,&ls,&tv,Slice<n3ds_rasterTri>{tri,tri});
+ }
  assert(!machine->CPU->Halted);assert(rrgpu::dropped==0);
  uint32_t n=rr_graphics_end();auto snapshot=rrgpu::stream;
  n3ds_Machine_gxMemoryFill(machine,r->base,0,r->base+r->data.n,0x200);

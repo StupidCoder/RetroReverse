@@ -1,0 +1,180 @@
+{
+  "schema": 1,
+  "fields": 30,
+  "includesPresentation": true,
+  "measurements": [
+    {
+      "reference": {
+        "ms": 9744.300000011921,
+        "state": "631832bc7c9a36f53b62be9ac0cba80556cb647f3d5bae803fee1c2479c86dfe",
+        "bytes": 76666062,
+        "presentationDifferences": null,
+        "operations": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "accelerated": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "gpuHostMs": 0,
+        "allocatedBytes": 17367108
+      },
+      "experimental": {
+        "ms": 5326.300000011921,
+        "state": "631832bc7c9a36f53b62be9ac0cba80556cb647f3d5bae803fee1c2479c86dfe",
+        "bytes": 76666062,
+        "presentationDifferences": 0,
+        "operations": [
+          90,
+          0,
+          45,
+          2100
+        ],
+        "accelerated": [
+          90,
+          0,
+          45,
+          990
+        ],
+        "gpuHostMs": 1655.399999678135,
+        "allocatedBytes": 17367108
+      },
+      "speedup": 1.8294688620599877
+    },
+    {
+      "reference": {
+        "ms": 9753.199999988079,
+        "state": "631832bc7c9a36f53b62be9ac0cba80556cb647f3d5bae803fee1c2479c86dfe",
+        "bytes": 76666062,
+        "presentationDifferences": null,
+        "operations": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "accelerated": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "gpuHostMs": 0,
+        "allocatedBytes": 17367108
+      },
+      "experimental": {
+        "ms": 5309.199999988079,
+        "state": "631832bc7c9a36f53b62be9ac0cba80556cb647f3d5bae803fee1c2479c86dfe",
+        "bytes": 76666062,
+        "presentationDifferences": 0,
+        "operations": [
+          90,
+          0,
+          45,
+          2100
+        ],
+        "accelerated": [
+          90,
+          0,
+          45,
+          990
+        ],
+        "gpuHostMs": 1642.0999991893768,
+        "allocatedBytes": 17367108
+      },
+      "speedup": 1.837037595119788
+    },
+    {
+      "reference": {
+        "ms": 9737.599999964237,
+        "state": "631832bc7c9a36f53b62be9ac0cba80556cb647f3d5bae803fee1c2479c86dfe",
+        "bytes": 76666062,
+        "presentationDifferences": null,
+        "operations": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "accelerated": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "gpuHostMs": 0,
+        "allocatedBytes": 17367108
+      },
+      "experimental": {
+        "ms": 5331.100000023842,
+        "state": "631832bc7c9a36f53b62be9ac0cba80556cb647f3d5bae803fee1c2479c86dfe",
+        "bytes": 76666062,
+        "presentationDifferences": 0,
+        "operations": [
+          90,
+          0,
+          45,
+          2100
+        ],
+        "accelerated": [
+          90,
+          0,
+          45,
+          990
+        ],
+        "gpuHostMs": 1658.4999986290932,
+        "allocatedBytes": 17367108
+      },
+      "speedup": 1.8265648740261275
+    }
+  ],
+  "reference": {
+    "ms": 9737.599999964237,
+    "state": "631832bc7c9a36f53b62be9ac0cba80556cb647f3d5bae803fee1c2479c86dfe",
+    "bytes": 76666062,
+    "presentationDifferences": null,
+    "operations": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "accelerated": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "gpuHostMs": 0,
+    "allocatedBytes": 17367108
+  },
+  "experimental": {
+    "ms": 5331.100000023842,
+    "state": "631832bc7c9a36f53b62be9ac0cba80556cb647f3d5bae803fee1c2479c86dfe",
+    "bytes": 76666062,
+    "presentationDifferences": 0,
+    "operations": [
+      90,
+      0,
+      45,
+      2100
+    ],
+    "accelerated": [
+      90,
+      0,
+      45,
+      990
+    ],
+    "gpuHostMs": 1658.4999986290932,
+    "allocatedBytes": 17367108
+  },
+  "delayed": null,
+  "mode": "reference",
+  "result": "PASS",
+  "browser": "154.0.8037.93"
+}
