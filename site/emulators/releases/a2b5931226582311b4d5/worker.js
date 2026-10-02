@@ -213,7 +213,7 @@ async function captureNext(){
    await boundary('Finishing current interval.');
    const startState=coreState(),start=status(),input=queueState();
    const captureStarted=core._rr_capture_begin();if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='xbox'||platform==='gb'||platform==='gg'||platform==='gba'||platform==='dos'||platform==='amiga')check(captureStarted);
-   const captureFields=(platform==='ps1'||platform==='ps2')?4:(platform==='gc'||platform==='dc'||platform==='amiga')?3:platform==='3ds'?3:platform==='ds'?2:1;
+   const captureFields=platforms[platform].captureFields??((platform==='ps1'||platform==='ps2')?4:(platform==='gc'||platform==='dc'||platform==='amiga')?3:platform==='3ds'?3:platform==='ds'?2:1);
    if(platform==='dos'){while(!json('_rr_capture_info').ready)await boundary('Recording RAM rendering and VGA copies.');}
    else for(let field=0;field<captureFields;field++)await boundary(captureFields>1?'Recording display and double-buffer producer context.':'Recording next complete interval.');
    const ended=core._rr_capture_end();if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='xbox'||platform==='gb'||platform==='gg'||platform==='gba'||platform==='dos'||platform==='amiga')check(ended);const captureProfile=finishCaptureProfile();capturing=false;

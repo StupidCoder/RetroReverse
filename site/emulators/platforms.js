@@ -261,6 +261,8 @@ export const platforms = {
     hz : 60
   },
   n64 : {
+    // Include the producer interval before its double-buffered VI scanout.
+    captureFields: 2,
     name : 'Nintendo 64',
     accept : '.z64,.v64,.n64',
     help :

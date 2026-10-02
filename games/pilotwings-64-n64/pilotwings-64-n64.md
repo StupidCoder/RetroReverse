@@ -1014,6 +1014,20 @@ billion steps preserves CPU/RSP state and RDP command counts at 19 checkpoints;
 visual comparisons show the old-frame trails removed. See Nintendo's
 [blender mode descriptions](https://jrra.zone/n64/doc/pro-man/pro15/15-07.htm).
 
+### Render view: double-buffer capture
+
+The N64 browser capture spans two 750,000-step display intervals. Pilotwings
+renders into a back buffer while the VI displays an earlier buffer; recording
+only one interval can produce tens of thousands of replay steps without a single
+change to the displayed image. Including the preceding producer work lets the
+scrubber reconstruct the displayed buffer as it was drawn. Steps targeting other
+buffers can still leave the output unchanged.
+
+`replay-wasm.mjs` accepts `NATIVE_STATE` and `EXPECT_REPLAY_CHANGES=1` to check
+an animated intro fixture for distinct intermediate images, final-frame equality,
+deterministic seeking, and unchanged guest continuation. `CAPTURE_FIELDS=1`
+reproduces the old capture window and fails the intermediate-image check.
+
 ## Part VII — animation: from `UVAN` into glTF
 
 `UVAN` gives, per part of a target model, a quaternion at each frame (Part IV). Turning that into a
