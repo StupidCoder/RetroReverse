@@ -45,7 +45,7 @@ async function saveState(){
  try{
  cancelCapture();running=false;++epoch;const identity=await identities();
  const n=core._rr_state_save();check(n);const p=core._rr_state_data();
- const bytes=await packState({format:1,platform,...identity,input:queueState()},core.HEAPU8.slice(p,p+n));
+ const bytes=await packState({format:1,platform,...identity,input:queueState(),...(execution3DS?{playMode:execution3DS.snapshot().preferred}:{})},core.HEAPU8.slice(p,p+n));
  send("saved",{bytes:bytes.buffer});
  }finally{saving=false;paint();}
 }
@@ -239,7 +239,7 @@ async function captureNext(){
    if(id!==epoch)return;
    capture={id:generation,startState,endState,start,end,input,width:w,height:h,pixels,info,frameHash};
    paint();send('capture',{id:generation,tileset,vram,...(['gb','gg','c64','amiga'].includes(platform)&&core._rr_raster_info?{raster:json('_rr_raster_info')}:{}),replay,start,end,width:w,height:h,info,frameHash,elapsedMs:performance.now()-began,checkpointBytes:startState.length+endState.length,profile:captureProfile,runMs:captureRunMs,maxCall:maxCaptureCall});
-   send('message',{text:info.overflow?'Paused. Capture limit reached; some evidence is missing.':platform==='dos'?'Paused. RAM rendering and VGA copies are ready to inspect.':'Paused. A complete display interval is ready to inspect.'});
+   send('message',{text:info.overflow?'Paused. Capture limit reached; some evidence is missing.':platform==='3ds'?`Reference capture ready. Resume uses ${execution3DS.snapshot().preferred==='experimental'?'Experimental':'Reference'}.`:platform==='dos'?'Paused. RAM rendering and VGA copies are ready to inspect.':'Paused. A complete display interval is ready to inspect.'});
  }catch(e){if(id===epoch){if(capturing)core._rr_capture_end();finishCaptureProfile();capturing=false;capture=null;paint();send('error',{text:String(e)});}}
 }
 function pixelEvidence(x,y){const p=jsonPixel(x,y);for(const c of p.contributors||[])c.replayStep=core._rr_replay_for_write(platform==='c64'?y:c.id);return p;}
@@ -290,7 +290,7 @@ async function boot(m) {
   const wasmBinary=new Uint8Array(await response.arrayBuffer());
   if(await digest(wasmBinary)!==coreIdentity)throw Error('Emulator build mismatch. Rebuild the development core or reload the matching release.');
   if(platform==='3ds'){
-    const rendererFiles=['graphics-3ds.js','graphics-live-3ds.js','presentation-3ds.js'];
+    const rendererFiles=['graphics-3ds.js','graphics-live-3ds.js','presentation-3ds.js','fragment-3ds.js'];
     const hashes=await Promise.all(rendererFiles.map(async name=>{const r=await fetch(new URL(name,import.meta.url));if(!r.ok)throw Error('Renderer identity unavailable');return digest(new Uint8Array(await r.arrayBuffer()));}));
     coreIdentity=await digest(new TextEncoder().encode(JSON.stringify({wasm:coreIdentity,graphics:hashes})));
   }
@@ -455,8 +455,13 @@ async function boot(m) {
       onRestore:()=>{inputs=new InputQueue(platforms[platform].hz);if(platform==='dos')inputs.mouseMask=768;inputQueue.length=0;appliedKeys.clear();lastButtons=lastX=lastY=0;}
     });
   }
+  if(platform==='3ds'){
+    graphics3DS=await createLive3DSGraphics(core);execution3DS=create3DSExecution({reference:graphics3DS.reference,experimental:graphics3DS.experimental,onChange:execution=>send('execution-state',{execution})});
+    // The portable machine is restored in Reference above. Preference is host
+    // metadata, not a second state format or a relaxation of build identity.
+    if(restored?.meta.playMode==='experimental'&&graphics3DS.experimental.available)await execution3DS.select('experimental');
+  }
   loaded = true;
-  if(platform==='3ds'){graphics3DS=await createLive3DSGraphics(core);execution3DS=create3DSExecution({reference:graphics3DS.reference,experimental:graphics3DS.experimental,onChange:execution=>send('execution-state',{execution})});}
   paint();
   send('ready', {
     capabilities:coreCapabilities,backend,execution:execution3DS?.snapshot(),
@@ -560,9 +565,16 @@ onmessage = async ({data : m}) => {
     if (m.type === 'run' || m.type === 'step') {
       if (running)
         return;
-      cancelCapture();running = true;
-      await pump(++epoch, m.type === 'step');
+      cancelCapture();const id=++epoch;
+      if(execution3DS){
+        const state=execution3DS.snapshot();
+        if(state.preferred==='experimental'&&!state.experimental.available){await execution3DS.select('reference');send('message',{text:'Experimental is unavailable; continuing in Reference. '+state.experimental.reason});}
+        else await execution3DS.select(m.type==='step'?'reference':state.preferred,{temporary:true});
+      }
+      if(id!==epoch)return;running = true;
+      await pump(id, m.type === 'step');
     } else if (m.type === 'capture-render') {
+      const id=epoch;if(execution3DS)await execution3DS.select('reference',{temporary:true});if(id!==epoch)return;
       await captureNext();
     } else if (m.type === 'pause') {
       running=false;++epoch;cancelCapture();paint();send('message',{text:'Paused. Open Memory to inspect physical storage.'});
@@ -586,7 +598,8 @@ async function memoryRequest(m){
  const respond=overview=>send('memory-overview',{request:m.request,overview});
  try{
   if(m.type==='memory-snapshot'||m.type==='memory-record'){
-   memoryBusy=true;running=false;++epoch;cancelCapture();paint();
+   memoryBusy=true;running=false;const id=++epoch;cancelCapture();
+   if(execution3DS)await execution3DS.select('reference',{temporary:true});if(id!==epoch)return;paint();
    if(m.type==='memory-snapshot'){respond(await memoryService.snapshot());return;}
    memoryRecording=true;memoryStop=false;await memoryService.begin(m.fetches);memoryBusy=false;paint();
    const time=s=>platform==='c64'?s.steps/985248:s.seconds??s.frames/platforms[platform].hz;

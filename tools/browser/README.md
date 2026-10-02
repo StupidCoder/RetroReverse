@@ -91,7 +91,10 @@ exact prompts are in `docs/ARTWORK.json`; assets are in `site/emulators/art/`.
 The 3DO hot-path and movie playback refactor is documented in `docs/3DO-PERFORMANCE.md`.
 
 The [3DS acceleration prototype plan](docs/3DS-ACCELERATION-PLAN.md) covers an
-optional execution mode, WebGPU rendering and verified reference-debugger handoff.
+optional execution mode, WebGPU rendering and verified reference inspection.
+See [M4 coverage and performance](docs/3DS-ACCELERATION-COVERAGE.md) and
+[M5 handoff acceptance](docs/3DS-ACCELERATION-ACCEPTANCE.md) for the implemented
+browser prototype and its limits.
 
 Game Boy and Game Gear ports are documented in `docs/GB-GG-PORTS.md`.
 The separate Game Boy, Game Gear and C64 Play/Render workspaces and historical

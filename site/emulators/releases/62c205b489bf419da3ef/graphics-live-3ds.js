@@ -7,19 +7,25 @@ export async function createLive3DSGraphics(core,{createGPU=create3DSGraphics,ti
  let gpu=null,reason='',closed=false,active=false,pending=null;
  let count=0,totalMs=0;
  const fail=e=>{reason=String(e?.message??e);active=false;};
- try{gpu=await createGPU({onLost:fail});
+ const bounded=async(work,label)=>{let timer;try{return await Promise.race([work,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(label+' timed out')),timeoutMs);})]);}finally{clearTimeout(timer);}};
+ let initializing=true;
+ try{await bounded((async()=>{
+  const candidate=await createGPU({onLost:fail,measureGPU:false});
+  if(!initializing){candidate.destroy();return;}gpu=candidate;
   const check=await gpu.execute({kind:1,params:[4,0x12345678,4096,0],input:new Uint8Array(),before:new Uint8Array(4096)});
-  if(!check.supported||check.bytes.some((b,i)=>b!==[0x78,0x56,0x34,0x12][i%4]))throw Error('WebGPU transfer self-test failed');
+  if(!initializing)return;
+  if(!check.supported||!(check.bytes instanceof Uint8Array)||check.bytes.length!==4096||check.bytes.some((b,i)=>b!==[0x78,0x56,0x34,0x12][i%4]))throw Error('WebGPU transfer self-test failed');
   await gpu.preparePresentation?.();
- }catch(e){fail(e);gpu?.destroy();}
+ })(),'WebGPU initialization');
+ }catch(e){fail(e);gpu?.destroy();}finally{initializing=false;}
  core.graphicsTransfer=packet=>{
   if(!active||closed||reason)return Promise.resolve({supported:false,reason:reason||'Reference execution'});
   if(pending)return Promise.reject(Error('A GPU operation is already in flight'));
-  let timer;const start=performance.now();
-  pending=Promise.race([gpu.execute(packet),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('GPU completion timed out')),timeoutMs);})])
+  const start=performance.now();
+  pending=bounded(Promise.resolve().then(()=>gpu.execute(packet)),'GPU completion')
    .then(result=>{if(result.supported){count++;totalMs+=performance.now()-start;}return result;})
    .catch(e=>{fail(e);gpu?.destroy();return {supported:false,reason};})
-   .finally(()=>{clearTimeout(timer);pending=null;});
+   .finally(()=>{pending=null;});
   return pending;
  };
  const reference={activate(){active=false;core._rr_graphics_enable(0);}};

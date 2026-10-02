@@ -3,19 +3,19 @@
 // caller holds the worker execution gate until select() settles, even if cancelled.
 export function create3DSExecution({reference={},experimental=null,onChange=()=>{}}={}) {
   const engines={reference,experimental};
-  let effective='reference',requested='reference',revision=0,job=null,disposed=false;
+  let effective='reference',requested='reference',preferred='reference',revision=0,job=null,disposed=false;
   const unavailable='Experimental rendering is not available in this build.';
-  function snapshot(){return {requested,effective,transition:job?.target??null,busy:!!job,
+  function snapshot(){return {requested,effective,preferred,transition:job?.target??null,busy:!!job,
     cpu:'ARM interpreter',renderer:effective==='reference'?'Software PICA':(engines[effective]?.label??'Experimental'),
     graphics:experimental?.stats?.()??null,experimental:{available:!!experimental?.available,reason:experimental?.reason??unavailable}};}
   function publish(){if(!disposed)onChange(snapshot());}
-  async function select(target){
+  async function select(target,{temporary=false}={}){
     if(disposed)throw Error('3DS execution session ended');
     if(!Object.hasOwn(engines,target))throw Error('Unknown 3DS execution mode');
     if(target!=='reference'&&!engines[target]?.available)throw Error(engines[target]?.reason??unavailable);
     if(job)throw Error('An execution transition is already pending');
     requested=target;
-    if(effective===target){publish();return snapshot();}
+    if(effective===target){if(!temporary)preferred=target;publish();return snapshot();}
     const token={target,id:++revision};job=token;publish();
     const valid=()=>!disposed&&revision===token.id;
     try{
@@ -28,6 +28,7 @@ export function create3DSExecution({reference={},experimental=null,onChange=()=>
       // Backend activation must be transactional on failure and must not await.
       engines[target].activate?.();
       effective=target;
+      if(!temporary)preferred=target;
     }finally{
       if(job===token){job=null;requested=effective;publish();}
     }

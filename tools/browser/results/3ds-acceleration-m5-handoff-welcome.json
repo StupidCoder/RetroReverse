@@ -1,0 +1,746 @@
+{
+  "schema": 1,
+  "fields": 520,
+  "trials": [
+    {
+      "mixed": false,
+      "fields": 520,
+      "switches": 0,
+      "ms": 162163,
+      "checkpoints": [
+        {
+          "interval": 50,
+          "state": "ddd61af47b0e6b91871709ab5cc455116aedc6e4ddb86b2fb6054a1152788f65",
+          "bytes": 74490616,
+          "status": {
+            "steps": 1735720659,
+            "frames": 361,
+            "inputSeconds": 6.47387,
+            "pc": 2681788,
+            "width": 400,
+            "height": 480,
+            "draws": 14605
+          }
+        },
+        {
+          "interval": 100,
+          "state": "9015477fa64476fdcf90f036d636bd6a2c6daf52bfc769a30e859e85c7900db6",
+          "bytes": 74550546,
+          "status": {
+            "steps": 1959147965,
+            "frames": 411,
+            "inputSeconds": 7.30721,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 17530
+          }
+        },
+        {
+          "interval": 150,
+          "state": "36e1e609c0c85b330e49c2927d880507b9ce4fa8b7396c42a9c30b809a68f633",
+          "bytes": 74610381,
+          "status": {
+            "steps": 2182574465,
+            "frames": 461,
+            "inputSeconds": 8.14054,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 20455
+          }
+        },
+        {
+          "interval": 200,
+          "state": "7b21b5798fead83e60fb0ea45281a6b67027cf067ec7a7cd58c53cfe501f838e",
+          "bytes": 74670398,
+          "status": {
+            "steps": 2406000965,
+            "frames": 511,
+            "inputSeconds": 8.97387,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 23380
+          }
+        },
+        {
+          "interval": 250,
+          "state": "d7f3c4040617ea2208767c12093fe0d52fa561392ae26473354ac64b08815918",
+          "bytes": 74730233,
+          "status": {
+            "steps": 2629427465,
+            "frames": 561,
+            "inputSeconds": 9.80721,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 26305
+          }
+        },
+        {
+          "interval": 300,
+          "state": "fba7c44d8c07a44a1235299349d70709ed9070571b579a9bba161509d806d38b",
+          "bytes": 74790193,
+          "status": {
+            "steps": 2852853965,
+            "frames": 611,
+            "inputSeconds": 10.6405,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 29230
+          }
+        },
+        {
+          "interval": 350,
+          "state": "398b3cc7218ce656f59f4d11142f40e4703e490e3891d8eed2787640c9cb7185",
+          "bytes": 74850085,
+          "status": {
+            "steps": 3076280465,
+            "frames": 661,
+            "inputSeconds": 11.4739,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 32155
+          }
+        },
+        {
+          "interval": 400,
+          "state": "2752e0db2f26d1dd920c88d18d662371d5623feedba6e7c7aa7b2616c37befd2",
+          "bytes": 74910045,
+          "status": {
+            "steps": 3299706965,
+            "frames": 711,
+            "inputSeconds": 12.3072,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 35080
+          }
+        },
+        {
+          "interval": 450,
+          "state": "9d6749bfcd99de79aabdc2c44ad248ee5dbd18630d3e4136f508aa0b11cff589",
+          "bytes": 74969880,
+          "status": {
+            "steps": 3523133465,
+            "frames": 761,
+            "inputSeconds": 13.1405,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 38005
+          }
+        },
+        {
+          "interval": 500,
+          "state": "e637d642d27e5b75fdc4b343e0c0d1c1e0fd2b44a877ffa5f50fce2c4cb319f4",
+          "bytes": 75029897,
+          "status": {
+            "steps": 3746559965,
+            "frames": 811,
+            "inputSeconds": 13.9739,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 40930
+          }
+        },
+        {
+          "interval": 520,
+          "state": "fc8bfcb210f27d645d26d61f6080d5ba31da44f9aec08c8836a95ed6d336c24c",
+          "bytes": 75053831,
+          "status": {
+            "steps": 3835930565,
+            "frames": 831,
+            "inputSeconds": 14.3072,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 42100
+          }
+        }
+      ],
+      "captures": [
+        {
+          "interval": 43,
+          "pixels": "c3ad1197e9963834a73c9a88507e177f8b62df24d4e650b9be73477fc42d175e",
+          "evidence": "42e4313d50887ebaf650eaa7db3afb6f8a13607e8d008ad9756557678287840e",
+          "writes": 5730681
+        },
+        {
+          "interval": 143,
+          "pixels": "c3ad1197e9963834a73c9a88507e177f8b62df24d4e650b9be73477fc42d175e",
+          "evidence": "1c21bdca9f760e603dfae3e662719b3952d576c6de2241697cb7611de885d66b",
+          "writes": 5730689
+        },
+        {
+          "interval": 243,
+          "pixels": "c3ad1197e9963834a73c9a88507e177f8b62df24d4e650b9be73477fc42d175e",
+          "evidence": "803809479ae4ebf057965230d234adae2f270f710a752d423b4833a383719a76",
+          "writes": 5729889
+        },
+        {
+          "interval": 343,
+          "pixels": "c3ad1197e9963834a73c9a88507e177f8b62df24d4e650b9be73477fc42d175e",
+          "evidence": "01ce3793d72715ea89d99bedab54004fd8cee27d883f340a2f31a9dc52f1e747",
+          "writes": 5729888
+        },
+        {
+          "interval": 443,
+          "pixels": "c3ad1197e9963834a73c9a88507e177f8b62df24d4e650b9be73477fc42d175e",
+          "evidence": "8e87dd93bc38d35c1d365a72139e760a0d35fd38596c15201cfc2af9ca777948",
+          "writes": 5729898
+        }
+      ],
+      "memory": [
+        {
+          "interval": 50,
+          "regions": 22
+        },
+        {
+          "interval": 100,
+          "regions": 22
+        },
+        {
+          "interval": 150,
+          "regions": 22
+        },
+        {
+          "interval": 200,
+          "regions": 22
+        },
+        {
+          "interval": 250,
+          "regions": 22
+        },
+        {
+          "interval": 300,
+          "regions": 22
+        },
+        {
+          "interval": 350,
+          "regions": 22
+        },
+        {
+          "interval": 400,
+          "regions": 22
+        },
+        {
+          "interval": 450,
+          "regions": 22
+        },
+        {
+          "interval": 500,
+          "regions": 22
+        },
+        {
+          "interval": 520,
+          "regions": 22
+        }
+      ],
+      "allocations": [
+        {
+          "interval": 50,
+          "wasm": 1984626688,
+          "gpu": 98372,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "interval": 100,
+          "wasm": 1984626688,
+          "gpu": 98372,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "interval": 150,
+          "wasm": 1984626688,
+          "gpu": 98372,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "interval": 200,
+          "wasm": 1984626688,
+          "gpu": 98372,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "interval": 250,
+          "wasm": 2132344832,
+          "gpu": 98372,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "interval": 300,
+          "wasm": 2132344832,
+          "gpu": 98372,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "interval": 350,
+          "wasm": 2132344832,
+          "gpu": 98372,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "interval": 400,
+          "wasm": 2132344832,
+          "gpu": 98372,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "interval": 450,
+          "wasm": 2132344832,
+          "gpu": 98372,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "interval": 500,
+          "wasm": 2132344832,
+          "gpu": 98372,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "interval": 520,
+          "wasm": 2132344832,
+          "gpu": 98372,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "accelerated": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "mixed": true,
+      "fields": 520,
+      "switches": 270,
+      "ms": 135271.29999995232,
+      "checkpoints": [
+        {
+          "interval": 50,
+          "state": "ddd61af47b0e6b91871709ab5cc455116aedc6e4ddb86b2fb6054a1152788f65",
+          "bytes": 74490616,
+          "status": {
+            "steps": 1735720659,
+            "frames": 361,
+            "inputSeconds": 6.47387,
+            "pc": 2681788,
+            "width": 400,
+            "height": 480,
+            "draws": 14605
+          }
+        },
+        {
+          "interval": 100,
+          "state": "9015477fa64476fdcf90f036d636bd6a2c6daf52bfc769a30e859e85c7900db6",
+          "bytes": 74550546,
+          "status": {
+            "steps": 1959147965,
+            "frames": 411,
+            "inputSeconds": 7.30721,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 17530
+          }
+        },
+        {
+          "interval": 150,
+          "state": "36e1e609c0c85b330e49c2927d880507b9ce4fa8b7396c42a9c30b809a68f633",
+          "bytes": 74610381,
+          "status": {
+            "steps": 2182574465,
+            "frames": 461,
+            "inputSeconds": 8.14054,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 20455
+          }
+        },
+        {
+          "interval": 200,
+          "state": "7b21b5798fead83e60fb0ea45281a6b67027cf067ec7a7cd58c53cfe501f838e",
+          "bytes": 74670398,
+          "status": {
+            "steps": 2406000965,
+            "frames": 511,
+            "inputSeconds": 8.97387,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 23380
+          }
+        },
+        {
+          "interval": 250,
+          "state": "d7f3c4040617ea2208767c12093fe0d52fa561392ae26473354ac64b08815918",
+          "bytes": 74730233,
+          "status": {
+            "steps": 2629427465,
+            "frames": 561,
+            "inputSeconds": 9.80721,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 26305
+          }
+        },
+        {
+          "interval": 300,
+          "state": "fba7c44d8c07a44a1235299349d70709ed9070571b579a9bba161509d806d38b",
+          "bytes": 74790193,
+          "status": {
+            "steps": 2852853965,
+            "frames": 611,
+            "inputSeconds": 10.6405,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 29230
+          }
+        },
+        {
+          "interval": 350,
+          "state": "398b3cc7218ce656f59f4d11142f40e4703e490e3891d8eed2787640c9cb7185",
+          "bytes": 74850085,
+          "status": {
+            "steps": 3076280465,
+            "frames": 661,
+            "inputSeconds": 11.4739,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 32155
+          }
+        },
+        {
+          "interval": 400,
+          "state": "2752e0db2f26d1dd920c88d18d662371d5623feedba6e7c7aa7b2616c37befd2",
+          "bytes": 74910045,
+          "status": {
+            "steps": 3299706965,
+            "frames": 711,
+            "inputSeconds": 12.3072,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 35080
+          }
+        },
+        {
+          "interval": 450,
+          "state": "9d6749bfcd99de79aabdc2c44ad248ee5dbd18630d3e4136f508aa0b11cff589",
+          "bytes": 74969880,
+          "status": {
+            "steps": 3523133465,
+            "frames": 761,
+            "inputSeconds": 13.1405,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 38005
+          }
+        },
+        {
+          "interval": 500,
+          "state": "e637d642d27e5b75fdc4b343e0c0d1c1e0fd2b44a877ffa5f50fce2c4cb319f4",
+          "bytes": 75029897,
+          "status": {
+            "steps": 3746559965,
+            "frames": 811,
+            "inputSeconds": 13.9739,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 40930
+          }
+        },
+        {
+          "interval": 520,
+          "state": "fc8bfcb210f27d645d26d61f6080d5ba31da44f9aec08c8836a95ed6d336c24c",
+          "bytes": 75053831,
+          "status": {
+            "steps": 3835930565,
+            "frames": 831,
+            "inputSeconds": 14.3072,
+            "pc": 2681784,
+            "width": 400,
+            "height": 480,
+            "draws": 42100
+          }
+        }
+      ],
+      "captures": [
+        {
+          "interval": 43,
+          "pixels": "c3ad1197e9963834a73c9a88507e177f8b62df24d4e650b9be73477fc42d175e",
+          "evidence": "42e4313d50887ebaf650eaa7db3afb6f8a13607e8d008ad9756557678287840e",
+          "writes": 5730681
+        },
+        {
+          "interval": 143,
+          "pixels": "c3ad1197e9963834a73c9a88507e177f8b62df24d4e650b9be73477fc42d175e",
+          "evidence": "1c21bdca9f760e603dfae3e662719b3952d576c6de2241697cb7611de885d66b",
+          "writes": 5730689
+        },
+        {
+          "interval": 243,
+          "pixels": "c3ad1197e9963834a73c9a88507e177f8b62df24d4e650b9be73477fc42d175e",
+          "evidence": "803809479ae4ebf057965230d234adae2f270f710a752d423b4833a383719a76",
+          "writes": 5729889
+        },
+        {
+          "interval": 343,
+          "pixels": "c3ad1197e9963834a73c9a88507e177f8b62df24d4e650b9be73477fc42d175e",
+          "evidence": "01ce3793d72715ea89d99bedab54004fd8cee27d883f340a2f31a9dc52f1e747",
+          "writes": 5729888
+        },
+        {
+          "interval": 443,
+          "pixels": "c3ad1197e9963834a73c9a88507e177f8b62df24d4e650b9be73477fc42d175e",
+          "evidence": "8e87dd93bc38d35c1d365a72139e760a0d35fd38596c15201cfc2af9ca777948",
+          "writes": 5729898
+        }
+      ],
+      "memory": [
+        {
+          "interval": 50,
+          "regions": 22
+        },
+        {
+          "interval": 100,
+          "regions": 22
+        },
+        {
+          "interval": 150,
+          "regions": 22
+        },
+        {
+          "interval": 200,
+          "regions": 22
+        },
+        {
+          "interval": 250,
+          "regions": 22
+        },
+        {
+          "interval": 300,
+          "regions": 22
+        },
+        {
+          "interval": 350,
+          "regions": 22
+        },
+        {
+          "interval": 400,
+          "regions": 22
+        },
+        {
+          "interval": 450,
+          "regions": 22
+        },
+        {
+          "interval": 500,
+          "regions": 22
+        },
+        {
+          "interval": 520,
+          "regions": 22
+        }
+      ],
+      "allocations": [
+        {
+          "interval": 50,
+          "wasm": 2132344832,
+          "gpu": 16842820,
+          "accelerated": [
+            68,
+            0,
+            35,
+            648
+          ]
+        },
+        {
+          "interval": 100,
+          "wasm": 2132344832,
+          "gpu": 16842820,
+          "accelerated": [
+            140,
+            0,
+            71,
+            1332
+          ]
+        },
+        {
+          "interval": 150,
+          "wasm": 2132344832,
+          "gpu": 16842820,
+          "accelerated": [
+            212,
+            0,
+            107,
+            2016
+          ]
+        },
+        {
+          "interval": 200,
+          "wasm": 2132344832,
+          "gpu": 16842820,
+          "accelerated": [
+            284,
+            0,
+            143,
+            2700
+          ]
+        },
+        {
+          "interval": 250,
+          "wasm": 2132344832,
+          "gpu": 16842820,
+          "accelerated": [
+            356,
+            0,
+            179,
+            3384
+          ]
+        },
+        {
+          "interval": 300,
+          "wasm": 2132344832,
+          "gpu": 16842820,
+          "accelerated": [
+            428,
+            0,
+            215,
+            4068
+          ]
+        },
+        {
+          "interval": 350,
+          "wasm": 2132344832,
+          "gpu": 16842820,
+          "accelerated": [
+            500,
+            0,
+            251,
+            4752
+          ]
+        },
+        {
+          "interval": 400,
+          "wasm": 2132344832,
+          "gpu": 16842820,
+          "accelerated": [
+            572,
+            0,
+            287,
+            5436
+          ]
+        },
+        {
+          "interval": 450,
+          "wasm": 2132344832,
+          "gpu": 16842820,
+          "accelerated": [
+            644,
+            0,
+            323,
+            6120
+          ]
+        },
+        {
+          "interval": 500,
+          "wasm": 2132344832,
+          "gpu": 16842820,
+          "accelerated": [
+            716,
+            0,
+            359,
+            6804
+          ]
+        },
+        {
+          "interval": 520,
+          "wasm": 2132344832,
+          "gpu": 16842820,
+          "accelerated": [
+            746,
+            0,
+            374,
+            7089
+          ]
+        }
+      ],
+      "accelerated": [
+        746,
+        0,
+        374,
+        7089
+      ]
+    }
+  ],
+  "result": "PASS",
+  "browser": "154.0.8037.93"
+}

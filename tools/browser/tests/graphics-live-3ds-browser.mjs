@@ -16,7 +16,7 @@ try{
   const initial=new Uint8Array(await document.querySelector('#checkpoint').files[0].arrayBuffer());
   const backend=await createLive3DSGraphics(core),execution=create3DSExecution({reference:backend.reference,experimental:backend.experimental});
   if(!backend.experimental.available)throw Error(backend.reason);
-  const restore=()=>{core.HEAPU8.set(initial,core._rr_state_input(initial.length));check(core._rr_state_load(initial.length));};
+  const restore=()=>{const at=core._rr_state_input(initial.length);core.HEAPU8.set(initial,at);check(core._rr_state_load(initial.length));};
   const save=()=>{let n=core._rr_state_save();check(n);return core.HEAPU8.slice(core._rr_state_data(),core._rr_state_data()+n);};
   const status=()=>JSON.parse(core.UTF8ToString(core._rr_status()));
   const hash=async bytes=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),x=>x.toString(16).padStart(2,'0')).join('');

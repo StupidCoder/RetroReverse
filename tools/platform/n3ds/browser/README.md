@@ -3,8 +3,14 @@
 C++20/WASM port of the repository's process-level ARM11 / Horizon HLE and PICA200
 software renderer. It accepts decrypted NCSD/CCI images (`.cci` or `.3ds`), up to
 1 GiB, supplied locally. It does not emulate the ARM9/system boot firmware, install
-CIA packages or decrypt commercial images. Game compatibility follows the existing
-experimental Go core.
+CIA packages or decrypt commercial images. Game compatibility remains experimental; the browser reference is this
+C++/WASM build.
+
+The optional browser **Experimental** mode accelerates supported graphics with
+WebGPU while retaining this interpreter. **Reference** remains the default.
+Render and Memory inspection use Reference; Resume restores the selected Play
+mode. See [prototype acceptance](../../../browser/docs/3DS-ACCELERATION-ACCEPTANCE.md)
+for exact support boundaries, measured speed and memory costs.
 
 ```
 go run ./tools/platform/n3ds/browser/portgen

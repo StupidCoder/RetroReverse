@@ -72,11 +72,12 @@ function controls(on) {
 }
 function executionControls(execution){
   if(!$('execution-mode')||!execution)return;
-  $('execution-mode').value=execution.requested;
+  $('execution-mode').value=execution.busy?execution.requested:(execution.preferred??execution.requested);
   $('execution-mode').disabled=!loaded||execution.busy||!!(latestState?.saving||latestState?.capturing||latestState?.debugBusy||latestState?.memoryRecording);
   $('execution-mode').querySelector('[value="experimental"]').disabled=!execution.experimental.available;
   const counts=execution.graphics,accelerated=counts?.accelerated?.reduce((a,b)=>a+b,0)||0,total=counts?.operations?.reduce((a,b)=>a+b,0)||0;
   $('execution-note').textContent=execution.busy?'Switching execution mode…':`${execution.cpu} · ${execution.renderer}.${execution.experimental.available?'':' '+execution.experimental.reason}${execution.effective==='experimental'?` GPU: ${accelerated} operations; reference fallback: ${total-accelerated}.`:''}`;
+  if(!execution.busy&&execution.preferred==='experimental'&&execution.effective==='reference')$('execution-note').textContent+=' Reference inspection; Resume uses Experimental.';
   if(execution.busy){for(const id of ['run','step','save'])$(id).disabled=true;render.ready(false);$('pause').disabled=false;}
 }
 function showProfile(p, captureWork=false) {

@@ -36,3 +36,10 @@ const failed=create3DSExecution({experimental:{available:true,prepare(){throw Er
 await assert.rejects(failed.select('experimental'),/shader failed/);
 assert.equal(failed.snapshot().effective,'reference');assert.equal(failed.snapshot().busy,false);
 console.log('3DS transitions: availability, ordering, gate ownership, failure, cancellation and stale-session checks passed');
+const preferred=create3DSExecution({experimental:{available:true}});
+await preferred.select('experimental');
+await preferred.select('reference',{temporary:true});
+assert.equal(preferred.snapshot().effective,'reference');assert.equal(preferred.snapshot().preferred,'experimental');
+await preferred.select(preferred.snapshot().preferred,{temporary:true});assert.equal(preferred.snapshot().effective,'experimental');
+await preferred.select('reference');assert.equal(preferred.snapshot().preferred,'reference');
+console.log('3DS temporary reference inspection preserves Play preference; explicit selection replaces it');
