@@ -9,7 +9,7 @@ EM_ASYNC_JS(int,rr_gpu_submit,(uint32_t kind,const uint32_t* params,uint32_t np,
   const packet={kind,params:Array.from(HEAPU32.subarray(params>>>2,(params>>>2)+np)),get input(){return HEAPU8.subarray(input,input+ni);},get before(){return HEAPU8.subarray(target,target+n);}};
   const result=await Module.graphicsTransfer(packet);
   if(!result?.supported||!(result.bytes instanceof Uint8Array)||result.bytes.length!==n)return 0;
-  if(kind===5&&(!Number.isInteger(result.drawn)||result.drawn<0||result.drawn>packet.params[9]))return 0;
+  if((kind===5||kind===6)&&(!Number.isInteger(result.drawn)||result.drawn<0||result.drawn>packet.params[9]))return 0;
   HEAPU8.set(result.bytes,target);return (result.drawn??0)+1;
  }catch(e){Module.graphicsError=String(e);return 0;}
 });

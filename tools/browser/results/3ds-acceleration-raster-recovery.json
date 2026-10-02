@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "trials": [
+    {
+      "fault": "reference",
+      "state": "f00cfbde723a40d8c43263afcf3303aa28287eeca4f3b5d2551a8cbc1fb2514f",
+      "pixels": "c3ad1197e9963834a73c9a88507e177f8b62df24d4e650b9be73477fc42d175e",
+      "injected": false,
+      "failed": false,
+      "mode": "reference",
+      "stats": {
+        "operations": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "accelerated": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "bytes": 0,
+        "hostOperations": 0,
+        "hostMs": 0,
+        "allocatedBytes": 98372
+      }
+    },
+    {
+      "fault": "device-loss",
+      "state": "f00cfbde723a40d8c43263afcf3303aa28287eeca4f3b5d2551a8cbc1fb2514f",
+      "pixels": "c3ad1197e9963834a73c9a88507e177f8b62df24d4e650b9be73477fc42d175e",
+      "injected": true,
+      "failed": true,
+      "reason": "Failed to execute 'mapAsync' on 'GPUBuffer': Buffer was destroyed before mapping was resolved.",
+      "mode": "reference",
+      "stats": {
+        "operations": [
+          2,
+          0,
+          1,
+          0
+        ],
+        "accelerated": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "bytes": 576000,
+        "hostOperations": 2,
+        "hostMs": 2.800000011920929,
+        "allocatedBytes": 0
+      }
+    },
+    {
+      "fault": "timeout",
+      "state": "f00cfbde723a40d8c43263afcf3303aa28287eeca4f3b5d2551a8cbc1fb2514f",
+      "pixels": "c3ad1197e9963834a73c9a88507e177f8b62df24d4e650b9be73477fc42d175e",
+      "injected": true,
+      "failed": true,
+      "reason": "GPU completion timed out",
+      "mode": "reference",
+      "stats": {
+        "operations": [
+          4,
+          0,
+          2,
+          0
+        ],
+        "accelerated": [
+          2,
+          0,
+          2,
+          0
+        ],
+        "bytes": 1152000,
+        "hostOperations": 2,
+        "hostMs": 2.199999988079071,
+        "allocatedBytes": 0
+      }
+    },
+    {
+      "fault": "delayed",
+      "state": "f00cfbde723a40d8c43263afcf3303aa28287eeca4f3b5d2551a8cbc1fb2514f",
+      "pixels": "c3ad1197e9963834a73c9a88507e177f8b62df24d4e650b9be73477fc42d175e",
+      "injected": false,
+      "failed": false,
+      "mode": "experimental",
+      "stats": {
+        "operations": [
+          18,
+          0,
+          10,
+          295
+        ],
+        "accelerated": [
+          16,
+          0,
+          10,
+          135
+        ],
+        "bytes": 59788800,
+        "hostOperations": 157,
+        "hostMs": 873.5000004172325,
+        "allocatedBytes": 2162756
+      }
+    }
+  ],
+  "result": "PASS",
+  "browser": "154.0.8037.93"
+}

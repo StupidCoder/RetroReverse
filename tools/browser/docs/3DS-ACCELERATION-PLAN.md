@@ -22,6 +22,8 @@ add exact integer fragment acceleration; its 2× target was missed.
 M5’s [prototype acceptance](3DS-ACCELERATION-ACCEPTANCE.md) records sustained
 handoffs, reference inspection, UI behavior and device-loss recovery. Each
 milestone is validated, committed and pushed to `main` separately.
+The subsequent [GPU rasterizer](3DS-ACCELERATION-RASTER.md) moves coverage,
+interpolation and sampling to compute shaders in response to the mobile profile.
 Keep the default reference mode usable at every milestone.
 
 ## Product decision

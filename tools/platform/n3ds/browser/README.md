@@ -10,7 +10,8 @@ The optional browser **Experimental** mode accelerates supported graphics with
 WebGPU while retaining this interpreter. **Reference** remains the default.
 Render and Memory inspection use Reference; Resume restores the selected Play
 mode. See [prototype acceptance](../../../browser/docs/3DS-ACCELERATION-ACCEPTANCE.md)
-for exact support boundaries, measured speed and memory costs.
+for handoff behavior, and [GPU rasterization](../../../browser/docs/3DS-ACCELERATION-RASTER.md)
+for the current rendering path, support boundaries and measurements.
 
 ```
 go run ./tools/platform/n3ds/browser/portgen

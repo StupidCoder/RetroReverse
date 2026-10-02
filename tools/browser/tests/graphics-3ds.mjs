@@ -19,3 +19,16 @@ words[0]=65;assert.match(transferSupport(fragment),/head/);words[0]=64;
 params[10]=6;assert.match(transferSupport(fragment),/TEV/);params[10]=0x0f0f0f;
 params[34]=2;assert.match(transferSupport(fragment),/metadata/);
 console.log('3DS fragment validation rejects cycles, misaligned links, unsupported TEV and invalid counters');
+const rasterParams=[...params.slice(0,35),1,1,1,0,...Array(12).fill(0),0];rasterParams[9]=64;rasterParams[34]=0xffffffff;
+const rasterData=new Uint32Array(47),rasterFloats=new Float32Array(rasterData.buffer);rasterData.set([46,1,0,8,0,8]);rasterFloats[6]=64;rasterData[46]=2;
+for(let v=0;v<3;v++){const at=7+v*13;rasterFloats[at]=v===1?8:0;rasterFloats[at+1]=v===2?8:0;rasterFloats[at+2]=1;}
+const raster={kind:6,params:rasterParams,input:new Uint8Array(rasterData.buffer),before:new Uint8Array(256)};
+assert.equal(transferSupport(raster),null);
+rasterData[46]=3;assert.match(transferSupport(raster),/triangle link/);rasterData[46]=2;
+rasterData[0]=45;assert.match(transferSupport(raster),/bin/);rasterData[0]=46;
+rasterFloats[7]=Infinity;assert.match(transferSupport(raster),/vertex/);rasterFloats[7]=0;
+rasterFloats[9]=0;assert.match(transferSupport(raster),/reciprocal/);rasterFloats[9]=1;
+rasterParams[9]=65;assert.match(transferSupport(raster),/workload/);rasterParams[9]=64;
+rasterParams[38]=1;rasterParams[39]=47;rasterParams[40]=8;rasterParams[41]=8;assert.match(transferSupport(raster),/texture/);
+rasterParams[40]=0;rasterParams[41]=0;assert.equal(transferSupport(raster),null);
+console.log('3DS raster validation rejects malformed bins, float inputs, workload and texture ranges');

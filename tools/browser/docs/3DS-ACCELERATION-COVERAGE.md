@@ -1,5 +1,9 @@
 # M4: exact fragment acceleration
 
+This records the M4 implementation and measurements. The subsequent
+[GPU rasterizer](3DS-ACCELERATION-RASTER.md) replaces CPU fragment preparation
+for eligible draws; the hybrid path below remains a fallback.
+
 Experimental now combines reference float32 coverage, perspective interpolation
 and texture sampling with an integer WebGPU fragment tail. Each pixel receives
 an ordered list of fragments. A single cached compute pipeline evaluates all six

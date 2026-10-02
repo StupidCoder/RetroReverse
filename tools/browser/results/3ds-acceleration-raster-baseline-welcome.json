@@ -1,0 +1,332 @@
+{
+  "schema": 1,
+  "fields": 30,
+  "includesPresentation": true,
+  "measurements": [
+    {
+      "reference": {
+        "ms": 7745.300000011921,
+        "submittedKinds": {},
+        "supportedKinds": {},
+        "unsupported": {},
+        "inputBytes": {},
+        "state": "440be241b3ab66112e95aa08014e93b7fb49be0def87dbbb228810bf0f387a77",
+        "bytes": 75003332,
+        "presentationDifferences": null,
+        "operations": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "accelerated": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "gpuHostMs": 0,
+        "allocatedBytes": 8978500,
+        "profileMs": {
+          "ARM11 / Horizon scheduler": 391.6,
+          "PICA commands / vertex processing": 37.5,
+          "PICA software rasterizer": 5978.6,
+          "GX memory / display transfers": 1224.5,
+          "DSP HLE mixer": 6.5,
+          "WebGPU upload / wait / readback": 0,
+          "PICA coverage / sampling / GPU inputs": 0
+        }
+      },
+      "experimental": {
+        "ms": 4366.100000023842,
+        "submittedKinds": {
+          "1": 86,
+          "3": 44,
+          "5": 819
+        },
+        "supportedKinds": {
+          "1": 86,
+          "3": 44,
+          "5": 819
+        },
+        "unsupported": {},
+        "inputBytes": {
+          "1": 0,
+          "3": 16896000,
+          "5": 877698680
+        },
+        "state": "440be241b3ab66112e95aa08014e93b7fb49be0def87dbbb228810bf0f387a77",
+        "bytes": 75003332,
+        "presentationDifferences": 0,
+        "operations": [
+          86,
+          0,
+          44,
+          1699
+        ],
+        "accelerated": [
+          86,
+          0,
+          44,
+          819
+        ],
+        "gpuHostMs": 1339.200001180172,
+        "allocatedBytes": 17367108,
+        "profileMs": {
+          "ARM11 / Horizon scheduler": 391.40000000000003,
+          "PICA commands / vertex processing": 39.599999999999994,
+          "PICA software rasterizer": 85.89999999999964,
+          "GX memory / display transfers": 0.3999999999998636,
+          "DSP HLE mixer": 4.9,
+          "WebGPU upload / wait / readback": 1355.8999999999999,
+          "PICA coverage / sampling / GPU inputs": 2476.5
+        }
+      },
+      "speedup": 1.7739630333637861
+    },
+    {
+      "reference": {
+        "ms": 7704.399999976158,
+        "submittedKinds": {},
+        "supportedKinds": {},
+        "unsupported": {},
+        "inputBytes": {},
+        "state": "440be241b3ab66112e95aa08014e93b7fb49be0def87dbbb228810bf0f387a77",
+        "bytes": 75003332,
+        "presentationDifferences": null,
+        "operations": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "accelerated": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "gpuHostMs": 0,
+        "allocatedBytes": 17367108,
+        "profileMs": {
+          "ARM11 / Horizon scheduler": 386.0999999999999,
+          "PICA commands / vertex processing": 38,
+          "PICA software rasterizer": 5940.900000000001,
+          "GX memory / display transfers": 1229.9999999999998,
+          "DSP HLE mixer": 5.5,
+          "WebGPU upload / wait / readback": 0,
+          "PICA coverage / sampling / GPU inputs": 0
+        }
+      },
+      "experimental": {
+        "ms": 4359.899999976158,
+        "submittedKinds": {
+          "1": 86,
+          "3": 44,
+          "5": 819
+        },
+        "supportedKinds": {
+          "1": 86,
+          "3": 44,
+          "5": 819
+        },
+        "unsupported": {},
+        "inputBytes": {
+          "1": 0,
+          "3": 16896000,
+          "5": 877698680
+        },
+        "state": "440be241b3ab66112e95aa08014e93b7fb49be0def87dbbb228810bf0f387a77",
+        "bytes": 75003332,
+        "presentationDifferences": 0,
+        "operations": [
+          86,
+          0,
+          44,
+          1699
+        ],
+        "accelerated": [
+          86,
+          0,
+          44,
+          819
+        ],
+        "gpuHostMs": 1341.300000846386,
+        "allocatedBytes": 17367108,
+        "profileMs": {
+          "ARM11 / Horizon scheduler": 387.20000000000005,
+          "PICA commands / vertex processing": 41.30000000000001,
+          "PICA software rasterizer": 85.19999999999982,
+          "GX memory / display transfers": 0.6000000000001364,
+          "DSP HLE mixer": 5.199999999999999,
+          "WebGPU upload / wait / readback": 1353.6000000000001,
+          "PICA coverage / sampling / GPU inputs": 2474.8
+        }
+      },
+      "speedup": 1.7671047501131423
+    },
+    {
+      "reference": {
+        "ms": 7717.100000023842,
+        "submittedKinds": {},
+        "supportedKinds": {},
+        "unsupported": {},
+        "inputBytes": {},
+        "state": "440be241b3ab66112e95aa08014e93b7fb49be0def87dbbb228810bf0f387a77",
+        "bytes": 75003332,
+        "presentationDifferences": null,
+        "operations": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "accelerated": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "gpuHostMs": 0,
+        "allocatedBytes": 17367108,
+        "profileMs": {
+          "ARM11 / Horizon scheduler": 387.79999999999995,
+          "PICA commands / vertex processing": 37.19999999999999,
+          "PICA software rasterizer": 5943.9,
+          "GX memory / display transfers": 1237.9,
+          "DSP HLE mixer": 5.399999999999999,
+          "WebGPU upload / wait / readback": 0,
+          "PICA coverage / sampling / GPU inputs": 0
+        }
+      },
+      "experimental": {
+        "ms": 4343.600000023842,
+        "submittedKinds": {
+          "1": 86,
+          "3": 44,
+          "5": 819
+        },
+        "supportedKinds": {
+          "1": 86,
+          "3": 44,
+          "5": 819
+        },
+        "unsupported": {},
+        "inputBytes": {
+          "1": 0,
+          "3": 16896000,
+          "5": 877698680
+        },
+        "state": "440be241b3ab66112e95aa08014e93b7fb49be0def87dbbb228810bf0f387a77",
+        "bytes": 75003332,
+        "presentationDifferences": 0,
+        "operations": [
+          86,
+          0,
+          44,
+          1699
+        ],
+        "accelerated": [
+          86,
+          0,
+          44,
+          819
+        ],
+        "gpuHostMs": 1326.699999511242,
+        "allocatedBytes": 17367108,
+        "profileMs": {
+          "ARM11 / Horizon scheduler": 396.10000000000014,
+          "PICA commands / vertex processing": 38.599999999999994,
+          "PICA software rasterizer": 88.09999999999854,
+          "GX memory / display transfers": 0.7000000000002728,
+          "DSP HLE mixer": 5.300000000000004,
+          "WebGPU upload / wait / readback": 1340.7000000000003,
+          "PICA coverage / sampling / GPU inputs": 2464.8999999999996
+        }
+      },
+      "speedup": 1.7766599134315966
+    }
+  ],
+  "reference": {
+    "ms": 7717.100000023842,
+    "submittedKinds": {},
+    "supportedKinds": {},
+    "unsupported": {},
+    "inputBytes": {},
+    "state": "440be241b3ab66112e95aa08014e93b7fb49be0def87dbbb228810bf0f387a77",
+    "bytes": 75003332,
+    "presentationDifferences": null,
+    "operations": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "accelerated": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "gpuHostMs": 0,
+    "allocatedBytes": 17367108,
+    "profileMs": {
+      "ARM11 / Horizon scheduler": 387.79999999999995,
+      "PICA commands / vertex processing": 37.19999999999999,
+      "PICA software rasterizer": 5943.9,
+      "GX memory / display transfers": 1237.9,
+      "DSP HLE mixer": 5.399999999999999,
+      "WebGPU upload / wait / readback": 0,
+      "PICA coverage / sampling / GPU inputs": 0
+    }
+  },
+  "experimental": {
+    "ms": 4343.600000023842,
+    "submittedKinds": {
+      "1": 86,
+      "3": 44,
+      "5": 819
+    },
+    "supportedKinds": {
+      "1": 86,
+      "3": 44,
+      "5": 819
+    },
+    "unsupported": {},
+    "inputBytes": {
+      "1": 0,
+      "3": 16896000,
+      "5": 877698680
+    },
+    "state": "440be241b3ab66112e95aa08014e93b7fb49be0def87dbbb228810bf0f387a77",
+    "bytes": 75003332,
+    "presentationDifferences": 0,
+    "operations": [
+      86,
+      0,
+      44,
+      1699
+    ],
+    "accelerated": [
+      86,
+      0,
+      44,
+      819
+    ],
+    "gpuHostMs": 1326.699999511242,
+    "allocatedBytes": 17367108,
+    "profileMs": {
+      "ARM11 / Horizon scheduler": 396.10000000000014,
+      "PICA commands / vertex processing": 38.599999999999994,
+      "PICA software rasterizer": 88.09999999999854,
+      "GX memory / display transfers": 0.7000000000002728,
+      "DSP HLE mixer": 5.300000000000004,
+      "WebGPU upload / wait / readback": 1340.7000000000003,
+      "PICA coverage / sampling / GPU inputs": 2464.8999999999996
+    }
+  },
+  "delayed": null,
+  "mode": "reference",
+  "result": "PASS",
+  "browser": "154.0.8037.93"
+}

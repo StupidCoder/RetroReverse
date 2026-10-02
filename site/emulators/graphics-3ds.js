@@ -1,5 +1,6 @@
 import {create3DSPresentation} from './presentation-3ds.js';
 import {fragmentWGSL} from './fragment-3ds.js';
+import {rasterWGSL} from './raster-3ds.js';
 // Immutable, versioned GX input packets. No private media is stored in this module.
 export function decodeGraphicsStream(bytes){
  const data=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes),v=new DataView(data.buffer,data.byteOffset,data.byteLength);
@@ -17,7 +18,7 @@ export function decodeGraphicsStream(bytes){
 }
 const align=n=>Math.ceil(n/4)*4;
 export function transferSupport(p){
- const a=p.params;if(![1,2,3,4,5].includes(p.kind))return 'Unsupported graphics operation';
+ const a=p.params;if(![1,2,3,4,5,6].includes(p.kind))return 'Unsupported graphics operation';
  if(!(p.input instanceof Uint8Array)||!(p.before instanceof Uint8Array)||!p.before.length||p.before.length>16*1024*1024||p.input.length>16*1024*1024)return 'Invalid transfer buffers';
  if(!Array.isArray(a)||!a.every(n=>Number.isInteger(n)&&n>=0&&n<=0xffffffff))return 'Invalid transfer parameters';
  if(p.kind===1){if(a.length!==4||a[0]<2||a[0]>4||a[2]>p.before.length||a[2]%a[0])return 'Invalid fill';}
@@ -36,15 +37,16 @@ export function transferSupport(p){
   if(a.length!==7+count*10||!count||count>1024||!w||!h||w>1024||h>1024||w%8||h%8||w*h*4!==p.before.length||!(cfg&1)||((cfg>>>4)&7)!==0||op>7)return 'Unsupported stencil draw';
   for(let i=6;i<a.length-1;i+=10)if(a[i]>a[i+1]||a[i+1]>w||a[i+2]>a[i+3]||a[i+3]>h||a.slice(i+4,i+10).some(x=>x>2048))return 'Invalid stencil coverage';
  }
- if(p.kind===5){
+ if(p.kind===5||p.kind===6){
   const [w,h,mask,,blend]=a,n=w*h;
-  if(a.length!==36||!w||!h||w>1024||h>1024||w%8||h%8||mask>15||p.before.length!==n*4||p.input.length!==n*4+a[9]*20)return 'Invalid fragment packet';
+  if(a.length!==(p.kind===5?36:52)||!w||!h||w>1024||h>1024||w%8||h%8||mask>15||p.before.length!==n*4||(p.kind===5&&p.input.length!==n*4+a[9]*20))return 'Invalid fragment packet';
   if((a[3]&256)&&((blend&7)>4||((blend>>>8)&7)>4||[16,20,24,28].some(s=>((blend>>>s)&15)>14)))return 'Unsupported blend';
-  if(a[35]||(a[34]!==0xffffffff&&a[34]>a[9])||(a[8]&~0xff71))return 'Invalid fragment metadata';
+  if(a.at(-1)||(a[34]!==0xffffffff&&a[34]>a[9])||(a[8]&~0xff71))return 'Invalid fragment metadata';
   const sources=[0,1,2,3,4,5,13,14,15],combines=[0,1,2,3,4,5,8,9];
   for(let i=10;i<34;i+=4){
    if(a[i]>>>24||a[i+1]>>>24||[0,8,16].some(s=>!sources.includes((a[i]>>>s)&15)||!sources.includes((a[i+1]>>>s)&15)||((a[i+1]>>>(s+4))&15)>7)||!combines.includes(a[i+2]&255)||!combines.includes((a[i+2]>>>8)&255)||(a[i+2]&~0x03330f0f))return 'Unsupported TEV stage';
   }
+  if(p.kind===6)return rasterSupport(p);
   // Offline streams are untrusted too. Each link must identify a later record;
   // this bounds work and prevents cycles before submitting a compute dispatch.
   const bytes=p.input,words=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),end=bytes.length/4;
@@ -54,6 +56,38 @@ export function transferSupport(p){
   for(let i=n;i<end;i+=5)if(!valid(words.getUint32(i*4,true),i+5))return 'Invalid fragment link';
  }
  return null;
+}
+// Validate coarse bins, ordered triangle references, bounded binary32 inputs and
+// immutable decoded texture ranges before an untrusted replay reaches the GPU.
+function rasterSupport(packet){
+ const a=packet.params,[w,h]=a,[count,nx,ny,enabled]=a.slice(35,39),bytes=packet.input;
+ if(!count||count>1024||nx!==Math.ceil(w/16)||ny!==Math.ceil(h/16)||enabled>7||bytes.length%4||a[9]>838860)return 'Invalid raster metadata';
+ const data=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),words=bytes.length/4,header=nx*ny*2,triEnd=header+count*44;
+ if(triEnd>words)return 'Truncated raster triangles';
+ const get=i=>data.getUint32(i*4,true),float=i=>data.getFloat32(i*4,true);let work=0;
+ for(let i=header;i<triEnd;i+=44){
+  const x0=get(i),x1=get(i+1),y0=get(i+2),y1=get(i+3),area=float(i+4);
+  if(x0>x1||x1>w||y0>y1||y1>h||!Number.isFinite(area)||area<2**-20||area>2**28)return 'Invalid raster bounds';work+=(x1-x0)*(y1-y0);
+  for(let v=i+5;v<i+44;v+=13){
+   for(let j=0;j<13;j++){const n=float(v+j),bound=j<2?4096:j===2?2**20:j<7?1e6:1024;if(!Number.isFinite(n)||Math.abs(n)>bound)return 'Invalid raster vertex';}
+   const iw=float(v+2);if(iw<2**-20||iw>2**20)return 'Invalid raster reciprocal';
+  }
+ }
+ if(work!==a[9])return 'Invalid raster workload';
+ const references=new Uint32Array(count);let end=triEnd;
+ for(let bin=0;bin<header;bin+=2){
+  const start=get(bin),length=get(bin+1);if(start!==end||length>count||start+length>words)return 'Invalid raster bin';
+  let previous=header-44;
+  for(let i=start;i<start+length;i++){const t=get(i);if(t<=previous||t< header||t>=triEnd||(t-header)%44)return 'Invalid raster triangle link';previous=t;const bx=(bin/2)%nx,by=Math.floor(bin/2/nx);if(get(t)===get(t+1)||get(t+2)===get(t+3)||bx*16>=get(t+1)||(bx+1)*16<=get(t)||by*16>=get(t+3)||(by+1)*16<=get(t+2))return 'Raster bin misses triangle';references[(t-header)/44]++;}
+  end=start+length;
+ }
+ for(let t=0;t<count;t++){const i=header+t*44;const expected=get(i)===get(i+1)||get(i+2)===get(i+3)?0:(Math.ceil(get(i+1)/16)-Math.floor(get(i)/16))*(Math.ceil(get(i+3)/16)-Math.floor(get(i+2)/16));if(references[t]!==expected)return 'Missing raster triangle bin';}
+ for(let u=0;u<3;u++){
+  const [offset,tw,th,wrap]=a.slice(39+u*4,43+u*4);
+  if(!(enabled&(1<<u))){if(offset||tw||th||wrap)return 'Invalid disabled texture';continue;}
+  if(offset!==end||tw>2047||th>2047||end+tw*th>words)return 'Invalid raster texture';end+=tw*th;
+ }
+ return end===words?null:'Trailing raster inputs';
 }
 export const transferWGSL=`
 @group(0) @binding(0) var<storage,read> p:array<u32>;
@@ -99,10 +133,12 @@ fn byte(i:u32)->u32{
  return (v>>((i%2u)*8u))&255u;
 }
 ${fragmentWGSL}
+${rasterWGSL}
 @compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id:vec3<u32>){
  let index=id.x+id.y*4194240u;let i=index*4u;if(i>=p[2]){return;}
  if(p[0]==4u){dst[index]=stencil(index);return;}
  if(p[0]==5u){dst[index]=fragmentPixel(index);return;}
+ if(p[0]==6u){dst[index]=rasterPixel(index);return;}
  dst[index]=byte(i)|(byte(i+1u)<<8u)|(byte(i+2u)<<16u)|(byte(i+3u)<<24u);
 }`;
 
@@ -150,6 +186,7 @@ export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()
    const mappedBytes=read.getMappedRange(0,align(packet.before.length)+4),drawn=new DataView(mappedBytes).getUint32(align(packet.before.length),true);
    const result=new Uint8Array(mappedBytes).slice(0,packet.before.length);read.unmap();
    const err=await device.popErrorScope();scoped=false;if(err)throw Error(err.message);if(lost)throw Error(lost);
+   if(packet.kind===6&&(drawn&0x80000000))return {supported:false,reason:'Raster arithmetic requires Reference'};
    return {supported:true,bytes:result,drawn,timing:{uploadMs:uploaded-start,submitMs:submitted-uploaded,gpuMs,queueAndMapMs:mapped-submitted,readbackMs:performance.now()-mapped,totalMs:performance.now()-start}};
   }finally{if(scoped)await device.popErrorScope();busy=false;}
  }

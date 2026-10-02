@@ -4,6 +4,9 @@
 // Fragment links preserve primitive order independently for each target pixel.
 namespace rrgpu {
 inline uint32_t rgba(n3ds_rgba c){return uint32_t(c.r)|(uint32_t(c.g)<<8)|(uint32_t(c.b)<<16)|(uint32_t(c.a)<<24);}
+}
+#include "graphics-raster.h"
+namespace rrgpu {
 inline Operation Operation::fragments(n3ds_GPU*g,n3ds_fbState*fb,n3ds_lightState*ls,n3ds_tevState*tv,Slice<n3ds_rasterTri>tris){
  Operation o;auto m=g->m;
  if((!enabled&&!recording)||m->OnRead||m->OnWrite||m->OnPixel||m->HidTrace||m->Profile||ls->enabled||fb->shadowMode||fb->depthTest||fb->depthWr||(g->Regs[0x105]&1)||!tris.n||tris.n>1024||!fb->width||!fb->height||fb->width>1024||fb->height>1024||fb->width%8||fb->height%8)return o;
@@ -27,6 +30,7 @@ inline Operation Operation::fragments(n3ds_GPU*g,n3ds_fbState*fb,n3ds_lightState
  }
  // Preparation is bounded and speculative. A fallback has committed no writes.
  if(work<4096||uint64_t(pixels)*4+work*20>16u*1024*1024)return o;
+ auto gpuRaster=raster(g,fb,tv,tris,work);if(gpuRaster.target)return gpuRaster;
  rrprof::Scope preparation(6,"PICA coverage / sampling / GPU inputs");
  std::vector<uint32_t> data(pixels,UINT32_MAX),tails(pixels,UINT32_MAX);data.reserve(pixels+work*5);
  for(auto&t:tris){auto&a=t.v0;auto&b=t.v1;auto&c=t.v2;
@@ -48,9 +52,7 @@ inline Operation Operation::fragments(n3ds_GPU*g,n3ds_fbState*fb,n3ds_lightState
    data.insert(data.end(),{UINT32_MAX,rgba(color),tex[0],tex[1],tex[2]});
   }
  }
- std::vector<uint32_t> params={fb->width,fb->height,fb->colorMask,g->Regs[0x100],blend,g->Regs[0x102],g->Regs[0x103],rgba(tv->bufColor),uint32_t(tv->alphaTest)|(uint32_t(tv->alphaFunc)<<4)|(uint32_t(tv->alphaRef)<<8),uint32_t((data.size()-pixels)/5)};
- for(auto&s:tv->stages){uint32_t col=0,alpha=0;for(int j=0;j<3;j++){col|=(s.colr[j].src|(s.colr[j].op<<4))<<(j*8);alpha|=(s.alph[j].src|(s.alph[j].op<<4))<<(j*8);}params.insert(params.end(),{col,alpha,uint32_t(s.combC)|(uint32_t(s.combA)<<8)|(uint32_t(s.scaleC)<<16)|(uint32_t(s.scaleA)<<20)|(uint32_t(s.updC)<<24)|(uint32_t(s.updA)<<25),rgba(s.konst)});}
- params.push_back(UINT32_MAX); // Expected drawn count supplied only by recording.
+ auto params=fragmentParams(g,fb,tv,uint32_t((data.size()-pixels)/5));
  if(recording&&stream.size()+data.size()*4+uint64_t(pixels)*8+params.size()*4+256>limit){dropped++;return o;}
  o.start(m,5,0,0,fb->colorAddr,uint64_t(pixels)*4,std::move(params));if(!o.target)return o;
  o.fragmentWords=std::move(data);o.source=reinterpret_cast<uint8_t*>(o.fragmentWords.data());o.inputSize=o.fragmentWords.size()*4;if(recording)o.input.assign(o.source,o.source+o.inputSize);o.statsOwner=g;o.statsBefore=g->PixelsDrawn;

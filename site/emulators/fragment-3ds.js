@@ -1,4 +1,4 @@
-// Integer PICA fragment tail. Float32 rasterization and sampling stay in WASM.
+// Integer PICA fragment tail shared by CPU-prepared fragments and GPU rasterization.
 // Parameters include every TEV/blend input; a single cached pipeline cannot
 // accidentally reuse a shader compiled for another guest program or uniform.
 export const fragmentWGSL=`

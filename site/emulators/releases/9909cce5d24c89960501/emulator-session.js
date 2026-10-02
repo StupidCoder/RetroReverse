@@ -106,6 +106,7 @@ function showProfile(p, captureWork=false) {
       p.sampled
           ? (captureWork?'Capture work. ':'')+'Sampled chip ticks (1 in 1,021). Sample-only milliseconds and exclusive shares; timer overhead affects tiny samples.'
           : (captureWork?'Capture work only. ':'')+'Exclusive wall time since the previous update. CPU remainder includes uninstrumented devices and scheduling. Idle time and display copies excluded.';
+  if(platform==='3ds')$('profile-note').textContent=(captureWork?'Capture work only. ':'')+'Exclusive wall time since the previous update, not per frame. Software rasterizer excludes GPU input preparation and GPU round-trips. The WebGPU row includes uploads, GPU execution, readback and browser scheduling; it is not GPU-only time. Guest idle time and display copies excluded.';
 }
 let pendingWorker, cancelPreparation, preparedPanel, lessonShortcut;
 function load(stateFile=null,preparedStart=null,requestedBackend=backend) {
