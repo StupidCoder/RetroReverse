@@ -142,7 +142,7 @@ bool restore(std::span<const uint8_t> bytes){
 }
 using namespace bridge;
 extern "C" {
-const char* rr_capabilities(){return R"({"core":"owned-c64","development":true,"execution":true,"debugger":true,"memoryActivity":true,"portableState":true,"stateIdentityBinding":true,"renderCapture":true,"pixelProvenance":true,"audio":false})";}
+const char* rr_capabilities(){return R"({"core":"owned-c64","development":false,"execution":true,"debugger":true,"memoryActivity":true,"portableState":true,"stateIdentityBinding":true,"renderCapture":true,"pixelProvenance":true,"audio":false})";}
 uint8_t* rr_input(){return input.data();}
 const char* rr_error(){return error.c_str();}
 const char* rr_profile(){return rrprof::json();}

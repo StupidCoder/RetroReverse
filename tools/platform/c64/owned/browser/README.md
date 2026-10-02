@@ -1,9 +1,8 @@
-# Owned C64 development browser adapter
+# Owned C64 browser adapter
 
-C6 browser and research integration is complete behind explicit development selection. It builds the owned hardware as an ES module with
-an Emscripten ABI compatible with the existing debugger, memory, tour,
-experiment and prepared-start services. The production worker can select it explicitly for development; the default
-backend and shipped WASM remain unchanged.
+The production C64 uses this independently authored hardware core. The shared
+worker, debugger, memory, rendering, tours and experiments use its C ABI.
+See [the rollout report](../C7-RELEASE.md) for benchmarks and checkpoint rollback.
 
 ## Build and test
 
@@ -27,20 +26,20 @@ replace any execution or checkpoint implementation.
 
 ## Local browser integration
 
-Build the opt-in artifacts, then serve the repository root:
+Build and package production, then serve the repository root:
 
 ```sh
-python3 tools/platform/c64/owned/browser/build.py \
-  --emcc /path/to/emscripten/em++ --out site/emulators/cores/c64-owned
+python3 tools/platform/c64/browser/build.py --emcc /path/to/emscripten/em++
+python3 tools/browser/package.py --core c64
 python3 -m http.server 8765 --bind 127.0.0.1
 ```
 
-Open `/tools/browser/owned-c64.html?c64Core=owned` on that local server.
-Without the query parameter, the same source UI uses the production backend.
-Only the fixed `owned` and `production` choices are accepted. Generated owned
-artifacts are ignored by Git and excluded from release packaging. The build
-writes a SHA256 manifest; the worker verifies the WASM before initialization.
-Missing development artifacts produce a load error and retain any live session.
+Open `/site/emulators/c64/`. The normal page and source development page both
+select the owned core. `c64Core=owned` and the older `production` alias resolve
+to the same packaged core. Scratch builds remain excluded from packaging.
+`/site/emulators/c64/legacy.html` loads the frozen previous bundle for old
+checkpoints. It never resolves the new core. Neither core accepts the other's
+states; restarting a prepared lesson builds a checkpoint for the selected core.
 
 The normal worker binds actual WASM/firmware/TAP identities before permitting
 checkpoint operations. Save files include the owned backend in configuration;
@@ -167,7 +166,7 @@ checkpoint digests are checked before fresh or cached use.
 To reproduce or deliberately regenerate them after an owned build change:
 
 ```sh
-RR_C64_CORE="$PWD/site/emulators/cores/c64-owned/core.mjs" \
+RR_C64_CORE="$PWD/site/emulators/cores/c64/core.js" \
   node tools/platform/c64/owned/tests/prepare-lessons.mjs \
   site/emulators/firmware/c64 games/fort-apocalypse-c64/Fort_Apocalypse.tap \
   games/elite-c64/Elite.tap
@@ -194,6 +193,6 @@ gameplay and object slots remain unvalidated. Giana retains the C5 gate: 512
 uploaded drive bytes, 20,168 protocol bytes, 20,086 payload stores and unpacker
 entry, with dual-machine replay. Full Giana gameplay is not certified.
 
-C7 remains pending: separate execution/capture performance measurements,
-production rollout, checkpoint migration messaging and removal of the vendored
-runtime. The default production core and all shipped WASM hashes are unchanged.
+C7 switches the default after native/WASM/browser acceptance and separate
+execution/capture measurements. The frozen legacy release and its license are
+retained; the vendored runtime sources are no longer part of the build.

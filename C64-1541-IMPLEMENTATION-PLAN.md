@@ -1,5 +1,9 @@
 # Owned C64 and 1541 implementation
 
+Status (2026-10-02): **C0–C7 complete.** The owned core is the production
+default. See [the C7 release report](tools/platform/c64/owned/C7-RELEASE.md)
+for measured performance, acceptance, rollback and remaining compatibility limits.
+
 ## Goal and rollout
 
 Replace the vendored C64 hardware implementation with independently authored
@@ -351,3 +355,32 @@ Reproduction and limits: [browser adapter guide](tools/platform/c64/owned/browse
 and [compatibility ledger](tools/platform/c64/owned/COMPATIBILITY.md).
 Next: C7 execution/capture benchmarks, verified production rollout with rollback
 and checkpoint messaging, then removal of the vendored runtime dependency.
+
+
+### C7 complete — production switch and rollback — 2026-10-02
+
+The default C64 now builds from the independently authored hardware and browser
+adapter. TAP, protected D64/G64, Code/Memory/Rendering/Storage, drive debugging
+and hash-bound prepared lessons are shipped. The other fifteen core binaries
+are unchanged. Vendored runtime sources and their implementation-specific native
+fixtures are retired after packaged browser verification; owned native, UBSan,
+WASM and shared JS fixtures provide the corresponding coverage.
+
+The Session panel explains checkpoint incompatibility and links to a frozen
+legacy page. Its entire original release is pinned and protected from packaging
+cleanup, with full asset hash validation, runtime license and original source
+revision. Legacy states remain loadable there; new states and prepared caches
+are tied to the new core. No private game or derived checkpoint was added.
+
+Normal Fort execution and one-frame rendering capture were measured separately
+in native, Node WASM and the actual browser, with per-core authentic boot recipes,
+checkpoint restores outside the timer, one warm-up and five measured samples.
+The report records the performance regression as well as real-time headroom;
+it does not claim the new core is faster. Native/WASM real-media acceptance,
+actual packaged browser workflows, fresh/cached prepared lessons, and the shared
+sixteen-system release suite pass.
+
+[Full report, benchmark results and reproduction](tools/platform/c64/owned/C7-RELEASE.md).
+NTSC, cartridges, additional drives, broader protection, audible SID, full Elite
+and Giana gameplay and further game-specific tours remain follow-on work rather
+than uncompleted milestones in this plan.

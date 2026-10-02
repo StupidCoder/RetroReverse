@@ -4,8 +4,8 @@
 import fs from 'node:fs';
 import {createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
-export async function createC64TestCore(){
- const url=process.env.RR_C64_CORE?pathToFileURL(process.env.RR_C64_CORE):new URL('../../../site/emulators/cores/c64/core.js',import.meta.url);
+export async function createC64TestCore(moduleURL){
+ const url=moduleURL??(process.env.RR_C64_CORE?pathToFileURL(process.env.RR_C64_CORE):new URL('../../../site/emulators/cores/c64/core.js',import.meta.url));
  const wasm=fs.readFileSync(new URL('./core.wasm',url)),factory=(await import(url.href)).default;
  const core=await factory({wasmBinary:wasm});
  if(!core._rr_state_bind)return core;

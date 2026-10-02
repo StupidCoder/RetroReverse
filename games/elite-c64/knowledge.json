@@ -478,7 +478,7 @@
         {
           "id": "first-write",
           "title": "First payload byte stored",
-          "explanation": "STA ($AC,X) has written $8B to $0300. The interval evidence records the store even though this byte already had that value. This is the end of the verified introduction: later loader stages are outside this tour. The production core diverges later in this block; the owned core separately verifies all 52 initial vector stores. The longer self-modifying-loader tour remains unavailable.",
+          "explanation": "STA ($AC,X) has written $8B to $0300. The interval evidence records the store even though this byte already had that value. This is the end of the verified introduction: later loader stages are outside this tour. The legacy core diverges later in this block; the current owned core separately verifies all 52 initial vector stores. The longer self-modifying-loader tour remains unavailable.",
           "until": {
             "pc": 947
           },
@@ -663,13 +663,13 @@
         "id": "first-byte"
       },
       "layout": "loader",
-      "core": "5ca6046fc4361164e5e5bdc7e084b054c54361b82b021e2f085ce0a4899a878e",
+      "core": "d2fd1a1811e5094c01db842e6f5d93494908e8d6f1af4e86ac36811aeb809306",
       "firmware": [
         "89878cea0a268734696de11c4bae593eaaa506465d2029d619c0e0cbccdfa62d",
         "83c60d47047d7beab8e5b7bf6f67f80daa088b7a6a27de0d7e016f6484042721",
         "fd0d53b8480e86163ac98998976c72cc58d5dd8eb824ed7b829774e74213b420"
       ],
-      "sha256": "69e5a756ae74a785b53e8b1cfac8e43b7d98f521d5f30723361dfacc1560b86c",
+      "sha256": "b6f503245d7208f8f31e6e720d2540adc00d114447c2be9a08d2d7fba7c89a76",
       "pc": 888,
       "actions": [
         {

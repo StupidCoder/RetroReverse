@@ -5,6 +5,12 @@ import hashlib,json,re
 root=Path(__file__).resolve().parents[2];site=root/'site';out=site/'emulators'
 release=json.loads((out/'release.json').read_text());base=out/'releases'/release['id']
 if release.get('previous'):assert (out/'releases'/release['previous']/'worker.js').is_file(),'Previous published bundle missing'
+pinned=json.loads((out/'c64/rollback.json').read_text())
+assert pinned['id']==release['rollback']
+rollback=out/'releases'/release['rollback']
+for name,wanted in pinned['assets'].items():assert hashlib.sha256((rollback/name).read_bytes()).hexdigest()==wanted,f'Rollback asset mismatch: {name}'
+assert hashlib.sha256((rollback/'cores/c64/core.wasm').read_bytes()).hexdigest()=='5cd52834dca1457e8a6715719a28b4fcb1de3de4a0df7b0510395cee4643f999'
+assert f"../releases/{release['rollback']}/app.js" in (out/'c64/legacy.html').read_text()
 assert not any(name.startswith('cores/c64-owned/') for name in release['assets']),'Development core leaked into release'
 for name,wanted in release['assets'].items():
  p=base/name;assert p.is_file(),f'Missing {p}'

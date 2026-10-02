@@ -1883,13 +1883,13 @@
         "kind": "tour",
         "id": "terrain-runs"
       },
-      "core": "5ca6046fc4361164e5e5bdc7e084b054c54361b82b021e2f085ce0a4899a878e",
+      "core": "d2fd1a1811e5094c01db842e6f5d93494908e8d6f1af4e86ac36811aeb809306",
       "firmware": [
         "89878cea0a268734696de11c4bae593eaaa506465d2029d619c0e0cbccdfa62d",
         "83c60d47047d7beab8e5b7bf6f67f80daa088b7a6a27de0d7e016f6484042721",
         "fd0d53b8480e86163ac98998976c72cc58d5dd8eb824ed7b829774e74213b420"
       ],
-      "sha256": "5b00f024b9e2c1fef7d1357e69040e711044c089600db89b574ab6e21f22c922",
+      "sha256": "bdfd6ddf7dec1c99c4f734ae53419792d9654744b9b004858b04f7d51ec166c2",
       "pc": 36059,
       "actions": [
         {
@@ -2101,13 +2101,13 @@
         "kind": "experiment",
         "id": "upward-probe"
       },
-      "core": "5ca6046fc4361164e5e5bdc7e084b054c54361b82b021e2f085ce0a4899a878e",
+      "core": "d2fd1a1811e5094c01db842e6f5d93494908e8d6f1af4e86ac36811aeb809306",
       "firmware": [
         "89878cea0a268734696de11c4bae593eaaa506465d2029d619c0e0cbccdfa62d",
         "83c60d47047d7beab8e5b7bf6f67f80daa088b7a6a27de0d7e016f6484042721",
         "fd0d53b8480e86163ac98998976c72cc58d5dd8eb824ed7b829774e74213b420"
       ],
-      "sha256": "f1c30f15be6c079f1d472400fb0aa446fc99d40f88539c79eca9d03ce3a53656",
+      "sha256": "4b78f6b9fe57f3a923db9b9e60065bbb1d2ecc18382d58d0f549df77d355590a",
       "pc": 40018,
       "actions": [
         {

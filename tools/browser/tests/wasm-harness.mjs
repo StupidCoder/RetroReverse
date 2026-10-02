@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import {createC64TestCore} from './c64-test-core.mjs';
 import nodePath from 'node:path';
 import {selectDreamcastMedia} from '../../../site/emulators/dc-media.js';
 import {pathToFileURL} from 'node:url';
@@ -6,7 +7,7 @@ import assert from 'node:assert/strict';
 export async function loadCore(platform,path){
 const base=process.env.CORE_DIR?pathToFileURL(process.env.CORE_DIR.replace(/\/$/,'')+'/'):new URL('../../../site/emulators/cores/'+platform+'/',import.meta.url);
 const factory=(await import(new URL('core.js',base))).default;
-const core=await factory({wasmBinary:fs.readFileSync(new URL('core.wasm',base))});
+const core=platform==='c64'?await createC64TestCore(new URL('core.js',base)):await factory({wasmBinary:fs.readFileSync(new URL('core.wasm',base))});
 if(platform==='dos'){
  const root=nodePath.dirname(path),files=[];const walk=(dir,relative='')=>{for(const e of fs.readdirSync(dir,{withFileTypes:true})){const p=nodePath.join(dir,e.name),rel=relative+e.name;if(e.isDirectory())walk(p,rel+'/');else if(e.isFile()){const fd=fs.openSync(p,'r'),size=fs.statSync(p).size;files.push({name:rel,size,slice:(a,b)=>{const out=Buffer.alloc(Math.max(0,Math.min(size,b)-a));assert.equal(fs.readSync(fd,out,0,out.length,a),out.length);return out;}});}}};walk(root);
  globalThis.FileReaderSync=class{readAsArrayBuffer(b){return b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength);}};

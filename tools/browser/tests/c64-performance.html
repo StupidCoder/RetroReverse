@@ -1,0 +1,4 @@
+<!doctype html><meta charset="utf-8"><title>C64 performance</title><pre id="result">Running real Fort gameplay and capture benchmarks…</pre>
+<script type="module">
+const worker=new Worker('./c64-performance-browser.js',{type:'module'});worker.onmessage=({data})=>{document.querySelector('#result').textContent=JSON.stringify(data,null,2);if(data.result){document.title=data.result+' — C64 performance';worker.terminate();}};worker.onerror=e=>{document.querySelector('#result').textContent=e.message;document.title='FAIL — C64 performance';};
+</script>

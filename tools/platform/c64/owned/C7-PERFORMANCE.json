@@ -1,0 +1,308 @@
+{
+  "date": "2026-10-02",
+  "environment": "macOS arm64; Apple Clang 17 -O2; Emscripten 4.0.16 -O2; Node 26.3.1",
+  "native": {
+    "owned": {
+      "gameplay": [
+        {
+          "ms": 147.876459,
+          "cycles": 985248,
+          "realtime": 6.762
+        },
+        {
+          "ms": 149.070458,
+          "cycles": 985248,
+          "realtime": 6.708
+        },
+        {
+          "ms": 148.921625,
+          "cycles": 985248,
+          "realtime": 6.715
+        },
+        {
+          "ms": 148.863291,
+          "cycles": 985248,
+          "realtime": 6.718
+        },
+        {
+          "ms": 148.90325,
+          "cycles": 985248,
+          "realtime": 6.716
+        }
+      ],
+      "capture": [
+        {
+          "ms": 19.155333,
+          "cycles": 19656,
+          "realtime": 1.042
+        },
+        {
+          "ms": 18.676583,
+          "cycles": 19656,
+          "realtime": 1.068
+        },
+        {
+          "ms": 18.57075,
+          "cycles": 19656,
+          "realtime": 1.074
+        },
+        {
+          "ms": 18.562791,
+          "cycles": 19656,
+          "realtime": 1.075
+        },
+        {
+          "ms": 19.466292,
+          "cycles": 19656,
+          "realtime": 1.025
+        }
+      ]
+    },
+    "legacy": {
+      "gameplay": [
+        {
+          "ms": 77.631125,
+          "cycles": 985248,
+          "realtime": 12.881
+        },
+        {
+          "ms": 79.119708,
+          "cycles": 985248,
+          "realtime": 12.639
+        },
+        {
+          "ms": 76.914959,
+          "cycles": 985248,
+          "realtime": 13.001
+        },
+        {
+          "ms": 77.79275,
+          "cycles": 985248,
+          "realtime": 12.855
+        },
+        {
+          "ms": 77.50825,
+          "cycles": 985248,
+          "realtime": 12.902
+        }
+      ],
+      "capture": [
+        {
+          "ms": 2.523041,
+          "cycles": 19656,
+          "realtime": 7.907
+        },
+        {
+          "ms": 2.628041,
+          "cycles": 19656,
+          "realtime": 7.591
+        },
+        {
+          "ms": 2.393166,
+          "cycles": 19656,
+          "realtime": 8.336
+        },
+        {
+          "ms": 2.482166,
+          "cycles": 19656,
+          "realtime": 8.037
+        },
+        {
+          "ms": 2.6085,
+          "cycles": 19656,
+          "realtime": 7.648
+        }
+      ]
+    }
+  },
+  "node": [
+    {
+      "label": "owned",
+      "core": "d2fd1a1811e5094c01db842e6f5d93494908e8d6f1af4e86ac36811aeb809306",
+      "recipe": "terrain-owned",
+      "samples": {
+        "gameplay": [
+          {
+            "ms": 162.16800000000148,
+            "cycles": 985248,
+            "realtime": 6.166444674658322
+          },
+          {
+            "ms": 160.9318749999984,
+            "cycles": 985248,
+            "realtime": 6.213809414698051
+          },
+          {
+            "ms": 161.15179200000057,
+            "cycles": 985248,
+            "realtime": 6.205329693137985
+          },
+          {
+            "ms": 161.64045800000167,
+            "cycles": 985248,
+            "realtime": 6.186569948966549
+          },
+          {
+            "ms": 161.75304200000028,
+            "cycles": 985248,
+            "realtime": 6.182263947777861
+          }
+        ],
+        "capture": [
+          {
+            "ms": 18.701709000000847,
+            "cycles": 19656,
+            "realtime": 1.0667638410905649
+          },
+          {
+            "ms": 18.442666999999346,
+            "cycles": 19656,
+            "realtime": 1.0817473919471408
+          },
+          {
+            "ms": 18.556667000000743,
+            "cycles": 19656,
+            "realtime": 1.0751018449486693
+          },
+          {
+            "ms": 18.363874999999098,
+            "cycles": 19656,
+            "realtime": 1.0863887348285628
+          },
+          {
+            "ms": 19.194500000001426,
+            "cycles": 19656,
+            "realtime": 1.0393762238035589
+          }
+        ]
+      },
+      "median": {
+        "gameplay": {
+          "ms": 161.64045800000167,
+          "cycles": 985248,
+          "realtime": 6.186569948966549
+        },
+        "capture": {
+          "ms": 18.556667000000743,
+          "cycles": 19656,
+          "realtime": 1.0751018449486693
+        }
+      }
+    },
+    {
+      "label": "legacy",
+      "core": "5cd52834dca1457e8a6715719a28b4fcb1de3de4a0df7b0510395cee4643f999",
+      "recipe": "terrain",
+      "samples": {
+        "gameplay": [
+          {
+            "ms": 148.60499999999593,
+            "cycles": 985248,
+            "realtime": 6.7292486793851305
+          },
+          {
+            "ms": 149.04550000000017,
+            "cycles": 985248,
+            "realtime": 6.709360564391403
+          },
+          {
+            "ms": 148.86829099999886,
+            "cycles": 985248,
+            "realtime": 6.717347215331488
+          },
+          {
+            "ms": 149.6151669999963,
+            "cycles": 985248,
+            "realtime": 6.683814348848902
+          },
+          {
+            "ms": 149.19812499999534,
+            "cycles": 985248,
+            "realtime": 6.702497099075683
+          }
+        ],
+        "capture": [
+          {
+            "ms": 4.553375000003143,
+            "cycles": 19656,
+            "realtime": 4.381432877323989
+          },
+          {
+            "ms": 4.265790999997989,
+            "cycles": 19656,
+            "realtime": 4.676813029004069
+          },
+          {
+            "ms": 4.236417000000074,
+            "cycles": 19656,
+            "realtime": 4.709240598316583
+          },
+          {
+            "ms": 4.451249999998254,
+            "cycles": 19656,
+            "realtime": 4.481956063534225
+          },
+          {
+            "ms": 4.567332999999053,
+            "cycles": 19656,
+            "realtime": 4.368042997478622
+          }
+        ]
+      },
+      "median": {
+        "gameplay": {
+          "ms": 149.04550000000017,
+          "cycles": 985248,
+          "realtime": 6.709360564391403
+        },
+        "capture": {
+          "ms": 4.451249999998254,
+          "cycles": 19656,
+          "realtime": 4.481956063534225
+        }
+      }
+    }
+  ],
+  "browser": {
+    "environment": "Codex in-app browser, worker execution, macOS arm64",
+    "samplesMs": {
+      "owned": {
+        "gameplay": [
+          166.8,
+          166.6,
+          166.3,
+          167.3,
+          167.3
+        ],
+        "capture": [
+          19.3,
+          19.2,
+          18.6,
+          19,
+          18.7
+        ]
+      },
+      "legacy": {
+        "gameplay": [
+          154,
+          155.2,
+          155.4,
+          156,
+          155.7
+        ],
+        "capture": [
+          4.3,
+          4.6,
+          4.6,
+          4.8,
+          4.6
+        ]
+      }
+    },
+    "cycles": {
+      "gameplay": 985248,
+      "capture": 19656
+    },
+    "precision": "Browser samples rounded to 0.1 ms from displayed report."
+  }
+}

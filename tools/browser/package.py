@@ -39,13 +39,14 @@ for pattern in ['*.js','style.css','build-manifest.json','cores/**/*','firmware/
 release_id=hashlib.sha256(json.dumps(assets,sort_keys=True,separators=(',',':')).encode()).hexdigest()[:20]
 release=out/'releases'/release_id
 old=json.loads((out/'release.json').read_text()) if (out/'release.json').is_file() else {}
+rollback=json.loads((out/'c64/rollback.json').read_text())['id']
 try:
  committed=json.loads(subprocess.check_output(['git','show','HEAD:site/emulators/release.json'],cwd=repo,stderr=subprocess.DEVNULL))
 except (subprocess.CalledProcessError,json.JSONDecodeError):committed=old
 previous=committed.get('previous') if committed.get('id')==release_id else committed.get('id')
 for name in assets:
  dest=release/name;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(out/name,dest)
-(out/'release.json').write_text(json.dumps({'schema':1,'id':release_id,'previous':previous,'assets':assets},indent=2)+'\n')
+(out/'release.json').write_text(json.dumps({'schema':1,'id':release_id,'previous':previous,'rollback':rollback,'assets':assets},indent=2)+'\n')
 import re
 for slug in ['c64','ps1','n64','3do','ds','3ds','psp','gb','gg','amiga','ps2','gc','gba','dc','dos','xbox']:
  p=out/slug/'index.html';html=p.read_text()
@@ -55,5 +56,5 @@ for slug in ['c64','ps1','n64','3do','ds','3ds','psp','gb','gg','amiga','ps2','g
 # Keep the prior executable bundle for already-open pages. Existing game assets
 # and explanation URLs outside this managed directory are never changed.
 for p in (out/'releases').iterdir():
- if p.is_dir() and p.name not in {release_id,previous}:shutil.rmtree(p)
+ if p.is_dir() and p.name not in {release_id,previous,rollback}:shutil.rmtree(p)
 print(f'Content-addressed release {release_id}')

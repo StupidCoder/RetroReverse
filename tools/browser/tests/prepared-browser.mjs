@@ -12,11 +12,11 @@ try{
  await until(()=>latest('state')&&b('start')&&!b('start').disabled,'prepared lessons');const initial=latest('state').state.cycle;
  $('workspace-nav').value='code';$('workspace-nav').dispatchEvent(new w.Event('change'));
  b('clear').click();await until(()=>d.querySelector('.prepared-status').textContent.includes('cleared'),'clear cache');
- const choose=id=>{const select=d.querySelector('[aria-label="Prepared lesson"]');select.value=id+(owned?'-owned':'');select.dispatchEvent(new w.Event('change'));};choose(elite?'loader-prefix':'terrain');b('start').click();await until(()=>!b('cancel').disabled,'preparing');b('cancel').click();await until(()=>!b('start').disabled,'cancelled');assert(latest('state').state.cycle===initial,'cancel preserves session');checks.push('cancel preserves initial session');
+ const choose=id=>{const select=d.querySelector('[aria-label="Prepared lesson"]');select.value=id+'-owned';select.dispatchEvent(new w.Event('change'));};choose(elite?'loader-prefix':'terrain');b('start').click();await until(()=>!b('cancel').disabled,'preparing');b('cancel').click();await until(()=>!b('start').disabled,'cancelled');assert(latest('state').state.cycle===initial,'cancel preserves session');checks.push('cancel preserves initial session');
  if(elite){
   b('start').click();await until(()=>latest('tour-state')?.phase==='paused-at-stop','loader entry');
   for(const kind of ['code','lesson','atlas','storage'])assert(d.querySelector('#viewport-root [data-kind="'+kind+'"]'),'loader panel '+kind);
-  for(let i=1;i<4;i++){const button=d.querySelector('[data-action="continue"]');await until(()=>!button.disabled,'continue enabled');button.click();await until(()=>latest('tour-state')?.index===i,'loader stop '+i);}
+  for(let i=1;i<4;i++){const button=d.querySelector('[data-action="continue"]');await until(()=>!button.disabled&&!latest('state')?.debugBusy,'continue enabled');await sleep(100);await until(()=>!button.disabled&&!latest('state')?.debugBusy,'inspection settled');button.click();await until(()=>latest('tour-state')?.index===i,'loader stop '+i);}
   assert(latest('tour-state').phase==='completed','loader complete');checks.push('Elite loader prefix completes with Code, lesson, RAM and pulses visible');
  }else{
  b('start').click();await until(()=>latest('tour-state')?.phase==='paused-at-stop','terrain first stop');assert(latest('tour-state').stop.id,'authentic tour stop');checks.push('cold preparation starts Fort terrain tour');

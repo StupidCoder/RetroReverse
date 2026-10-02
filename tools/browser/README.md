@@ -80,9 +80,9 @@ and `python3 tools/browser/check-release.py` for a fast artifact audit.
 Additional checks: `node tools/browser/tests/inspector.mjs`, the four
 `tests/pixel-*.cpp` native drivers, and `tests/capture-wasm.mjs PLATFORM IMAGE`.
 Set `NATIVE_STATE` to a local raw native checkpoint and `PIXEL_GRID=1` for
-85 sampled pixels per interval. `scene-c64.cpp` and `scene-3do.cpp` produce
+85 sampled pixels per interval. `scene-3do.cpp` produces
 reference-game checkpoints from local media; never publish those checkpoints.
-Native C64 tests need `-Wno-address-of-temporary`; translated cores can use
+Owned native C64 tests run through `tools/platform/c64/owned/check.py`; translated cores can use
 `-Wno-parentheses-equality`.
 
 Console illustrations were generated with the built-in image generator. Their
@@ -110,3 +110,18 @@ The common Play/Render shell, adapter API and UI checks are documented in
 [Shared emulator UI](docs/SHARED-UI.md).
 
 [M3](docs/code-m3/README.md) adds shared Code/Memory state panels and bounded structured decoding.
+
+## Owned C64 release
+
+The C64 production build now compiles `tools/platform/c64/owned`. See the
+[C7 report](../platform/c64/owned/C7-RELEASE.md). The old vendor-specific native
+fixtures (`debug-c64`, `memory-c64`, `pixel-c64`, `raster-c64`, `state-c64`)
+are superseded by the owned `browser`, `render`, `debugger` and portable `state`
+suites, each run natively, with UBSan and in WASM. Shared JS debugger, tour and
+experiment tests now run against the shipped owned WASM. `browser-fort.mjs`
+replaces the old private `scene-c64` fixture with authentic boot and 272-line
+rendering/provenance checks. The legacy state-field generator is retired.
+
+The pinned rollback page is `site/emulators/c64/legacy.html`; packaging retains
+its complete executable bundle and validates all hashes from `c64/rollback.json`.
+Historical C64 screenshots/reports describe the old core where noted.

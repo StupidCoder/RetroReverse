@@ -5,10 +5,11 @@ CPU, C64 board, PAL video, SID register-visible behavior and an independent
 1541 with ROM-driven IEC disk loading/saving, dual-machine debugging and
 verified Giana custom-loader transfers. The reference Fort
 Apocalypse TAP boots through KERNAL and Novaload into rendered gameplay. This
-core is still isolated from the production browser app. See
-[the implementation plan](../../../../C64-1541-IMPLEMENTATION-PLAN.md) and
-[the compatibility ledger](COMPATIBILITY.md). The existing `browser/core` and
-vendored dependencies remain intact until machine-level acceptance is complete.
+core now powers the production browser app. See
+[the implementation plan](../../../../C64-1541-IMPLEMENTATION-PLAN.md),
+[the compatibility ledger](COMPATIBILITY.md) and [C7 release report](C7-RELEASE.md).
+The previous executable is frozen for old checkpoints; vendored hardware is no
+longer a build dependency.
 
 ## CPU and board contracts
 
