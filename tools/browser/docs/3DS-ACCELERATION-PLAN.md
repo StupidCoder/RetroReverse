@@ -13,8 +13,10 @@ this work: no Go-emulator optimization, feature parity, oracle comparisons or
 cross-language validation is required. Existing Go-based build tools may remain
 build plumbing; they do not define the prototype's reference behavior.
 
-M0 and M1 are complete. M1's [state inventory and evidence](3DS-ACCELERATION-STATE.md)
-record the baseline and transition interface. M2–M5 are the active prototype
+M0–M2 are complete. M1's [state inventory and evidence](3DS-ACCELERATION-STATE.md)
+record the baseline and transition interface. M2's [replay results and decision](3DS-ACCELERATION-REPLAY.md)
+select a deliberately narrow exact compute subset, with general draws retained
+in Reference. M3–M5 are the active prototype
 work. Complete, validate, commit and push each milestone to `main` separately.
 Keep the default reference mode usable at every milestone.
 

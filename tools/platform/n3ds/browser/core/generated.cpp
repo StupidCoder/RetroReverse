@@ -1879,6 +1879,7 @@ uint64_t n3ds_nsToTick(int64_t ns);
 
 #include "adapters.h"
 #include "capture-hooks.h"
+#include "graphics-stream.h"
 // tools/cpu/arm/arm.go:109:1
 uint32_t arm_signExtend(uint32_t v,uint64_t n){
 {
@@ -10137,7 +10138,7 @@ n3ds_GPU_invalidateTextures(g,fb.colorAddr,cast<uint32_t>((cast<uint32_t>(((((ca
 }
 // tools/platform/n3ds/gpu_raster.go:379:1
 void n3ds_GPU_fill(n3ds_GPU* g,n3ds_fbState* fb,n3ds_lightState* ls,n3ds_tevState* tv,Slice<n3ds_rasterTri> tris){
-rrprof::Scope profile(2,"PICA software rasterizer");{
+rrprof::Scope profile(2,"PICA software rasterizer");auto graphics=rrgpu::Operation::stencil(g,fb,ls,tv,tris);{
 if ((len(tris) == cast<int64_t>(0ULL))) {
 return ;
 }
@@ -12679,7 +12680,7 @@ m->gxLog = append(m->gxLog,r);
 }
 // tools/platform/n3ds/gx.go:93:1
 void n3ds_Machine_gxMemoryFill(n3ds_Machine* m,uint32_t start,uint32_t value,uint32_t end,uint32_t ctl){
-rrprof::Scope profile(3,"GX memory / display transfers");rr3ds::Command command(m,"GX memory fill",start,value,end,ctl);{
+rrprof::Scope profile(3,"GX memory / display transfers");rr3ds::Command command(m,"GX memory fill",start,value,end,ctl);auto graphics=rrgpu::Operation::fill(m,start,value,end,ctl);{
 auto tmp276=defer([&](){n3ds_Machine_profEnd(m,cast<int64_t>(4ULL),n3ds_Machine_profStart(m));});
 auto tmp277 = std::make_tuple(n3ds_Machine_gpuAddrToVirt(m,start),n3ds_Machine_gpuAddrToVirt(m,end));
 start = std::get<0>(tmp277);
@@ -12711,7 +12712,7 @@ n3ds_Machine_Write(m,cast<uint32_t>((a + j)),cast<uint8_t>(shr<uint32_t>(value,(
 }
 // tools/platform/n3ds/gx.go:119:1
 void n3ds_Machine_gxTextureCopy(n3ds_Machine* m,uint32_t src,uint32_t dst,uint32_t size,uint32_t inDim,uint32_t outDim){
-rrprof::Scope profile(3,"GX memory / display transfers");rr3ds::Command command(m,"GX texture copy",src,dst,size,inDim);{
+rrprof::Scope profile(3,"GX memory / display transfers");rr3ds::Command command(m,"GX texture copy",src,dst,size,inDim);auto graphics=rrgpu::Operation::copy(m,src,dst,size,inDim,outDim);{
 auto tmp278=defer([&](){n3ds_Machine_profEnd(m,cast<int64_t>(4ULL),n3ds_Machine_profStart(m));});
 auto tmp279 = std::make_tuple(n3ds_Machine_gpuAddrToVirt(m,src),n3ds_Machine_gpuAddrToVirt(m,dst));
 src = std::get<0>(tmp279);
@@ -12762,7 +12763,7 @@ dn = std::get<1>(tmp287);
 }
 // tools/platform/n3ds/gx.go:162:1
 void n3ds_Machine_gxDisplayTransfer(n3ds_Machine* m,uint32_t src,uint32_t dst,uint32_t srcDims,uint32_t dstDims,uint32_t flags){
-rrprof::Scope profile(3,"GX memory / display transfers");rr3ds::Command command(m,"GX display transfer",src,dst,srcDims,flags);{
+rrprof::Scope profile(3,"GX memory / display transfers");rr3ds::Command command(m,"GX display transfer",src,dst,srcDims,flags);auto graphics=rrgpu::Operation::display(m,src,dst,srcDims,dstDims,flags);{
 auto tmp288=defer([&](){n3ds_Machine_profEnd(m,cast<int64_t>(4ULL),n3ds_Machine_profStart(m));});
 auto tmp289 = std::make_tuple(cast<uint32_t>((srcDims & cast<uint32_t>(65535ULL))),shr<uint32_t>(srcDims,cast<int64_t>(16ULL)));
 uint32_t srcW = std::get<0>(tmp289);

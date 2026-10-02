@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {decodeGraphicsStream,transferSupport} from '../../../site/emulators/graphics-3ds.js';
+assert.throws(()=>decodeGraphicsStream(new Uint8Array(8)),/Unknown/);
+const header=new Uint32Array([0x50475252,1]);assert.deepEqual(decodeGraphicsStream(header.buffer),[]);
+const bad=new Uint32Array([0x50475252,1,32,1,9999,0,0,0,0,0]);assert.throws(()=>decodeGraphicsStream(bad.buffer),/Invalid/);
+assert.match(transferSupport({kind:7}),/Unsupported/);
+const packet={kind:2,params:[128,128,0,128,0,1],input:new Uint8Array(128),before:new Uint8Array(128)};
+assert.match(transferSupport(packet),/Overlapping/);packet.params[5]=0;assert.equal(transferSupport(packet),null);
+packet.params[1]=0;assert.match(transferSupport(packet),/Invalid/);
+console.log('3DS graphics stream validation and overlap fallback pass');

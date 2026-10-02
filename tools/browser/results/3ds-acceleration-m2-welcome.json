@@ -1,0 +1,255 @@
+{
+  "schema": 1,
+  "adapter": {
+    "vendor": "apple",
+    "architecture": "metal-3",
+    "timestamps": true
+  },
+  "warmupMs": 1.800000011920929,
+  "allocatedBytes": 2162720,
+  "coverage": [
+    {
+      "vertices": [
+        [
+          0.5,
+          0.5
+        ],
+        [
+          24.5,
+          0.5
+        ],
+        [
+          0.5,
+          24.5
+        ]
+      ],
+      "computeCoverageDifferences": 0,
+      "conventionalCoverageDifferences": 25
+    },
+    {
+      "vertices": [
+        [
+          0.1,
+          0.1
+        ],
+        [
+          30.3,
+          0.2
+        ],
+        [
+          0.25,
+          30.25
+        ]
+      ],
+      "computeCoverageDifferences": 0,
+      "conventionalCoverageDifferences": 0
+    },
+    {
+      "vertices": [
+        [
+          7.5,
+          3.5
+        ],
+        [
+          28.5,
+          15.5
+        ],
+        [
+          4.5,
+          27.5
+        ]
+      ],
+      "computeCoverageDifferences": 0,
+      "conventionalCoverageDifferences": 16
+    }
+  ],
+  "records": [
+    {
+      "index": 0,
+      "kind": 3,
+      "supported": true,
+      "bytes": 192000,
+      "differences": 0,
+      "first": -1,
+      "uploadMs": 0.40000003576278687,
+      "submitMs": 0,
+      "gpuMs": 0.065536,
+      "queueAndMapMs": 2,
+      "readbackMs": 0.19999998807907104,
+      "totalMs": 2.600000023841858
+    },
+    {
+      "index": 1,
+      "kind": 1,
+      "supported": true,
+      "bytes": 384000,
+      "differences": 0,
+      "first": -1,
+      "uploadMs": 0.10000002384185791,
+      "submitMs": 0,
+      "gpuMs": 0.065536,
+      "queueAndMapMs": 0.8999999761581421,
+      "readbackMs": 0.10000002384185791,
+      "totalMs": 1.100000023841858
+    },
+    {
+      "index": 2,
+      "kind": 1,
+      "supported": true,
+      "bytes": 384000,
+      "differences": 0,
+      "first": -1,
+      "uploadMs": 0.10000002384185791,
+      "submitMs": 0,
+      "gpuMs": 0.065536,
+      "queueAndMapMs": 0.7999999523162842,
+      "readbackMs": 0,
+      "totalMs": 0.8999999761581421
+    },
+    {
+      "index": 3,
+      "kind": 3,
+      "supported": true,
+      "bytes": 153600,
+      "differences": 0,
+      "first": -1,
+      "uploadMs": 0.19999998807907104,
+      "submitMs": 0,
+      "gpuMs": 0.065536,
+      "queueAndMapMs": 1.100000023841858,
+      "readbackMs": 0.09999996423721313,
+      "totalMs": 1.399999976158142
+    },
+    {
+      "index": 4,
+      "kind": 1,
+      "supported": true,
+      "bytes": 384000,
+      "differences": 0,
+      "first": -1,
+      "uploadMs": 0.30000001192092896,
+      "submitMs": 0,
+      "gpuMs": 0.065536,
+      "queueAndMapMs": 0.3999999761581421,
+      "readbackMs": 0.10000002384185791,
+      "totalMs": 0.800000011920929
+    },
+    {
+      "index": 5,
+      "kind": 1,
+      "supported": true,
+      "bytes": 384000,
+      "differences": 0,
+      "first": -1,
+      "uploadMs": 0.10000002384185791,
+      "submitMs": 0,
+      "gpuMs": 0.065536,
+      "queueAndMapMs": 0.800000011920929,
+      "readbackMs": 0.19999998807907104,
+      "totalMs": 1.100000023841858
+    },
+    {
+      "index": 6,
+      "kind": 3,
+      "supported": true,
+      "bytes": 192000,
+      "differences": 0,
+      "first": -1,
+      "uploadMs": 0.19999998807907104,
+      "submitMs": 0,
+      "gpuMs": 0.065536,
+      "queueAndMapMs": 0.699999988079071,
+      "readbackMs": 0.10000002384185791,
+      "totalMs": 1
+    },
+    {
+      "index": 7,
+      "kind": 1,
+      "supported": true,
+      "bytes": 384000,
+      "differences": 0,
+      "first": -1,
+      "uploadMs": 0.09999996423721313,
+      "submitMs": 0,
+      "gpuMs": 0.065536,
+      "queueAndMapMs": 0.5,
+      "readbackMs": 0,
+      "totalMs": 0.5999999642372131
+    },
+    {
+      "index": 8,
+      "kind": 1,
+      "supported": true,
+      "bytes": 384000,
+      "differences": 0,
+      "first": -1,
+      "uploadMs": 0.09999996423721313,
+      "submitMs": 0,
+      "gpuMs": 0,
+      "queueAndMapMs": 0.5,
+      "readbackMs": 0.20000004768371582,
+      "totalMs": 0.800000011920929
+    },
+    {
+      "index": 9,
+      "kind": 3,
+      "supported": true,
+      "bytes": 192000,
+      "differences": 0,
+      "first": -1,
+      "uploadMs": 0.19999998807907104,
+      "submitMs": 0,
+      "gpuMs": 0.065536,
+      "queueAndMapMs": 0.5,
+      "readbackMs": 0,
+      "totalMs": 0.699999988079071
+    },
+    {
+      "index": 10,
+      "kind": 1,
+      "supported": true,
+      "bytes": 384000,
+      "differences": 0,
+      "first": -1,
+      "uploadMs": 0.20000004768371582,
+      "submitMs": 0,
+      "gpuMs": 0.065536,
+      "queueAndMapMs": 0.5,
+      "readbackMs": 0.09999996423721313,
+      "totalMs": 0.800000011920929
+    },
+    {
+      "index": 11,
+      "kind": 1,
+      "supported": true,
+      "bytes": 384000,
+      "differences": 0,
+      "first": -1,
+      "uploadMs": 0.09999996423721313,
+      "submitMs": 0,
+      "gpuMs": 0.065536,
+      "queueAndMapMs": 0.5,
+      "readbackMs": 0,
+      "totalMs": 0.5999999642372131
+    },
+    {
+      "index": 12,
+      "kind": 3,
+      "supported": true,
+      "bytes": 153600,
+      "differences": 0,
+      "first": -1,
+      "uploadMs": 0.19999998807907104,
+      "submitMs": 0,
+      "gpuMs": 0.065536,
+      "queueAndMapMs": 0.5,
+      "readbackMs": 0,
+      "totalMs": 0.699999988079071
+    }
+  ],
+  "result": "PASS",
+  "browser": "154.0.8037.93",
+  "scope": "isolated immutable operation replay; not a full GPU scene replay",
+  "referenceDraws": 178,
+  "intervals": 3
+}

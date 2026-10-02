@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import {loadCore} from './wasm-harness.mjs';
+import {decodeGraphicsStream} from '../../../site/emulators/graphics-3ds.js';
+const [media,state,out,intervals='3']=process.argv.slice(2),core=await loadCore('3ds',media);
+const checkpoint=new Uint8Array(fs.readFileSync(state));core.HEAPU8.set(checkpoint,core._rr_state_input(checkpoint.length));assert.equal(core._rr_state_load(checkpoint.length),1);
+const status=()=>JSON.parse(core.UTF8ToString(core._rr_status())),start=status();
+core._rr_graphics_begin();while(status().frames<start.frames+Number(intervals))assert(core._rr_run(10000)>=0,core.UTF8ToString(core._rr_error()));
+const size=core._rr_graphics_end(),stream=core.HEAPU8.slice(core._rr_graphics_data(),core._rr_graphics_data()+size),info=JSON.parse(core.UTF8ToString(core._rr_graphics_info()));
+const save=()=>{const n=core._rr_state_save();return core.HEAPU8.slice(core._rr_state_data(),core._rr_state_data()+n);},recordedEnd=save();
+core.HEAPU8.set(checkpoint,core._rr_state_input(checkpoint.length));assert.equal(core._rr_state_load(checkpoint.length),1);
+while(status().frames<start.frames+Number(intervals))assert(core._rr_run(10000)>=0);
+assert.deepEqual(save(),recordedEnd,'Input recording changed canonical continuation');
+fs.writeFileSync(out,stream);const records=decodeGraphicsStream(stream);
+console.log(JSON.stringify({schema:1,intervals:Number(intervals),bytes:size,records:records.length,...info}));assert.equal(info.dropped,0);

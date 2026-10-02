@@ -39,3 +39,10 @@ uint8_t*rr_replay_frame(){pixels=rr3ds::replayDisplay();return pixels.data();}
 }
 
 #include "memory.h"
+
+extern "C"{
+void rr_graphics_begin(){rrgpu::begin();}
+uint32_t rr_graphics_end(){rrgpu::recording=false;return rrgpu::stream.size();}
+uint8_t*rr_graphics_data(){return rrgpu::stream.data();}
+const char*rr_graphics_info(){reply="{\"schema\":1,\"dropped\":"+std::to_string(rrgpu::dropped)+",\"referenceDraws\":"+std::to_string(rrgpu::draws)+"}";return reply.c_str();}
+}
