@@ -336,10 +336,15 @@ func (m *Machine) drawPixel(x, y uint32, in *combineInputs, z int64, useZ bool) 
 	}
 
 	col := r.combine(in)
+	// Match the rasterizer's existing full-coverage approximation. Texture alpha
+	// becomes coverage only when CVG_X_ALPHA requests it; ALPHA_CVG_SEL alone
+	// makes opaque interior pixels opaque even when texture alpha is low.
+	var coverage uint32
+	col.A, coverage = r.pixelCoverage(col.A, 8)
 
 	// The alpha test discards a pixel outright, which is how a cut-out texture
 	// gets its holes.
-	if r.OtherModes&omAlphaCompare != 0 && col.A < r.BlendColor&255 {
+	if coverage == 0 || (r.OtherModes&omAlphaCompare != 0 && col.A < r.BlendColor&255) {
 		if m.OnPixel != nil {
 			m.OnPixel(x, y, PixelEvent{AlphaReject: true, Z: z})
 		}
@@ -347,7 +352,7 @@ func (m *Machine) drawPixel(x, y uint32, in *combineInputs, z int64, useZ bool) 
 	}
 
 	out := col
-	if r.OtherModes&omForceBlend != 0 || r.blenderReadsMemory() {
+	if r.blendEnabled(coverage) {
 		out = r.blend(col, m.readPixel(x, y), in.Shade.A)
 	}
 	m.writePixel(x, y, out.R, out.G, out.B, out.A)

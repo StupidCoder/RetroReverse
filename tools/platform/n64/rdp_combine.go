@@ -343,3 +343,39 @@ func (r *rdp) blend(cyc rgba, mem rgba, shadeAlpha uint32) rgba {
 	}
 	return rgba{mix(p.R, m.R), mix(p.G, m.G), mix(p.B, m.B), cyc.A}
 }
+
+// pixelCoverage applies the coverage/alpha controls after the combiner. Coverage
+// is 0..8 samples; full coverage is 8 (256 in the alpha domain, saturated to 255).
+// The current rasterizer supplies 8 for every touched pixel; fractional geometric
+// coverage and the framebuffer's hidden coverage bits are not modeled yet.
+func (r *rdp) pixelCoverage(alpha, coverage uint32) (uint32, uint32) {
+	// The combiner's saturated 255 endpoint represents unity (256) here.
+	coverageAlpha := alpha
+	if coverageAlpha == 255 {
+		coverageAlpha = 256
+	}
+	product := coverageAlpha*coverage + 4
+	if r.OtherModes&omCvgTimesAlpha != 0 {
+		coverage = product >> 8
+	}
+	if r.OtherModes&omAlphaCvgSel != 0 {
+		if r.OtherModes&omCvgTimesAlpha != 0 {
+			alpha = product >> 3
+		} else {
+			alpha = coverage << 5
+		}
+		if alpha > 255 {
+			alpha = 255
+		}
+	}
+	return alpha, coverage
+}
+
+// blendEnabled is distinct from selecting a memory input. Opaque AA modes
+// select memory for partial coverage, but a fully covered pixel must replace it.
+// With our full-coverage rasterizer, only alpha-reduced coverage can be partial.
+// For that case retain the existing AA blend approximation: exact edge blending
+// additionally needs stored memory coverage and depth deltas, neither modeled yet.
+func (r *rdp) blendEnabled(coverage uint32) bool {
+	return r.OtherModes&omForceBlend != 0 || (r.OtherModes&omAntialias != 0 && coverage < 8)
+}

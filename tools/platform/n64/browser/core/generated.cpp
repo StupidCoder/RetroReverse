@@ -858,6 +858,8 @@ n64_combinerSelects n64_rdp_combinerSelects(n64_rdp* r,int64_t cycle);
 n64_rgba n64_rdp_combine(n64_rdp* r,n64_combineInputs* in);
 std::tuple<uint32_t,uint32_t,uint32_t,uint32_t> n64_rdp_blenderSelects(n64_rdp* r,int64_t cycle);
 n64_rgba n64_rdp_blend(n64_rdp* r,n64_rgba cyc,n64_rgba mem,uint32_t shadeAlpha);
+std::tuple<uint32_t,uint32_t> n64_rdp_pixelCoverage(n64_rdp* r,uint32_t alpha,uint32_t coverage);
+bool n64_rdp_blendEnabled(n64_rdp* r,uint32_t coverage);
 uint32_t n64_rdp_pixelAddr(n64_rdp* r,uint32_t x,uint32_t y);
 uint16_t n64_rgba5551(uint32_t rr,uint32_t gg,uint32_t bb,uint32_t aa);
 void n64_Machine_writePixel(n64_Machine* m,uint32_t x,uint32_t y,uint32_t rr,uint32_t gg,uint32_t bb,uint32_t aa);
@@ -5878,6 +5880,37 @@ return v;
 return n64_rgba{mix(p.R,m.R),mix(p.G,m.G),mix(p.B,m.B),cyc.A};
 }
 }
+// tools/platform/n64/rdp_combine.go:351:1
+std::tuple<uint32_t,uint32_t> n64_rdp_pixelCoverage(n64_rdp* r,uint32_t alpha,uint32_t coverage){
+{
+uint32_t coverageAlpha = alpha;
+if ((coverageAlpha == cast<uint32_t>(255ULL))) {
+coverageAlpha = cast<uint32_t>(256ULL);
+}
+uint32_t product = cast<uint32_t>((cast<uint32_t>((coverageAlpha * coverage)) + cast<uint32_t>(4ULL)));
+if ((cast<uint64_t>((r->OtherModes & n64_omCvgTimesAlpha)) != cast<uint64_t>(0ULL))) {
+coverage = shr<uint32_t>(product,cast<int64_t>(8ULL));
+}
+if ((cast<uint64_t>((r->OtherModes & n64_omAlphaCvgSel)) != cast<uint64_t>(0ULL))) {
+if ((cast<uint64_t>((r->OtherModes & n64_omCvgTimesAlpha)) != cast<uint64_t>(0ULL))) {
+alpha = shr<uint32_t>(product,cast<int64_t>(3ULL));
+}
+else {
+alpha = shl<uint32_t>(coverage,cast<int64_t>(5ULL));
+}
+if ((alpha > cast<uint32_t>(255ULL))) {
+alpha = cast<uint32_t>(255ULL);
+}
+}
+return {alpha,coverage};
+}
+}
+// tools/platform/n64/rdp_combine.go:377:1
+bool n64_rdp_blendEnabled(n64_rdp* r,uint32_t coverage){
+{
+return ((cast<uint64_t>((r->OtherModes & n64_omForceBlend)) != cast<uint64_t>(0ULL)) || (((cast<uint64_t>((r->OtherModes & n64_omAntialias)) != cast<uint64_t>(0ULL)) && (coverage < cast<uint32_t>(8ULL)))));
+}
+}
 // tools/platform/n64/rdp_raster.go:16:1
 uint32_t n64_rdp_pixelAddr(n64_rdp* r,uint32_t x,uint32_t y){
 {
@@ -6476,14 +6509,18 @@ return ;
 }
 }
 n64_rgba col = n64_rdp_combine(r,in);
-if (((cast<uint64_t>((r->OtherModes & n64_omAlphaCompare)) != cast<uint64_t>(0ULL)) && (col.A < cast<uint32_t>((r->BlendColor & cast<uint32_t>(255ULL)))))) {
+uint32_t coverage={};
+auto tmp32 = n64_rdp_pixelCoverage(r,col.A,cast<uint32_t>(8ULL));
+col.A = std::get<0>(tmp32);
+coverage = std::get<1>(tmp32);
+if (((coverage == cast<uint32_t>(0ULL)) || (((cast<uint64_t>((r->OtherModes & n64_omAlphaCompare)) != cast<uint64_t>(0ULL)) && (col.A < cast<uint32_t>((r->BlendColor & cast<uint32_t>(255ULL)))))))) {
 if (bool(m->OnPixel)) {
 m->OnPixel(x,y,n64_PixelEvent{{},{},true,{},{},{},{},z,{},{},{},{},{},{}});
 }
 return ;
 }
 n64_rgba out = col;
-if (((cast<uint64_t>((r->OtherModes & n64_omForceBlend)) != cast<uint64_t>(0ULL)) || n64_rdp_blenderReadsMemory(r))) {
+if (n64_rdp_blendEnabled(r,coverage)) {
 out = n64_rdp_blend(r,col,n64_Machine_readPixel(m,x,y),in->Shade.A);
 }
 n64_Machine_writePixel(m,x,y,out.R,out.G,out.B,out.A);
@@ -6495,17 +6532,17 @@ m->OnPixel(x,y,n64_PixelEvent{true,{},{},out.R,out.G,out.B,out.A,z,in->Texel0.R,
 }
 }
 }
-// tools/platform/n64/rdp_texture.go:369:1
+// tools/platform/n64/rdp_texture.go:374:1
 bool n64_rdp_blenderReadsMemory(n64_rdp* r){
 {
 int64_t cycle = cast<int64_t>(0ULL);
 if ((n64_rdp_cycleType(r) == n64_cycle2)) {
 cycle = cast<int64_t>(1ULL);
 }
-auto tmp32 = n64_rdp_blenderSelects(r,cycle);
-uint32_t p = std::get<0>(tmp32);
-uint32_t mm = std::get<2>(tmp32);
-uint32_t b = std::get<3>(tmp32);
+auto tmp33 = n64_rdp_blenderSelects(r,cycle);
+uint32_t p = std::get<0>(tmp33);
+uint32_t mm = std::get<2>(tmp33);
+uint32_t b = std::get<3>(tmp33);
 return (((p == cast<uint32_t>(1ULL)) || (mm == cast<uint32_t>(1ULL))) || (b == cast<uint32_t>(1ULL)));
 }
 }
@@ -6554,15 +6591,15 @@ uint32_t tileIdx = cast<uint32_t>(cast<uint64_t>((shr<uint64_t>(w[cast<int64_t>(
 int32_t yl = n64_s14(cast<uint32_t>(cast<uint64_t>((shr<uint64_t>(w[cast<int64_t>(0ULL)],cast<int64_t>(32ULL)) & cast<uint64_t>(16383ULL)))));
 int32_t ym = n64_s14(cast<uint32_t>(cast<uint64_t>((shr<uint64_t>(w[cast<int64_t>(0ULL)],cast<int64_t>(16ULL)) & cast<uint64_t>(16383ULL)))));
 int32_t yh = n64_s14(cast<uint32_t>(cast<uint64_t>((w[cast<int64_t>(0ULL)] & cast<uint64_t>(16383ULL)))));
-auto tmp33 = std::make_tuple(n64_s32(cast<uint32_t>(shr<uint64_t>(w[cast<int64_t>(1ULL)],cast<int64_t>(32ULL)))),n64_s32(cast<uint32_t>(w[cast<int64_t>(1ULL)])));
-int64_t xl = std::get<0>(tmp33);
-int64_t dxldy = std::get<1>(tmp33);
-auto tmp34 = std::make_tuple(n64_s32(cast<uint32_t>(shr<uint64_t>(w[cast<int64_t>(2ULL)],cast<int64_t>(32ULL)))),n64_s32(cast<uint32_t>(w[cast<int64_t>(2ULL)])));
-int64_t xh = std::get<0>(tmp34);
-int64_t dxhdy = std::get<1>(tmp34);
-auto tmp35 = std::make_tuple(n64_s32(cast<uint32_t>(shr<uint64_t>(w[cast<int64_t>(3ULL)],cast<int64_t>(32ULL)))),n64_s32(cast<uint32_t>(w[cast<int64_t>(3ULL)])));
-int64_t xm = std::get<0>(tmp35);
-int64_t dxmdy = std::get<1>(tmp35);
+auto tmp34 = std::make_tuple(n64_s32(cast<uint32_t>(shr<uint64_t>(w[cast<int64_t>(1ULL)],cast<int64_t>(32ULL)))),n64_s32(cast<uint32_t>(w[cast<int64_t>(1ULL)])));
+int64_t xl = std::get<0>(tmp34);
+int64_t dxldy = std::get<1>(tmp34);
+auto tmp35 = std::make_tuple(n64_s32(cast<uint32_t>(shr<uint64_t>(w[cast<int64_t>(2ULL)],cast<int64_t>(32ULL)))),n64_s32(cast<uint32_t>(w[cast<int64_t>(2ULL)])));
+int64_t xh = std::get<0>(tmp35);
+int64_t dxhdy = std::get<1>(tmp35);
+auto tmp36 = std::make_tuple(n64_s32(cast<uint32_t>(shr<uint64_t>(w[cast<int64_t>(3ULL)],cast<int64_t>(32ULL)))),n64_s32(cast<uint32_t>(w[cast<int64_t>(3ULL)])));
+int64_t xm = std::get<0>(tmp36);
+int64_t dxmdy = std::get<1>(tmp36);
 int64_t next = cast<int64_t>(4ULL);
 std::array<n64_triAttrs,4> sh={};
 if (hasShade) {
@@ -6633,20 +6670,20 @@ minor = cast<int64_t>((xm + divi<int64_t>(cast<int64_t>((dxmdy * (cast<int64_t>(
 else {
 minor = cast<int64_t>((xl + divi<int64_t>(cast<int64_t>((dxldy * (cast<int64_t>((q - ymQ))))),cast<int64_t>(4ULL))));
 }
-auto tmp36 = std::make_tuple(major,minor);
-int64_t xs = std::get<0>(tmp36);
-int64_t xe = std::get<1>(tmp36);
+auto tmp37 = std::make_tuple(major,minor);
+int64_t xs = std::get<0>(tmp37);
+int64_t xe = std::get<1>(tmp37);
 if ((!lft)) {
-auto tmp37 = std::make_tuple(minor,major);
-xs = std::get<0>(tmp37);
-xe = std::get<1>(tmp37);
+auto tmp38 = std::make_tuple(minor,major);
+xs = std::get<0>(tmp38);
+xe = std::get<1>(tmp38);
 }
 if ((xe <= xs)) {
 continue;
 }
-auto tmp38 = std::make_tuple(n64_ceilQuarter(xs),n64_ceilQuarter(xe));
-int64_t c0 = std::get<0>(tmp38);
-int64_t c1 = std::get<1>(tmp38);
+auto tmp39 = std::make_tuple(n64_ceilQuarter(xs),n64_ceilQuarter(xe));
+int64_t c0 = std::get<0>(tmp39);
+int64_t c1 = std::get<1>(tmp39);
 if ((c0 < sampLo)) {
 c0 = sampLo;
 }
@@ -6661,9 +6698,9 @@ n++;
 if ((n == cast<int64_t>(0ULL))) {
 continue;
 }
-auto tmp39 = std::make_tuple(spans[cast<int64_t>(0ULL)][cast<int64_t>(0ULL)],spans[cast<int64_t>(0ULL)][cast<int64_t>(1ULL)]);
-int64_t lo = std::get<0>(tmp39);
-int64_t hi = std::get<1>(tmp39);
+auto tmp40 = std::make_tuple(spans[cast<int64_t>(0ULL)][cast<int64_t>(0ULL)],spans[cast<int64_t>(0ULL)][cast<int64_t>(1ULL)]);
+int64_t lo = std::get<0>(tmp40);
+int64_t hi = std::get<1>(tmp40);
 for (int64_t i = cast<int64_t>(1ULL);(i < n);i++){
 if ((spans[i][cast<int64_t>(0ULL)] < lo)) {
 lo = spans[i][cast<int64_t>(0ULL)];
@@ -6694,25 +6731,25 @@ if (hasTex) {
 int64_t sv = n64_triAttrs_at(tex[cast<int64_t>(0ULL)],dy,dxPix);
 int64_t tv = n64_triAttrs_at(tex[cast<int64_t>(1ULL)],dy,dxPix);
 int64_t wv = n64_triAttrs_at(tex[cast<int64_t>(2ULL)],dy,dxPix);
-auto tmp40 = std::make_tuple(cast<int32_t>(shr<int64_t>(sv,cast<int64_t>(16ULL))),cast<int32_t>(shr<int64_t>(tv,cast<int64_t>(16ULL))));
-int32_t sFix = std::get<0>(tmp40);
-int32_t tFix = std::get<1>(tmp40);
+auto tmp41 = std::make_tuple(cast<int32_t>(shr<int64_t>(sv,cast<int64_t>(16ULL))),cast<int32_t>(shr<int64_t>(tv,cast<int64_t>(16ULL))));
+int32_t sFix = std::get<0>(tmp41);
+int32_t tFix = std::get<1>(tmp41);
 if (((cast<uint64_t>((r->OtherModes & n64_omPerspTex)) != cast<uint64_t>(0ULL)) && (wv > cast<int64_t>(0ULL)))) {
 sFix = cast<int32_t>(divi<int64_t>(cast<int64_t>((sv * cast<int64_t>(32768ULL))),wv));
 tFix = cast<int32_t>(divi<int64_t>(cast<int64_t>((tv * cast<int64_t>(32768ULL))),wv));
 }
-auto tmp41 = n64_Machine_sample(m,tile,sFix,tFix);
-n64_rgba texel = std::get<0>(tmp41);
-bool ok = std::get<1>(tmp41);
+auto tmp42 = n64_Machine_sample(m,tile,sFix,tFix);
+n64_rgba texel = std::get<0>(tmp42);
+bool ok = std::get<1>(tmp42);
 if ((!ok)) {
 return ;
 }
-auto tmp42 = std::make_tuple(texel,texel);
-in.Texel0 = std::get<0>(tmp42);
-in.Texel1 = std::get<1>(tmp42);
-auto tmp43 = std::make_tuple(sFix,tFix);
-in.texS = std::get<0>(tmp43);
-in.texT = std::get<1>(tmp43);
+auto tmp43 = std::make_tuple(texel,texel);
+in.Texel0 = std::get<0>(tmp43);
+in.Texel1 = std::get<1>(tmp43);
+auto tmp44 = std::make_tuple(sFix,tFix);
+in.texS = std::get<0>(tmp44);
+in.texT = std::get<1>(tmp44);
 }
 int64_t z = cast<int64_t>(cast<int64_t>(0ULL));
 if (hasZ) {
@@ -7083,7 +7120,7 @@ if (m->rspRunning) {
 return ;
 }
 m->rspRunning = true;
-auto tmp44=defer([&](){[&]()->void{
+auto tmp45=defer([&](){[&]()->void{
 m->rspRunning = false;
 }
 ();});

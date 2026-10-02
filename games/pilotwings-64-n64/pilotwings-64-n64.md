@@ -991,6 +991,29 @@ carries the blur amount** (38 at the rim to 153 at the hub; the tail discs sit a
 feather 17, wing 18, letters 19, "6" 20-21, "4" 22-23; flyby scene — gyro A 17-29+44-45,
 gyro B 30-43+46-47.
 
+### Emulator blending: intro frame trails
+
+The intro's opaque ocean/terrain modes can select framebuffer memory without
+requesting transparency. For example, `OtherModes = 0x182c3f0c182048` enables
+`AA_EN`, `IM_RD`, and `ALPHA_CVG_SEL`, with `FORCE_BL` clear. Blending every such
+pixel used the texture's alpha (including intensity textures) against the old
+framebuffer, producing trails as the camera moved.
+
+The Go renderer and its C++/WASM translation now apply coverage/alpha selection
+before the alpha test and gate blending independently of its memory selectors.
+Fully covered, unforced pixels replace the old colour; `FORCE_BL` retains actual
+transparency, including rotor discs and surf. `CVG_X_ALPHA` can reduce coverage,
+including rejecting zero-coverage cutouts. The existing rasterizer still treats
+all geometrically touched pixels as fully covered. Fractional geometric coverage,
+hidden framebuffer coverage bits, and depth-delta edge blending remain unmodeled;
+alpha-reduced AA edges retain the prior blend approximation.
+
+Regression checks live in `rdp_coverage_test.go` and `coverage-n64.cpp`, covering
+both cycle modes and framebuffer depths. Native intro execution through one
+billion steps preserves CPU/RSP state and RDP command counts at 19 checkpoints;
+visual comparisons show the old-frame trails removed. See Nintendo's
+[blender mode descriptions](https://jrra.zone/n64/doc/pro-man/pro15/15-07.htm).
+
 ## Part VII — animation: from `UVAN` into glTF
 
 `UVAN` gives, per part of a target model, a quaternion at each frame (Part IV). Turning that into a
