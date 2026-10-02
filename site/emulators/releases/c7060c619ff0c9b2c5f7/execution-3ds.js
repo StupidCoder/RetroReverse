@@ -7,7 +7,7 @@ export function create3DSExecution({reference={},experimental=null,onChange=()=>
   const unavailable='Experimental rendering is not available in this build.';
   function snapshot(){return {requested,effective,transition:job?.target??null,busy:!!job,
     cpu:'ARM interpreter',renderer:effective==='reference'?'Software PICA':(engines[effective]?.label??'Experimental'),
-    experimental:{available:!!experimental?.available,reason:experimental?.reason??unavailable}};}
+    graphics:experimental?.stats?.()??null,experimental:{available:!!experimental?.available,reason:experimental?.reason??unavailable}};}
   function publish(){if(!disposed)onChange(snapshot());}
   async function select(target){
     if(disposed)throw Error('3DS execution session ended');

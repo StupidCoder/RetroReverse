@@ -1040,15 +1040,24 @@ func main() {
 					case "n3ds_GPU_Execute":
 						pre = `rrprof::Scope profile(1,"PICA commands / vertex processing");rr3ds::Command command(g->m,"PICA command list",addr,size);`
 					case "n3ds_GPU_fill":
-						pre = `rrprof::Scope profile(2,"PICA software rasterizer");auto graphics=rrgpu::Operation::stencil(g,fb,ls,tv,tris);`
+						pre = `rrprof::Scope profile(2,"PICA software rasterizer");auto graphics=rrgpu::Operation::stencil(g,fb,ls,tv,tris);if(graphics.execute())return;`
 					case "n3ds_Machine_dspTick":
 						pre = `rrprof::Scope profile(4,"DSP HLE mixer");`
 					case "n3ds_Machine_gxMemoryFill":
-						pre = `rrprof::Scope profile(3,"GX memory / display transfers");rr3ds::Command command(m,"GX memory fill",start,value,end,ctl);auto graphics=rrgpu::Operation::fill(m,start,value,end,ctl);`
+						pre = `rrprof::Scope profile(3,"GX memory / display transfers");rr3ds::Command command(m,"GX memory fill",start,value,end,ctl);auto graphics=rrgpu::Operation::fill(m,start,value,end,ctl);if(graphics.execute()){n3ds_GPU_invalidateTextures(m->gpu,graphics.dst,graphics.size);return;}`
 					case "n3ds_Machine_gxTextureCopy":
-						pre = `rrprof::Scope profile(3,"GX memory / display transfers");rr3ds::Command command(m,"GX texture copy",src,dst,size,inDim);auto graphics=rrgpu::Operation::copy(m,src,dst,size,inDim,outDim);`
+						pre = `rrprof::Scope profile(3,"GX memory / display transfers");rr3ds::Command command(m,"GX texture copy",src,dst,size,inDim);auto graphics=rrgpu::Operation::copy(m,src,dst,size,inDim,outDim);if(graphics.execute()){n3ds_GPU_invalidateTextures(m->gpu,graphics.dst,graphics.size);return;}`
 					case "n3ds_Machine_gxDisplayTransfer":
 						pre = `rrprof::Scope profile(3,"GX memory / display transfers");rr3ds::Command command(m,"GX display transfer",src,dst,srcDims,flags);auto graphics=rrgpu::Operation::display(m,src,dst,srcDims,dstDims,flags);`
+					}
+					if name == "n3ds_Machine_gxDisplayTransfer" {
+						marker := "uint32_t tilesPerRow ="
+						i := strings.Index(body, marker)
+						if i < 0 {
+							panic("missing display transfer loop")
+						}
+						body = body[:i] + "if(!graphics.execute()){\n" + body[i:]
+						body = strings.Replace(body, "}m->displayTransfers++;", "}}m->displayTransfers++;", 1)
 					}
 					if name == "n3ds_Machine_gxDisplayTransfer" {
 						i := strings.LastIndex(body, "switch(outFmt)")

@@ -15,11 +15,18 @@ try{
   await page.locator('#open-media').click();await page.locator('#files').setInputFiles(media);await page.locator('#load').click();
   await page.waitForFunction(()=>!document.getElementById('run').disabled,{timeout:120000});
   assert.equal(await page.locator('#execution-mode').isDisabled(),false);
+  assert.equal(await page.locator('#execution-mode option[value=experimental]').isDisabled(),false);
+  await page.locator('#execution-mode').selectOption('experimental');
+  await page.waitForFunction(()=>document.getElementById('execution-note').textContent.includes('WebGPU + software PICA'));
+  await page.locator('#run').click();
+  await page.waitForFunction(()=>document.getElementById('metrics').textContent.startsWith('Running'));
   await page.locator('#execution-mode').selectOption('reference');
-  await page.waitForFunction(()=>!document.getElementById('execution-mode').disabled);
+  await page.waitForFunction(()=>!document.getElementById('execution-mode').disabled&&document.getElementById('execution-note').textContent.includes('Software PICA')&&document.getElementById('metrics').textContent.startsWith('Running'));
+  await page.locator('#pause').click();
+  await page.waitForFunction(()=>document.getElementById('metrics').textContent.startsWith('Paused'));
  }
  const gpu=await page.evaluate(async()=>{if(!navigator.gpu)return {available:false};const a=await navigator.gpu.requestAdapter();return {available:!!a,info:a?{vendor:a.info?.vendor,architecture:a.info?.architecture,device:a.info?.device,description:a.info?.description}:null};});
  assert.deepEqual(errors,[]);
- const report={result:'PASS',browser:await browser.version(),checks:['3DS selector mounts','Reference is default','Unavailable Experimental is disabled','Effective renderer is displayed',...(media?['Cartridge loads','Mode command acknowledged']:[])],gpu};
+ const report={result:'PASS',browser:await browser.version(),checks:['3DS selector mounts','Reference is default','Experimental is disabled before load','Effective renderer is displayed',...(media?['Cartridge loads','Verified WebGPU mode enables','Experimental runs','Switch back to Reference preserves running state','Pause waits for a safe boundary']:[])],gpu};
  if(out)fs.writeFileSync(out,JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));
 }finally{await browser.close();}

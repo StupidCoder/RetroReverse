@@ -10138,7 +10138,7 @@ n3ds_GPU_invalidateTextures(g,fb.colorAddr,cast<uint32_t>((cast<uint32_t>(((((ca
 }
 // tools/platform/n3ds/gpu_raster.go:379:1
 void n3ds_GPU_fill(n3ds_GPU* g,n3ds_fbState* fb,n3ds_lightState* ls,n3ds_tevState* tv,Slice<n3ds_rasterTri> tris){
-rrprof::Scope profile(2,"PICA software rasterizer");auto graphics=rrgpu::Operation::stencil(g,fb,ls,tv,tris);{
+rrprof::Scope profile(2,"PICA software rasterizer");auto graphics=rrgpu::Operation::stencil(g,fb,ls,tv,tris);if(graphics.execute())return;{
 if ((len(tris) == cast<int64_t>(0ULL))) {
 return ;
 }
@@ -12680,7 +12680,7 @@ m->gxLog = append(m->gxLog,r);
 }
 // tools/platform/n3ds/gx.go:93:1
 void n3ds_Machine_gxMemoryFill(n3ds_Machine* m,uint32_t start,uint32_t value,uint32_t end,uint32_t ctl){
-rrprof::Scope profile(3,"GX memory / display transfers");rr3ds::Command command(m,"GX memory fill",start,value,end,ctl);auto graphics=rrgpu::Operation::fill(m,start,value,end,ctl);{
+rrprof::Scope profile(3,"GX memory / display transfers");rr3ds::Command command(m,"GX memory fill",start,value,end,ctl);auto graphics=rrgpu::Operation::fill(m,start,value,end,ctl);if(graphics.execute()){n3ds_GPU_invalidateTextures(m->gpu,graphics.dst,graphics.size);return;}{
 auto tmp276=defer([&](){n3ds_Machine_profEnd(m,cast<int64_t>(4ULL),n3ds_Machine_profStart(m));});
 auto tmp277 = std::make_tuple(n3ds_Machine_gpuAddrToVirt(m,start),n3ds_Machine_gpuAddrToVirt(m,end));
 start = std::get<0>(tmp277);
@@ -12712,7 +12712,7 @@ n3ds_Machine_Write(m,cast<uint32_t>((a + j)),cast<uint8_t>(shr<uint32_t>(value,(
 }
 // tools/platform/n3ds/gx.go:119:1
 void n3ds_Machine_gxTextureCopy(n3ds_Machine* m,uint32_t src,uint32_t dst,uint32_t size,uint32_t inDim,uint32_t outDim){
-rrprof::Scope profile(3,"GX memory / display transfers");rr3ds::Command command(m,"GX texture copy",src,dst,size,inDim);auto graphics=rrgpu::Operation::copy(m,src,dst,size,inDim,outDim);{
+rrprof::Scope profile(3,"GX memory / display transfers");rr3ds::Command command(m,"GX texture copy",src,dst,size,inDim);auto graphics=rrgpu::Operation::copy(m,src,dst,size,inDim,outDim);if(graphics.execute()){n3ds_GPU_invalidateTextures(m->gpu,graphics.dst,graphics.size);return;}{
 auto tmp278=defer([&](){n3ds_Machine_profEnd(m,cast<int64_t>(4ULL),n3ds_Machine_profStart(m));});
 auto tmp279 = std::make_tuple(n3ds_Machine_gpuAddrToVirt(m,src),n3ds_Machine_gpuAddrToVirt(m,dst));
 src = std::get<0>(tmp279);
@@ -12808,6 +12808,7 @@ w = dstW;
 if ((dstH < h)) {
 h = dstH;
 }
+if(!graphics.execute()){
 uint32_t tilesPerRow = divi<uint32_t>(srcW,cast<uint32_t>(8ULL));
 {uint32_t y = cast<uint32_t>(0ULL);for (;(y < h);y++){
 {uint32_t x = cast<uint32_t>(0ULL);for (;(x < w);x++){
@@ -12857,7 +12858,7 @@ break;}
 }}
 }
 }}
-}m->displayTransfers++;
+}}m->displayTransfers++;
 n3ds_xferRecord rec = n3ds_xferRecord{dst,w,h,outFmt,dstBPP,dstW,src,srcW,flip};
 std::string screen = std::string("top",3);
 if ((dstH >= cast<uint32_t>(400ULL))) {

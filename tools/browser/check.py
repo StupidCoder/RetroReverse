@@ -6,7 +6,7 @@ root=Path(__file__).resolve().parents[2];node=os.environ.get('NODE','node');clan
 subprocess.run(['go','test','./tools/knowledge','./tools/cmd/knowledgecheck','./tools/cmd/knowledgeexport','./tools/cmd/knowledgeasset','./tools/cpu/arm60','./tools/cpu/mos6502','./tools/cmd/dis6502export'],cwd=root,check=True)
 subprocess.run(['go','run','./tools/cmd/knowledgeexport','-check','-out','site/emulators/knowledge-data.js','-index','site/knowledge/index.html',*map(str,sorted((root/'games').glob('*/knowledge.json')))],cwd=root,check=True)
 subprocess.run(['go','run','./tools/cmd/dis6502export','-check'],cwd=root,check=True)
-for name in ['graphics-3ds','execution-3ds','core-backend','storage-g64','inspection-feed','storage','prepared-start','viewport-model','experiments','threedo-knowledge','dos-knowledge','tours','structured-state','debug','knowledge','memory','media','dc-media','dos-media','input','state-container','inspector','pacing','ui-shell','tileset','ps1-vram','dc-texture']:
+for name in ['graphics-live-3ds','graphics-3ds','execution-3ds','core-backend','storage-g64','inspection-feed','storage','prepared-start','viewport-model','experiments','threedo-knowledge','dos-knowledge','tours','structured-state','debug','knowledge','memory','media','dc-media','dos-media','input','state-container','inspector','pacing','ui-shell','tileset','ps1-vram','dc-texture']:
  subprocess.run([node,f'tools/browser/tests/{name}.mjs'],cwd=root,check=True)
 for p in (root/'site/emulators').glob('*.js'):
  subprocess.run([node,'--check',str(p)],check=True)

@@ -8,6 +8,7 @@ import {createTourService} from './tour-worker.js';
 import {createDebugService} from './debug-worker.js';
 import {createExecutionGate} from './execution-gate.js';
 import {create3DSExecution} from './execution-3ds.js';
+import {createLive3DSGraphics} from './graphics-live-3ds.js';
 import {identifySingleImage} from './knowledge-model.js';
 import {knowledgePackages} from './knowledge-data.js';
 import {createMemoryService} from './memory-worker.js';
@@ -29,7 +30,7 @@ function mediaHash(file){if(!mediaHashes.has(file))mediaHashes.set(file,sha256Fi
 let cacheReply=null;
 let saving=false,driveDebugService=null,debugService=null,tourService=null,experimentService=null;
 const executionGate=createExecutionGate();
-let execution3DS=null;
+let execution3DS=null,graphics3DS=null,coreInFlight=null;
 function debugActive(){return !!(debugService?.active()||driveDebugService?.active());}
 let memoryService=null,memoryRecording=false,memoryStop=false,memoryBusy=false;
 let coreCapabilities={}, backend='production';
@@ -66,7 +67,7 @@ const sleep = n => n > 0 ? new Promise(r => setTimeout(r, n)) :
   new Promise(r => { yieldQueue.push(r); yieldChannel.port2.postMessage(0); });
 const json = fn => JSON.parse(core.UTF8ToString(core[fn]()));
 const jsonPixel=(x,y)=>JSON.parse(core.UTF8ToString(core._rr_pixel(x,y)));
-const send = (type, data = {}) => postMessage({type, session, ...data}, data.pixels ? [data.pixels] : []);
+const send = (type, data = {}) => postMessage({type, session, ...data}, data.bitmap?[data.bitmap]:data.pixels ? [data.pixels] : []);
 const error = () => core.UTF8ToString(core._rr_error());
 function check(ok) {
   if (!ok)
@@ -93,18 +94,18 @@ function readProfile() {
   return p;
 }
 function paint() {
-  const start = performance.now(), p = core._rr_frame(), s = status();
+  const start = performance.now(), bitmap=graphics3DS?.present(), p=bitmap?0:core._rr_frame(), s = status();
   frames = s.frames;
   const w = platform === 'c64' ? 392 : s.width || 320,
         h = platform === 'c64' ? 272 : s.height || 240,
-        pixels = core.HEAPU8.slice(p, p + w * h * 4);
+        pixels = bitmap?null:core.HEAPU8.slice(p, p + w * h * 4);
   paintMs += performance.now() - start;
   send('state', {
     state : s,
     capabilities:coreCapabilities,backend,execution:execution3DS?.snapshot(),drive:platform==='c64'&&core._rr_drive_debug_snapshot&&s.drive?JSON.parse(core.UTF8ToString(core._rr_drive_debug_snapshot(-1))):null,
     width : w,
     height : h,
-    pixels : pixels.buffer,
+    pixels : pixels?.buffer,bitmap,
     running,
     maxCall,
     runMs,
@@ -147,7 +148,7 @@ function applyInputs() {
   inputSequence = m.sequence;
   lastInputStep = s.steps;
 }
-function tick(one = false) {
+async function tick(one = false) {
   applyInputs();
   const start = performance.now();
   if (platform === 'c64')
@@ -157,7 +158,12 @@ function tick(one = false) {
   else if (platform === 'n64')
     check(core._rr_run(one ? Math.min(10000, 750000 - status().steps % 750000)
                            : 10000) >= 0);
-  else if(platform==='ds'||platform==='3ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='xbox'||platform==='gb'||platform==='gg'||platform==='gba'||platform==='dos'||platform==='amiga')check(core._rr_run(10000)>=0);
+  else if(platform==='3ds'){
+    coreInFlight=core.ccall('rr_run','number',['number'],[10000],{async:true});
+    try{check(await coreInFlight>=0);}finally{coreInFlight=null;}
+    if(graphics3DS?.failed&&execution3DS.snapshot().effective==='experimental'){await execution3DS.select('reference');send('message',{text:'WebGPU stopped; continued safely in Reference. '+graphics3DS.reason});}
+  }
+  else if(platform==='ds'||platform==='psp'||platform==='gc'||platform==='ps2'||platform==='dc'||platform==='xbox'||platform==='gb'||platform==='gg'||platform==='gba'||platform==='dos'||platform==='amiga')check(core._rr_run(10000)>=0);
   else
     check(core._rr_run_slice(10000));
   const ms = performance.now() - start;
@@ -174,7 +180,8 @@ async function pump(id, one = false) {
     const start=performance.now();
     // Always stop at a display boundary, including fast-forward. Sampling the
     // C64's in-progress raster buffer was the source of mixed-frame tearing.
-    do{tick(true);}while(status().frames===boundary&&performance.now()-start<8);
+    do{await tick(true);}while(running&&id===epoch&&status().frames===boundary&&performance.now()-start<8);
+    if(id!==epoch)return;
     const s=status(),complete=s.frames!==boundary,now=performance.now();
     frames=s.frames;
     if(complete){
@@ -205,7 +212,7 @@ async function captureNext(){
    const first=status().frames;
    while(status().frames===first){
      if(id!==epoch)throw Error('Capture cancelled');
-     const start=performance.now();do{tick(true);}while(status().frames===first&&performance.now()-start<8);
+     const start=performance.now();do{await tick(true);}while(id===epoch&&status().frames===first&&performance.now()-start<8);
      if(performance.now()-lastProgress>250){lastProgress=performance.now();send('capture-progress',{text:phase+' '+((performance.now()-began)/1000).toFixed(1)+' s',generation});}
      await sleep(0);
    }
@@ -259,7 +266,7 @@ function rasterSeek(m){
  postMessage({type:'raster-seek',session,capture:capture.id,request:m.request,info,layers,tileset:info.error?null:tilesetSnapshot()},layers);
 }
 async function boot(m) {
-  execution3DS?.dispose();execution3DS=null;
+  execution3DS?.dispose();execution3DS=null;graphics3DS?.dispose();graphics3DS=null;
   const bootBegan=performance.now();
   bootOptions=m;session=m.session;
   const restored=m.stateFile?await unpackState(m.stateFile):null;
@@ -282,6 +289,11 @@ async function boot(m) {
   if(!response.ok)throw Error('Emulator binary download failed');
   const wasmBinary=new Uint8Array(await response.arrayBuffer());
   if(await digest(wasmBinary)!==coreIdentity)throw Error('Emulator build mismatch. Rebuild the development core or reload the matching release.');
+  if(platform==='3ds'){
+    const rendererFiles=['graphics-3ds.js','graphics-live-3ds.js','presentation-3ds.js'];
+    const hashes=await Promise.all(rendererFiles.map(async name=>{const r=await fetch(new URL(name,import.meta.url));if(!r.ok)throw Error('Renderer identity unavailable');return digest(new Uint8Array(await r.arrayBuffer()));}));
+    coreIdentity=await digest(new TextEncoder().encode(JSON.stringify({wasm:coreIdentity,graphics:hashes})));
+  }
   const factory = (await import(assets.module)).default;
   core = await factory({wasmBinary});
   coreCapabilities=core._rr_capabilities?json('_rr_capabilities'):{};
@@ -444,7 +456,7 @@ async function boot(m) {
     });
   }
   loaded = true;
-  if(platform==='3ds')execution3DS=create3DSExecution({onChange:execution=>send('execution-state',{execution})});
+  if(platform==='3ds'){graphics3DS=await createLive3DSGraphics(core);execution3DS=create3DSExecution({reference:graphics3DS.reference,experimental:graphics3DS.experimental,onChange:execution=>send('execution-state',{execution})});}
   paint();
   send('ready', {
     capabilities:coreCapabilities,backend,execution:execution3DS?.snapshot(),
@@ -453,9 +465,11 @@ async function boot(m) {
 }
 onmessage = async ({data : m}) => {
   let ownership=null;
+  let resumeAfterMode=false,modePauseEpoch=null;
   try {
     if(m.type==='prepared-cache-reply'&&m.session===session){cacheReply?.(m.bytes);cacheReply=null;return;}
     if (m.type === 'load') {
+      running=false;++epoch;loaded=false;await coreInFlight;
       await boot(m);
       return;
     }
@@ -492,11 +506,15 @@ onmessage = async ({data : m}) => {
         send(m.type.startsWith('memory-')?'memory-error':'message',{request:m.request,text:'Debugger job is active. Cancel it before another operation.'});return;
       }
     }
-    const playOwner=['run','step'].includes(executionGate.owner);
+    let playOwner=['run','step'].includes(executionGate.owner);
     // These existing controls explicitly pause play before taking ownership.
     if(playOwner&&['pause','hold','cancel-capture','save','capture-render','memory-snapshot','memory-record','execution-mode'].includes(m.type)){
-      running=false;++epoch;executionGate.cancel(['run','step']);
+      resumeAfterMode=m.type==='execution-mode'&&running;
+      running=false;modePauseEpoch=++epoch;await coreInFlight;executionGate.cancel(['run','step']);
+      playOwner=false;
     }
+    // Never enter an exported WASM function while Asyncify holds a continuation.
+    if(coreInFlight&&!['input','turbo'].includes(m.type))await coreInFlight;
     const liveRead=playOwner&&m.type.startsWith('memory-')&&!['memory-record','memory-snapshot'].includes(m.type);
     const exclusive=['run','step','save','seek','capture-render','memory-snapshot','memory-record','memory-live-snapshot','execution-mode'];
     if(executionGate.owner&&!liveRead&&!(playOwner&&m.type==='tape')&&!['input','turbo','pause','hold','memory-stop','cancel-capture','cancel-seek'].includes(m.type)){
@@ -505,7 +523,9 @@ onmessage = async ({data : m}) => {
     if(exclusive.includes(m.type)&&!liveRead)ownership=executionGate.acquire(m.type);
     if(m.type==='execution-mode'){
       if(!execution3DS)throw Error('Execution modes are unavailable for this console');
-      cancelCapture();await execution3DS.select(m.mode);paint();return;
+      cancelCapture();await execution3DS.select(m.mode);
+      if(resumeAfterMode&&modePauseEpoch===epoch){executionGate.release(ownership);ownership=executionGate.acquire('run');running=true;await pump(++epoch);}
+      else paint();return;
     }
     if(saving&&!['input','turbo','hold'].includes(m.type)){send('message',{text:'Finishing the state save…'});return;}
     if(m.type==='memory-stop'){memoryStop=true;return;}
@@ -573,7 +593,7 @@ async function memoryRequest(m){
    const start=time(status()),duration=Math.max(.01,Math.min(5,Number(m.duration)||1));
    let last=0;
    while(!memoryStop&&time(status())-start<duration&&core._rr_activity_count()<524288){
-    tick();const now=performance.now();if(now-last>100){send('memory-progress',{text:`Recording ${(time(status())-start).toFixed(2)} seconds · ${core._rr_activity_count().toLocaleString()} accesses`});last=now;}await sleep(0);
+    await tick();const now=performance.now();if(now-last>100){send('memory-progress',{text:`Recording ${(time(status())-start).toFixed(2)} seconds · ${core._rr_activity_count().toLocaleString()} accesses`});last=now;}await sleep(0);
    }
    respond(memoryService.finish());paint();return;
   }

@@ -1,0 +1,24 @@
+{
+  "result": "PASS",
+  "browser": "154.0.8037.93",
+  "checks": [
+    "3DS selector mounts",
+    "Reference is default",
+    "Experimental is disabled before load",
+    "Effective renderer is displayed",
+    "Cartridge loads",
+    "Verified WebGPU mode enables",
+    "Experimental runs",
+    "Switch back to Reference preserves running state",
+    "Pause waits for a safe boundary"
+  ],
+  "gpu": {
+    "available": true,
+    "info": {
+      "vendor": "apple",
+      "architecture": "metal-3",
+      "device": "",
+      "description": ""
+    }
+  }
+}

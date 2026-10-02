@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "fields": 6,
+  "reference": {
+    "ms": 1837.300000011921,
+    "state": "3a3ace34ce219ad53bb8282c913f252d790e514d07726974084e2a8cf4245d63",
+    "bytes": 76647678,
+    "presentationDifferences": null,
+    "operations": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "accelerated": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "gpuHostMs": 0,
+    "allocatedBytes": 82016
+  },
+  "experimental": {
+    "ms": 1600.300000011921,
+    "state": "3a3ace34ce219ad53bb8282c913f252d790e514d07726974084e2a8cf4245d63",
+    "bytes": 76647678,
+    "presentationDifferences": 0,
+    "operations": [
+      18,
+      0,
+      9,
+      420
+    ],
+    "accelerated": [
+      18,
+      0,
+      9,
+      0
+    ],
+    "gpuHostMs": 33.89999997615814,
+    "allocatedBytes": 2162784
+  },
+  "delayed": {
+    "ms": 1707.300000011921,
+    "state": "3a3ace34ce219ad53bb8282c913f252d790e514d07726974084e2a8cf4245d63",
+    "bytes": 76647678,
+    "presentationDifferences": 0,
+    "operations": [
+      18,
+      0,
+      9,
+      420
+    ],
+    "accelerated": [
+      18,
+      0,
+      9,
+      0
+    ],
+    "gpuHostMs": 32.39999985694885,
+    "allocatedBytes": 2687072
+  },
+  "mode": "reference",
+  "result": "PASS",
+  "browser": "154.0.8037.93"
+}
