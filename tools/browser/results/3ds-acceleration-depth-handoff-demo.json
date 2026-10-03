@@ -1,0 +1,792 @@
+{
+  "schema": 1,
+  "fields": 520,
+  "captureMode": "none",
+  "requiredKind": 7,
+  "trials": [
+    {
+      "mixed": false,
+      "fields": 520,
+      "switches": 0,
+      "ms": 163441.69999998808,
+      "checkpoints": [
+        {
+          "interval": 50,
+          "state": "84aad1f05959b2fc2789ccd8aba4f265e994e05b07dd68fa1f27770bc51e9de1",
+          "pixels": "489c4bf2e0b170dab6dc6100137e65127987587f0269f9b814aca366e241074c",
+          "bytes": 76580825,
+          "status": {
+            "steps": 4327470418,
+            "frames": 941,
+            "inputSeconds": 16.1405,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 68372
+          }
+        },
+        {
+          "interval": 100,
+          "state": "1533555c3687cb21578381edd22a64ca04024c3c744530bf4e823ba010a129e2",
+          "pixels": "6fc914d8f69034629d2b8a6cfc2e9ba75141f6a493c297560dd630af391a3a2b",
+          "bytes": 76637414,
+          "status": {
+            "steps": 4550899315,
+            "frames": 991,
+            "inputSeconds": 16.9739,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 71377
+          }
+        },
+        {
+          "interval": 150,
+          "state": "e70daa3819bf7d999e97694981291f85c2c8c14f43b16bc9904cd3f90c237911",
+          "pixels": "2256d101bf557d4b34095bfcea5f63bffcc0419433ebc7705d31be9d4917c84c",
+          "bytes": 76675714,
+          "status": {
+            "steps": 4774325815,
+            "frames": 1041,
+            "inputSeconds": 17.8072,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 74602
+          }
+        },
+        {
+          "interval": 200,
+          "state": "d4392cd266db02037451594e254ef536571f280d7843ff93457560e4f4c4b572",
+          "pixels": "b5ba13320114cda32ac8adc21527359344876dfed62801472b3177b5b561be1c",
+          "bytes": 76714014,
+          "status": {
+            "steps": 4997752315,
+            "frames": 1091,
+            "inputSeconds": 18.6406,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 77827
+          }
+        },
+        {
+          "interval": 250,
+          "state": "c04d82a9a13ac492cea46a70509813280fc7acd33f26aef3f569a52263fd1101",
+          "pixels": "2256d101bf557d4b34095bfcea5f63bffcc0419433ebc7705d31be9d4917c84c",
+          "bytes": 76752314,
+          "status": {
+            "steps": 5221178815,
+            "frames": 1141,
+            "inputSeconds": 19.4739,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 81052
+          }
+        },
+        {
+          "interval": 300,
+          "state": "3ba663317a83806b021596783d21068d1be5601a66b94538eda10beb21d21ba0",
+          "pixels": "b5ba13320114cda32ac8adc21527359344876dfed62801472b3177b5b561be1c",
+          "bytes": 76790614,
+          "status": {
+            "steps": 5444605315,
+            "frames": 1191,
+            "inputSeconds": 20.3072,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 84277
+          }
+        },
+        {
+          "interval": 350,
+          "state": "fad16d4d65430cf1f25c813bef8fcfec19dd76b8f4c25b2e9b67c8c65634c58c",
+          "pixels": "2256d101bf557d4b34095bfcea5f63bffcc0419433ebc7705d31be9d4917c84c",
+          "bytes": 76828914,
+          "status": {
+            "steps": 5668031815,
+            "frames": 1241,
+            "inputSeconds": 21.1406,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 87502
+          }
+        },
+        {
+          "interval": 400,
+          "state": "26cc1c219ff6f113e8ba79f1366c5493489ac2eafc6a4a4f2189d31e8e153371",
+          "pixels": "48dadd6cd67d6f9296681992031ea94250bac89e0b29280613b2904d467afc5c",
+          "bytes": 76867214,
+          "status": {
+            "steps": 5891458315,
+            "frames": 1291,
+            "inputSeconds": 21.9739,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 90727
+          }
+        },
+        {
+          "interval": 450,
+          "state": "7736bbc83d5745483af93683d0d6c8de68baab1c03e0ecfe036c681265b2c1e5",
+          "pixels": "2256d101bf557d4b34095bfcea5f63bffcc0419433ebc7705d31be9d4917c84c",
+          "bytes": 76905514,
+          "status": {
+            "steps": 6114884815,
+            "frames": 1341,
+            "inputSeconds": 22.8072,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 93952
+          }
+        },
+        {
+          "interval": 500,
+          "state": "71721518a07c2ce1733eb796649d4404a8cc7bcc590c568a8c6ff2e96ff80c58",
+          "pixels": "b5ba13320114cda32ac8adc21527359344876dfed62801472b3177b5b561be1c",
+          "bytes": 76943814,
+          "status": {
+            "steps": 6338311315,
+            "frames": 1391,
+            "inputSeconds": 23.6406,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 97177
+          }
+        },
+        {
+          "interval": 520,
+          "state": "80d75cace62cc60e9014c0ff9e573ce397a7e67f881ce1667b7edd17afda0f4a",
+          "pixels": "b5ba13320114cda32ac8adc21527359344876dfed62801472b3177b5b561be1c",
+          "bytes": 76959134,
+          "status": {
+            "steps": 6427681915,
+            "frames": 1411,
+            "inputSeconds": 23.9739,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 98467
+          }
+        }
+      ],
+      "captures": [],
+      "memory": [
+        {
+          "interval": 50,
+          "regions": 22
+        },
+        {
+          "interval": 100,
+          "regions": 22
+        },
+        {
+          "interval": 150,
+          "regions": 22
+        },
+        {
+          "interval": 200,
+          "regions": 22
+        },
+        {
+          "interval": 250,
+          "regions": 22
+        },
+        {
+          "interval": 300,
+          "regions": 22
+        },
+        {
+          "interval": 350,
+          "regions": 22
+        },
+        {
+          "interval": 400,
+          "regions": 22
+        },
+        {
+          "interval": 450,
+          "regions": 22
+        },
+        {
+          "interval": 500,
+          "regions": 22
+        },
+        {
+          "interval": 520,
+          "regions": 22
+        }
+      ],
+      "allocations": [
+        {
+          "interval": 50,
+          "wasm": 1356005376,
+          "gpu": 98392,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "supportedKinds": {}
+        },
+        {
+          "interval": 100,
+          "wasm": 1356005376,
+          "gpu": 98392,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "supportedKinds": {}
+        },
+        {
+          "interval": 150,
+          "wasm": 1356005376,
+          "gpu": 98392,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "supportedKinds": {}
+        },
+        {
+          "interval": 200,
+          "wasm": 1356005376,
+          "gpu": 98392,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "supportedKinds": {}
+        },
+        {
+          "interval": 250,
+          "wasm": 1356005376,
+          "gpu": 98392,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "supportedKinds": {}
+        },
+        {
+          "interval": 300,
+          "wasm": 1356005376,
+          "gpu": 98392,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "supportedKinds": {}
+        },
+        {
+          "interval": 350,
+          "wasm": 1356005376,
+          "gpu": 98392,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "supportedKinds": {}
+        },
+        {
+          "interval": 400,
+          "wasm": 1356005376,
+          "gpu": 98392,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "supportedKinds": {}
+        },
+        {
+          "interval": 450,
+          "wasm": 1356005376,
+          "gpu": 98392,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "supportedKinds": {}
+        },
+        {
+          "interval": 500,
+          "wasm": 1356005376,
+          "gpu": 98392,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "supportedKinds": {}
+        },
+        {
+          "interval": 520,
+          "wasm": 1356005376,
+          "gpu": 98392,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "supportedKinds": {}
+        }
+      ],
+      "supportedKinds": {},
+      "accelerated": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "mixed": true,
+      "fields": 520,
+      "switches": 270,
+      "ms": 106812.5,
+      "checkpoints": [
+        {
+          "interval": 50,
+          "state": "84aad1f05959b2fc2789ccd8aba4f265e994e05b07dd68fa1f27770bc51e9de1",
+          "pixels": "489c4bf2e0b170dab6dc6100137e65127987587f0269f9b814aca366e241074c",
+          "bytes": 76580825,
+          "status": {
+            "steps": 4327470418,
+            "frames": 941,
+            "inputSeconds": 16.1405,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 68372
+          }
+        },
+        {
+          "interval": 100,
+          "state": "1533555c3687cb21578381edd22a64ca04024c3c744530bf4e823ba010a129e2",
+          "pixels": "6fc914d8f69034629d2b8a6cfc2e9ba75141f6a493c297560dd630af391a3a2b",
+          "bytes": 76637414,
+          "status": {
+            "steps": 4550899315,
+            "frames": 991,
+            "inputSeconds": 16.9739,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 71377
+          }
+        },
+        {
+          "interval": 150,
+          "state": "e70daa3819bf7d999e97694981291f85c2c8c14f43b16bc9904cd3f90c237911",
+          "pixels": "2256d101bf557d4b34095bfcea5f63bffcc0419433ebc7705d31be9d4917c84c",
+          "bytes": 76675714,
+          "status": {
+            "steps": 4774325815,
+            "frames": 1041,
+            "inputSeconds": 17.8072,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 74602
+          }
+        },
+        {
+          "interval": 200,
+          "state": "d4392cd266db02037451594e254ef536571f280d7843ff93457560e4f4c4b572",
+          "pixels": "b5ba13320114cda32ac8adc21527359344876dfed62801472b3177b5b561be1c",
+          "bytes": 76714014,
+          "status": {
+            "steps": 4997752315,
+            "frames": 1091,
+            "inputSeconds": 18.6406,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 77827
+          }
+        },
+        {
+          "interval": 250,
+          "state": "c04d82a9a13ac492cea46a70509813280fc7acd33f26aef3f569a52263fd1101",
+          "pixels": "2256d101bf557d4b34095bfcea5f63bffcc0419433ebc7705d31be9d4917c84c",
+          "bytes": 76752314,
+          "status": {
+            "steps": 5221178815,
+            "frames": 1141,
+            "inputSeconds": 19.4739,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 81052
+          }
+        },
+        {
+          "interval": 300,
+          "state": "3ba663317a83806b021596783d21068d1be5601a66b94538eda10beb21d21ba0",
+          "pixels": "b5ba13320114cda32ac8adc21527359344876dfed62801472b3177b5b561be1c",
+          "bytes": 76790614,
+          "status": {
+            "steps": 5444605315,
+            "frames": 1191,
+            "inputSeconds": 20.3072,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 84277
+          }
+        },
+        {
+          "interval": 350,
+          "state": "fad16d4d65430cf1f25c813bef8fcfec19dd76b8f4c25b2e9b67c8c65634c58c",
+          "pixels": "2256d101bf557d4b34095bfcea5f63bffcc0419433ebc7705d31be9d4917c84c",
+          "bytes": 76828914,
+          "status": {
+            "steps": 5668031815,
+            "frames": 1241,
+            "inputSeconds": 21.1406,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 87502
+          }
+        },
+        {
+          "interval": 400,
+          "state": "26cc1c219ff6f113e8ba79f1366c5493489ac2eafc6a4a4f2189d31e8e153371",
+          "pixels": "48dadd6cd67d6f9296681992031ea94250bac89e0b29280613b2904d467afc5c",
+          "bytes": 76867214,
+          "status": {
+            "steps": 5891458315,
+            "frames": 1291,
+            "inputSeconds": 21.9739,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 90727
+          }
+        },
+        {
+          "interval": 450,
+          "state": "7736bbc83d5745483af93683d0d6c8de68baab1c03e0ecfe036c681265b2c1e5",
+          "pixels": "2256d101bf557d4b34095bfcea5f63bffcc0419433ebc7705d31be9d4917c84c",
+          "bytes": 76905514,
+          "status": {
+            "steps": 6114884815,
+            "frames": 1341,
+            "inputSeconds": 22.8072,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 93952
+          }
+        },
+        {
+          "interval": 500,
+          "state": "71721518a07c2ce1733eb796649d4404a8cc7bcc590c568a8c6ff2e96ff80c58",
+          "pixels": "b5ba13320114cda32ac8adc21527359344876dfed62801472b3177b5b561be1c",
+          "bytes": 76943814,
+          "status": {
+            "steps": 6338311315,
+            "frames": 1391,
+            "inputSeconds": 23.6406,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 97177
+          }
+        },
+        {
+          "interval": 520,
+          "state": "80d75cace62cc60e9014c0ff9e573ce397a7e67f881ce1667b7edd17afda0f4a",
+          "pixels": "b5ba13320114cda32ac8adc21527359344876dfed62801472b3177b5b561be1c",
+          "bytes": 76959134,
+          "status": {
+            "steps": 6427681915,
+            "frames": 1411,
+            "inputSeconds": 23.9739,
+            "pc": 2669488,
+            "width": 400,
+            "height": 480,
+            "draws": 98467
+          }
+        }
+      ],
+      "captures": [],
+      "memory": [
+        {
+          "interval": 50,
+          "regions": 22
+        },
+        {
+          "interval": 100,
+          "regions": 22
+        },
+        {
+          "interval": 150,
+          "regions": 22
+        },
+        {
+          "interval": 200,
+          "regions": 22
+        },
+        {
+          "interval": 250,
+          "regions": 22
+        },
+        {
+          "interval": 300,
+          "regions": 22
+        },
+        {
+          "interval": 350,
+          "regions": 22
+        },
+        {
+          "interval": 400,
+          "regions": 22
+        },
+        {
+          "interval": 450,
+          "regions": 22
+        },
+        {
+          "interval": 500,
+          "regions": 22
+        },
+        {
+          "interval": 520,
+          "regions": 22
+        }
+      ],
+      "allocations": [
+        {
+          "interval": 50,
+          "wasm": 1356005376,
+          "gpu": 4259928,
+          "accelerated": [
+            78,
+            0,
+            39,
+            619
+          ],
+          "supportedKinds": {
+            "1": 78,
+            "3": 39,
+            "6": 569,
+            "7": 50
+          }
+        },
+        {
+          "interval": 100,
+          "wasm": 1356005376,
+          "gpu": 4259928,
+          "accelerated": [
+            146,
+            0,
+            73,
+            1281
+          ],
+          "supportedKinds": {
+            "1": 146,
+            "3": 73,
+            "6": 1231,
+            "7": 50
+          }
+        },
+        {
+          "interval": 150,
+          "wasm": 1356005376,
+          "gpu": 4259928,
+          "accelerated": [
+            224,
+            0,
+            112,
+            2048
+          ],
+          "supportedKinds": {
+            "1": 224,
+            "3": 112,
+            "6": 1998,
+            "7": 50
+          }
+        },
+        {
+          "interval": 200,
+          "wasm": 1356005376,
+          "gpu": 4259928,
+          "accelerated": [
+            296,
+            0,
+            148,
+            2756
+          ],
+          "supportedKinds": {
+            "1": 296,
+            "3": 148,
+            "6": 2706,
+            "7": 50
+          }
+        },
+        {
+          "interval": 250,
+          "wasm": 1356005376,
+          "gpu": 4259928,
+          "accelerated": [
+            374,
+            0,
+            187,
+            3523
+          ],
+          "supportedKinds": {
+            "1": 374,
+            "3": 187,
+            "6": 3473,
+            "7": 50
+          }
+        },
+        {
+          "interval": 300,
+          "wasm": 1356005376,
+          "gpu": 4259928,
+          "accelerated": [
+            446,
+            0,
+            223,
+            4231
+          ],
+          "supportedKinds": {
+            "1": 446,
+            "3": 223,
+            "6": 4181,
+            "7": 50
+          }
+        },
+        {
+          "interval": 350,
+          "wasm": 1356005376,
+          "gpu": 4259928,
+          "accelerated": [
+            524,
+            0,
+            262,
+            4998
+          ],
+          "supportedKinds": {
+            "1": 524,
+            "3": 262,
+            "6": 4948,
+            "7": 50
+          }
+        },
+        {
+          "interval": 400,
+          "wasm": 1356005376,
+          "gpu": 4259928,
+          "accelerated": [
+            596,
+            0,
+            298,
+            5706
+          ],
+          "supportedKinds": {
+            "1": 596,
+            "3": 298,
+            "6": 5656,
+            "7": 50
+          }
+        },
+        {
+          "interval": 450,
+          "wasm": 1356005376,
+          "gpu": 4259928,
+          "accelerated": [
+            674,
+            0,
+            337,
+            6473
+          ],
+          "supportedKinds": {
+            "1": 674,
+            "3": 337,
+            "6": 6423,
+            "7": 50
+          }
+        },
+        {
+          "interval": 500,
+          "wasm": 1356005376,
+          "gpu": 4259928,
+          "accelerated": [
+            746,
+            0,
+            373,
+            7181
+          ],
+          "supportedKinds": {
+            "1": 746,
+            "3": 373,
+            "6": 7131,
+            "7": 50
+          }
+        },
+        {
+          "interval": 520,
+          "wasm": 1356005376,
+          "gpu": 4259928,
+          "accelerated": [
+            776,
+            0,
+            388,
+            7476
+          ],
+          "supportedKinds": {
+            "1": 776,
+            "3": 388,
+            "6": 7426,
+            "7": 50
+          }
+        }
+      ],
+      "supportedKinds": {
+        "1": 776,
+        "3": 388,
+        "6": 7426,
+        "7": 50
+      },
+      "accelerated": [
+        776,
+        0,
+        388,
+        7476
+      ]
+    }
+  ],
+  "result": "PASS",
+  "browser": "154.0.8037.93"
+}

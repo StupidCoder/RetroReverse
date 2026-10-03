@@ -5,7 +5,7 @@ const [media,checkpoint,out]=process.argv.slice(2),browser=await chromium.launch
 try{
  const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('http://127.0.0.1:8790/tools/browser/tests/graphics-live-3ds.html');await page.locator('#media').setInputFiles(media);await page.locator('#checkpoint').setInputFiles(checkpoint);
- const result=await page.evaluate(async()=>{
+ const result=await page.evaluate(async({faultKind,idleInput})=>{
   const {default:factory}=await import('/tools/platform/n3ds/browser/web/core.js');
   const {create3DSGraphics}=await import('/site/emulators/graphics-3ds.js');
   const {createLive3DSGraphics}=await import('/site/emulators/graphics-live-3ds.js');
@@ -20,9 +20,10 @@ try{
     const gpu=await create3DSGraphics(options),execute=gpu.execute.bind(gpu);
     gpu.execute=packet=>{
      calls++;
-     if(calls===4&&fault==='timeout'){injected=true;return new Promise(()=>{});}
+     const trigger=faultKind?packet.kind===faultKind&&!injected:calls===4;
+     if(trigger&&fault==='timeout'){injected=true;return new Promise(()=>{});}
      const pending=execute(packet);
-     if(calls===4&&fault==='device-loss'){injected=true;gpu.destroy();}
+     if(trigger&&fault==='device-loss'){injected=true;gpu.destroy();}
      return fault==='delayed'&&calls>1?pending.then(async r=>{await new Promise(resolve=>setTimeout(resolve,3));return r;}):pending;
     };return gpu;
    }});
@@ -32,7 +33,7 @@ try{
     if(fault!=='reference')await execution.select('experimental');
     const frame=JSON.parse(core.UTF8ToString(core._rr_status())).frames;
     for(let i=0;i<6;i++){
-     core._rr_pad(i%2,20,0);core._rr_touch(160,120,i%2);
+     core._rr_pad(idleInput?0:i%2,idleInput?0:20,0);core._rr_touch(160,120,idleInput?0:i%2);
      while(JSON.parse(core.UTF8ToString(core._rr_status())).frames<frame+i+1){
       check(await core.ccall('rr_run','number',['number'],[10000],{async:true})>=0);
       if(backend.failed)await execution.select('reference');
@@ -43,8 +44,8 @@ try{
     trials.push({fault,state,pixels,injected,failed:backend.failed,reason:backend.reason,mode:execution.snapshot().effective,stats:backend.stats()});
    }finally{backend.dispose();}
   }
-  return {schema:1,trials};
- });
+  return {schema:1,faultKind,idleInput,trials};
+ },{faultKind:Number(process.env.FAULT_KIND||0),idleInput:process.env.IDLE_INPUT==='1'});
  assert.deepEqual(errors,[]);const baseline=result.trials[0];
  for(const t of result.trials){assert.equal(t.state,baseline.state);assert.equal(t.pixels,baseline.pixels);if(['device-loss','timeout'].includes(t.fault)){assert(t.injected&&t.failed);assert.equal(t.mode,'reference');assert(t.stats.accelerated.some(n=>n>0));if(t.stats.timestamps)assert(t.stats.timing.gpuSamples>0,'Fault path did not exercise timestamp readback');}}
  result.result='PASS';result.browser=await browser.version();fs.writeFileSync(out,JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify({result:'PASS',faults:result.trials.map(t=>t.fault)}));

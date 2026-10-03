@@ -1,0 +1,20 @@
+{
+  "result": "PASS",
+  "browser": "154.0.8037.93",
+  "checks": [
+    "Reference default",
+    "Experimental live GPU draws",
+    "On-demand GPU timestamps without pausing play",
+    "Pause boundary",
+    "Reference Render capture with complete replay and pixel evidence",
+    "Play preference retained",
+    "Resume Experimental",
+    "Memory Reference handoff",
+    "Preference saved and restored",
+    "Pause cancels automatic mode-switch resume",
+    "Capture cancellation releases ownership",
+    "Reference frame stepping",
+    "Reset defaults to Reference",
+    "Saved Experimental preference loads in Reference without WebGPU"
+  ]
+}

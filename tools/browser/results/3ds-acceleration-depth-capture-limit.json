@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "result": "KNOWN_REFERENCE_LIMIT",
+  "checkpoint": "209cfe5136d39d95b2686cc42d6a99c34f6d0b791b623bebbc13daa8350e2eb0",
+  "captureStartInterval": 41,
+  "captureIntervals": 3,
+  "testedBeforeExperimental": true,
+  "runs": [
+    {
+      "release": "680f5367cab4ac6c7c94",
+      "capture": {
+        "events": 174106,
+        "writes": 8388608,
+        "overflow": 2420022,
+        "bytes": 826025491
+      }
+    },
+    {
+      "release": "b4779c68be943cc1615f",
+      "capture": {
+        "events": 174106,
+        "writes": 8388608,
+        "overflow": 2420022,
+        "bytes": 826025491
+      }
+    }
+  ],
+  "followup": {
+    "operation": "state save after retaining the overflowing trace and performing replay inspection",
+    "baselineReturnedZero": true,
+    "prototypeReturnedZero": true,
+    "cause": "Not isolated; both runs fail in Reference before Experimental execution."
+  }
+}

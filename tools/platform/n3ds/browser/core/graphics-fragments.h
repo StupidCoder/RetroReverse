@@ -9,7 +9,7 @@ inline uint32_t rgba(n3ds_rgba c){return uint32_t(c.r)|(uint32_t(c.g)<<8)|(uint3
 namespace rrgpu {
 inline Operation Operation::fragments(n3ds_GPU*g,n3ds_fbState*fb,n3ds_lightState*ls,n3ds_tevState*tv,Slice<n3ds_rasterTri>tris){
  Operation o;auto m=g->m;
- if((!enabled&&!recording)||m->OnRead||m->OnWrite||m->OnPixel||m->HidTrace||m->Profile||ls->enabled||fb->shadowMode||fb->depthTest||fb->depthWr||(g->Regs[0x105]&1)||!tris.n||tris.n>1024||!fb->width||!fb->height||fb->width>1024||fb->height>1024||fb->width%8||fb->height%8)return o;
+ if((!enabled&&!recording)||m->OnRead||m->OnWrite||m->OnPixel||m->HidTrace||m->Profile||ls->enabled||fb->shadowMode||(g->Regs[0x105]&1)||!tris.n||tris.n>1024||!fb->width||!fb->height||fb->width>1024||fb->height>1024||fb->width%8||fb->height%8)return o;
  uint32_t blend=g->Regs[0x101];if(g->Regs[0x100]&256){if((blend&7)>4||((blend>>8)&7)>4)return o;for(int s=16;s<=28;s+=4)if(((blend>>s)&15)>14)return o;}
  if(!std::get<1>(n3ds_tevState_run(tv,{},{},{},{})))return o;
  // Shadow sampling changes canonical counters; it remains in Reference.
@@ -31,6 +31,7 @@ inline Operation Operation::fragments(n3ds_GPU*g,n3ds_fbState*fb,n3ds_lightState
  // Preparation is bounded and speculative. A fallback has committed no writes.
  if(work<4096||uint64_t(pixels)*4+work*20>16u*1024*1024)return o;
  auto gpuRaster=raster(g,fb,tv,tris,work);if(gpuRaster.target)return gpuRaster;
+ if(fb->depthTest)return o; // The CPU-prepared fragment tail has no depth buffer.
  rrprof::Scope preparation(6,"PICA coverage / sampling / GPU inputs");
  std::vector<uint32_t> data(pixels,UINT32_MAX),tails(pixels,UINT32_MAX);data.reserve(pixels+work*5);
  for(auto&t:tris){auto&a=t.v0;auto&b=t.v1;auto&c=t.v2;

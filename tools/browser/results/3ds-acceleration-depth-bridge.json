@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "result": "PASS",
+  "validation": "Recorded Reference responses, not GPU execution",
+  "fields": 2,
+  "checkpoint": "209cfe5136d39d95b2686cc42d6a99c34f6d0b791b623bebbc13daa8350e2eb0",
+  "reference": "d6816dec8f021b2f79feeda0b0a83fcc924fb5783d9a33482c9ef535badb4cbd",
+  "records": 52,
+  "results": [
+    {
+      "mode": "valid",
+      "operations": 52,
+      "depthOperations": 2,
+      "state": "d6816dec8f021b2f79feeda0b0a83fcc924fb5783d9a33482c9ef535badb4cbd"
+    },
+    {
+      "mode": "short-result",
+      "operations": 52,
+      "depthOperations": 2,
+      "state": "d6816dec8f021b2f79feeda0b0a83fcc924fb5783d9a33482c9ef535badb4cbd"
+    },
+    {
+      "mode": "missing-depth-counter",
+      "operations": 52,
+      "depthOperations": 2,
+      "state": "d6816dec8f021b2f79feeda0b0a83fcc924fb5783d9a33482c9ef535badb4cbd"
+    },
+    {
+      "mode": "negative-depth-counter",
+      "operations": 52,
+      "depthOperations": 2,
+      "state": "d6816dec8f021b2f79feeda0b0a83fcc924fb5783d9a33482c9ef535badb4cbd"
+    },
+    {
+      "mode": "excess-depth-counter",
+      "operations": 52,
+      "depthOperations": 2,
+      "state": "d6816dec8f021b2f79feeda0b0a83fcc924fb5783d9a33482c9ef535badb4cbd"
+    },
+    {
+      "mode": "excess-combined-counters",
+      "operations": 52,
+      "depthOperations": 2,
+      "state": "d6816dec8f021b2f79feeda0b0a83fcc924fb5783d9a33482c9ef535badb4cbd"
+    },
+    {
+      "mode": "fractional-depth-counter",
+      "operations": 52,
+      "depthOperations": 2,
+      "state": "d6816dec8f021b2f79feeda0b0a83fcc924fb5783d9a33482c9ef535badb4cbd"
+    },
+    {
+      "mode": "nonfinite-depth-counter",
+      "operations": 52,
+      "depthOperations": 2,
+      "state": "d6816dec8f021b2f79feeda0b0a83fcc924fb5783d9a33482c9ef535badb4cbd"
+    },
+    {
+      "mode": "rejected",
+      "operations": 52,
+      "depthOperations": 2,
+      "state": "d6816dec8f021b2f79feeda0b0a83fcc924fb5783d9a33482c9ef535badb4cbd"
+    },
+    {
+      "mode": "throw",
+      "operations": 52,
+      "depthOperations": 2,
+      "state": "d6816dec8f021b2f79feeda0b0a83fcc924fb5783d9a33482c9ef535badb4cbd"
+    }
+  ]
+}

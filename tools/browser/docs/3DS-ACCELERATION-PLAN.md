@@ -24,6 +24,10 @@ handoffs, reference inspection, UI behavior and device-loss recovery. Each
 milestone is validated, committed and pushed to `main` separately.
 The subsequent [GPU rasterizer](3DS-ACCELERATION-RASTER.md) moves coverage,
 interpolation and sampling to compute shaders in response to the mobile profile.
+The [unlit depth extension](3DS-ACCELERATION-DEPTH.md), selected from the
+animated-title fallback census, adds exact depth comparisons and paired
+color/depth commits. Its acceptance evidence distinguishes complete captures
+from the existing dense-scene trace limit.
 Keep the default reference mode usable at every milestone.
 
 ## Product decision

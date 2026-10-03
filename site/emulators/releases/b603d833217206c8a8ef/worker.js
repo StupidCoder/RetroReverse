@@ -480,6 +480,8 @@ onmessage = async ({data : m}) => {
     }
     if (m.session !== session || !loaded)
       return;
+    // Host-only profiling policy is safe even while Asyncify owns guest state.
+    if(m.type==='graphics-timing'){graphics3DS?.measureTiming(!!m.enabled);return;}
     if(execution3DS?.snapshot().busy&&['pause','hold'].includes(m.type))execution3DS.cancel();
     if(m.type==='capture-render'&&coreCapabilities.renderCapture===false){send('message',{text:'Rendering capture is not available in this development core.'});return;}
     if(m.type.startsWith('experiment-')){if(experimentService)await experimentService.request(m);else send('experiment-rejected',{generation:session,request:m.request,text:'Experiments are unavailable for this core.'});return;}

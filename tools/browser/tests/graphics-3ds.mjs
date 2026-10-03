@@ -3,7 +3,7 @@ import {decodeGraphicsStream,transferSupport} from '../../../site/emulators/grap
 assert.throws(()=>decodeGraphicsStream(new Uint8Array(8)),/Unknown/);
 const header=new Uint32Array([0x50475252,1]);assert.deepEqual(decodeGraphicsStream(header.buffer),[]);
 const bad=new Uint32Array([0x50475252,1,32,1,9999,0,0,0,0,0]);assert.throws(()=>decodeGraphicsStream(bad.buffer),/Invalid/);
-assert.match(transferSupport({kind:7}),/Unsupported/);
+assert.match(transferSupport({kind:8}),/Unsupported/);
 const packet={kind:2,params:[128,128,0,128,0,1],input:new Uint8Array(128),before:new Uint8Array(128)};
 assert.match(transferSupport(packet),/Overlapping/);packet.params[5]=0;assert.equal(transferSupport(packet),null);
 packet.params[1]=0;assert.match(transferSupport(packet),/Invalid/);
@@ -32,3 +32,18 @@ rasterParams[9]=65;assert.match(transferSupport(raster),/workload/);rasterParams
 rasterParams[38]=1;rasterParams[39]=47;rasterParams[40]=8;rasterParams[41]=8;assert.match(transferSupport(raster),/texture/);
 rasterParams[40]=0;rasterParams[41]=0;assert.equal(transferSupport(raster),null);
 console.log('3DS raster validation rejects malformed bins, float inputs, workload and texture ranges');
+
+const depthParams=[...rasterParams.slice(0,51),0x57,0x3f800000,0,0,0xffffffff,0];
+depthParams[38]=0;depthParams.fill(0,39,51);
+const depthData=new Uint32Array(50),depthFloats=new Float32Array(depthData.buffer);
+depthData.set([49,1,0,8,0,8]);depthFloats[6]=64;depthData[49]=2;
+for(let v=0;v<3;v++){depthData.set(rasterData.subarray(7+v*13,20+v*13),7+v*14);depthFloats[20+v*14]=.5;}
+const depth={kind:7,params:depthParams,input:new Uint8Array(depthData.buffer),before:new Uint8Array(512)};
+assert.equal(transferSupport(depth),null);
+depthParams[51]|=8;assert.match(transferSupport(depth),/depth metadata/);depthParams[51]&=~8;
+depthParams[52]=0x7f800000;assert.match(transferSupport(depth),/depth metadata/);depthParams[52]=0x3f800000;
+depthParams[55]=65;assert.match(transferSupport(depth),/depth metadata/);depthParams[55]=32;depthParams[34]=33;assert.match(transferSupport(depth),/depth metadata/);depthParams[34]=32;
+depthFloats[20]=Infinity;assert.match(transferSupport(depth),/vertex/);depthFloats[20]=.5;
+assert.equal(transferSupport(depth),null);
+assert.match(transferSupport({...depth,before:new Uint8Array(256)}),/fragment packet/);
+console.log('3DS depth packets validate both surfaces, depth state, vertex Z and combined counters');

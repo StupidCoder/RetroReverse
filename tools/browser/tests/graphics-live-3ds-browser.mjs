@@ -7,7 +7,7 @@ try{
  const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')console.error(m.text());});
  await page.goto('http://127.0.0.1:8790/tools/browser/tests/graphics-live-3ds.html');
  await page.locator('#media').setInputFiles(media);await page.locator('#checkpoint').setInputFiles(checkpoint);
- const result=await page.evaluate(async ({fields,trials,delay,coreBase,graphicsBase,measureGPU})=>{
+ const result=await page.evaluate(async ({fields,trials,delay,coreBase,graphicsBase,measureGPU,idleInput})=>{
   const {default:factory}=await import(coreBase+'/core.js');
   const {createLive3DSGraphics}=await import(graphicsBase+'/graphics-live-3ds.js');
   const {create3DSExecution}=await import(graphicsBase+'/execution-3ds.js');
@@ -27,7 +27,7 @@ try{
    const submittedKinds={},supportedKinds={},unsupported={},inputBytes={};
    const original=core.graphicsTransfer;core.graphicsTransfer=async packet=>{submittedKinds[packet.kind]=(submittedKinds[packet.kind]||0)+1;inputBytes[packet.kind]=(inputBytes[packet.kind]||0)+packet.input.length;if(delay)await new Promise(r=>setTimeout(r,delay));const result=await original(packet);if(result.supported)supportedKinds[packet.kind]=(supportedKinds[packet.kind]||0)+1;else unsupported[result.reason]=(unsupported[result.reason]||0)+1;return result;};
    for(let i=0;i<count;i++){
-    core._rr_pad(i%5===0?1:0,(i%3-1)*20,0);core._rr_touch(160,120,+(i%7===0));
+    core._rr_pad(idleInput?0:i%5===0?1:0,idleInput?0:(i%3-1)*20,0);core._rr_touch(160,120,idleInput?0:+(i%7===0));
     while(status().frames<frame+i+1)check(await core.ccall('rr_run','number',['number'],[10000],{async:true})>=0);
     if(mode==='experimental'){const image=backend.present();if(!image)throw Error('GPU presentation unavailable');presentationContext.drawImage(image,0,0);image.close();}
     else {const at=core._rr_frame();presentationContext.putImageData(new ImageData(new Uint8ClampedArray(core.HEAPU8.slice(at,at+400*480*4)),400,480),0,0);}
@@ -53,9 +53,9 @@ try{
     measurements.push({reference,experimental,speedup:reference.ms/experimental.ms});
    }
    const delayed=delay?await run('experimental',delay):null;
-   await execution.select('reference');return {schema:1,fields,measureGPU,coreBase,graphicsBase,includesPresentation:true,measurements,reference,experimental,delayed,mode:execution.snapshot().effective};
+   await execution.select('reference');return {schema:1,fields,measureGPU,idleInput,coreBase,graphicsBase,includesPresentation:true,measurements,reference,experimental,delayed,mode:execution.snapshot().effective};
   }finally{backend.dispose();}
- },{fields:Number(fields),trials:Number(trials),delay:Number(delay),coreBase:process.env.CORE_BASE||'/tools/platform/n3ds/browser/web',graphicsBase:process.env.GRAPHICS_BASE||'/site/emulators',measureGPU:process.env.MEASURE_GPU==='1'});
+ },{fields:Number(fields),trials:Number(trials),delay:Number(delay),coreBase:process.env.CORE_BASE||'/tools/platform/n3ds/browser/web',graphicsBase:process.env.GRAPHICS_BASE||'/site/emulators',measureGPU:process.env.MEASURE_GPU==='1',idleInput:process.env.IDLE_INPUT==='1'});
  console.log(JSON.stringify(result));if(out)fs.writeFileSync(out,JSON.stringify(result,null,2)+'\n');
  assert.deepEqual(errors,[]);assert.equal(result.experimental.state,result.reference.state,'GPU continuation differs');if(result.delayed)assert.equal(result.delayed.state,result.reference.state,'Host delay changed guest order');assert(result.experimental.accelerated.some(n=>n>0),'No live GPU operation ran');assert.equal(result.mode,'reference');assert(result.experimental.supportedKinds[Number(process.env.RASTER_KIND||6)]>0,'No GPU coverage/interpolation/sampling ran');assert.deepEqual(result.experimental.unsupported,{},'GPU packets unexpectedly fell back');
  assert.equal(result.experimental.presentationDifferences,0,'GPU scanout differs from reference image');if(result.delayed)assert.equal(result.delayed.presentationDifferences,0);

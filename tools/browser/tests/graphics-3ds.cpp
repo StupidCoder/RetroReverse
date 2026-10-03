@@ -67,6 +67,34 @@ int main(int argc,char**argv){
   n3ds_GPU_invalidateTextures(g,r->base,2*1024*1024);
   n3ds_GPU_fill(g,&fb,&ls,&tv,Slice<n3ds_rasterTri>{tri,empty,second,tri});
  }
+ // Unlit depth: all comparisons, Z/W buffers, write masks, alpha rejection,
+ // ordered overdraw, clipped depth, subnormals and a texture alias of depth RAM.
+ tv={};tv.texEnable=1;g->Regs[0x82]=8|(8<<16);g->Regs[0x83]=0;g->Regs[0x8e]=0;
+ for(auto&s:tv.stages){s.colr[0]=s.alph[0]={3,0};}
+ fb.width=fb.height=64;fb.depthTest=true;tri.maxX=tri.maxY=64;
+ tri.v0.x=.5f;tri.v0.y=.5f;tri.v1.x=63.5f;tri.v1.y=.5f;tri.v2.x=.5f;tri.v2.y=63.5f;tri.area=63.f*63.f;
+ for(uint32_t trial=0;trial<96;trial++){
+  fb.depthFunc=trial%8;fb.depthWr=(trial/8)%2;fb.depthZBuffer=(trial/16)%2;fb.colorMask=trial%16;
+  fb.depthScale=trial<64?1.f:-.75f;fb.depthOff=trial<64?0.f:.25f;
+  if(trial>=88){fb.depthScale=-0.f;fb.depthOff=-0.f;} // Signed zero quantizes to zero.
+  tv.alphaTest=trial>=32;tv.alphaFunc=trial%8;tv.alphaRef=127;
+  auto depth=rrgpu::range(machine,fb.depthAddr,64*64*4);
+  for(uint32_t i=0;i<64*64;i++){uint32_t z=trial%3?0x7fffff:rnd()&0xffffff;depth[i*4]=z;depth[i*4+1]=z>>8;depth[i*4+2]=z>>16;depth[i*4+3]=rnd();}
+  int vertex=0;for(auto*v:{&tri.v0,&tri.v1,&tri.v2}){v->iw=trial%3?1.f:(vertex==0?.7f:vertex==1?1.3f:.9f);v->z=trial<32?.5f:trial<64?float(vertex)-.5f:(vertex==0?0x1p-149f:float(vertex));v->col={1.f,.5f,.25f,1.f};v->uv[0]={float(vertex)*.4f,float(2-vertex)*.3f};vertex++;}
+  auto second=tri;second.v0.z+=.25f;second.v1.z-=.5f;second.v2.z+=.125f;
+  g->Regs[0x85]=(trial%4? r->base+0x80000:fb.depthAddr)>>3;
+  n3ds_GPU_invalidateTextures(g,r->base,2*1024*1024);
+  // Depth-rejected draws must not create speculative texture-cache entries.
+  const n3ds_texKey key{g->Regs[0x85]<<3,0,8,8};
+  {auto cold=rrgpu::Operation::draw(g,&fb,&ls,&tv,Slice<n3ds_rasterTri>{tri,second,tri});assert(!cold.target);assert(!std::get<1>(lookup(g->texCache,key)));}
+  assert(std::get<1>(n3ds_GPU_texture(g,key.addr,key.fmt,key.w,key.h)));
+  n3ds_GPU_fill(g,&fb,&ls,&tv,Slice<n3ds_rasterTri>{tri,second,tri});
+ }
+ // Overlapping depth/color, including different virtual addresses aliasing the
+ // same bytes, cannot execute independently per pixel. Stay in Reference.
+ for(uint32_t depth:{fb.colorAddr,fb.colorAddr+4,0x15000000+(fb.colorAddr-r->base)}){
+  fb.depthAddr=depth;auto op=rrgpu::Operation::draw(g,&fb,&ls,&tv,Slice<n3ds_rasterTri>{tri,tri});assert(!op.target);
+ }
  assert(!machine->CPU->Halted);assert(rrgpu::dropped==0);
  uint32_t n=rr_graphics_end();auto snapshot=rrgpu::stream;
  n3ds_Machine_gxMemoryFill(machine,r->base,0,r->base+r->data.n,0x200);

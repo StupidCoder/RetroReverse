@@ -2,7 +2,8 @@
 // Parameters include every TEV/blend input; a single cached pipeline cannot
 // accidentally reuse a shader compiled for another guest program or uniform.
 export const fragmentWGSL=`
-@group(0) @binding(4) var<storage,read_write> drawn:atomic<u32>;
+struct FragmentCounts { drawn:atomic<u32>, depthKilled:atomic<u32> };
+@group(0) @binding(4) var<storage,read_write> counts:FragmentCounts;
 fn rgba(v:u32)->vec4<i32>{return vec4<i32>(i32(v&255u),i32((v>>8u)&255u),i32((v>>16u)&255u),i32(v>>24u));}
 fn fetchColor(sel:u32,vertex:vec4<i32>,tex:array<vec4<i32>,3>,buf:vec4<i32>,prev:vec4<i32>,konst:vec4<i32>)->vec4<i32>{
  switch(sel){case 0u,1u:{return vertex;}case 2u:{return vec4<i32>(0);}case 3u,4u,5u:{return tex[sel-3u];}case 13u:{return buf;}case 14u:{return konst;}default:{return prev;}}
@@ -56,6 +57,6 @@ fn fragmentPixel(index:u32)->u32{
   let vertex=rgba(src[at+1u]);let tex=array<vec4<i32>,3>(rgba(src[at+2u]),rgba(src[at+3u]),rgba(src[at+4u]));let color=tev(vertex,tex);
   if(alphaPass(color.a)){let value=blend(color,dstColor);for(var c=0u;c<4u;c++){if((p[6]&(1u<<c))!=0u){dstColor[c]=value[c];}}count++;}at=src[at];
  }
- if(count!=0u){atomicAdd(&drawn,count);}
+ if(count!=0u){atomicAdd(&counts.drawn,count);}
  return (u32(dstColor.r)<<24u)|(u32(dstColor.g)<<16u)|(u32(dstColor.b)<<8u)|u32(dstColor.a);
 }`;

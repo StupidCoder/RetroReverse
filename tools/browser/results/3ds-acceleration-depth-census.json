@@ -1,0 +1,212 @@
+{
+  "schema": 1,
+  "baseline": "de35f061b0b5350f59c2886cb1d847b6af7181d3",
+  "measurement": "Native build of browser C++ Reference; scoped fill time after packet preparation; no GPU execution",
+  "scene": "Animated Super Mario 3D Land title with level visible behind logo",
+  "checkpointStart": "842a614ba941db2742ced84dd86eb1fa597e2ef3b219f0b117528c6670235cc0",
+  "checkpointEnd": "209cfe5136d39d95b2686cc42d6a99c34f6d0b791b623bebbc13daa8350e2eb0",
+  "displayIntervals": 120,
+  "startFrame": 771,
+  "endFrame": 891,
+  "fallbackRasterMs": 8986.382894000002,
+  "unlitDepthRasterMs": 2649.05,
+  "unlitDepthFractionOfFallback": 0.2947849019174009,
+  "groups": [
+    {
+      "flags": {
+        "kind": "0",
+        "lit": "0",
+        "depth": "0/0",
+        "write": "0",
+        "stencil": "0",
+        "shadow": "0",
+        "tex0type": "0"
+      },
+      "draws": 3420,
+      "boundingBoxWork": 3023088,
+      "pixelsDrawn": 1311480,
+      "referenceRasterMs": 160.38
+    },
+    {
+      "flags": {
+        "kind": "0",
+        "lit": "0",
+        "depth": "0/0",
+        "write": "0",
+        "stencil": "1",
+        "shadow": "0",
+        "tex0type": "5"
+      },
+      "draws": 120,
+      "boundingBoxWork": 23040000,
+      "pixelsDrawn": 0,
+      "referenceRasterMs": 745.131
+    },
+    {
+      "flags": {
+        "kind": "0",
+        "lit": "0",
+        "depth": "0/0",
+        "write": "0",
+        "stencil": "49",
+        "shadow": "0",
+        "tex0type": "5"
+      },
+      "draws": 120,
+      "boundingBoxWork": 23040000,
+      "pixelsDrawn": 39072,
+      "referenceRasterMs": 740.023
+    },
+    {
+      "flags": {
+        "kind": "0",
+        "lit": "0",
+        "depth": "1/0",
+        "write": "1",
+        "stencil": "17",
+        "shadow": "0",
+        "tex0type": "5"
+      },
+      "draws": 120,
+      "boundingBoxWork": 48960,
+      "pixelsDrawn": 0,
+      "referenceRasterMs": 1.39341
+    },
+    {
+      "flags": {
+        "kind": "0",
+        "lit": "0",
+        "depth": "1/4",
+        "write": "0",
+        "stencil": "0",
+        "shadow": "0",
+        "tex0type": "0"
+      },
+      "draws": 120,
+      "boundingBoxWork": 36085200,
+      "pixelsDrawn": 11520000,
+      "referenceRasterMs": 1413.51
+    },
+    {
+      "flags": {
+        "kind": "0",
+        "lit": "0",
+        "depth": "1/4",
+        "write": "0",
+        "stencil": "17",
+        "shadow": "0",
+        "tex0type": "0"
+      },
+      "draws": 480,
+      "boundingBoxWork": 0,
+      "pixelsDrawn": 0,
+      "referenceRasterMs": 0.246424
+    },
+    {
+      "flags": {
+        "kind": "0",
+        "lit": "0",
+        "depth": "1/4",
+        "write": "1",
+        "stencil": "0",
+        "shadow": "0",
+        "tex0type": "0"
+      },
+      "draws": 120,
+      "boundingBoxWork": 34129320,
+      "pixelsDrawn": 11253840,
+      "referenceRasterMs": 1235.54
+    },
+    {
+      "flags": {
+        "kind": "0",
+        "lit": "1",
+        "depth": "0/0",
+        "write": "0",
+        "stencil": "49",
+        "shadow": "0",
+        "tex0type": "5"
+      },
+      "draws": 120,
+      "boundingBoxWork": 23040000,
+      "pixelsDrawn": 0,
+      "referenceRasterMs": 1023.79
+    },
+    {
+      "flags": {
+        "kind": "0",
+        "lit": "1",
+        "depth": "1/0",
+        "write": "1",
+        "stencil": "17",
+        "shadow": "0",
+        "tex0type": "5"
+      },
+      "draws": 120,
+      "boundingBoxWork": 48960,
+      "pixelsDrawn": 0,
+      "referenceRasterMs": 1.79746
+    },
+    {
+      "flags": {
+        "kind": "0",
+        "lit": "1",
+        "depth": "1/4",
+        "write": "0",
+        "stencil": "0",
+        "shadow": "0",
+        "tex0type": "0"
+      },
+      "draws": 240,
+      "boundingBoxWork": 19857720,
+      "pixelsDrawn": 3957120,
+      "referenceRasterMs": 547.707
+    },
+    {
+      "flags": {
+        "kind": "0",
+        "lit": "1",
+        "depth": "1/4",
+        "write": "1",
+        "stencil": "0",
+        "shadow": "0",
+        "tex0type": "0"
+      },
+      "draws": 8040,
+      "boundingBoxWork": 82331420,
+      "pixelsDrawn": 15305680,
+      "referenceRasterMs": 3050.09
+    },
+    {
+      "flags": {
+        "kind": "0",
+        "lit": "1",
+        "depth": "1/6",
+        "write": "0",
+        "stencil": "17",
+        "shadow": "0",
+        "tex0type": "0"
+      },
+      "draws": 2640,
+      "boundingBoxWork": 3179078,
+      "pixelsDrawn": 487472,
+      "referenceRasterMs": 66.7746
+    },
+    {
+      "flags": {
+        "kind": "6",
+        "lit": "0",
+        "depth": "0/0",
+        "write": "0",
+        "stencil": "0",
+        "shadow": "0",
+        "tex0type": "0"
+      },
+      "draws": 2460,
+      "boundingBoxWork": 97035552,
+      "pixelsDrawn": 47698680,
+      "referenceRasterMs": 5505.0
+    }
+  ],
+  "limitations": "Local native timing, not WASM or phone timing; feature census selects scope but does not predict GPU speedup."
+}

@@ -1,0 +1,159 @@
+{
+  "schema": 1,
+  "faultKind": 7,
+  "idleInput": true,
+  "trials": [
+    {
+      "fault": "reference",
+      "state": "decf1bc345885dbb9e456b539e777ac88a5d5f0682b3aae87e4de8500850b2bc",
+      "pixels": "5d33794ca171a22e764ac5426a93f51923a86dc37059a835bfe77c769ee5004f",
+      "injected": false,
+      "failed": false,
+      "mode": "reference",
+      "stats": {
+        "operations": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "accelerated": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "bytes": 0,
+        "hostOperations": 0,
+        "hostMs": 0,
+        "timing": {
+          "operations": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "queueAndMapMs": 0,
+          "readbackMs": 0,
+          "gpuMs": 0,
+          "gpuSamples": 0
+        },
+        "timestamps": true,
+        "measuringGPU": true,
+        "allocatedBytes": 98392
+      }
+    },
+    {
+      "fault": "device-loss",
+      "state": "decf1bc345885dbb9e456b539e777ac88a5d5f0682b3aae87e4de8500850b2bc",
+      "pixels": "5d33794ca171a22e764ac5426a93f51923a86dc37059a835bfe77c769ee5004f",
+      "injected": true,
+      "failed": true,
+      "reason": "Failed to execute 'mapAsync' on 'GPUBuffer': Buffer was destroyed before mapping was resolved.",
+      "mode": "reference",
+      "stats": {
+        "operations": [
+          4,
+          0,
+          1,
+          232
+        ],
+        "accelerated": [
+          4,
+          0,
+          1,
+          14
+        ],
+        "bytes": 7104000,
+        "hostOperations": 19,
+        "hostMs": 29.600000083446503,
+        "timing": {
+          "operations": 19,
+          "uploadMs": 2.800000011920929,
+          "submitMs": 0.10000002384185791,
+          "queueAndMapMs": 24,
+          "readbackMs": 1.300000011920929,
+          "gpuMs": 12.582911999999999,
+          "gpuSamples": 19
+        },
+        "timestamps": true,
+        "measuringGPU": true,
+        "allocatedBytes": 0
+      }
+    },
+    {
+      "fault": "timeout",
+      "state": "decf1bc345885dbb9e456b539e777ac88a5d5f0682b3aae87e4de8500850b2bc",
+      "pixels": "5d33794ca171a22e764ac5426a93f51923a86dc37059a835bfe77c769ee5004f",
+      "injected": true,
+      "failed": true,
+      "reason": "GPU completion timed out",
+      "mode": "reference",
+      "stats": {
+        "operations": [
+          8,
+          0,
+          2,
+          464
+        ],
+        "accelerated": [
+          8,
+          0,
+          2,
+          28
+        ],
+        "bytes": 14208000,
+        "hostOperations": 19,
+        "hostMs": 29,
+        "timing": {
+          "operations": 19,
+          "uploadMs": 3.100000023841858,
+          "submitMs": 0.10000002384185791,
+          "queueAndMapMs": 24.29999989271164,
+          "readbackMs": 0.6000000834465027,
+          "gpuMs": 12.713983999999998,
+          "gpuSamples": 19
+        },
+        "timestamps": true,
+        "measuringGPU": true,
+        "allocatedBytes": 0
+      }
+    },
+    {
+      "fault": "delayed",
+      "state": "decf1bc345885dbb9e456b539e777ac88a5d5f0682b3aae87e4de8500850b2bc",
+      "pixels": "5d33794ca171a22e764ac5426a93f51923a86dc37059a835bfe77c769ee5004f",
+      "injected": false,
+      "failed": false,
+      "mode": "experimental",
+      "stats": {
+        "operations": [
+          26,
+          0,
+          11,
+          1370
+        ],
+        "accelerated": [
+          26,
+          0,
+          11,
+          161
+        ],
+        "bytes": 77644800,
+        "hostOperations": 160,
+        "hostMs": 885.299999833107,
+        "timing": {
+          "operations": 160,
+          "uploadMs": 21.899999797344208,
+          "submitMs": 1.5999999642372131,
+          "queueAndMapMs": 257.59999972581863,
+          "readbackMs": 3.1999999284744263,
+          "gpuMs": 142.27865599999998,
+          "gpuSamples": 160
+        },
+        "timestamps": true,
+        "measuringGPU": true,
+        "allocatedBytes": 4259928
+      }
+    }
+  ],
+  "result": "PASS",
+  "browser": "154.0.8037.93"
+}

@@ -1,0 +1,408 @@
+{
+  "schema": 1,
+  "fields": 30,
+  "measureGPU": false,
+  "idleInput": true,
+  "coreBase": "/site/emulators/releases/680f5367cab4ac6c7c94/cores/3ds",
+  "graphicsBase": "/site/emulators/releases/680f5367cab4ac6c7c94",
+  "includesPresentation": true,
+  "measurements": [
+    {
+      "reference": {
+        "ms": 10786,
+        "submittedKinds": {},
+        "supportedKinds": {},
+        "unsupported": {},
+        "inputBytes": {},
+        "state": "6483bb8b12de7528a925235f536215bd8ec9d4828fe1795f139813f854567e05",
+        "bytes": 76560134,
+        "presentationDifferences": null,
+        "operations": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "accelerated": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "gpuHostMs": 0,
+        "timestamps": true,
+        "timing": {
+          "operations": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "queueAndMapMs": 0,
+          "readbackMs": 0,
+          "gpuMs": 0,
+          "gpuSamples": 0
+        },
+        "allocatedBytes": 2687060,
+        "profileMs": {
+          "ARM11 / Horizon scheduler": 1115.9,
+          "PICA commands / vertex processing": 1472.4,
+          "PICA software rasterizer": 6764.1,
+          "GX memory / display transfers": 1320.6,
+          "WebGPU upload / wait / readback": 0,
+          "PICA coverage / sampling / GPU inputs": 0
+        }
+      },
+      "experimental": {
+        "ms": 7635.300000011921,
+        "submittedKinds": {
+          "1": 90,
+          "3": 45,
+          "6": 615
+        },
+        "supportedKinds": {
+          "1": 90,
+          "3": 45,
+          "6": 615
+        },
+        "unsupported": {},
+        "inputBytes": {
+          "1": 0,
+          "3": 17280000,
+          "6": 31938240
+        },
+        "state": "6483bb8b12de7528a925235f536215bd8ec9d4828fe1795f139813f854567e05",
+        "bytes": 76560134,
+        "presentationDifferences": 0,
+        "operations": [
+          90,
+          0,
+          45,
+          4530
+        ],
+        "accelerated": [
+          90,
+          0,
+          45,
+          615
+        ],
+        "gpuHostMs": 895.4999996423721,
+        "timestamps": true,
+        "timing": {
+          "operations": 750,
+          "uploadMs": 90.49999952316284,
+          "submitMs": 3.699999988079071,
+          "queueAndMapMs": 781.3000003695488,
+          "readbackMs": 12.79999953508377,
+          "gpuMs": 0,
+          "gpuSamples": 0
+        },
+        "allocatedBytes": 2687060,
+        "profileMs": {
+          "ARM11 / Horizon scheduler": 1105.3000000000002,
+          "PICA commands / vertex processing": 1481.9999999999998,
+          "PICA software rasterizer": 4110.199999999999,
+          "GX memory / display transfers": 0.40000000000009095,
+          "WebGPU upload / wait / readback": 906,
+          "PICA coverage / sampling / GPU inputs": 17.099999999999998
+        }
+      },
+      "speedup": 1.412649142795065
+    },
+    {
+      "reference": {
+        "ms": 10876,
+        "submittedKinds": {},
+        "supportedKinds": {},
+        "unsupported": {},
+        "inputBytes": {},
+        "state": "6483bb8b12de7528a925235f536215bd8ec9d4828fe1795f139813f854567e05",
+        "bytes": 76560134,
+        "presentationDifferences": null,
+        "operations": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "accelerated": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "gpuHostMs": 0,
+        "timestamps": true,
+        "timing": {
+          "operations": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "queueAndMapMs": 0,
+          "readbackMs": 0,
+          "gpuMs": 0,
+          "gpuSamples": 0
+        },
+        "allocatedBytes": 2687060,
+        "profileMs": {
+          "ARM11 / Horizon scheduler": 1116.7000000000003,
+          "PICA commands / vertex processing": 1471.8000000000002,
+          "PICA software rasterizer": 6858.200000000001,
+          "GX memory / display transfers": 1318.2,
+          "WebGPU upload / wait / readback": 0,
+          "PICA coverage / sampling / GPU inputs": 0
+        }
+      },
+      "experimental": {
+        "ms": 7648.200000047684,
+        "submittedKinds": {
+          "1": 90,
+          "3": 45,
+          "6": 615
+        },
+        "supportedKinds": {
+          "1": 90,
+          "3": 45,
+          "6": 615
+        },
+        "unsupported": {},
+        "inputBytes": {
+          "1": 0,
+          "3": 17280000,
+          "6": 31938240
+        },
+        "state": "6483bb8b12de7528a925235f536215bd8ec9d4828fe1795f139813f854567e05",
+        "bytes": 76560134,
+        "presentationDifferences": 0,
+        "operations": [
+          90,
+          0,
+          45,
+          4530
+        ],
+        "accelerated": [
+          90,
+          0,
+          45,
+          615
+        ],
+        "gpuHostMs": 885.2999991178513,
+        "timestamps": true,
+        "timing": {
+          "operations": 750,
+          "uploadMs": 86.59999948740005,
+          "submitMs": 4.699999988079071,
+          "queueAndMapMs": 775.4999995827675,
+          "readbackMs": 12.800000190734863,
+          "gpuMs": 0,
+          "gpuSamples": 0
+        },
+        "allocatedBytes": 2687060,
+        "profileMs": {
+          "ARM11 / Horizon scheduler": 1114.1,
+          "PICA commands / vertex processing": 1481.6999999999998,
+          "PICA software rasterizer": 4126.9000000000015,
+          "GX memory / display transfers": 0.7000000000000455,
+          "WebGPU upload / wait / readback": 894.3,
+          "PICA coverage / sampling / GPU inputs": 15.5
+        }
+      },
+      "speedup": 1.4220339426181574
+    },
+    {
+      "reference": {
+        "ms": 10914.299999952316,
+        "submittedKinds": {},
+        "supportedKinds": {},
+        "unsupported": {},
+        "inputBytes": {},
+        "state": "6483bb8b12de7528a925235f536215bd8ec9d4828fe1795f139813f854567e05",
+        "bytes": 76560134,
+        "presentationDifferences": null,
+        "operations": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "accelerated": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "gpuHostMs": 0,
+        "timestamps": true,
+        "timing": {
+          "operations": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "queueAndMapMs": 0,
+          "readbackMs": 0,
+          "gpuMs": 0,
+          "gpuSamples": 0
+        },
+        "allocatedBytes": 2687060,
+        "profileMs": {
+          "ARM11 / Horizon scheduler": 1116.1999999999998,
+          "PICA commands / vertex processing": 1479.6999999999998,
+          "PICA software rasterizer": 6896.0999999999985,
+          "GX memory / display transfers": 1311,
+          "WebGPU upload / wait / readback": 0,
+          "PICA coverage / sampling / GPU inputs": 0
+        }
+      },
+      "experimental": {
+        "ms": 7707.800000011921,
+        "submittedKinds": {
+          "1": 90,
+          "3": 45,
+          "6": 615
+        },
+        "supportedKinds": {
+          "1": 90,
+          "3": 45,
+          "6": 615
+        },
+        "unsupported": {},
+        "inputBytes": {
+          "1": 0,
+          "3": 17280000,
+          "6": 31938240
+        },
+        "state": "6483bb8b12de7528a925235f536215bd8ec9d4828fe1795f139813f854567e05",
+        "bytes": 76560134,
+        "presentationDifferences": 0,
+        "operations": [
+          90,
+          0,
+          45,
+          4530
+        ],
+        "accelerated": [
+          90,
+          0,
+          45,
+          615
+        ],
+        "gpuHostMs": 892.3000012040138,
+        "timestamps": true,
+        "timing": {
+          "operations": 750,
+          "uploadMs": 86.20000165700912,
+          "submitMs": 3.9999998807907104,
+          "queueAndMapMs": 779.6000000834465,
+          "readbackMs": 15.999999344348907,
+          "gpuMs": 0,
+          "gpuSamples": 0
+        },
+        "allocatedBytes": 2687060,
+        "profileMs": {
+          "ARM11 / Horizon scheduler": 1110.3999999999996,
+          "PICA commands / vertex processing": 1485.5,
+          "PICA software rasterizer": 4180.9000000000015,
+          "GX memory / display transfers": 0.599999999999909,
+          "WebGPU upload / wait / readback": 901.7000000000003,
+          "PICA coverage / sampling / GPU inputs": 15.399999999999999
+        }
+      },
+      "speedup": 1.4160071615682084
+    }
+  ],
+  "reference": {
+    "ms": 10914.299999952316,
+    "submittedKinds": {},
+    "supportedKinds": {},
+    "unsupported": {},
+    "inputBytes": {},
+    "state": "6483bb8b12de7528a925235f536215bd8ec9d4828fe1795f139813f854567e05",
+    "bytes": 76560134,
+    "presentationDifferences": null,
+    "operations": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "accelerated": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "gpuHostMs": 0,
+    "timestamps": true,
+    "timing": {
+      "operations": 0,
+      "uploadMs": 0,
+      "submitMs": 0,
+      "queueAndMapMs": 0,
+      "readbackMs": 0,
+      "gpuMs": 0,
+      "gpuSamples": 0
+    },
+    "allocatedBytes": 2687060,
+    "profileMs": {
+      "ARM11 / Horizon scheduler": 1116.1999999999998,
+      "PICA commands / vertex processing": 1479.6999999999998,
+      "PICA software rasterizer": 6896.0999999999985,
+      "GX memory / display transfers": 1311,
+      "WebGPU upload / wait / readback": 0,
+      "PICA coverage / sampling / GPU inputs": 0
+    }
+  },
+  "experimental": {
+    "ms": 7707.800000011921,
+    "submittedKinds": {
+      "1": 90,
+      "3": 45,
+      "6": 615
+    },
+    "supportedKinds": {
+      "1": 90,
+      "3": 45,
+      "6": 615
+    },
+    "unsupported": {},
+    "inputBytes": {
+      "1": 0,
+      "3": 17280000,
+      "6": 31938240
+    },
+    "state": "6483bb8b12de7528a925235f536215bd8ec9d4828fe1795f139813f854567e05",
+    "bytes": 76560134,
+    "presentationDifferences": 0,
+    "operations": [
+      90,
+      0,
+      45,
+      4530
+    ],
+    "accelerated": [
+      90,
+      0,
+      45,
+      615
+    ],
+    "gpuHostMs": 892.3000012040138,
+    "timestamps": true,
+    "timing": {
+      "operations": 750,
+      "uploadMs": 86.20000165700912,
+      "submitMs": 3.9999998807907104,
+      "queueAndMapMs": 779.6000000834465,
+      "readbackMs": 15.999999344348907,
+      "gpuMs": 0,
+      "gpuSamples": 0
+    },
+    "allocatedBytes": 2687060,
+    "profileMs": {
+      "ARM11 / Horizon scheduler": 1110.3999999999996,
+      "PICA commands / vertex processing": 1485.5,
+      "PICA software rasterizer": 4180.9000000000015,
+      "GX memory / display transfers": 0.599999999999909,
+      "WebGPU upload / wait / readback": 901.7000000000003,
+      "PICA coverage / sampling / GPU inputs": 15.399999999999999
+    }
+  },
+  "delayed": null,
+  "mode": "reference",
+  "result": "PASS",
+  "browser": "154.0.8037.93"
+}
