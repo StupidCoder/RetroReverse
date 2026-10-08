@@ -3,7 +3,7 @@ import {decodeGraphicsStream,transferSupport} from '../../../site/emulators/grap
 assert.throws(()=>decodeGraphicsStream(new Uint8Array(8)),/Unknown/);
 const header=new Uint32Array([0x50475252,1]);assert.deepEqual(decodeGraphicsStream(header.buffer),[]);
 const bad=new Uint32Array([0x50475252,1,32,1,9999,0,0,0,0,0]);assert.throws(()=>decodeGraphicsStream(bad.buffer),/Invalid/);
-assert.match(transferSupport({kind:9}),/Unsupported/);
+assert.match(transferSupport({kind:11}),/Unsupported/);
 const packet={kind:2,params:[128,128,0,128,0,1],input:new Uint8Array(128),before:new Uint8Array(128)};
 assert.match(transferSupport(packet),/Overlapping/);packet.params[5]=0;assert.equal(transferSupport(packet),null);
 packet.params[1]=0;assert.match(transferSupport(packet),/Invalid/);
@@ -62,3 +62,11 @@ lightingFloats[21]=2**20+1;assert.match(transferSupport(lighting),/vertex/);ligh
 assert.equal(transferSupport(lighting),null);
 assert.match(transferSupport({...lighting,input:lighting.input.slice(0,-4)}),/lighting metadata/);
 console.log('3DS lighting packets validate flags, quaternion/view bounds, directions and LUT snapshots');
+for(const [kind,source,offset] of [[9,depth,56],[10,lighting,84]]){
+ const params=[...source.params.slice(0,offset),0xffa55a51,0x721,1,0],packet={...source,kind,params};
+ assert.equal(transferSupport(packet),null);
+ for(const [index,value] of [[offset,0xffa55a50],[offset,0xffa55a59],[offset+1,0x728],[offset+2,2]]){const old=params[index];params[index]=value;assert.match(transferSupport(packet),/stencil metadata/);params[index]=old;}
+ params[51]&=~3;assert.equal(transferSupport(packet),null);params[51]|=2;assert.match(transferSupport(packet),/depth metadata/);params[51]&=~2;
+ assert.match(transferSupport({...packet,before:new Uint8Array(256)}),/fragment packet/);
+}
+console.log('3DS stencil packets validate enabled state, operations, write gates and paired surfaces without depth testing');

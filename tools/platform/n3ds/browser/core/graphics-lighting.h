@@ -3,9 +3,9 @@
 // reflection and Fresnel LUTs. Unsupported combinations stay in Reference before
 // any cache or framebuffer mutation. The normalized direction is draw-constant.
 namespace rrgpu {
-inline bool lightingSupported(n3ds_fbState*fb,n3ds_lightState*ls){
+inline bool lightingSupported(bool paired,n3ds_lightState*ls){
  if(!ls->enabled)return true;
- if(!fb->depthTest||ls->count!=1||ls->shadow||ls->env>7)return false;
+ if(!paired||ls->count!=1||ls->shadow||ls->env>7)return false;
  const auto&l=ls->lights[0];if(!l.directional||l.distAtten||l.spotAtten||l.geo0||l.geo1)return false;
  for(auto a:{ls->ambient,l.specular0,l.specular1,l.diffuse,l.ambient,l.pos,l.spotDir})for(float f:a)if(!std::isfinite(f)||std::abs(f)>65536)return false;
  return true;

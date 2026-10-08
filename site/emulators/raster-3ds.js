@@ -106,7 +106,7 @@ fn redge(a:u32,b:u32,x:u32,y:u32)->u32{
  return rsub(rmul(rsub(src[b],src[a]),rsub(y,src[a+1u])),rmul(rsub(src[b+1u],src[a+1u]),rsub(x,src[a])));
 }
 fn rpc(a:u32,field:u32,l:vec3<u32>,iw:u32)->u32{
- let stride=select(select(13u,14u,operation>=7u),21u,operation==8u);let b=a+stride;let c=b+stride;
+ let stride=select(select(13u,14u,operation>=7u),21u,(operation==8u||operation==10u));let b=a+stride;let c=b+stride;
  return rdiv(radd(radd(rmul(rmul(l.x,src[a+field]),src[a+2u]),rmul(rmul(l.y,src[b+field]),src[b+2u])),rmul(rmul(l.z,src[c+field]),src[c+2u])),iw);
 }
 fn rwrap(value:u32,n:u32,mode:u32)->i32{
@@ -118,6 +118,19 @@ fn rwrap(value:u32,n:u32,mode:u32)->i32{
 fn rdepthPass(value:u32,oldDepth:u32,fnCode:u32)->bool{
  switch(fnCode){case 0u:{return false;}case 1u:{return true;}case 2u:{return value==oldDepth;}case 3u:{return value!=oldDepth;}case 4u:{return value<oldDepth;}case 5u:{return value<=oldDepth;}case 6u:{return value>oldDepth;}default:{return value>=oldDepth;}}
 }
+// PICA compares masked reference against old stencil. Its stencil write occurs
+// on fail, depth-fail or pass, after alpha testing and before any depth write.
+fn rstencilValue(op:u32,oldValue:u32,reference:u32)->u32{
+ switch(op){case 1u:{return 0u;}case 2u:{return reference;}case 3u:{return min(oldValue+1u,255u);}case 4u:{return select(oldValue-1u,0u,oldValue==0u);}case 5u:{return oldValue^255u;}case 6u:{return (oldValue+1u)&255u;}case 7u:{return (oldValue-1u)&255u;}default:{return oldValue;}}
+}
+fn rstencil(word:u32,newDepth:u32)->vec2<u32>{
+ let at=select(60u,88u,operation==10u);let cfg=p[at];let ops=p[at+1u];let previous=word>>24u;let reference=(cfg>>16u)&255u;let mask=cfg>>24u;
+ var rejection=0u;var op=(ops>>8u)&7u;
+ if(!rdepthPass(reference&mask,previous&mask,(cfg>>4u)&7u)){rejection=1u;op=ops&7u;}
+ else if((p[55]&1u)!=0u&&!rdepthPass(newDepth,word&0xffffffu,(p[55]>>4u)&7u)){rejection=2u;op=(ops>>4u)&7u;}
+ var result=word;if(p[at+2u]!=0u&&op!=0u){let writeMask=(cfg>>8u)&255u;let value=(previous&(~writeMask))|(rstencilValue(op,previous,reference)&writeMask);result=(word&0xffffffu)|(value<<24u);}
+ return vec2<u32>(result,rejection);
+}
 fn rasterPixel(index:u32)->u32{
  let w=p[4];let h=p[5];let tile=index/64u;let mo=index%64u;
  let x=(tile%(w/8u))*8u+(mo&1u)+((mo>>1u)&2u)+((mo>>2u)&4u);
@@ -127,21 +140,21 @@ fn rasterPixel(index:u32)->u32{
  let original=old[index];var dstColor=vec4<i32>(i32(original>>24u),i32((original>>16u)&255u),i32((original>>8u)&255u),i32(original&255u));var count=0u;var killed=0u;var depthWord=0u;if(operation>=7u){depthWord=old[w*h+index];}
  for(var at=begin;at<end;at++){
   let t=src[at];if(x<src[t]||x>=src[t+1u]||y<src[t+2u]||y>=src[t+3u]){continue;}
-  let a=t+5u;let stride=select(select(13u,14u,operation>=7u),21u,operation==8u);let b=a+stride;let c=b+stride;
+  let a=t+5u;let stride=select(select(13u,14u,operation>=7u),21u,(operation==8u||operation==10u));let b=a+stride;let c=b+stride;
   let weights=vec3<u32>(redge(b,c,px,py),redge(c,a,px,py),redge(a,b,px,py));
   if(rnegative(weights.x)||rnegative(weights.y)||rnegative(weights.z)){continue;}
   let area=src[t+4u];let l=vec3<u32>(rdiv(weights.x,area),rdiv(weights.y,area),rdiv(weights.z,area));
   let iw=radd(radd(rmul(l.x,src[a+2u]),rmul(l.y,src[b+2u])),rmul(l.z,src[c+2u]));
   if(iw==0u||iw>=0x7f800000u){atomicOr(&counts.drawn,0x80000000u);continue;}
   var newDepth=0u;
-  if(operation>=7u){
+  if(operation>=7u&&(p[55]&1u)!=0u){
    // Match each Reference binary32 operation, including W-buffer division and
    // float32 multiplication before truncating to the 24-bit depth integer.
    let z=radd(radd(rmul(l.x,src[a+13u]),rmul(l.y,src[b+13u])),rmul(l.z,src[c+13u]));
    var depth=radd(rmul(z,p[56]),p[57]);if((p[55]&4u)==0u){depth=rdiv(depth,iw);}
    if((depth&0x80000000u)!=0u){depth=0u;}else if(depth>0x3f800000u){depth=0x3f800000u;}
    newDepth=u32(rfloor(rmul(depth,0x4b7fffffu)));
-   if(!rdepthPass(newDepth,depthWord&0xffffffu,(p[55]>>4u)&7u)){killed++;continue;}
+   if(operation<9u&&!rdepthPass(newDepth,depthWord&0xffffffu,(p[55]>>4u)&7u)){killed++;continue;}
   }
   var vertex:vec4<i32>;for(var channel=0u;channel<4u;channel++){vertex[channel]=rbyte(rmul(rpc(a,3u+channel,l,iw),0x437f0000u));}
   var tex:array<vec4<i32>,3>;
@@ -155,13 +168,16 @@ fn rasterPixel(index:u32)->u32{
    if(tx>=0&&vy>=0){tex[unit]=rgba(src[p[desc]+(th-1u-u32(vy))*tw+u32(tx)]);}
   }
   var color:vec4<i32>;
-  if(operation==8u){
+  if((operation==8u||operation==10u)){
    var q:vec4<u32>;var view:vec3<u32>;var valid=true;
    for(var k=0u;k<4u;k++){q[k]=rpc(a,14u+k,l,iw);valid=valid&&((q[k]&0x7fffffffu)<=0x4b800000u);}
    for(var k=0u;k<3u;k++){view[k]=rpc(a,18u+k,l,iw);valid=valid&&((view[k]&0x7fffffffu)<=0x4b800000u);}
    if(!valid){atomicOr(&counts.drawn,0x80000000u);continue;}
    let light=lighting(q,view,tex);color=litTev(vertex,light[0],light[1],tex);
-  }else{color=tev(vertex,tex);}if(alphaPass(color.a)){let value=blend(color,dstColor);for(var channel=0u;channel<4u;channel++){if((p[6]&(1u<<channel))!=0u){dstColor[channel]=value[channel];}}if(operation>=7u&&(p[55]&2u)!=0u){depthWord=(depthWord&0xff000000u)|newDepth;}count++;}
+  }else{color=tev(vertex,tex);}
+  if(alphaPass(color.a)){
+   if(operation>=9u){let tested=rstencil(depthWord,newDepth);depthWord=tested.x;if(tested.y!=0u){if(tested.y==2u){killed++;}continue;}}
+   let value=blend(color,dstColor);for(var channel=0u;channel<4u;channel++){if((p[6]&(1u<<channel))!=0u){dstColor[channel]=value[channel];}}if(operation>=7u&&(p[55]&2u)!=0u){depthWord=(depthWord&0xff000000u)|newDepth;}count++;}
  }
  if(operation>=7u){dst[w*h+index]=depthWord;if(killed!=0u){atomicAdd(&counts.depthKilled,killed);}}
  if(count!=0u){atomicAdd(&counts.drawn,count);}

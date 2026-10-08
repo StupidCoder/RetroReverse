@@ -58,11 +58,11 @@ console.log('3DS missing WebGPU, absent adapter and shader compilation failure k
  globalThis.GPUBufferUsage={STORAGE:1,COPY_DST:2,COPY_SRC:4,MAP_READ:8};globalThis.GPUMapMode={READ:1};globalThis.GPUShaderStage={COMPUTE:4};
  let pops=0,resolveValidation,mode='success',unmaps=0,compileAction=null;const variants=[];
  const device={lost:new Promise(()=>{}),pushErrorScope(){},popErrorScope(){if(++pops===1)return Promise.resolve(null);return new Promise(r=>resolveValidation=r);},
-  createShaderModule:()=>({}),createBindGroupLayout:()=>({}),createPipelineLayout:()=>({}),createComputePipelineAsync:async options=>{variants.push(options.compute.constants.operation);if(variants.length>8&&compileAction)return compileAction();return {};},createBindGroup:()=>({}),
+  createShaderModule:()=>({}),createBindGroupLayout:()=>({}),createPipelineLayout:()=>({}),createComputePipelineAsync:async options=>{variants.push(options.compute.constants.operation);if(variants.length>10&&compileAction)return compileAction();return {};},createBindGroup:()=>({}),
   createBuffer({size}){const bytes=new ArrayBuffer(size);return {mapAsync(){assert(resolveValidation,'Validation was not requested before mapping');resolveValidation(mode==='validation-error'?{message:'Injected validation error'}:null);resolveValidation=null;return mode==='map-error'?Promise.reject(Error('Injected mapping error')):Promise.resolve();},getMappedRange(offset,length){return bytes.slice(offset,offset+length);},unmap(){unmaps++;},destroy(){}};},
   createCommandEncoder:()=>({clearBuffer(){},beginComputePass:()=>({setPipeline(){},setBindGroup(){},dispatchWorkgroups(){},end(){}}),copyBufferToBuffer(){},finish:()=>({})}),queue:{writeBuffer(){},submit(){}},destroy(){}};
  const gpu=await create3DSGraphics({measureGPU:false,gpu:{requestAdapter:async()=>({features:new Set(),requestDevice:async()=>device})}});
- assert.deepEqual(variants,[1,2,3,4,5,6,7,8]);
+ assert.deepEqual(variants,[1,2,3,4,5,6,7,8,9,10]);
  const packet={kind:1,params:[4,0,4096,0],input:new Uint8Array(),before:new Uint8Array(4096)};
  assert((await gpu.execute(packet)).supported);assert(!gpu.busy);
  for(mode of ['validation-error','map-error']){await assert.rejects(gpu.execute(packet),/Injected/);assert(!gpu.busy);}

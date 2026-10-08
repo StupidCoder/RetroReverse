@@ -18,7 +18,7 @@ export function decodeGraphicsStream(bytes){
 }
 const align=n=>Math.ceil(n/4)*4;
 export function transferSupport(p){
- const a=p.params;if(![1,2,3,4,5,6,7,8].includes(p.kind))return 'Unsupported graphics operation';
+ const a=p.params;if(![1,2,3,4,5,6,7,8,9,10].includes(p.kind))return 'Unsupported graphics operation';
  if(!(p.input instanceof Uint8Array)||!(p.before instanceof Uint8Array)||!p.before.length||p.before.length>16*1024*1024||p.input.length>16*1024*1024)return 'Invalid transfer buffers';
  if(!Array.isArray(a)||!a.every(n=>Number.isInteger(n)&&n>=0&&n<=0xffffffff))return 'Invalid transfer parameters';
  if(p.kind===1){if(a.length!==4||a[0]<2||a[0]>4||a[2]>p.before.length||a[2]%a[0])return 'Invalid fill';}
@@ -39,7 +39,7 @@ export function transferSupport(p){
  }
  if(p.kind>=5){
   const [w,h,mask,,blend]=a,n=w*h;
-  if(a.length!==(p.kind===5?36:p.kind===6?52:p.kind===7?57:85)||!w||!h||w>1024||h>1024||w%8||h%8||mask>15||p.before.length!==n*(p.kind>=7?8:4)||(p.kind===5&&p.input.length!==n*4+a[9]*20))return 'Invalid fragment packet';
+  if(a.length!==(p.kind===5?36:p.kind===6?52:p.kind===7?57:p.kind===8?85:p.kind===9?60:88)||!w||!h||w>1024||h>1024||w%8||h%8||mask>15||p.before.length!==n*(p.kind>=7?8:4)||(p.kind===5&&p.input.length!==n*4+a[9]*20))return 'Invalid fragment packet';
   if((a[3]&256)&&((blend&7)>4||((blend>>>8)&7)>4||[16,20,24,28].some(s=>((blend>>>s)&15)>14)))return 'Unsupported blend';
   if(a.at(-1)||(a[34]!==0xffffffff&&a[34]>a[9])||(a[8]&~0xff71))return 'Invalid fragment metadata';
   const sources=[0,1,2,3,4,5,13,14,15],combines=[0,1,2,3,4,5,8,9];
@@ -61,11 +61,12 @@ export function transferSupport(p){
 // immutable decoded texture ranges before an untrusted replay reaches the GPU.
 function rasterSupport(packet){
  const a=packet.params,[w,h]=a,[count,nx,ny,enabled]=a.slice(35,39),bytes=packet.input;
- const depth=packet.kind>=7,lighting=packet.kind===8,stride=lighting?21:depth?14:13,triangleWords=5+stride*3;
+ const depth=packet.kind>=7,lighting=packet.kind===8||packet.kind===10,stencil=packet.kind>=9,stride=lighting?21:depth?14:13,triangleWords=5+stride*3;
  if(depth){
   const floats=new Float32Array(new Uint32Array([a[52],a[53]]).buffer);
-  if(!(a[51]&1)||(a[51]&~0x77)||a[54]||floats.some(n=>!Number.isFinite(n)||Math.abs(n)>2**20)||(a[55]!==0xffffffff&&(a[55]>a[9]||(a[34]!==0xffffffff&&a[55]+a[34]>a[9]))))return 'Invalid raster depth metadata';
+  if((!stencil&&!(a[51]&1))||(!(a[51]&1)&&(a[51]&2))||(a[51]&~0x77)||a[54]||floats.some(n=>!Number.isFinite(n)||Math.abs(n)>2**20)||(a[55]!==0xffffffff&&(a[55]>a[9]||(a[34]!==0xffffffff&&a[55]+a[34]>a[9]))))return 'Invalid raster depth metadata';
  }
+ if(stencil){const at=lighting?84:56;if(!(a[at]&1)||(a[at]&~0xffffff71)||(a[at+1]&~0x777)||a[at+2]>1)return 'Invalid raster stencil metadata';}
  if(!count||count>1024||nx!==Math.ceil(w/16)||ny!==Math.ceil(h/16)||enabled>7||bytes.length%4||a[9]>838860)return 'Invalid raster metadata';
  const data=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),words=bytes.length/4,header=nx*ny*2,triEnd=header+count*triangleWords;
  if(triEnd>words)return 'Truncated raster triangles';
@@ -172,7 +173,7 @@ export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()
   const layout=device.createPipelineLayout({bindGroupLayouts:[bindLayout]});pipelineLayout=layout;
   // Constant operation selection lets the compiler remove the entire rasterizer
   // from transfer kernels, instead of assigning its register footprint to fills.
-  pipelines=await Promise.all([1,2,3,4,5,6,7,8].map(operation=>device.createComputePipelineAsync({layout,compute:{module,entryPoint:'main',constants:{operation}}})));
+  pipelines=await Promise.all([1,2,3,4,5,6,7,8,9,10].map(operation=>device.createComputePipelineAsync({layout,compute:{module,entryPoint:'main',constants:{operation}}})));
  }
  catch(e){const info=await module.getCompilationInfo();device.destroy();throw Error(info.messages.map(m=>`${m.lineNum}:${m.linePos} ${m.message}`).join('\n')||e.message);}
  const error=await device.popErrorScope();if(error){device.destroy();throw Error(error.message);}
@@ -182,19 +183,19 @@ export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()
  // cache uses the already validated generic kernel while compilation is pending.
  const lightingPipelines=new Map();let lightingPending=0;
  function pipelineFor(packet){
-  if(packet.kind!==8||!specializeLighting)return pipelines[packet.kind-1];
-  const fields=[56,57,58,59,60,62],values=fields.map(i=>packet.params[i]),key=values.join('/');
-  const known=lightingPipelines.get(key);if(known)return known.pipeline||pipelines[7];
-  if(lightingPipelines.size>=64||lightingPending>=2)return pipelines[7];
+  if(![8,10].includes(packet.kind)||!specializeLighting)return pipelines[packet.kind-1];
+  const operation=packet.kind,fields=[56,57,58,59,60,62],values=fields.map(i=>packet.params[i]),key=operation+'/'+values.join('/');const generic=pipelines[operation-1];
+  const known=lightingPipelines.get(key);if(known)return known.pipeline||generic;
+  if(lightingPipelines.size>=64||lightingPending>=2)return generic;
   const entry={pipeline:null,failed:false};lightingPipelines.set(key,entry);lightingPending++;
   Promise.resolve().then(async()=>{
    if(closed||lost)return;
    let code=transferWGSL;for(let i=0;i<fields.length;i++)code=code.replaceAll('p['+(fields[i]+4)+']',values[i]+'u');
    const module=device.createShaderModule({code});
-   const pipeline=await device.createComputePipelineAsync({layout:pipelineLayout,compute:{module,entryPoint:'main',constants:{operation:8}}});
+   const pipeline=await device.createComputePipelineAsync({layout:pipelineLayout,compute:{module,entryPoint:'main',constants:{operation}}});
    if(!closed&&!lost)entry.pipeline=pipeline;
   }).catch(()=>{entry.failed=true;}).finally(()=>{lightingPending--;});
-  return pipelines[7];
+  return generic;
  }
  let presentation=null;
  function release(){if(allocation)for(const b of allocation.buffers)b.destroy();allocation=null;}
@@ -232,7 +233,7 @@ export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()
    let gpuMs=null;if(measured){const t=new BigUint64Array(mappedBytes,timestampOffset,2);gpuMs=Number(t[1]-t[0])/1e6;}
    const result=new Uint8Array(mappedBytes).slice(0,packet.before.length);read.unmap();readBuffer=null;
    if(packet.kind>=6&&(drawn&0x80000000))return {supported:false,reason:'Raster arithmetic requires Reference'};
-   return {supported:true,bytes:result,drawn,depthKilled,specialized:packet.kind===8&&pipeline!==pipelines[7],timing:{uploadMs:uploaded-start,submitMs:submitted-uploaded,gpuMs,queueAndMapMs:mapped-submitted,readbackMs:performance.now()-mapped,totalMs:performance.now()-start}};
+   return {supported:true,bytes:result,drawn,depthKilled,specialized:[8,10].includes(packet.kind)&&pipeline!==pipelines[packet.kind-1],timing:{uploadMs:uploaded-start,submitMs:submitted-uploaded,gpuMs,queueAndMapMs:mapped-submitted,readbackMs:performance.now()-mapped,totalMs:performance.now()-start}};
   }finally{readBuffer?.unmap();if(scoped)await device.popErrorScope();busy=false;}
  }
  return {execute,warmupMs,lightingCompilation:()=>({requested:lightingPipelines.size,ready:[...lightingPipelines.values()].filter(e=>e.pipeline).length,pending:lightingPending,failed:[...lightingPipelines.values()].filter(e=>e.failed).length}),setTimingEnabled(value){timingEnabled=!!value;},get measuringGPU(){return timestamps&&timingEnabled;},info:{vendor:adapter.info?.vendor,architecture:adapter.info?.architecture,timestamps},async preparePresentation(){presentation??=await create3DSPresentation(device);},present(core){if(closed||lost)return null;return presentation?.present(core)??null;},get bytesAllocated(){return (allocation?65536+allocation.capacity*4+8+(timestamps?16:0):0)+(presentation?.bytesAllocated??0);},get busy(){return busy;},destroy(){closed=true;presentation?.destroy();presentation=null;release();queries?.destroy();device.destroy();}};

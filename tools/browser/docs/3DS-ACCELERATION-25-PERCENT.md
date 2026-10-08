@@ -30,7 +30,22 @@ still open; the 25% gate remains unmet.
 alternating comparisons reduce 231.61 to 194.11 ms/interval (7.20% to 8.59%
 nominal), with exact state and sampled images. Software rasterization drops from
 131.30 to 64.91 ms, while GPU round trips rise from 30.18 to 58.68 ms. General
-stencil is the next D3 family; D4 batching and CPU work remain necessary.
+stencil was the next D3 family.
+
+[D3b general stencil](3DS-ACCELERATION-STENCIL.md) reduces 194.81 to 163.60
+ms/interval in five alternating comparisons (8.56% to 10.19% nominal). Remaining
+software rendering falls to 11.71 ms, while GPU round trips rise to 80.43 ms and
+ARM/Horizon remains 49.87 ms. These last two buckets now dominate. D4 batching and
+CPU work remain necessary; another 59% elapsed-time reduction is needed to meet
+the 66.7 ms target. This milestone does not meet the 25% gate.
+
+D3b's separate timestamp run measures 35.42 ms of actual GPU execution per
+interval inside 67.88 ms of queue/map wait, plus 13.07 ms upload and 2.59 ms CPU
+readback copy. Batching can attack the transfers and synchronization, but the
+measured compute time alone exceeds D4's original 22 ms budget. Reprofile after
+batching and reduce shader work/dispatch coverage as well, or explicitly rebalance
+the budgets using measured CPU gains. Do not count batching as sufficient on its
+own to reach 25%.
 
 ## What the new profile establishes
 
@@ -78,8 +93,9 @@ The combined PICA bucket also contains command handling, vertex fetching,
 clipping and setup, so its entire 37.4% cannot yet be assigned to the shader.
 
 The [GPU eligibility gate](../../platform/n3ds/browser/core/graphics-fragments.h)
-now supports one directional light with normal maps and shared lighting LUTs.
-It still refuses other lighting combinations, general stencil, shadow sampling
+now supports one directional light with normal maps and shared lighting LUTs,
+plus general stencil with or without depth testing.
+It still refuses other lighting combinations, shadow sampling
 and several bounded workloads. The earlier [native census](../results/3ds-acceleration-depth-census.json)
 identifies plausible families to investigate, but is a different checkpoint and
 predates depth acceleration. Select new coverage by **current fallback time**,

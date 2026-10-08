@@ -10,7 +10,8 @@ namespace rrgpu {
 inline Operation Operation::fragments(n3ds_GPU*g,n3ds_fbState*fb,n3ds_lightState*ls,n3ds_tevState*tv,Slice<n3ds_rasterTri>tris){
  Operation o;auto m=g->m;
  auto refuse=[&](const char*why){rrperf::refuse(why);return Operation{};};
- if((!enabled&&!recording)||m->OnRead||m->OnWrite||m->OnPixel||m->HidTrace||m->Profile||fb->shadowMode||(g->Regs[0x105]&1)||!tris.n||tris.n>1024||!fb->width||!fb->height||fb->width>1024||fb->height>1024||fb->width%8||fb->height%8)return refuse(ls->enabled?"lighting":fb->shadowMode?"shadow-write":(g->Regs[0x105]&1)?"stencil":"disabled-observed-or-dimensions");
+ if((!enabled&&!recording)||m->OnRead||m->OnWrite||m->OnPixel||m->HidTrace||m->Profile||fb->shadowMode||!tris.n||tris.n>1024||!fb->width||!fb->height||fb->width>1024||fb->height>1024||fb->width%8||fb->height%8)return refuse(ls->enabled?"lighting":fb->shadowMode?"shadow-write":(g->Regs[0x105]&1)?"stencil":"disabled-observed-or-dimensions");
+ if((g->Regs[0x105]&1)&&(g->Regs[0x116]&3)!=3)return refuse("stencil-format");
  uint32_t blend=g->Regs[0x101];if(g->Regs[0x100]&256){if((blend&7)>4||((blend>>8)&7)>4)return refuse("blend-equation");for(int s=16;s<=28;s+=4)if(((blend>>s)&15)>14)return refuse("blend-factor");}
  if(!std::get<1>(n3ds_tevState_run(tv,{},{},{},{})))return refuse("tev");
  // Shadow sampling changes canonical counters; it remains in Reference.
@@ -33,7 +34,7 @@ inline Operation Operation::fragments(n3ds_GPU*g,n3ds_fbState*fb,n3ds_lightState
  if(work<4096)return refuse("small-draw");
  if(uint64_t(pixels)*4+work*20>16u*1024*1024)return refuse("work-limit");
  auto gpuRaster=raster(g,fb,tv,ls,tris,work);if(gpuRaster.target)return gpuRaster;
- if(ls->enabled)return o;
+ if(ls->enabled||(g->Regs[0x105]&1))return o;
  if(fb->depthTest)return refuse("depth-raster-bounds-or-cold-texture"); // The CPU-prepared fragment tail has no depth buffer.
  rrprof::Scope preparation(6,"PICA coverage / sampling / GPU inputs");
  std::vector<uint32_t> data(pixels,UINT32_MAX),tails(pixels,UINT32_MAX);data.reserve(pixels+work*5);

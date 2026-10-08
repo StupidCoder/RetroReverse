@@ -134,6 +134,41 @@ int main(int argc,char**argv){
   auto invalid=ls;if(reason==0)invalid.count=2;if(reason==1)invalid.shadow=true;if(reason==2)invalid.env=8;if(reason==3)invalid.lights[0].directional=false;if(reason==4)invalid.lights[0].distAtten=true;if(reason==5)invalid.lights[0].geo1=true;
   assert(!rrgpu::Operation::draw(g,&fb,&invalid,&tv,Slice<n3ds_rasterTri>{tri,tri}).target);
  }
+ // General stencil: every compare, fail/depth-fail/pass operation and write
+ // mask, with alpha before stencil, optional depth, lighting and ordered overdraw.
+ for(bool lit:{false,true})for(uint32_t trial=0;trial<192;trial++){
+  fb.depthAddr=r->base+0x30000;fb.width=fb.height=64;fb.depthTest=trial%3!=0;fb.depthWr=(trial/3)%2;
+  fb.depthFunc=(trial/8)%8;fb.depthZBuffer=trial%2;fb.depthScale=1;fb.depthOff=0;fb.colorMask=(trial/4)%16;
+  const uint32_t reference=(trial%4==0?0:trial%4==1?255:trial%4==2?0x5a:0xa5),mask=trial%5?255:0x5a,writeMask=trial%7?255:0xa5;
+  g->Regs[0x105]=1|((trial%8)<<4)|(writeMask<<8)|(reference<<16)|(mask<<24);
+  g->Regs[0x106]=((trial/8)%8)|(((trial/16+3)%8)<<4)|(((trial/24+5)%8)<<8);g->Regs[0x115]=trial%5!=0;g->Regs[0x116]=3;
+  tv={};tv.texEnable=trial%2;tv.alphaTest=true;tv.alphaFunc=(trial/3)%8;tv.alphaRef=127;
+  for(auto&stage:tv.stages){stage={};stage.colr[0]=stage.alph[0]={15,0};}
+  tv.stages[0].colr[0]={uint8_t(lit?1:0),0};tv.stages[0].alph[0]={0,0};
+  ls={};ls.enabled=lit;ls.count=1;ls.env=0;ls.noD0=ls.noD1=ls.noFR=ls.noRR=ls.noRG=ls.noRB=true;
+  auto&light=ls.lights[0];light.directional=true;light.pos={.25f,.5f,1};light.diffuse={.75f,.5f,.25f};light.ambient={.1f,.2f,.3f};
+  tri.maxX=tri.maxY=64;tri.v0.x=.5f;tri.v0.y=.5f;tri.v1.x=63.5f;tri.v1.y=.5f;tri.v2.x=.5f;tri.v2.y=63.5f;tri.area=63.f*63.f;
+  int k=0;for(auto*v:{&tri.v0,&tri.v1,&tri.v2}){v->iw=k==0?.7f:k==1?1.3f:.9f;v->z=.2f+float(k)*.15f;v->col={.2f,.6f,.9f,float(k)*.5f};v->quat={.1f,.2f,.3f,.9f};v->view={float(k),.5f,-1};k++;}
+  auto second=tri;second.v0.z+=.4f;second.v1.z+=.4f;second.v2.z+=.4f;
+  auto depth=rrgpu::range(machine,fb.depthAddr,64*64*4);
+  for(uint32_t j=0;j<64*64;j++){const uint32_t stencil=j%5==0?0:j%5==1?255:j%5==2?reference:rnd()%256;uint32_t word=(stencil<<24)|(j%4==0?0:j%4==1?0xffffff:0x7fffff);std::memcpy(depth+j*4,&word,4);}
+  g->Regs[0x85]=(trial%2?fb.depthAddr:r->base+0x80000)>>3;g->Regs[0x82]=8|(8<<16);g->Regs[0x83]=0;g->Regs[0x8e]=0;
+  n3ds_GPU_invalidateTextures(g,r->base,2*1024*1024);
+  if(tv.texEnable){const n3ds_texKey key{g->Regs[0x85]<<3,0,8,8};auto cold=rrgpu::Operation::draw(g,&fb,&ls,&tv,Slice<n3ds_rasterTri>{tri,second,tri});assert(!cold.target);assert(!std::get<1>(lookup(g->texCache,key)));assert(std::get<1>(n3ds_GPU_texture(g,key.addr,key.fmt,key.w,key.h)));}
+  {auto op=rrgpu::Operation::draw(g,&fb,&ls,&tv,Slice<n3ds_rasterTri>{tri,second,tri});assert(op.target&&op.kind==(lit?10:9));op.record=false;}
+  n3ds_GPU_fill(g,&fb,&ls,&tv,Slice<n3ds_rasterTri>{tri,second,tri});
+  if(lit&&trial<8){
+   // Identical lighting key across kinds 8/10; a compiled stencil kernel must
+   // never be reused for an ordinary depth draw (or the reverse).
+   auto cfg=g->Regs[0x105];g->Regs[0x105]=0;auto testing=fb.depthTest;fb.depthTest=true;
+   n3ds_GPU_fill(g,&fb,&ls,&tv,Slice<n3ds_rasterTri>{tri,second,tri});g->Regs[0x105]=cfg;fb.depthTest=testing;
+  }
+ }
+ g->Regs[0x105]=1;g->Regs[0x115]=1;g->Regs[0x116]=3;fb.depthTest=false;ls={};
+ // Even without depth testing, stencil/color aliases require ordered Reference.
+ for(uint32_t depth:{fb.colorAddr,fb.colorAddr+4,0x15000000+(fb.colorAddr-r->base)}){fb.depthAddr=depth;assert(!rrgpu::Operation::draw(g,&fb,&ls,&tv,Slice<n3ds_rasterTri>{tri,tri}).target);}
+ fb.depthAddr=r->base+0x30000;g->Regs[0x116]=2;assert(!rrgpu::Operation::draw(g,&fb,&ls,&tv,Slice<n3ds_rasterTri>{tri,tri}).target);
+ g->Regs[0x105]=0;g->Regs[0x116]=3;fb.depthTest=true;
  ls={};
  // Overlapping depth/color, including different virtual addresses aliasing the
  // same bytes, cannot execute independently per pixel. Stay in Reference.
