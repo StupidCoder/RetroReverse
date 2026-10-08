@@ -1882,6 +1882,7 @@ uint64_t n3ds_nsToTick(int64_t ns);
 #include "performance.h"
 #include "graphics-stream.h"
 #include "vertex-fast.h"
+#include "shader-wasm.h"
 // tools/cpu/arm/arm.go:109:1
 uint32_t arm_signExtend(uint32_t v,uint64_t n){
 {
@@ -10052,7 +10053,7 @@ go_fmt_Printf(std::string("       attr%-2d = %v\012",21),a,(*attrs)[a]);
 return true;
 }
 ;
-{
+if(!rrshader::batch(vertexFast,first,count,inPerm,maxIn,outs)){
 int64_t workers = n3ds_GPU_vertexWorkers(g,count);
 if ((workers > cast<int64_t>(1ULL))) {
 n3ds_GPU_decodeAll(g);

@@ -5,7 +5,7 @@ static std::string errorText,reply;
 static std::vector<uint8_t>pixels;
 extern "C"{
 uint8_t*rr_input(uint32_t n){try{if(n<512||n>1024u*1024*1024)throw std::runtime_error("Invalid 3DS cartridge size (maximum 1 GiB)");upload.owner=std::shared_ptr<uint8_t[]>(new uint8_t[n]);upload.p=upload.owner.get();upload.n=upload.c=n;return upload.p;}catch(const std::exception&e){errorText=e.what();return nullptr;}}
-int rr_init(uint32_t n){try{if(n!=upload.n)throw std::runtime_error("Cartridge upload mismatch");auto[m,e]=n3ds_NewMachine(upload);if(e)throw std::runtime_error(e.text);machine=m;rrgpu::enabled=false;rrgpu::operations={};rrgpu::accelerated={};rrgpu::committedBytes=0;machine->SingleThreaded=true;errorText.clear();return 1;}catch(const std::exception&e){errorText=e.what();return 0;}}
+int rr_init(uint32_t n){try{if(n!=upload.n)throw std::runtime_error("Cartridge upload mismatch");auto[m,e]=n3ds_NewMachine(upload);if(e)throw std::runtime_error(e.text);machine=m;rrshader::invalidate();rrperf::cachedGPU=nullptr;rrgpu::enabled=false;rrgpu::operations={};rrgpu::accelerated={};rrgpu::committedBytes=0;machine->SingleThreaded=true;errorText.clear();return 1;}catch(const std::exception&e){errorText=e.what();return 0;}}
 int rr_run(uint32_t n){try{if(!machine||n>1000000)throw std::runtime_error("Invalid 3DS execution slice");rrprof::Scope t(0,"ARM11 / Horizon scheduler");auto ran=n3ds_Machine_RunFrames(machine,1,n);if(machine->CPU->Halted)throw std::runtime_error(machine->CPU->HaltReason);rrCollectTextures(machine->gpu);return ran;}catch(const std::exception&e){errorText=e.what();return -1;}}
 void rr_pad(uint32_t buttons,int x,int y){if(machine){machine->hidButtons=buttons;if(!x)x=((buttons&16)?80:0)-((buttons&32)?80:0);if(!y)y=((buttons&64)?80:0)-((buttons&128)?80:0);int16_t cx=std::clamp(x,-80,80)*156/80,cy=std::clamp(y,-80,80)*156/80;rr3dsCirclePad=uint16_t(cx)|(uint32_t(uint16_t(cy))<<16);}}
 void rr_touch(int x,int y,int down){if(machine)n3ds_Machine_SetTouch(machine,std::clamp(x,0,319),std::clamp(y,0,239),down!=0);}
@@ -20,7 +20,7 @@ uint8_t*rr_frame(){pixels=frame(machine);return pixels.data();}
 #include "state.h"
 static std::vector<std::shared_ptr<void>>stateOwners;
 static void stateWrite(rrstate::Archive&a){a.header(6,1);a(machine,rr3dsCirclePad);}
-static void stateRead(rrstate::Archive&a){a.header(6,1);n3ds_Machine*next=nullptr;uint32_t circle=0;a(next,circle);a.finish();rebindState(next,machine->romfs,machine->romfsRaw);machine=next;rr3dsCirclePad=circle;stateOwners=std::move(a.owned);}
+static void stateRead(rrstate::Archive&a){a.header(6,1);n3ds_Machine*next=nullptr;uint32_t circle=0;a(next,circle);a.finish();rebindState(next,machine->romfs,machine->romfsRaw);machine=next;rrshader::invalidate();rrperf::cachedGPU=nullptr;rr3dsCirclePad=circle;stateOwners=std::move(a.owned);}
 #include "../../../../browser/state/api.inc"
 #include "replay.h"
 extern "C"{

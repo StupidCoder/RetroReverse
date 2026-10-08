@@ -10,7 +10,7 @@ namespace rrperf {
 inline uint32_t stride=0;
 inline const char* rejection="unclassified";
 struct Vertices {
- uint64_t draws=0,vertices=0,unique=0,samples=0,shaded=0,cacheHits=0;
+ uint64_t draws=0,vertices=0,unique=0,samples=0,shaded=0,cacheHits=0,compiled=0;
  double fetchMs=0,shaderMs=0,clipMs=0;
 };
 inline std::map<uint64_t,Vertices> programs;
@@ -31,17 +31,17 @@ inline Draw* current=nullptr;
 struct Draw {
  Draw* parent=nullptr;Vertices* result=nullptr;
  std::array<uint64_t,1024> seen;bool indexed=false;
- uint64_t count=0,unique=0,samples=0,shaded=0,cacheHits=0;
- double fetch=0,shader=0,clip=0;
+ uint64_t count=0,unique=0,samples=0,shaded=0,cacheHits=0,compiled=0;
+ double fetch=0,shader=0,clip=0,batchFetch=0,batchShader=0;
  Draw(n3ds_GPU*g,bool indices):indexed(indices){
   if(!stride)return;
   const auto key=shaderHash(g);
   if(!programs.contains(key)&&programs.size()>=128){programOverflow++;return;}
   seen.fill(0);result=&programs[key];parent=current;current=this;
  }
- ~Draw(){if(!result)return;current=parent;result->draws++;result->vertices+=count;result->unique+=unique;result->samples+=samples;result->shaded+=shaded;result->cacheHits+=cacheHits;
-  const double scale=samples?double(shaded)/samples:0;
-  result->fetchMs+=fetch*scale;result->shaderMs+=shader*scale;result->clipMs+=clip;
+ ~Draw(){if(!result)return;current=parent;result->draws++;result->vertices+=count;result->unique+=unique;result->samples+=samples;result->shaded+=shaded;result->cacheHits+=cacheHits;result->compiled+=compiled;
+  const double scale=samples?double(shaded-compiled)/samples:0;
+  result->fetchMs+=fetch*scale+batchFetch;result->shaderMs+=shader*scale+batchShader;result->clipMs+=clip;
  }
  void vertex(uint32_t index){count++;if(!indexed){unique++;return;}if(index<65536){auto&bits=seen[index/64];uint64_t mask=uint64_t(1)<<(index%64);if(!(bits&mask)){bits|=mask;unique++;}}}
 };
@@ -85,7 +85,7 @@ inline bool enable(uint32_t sampleStride){
 }
 inline std::string json(){
  std::ostringstream s;s.precision(12);s<<"{\"sampleStride\":"<<stride<<",\"vertexTimesEstimated\":true,\"programOverflow\":"<<programOverflow<<",\"fallbackOverflow\":"<<fallbackOverflow<<",\"programs\":[";bool comma=false;
- for(auto&[key,v]:programs){if(comma)s<<',';comma=true;s<<"{\"hash\":\""<<std::hex<<key<<std::dec<<"\",\"draws\":"<<v.draws<<",\"vertices\":"<<v.vertices<<",\"unique\":"<<v.unique<<",\"samples\":"<<v.samples<<",\"shaderInvocations\":"<<v.shaded<<",\"cacheHits\":"<<v.cacheHits<<",\"fetchMs\":"<<v.fetchMs<<",\"shaderMs\":"<<v.shaderMs<<",\"clipMs\":"<<v.clipMs<<'}';}
+ for(auto&[key,v]:programs){if(comma)s<<',';comma=true;s<<"{\"hash\":\""<<std::hex<<key<<std::dec<<"\",\"draws\":"<<v.draws<<",\"vertices\":"<<v.vertices<<",\"unique\":"<<v.unique<<",\"samples\":"<<v.samples<<",\"shaderInvocations\":"<<v.shaded<<",\"cacheHits\":"<<v.cacheHits<<",\"compiledInvocations\":"<<v.compiled<<",\"fetchMs\":"<<v.fetchMs<<",\"shaderMs\":"<<v.shaderMs<<",\"clipMs\":"<<v.clipMs<<'}';}
  s<<"],\"fallbacks\":[";comma=false;
  for(auto&[key,v]:fallbacks){if(comma)s<<',';comma=true;s<<"{\"reasonAndFeatures\":\""<<key<<"\",\"draws\":"<<v.draws<<",\"triangles\":"<<v.triangles<<",\"boundingBoxWork\":"<<v.work<<",\"pixels\":"<<v.pixels<<",\"depthKilled\":"<<v.depthKilled<<",\"shadowSamples\":"<<v.shadowSamples<<",\"ms\":"<<v.ms<<'}';}
  s<<"]}";return s.str();

@@ -15,7 +15,7 @@ const builds=(process.env.BUILDS||'shipped:site/emulators/cores/3ds,candidate:to
 const browser=await chromium.launch({channel:'chrome',headless:process.env.HEADLESS==='1'}),pages=[];
 const report={schema:1,method:'Production worker pump, idle input, both-screen presentation; fixed display boundaries; end-state serialization and PNG encoding excluded; periodic pixel-copy observer cost included and reported.',checkpointSha256:sha(fs.readFileSync(checkpoint)),fields,trials,browser:await browser.version(),headless:process.env.HEADLESS==='1',builds:[],measurements:[]};
 report.release=JSON.parse(fs.readFileSync('site/emulators/release.json')).id;
-report.workerSha256=sha(worker);report.rasterSha256=sha(fs.readFileSync('site/emulators/raster-3ds.js'));report.transportSha256=sha(fs.readFileSync('site/emulators/graphics-live-3ds.js'));
+report.shaderCompilerSha256=sha(fs.readFileSync('site/emulators/shader-3ds.js'));report.workerSha256=sha(worker);report.rasterSha256=sha(fs.readFileSync('site/emulators/raster-3ds.js'));report.transportSha256=sha(fs.readFileSync('site/emulators/graphics-live-3ds.js'));
 report.host={platform:os.platform(),architecture:os.arch(),cpus:os.cpus().length,cpu:os.cpus()[0]?.model,memoryBytes:os.totalmem()};
 if(os.platform()==='darwin'){report.host.model=execFileSync('sysctl',['-n','hw.model'],{encoding:'utf8'}).trim();report.host.acPower=execFileSync('pmset',['-g','batt'],{encoding:'utf8'}).includes("'AC Power'");report.host.lowPowerModes=[...execFileSync('pmset',['-g','custom'],{encoding:'utf8'}).matchAll(/lowpowermode\s+(\d+)/g)].map(m=>Number(m[1]));}
 function summarize(r){

@@ -14,7 +14,8 @@ try{
   const {default:factory}=await import('/tools/platform/n3ds/browser/web/core.js');
   const {createLive3DSGraphics}=await import('/site/emulators/graphics-live-3ds.js');
   const {create3DSExecution}=await import('/site/emulators/execution-3ds.js');
-  const core=await factory();let media=new Uint8Array(await document.querySelector('#media').files[0].arrayBuffer());
+  const {createPicaShaders}=await import('/site/emulators/shader-3ds.js');
+  const core=await factory({picaShaders:createPicaShaders()});let media=new Uint8Array(await document.querySelector('#media').files[0].arrayBuffer());
   const check=(ok,why)=>{if(!ok)throw Error(why||core.UTF8ToString(core._rr_error()));};let p=core._rr_input(media.length);check(p);core.HEAPU8.set(media,p);check(core._rr_init(media.length));media=null;
   const initial=new Uint8Array(await document.querySelector('#checkpoint').files[0].arrayBuffer());
   const backend=await createLive3DSGraphics(core),execution=create3DSExecution({reference:backend.reference,experimental:backend.experimental});check(backend.experimental.available,backend.reason);
@@ -26,7 +27,7 @@ try{
   const frame=()=>{const p=core._rr_frame();return core.HEAPU8.slice(p,p+400*480*4);};
   const trials=[];
   try{for(const mixed of [false,true]){
-   await execution.select('reference');restore(initial);let switches=0,capturing=false;
+   await execution.select('reference');restore(initial);const shaderBefore=core.picaShaders.snapshot();let switches=0,capturing=false;
    const checkpoints=[],captures=[],memory=[],allocations=[],startFrame=status().frames,start=performance.now(),statsBefore=backend.stats();
    const kindsBefore={...supportedKinds},kindCounts=()=>Object.fromEntries(Object.entries(supportedKinds).map(([kind,n])=>[kind,n-(kindsBefore[kind]||0)]));
    const select=async mode=>{const previous=execution.snapshot().effective;await execution.select(mode);if(execution.snapshot().effective!==previous)switches++;};
@@ -56,15 +57,16 @@ try{
      await window.progress({mixed,interval:i+1,fields,switches,seconds:(performance.now()-start)/1000});
     }
    }
-   const stats=backend.stats();trials.push({mixed,fields,switches,ms:performance.now()-start,checkpoints,captures,memory,allocations,supportedKinds:kindCounts(),accelerated:stats.accelerated.map((n,i)=>n-statsBefore.accelerated[i])});
+   const stats=backend.stats();trials.push({shaders:Object.fromEntries(Object.entries(core.picaShaders.snapshot()).map(([k,v])=>[k,v-shaderBefore[k]])),mixed,fields,switches,ms:performance.now()-start,checkpoints,captures,memory,allocations,supportedKinds:kindCounts(),accelerated:stats.accelerated.map((n,i)=>n-statsBefore.accelerated[i])});
   }
   return {schema:1,fields,captureMode,requiredKind,trials};
-  }finally{backend.dispose();}
+  }finally{core.picaShaders.dispose();backend.dispose();}
  },{fields:Number(fields),captureMode:process.env.CAPTURE_MODE||'full',requiredKind:Number(process.env.RASTER_KIND||6)});
  assert.deepEqual(errors,[]);const [reference,mixed]=result.trials;
  assert.deepEqual(mixed.checkpoints,reference.checkpoints,'Switched continuation differs');assert.deepEqual(mixed.captures,reference.captures,'Capture pixels or histories differ');assert(mixed.switches>=Number(fields)/2);assert(mixed.accelerated.some(n=>n>0));
  assert(mixed.allocations.every(a=>a.gpu<=32*1024*1024),'GPU scratch exceeds fixture budget');
  for(let i=1;i<mixed.allocations.length;i++)assert(mixed.allocations[i].accelerated[3]>mixed.allocations[i-1].accelerated[3],'Scene stopped producing accelerated draws');
  assert(mixed.supportedKinds[result.requiredKind]>0,'Required GPU draw kind did not run');
+ assert(mixed.shaders.vertices>0,'Compiled vertex path did not run');assert.equal(reference.shaders.vertices,0,'Reference executed compiled shaders');
  result.result='PASS';result.browser=await browser.version();fs.writeFileSync(out,JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify({result:'PASS',fields:result.fields,switches:mixed.switches,captures:mixed.captures.length}));
 }finally{await browser.close();}

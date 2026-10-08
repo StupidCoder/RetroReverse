@@ -34,6 +34,7 @@ onmessage=async event=>{
   await execution3DS.select(m.mode);graphics3DS.measureTiming(!!m.timestamps);
   if(m.diagnostics&&!core._rr_perf_enable)throw Error('Core has no diagnostic API');
   if(core._rr_perf_enable)check(core._rr_perf_enable(m.diagnostics||0));
+  const beforeShaders=core.picaShaders?.snapshot();
   const beforeProfile=json('_rr_profile'),beforeGPU=graphics3DS.stats(),initialStatus=status();
   const transfer=core.graphicsTransfer,traffic={operations:0,inputBytes:0,beforeBytes:0,outputBytes:0,kinds:{},refusals:{}};
   core.graphicsTransfer=async packet=>{
@@ -56,7 +57,7 @@ onmessage=async event=>{
   }
   const diff=(a,b)=>Object.fromEntries(Object.entries(a).filter(([,v])=>typeof v==='number').map(([k,v])=>[k,v-(b[k]||0)]));
   send('demo-result',{result:{mode:m.mode,fields:m.fields,diagnosticStride:m.diagnostics||0,timestamps:!!m.timestamps,elapsedMs,times:t.times,observerMs:t.observerMs,maxCallMs:maxCall,runMs,paintMs,heapBytes:core.HEAPU8.length,
-   start:initialStatus,end:status(),stateHash,stateBytes:state.length,samples,diagnostics,traffic,
+   shaders:core.picaShaders?diff(core.picaShaders.snapshot(),beforeShaders):null,shaderCache:core.picaShaders?.snapshot(),start:initialStatus,end:status(),stateHash,stateBytes:state.length,samples,diagnostics,traffic,
    gpu:{allocatedBytes:afterGPU.allocatedBytes,timing:diff(afterGPU.timing,beforeGPU.timing),accelerated:afterGPU.accelerated.map((v,i)=>v-beforeGPU.accelerated[i])},
    profile:Object.fromEntries(json('_rr_profile').buckets.map(b=>[b.name,b.ms-(beforeProfile.buckets.find(a=>a.name===b.name)?.ms||0)]))}});
  }catch(e){demoTrial=null;running=false;send('demo-error',{text:String(e)});}

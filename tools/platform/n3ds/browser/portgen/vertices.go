@@ -23,5 +23,6 @@ func accelerateVertices(name, body string) string {
 	original := body[start:end]
 	body = body[:start] + "if(vertexFast.reuse(vi,i,outs)){vertexProfile.reuse(vi);return true;}\nif(!vertexFast.fetch(vi,attrs)){\n" + original + "}\n" + body[end:]
 	replace("n3ds_GPU_mapOutputs(g,vout,(&outs[i]));", "n3ds_GPU_mapOutputs(g,vout,(&outs[i]));\nvertexFast.remember(vi,i);")
+	replace("{\nint64_t workers = n3ds_GPU_vertexWorkers(g,count);", "if(!rrshader::batch(vertexFast,first,count,inPerm,maxIn,outs)){\nint64_t workers = n3ds_GPU_vertexWorkers(g,count);")
 	return body
 }
