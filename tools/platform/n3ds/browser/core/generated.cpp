@@ -3420,7 +3420,7 @@ n3ds_Machine_Write(c->bus,a,v);
 }
 // tools/cpu/arm/cpu.go:269:1
 uint32_t arm_CPU_read32(arm_CPU* c,uint32_t a){
-{
+const bool v6=arm_Variant_isV6(c->Arch);if(auto p=rrarm::word(c,v6?a:a&~3u)){auto value=rrarm::load<uint32_t>(p);return v6?value:arm_ror32(value,(a&3u)*8u);}{
 if (arm_Variant_isV6(c->Arch)) {
 if ((bool(c->wide) && (cast<uint32_t>((a & cast<uint32_t>(3ULL))) == cast<uint32_t>(0ULL)))) {
 return n3ds_Machine_Read32(c->wide,a);
@@ -3440,7 +3440,7 @@ return v;
 }
 // tools/cpu/arm/cpu.go:331:1
 void arm_CPU_write32(arm_CPU* c,uint32_t a,uint32_t v){
-{
+if(auto p=rrarm::word(c,arm_Variant_isV6(c->Arch)?a:a&~3u)){rrarm::store(p,v);return;}{
 if ((!arm_Variant_isV6(c->Arch))) {
 a &= ~(cast<uint32_t>(3ULL));
 }

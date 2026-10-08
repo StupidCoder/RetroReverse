@@ -55,6 +55,13 @@ suspended-CPU command-list execution, with dependency flushes and whole-batch
 Reference recovery. Further CPU and GPU compute work is required; another 52%
 elapsed-time reduction is needed for the 66.7 ms target.
 
+[D5a guarded ARM memory accesses](3DS-ACCELERATION-ARM-MEMORY.md) reduce 138.53
+to 124.07 ms/interval in five alternating comparisons (12.03% to 13.43% nominal).
+ARM/Horizon falls 30.1%, from 48.85 to 34.15 ms, with exact canonical state and
+images and 32 verified Reference/Experimental switches. Page boundaries, partial
+pages and observed accesses keep the byte bus path. GPU round trips now dominate
+at 55.88 ms; another 46% elapsed-time reduction is still needed for 25% nominal.
+
 ## What the new profile establishes
 
 The October 8 screenshot shows Mario running through the landscape on the top

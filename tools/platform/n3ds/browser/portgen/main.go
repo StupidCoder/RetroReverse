@@ -1037,6 +1037,10 @@ func main() {
 					body := g.block(d.Body)
 					pre := ""
 					switch name {
+					case "arm_CPU_read32":
+						pre = `const bool v6=arm_Variant_isV6(c->Arch);if(auto p=rrarm::word(c,v6?a:a&~3u)){auto value=rrarm::load<uint32_t>(p);return v6?value:arm_ror32(value,(a&3u)*8u);}`
+					case "arm_CPU_write32":
+						pre = `if(auto p=rrarm::word(c,arm_Variant_isV6(c->Arch)?a:a&~3u)){rrarm::store(p,v);return;}`
 					case "n3ds_GPU_Execute":
 						pre = `rrprof::Scope profile(1,"PICA commands / vertex processing");rr3ds::Command command(g->m,"PICA command list",addr,size);rrbatch::Scope batchScope(g);`
 					case "n3ds_GPU_fill":

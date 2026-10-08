@@ -113,7 +113,7 @@ function showProfile(p, captureWork=false) {
     gpuDetails.hidden=captureWork||!operations;
     if(!gpuDetails.hidden){
       const samples=delta('gpuSamples');
-      gpuDetails.textContent=`WebGPU breakdown for ${operations} operations: upload/submit ${(delta('uploadMs')+delta('submitMs')).toFixed(2)} ms · completion wait ${delta('queueAndMapMs').toFixed(2)} ms · readback copy ${delta('readbackMs').toFixed(2)} ms. `+(samples?`GPU compute within that wait: ${delta('gpuMs').toFixed(2)} ms (${samples} timestamp samples).`:graphics.timestamps?'GPU timestamp samples will appear after the next operation.':'GPU-only timing is unavailable on this adapter.');
+      gpuDetails.textContent=`WebGPU breakdown for ${operations} operations in ${delta('submissions')||operations} submissions: upload/submit ${(delta('uploadMs')+delta('submitMs')).toFixed(2)} ms · completion wait ${delta('queueAndMapMs').toFixed(2)} ms · readback copy ${delta('readbackMs').toFixed(2)} ms. `+(samples?`GPU compute within that wait: ${delta('gpuMs').toFixed(2)} ms (${samples} timestamp samples).`:graphics.timestamps?'GPU timestamp samples will appear after the next operation.':'GPU-only timing is unavailable on this adapter.');
     }
     lastGraphicsTiming={...timing};
   }

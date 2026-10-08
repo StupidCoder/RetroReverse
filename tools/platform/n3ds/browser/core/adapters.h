@@ -1,9 +1,10 @@
 #pragma once
+#include "arm-memory.h"
 arm_CPU*arm_NewCPU(n3ds_Machine*m){auto c=arenaNew(arm_CPU{});c->bus=m;c->wide=nullptr;arm_CPU_Reset(c);return c;}
-uint32_t arm_CPU_read16(arm_CPU*c,uint32_t a){return n3ds_Machine_Read16(c->bus,a);}
-uint32_t arm_CPU_read32aligned(arm_CPU*c,uint32_t a){return n3ds_Machine_Read32(c->bus,a&~3u);}
-void arm_CPU_write16(arm_CPU*c,uint32_t a,uint32_t v){n3ds_Machine_Write16(c->bus,a,v);}
-void arm_CPU_write32aligned(arm_CPU*c,uint32_t a,uint32_t v){n3ds_Machine_Write32(c->bus,a&~3u,v);}
+uint32_t arm_CPU_read16(arm_CPU*c,uint32_t a){if(auto p=rrarm::ordinary(c->bus,a,2))return rrarm::load<uint16_t>(p);return n3ds_Machine_Read16(c->bus,a);}
+uint32_t arm_CPU_read32aligned(arm_CPU*c,uint32_t a){a&=~3u;if(auto p=rrarm::ordinary(c->bus,a,4))return rrarm::load<uint32_t>(p);return n3ds_Machine_Read32(c->bus,a);}
+void arm_CPU_write16(arm_CPU*c,uint32_t a,uint32_t v){if(auto p=rrarm::ordinary(c->bus,a,2)){rrarm::store(p,uint16_t(v));return;}n3ds_Machine_Write16(c->bus,a,v);}
+void arm_CPU_write32aligned(arm_CPU*c,uint32_t a,uint32_t v){a&=~3u;if(auto p=rrarm::ordinary(c->bus,a,4)){rrarm::store(p,v);return;}n3ds_Machine_Write32(c->bus,a,v);}
 n3ds_workPool* n3ds_GPU_pool(n3ds_GPU*g){if(!g->workers)g->workers=arenaNew(n3ds_workPool{});return g->workers;}
 void n3ds_workPool_run(n3ds_workPool*,int64_t n,std::function<void(int64_t)>f){for(int64_t i=0;i<n;i++)f(i);}
 void n3ds_Machine_Close(n3ds_Machine*){}
