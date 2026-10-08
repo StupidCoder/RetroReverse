@@ -62,6 +62,13 @@ images and 32 verified Reference/Experimental switches. Page boundaries, partial
 pages and observed accesses keep the byte bus path. GPU round trips now dominate
 at 55.88 ms; another 46% elapsed-time reduction is still needed for 25% nominal.
 
+[D4b compiled materials](3DS-ACCELERATION-MATERIALS.md) reduce 134.39 to 125.12
+ms/interval in five comparisons against a fresh D5a control (12.40% to 13.32%
+nominal), with exact state/images and 32 handoff switches. GPU waiting is variable;
+all trials and the slower material-only timestamp run are retained. The three-way
+experiment also validates occupied-tile dispatch, but leaves it disabled because
+its GPU copies do not yield a consistent end-to-end gain. The 25% gate remains unmet.
+
 ## What the new profile establishes
 
 The October 8 screenshot shows Mario running through the landscape on the top

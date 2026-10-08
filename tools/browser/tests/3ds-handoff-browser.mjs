@@ -20,9 +20,9 @@ try{
   const check=(ok,why)=>{if(!ok)throw Error(why||core.UTF8ToString(core._rr_error()));};let p=core._rr_input(media.length);check(p);core.HEAPU8.set(media,p);check(core._rr_init(media.length));media=null;
   const initial=new Uint8Array(await document.querySelector('#checkpoint').files[0].arrayBuffer());
   const backend=await createLive3DSGraphics(core),execution=create3DSExecution({reference:backend.reference,experimental:backend.experimental});check(backend.experimental.available,backend.reason);
-  const supportedKinds={},transfer=core.graphicsTransfer,batchTransfer=core.graphicsBatch;core.graphicsTransfer=async packet=>{const result=await transfer(packet);if(result.supported)supportedKinds[packet.kind]=(supportedKinds[packet.kind]||0)+1;return result;};
+  const alphaModes={},recordAlpha=p=>{if(p.kind>=5){const key=p.kind+'/'+p.params[8];alphaModes[key]=(alphaModes[key]||0)+1;}},supportedKinds={},transfer=core.graphicsTransfer,batchTransfer=core.graphicsBatch;core.graphicsTransfer=async packet=>{recordAlpha(packet);const result=await transfer(packet);if(result.supported)supportedKinds[packet.kind]=(supportedKinds[packet.kind]||0)+1;return result;};
   let injectedBatchFaults=0;
-  core.graphicsBatch=async packets=>{const result=await batchTransfer(packets);
+  core.graphicsBatch=async packets=>{packets.forEach(recordAlpha);const result=await batchTransfer(packets);
    if(result.supported&&packets.length>1&&batchFault&&!injectedBatchFaults++){
     if(batchFault==='reject')return {supported:false,reason:'Injected batch rejection'};
     if(batchFault==='counter')return {...result,counts:result.counts.map((c,i)=>i===result.counts.length-1?{...c,drawn:-1}:c)};
@@ -68,7 +68,7 @@ try{
    }
    const stats=backend.stats();trials.push({shaders:Object.fromEntries(Object.entries(core.picaShaders.snapshot()).map(([k,v])=>[k,v-shaderBefore[k]])),mixed,fields,switches,ms:performance.now()-start,checkpoints,captures,memory,allocations,supportedKinds:kindCounts(),accelerated:stats.accelerated.map((n,i)=>n-statsBefore.accelerated[i])});
   }
-  return {schema:1,fields,captureMode,requiredKind,batchFault,injectedBatchFaults:Math.min(1,injectedBatchFaults),trials};
+  return {schema:1,alphaModes,fields,captureMode,requiredKind,batchFault,injectedBatchFaults:Math.min(1,injectedBatchFaults),trials};
   }finally{core.picaShaders.dispose();backend.dispose();}
  },{fields:Number(fields),captureMode:process.env.CAPTURE_MODE||'full',requiredKind:Number(process.env.RASTER_KIND||6),batchFault:process.env.BATCH_FAULT||''});
  assert.deepEqual(errors,[]);if(result.batchFault)assert.equal(result.injectedBatchFaults,1);const [reference,mixed]=result.trials;

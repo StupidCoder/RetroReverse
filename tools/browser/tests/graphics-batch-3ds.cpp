@@ -13,6 +13,17 @@ int main(int argc,char**argv){
  const auto initial=std::vector<uint8_t>(region->data.begin(),region->data.end());
  auto reset=[&](){std::copy(initial.begin(),initial.end(),region->data.begin());g->PixelsDrawn=g->DepthKilled=0;};
  auto draw=[&](uint32_t i){
+  uint32_t repeats=2;
+#ifdef RR_SPARSE_FIXTURE
+  // Partial 16-pixel bins and all four Morton subtiles, interleaved with dense
+  // draws. Repeat sparse triangles to pass the production small-draw threshold.
+  fb.width=72;fb.height=88;
+  const int side=i%4==0?72:i%4==1?16:8;
+  tri.minX=i%4==0?0:i%4==1?24:64;tri.minY=i%4==0?0:i%4==1?40:80;
+  tri.maxX=tri.minX+side;tri.maxY=i%4==0?88:tri.minY+side;
+  tri.v0.x=tri.minX+.5f;tri.v0.y=tri.minY+.5f;tri.v1.x=tri.maxX-.5f;tri.v1.y=tri.v0.y;tri.v2.x=tri.v0.x;tri.v2.y=tri.maxY-.5f;
+  tri.area=(tri.v1.x-tri.v0.x)*(tri.v2.y-tri.v0.y);repeats=i%4==0?2:4096/(side*side);
+#endif
   // Retain older decoded images after the live cache changes, so a deferred
   // Reference replay cannot accidentally sample the newest texture version.
   for(int j=0;j<256;j++)region->data[0x80000+j]=uint8_t(i*13+j*7);
@@ -29,7 +40,8 @@ int main(int argc,char**argv){
   ls.lights[0].directional=true;ls.lights[0].pos={0,0,1};ls.lights[0].diffuse={.25f,.5f,.75f};ls.lights[0].specular0={.8f,.7f,.6f};
   for(int j=0;j<256;j++){g->LUT[0][j]=float(i+1)/40;g->LUTDiff[0][j]=-.1f;}
   tri.v0.col[3]=tri.v1.col[3]=tri.v2.col[3]=float(i%5)/4;
-  n3ds_GPU_fill(g,&fb,&ls,&tv,Slice<n3ds_rasterTri>{tri,tri});
+  auto triangles=Slice<n3ds_rasterTri>::make(repeats);for(auto&t:triangles)t=tri;
+  n3ds_GPU_fill(g,&fb,&ls,&tv,triangles);
  };
  std::vector<uint32_t> observed;
  rr_graphics_begin();for(uint32_t i=0;i<32;i++){draw(i);observed.push_back(n3ds_Machine_ReadWord(machine,fb.colorAddr));}rr_graphics_end();

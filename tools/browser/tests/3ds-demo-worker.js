@@ -36,13 +36,13 @@ onmessage=async event=>{
   if(core._rr_perf_enable)check(core._rr_perf_enable(m.diagnostics||0));
   const beforeShaders=core.picaShaders?.snapshot();
   const beforeProfile=json('_rr_profile'),beforeGPU=graphics3DS.stats(),initialStatus=status();
-  const transfer=core.graphicsTransfer,batchTransfer=core.graphicsBatch,traffic={specializedLighting:0,operations:0,submissions:0,batches:0,inputBytes:0,beforeBytes:0,outputBytes:0,kinds:{},refusals:{}};
+  const transfer=core.graphicsTransfer,batchTransfer=core.graphicsBatch,traffic={batchSizes:{},sparseDraws:0,workgroups:0,fullWorkgroups:0,deviceCopyBytes:0,specializedMaterials:0,specializedLighting:0,operations:0,submissions:0,batches:0,inputBytes:0,beforeBytes:0,outputBytes:0,kinds:{},refusals:{}};
   const record=async(packets,batch)=>{
-   traffic.submissions++;if(batch)traffic.batches++;
-   for(const packet of packets){traffic.operations++;traffic.inputBytes+=packet.input.length;traffic.kinds[packet.kind]=(traffic.kinds[packet.kind]||0)+1;}
+   traffic.submissions++;if(batch){traffic.batches++;traffic.batchSizes[packets.length]=(traffic.batchSizes[packets.length]||0)+1;}
+   for(const packet of packets){traffic.operations++;traffic.fullWorkgroups+=Math.ceil(packet.before.length/(packet.kind>=7?512:256));traffic.inputBytes+=packet.input.length;traffic.kinds[packet.kind]=(traffic.kinds[packet.kind]||0)+1;}
    traffic.beforeBytes+=packets[0].before.length;
    const result=await(batch?batchTransfer(packets):transfer(packets[0]));
-   if(result.supported){traffic.specializedLighting+=batch?result.counts.filter(c=>c.specialized).length:Number(!!result.specialized);traffic.outputBytes+=result.bytes.length;}
+   if(result.supported){for(const [i,c] of (batch?result.counts:[result]).entries()){traffic.sparseDraws+=Number(!!c.sparse);traffic.workgroups+=c.workgroups??Math.ceil(packets[i].before.length/(packets[i].kind>=7?512:256));traffic.deviceCopyBytes+=c.sparse?packets[i].before.length:0;}traffic.specializedMaterials+=batch?result.counts.filter(c=>c.materialSpecialized).length:Number(!!result.materialSpecialized);traffic.specializedLighting+=batch?result.counts.filter(c=>c.specialized).length:Number(!!result.specialized);traffic.outputBytes+=result.bytes.length;}
    else traffic.refusals[result.reason]=(traffic.refusals[result.reason]||0)+1;return result;
   };
   core.graphicsTransfer=packet=>record([packet],false);core.graphicsBatch=packets=>record(packets,true);
@@ -62,7 +62,7 @@ onmessage=async event=>{
   const diff=(a,b)=>Object.fromEntries(Object.entries(a).filter(([,v])=>typeof v==='number').map(([k,v])=>[k,v-(b[k]||0)]));
   send('demo-result',{result:{mode:m.mode,fields:m.fields,diagnosticStride:m.diagnostics||0,timestamps:!!m.timestamps,elapsedMs,times:t.times,observerMs:t.observerMs,maxCallMs:maxCall,runMs,paintMs,heapBytes:core.HEAPU8.length,
    shaders:core.picaShaders?diff(core.picaShaders.snapshot(),beforeShaders):null,shaderCache:core.picaShaders?.snapshot(),start:initialStatus,end:status(),stateHash,stateBytes:state.length,samples,diagnostics,traffic,
-   gpu:{lightingCompilation:afterGPU.lightingCompilation,allocatedBytes:afterGPU.allocatedBytes,timing:diff(afterGPU.timing,beforeGPU.timing),accelerated:afterGPU.accelerated.map((v,i)=>v-beforeGPU.accelerated[i])},
+   gpu:{materialCompilation:afterGPU.materialCompilation,lightingCompilation:afterGPU.lightingCompilation,allocatedBytes:afterGPU.allocatedBytes,timing:diff(afterGPU.timing,beforeGPU.timing),accelerated:afterGPU.accelerated.map((v,i)=>v-beforeGPU.accelerated[i])},
    profile:Object.fromEntries(json('_rr_profile').buckets.map(b=>[b.name,b.ms-(beforeProfile.buckets.find(a=>a.name===b.name)?.ms||0)]))}});
  }catch(e){demoTrial=null;running=false;send('demo-error',{text:String(e)});}
  finally{if(ownership)executionGate.release(ownership);}

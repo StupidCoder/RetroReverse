@@ -27,10 +27,12 @@ function summarize(r){
 }
 try{
  for(const build of builds){
+  const graphicsRoot=build===builds[0]&&process.env.BASELINE_SITE?process.env.BASELINE_SITE:'site/emulators',graphicsHashes={};
   const context=await browser.newContext({viewport:{width:1400,height:1000}}),page=await context.newPage(),errors=[];
   page.setDefaultTimeout(120000);
   page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/site/emulators/worker.js',route=>route.fulfill({contentType:'text/javascript',body:worker}));
+  for(const asset of ['graphics-3ds.js','graphics-live-3ds.js','fragment-3ds.js','raster-3ds.js','lighting-3ds.js','material-3ds.js']){const file=path.join(graphicsRoot,asset);if(fs.existsSync(file)){let body=fs.readFileSync(file,'utf8');if(asset==='graphics-3ds.js'&&build.name===process.env.DENSE_BUILD)body=body.replace('sparseRaster=true','sparseRaster=false');graphicsHashes[asset]=sha(body);await page.route('**/site/emulators/'+asset,route=>route.fulfill({contentType:'text/javascript',body}));}}
   if(process.env.GENERIC_LIGHTING==='1')await page.route('**/site/emulators/graphics-3ds.js',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync('site/emulators/graphics-3ds.js','utf8').replace('specializeLighting=true','specializeLighting=false')}));
   for(const asset of ['core.js','core.wasm'])await page.route('**/site/emulators/cores/3ds/'+asset,route=>route.fulfill({contentType:asset.endsWith('.wasm')?'application/wasm':'text/javascript',body:fs.readFileSync(path.join(build.dir,asset))}));
   const manifest=JSON.parse(fs.readFileSync('site/emulators/build-manifest.json'));manifest['3ds/core.wasm']=sha(fs.readFileSync(path.join(build.dir,'core.wasm')));
@@ -43,7 +45,7 @@ try{
   await page.evaluate(()=>{const i=document.createElement('input');i.type='file';i.id='demo-checkpoint';document.body.append(i);});await page.locator('#demo-checkpoint').setInputFiles(checkpoint);
   await page.evaluate(async()=>{const bytes=await document.getElementById('demo-checkpoint').files[0].arrayBuffer();window.demo.worker.postMessage({type:'demo-initial',session:window.demo.session,bytes},[bytes]);});await page.waitForFunction(()=>window.demo.ready);
   const adapter=await page.evaluate(async()=>{const a=await navigator.gpu.requestAdapter();return a?{vendor:a.info.vendor,architecture:a.info.architecture,device:a.info.device,description:a.info.description}:null;});
-  report.builds.push({name:build.name,wasmSha256:sha(fs.readFileSync(path.join(build.dir,'core.wasm'))),adapter});pages.push({page,errors,build});
+  report.builds.push({name:build.name,graphicsHashes,wasmSha256:sha(fs.readFileSync(path.join(build.dir,'core.wasm'))),adapter});pages.push({page,errors,build});
  }
  const run=async (item,label,count,diagnostics=0,timestamps=false)=>{
   const {page,build,errors}=item;await page.bringToFront();
@@ -62,7 +64,7 @@ try{
   const r=await run(item,`trial-${trial+1}`,fields);report.measurements.push(r);fs.writeFileSync(out,JSON.stringify(report,null,2)+'\n');
  }
  if(process.env.DIAGNOSTICS==='1'){
-  const candidate=pages.at(-1);report.measurements.push(await run(candidate,'timing',fields,0,true));report.measurements.push(await run(candidate,'diagnostics',fields,16,true));
+  const candidate=pages.at(-1);for(const item of process.env.TIMING_ALL==='1'?pages:[candidate])report.measurements.push(await run(item,'timing',fields,0,true));report.measurements.push(await run(candidate,'diagnostics',fields,16,true));
  }
  const comparable=report.measurements.filter(r=>r.fields===fields&&r.label!=='cold');
  for(const r of comparable){assert.equal(r.stateHash,comparable[0].stateHash,'Canonical continuation differs');assert.deepEqual(r.samples.map(s=>({interval:s.interval,hash:s.hash,status:s.status})),comparable[0].samples.map(s=>({interval:s.interval,hash:s.hash,status:s.status})),'Scene samples differ');}
