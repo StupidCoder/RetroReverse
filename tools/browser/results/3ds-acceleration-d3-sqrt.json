@@ -1,0 +1,11 @@
+{
+  "tested": 16777216,
+  "mismatches": 0,
+  "failures": [],
+  "adapter": {
+    "vendor": "apple",
+    "architecture": "metal-3"
+  },
+  "result": "PASS",
+  "browser": "154.0.8037.98"
+}

@@ -40,7 +40,7 @@ export async function createLive3DSGraphics(core,{createGPU=create3DSGraphics,ti
  const result={reference,experimental,get failed(){return !!(reason||core.graphicsError);},get reason(){return reason||core.graphicsError;},
   measureTiming(enabled){gpu?.setTimingEnabled?.(enabled);},
   present(){if(!active||reason||closed)return null;try{return gpu.present(core);}catch(e){fail(e);return null;}},
-  stats(){return {...JSON.parse(core.UTF8ToString(core._rr_graphics_stats())),hostOperations:count,hostMs:totalMs,timing:{...timing},timestamps:!!gpu?.info?.timestamps,measuringGPU:!!gpu?.measuringGPU,allocatedBytes:gpu?.bytesAllocated??0};},
+  stats(){return {...JSON.parse(core.UTF8ToString(core._rr_graphics_stats())),hostOperations:count,hostMs:totalMs,lightingCompilation:gpu?.lightingCompilation?.(),timing:{...timing},timestamps:!!gpu?.info?.timestamps,measuringGPU:!!gpu?.measuringGPU,allocatedBytes:gpu?.bytesAllocated??0};},
   dispose(){closed=true;active=false;gpu?.destroy();core.graphicsTransfer=null;}
  };return result;
 }

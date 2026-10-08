@@ -56,16 +56,27 @@ console.log('3DS missing WebGPU, absent adapter and shader compilation failure k
 {
  const {create3DSGraphics}=await import('../../../site/emulators/graphics-3ds.js');
  globalThis.GPUBufferUsage={STORAGE:1,COPY_DST:2,COPY_SRC:4,MAP_READ:8};globalThis.GPUMapMode={READ:1};globalThis.GPUShaderStage={COMPUTE:4};
- let pops=0,resolveValidation,mode='success',unmaps=0;const variants=[];
+ let pops=0,resolveValidation,mode='success',unmaps=0,compileAction=null;const variants=[];
  const device={lost:new Promise(()=>{}),pushErrorScope(){},popErrorScope(){if(++pops===1)return Promise.resolve(null);return new Promise(r=>resolveValidation=r);},
-  createShaderModule:()=>({}),createBindGroupLayout:()=>({}),createPipelineLayout:()=>({}),createComputePipelineAsync:async options=>{variants.push(options.compute.constants.operation);return {};},createBindGroup:()=>({}),
+  createShaderModule:()=>({}),createBindGroupLayout:()=>({}),createPipelineLayout:()=>({}),createComputePipelineAsync:async options=>{variants.push(options.compute.constants.operation);if(variants.length>8&&compileAction)return compileAction();return {};},createBindGroup:()=>({}),
   createBuffer({size}){const bytes=new ArrayBuffer(size);return {mapAsync(){assert(resolveValidation,'Validation was not requested before mapping');resolveValidation(mode==='validation-error'?{message:'Injected validation error'}:null);resolveValidation=null;return mode==='map-error'?Promise.reject(Error('Injected mapping error')):Promise.resolve();},getMappedRange(offset,length){return bytes.slice(offset,offset+length);},unmap(){unmaps++;},destroy(){}};},
   createCommandEncoder:()=>({clearBuffer(){},beginComputePass:()=>({setPipeline(){},setBindGroup(){},dispatchWorkgroups(){},end(){}}),copyBufferToBuffer(){},finish:()=>({})}),queue:{writeBuffer(){},submit(){}},destroy(){}};
  const gpu=await create3DSGraphics({measureGPU:false,gpu:{requestAdapter:async()=>({features:new Set(),requestDevice:async()=>device})}});
- assert.deepEqual(variants,[1,2,3,4,5,6,7]);
+ assert.deepEqual(variants,[1,2,3,4,5,6,7,8]);
  const packet={kind:1,params:[4,0,4096,0],input:new Uint8Array(),before:new Uint8Array(4096)};
  assert((await gpu.execute(packet)).supported);assert(!gpu.busy);
  for(mode of ['validation-error','map-error']){await assert.rejects(gpu.execute(packet),/Injected/);assert(!gpu.busy);}
- mode='success';assert((await gpu.execute(packet)).supported);assert.equal(unmaps,4);gpu.destroy();
+ mode='success';assert((await gpu.execute(packet)).supported);assert.equal(unmaps,4);
+ // Specialization failures must leave the generic exact kernel usable. A late
+ // compilation after device disposal must never install a ready pipeline.
+ const params=[8,8,15,0,0,3,0,0,0,64,...Array(24).fill(0),0xffffffff,1,1,1,0,...Array(12).fill(0),0x11,0,0,0,0xffffffff,0,0,0,0,0,71,0,...Array(21).fill(0),0];
+ const data=new Uint32Array(71+3584),floats=new Float32Array(data.buffer);data.set([70,1,0,8,0,8]);floats[6]=64;data[70]=2;
+ for(let v=0;v<3;v++){floats[7+v*21]=v===1?8:0;floats[8+v*21]=v===2?8:0;floats[9+v*21]=1;}
+ const light={kind:8,params,input:new Uint8Array(data.buffer),before:new Uint8Array(512)};
+ compileAction=()=>Promise.reject(Error('Injected specialization error'));
+ assert((await gpu.execute(light)).supported);await new Promise(resolve=>setImmediate(resolve));assert.equal(gpu.lightingCompilation().failed,1);assert((await gpu.execute(light)).supported);
+ params[58]=1;let finishCompile;compileAction=()=>new Promise(resolve=>{finishCompile=resolve;});
+ assert((await gpu.execute(light)).supported);assert.equal(gpu.lightingCompilation().pending,1);gpu.destroy();finishCompile({});await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(gpu.lightingCompilation().ready,0);assert.equal(gpu.lightingCompilation().pending,0);
 }
 console.log('3DS parallel validation/readback, failure cleanup, pipeline variants and timing snapshots pass');

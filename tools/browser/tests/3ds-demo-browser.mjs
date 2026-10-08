@@ -14,8 +14,9 @@ const root=process.cwd(),worker=fs.readFileSync('site/emulators/worker.js','utf8
 const builds=(process.env.BUILDS||'shipped:site/emulators/cores/3ds,candidate:tools/platform/n3ds/browser/web').split(',').map(v=>{const [name,dir]=v.split(':');return {name,dir:path.resolve(dir)};});
 const browser=await chromium.launch({channel:'chrome',headless:process.env.HEADLESS==='1'}),pages=[];
 const report={schema:1,method:'Production worker pump, idle input, both-screen presentation; fixed display boundaries; end-state serialization and PNG encoding excluded; periodic pixel-copy observer cost included and reported.',checkpointSha256:sha(fs.readFileSync(checkpoint)),fields,trials,browser:await browser.version(),headless:process.env.HEADLESS==='1',builds:[],measurements:[]};
+report.lightingSpecialization=process.env.GENERIC_LIGHTING!=='1';
 report.release=JSON.parse(fs.readFileSync('site/emulators/release.json')).id;
-report.shaderCompilerSha256=sha(fs.readFileSync('site/emulators/shader-3ds.js'));report.workerSha256=sha(worker);report.rasterSha256=sha(fs.readFileSync('site/emulators/raster-3ds.js'));report.transportSha256=sha(fs.readFileSync('site/emulators/graphics-live-3ds.js'));
+report.shaderCompilerSha256=sha(fs.readFileSync('site/emulators/shader-3ds.js'));report.workerSha256=sha(worker);report.rasterSha256=sha(fs.readFileSync('site/emulators/raster-3ds.js'));report.lightingSha256=sha(fs.readFileSync('site/emulators/lighting-3ds.js'));report.transportSha256=sha(fs.readFileSync('site/emulators/graphics-live-3ds.js'));
 report.host={platform:os.platform(),architecture:os.arch(),cpus:os.cpus().length,cpu:os.cpus()[0]?.model,memoryBytes:os.totalmem()};
 if(os.platform()==='darwin'){report.host.model=execFileSync('sysctl',['-n','hw.model'],{encoding:'utf8'}).trim();report.host.acPower=execFileSync('pmset',['-g','batt'],{encoding:'utf8'}).includes("'AC Power'");report.host.lowPowerModes=[...execFileSync('pmset',['-g','custom'],{encoding:'utf8'}).matchAll(/lowpowermode\s+(\d+)/g)].map(m=>Number(m[1]));}
 function summarize(r){
@@ -30,6 +31,7 @@ try{
   page.setDefaultTimeout(120000);
   page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/site/emulators/worker.js',route=>route.fulfill({contentType:'text/javascript',body:worker}));
+  if(process.env.GENERIC_LIGHTING==='1')await page.route('**/site/emulators/graphics-3ds.js',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync('site/emulators/graphics-3ds.js','utf8').replace('specializeLighting=true','specializeLighting=false')}));
   for(const asset of ['core.js','core.wasm'])await page.route('**/site/emulators/cores/3ds/'+asset,route=>route.fulfill({contentType:asset.endsWith('.wasm')?'application/wasm':'text/javascript',body:fs.readFileSync(path.join(build.dir,asset))}));
   const manifest=JSON.parse(fs.readFileSync('site/emulators/build-manifest.json'));manifest['3ds/core.wasm']=sha(fs.readFileSync(path.join(build.dir,'core.wasm')));
   await page.route('**/site/emulators/build-manifest.json',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(manifest)}));

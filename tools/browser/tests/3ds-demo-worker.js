@@ -36,11 +36,11 @@ onmessage=async event=>{
   if(core._rr_perf_enable)check(core._rr_perf_enable(m.diagnostics||0));
   const beforeShaders=core.picaShaders?.snapshot();
   const beforeProfile=json('_rr_profile'),beforeGPU=graphics3DS.stats(),initialStatus=status();
-  const transfer=core.graphicsTransfer,traffic={operations:0,inputBytes:0,beforeBytes:0,outputBytes:0,kinds:{},refusals:{}};
+  const transfer=core.graphicsTransfer,traffic={specializedLighting:0,operations:0,inputBytes:0,beforeBytes:0,outputBytes:0,kinds:{},refusals:{}};
   core.graphicsTransfer=async packet=>{
    traffic.operations++;traffic.inputBytes+=packet.input.length;traffic.beforeBytes+=packet.before.length;
    traffic.kinds[packet.kind]=(traffic.kinds[packet.kind]||0)+1;
-   const result=await transfer(packet);if(result.supported)traffic.outputBytes+=result.bytes.length;else traffic.refusals[result.reason]=(traffic.refusals[result.reason]||0)+1;return result;
+   const result=await transfer(packet);if(result.specialized)traffic.specializedLighting++;if(result.supported)traffic.outputBytes+=result.bytes.length;else traffic.refusals[result.reason]=(traffic.refusals[result.reason]||0)+1;return result;
   };
   const t={fields:m.fields,sampleEvery:Math.max(1,Math.floor(m.fields/4)),times:[],samples:[{interval:0,status:initialStatus,pixels:demoPixels()}],observerMs:0,startFrame:initialStatus.frames,lastFrame:initialStatus.frames};
   maxCall=runMs=paintMs=0;t.start=t.lastTime=performance.now();demoTrial=t;running=true;
@@ -58,7 +58,7 @@ onmessage=async event=>{
   const diff=(a,b)=>Object.fromEntries(Object.entries(a).filter(([,v])=>typeof v==='number').map(([k,v])=>[k,v-(b[k]||0)]));
   send('demo-result',{result:{mode:m.mode,fields:m.fields,diagnosticStride:m.diagnostics||0,timestamps:!!m.timestamps,elapsedMs,times:t.times,observerMs:t.observerMs,maxCallMs:maxCall,runMs,paintMs,heapBytes:core.HEAPU8.length,
    shaders:core.picaShaders?diff(core.picaShaders.snapshot(),beforeShaders):null,shaderCache:core.picaShaders?.snapshot(),start:initialStatus,end:status(),stateHash,stateBytes:state.length,samples,diagnostics,traffic,
-   gpu:{allocatedBytes:afterGPU.allocatedBytes,timing:diff(afterGPU.timing,beforeGPU.timing),accelerated:afterGPU.accelerated.map((v,i)=>v-beforeGPU.accelerated[i])},
+   gpu:{lightingCompilation:afterGPU.lightingCompilation,allocatedBytes:afterGPU.allocatedBytes,timing:diff(afterGPU.timing,beforeGPU.timing),accelerated:afterGPU.accelerated.map((v,i)=>v-beforeGPU.accelerated[i])},
    profile:Object.fromEntries(json('_rr_profile').buckets.map(b=>[b.name,b.ms-(beforeProfile.buckets.find(a=>a.name===b.name)?.ms||0)]))}});
  }catch(e){demoTrial=null;running=false;send('demo-error',{text:String(e)});}
  finally{if(ownership)executionGate.release(ownership);}

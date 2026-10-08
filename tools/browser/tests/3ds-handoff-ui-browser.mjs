@@ -9,7 +9,7 @@ const [media,checkpoint,out]=process.argv.slice(2),dir=path.dirname(out);
 const hash=b=>createHash('sha256').update(b).digest('hex');
 const mediaHash=createHash('sha256');for await(const chunk of fs.createReadStream(media))mediaHash.update(chunk);
 const manifest=JSON.parse(fs.readFileSync('site/emulators/build-manifest.json'));
-const graphics=['graphics-3ds.js','graphics-live-3ds.js','presentation-3ds.js','fragment-3ds.js','raster-3ds.js','shader-3ds.js'].map(n=>hash(fs.readFileSync('site/emulators/'+n)));
+const graphics=['graphics-3ds.js','graphics-live-3ds.js','presentation-3ds.js','fragment-3ds.js','raster-3ds.js','lighting-3ds.js','shader-3ds.js'].map(n=>hash(fs.readFileSync('site/emulators/'+n)));
 const identity=hash(JSON.stringify({wasm:manifest['3ds/core.wasm'],graphics}));
 const input={...new InputQueue(60),pulses:[],down:[],pending:[],appliedKeys:[],lastButtons:-1,lastX:0,lastY:0,inputSequence:0,lastInputStep:0};
 const statePath=path.join(dir,'3ds-handoff-ui-initial.rrstate'),savedPath=path.join(dir,'3ds-handoff-ui-saved.rrstate');

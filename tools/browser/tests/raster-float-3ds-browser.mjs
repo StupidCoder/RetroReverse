@@ -19,17 +19,17 @@ try{
   const powers=[...Array.from({length:254},(_,i)=>(i+1)<<23),...Array.from({length:23},(_,i)=>1<<i)];
   for(const power of powers)for(let i=0;i<32;i++){const a=random(),b=(power|(i%2?0x80000000:0))>>>0;pairs.push([a,b],[b,a]);}
   const input=new Uint32Array(pairs.flat()),U=GPUBufferUsage;
-  const source=device.createBuffer({size:input.byteLength,usage:U.STORAGE|U.COPY_DST}),out=device.createBuffer({size:pairs.length*12,usage:U.STORAGE|U.COPY_SRC}),read=device.createBuffer({size:pairs.length*12,usage:U.COPY_DST|U.MAP_READ});
+  const source=device.createBuffer({size:input.byteLength,usage:U.STORAGE|U.COPY_DST}),out=device.createBuffer({size:pairs.length*16,usage:U.STORAGE|U.COPY_SRC}),read=device.createBuffer({size:pairs.length*16,usage:U.COPY_DST|U.MAP_READ});
   const module=device.createShaderModule({code:rasterFloatWGSL+`\n@group(0) @binding(0) var<storage,read> inputs:array<vec2<u32>>;@group(0) @binding(1) var<storage,read_write> outputs:array<u32>;
-  @compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id:vec3<u32>){let i=id.x;if(i>=arrayLength(&inputs)){return;}let a=inputs[i].x;let b=inputs[i].y;outputs[i*3u]=radd(a,b);outputs[i*3u+1u]=rmul(a,b);outputs[i*3u+2u]=rdiv(a,b);}`});
+  @compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id:vec3<u32>){let i=id.x;if(i>=arrayLength(&inputs)){return;}let a=inputs[i].x;let b=inputs[i].y;outputs[i*4u]=radd(a,b);outputs[i*4u+1u]=rmul(a,b);outputs[i*4u+2u]=rdiv(a,b);outputs[i*4u+3u]=rsqrt(a);}`});
   const pipeline=await device.createComputePipelineAsync({layout:'auto',compute:{module,entryPoint:'main'}}),bind=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:source}},{binding:1,resource:{buffer:out}}]});
-  device.queue.writeBuffer(source,0,input);const encoder=device.createCommandEncoder(),pass=encoder.beginComputePass();pass.setPipeline(pipeline);pass.setBindGroup(0,bind);pass.dispatchWorkgroups(Math.ceil(pairs.length/64));pass.end();encoder.copyBufferToBuffer(out,0,read,0,pairs.length*12);device.queue.submit([encoder.finish()]);await read.mapAsync(GPUMapMode.READ);
+  device.queue.writeBuffer(source,0,input);const encoder=device.createCommandEncoder(),pass=encoder.beginComputePass();pass.setPipeline(pipeline);pass.setBindGroup(0,bind);pass.dispatchWorkgroups(Math.ceil(pairs.length/64));pass.end();encoder.copyBufferToBuffer(out,0,read,0,pairs.length*16);device.queue.submit([encoder.finish()]);await read.mapAsync(GPUMapMode.READ);
   const actual=new Uint32Array(read.getMappedRange()),failures=[];let mismatches=0;
   for(let i=0;i<pairs.length;i++){
-   const a=f(pairs[i][0]),b=f(pairs[i][1]),expected=[u(a+b),u(a*b),u(a/b)];
-   for(let op=0;op<3;op++){const e=expected[op],v=actual[i*3+op];if(v!==e&&!((v&0x7fffffff)>0x7f800000&&(e&0x7fffffff)>0x7f800000)){mismatches++;if(failures.length<20)failures.push({a:pairs[i][0]>>>0,b:pairs[i][1]>>>0,op,expected:e,actual:v});}}
+   const a=f(pairs[i][0]),b=f(pairs[i][1]),expected=[u(a+b),u(a*b),u(a/b),u(Math.sqrt(a))];
+   for(let op=0;op<4;op++){const e=expected[op],v=actual[i*4+op];if(v!==e&&!((v&0x7fffffff)>0x7f800000&&(e&0x7fffffff)>0x7f800000)){mismatches++;if(failures.length<20)failures.push({a:pairs[i][0]>>>0,b:pairs[i][1]>>>0,op,expected:e,actual:v});}}
   }
-  read.unmap();device.destroy();return {pairs:pairs.length,operations:pairs.length*3,mismatches,failures};
+  read.unmap();device.destroy();return {pairs:pairs.length,operations:pairs.length*4,mismatches,failures};
  });
  console.log(JSON.stringify(result));assert.equal(result.mismatches,0);if(process.argv[2])fs.writeFileSync(process.argv[2],JSON.stringify({...result,result:'PASS',browser:await browser.version()},null,2)+'\n');
 }finally{await browser.close();}

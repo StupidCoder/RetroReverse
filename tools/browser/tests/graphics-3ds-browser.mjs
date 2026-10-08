@@ -13,18 +13,27 @@ try{
   try{for(let i=0;i<records.length;i++){
    const p=records[i],r=await gpu.execute(p);if(!r.supported){results.push({index:i,kind:p.kind,supported:false,reason:r.reason,expectedFallback:[2,3].includes(p.kind)&&p.params.at(-1)===1});continue;}
    let differences=0,first=-1;for(let j=0;j<p.expected.length;j++)if(p.expected[j]!==r.bytes[j]){differences++;if(first<0)first=j;}
-   results.push({index:i,kind:p.kind,supported:true,bytes:r.bytes.length,differences,first,drawn:r.drawn,expectedDrawn:p.kind>=5?p.params[34]:undefined,depthKilled:r.depthKilled,expectedDepthKilled:p.kind===7?p.params[55]:undefined,...r.timing});
+   results.push({index:i,kind:p.kind,supported:true,bytes:r.bytes.length,differences,first,drawn:r.drawn,specialized:!!r.specialized,expectedDrawn:p.kind>=5?p.params[34]:undefined,depthKilled:r.depthKilled,expectedDepthKilled:p.kind>=7?p.params[55]:undefined,...r.timing});
+   if(p.kind===8){const deadline=performance.now()+60000;while(gpu.lightingCompilation().pending){if(performance.now()>deadline)throw Error('Lighting compilation did not finish');await new Promise(resolve=>setTimeout(resolve,10));}}
   }
+  // Exercise ready specializations as well as the generic warmup path. Uniform
+  // bytes remain runtime inputs; each packet has its own Reference expectation.
+  const lightingReplay=[];
+  for(const p of records.filter(p=>p.kind===8)){
+   const r=await gpu.execute(p);let differences=0;if(r.supported)for(let j=0;j<p.expected.length;j++)differences+=p.expected[j]!==r.bytes[j];
+   lightingReplay.push({supported:r.supported,differences,specialized:!!r.specialized,drawn:r.drawn,depthKilled:r.depthKilled,expectedDrawn:p.params[34],expectedDepthKilled:p.params[55]});
+  }
+  const lightingCompilation=gpu.lightingCompilation();
   const arithmeticFallbacks={};
-  for(const kind of [6,7]){const raster=records.find(p=>p.kind===kind);if(!raster)continue;
+  for(const kind of [6,7,8]){const raster=records.find(p=>p.kind===kind);if(!raster)continue;
    const input=raster.input.slice(),view=new DataView(input.buffer),header=raster.params[36]*raster.params[37]*2;
-   const stride=kind===7?14:13,words=5+stride*3;
+   const stride=kind===8?21:kind===7?14:13,words=5+stride*3;
    for(let t=0;t<raster.params[35];t++){const at=header+t*words;view.setFloat32((at+4)*4,1,true);for(let v=0;v<3;v++){view.setFloat32((at+5+v*stride)*4,.5,true);view.setFloat32((at+6+v*stride)*4,.5,true);}}
    const result=await gpu.execute({...raster,input});arithmeticFallbacks[kind]=!result.supported&&result.reason==='Raster arithmetic requires Reference';
   }
-  return {schema:1,arithmeticFallback:Object.values(arithmeticFallbacks).every(Boolean),arithmeticFallbacks,adapter:gpu.info,warmupMs:gpu.warmupMs,allocatedBytes:gpu.bytesAllocated,coverage,records:results};}finally{gpu.destroy();}
+  return {schema:1,lightingReplay,lightingCompilation,arithmeticFallback:Object.values(arithmeticFallbacks).every(Boolean),arithmeticFallbacks,adapter:gpu.info,warmupMs:gpu.warmupMs,allocatedBytes:gpu.bytesAllocated,coverage,records:results};}finally{gpu.destroy();}
  },stream);
- assert.deepEqual(errors,[]);assert(result.records.some(r=>r.supported));assert(result.records.every(r=>r.supported||r.expectedFallback),'Unexpected GPU fallback');assert(result.arithmeticFallback!==false,'Invalid interpolation committed output');assert(result.records.every(r=>!r.supported||r.differences===0),JSON.stringify(result.records.filter(r=>r.differences)));
+ assert.deepEqual(errors,[]);assert.equal(result.lightingCompilation.failed,0);assert(result.lightingReplay.some(r=>r.specialized));assert(result.lightingReplay.every(r=>r.supported&&r.differences===0&&r.drawn===r.expectedDrawn&&r.depthKilled===r.expectedDepthKilled),'Specialized lighting differs');assert(result.records.some(r=>r.supported));assert(result.records.every(r=>r.supported||r.expectedFallback),'Unexpected GPU fallback');assert(result.arithmeticFallback!==false,'Invalid interpolation committed output');assert(result.records.every(r=>!r.supported||r.differences===0),JSON.stringify(result.records.filter(r=>r.differences)));
  assert(result.records.every(r=>r.expectedDrawn===undefined||r.drawn===r.expectedDrawn),'Fragment statistics differ');
  assert(result.records.every(r=>r.expectedDepthKilled===undefined||r.depthKilled===r.expectedDepthKilled),'Depth rejection statistics differ');
  result.result='PASS';result.browser=await browser.version();if(out)fs.writeFileSync(out,JSON.stringify(result,null,2)+'\n');

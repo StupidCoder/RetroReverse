@@ -90,6 +90,51 @@ int main(int argc,char**argv){
   assert(std::get<1>(n3ds_GPU_texture(g,key.addr,key.fmt,key.w,key.h)));
   n3ds_GPU_fill(g,&fb,&ls,&tv,Slice<n3ds_rasterTri>{tri,second,tri});
  }
+ // Directional lighting includes the demo's full normal-map + D0/D1/Fresnel
+ // combination. Keep every TEV lighting channel observable in these fixtures.
+ fb.depthAddr=r->base+0x30000;fb.depthScale=1;fb.depthOff=0;fb.depthZBuffer=true;
+ tv={};tv.texEnable=7;fb.colorMask=15;
+ for(int u=0;u<3;u++){auto[dim,param,addr,fmt]=n3ds_texUnitRegs(u);g->Regs[dim]=8|(8<<16);g->Regs[param]=0;g->Regs[addr]=(r->base+0x80000+u*0x10000)>>3;g->Regs[fmt]=0;}
+ for(uint32_t trial=0;trial<96;trial++){
+  ls={};ls.enabled=true;ls.count=1;ls.env=trial%8;ls.ambient={.1f,.05f,.15f};
+  ls.bumpMode=(trial/8)%4;ls.bumpSel=trial%3;ls.noBumpRenorm=(trial/4)%2;
+  ls.primaryAlpha=trial%2;ls.secondAlpha=true;ls.clampHighlight=(trial/2)%2;
+  ls.noD0=trial%5==0;ls.noD1=trial%7==0;ls.noFR=trial%11==0;ls.noRR=trial%13==0;ls.noRG=trial%17==0;ls.noRB=trial%19==0;
+  ls.lutAbs=rnd();ls.lutIn=0;ls.lutScale=0;
+  for(int field:{0,4,12,16,20,24}){ls.lutIn|=((trial+field/4)%8)<<field;ls.lutScale|=((trial+field/4)%8)<<field;}
+  auto&light=ls.lights[0];light.directional=true;light.twoSided=trial%3==0;
+  light.pos=trial%7?std::array<float,3>{.4f,-.25f,.9f}:std::array<float,3>{0,0,0};
+  light.spotDir={-.8f,.3f,.1f};light.diffuse={.8f,.7f,.6f};light.ambient={.2f,.15f,.1f};light.specular0={.25f,.5f,.75f};light.specular1={.4f,.3f,.2f};
+  if(trial==6){light.pos={-1.f,-0.f,-0.f};ls.lutAbs=0;ls.lutIn=0x03333033;light.diffuse={};light.ambient={};light.specular0={.01f,.02f,.03f};light.specular1={.04f,.05f,.06f};ls.ambient={};}
+  for(int t=0;t<7;t++)for(int j=0;j<256;j++){g->LUT[t][j]=float(rnd()%4096)/4095;g->LUTDiff[t][j]=float(int(rnd()%4096)-2048)/4095;}
+  int k=0;for(auto*v:{&tri.v0,&tri.v1,&tri.v2}){
+   v->z=.2f+float(k)*.1f;v->iw=k==0?.7f:k==1?1.3f:.9f;
+   v->quat=trial%6?std::array<float,4>{float(k)*.25f,-.3f,.5f,.7f}:std::array<float,4>{0,0,0,0};
+   v->view=trial%8?std::array<float,3>{float(k)-.5f,.3f,-1.f}:std::array<float,3>{0,0,0};
+   if(trial>=88){v->quat={0x1p-70f,-0x1p-74f,0x1p-72f,0x1p-71f};v->view={0x1p-70f,0x1p-71f,-0x1p-72f};}
+   if(trial>=80&&trial<88){v->view={-0x1p20f,0x1p18f,0x1p19f};v->quat={0x1p20f,-0x1p19f,0x1p18f,-0x1p17f};}
+   k++;
+  }
+  for(auto&stage:tv.stages){stage={};stage.colr[0]=stage.alph[0]={15,0};}
+  tv.stages[0].colr[0]=tv.stages[0].alph[0]={uint8_t(1+trial%2),0};
+  if(trial%3==0){tv.stages[1].combC=2;tv.stages[1].colr[0]={15,0};tv.stages[1].colr[1]={uint8_t(2-trial%2),0};}
+  fb.depthFunc=trial%4==0?4:1;fb.depthWr=trial%2;tv.alphaTest=trial%3==1;tv.alphaFunc=trial%8;tv.alphaRef=127;
+  auto depth=rrgpu::range(machine,fb.depthAddr,64*64*4);for(int j=0;j<64*64;j++){uint32_t word=(rnd()&0xff000000)|0x7fffff;std::memcpy(depth+j*4,&word,4);}
+  for(int u=0;u<3;u++){auto[dim,param,addr,fmt]=n3ds_texUnitRegs(u);assert(std::get<1>(n3ds_GPU_texture(g,g->Regs[addr]<<3,0,8,8)));}
+  auto operation=rrgpu::Operation::draw(g,&fb,&ls,&tv,Slice<n3ds_rasterTri>{tri,tri});assert(operation.target&&operation.kind==8);operation.record=false;
+  // Only the fill below belongs in the immutable stream.
+  n3ds_GPU_fill(g,&fb,&ls,&tv,Slice<n3ds_rasterTri>{tri,tri});
+  // Same specialization key, different light colors, direction and LUT values.
+  // Cached kernels must continue to read all of these from the current packet.
+  light.diffuse={.1f,.2f,.3f};light.specular0={.4f,.3f,.2f};light.pos={-.7f,.2f,.4f};
+  for(int t=0;t<7;t++)for(int j=0;j<256;j++){g->LUT[t][j]=float((j+t*17)%256)/255;g->LUTDiff[t][j]=-.25f;}
+  n3ds_GPU_fill(g,&fb,&ls,&tv,Slice<n3ds_rasterTri>{tri,tri});
+ }
+ for(int reason=0;reason<6;reason++){
+  auto invalid=ls;if(reason==0)invalid.count=2;if(reason==1)invalid.shadow=true;if(reason==2)invalid.env=8;if(reason==3)invalid.lights[0].directional=false;if(reason==4)invalid.lights[0].distAtten=true;if(reason==5)invalid.lights[0].geo1=true;
+  assert(!rrgpu::Operation::draw(g,&fb,&invalid,&tv,Slice<n3ds_rasterTri>{tri,tri}).target);
+ }
+ ls={};
  // Overlapping depth/color, including different virtual addresses aliasing the
  // same bytes, cannot execute independently per pixel. Stay in Reference.
  for(uint32_t depth:{fb.colorAddr,fb.colorAddr+4,0x15000000+(fb.colorAddr-r->base)}){

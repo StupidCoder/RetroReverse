@@ -1,3 +1,4 @@
+import {lightingWGSL} from './lighting-3ds.js';
 // Binary32 arithmetic expressed in integers preserves WASM's rounding at each
 // operation. WGSL permits floating-point reassociation, fusion and approximate
 // division; using ordinary shader floats would change coverage and texel choice.
@@ -70,6 +71,20 @@ fn rdiv(a:u32,b:u32)->u32{
  let tail=(remainder<<3u)/mb;let sticky=select(0u,1u,((remainder<<3u)%mb)!=0u);
  return rround(sign,e,(q<<3u)|tail|sticky);
 }
+// Correct a normal-range sqrt estimate with exact 64-bit squares, then compare
+// the exact midpoint. Every binary32 radicand is handled, including subnormals.
+fn rwideLess(a:vec2<u32>,b:vec2<u32>)->bool{return a.y<b.y||(a.y==b.y&&a.x<b.x);}
+fn rsqrt(a:u32)->u32{
+ if((a&0x7fffffffu)==0u){return a;}if((a>>31u)!=0u||a>0x7f800000u){return 0x7fc00000u;}if(a==0x7f800000u){return a;}
+ let n=rnorm(a);var e=n.y;var m=u32(n.x);if((e&1)!=0){m<<=1u;e--;}
+ let value=vec2<u32>(m<<23u,m>>9u);var q=u32(sqrt(f32(m)*8388608.0));
+ while(rwideLess(value,rmulWide(q,q))){q--;}
+ while(!rwideLess(value,rmulWide(q+1u,q+1u))){q++;}
+ let four=vec2<u32>(value.x<<2u,(value.y<<2u)|(value.x>>30u));let mid=rmulWide(q*2u+1u,q*2u+1u);
+ if(rwideLess(mid,four)||(all(mid==four)&&(q&1u)!=0u)){q++;}
+ if(q==0x1000000u){q>>=1u;e+=2;}
+ return (u32(e/2+127)<<23u)|(q&0x7fffffu);
+}
 fn rnegative(x:u32)->bool{return (x&0x80000000u)!=0u&&(x&0x7fffffffu)!=0u;}
 fn rbyte(x:u32)->i32{
  if((x&0x80000000u)!=0u||x<0x3f800000u){return 0;}if(x>=0x437f0000u){return 255;}
@@ -86,11 +101,12 @@ fn rfloor(x:u32)->i32{
 
 export const rasterWGSL=`
 ${rasterFloatWGSL}
+${lightingWGSL}
 fn redge(a:u32,b:u32,x:u32,y:u32)->u32{
  return rsub(rmul(rsub(src[b],src[a]),rsub(y,src[a+1u])),rmul(rsub(src[b+1u],src[a+1u]),rsub(x,src[a])));
 }
 fn rpc(a:u32,field:u32,l:vec3<u32>,iw:u32)->u32{
- let stride=select(13u,14u,operation==7u);let b=a+stride;let c=b+stride;
+ let stride=select(select(13u,14u,operation>=7u),21u,operation==8u);let b=a+stride;let c=b+stride;
  return rdiv(radd(radd(rmul(rmul(l.x,src[a+field]),src[a+2u]),rmul(rmul(l.y,src[b+field]),src[b+2u])),rmul(rmul(l.z,src[c+field]),src[c+2u])),iw);
 }
 fn rwrap(value:u32,n:u32,mode:u32)->i32{
@@ -108,17 +124,17 @@ fn rasterPixel(index:u32)->u32{
  let ty=(tile/(w/8u))*8u+((mo>>1u)&1u)+((mo>>2u)&2u)+((mo>>3u)&4u);let y=h-1u-ty;
  let px=bitcast<u32>(f32(x)+0.5);let py=bitcast<u32>(f32(y)+0.5);
  let bin=((y/16u)*p[40]+x/16u)*2u;let begin=src[bin];let end=begin+src[bin+1u];
- let original=old[index];var dstColor=vec4<i32>(i32(original>>24u),i32((original>>16u)&255u),i32((original>>8u)&255u),i32(original&255u));var count=0u;var killed=0u;var depthWord=0u;if(operation==7u){depthWord=old[w*h+index];}
+ let original=old[index];var dstColor=vec4<i32>(i32(original>>24u),i32((original>>16u)&255u),i32((original>>8u)&255u),i32(original&255u));var count=0u;var killed=0u;var depthWord=0u;if(operation>=7u){depthWord=old[w*h+index];}
  for(var at=begin;at<end;at++){
   let t=src[at];if(x<src[t]||x>=src[t+1u]||y<src[t+2u]||y>=src[t+3u]){continue;}
-  let a=t+5u;let stride=select(13u,14u,operation==7u);let b=a+stride;let c=b+stride;
+  let a=t+5u;let stride=select(select(13u,14u,operation>=7u),21u,operation==8u);let b=a+stride;let c=b+stride;
   let weights=vec3<u32>(redge(b,c,px,py),redge(c,a,px,py),redge(a,b,px,py));
   if(rnegative(weights.x)||rnegative(weights.y)||rnegative(weights.z)){continue;}
   let area=src[t+4u];let l=vec3<u32>(rdiv(weights.x,area),rdiv(weights.y,area),rdiv(weights.z,area));
   let iw=radd(radd(rmul(l.x,src[a+2u]),rmul(l.y,src[b+2u])),rmul(l.z,src[c+2u]));
   if(iw==0u||iw>=0x7f800000u){atomicOr(&counts.drawn,0x80000000u);continue;}
   var newDepth=0u;
-  if(operation==7u){
+  if(operation>=7u){
    // Match each Reference binary32 operation, including W-buffer division and
    // float32 multiplication before truncating to the 24-bit depth integer.
    let z=radd(radd(rmul(l.x,src[a+13u]),rmul(l.y,src[b+13u])),rmul(l.z,src[c+13u]));
@@ -138,9 +154,16 @@ fn rasterPixel(index:u32)->u32{
    let tx=rwrap(s,tw,(p[desc+3u]>>12u)&7u);let vy=rwrap(v,th,(p[desc+3u]>>8u)&7u);
    if(tx>=0&&vy>=0){tex[unit]=rgba(src[p[desc]+(th-1u-u32(vy))*tw+u32(tx)]);}
   }
-  let color=tev(vertex,tex);if(alphaPass(color.a)){let value=blend(color,dstColor);for(var channel=0u;channel<4u;channel++){if((p[6]&(1u<<channel))!=0u){dstColor[channel]=value[channel];}}if(operation==7u&&(p[55]&2u)!=0u){depthWord=(depthWord&0xff000000u)|newDepth;}count++;}
+  var color:vec4<i32>;
+  if(operation==8u){
+   var q:vec4<u32>;var view:vec3<u32>;var valid=true;
+   for(var k=0u;k<4u;k++){q[k]=rpc(a,14u+k,l,iw);valid=valid&&((q[k]&0x7fffffffu)<=0x4b800000u);}
+   for(var k=0u;k<3u;k++){view[k]=rpc(a,18u+k,l,iw);valid=valid&&((view[k]&0x7fffffffu)<=0x4b800000u);}
+   if(!valid){atomicOr(&counts.drawn,0x80000000u);continue;}
+   let light=lighting(q,view,tex);color=litTev(vertex,light[0],light[1],tex);
+  }else{color=tev(vertex,tex);}if(alphaPass(color.a)){let value=blend(color,dstColor);for(var channel=0u;channel<4u;channel++){if((p[6]&(1u<<channel))!=0u){dstColor[channel]=value[channel];}}if(operation>=7u&&(p[55]&2u)!=0u){depthWord=(depthWord&0xff000000u)|newDepth;}count++;}
  }
- if(operation==7u){dst[w*h+index]=depthWord;if(killed!=0u){atomicAdd(&counts.depthKilled,killed);}}
+ if(operation>=7u){dst[w*h+index]=depthWord;if(killed!=0u){atomicAdd(&counts.depthKilled,killed);}}
  if(count!=0u){atomicAdd(&counts.drawn,count);}
  return (u32(dstColor.r)<<24u)|(u32(dstColor.g)<<16u)|(u32(dstColor.b)<<8u)|u32(dstColor.a);
 }`;

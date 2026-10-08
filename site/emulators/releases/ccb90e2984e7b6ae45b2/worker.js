@@ -1,3 +1,4 @@
+import {createPicaShaders} from './shader-3ds.js';
 import {backendAssets,bindOwnedIdentity,matchingPreparedKnowledge} from './core-backend.js';
 import {prepareStart} from './prepared-start.js';
 import {createExperimentService} from './experiment-worker.js';
@@ -266,7 +267,7 @@ function rasterSeek(m){
  postMessage({type:'raster-seek',session,capture:capture.id,request:m.request,info,layers,tileset:info.error?null:tilesetSnapshot()},layers);
 }
 async function boot(m) {
-  execution3DS?.dispose();execution3DS=null;graphics3DS?.dispose();graphics3DS=null;
+  core?.picaShaders?.dispose();execution3DS?.dispose();execution3DS=null;graphics3DS?.dispose();graphics3DS=null;
   const bootBegan=performance.now();
   bootOptions=m;session=m.session;
   const restored=m.stateFile?await unpackState(m.stateFile):null;
@@ -290,12 +291,12 @@ async function boot(m) {
   const wasmBinary=new Uint8Array(await response.arrayBuffer());
   if(await digest(wasmBinary)!==coreIdentity)throw Error('Emulator build mismatch. Rebuild the development core or reload the matching release.');
   if(platform==='3ds'){
-    const rendererFiles=['graphics-3ds.js','graphics-live-3ds.js','presentation-3ds.js','fragment-3ds.js','raster-3ds.js'];
+    const rendererFiles=['graphics-3ds.js','graphics-live-3ds.js','presentation-3ds.js','fragment-3ds.js','raster-3ds.js','lighting-3ds.js','shader-3ds.js'];
     const hashes=await Promise.all(rendererFiles.map(async name=>{const r=await fetch(new URL(name,import.meta.url));if(!r.ok)throw Error('Renderer identity unavailable');return digest(new Uint8Array(await r.arrayBuffer()));}));
     coreIdentity=await digest(new TextEncoder().encode(JSON.stringify({wasm:coreIdentity,graphics:hashes})));
   }
   const factory = (await import(assets.module)).default;
-  core = await factory({wasmBinary});
+  core = await factory({wasmBinary,...(platform==='3ds'?{picaShaders:createPicaShaders()}:{})});
   coreCapabilities=core._rr_capabilities?json('_rr_capabilities'):{};
   if(assets.owned&&coreCapabilities.core!=='owned-c64')throw Error('Expected the owned C64 core');
   const dcMedia=platform==='dc'?await selectDreamcastMedia(files):null;

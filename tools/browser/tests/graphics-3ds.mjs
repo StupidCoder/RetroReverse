@@ -3,7 +3,7 @@ import {decodeGraphicsStream,transferSupport} from '../../../site/emulators/grap
 assert.throws(()=>decodeGraphicsStream(new Uint8Array(8)),/Unknown/);
 const header=new Uint32Array([0x50475252,1]);assert.deepEqual(decodeGraphicsStream(header.buffer),[]);
 const bad=new Uint32Array([0x50475252,1,32,1,9999,0,0,0,0,0]);assert.throws(()=>decodeGraphicsStream(bad.buffer),/Invalid/);
-assert.match(transferSupport({kind:8}),/Unsupported/);
+assert.match(transferSupport({kind:9}),/Unsupported/);
 const packet={kind:2,params:[128,128,0,128,0,1],input:new Uint8Array(128),before:new Uint8Array(128)};
 assert.match(transferSupport(packet),/Overlapping/);packet.params[5]=0;assert.equal(transferSupport(packet),null);
 packet.params[1]=0;assert.match(transferSupport(packet),/Invalid/);
@@ -47,3 +47,18 @@ depthFloats[20]=Infinity;assert.match(transferSupport(depth),/vertex/);depthFloa
 assert.equal(transferSupport(depth),null);
 assert.match(transferSupport({...depth,before:new Uint8Array(256)}),/fragment packet/);
 console.log('3DS depth packets validate both surfaces, depth state, vertex Z and combined counters');
+
+const lightingData=new Uint32Array(71+3584),lightingFloats=new Float32Array(lightingData.buffer);
+lightingData.set([70,1,0,8,0,8]);lightingFloats[6]=64;lightingData[70]=2;
+for(let v=0;v<3;v++)lightingData.set(depthData.subarray(7+v*14,21+v*14),7+v*21);
+const lightingParams=[...depthParams.slice(0,56),0,0,0,0,0,71,0,...Array(21).fill(0),0];
+const lighting={kind:8,params:lightingParams,input:new Uint8Array(lightingData.buffer),before:new Uint8Array(512)};
+assert.equal(transferSupport(lighting),null);
+for(const [index,value] of [[56,0xffffffff],[57,4],[61,70],[62,2]]){const old=lightingParams[index];lightingParams[index]=value;assert.match(transferSupport(lighting),/lighting metadata/);lightingParams[index]=old;}
+lightingParams[63]=0x7f800000;assert.match(transferSupport(lighting),/lighting values/);lightingParams[63]=0;
+lightingParams[57]=1;lightingFloats[71]=NaN;assert.match(transferSupport(lighting),/lighting LUT/);lightingFloats[71]=1;
+assert.equal(transferSupport(lighting),null);lightingParams[57]=0;assert.match(transferSupport(lighting),/inactive lighting LUT/);lightingFloats[71]=0;
+lightingFloats[21]=2**20+1;assert.match(transferSupport(lighting),/vertex/);lightingFloats[21]=0;
+assert.equal(transferSupport(lighting),null);
+assert.match(transferSupport({...lighting,input:lighting.input.slice(0,-4)}),/lighting metadata/);
+console.log('3DS lighting packets validate flags, quaternion/view bounds, directions and LUT snapshots');

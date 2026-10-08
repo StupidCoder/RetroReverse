@@ -26,6 +26,12 @@ alternating comparisons reduce whole-scene time from 252.95 to 232.65 ms/interva
 close to the 12 ms stage budget. SIMD and the remaining rendering/CPU stages are
 still open; the 25% gate remains unmet.
 
+[D3a directional lighting](3DS-ACCELERATION-LIGHTING.md) is now validated. Five
+alternating comparisons reduce 231.61 to 194.11 ms/interval (7.20% to 8.59%
+nominal), with exact state and sampled images. Software rasterization drops from
+131.30 to 64.91 ms, while GPU round trips rise from 30.18 to 58.68 ms. General
+stencil is the next D3 family; D4 batching and CPU work remain necessary.
+
 ## What the new profile establishes
 
 The October 8 screenshot shows Mario running through the landscape on the top
@@ -72,8 +78,9 @@ The combined PICA bucket also contains command handling, vertex fetching,
 clipping and setup, so its entire 37.4% cannot yet be assigned to the shader.
 
 The [GPU eligibility gate](../../platform/n3ds/browser/core/graphics-fragments.h)
-still refuses lighting, general stencil, shadow sampling and several bounded
-workloads. The earlier [native census](../results/3ds-acceleration-depth-census.json)
+now supports one directional light with normal maps and shared lighting LUTs.
+It still refuses other lighting combinations, general stencil, shadow sampling
+and several bounded workloads. The earlier [native census](../results/3ds-acceleration-depth-census.json)
 identifies plausible families to investigate, but is a different checkpoint and
 predates depth acceleration. Select new coverage by **current fallback time**,
 not draw count or the old census alone.
