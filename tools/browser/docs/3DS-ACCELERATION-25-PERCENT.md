@@ -47,6 +47,14 @@ batching and reduce shader work/dispatch coverage as well, or explicitly rebalan
 the budgets using measured CPU gains. Do not count batching as sufficient on its
 own to reach 25%.
 
+[D4a coherent draw batches](3DS-ACCELERATION-BATCHING.md) reduce 161.57 to 138.68
+ms/interval in five alternating comparisons (10.32% to 12.02% nominal). GPU
+submissions fall 58.7% and paired framebuffer traffic falls 60.7%; total GPU round
+trips drop from 78.74 to 55.22 ms. ARM/Horizon remains 49.50 ms. Batches stay inside
+suspended-CPU command-list execution, with dependency flushes and whole-batch
+Reference recovery. Further CPU and GPU compute work is required; another 52%
+elapsed-time reduction is needed for the 66.7 ms target.
+
 ## What the new profile establishes
 
 The October 8 screenshot shows Mario running through the landscape on the top
@@ -101,8 +109,9 @@ identifies plausible families to investigate, but is a different checkpoint and
 predates depth acceleration. Select new coverage by **current fallback time**,
 not draw count or the old census alone.
 
-The [live bridge](../../../site/emulators/graphics-live-3ds.js) waits for each
-operation's readback before guest execution resumes. The
+The [live bridge](../../../site/emulators/graphics-live-3ds.js) now submits bounded
+batches of compatible draws within a command list, flushing before dependent
+reads, software fallback and guest CPU execution. The
 [compute rasterizer](../../../site/emulators/raster-3ds.js) uses ordered triangle
 bins and exact binary32 helpers; the host dispatches across the full surface.
 The [build](../../platform/n3ds/browser/build.py) already uses `-O3` and disables

@@ -1,0 +1,220 @@
+{
+  "schema": 1,
+  "fields": 60,
+  "captureMode": "none",
+  "requiredKind": 10,
+  "batchFault": "reject",
+  "injectedBatchFaults": 1,
+  "trials": [
+    {
+      "shaders": {
+        "requested": 0,
+        "ready": 0,
+        "unsupported": 0,
+        "failed": 0,
+        "batches": 0,
+        "vertices": 0,
+        "refused": 0,
+        "compileLatencyMs": 0
+      },
+      "mixed": false,
+      "fields": 60,
+      "switches": 0,
+      "ms": 25186.699999928474,
+      "checkpoints": [
+        {
+          "interval": 50,
+          "state": "74c916adab8d62d287a0bca3e2896ac151d2916ee71099f6ff8a5cd8afa40791",
+          "pixels": "456c324ef3c9d3fd91be61583031a55420d83542bd1eaea2f380717a03a95597",
+          "bytes": 85283627,
+          "status": {
+            "steps": 14824050888,
+            "frames": 3290,
+            "inputSeconds": 55.2906,
+            "pc": 2669648,
+            "width": 400,
+            "height": 480,
+            "draws": 279394
+          }
+        },
+        {
+          "interval": 60,
+          "state": "4f837bc07603ac9510eeebaa86d35904872a9ce977ef0722a47a9212e36d44ee",
+          "pixels": "443640fe2203f50a27f3a9f2c460f7d707fbbda4ffc656e759d952b3492267a5",
+          "bytes": 84953162,
+          "status": {
+            "steps": 14868736188,
+            "frames": 3300,
+            "inputSeconds": 55.4572,
+            "pc": 2669648,
+            "width": 400,
+            "height": 480,
+            "draws": 279984
+          }
+        }
+      ],
+      "captures": [],
+      "memory": [
+        {
+          "interval": 50,
+          "regions": 22
+        },
+        {
+          "interval": 60,
+          "regions": 22
+        }
+      ],
+      "allocations": [
+        {
+          "interval": 50,
+          "wasm": 1385103360,
+          "gpu": 98504,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "supportedKinds": {}
+        },
+        {
+          "interval": 60,
+          "wasm": 1385103360,
+          "gpu": 98504,
+          "accelerated": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "supportedKinds": {}
+        }
+      ],
+      "supportedKinds": {},
+      "accelerated": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "shaders": {
+        "requested": 7,
+        "ready": 7,
+        "unsupported": 0,
+        "failed": 0,
+        "batches": 3394,
+        "vertices": 327001,
+        "refused": 15,
+        "compileLatencyMs": 459.2999997138977
+      },
+      "mixed": true,
+      "fields": 60,
+      "switches": 32,
+      "ms": 16833.699999928474,
+      "checkpoints": [
+        {
+          "interval": 50,
+          "state": "74c916adab8d62d287a0bca3e2896ac151d2916ee71099f6ff8a5cd8afa40791",
+          "pixels": "456c324ef3c9d3fd91be61583031a55420d83542bd1eaea2f380717a03a95597",
+          "bytes": 85283627,
+          "status": {
+            "steps": 14824050888,
+            "frames": 3290,
+            "inputSeconds": 55.2906,
+            "pc": 2669648,
+            "width": 400,
+            "height": 480,
+            "draws": 279394
+          }
+        },
+        {
+          "interval": 60,
+          "state": "4f837bc07603ac9510eeebaa86d35904872a9ce977ef0722a47a9212e36d44ee",
+          "pixels": "443640fe2203f50a27f3a9f2c460f7d707fbbda4ffc656e759d952b3492267a5",
+          "bytes": 84953162,
+          "status": {
+            "steps": 14868736188,
+            "frames": 3300,
+            "inputSeconds": 55.4572,
+            "pc": 2669648,
+            "width": 400,
+            "height": 480,
+            "draws": 279984
+          }
+        }
+      ],
+      "captures": [],
+      "memory": [
+        {
+          "interval": 50,
+          "regions": 22
+        },
+        {
+          "interval": 60,
+          "regions": 22
+        }
+      ],
+      "allocations": [
+        {
+          "interval": 50,
+          "wasm": 1385103360,
+          "gpu": 6193408,
+          "accelerated": [
+            78,
+            0,
+            39,
+            1042
+          ],
+          "supportedKinds": {
+            "1": 78,
+            "3": 39,
+            "6": 572,
+            "7": 30,
+            "8": 166,
+            "9": 32,
+            "10": 242
+          }
+        },
+        {
+          "interval": 60,
+          "wasm": 1385103360,
+          "gpu": 6193408,
+          "accelerated": [
+            90,
+            0,
+            45,
+            1160
+          ],
+          "supportedKinds": {
+            "1": 90,
+            "3": 45,
+            "6": 690,
+            "7": 30,
+            "8": 166,
+            "9": 32,
+            "10": 242
+          }
+        }
+      ],
+      "supportedKinds": {
+        "1": 90,
+        "3": 45,
+        "6": 690,
+        "7": 30,
+        "8": 166,
+        "9": 32,
+        "10": 242
+      },
+      "accelerated": [
+        90,
+        0,
+        45,
+        1160
+      ]
+    }
+  ],
+  "result": "PASS",
+  "browser": "154.0.8037.98"
+}

@@ -36,15 +36,19 @@ onmessage=async event=>{
   if(core._rr_perf_enable)check(core._rr_perf_enable(m.diagnostics||0));
   const beforeShaders=core.picaShaders?.snapshot();
   const beforeProfile=json('_rr_profile'),beforeGPU=graphics3DS.stats(),initialStatus=status();
-  const transfer=core.graphicsTransfer,traffic={specializedLighting:0,operations:0,inputBytes:0,beforeBytes:0,outputBytes:0,kinds:{},refusals:{}};
-  core.graphicsTransfer=async packet=>{
-   traffic.operations++;traffic.inputBytes+=packet.input.length;traffic.beforeBytes+=packet.before.length;
-   traffic.kinds[packet.kind]=(traffic.kinds[packet.kind]||0)+1;
-   const result=await transfer(packet);if(result.specialized)traffic.specializedLighting++;if(result.supported)traffic.outputBytes+=result.bytes.length;else traffic.refusals[result.reason]=(traffic.refusals[result.reason]||0)+1;return result;
+  const transfer=core.graphicsTransfer,batchTransfer=core.graphicsBatch,traffic={specializedLighting:0,operations:0,submissions:0,batches:0,inputBytes:0,beforeBytes:0,outputBytes:0,kinds:{},refusals:{}};
+  const record=async(packets,batch)=>{
+   traffic.submissions++;if(batch)traffic.batches++;
+   for(const packet of packets){traffic.operations++;traffic.inputBytes+=packet.input.length;traffic.kinds[packet.kind]=(traffic.kinds[packet.kind]||0)+1;}
+   traffic.beforeBytes+=packets[0].before.length;
+   const result=await(batch?batchTransfer(packets):transfer(packets[0]));
+   if(result.supported){traffic.specializedLighting+=batch?result.counts.filter(c=>c.specialized).length:Number(!!result.specialized);traffic.outputBytes+=result.bytes.length;}
+   else traffic.refusals[result.reason]=(traffic.refusals[result.reason]||0)+1;return result;
   };
+  core.graphicsTransfer=packet=>record([packet],false);core.graphicsBatch=packets=>record(packets,true);
   const t={fields:m.fields,sampleEvery:Math.max(1,Math.floor(m.fields/4)),times:[],samples:[{interval:0,status:initialStatus,pixels:demoPixels()}],observerMs:0,startFrame:initialStatus.frames,lastFrame:initialStatus.frames};
   maxCall=runMs=paintMs=0;t.start=t.lastTime=performance.now();demoTrial=t;running=true;
-  try{await pump(++epoch);}finally{running=false;demoTrial=null;core.graphicsTransfer=transfer;}
+  try{await pump(++epoch);}finally{running=false;demoTrial=null;core.graphicsTransfer=transfer;core.graphicsBatch=batchTransfer;}
   if(t.times.length!==m.fields)throw Error('Benchmark ended before the requested boundary');
   const elapsedMs=t.end-t.start,afterGPU=graphics3DS.stats(),diagnostics=m.diagnostics?json('_rr_perf_stats'):null;
   if(core._rr_perf_enable)check(core._rr_perf_enable(0));

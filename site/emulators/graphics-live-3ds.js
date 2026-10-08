@@ -1,11 +1,11 @@
 import {create3DSGraphics} from './graphics-3ds.js';
 
-// Every operation finishes its readback before WASM resumes. This conservative
-// bridge keeps RAM authoritative across *all* direct views and physical aliases.
-// GPU storage is scratch, never the only copy of guest-visible data.
+// Each submission finishes readback before WASM resumes. A bounded PICA batch
+// can contain several draws; the core flushes it before dependent reads or guest
+// CPU execution. All surfaces and counters validate before canonical commit.
 export async function createLive3DSGraphics(core,{createGPU=create3DSGraphics,timeoutMs=5000,measureGPU=false}={}){
  let gpu=null,reason='',closed=false,active=false,pending=null;
- let count=0,totalMs=0;const timing={operations:0,uploadMs:0,submitMs:0,queueAndMapMs:0,readbackMs:0,gpuMs:0,gpuSamples:0};
+ let count=0,totalMs=0;const timing={operations:0,submissions:0,uploadMs:0,submitMs:0,queueAndMapMs:0,readbackMs:0,gpuMs:0,gpuSamples:0};
  const fail=e=>{reason=String(e?.message??e);active=false;};
  const bounded=async(work,label)=>{let timer;try{return await Promise.race([work,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(label+' timed out')),timeoutMs);})]);}finally{clearTimeout(timer);}};
  let initializing=true;
@@ -18,17 +18,19 @@ export async function createLive3DSGraphics(core,{createGPU=create3DSGraphics,ti
   await gpu.preparePresentation?.();
  })(),'WebGPU initialization');
  }catch(e){fail(e);gpu?.destroy();}finally{initializing=false;}
- core.graphicsTransfer=packet=>{
+ const submit=(packet,batch)=>{
   if(!active||closed||reason)return Promise.resolve({supported:false,reason:reason||'Reference execution'});
   if(pending)return Promise.reject(Error('A GPU operation is already in flight'));
   const start=performance.now();
-  pending=bounded(Promise.resolve().then(()=>gpu.execute(packet)),'GPU completion')
-   .then(result=>{if(result.supported){count++;totalMs+=performance.now()-start;
-    if(result.timing){timing.operations++;for(const key of ['uploadMs','submitMs','queueAndMapMs','readbackMs'])timing[key]+=result.timing[key]||0;if(Number.isFinite(result.timing.gpuMs)){timing.gpuMs+=result.timing.gpuMs;timing.gpuSamples++;}}}return result;})
+  pending=bounded(Promise.resolve().then(()=>batch?gpu.executeBatch(packet):gpu.execute(packet)),'GPU completion')
+   .then(result=>{if(result.supported){count+=batch?packet.length:1;totalMs+=performance.now()-start;
+    if(result.timing){timing.operations+=result.timing.operations||1;timing.submissions+=result.timing.submissions||1;for(const key of ['uploadMs','submitMs','queueAndMapMs','readbackMs'])timing[key]+=result.timing[key]||0;if(Number.isFinite(result.timing.gpuMs)){timing.gpuMs+=result.timing.gpuMs;timing.gpuSamples+=result.timing.gpuSamples||1;}}}return result;})
    .catch(e=>{fail(e);gpu?.destroy();return {supported:false,reason};})
    .finally(()=>{pending=null;});
   return pending;
  };
+ core.graphicsTransfer=packet=>submit(packet,false);
+ core.graphicsBatch=packets=>submit(packets,true);
  const reference={activate(){active=false;core._rr_graphics_enable(0);}};
  const experimental={
   get available(){return !!gpu&&!reason&&!core.graphicsError&&!closed;},get reason(){return reason||core.graphicsError||'WebGPU transfers with reference PICA fallbacks';},
@@ -41,6 +43,6 @@ export async function createLive3DSGraphics(core,{createGPU=create3DSGraphics,ti
   measureTiming(enabled){gpu?.setTimingEnabled?.(enabled);},
   present(){if(!active||reason||closed)return null;try{return gpu.present(core);}catch(e){fail(e);return null;}},
   stats(){return {...JSON.parse(core.UTF8ToString(core._rr_graphics_stats())),hostOperations:count,hostMs:totalMs,lightingCompilation:gpu?.lightingCompilation?.(),timing:{...timing},timestamps:!!gpu?.info?.timestamps,measuringGPU:!!gpu?.measuringGPU,allocatedBytes:gpu?.bytesAllocated??0};},
-  dispose(){closed=true;active=false;gpu?.destroy();core.graphicsTransfer=null;}
+  dispose(){closed=true;active=false;gpu?.destroy();core.graphicsTransfer=null;core.graphicsBatch=null;}
  };return result;
 }

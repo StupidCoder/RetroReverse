@@ -18,7 +18,7 @@ export function decodeGraphicsStream(bytes){
 }
 const align=n=>Math.ceil(n/4)*4;
 export function transferSupport(p){
- const a=p.params;if(![1,2,3,4,5,6,7,8].includes(p.kind))return 'Unsupported graphics operation';
+ const a=p.params;if(![1,2,3,4,5,6,7,8,9,10].includes(p.kind))return 'Unsupported graphics operation';
  if(!(p.input instanceof Uint8Array)||!(p.before instanceof Uint8Array)||!p.before.length||p.before.length>16*1024*1024||p.input.length>16*1024*1024)return 'Invalid transfer buffers';
  if(!Array.isArray(a)||!a.every(n=>Number.isInteger(n)&&n>=0&&n<=0xffffffff))return 'Invalid transfer parameters';
  if(p.kind===1){if(a.length!==4||a[0]<2||a[0]>4||a[2]>p.before.length||a[2]%a[0])return 'Invalid fill';}
@@ -39,7 +39,7 @@ export function transferSupport(p){
  }
  if(p.kind>=5){
   const [w,h,mask,,blend]=a,n=w*h;
-  if(a.length!==(p.kind===5?36:p.kind===6?52:p.kind===7?57:85)||!w||!h||w>1024||h>1024||w%8||h%8||mask>15||p.before.length!==n*(p.kind>=7?8:4)||(p.kind===5&&p.input.length!==n*4+a[9]*20))return 'Invalid fragment packet';
+  if(a.length!==(p.kind===5?36:p.kind===6?52:p.kind===7?57:p.kind===8?85:p.kind===9?60:88)||!w||!h||w>1024||h>1024||w%8||h%8||mask>15||p.before.length!==n*(p.kind>=7?8:4)||(p.kind===5&&p.input.length!==n*4+a[9]*20))return 'Invalid fragment packet';
   if((a[3]&256)&&((blend&7)>4||((blend>>>8)&7)>4||[16,20,24,28].some(s=>((blend>>>s)&15)>14)))return 'Unsupported blend';
   if(a.at(-1)||(a[34]!==0xffffffff&&a[34]>a[9])||(a[8]&~0xff71))return 'Invalid fragment metadata';
   const sources=[0,1,2,3,4,5,13,14,15],combines=[0,1,2,3,4,5,8,9];
@@ -61,11 +61,12 @@ export function transferSupport(p){
 // immutable decoded texture ranges before an untrusted replay reaches the GPU.
 function rasterSupport(packet){
  const a=packet.params,[w,h]=a,[count,nx,ny,enabled]=a.slice(35,39),bytes=packet.input;
- const depth=packet.kind>=7,lighting=packet.kind===8,stride=lighting?21:depth?14:13,triangleWords=5+stride*3;
+ const depth=packet.kind>=7,lighting=packet.kind===8||packet.kind===10,stencil=packet.kind>=9,stride=lighting?21:depth?14:13,triangleWords=5+stride*3;
  if(depth){
   const floats=new Float32Array(new Uint32Array([a[52],a[53]]).buffer);
-  if(!(a[51]&1)||(a[51]&~0x77)||a[54]||floats.some(n=>!Number.isFinite(n)||Math.abs(n)>2**20)||(a[55]!==0xffffffff&&(a[55]>a[9]||(a[34]!==0xffffffff&&a[55]+a[34]>a[9]))))return 'Invalid raster depth metadata';
+  if((!stencil&&!(a[51]&1))||(!(a[51]&1)&&(a[51]&2))||(a[51]&~0x77)||a[54]||floats.some(n=>!Number.isFinite(n)||Math.abs(n)>2**20)||(a[55]!==0xffffffff&&(a[55]>a[9]||(a[34]!==0xffffffff&&a[55]+a[34]>a[9]))))return 'Invalid raster depth metadata';
  }
+ if(stencil){const at=lighting?84:56;if(!(a[at]&1)||(a[at]&~0xffffff71)||(a[at+1]&~0x777)||a[at+2]>1)return 'Invalid raster stencil metadata';}
  if(!count||count>1024||nx!==Math.ceil(w/16)||ny!==Math.ceil(h/16)||enabled>7||bytes.length%4||a[9]>838860)return 'Invalid raster metadata';
  const data=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),words=bytes.length/4,header=nx*ny*2,triEnd=header+count*triangleWords;
  if(triEnd>words)return 'Truncated raster triangles';
@@ -162,7 +163,7 @@ export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()
  const adapter=await gpu.requestAdapter();if(!adapter)throw Error('No WebGPU adapter is available');
  const timestamps=measureGPU&&adapter.features.has('timestamp-query');
  const device=await adapter.requestDevice({requiredFeatures:timestamps?['timestamp-query']:[]});let lost=null,busy=false,closed=false,allocation=null,timingEnabled=measureGPU;
- const queries=timestamps?device.createQuerySet({type:'timestamp',count:2}):null;
+ const queries=timestamps?device.createQuerySet({type:'timestamp',count:16}):null;
  device.lost.then(info=>{lost=info.message||'WebGPU device lost';if(!closed)onLost(lost);});
  const warmStart=performance.now();device.pushErrorScope('validation');
  const module=device.createShaderModule({code:transferWGSL});
@@ -172,7 +173,7 @@ export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()
   const layout=device.createPipelineLayout({bindGroupLayouts:[bindLayout]});pipelineLayout=layout;
   // Constant operation selection lets the compiler remove the entire rasterizer
   // from transfer kernels, instead of assigning its register footprint to fills.
-  pipelines=await Promise.all([1,2,3,4,5,6,7,8].map(operation=>device.createComputePipelineAsync({layout,compute:{module,entryPoint:'main',constants:{operation}}})));
+  pipelines=await Promise.all([1,2,3,4,5,6,7,8,9,10].map(operation=>device.createComputePipelineAsync({layout,compute:{module,entryPoint:'main',constants:{operation}}})));
  }
  catch(e){const info=await module.getCompilationInfo();device.destroy();throw Error(info.messages.map(m=>`${m.lineNum}:${m.linePos} ${m.message}`).join('\n')||e.message);}
  const error=await device.popErrorScope();if(error){device.destroy();throw Error(error.message);}
@@ -182,58 +183,91 @@ export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()
  // cache uses the already validated generic kernel while compilation is pending.
  const lightingPipelines=new Map();let lightingPending=0;
  function pipelineFor(packet){
-  if(packet.kind!==8||!specializeLighting)return pipelines[packet.kind-1];
-  const fields=[56,57,58,59,60,62],values=fields.map(i=>packet.params[i]),key=values.join('/');
-  const known=lightingPipelines.get(key);if(known)return known.pipeline||pipelines[7];
-  if(lightingPipelines.size>=64||lightingPending>=2)return pipelines[7];
+  if(![8,10].includes(packet.kind)||!specializeLighting)return pipelines[packet.kind-1];
+  const operation=packet.kind,fields=[56,57,58,59,60,62],values=fields.map(i=>packet.params[i]),key=operation+'/'+values.join('/');const generic=pipelines[operation-1];
+  const known=lightingPipelines.get(key);if(known)return known.pipeline||generic;
+  if(lightingPipelines.size>=64||lightingPending>=2)return generic;
   const entry={pipeline:null,failed:false};lightingPipelines.set(key,entry);lightingPending++;
   Promise.resolve().then(async()=>{
    if(closed||lost)return;
    let code=transferWGSL;for(let i=0;i<fields.length;i++)code=code.replaceAll('p['+(fields[i]+4)+']',values[i]+'u');
    const module=device.createShaderModule({code});
-   const pipeline=await device.createComputePipelineAsync({layout:pipelineLayout,compute:{module,entryPoint:'main',constants:{operation:8}}});
+   const pipeline=await device.createComputePipelineAsync({layout:pipelineLayout,compute:{module,entryPoint:'main',constants:{operation}}});
    if(!closed&&!lost)entry.pipeline=pipeline;
   }).catch(()=>{entry.failed=true;}).finally(()=>{lightingPending--;});
-  return pipelines[7];
+  return generic;
  }
  let presentation=null;
- function release(){if(allocation)for(const b of allocation.buffers)b.destroy();allocation=null;}
+ function release(){if(allocation){for(const b of allocation.buffers)b.destroy();for(const slot of allocation.slots)for(const b of slot.buffers)b.destroy();}allocation=null;}
  function buffers(n){
   if(allocation?.capacity>=n)return allocation;
   release();const capacity=2**Math.ceil(Math.log2(Math.max(n,256))),U=GPUBufferUsage;
-  const b=[device.createBuffer({size:65536,usage:U.STORAGE|U.COPY_DST}),...Array.from({length:2},()=>device.createBuffer({size:capacity,usage:U.STORAGE|U.COPY_DST})),device.createBuffer({size:capacity,usage:U.STORAGE|U.COPY_SRC}),device.createBuffer({size:capacity,usage:U.COPY_DST|U.MAP_READ})];
+  const b=[device.createBuffer({size:65536,usage:U.STORAGE|U.COPY_DST}),device.createBuffer({size:capacity,usage:U.STORAGE|U.COPY_DST}),
+   ...Array.from({length:2},()=>device.createBuffer({size:capacity,usage:U.STORAGE|U.COPY_DST|U.COPY_SRC})),device.createBuffer({size:capacity,usage:U.COPY_DST|U.MAP_READ})];
   const counter=device.createBuffer({size:8,usage:U.STORAGE|U.COPY_DST|U.COPY_SRC});
-  const bind=device.createBindGroup({layout:bindLayout,entries:[...b.slice(0,4).map((buffer,binding)=>({binding,resource:{buffer}})),{binding:4,resource:{buffer:counter}}]});
-  if(timestamps)b.push(device.createBuffer({size:16,usage:U.QUERY_RESOLVE|U.COPY_SRC}));
-  b.push(counter);return allocation={capacity,buffers:b,bind,counter};
+  if(timestamps)b.push(device.createBuffer({size:128,usage:U.QUERY_RESOLVE|U.COPY_SRC}));
+  b.push(counter);return allocation={capacity,buffers:b,params:b[0],src:b[1],counter,slots:[]};
+ }
+ function slotFor(a,index,n){
+  if(!index)return a;
+  let slot=a.slots[index-1];if(slot?.capacity>=n)return slot;
+  if(slot)for(const b of slot.buffers)b.destroy();
+  const capacity=2**Math.ceil(Math.log2(Math.max(n,256))),U=GPUBufferUsage;
+  const params=device.createBuffer({size:65536,usage:U.STORAGE|U.COPY_DST}),src=device.createBuffer({size:capacity,usage:U.STORAGE|U.COPY_DST}),counter=device.createBuffer({size:8,usage:U.STORAGE|U.COPY_DST|U.COPY_SRC});
+  return a.slots[index-1]={capacity,params,src,counter,buffers:[params,src,counter]};
  }
  const padded=b=>{if(b.length%4===0&&b.length)return b;const out=new Uint8Array(Math.max(4,align(b.length)));out.set(b);return out;};
- async function execute(packet){
-  const reason=transferSupport(packet);if(reason)return {supported:false,reason};
+ async function executePackets(packets,batch){
+  if(!Array.isArray(packets)||!packets.length||packets.length>8)return {supported:false,reason:'Invalid graphics batch size'};
+  for(const packet of packets){const reason=transferSupport(packet);if(reason)return {supported:false,reason};}
+  const first=packets[0],length=first.before.length;
+  if(batch&&packets.some(p=>p.kind<6||p.before.length!==length||p.params[0]!==first.params[0]||p.params[1]!==first.params[1]||(p.kind>=7)!==(first.kind>=7)))return {supported:false,reason:'Incompatible graphics batch surfaces'};
+  if(batch&&packets.reduce((sum,p)=>sum+p.input.length,0)>8*1024*1024)return {supported:false,reason:'Graphics batch input limit'};
   if(closed||lost)throw Error(lost||'Graphics backend closed');if(busy)throw Error('Graphics operation already in flight');busy=true;
   const start=performance.now();let scoped=false,readBuffer=null;
   try{
    device.pushErrorScope('validation');scoped=true;
-   const measured=timestamps&&timingEnabled;
-   const outputSize=align(packet.before.length),timestampOffset=Math.ceil((outputSize+8)/8)*8,readSize=measured?timestampOffset+16:outputSize+8;
-   const a=buffers(Math.max(packet.input.length,readSize)),[params,src,old,out,read]=a.buffers;readBuffer=read;
-   device.queue.writeBuffer(params,0,new Uint32Array([packet.kind,packet.input.length,packet.before.length,0,...packet.params]));
-   device.queue.writeBuffer(src,0,padded(packet.input));device.queue.writeBuffer(old,0,padded(packet.before));
-   const uploaded=performance.now(),encoder=device.createCommandEncoder();encoder.clearBuffer(a.counter);const pass=encoder.beginComputePass(measured?{timestampWrites:{querySet:queries,beginningOfPassWriteIndex:0,endOfPassWriteIndex:1}}:{});
-   const pipeline=pipelineFor(packet);pass.setPipeline(pipeline);pass.setBindGroup(0,a.bind);const groups=Math.ceil(packet.before.length/(packet.kind>=7?512:256));pass.dispatchWorkgroups(Math.min(groups,65535),Math.ceil(groups/65535));pass.end();encoder.copyBufferToBuffer(out,0,read,0,align(packet.before.length));encoder.copyBufferToBuffer(a.counter,0,read,align(packet.before.length),8);
-   if(measured){encoder.resolveQuerySet(queries,0,2,a.buffers[5],0);encoder.copyBufferToBuffer(a.buffers[5],0,read,timestampOffset,16);}
+   const measured=timestamps&&timingEnabled,count=packets.length;
+   const outputSize=align(length),timestampOffset=Math.ceil((outputSize+8*count)/8)*8,readSize=measured?timestampOffset+16*count:outputSize+8*count;
+   const a=buffers(Math.max(...packets.map(p=>p.input.length),readSize)),read=a.buffers[4];readBuffer=read;
+   let old=a.buffers[2],out=a.buffers[3];
+   device.queue.writeBuffer(old,0,padded(first.before));
+   const slots=packets.map((packet,i)=>{
+    const slot=slotFor(a,i,packet.input.length);
+    device.queue.writeBuffer(slot.params,0,new Uint32Array([packet.kind,packet.input.length,length,0,...packet.params]));
+    device.queue.writeBuffer(slot.src,0,padded(packet.input));return slot;
+   });
+   const uploaded=performance.now(),encoder=device.createCommandEncoder(),specialized=[];
+   for(let i=0;i<count;i++){
+    const packet=packets[i],slot=slots[i];encoder.clearBuffer(slot.counter);
+    const bind=slot.bind??=device.createBindGroup({layout:bindLayout,entries:[slot.params,slot.src,old,out,slot.counter].map((buffer,binding)=>({binding,resource:{buffer}}))});
+    const pass=encoder.beginComputePass(measured?{timestampWrites:{querySet:queries,beginningOfPassWriteIndex:i*2,endOfPassWriteIndex:i*2+1}}:{});
+    const pipeline=pipelineFor(packet);specialized.push([8,10].includes(packet.kind)&&pipeline!==pipelines[packet.kind-1]);
+    pass.setPipeline(pipeline);pass.setBindGroup(0,bind);const groups=Math.ceil(length/(packet.kind>=7?512:256));pass.dispatchWorkgroups(Math.min(groups,65535),Math.ceil(groups/65535));pass.end();
+    encoder.copyBufferToBuffer(slot.counter,0,read,outputSize+i*8,8);[old,out]=[out,old];
+   }
+   encoder.copyBufferToBuffer(old,0,read,0,outputSize);
+   if(measured){encoder.resolveQuerySet(queries,0,count*2,a.buffers[5],0);encoder.copyBufferToBuffer(a.buffers[5],0,read,timestampOffset,count*16);}
    device.queue.submit([encoder.finish()]);const submitted=performance.now();
-   // Both promises describe work already submitted. Await them together; a
-   // second host round-trip after mapping serves no coherence purpose.
+   // Ordered dispatches share the two surface buffers, with one upload and one
+   // map. Neither guest surface is committed until every draw has validated.
    const validation=device.popErrorScope();scoped=false;
    const [,err]=await Promise.all([read.mapAsync(GPUMapMode.READ,0,readSize),validation]);const mapped=performance.now();
    if(err)throw Error(err.message);if(lost)throw Error(lost);
-   const mappedBytes=read.getMappedRange(0,readSize),drawn=new DataView(mappedBytes).getUint32(outputSize,true),depthKilled=new DataView(mappedBytes).getUint32(outputSize+4,true);
-   let gpuMs=null;if(measured){const t=new BigUint64Array(mappedBytes,timestampOffset,2);gpuMs=Number(t[1]-t[0])/1e6;}
-   const result=new Uint8Array(mappedBytes).slice(0,packet.before.length);read.unmap();readBuffer=null;
-   if(packet.kind>=6&&(drawn&0x80000000))return {supported:false,reason:'Raster arithmetic requires Reference'};
-   return {supported:true,bytes:result,drawn,depthKilled,specialized:packet.kind===8&&pipeline!==pipelines[7],timing:{uploadMs:uploaded-start,submitMs:submitted-uploaded,gpuMs,queueAndMapMs:mapped-submitted,readbackMs:performance.now()-mapped,totalMs:performance.now()-start}};
+   const mappedBytes=read.getMappedRange(0,readSize),view=new DataView(mappedBytes),counts=[];
+   for(let i=0;i<count;i++){
+    const drawn=view.getUint32(outputSize+i*8,true),depthKilled=view.getUint32(outputSize+i*8+4,true),packet=packets[i];
+    if(packet.kind>=6&&(drawn&0x80000000))return {supported:false,reason:'Raster arithmetic requires Reference'};
+    if(packet.kind>=6&&(drawn+depthKilled>packet.params[9]))return {supported:false,reason:'Invalid raster result counters'};
+    counts.push({drawn,depthKilled,specialized:specialized[i]});
+   }
+   let gpuMs=null;if(measured){const t=new BigUint64Array(mappedBytes,timestampOffset,count*2);gpuMs=0;for(let i=0;i<count;i++)gpuMs+=Number(t[i*2+1]-t[i*2])/1e6;}
+   const bytes=new Uint8Array(mappedBytes).slice(0,length);read.unmap();readBuffer=null;
+   const result={supported:true,bytes,timing:{operations:count,submissions:1,gpuSamples:measured?count:0,uploadMs:uploaded-start,submitMs:submitted-uploaded,gpuMs,queueAndMapMs:mapped-submitted,readbackMs:performance.now()-mapped,totalMs:performance.now()-start}};
+   return batch?{...result,counts}:{...result,...counts[0]};
   }finally{readBuffer?.unmap();if(scoped)await device.popErrorScope();busy=false;}
  }
- return {execute,warmupMs,lightingCompilation:()=>({requested:lightingPipelines.size,ready:[...lightingPipelines.values()].filter(e=>e.pipeline).length,pending:lightingPending,failed:[...lightingPipelines.values()].filter(e=>e.failed).length}),setTimingEnabled(value){timingEnabled=!!value;},get measuringGPU(){return timestamps&&timingEnabled;},info:{vendor:adapter.info?.vendor,architecture:adapter.info?.architecture,timestamps},async preparePresentation(){presentation??=await create3DSPresentation(device);},present(core){if(closed||lost)return null;return presentation?.present(core)??null;},get bytesAllocated(){return (allocation?65536+allocation.capacity*4+8+(timestamps?16:0):0)+(presentation?.bytesAllocated??0);},get busy(){return busy;},destroy(){closed=true;presentation?.destroy();presentation=null;release();queries?.destroy();device.destroy();}};
+ const execute=packet=>executePackets([packet],false),executeBatch=packets=>executePackets(packets,true);
+
+ return {execute,executeBatch,warmupMs,lightingCompilation:()=>({requested:lightingPipelines.size,ready:[...lightingPipelines.values()].filter(e=>e.pipeline).length,pending:lightingPending,failed:[...lightingPipelines.values()].filter(e=>e.failed).length}),setTimingEnabled(value){timingEnabled=!!value;},get measuringGPU(){return timestamps&&timingEnabled;},info:{vendor:adapter.info?.vendor,architecture:adapter.info?.architecture,timestamps},async preparePresentation(){presentation??=await create3DSPresentation(device);},present(core){if(closed||lost)return null;return presentation?.present(core)??null;},get bytesAllocated(){return (allocation?65536+allocation.capacity*4+8+(timestamps?128:0)+allocation.slots.reduce((sum,s)=>sum+65536+s.capacity+8,0):0)+(presentation?.bytesAllocated??0);},get busy(){return busy;},destroy(){closed=true;presentation?.destroy();presentation=null;release();queries?.destroy();device.destroy();}};
 }

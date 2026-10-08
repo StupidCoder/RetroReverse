@@ -48,7 +48,7 @@ console.log('3DS initialization deadline, late resource disposal, self-test leng
 console.log('3DS missing WebGPU, absent adapter and shader compilation failure keep Reference available');
 {
  let calls=0;const c=core(),b=await createLive3DSGraphics(c,{createGPU:async()=>({info:{timestamps:true},execute:()=>++calls===1?selfTest():{supported:true,bytes:new Uint8Array(4),timing:{uploadMs:1,submitMs:2,queueAndMapMs:3,readbackMs:4,gpuMs:0}},destroy(){}})});
- b.experimental.activate();await c.graphicsTransfer({});const first=b.stats();assert.deepEqual(first.timing,{operations:1,uploadMs:1,submitMs:2,queueAndMapMs:3,readbackMs:4,gpuMs:0,gpuSamples:1});
+ b.experimental.activate();await c.graphicsTransfer({});const first=b.stats();assert.deepEqual(first.timing,{operations:1,submissions:1,uploadMs:1,submitMs:2,queueAndMapMs:3,readbackMs:4,gpuMs:0,gpuSamples:1});
  await c.graphicsTransfer({});assert.equal(first.timing.operations,1);assert.equal(b.stats().timing.operations,2);assert(b.stats().timestamps);b.dispose();
 }
 // A validation promise that resolves only once mapping starts would deadlock the
@@ -59,7 +59,7 @@ console.log('3DS missing WebGPU, absent adapter and shader compilation failure k
  let pops=0,resolveValidation,mode='success',unmaps=0,compileAction=null;const variants=[];
  const device={lost:new Promise(()=>{}),pushErrorScope(){},popErrorScope(){if(++pops===1)return Promise.resolve(null);return new Promise(r=>resolveValidation=r);},
   createShaderModule:()=>({}),createBindGroupLayout:()=>({}),createPipelineLayout:()=>({}),createComputePipelineAsync:async options=>{variants.push(options.compute.constants.operation);if(variants.length>10&&compileAction)return compileAction();return {};},createBindGroup:()=>({}),
-  createBuffer({size}){const bytes=new ArrayBuffer(size);return {mapAsync(){assert(resolveValidation,'Validation was not requested before mapping');resolveValidation(mode==='validation-error'?{message:'Injected validation error'}:null);resolveValidation=null;return mode==='map-error'?Promise.reject(Error('Injected mapping error')):Promise.resolve();},getMappedRange(offset,length){return bytes.slice(offset,offset+length);},unmap(){unmaps++;},destroy(){}};},
+  createBuffer({size}){const bytes=new ArrayBuffer(size);return {mapAsync(){assert(resolveValidation,'Validation was not requested before mapping');resolveValidation(mode==='validation-error'?{message:'Injected validation error'}:null);resolveValidation=null;return mode==='map-error'?Promise.reject(Error('Injected mapping error')):Promise.resolve();},getMappedRange(offset,length){const result=bytes.slice(offset,offset+length);if(mode==='counter-error'||mode==='arithmetic-error')new DataView(result).setUint32(520,mode==='counter-error'?65:0x80000000,true);return result;},unmap(){unmaps++;},destroy(){}};},
   createCommandEncoder:()=>({clearBuffer(){},beginComputePass:()=>({setPipeline(){},setBindGroup(){},dispatchWorkgroups(){},end(){}}),copyBufferToBuffer(){},finish:()=>({})}),queue:{writeBuffer(){},submit(){}},destroy(){}};
  const gpu=await create3DSGraphics({measureGPU:false,gpu:{requestAdapter:async()=>({features:new Set(),requestDevice:async()=>device})}});
  assert.deepEqual(variants,[1,2,3,4,5,6,7,8,9,10]);
@@ -75,6 +75,11 @@ console.log('3DS missing WebGPU, absent adapter and shader compilation failure k
  const light={kind:8,params,input:new Uint8Array(data.buffer),before:new Uint8Array(512)};
  compileAction=()=>Promise.reject(Error('Injected specialization error'));
  assert((await gpu.execute(light)).supported);await new Promise(resolve=>setImmediate(resolve));assert.equal(gpu.lightingCompilation().failed,1);assert((await gpu.execute(light)).supported);
+ const batch=[light,light];assert((await gpu.executeBatch(batch)).supported);
+ for(mode of ['validation-error','map-error']){await assert.rejects(gpu.executeBatch(batch),/Injected/);assert(!gpu.busy);}
+ for(mode of ['counter-error','arithmetic-error']){const result=await gpu.executeBatch(batch);assert(!result.supported&&!result.bytes);assert(!gpu.busy);}
+ mode='success';assert((await gpu.executeBatch(batch)).supported);
+
  params[58]=1;let finishCompile;compileAction=()=>new Promise(resolve=>{finishCompile=resolve;});
  assert((await gpu.execute(light)).supported);assert.equal(gpu.lightingCompilation().pending,1);gpu.destroy();finishCompile({});await new Promise(resolve=>setImmediate(resolve));
  assert.equal(gpu.lightingCompilation().ready,0);assert.equal(gpu.lightingCompilation().pending,0);

@@ -18,6 +18,7 @@ inline uint8_t* ordinary(n3ds_Machine*m,uint32_t address,uint64_t size){
  if(!r||address<r->base||uint64_t(address-r->base)+size>uint64_t(r->data.n))return nullptr;
  for(uint32_t page=address>>12,last=uint32_t((uint64_t(address)+size-1)>>12);page<=last;page++)
   if(m->pages[page]!=r)return nullptr;
+ rrbatch::beforeRead(m,address,size);
  return r->data.p+(address-r->base);
 }
 struct Component {uint16_t offset=0;uint8_t attribute=0,format=0,count=0;};

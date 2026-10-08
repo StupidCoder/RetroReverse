@@ -1881,6 +1881,7 @@ uint64_t n3ds_nsToTick(int64_t ns);
 #include "capture-hooks.h"
 #include "performance.h"
 #include "graphics-stream.h"
+#include "graphics-batch.h"
 #include "vertex-fast.h"
 #include "shader-wasm.h"
 // tools/cpu/arm/arm.go:109:1
@@ -8681,7 +8682,7 @@ return m->gpu;
 }
 // tools/platform/n3ds/gpu.go:242:1
 void n3ds_GPU_Execute(n3ds_GPU* g,uint32_t addr,uint32_t size){
-rrprof::Scope profile(1,"PICA commands / vertex processing");rr3ds::Command command(g->m,"PICA command list",addr,size);{
+rrprof::Scope profile(1,"PICA commands / vertex processing");rr3ds::Command command(g->m,"PICA command list",addr,size);rrbatch::Scope batchScope(g);{
 g->jumpPending = false;
 {int64_t hop = cast<int64_t>(0ULL);for (;;hop++){
 if ((hop > cast<int64_t>(4096ULL))) {
@@ -8694,7 +8695,7 @@ g->cmdBuf = Slice<uint8_t>::make(size);
 }
 Slice<uint8_t> buf = sub(g->cmdBuf,0,size);
 {
-auto tmp97 = n3ds_Machine_directRange(g->m,addr,size);
+auto tmp97 = rrbatch::readRange(g->m,addr,size);
 Slice<uint8_t> src = std::get<0>(tmp97);
 uint32_t off = std::get<1>(tmp97);
 if (bool(src)) {
@@ -8702,7 +8703,7 @@ gcopy(buf,sub(src,off,cast<uint32_t>((off + size))));
 }
 else {
 {uint32_t i = cast<uint32_t>(0ULL);for (;(i < size);i++){
-buf[i] = n3ds_Machine_Read(g->m,cast<uint32_t>((addr + i)));
+buf[i] = rrbatch::read(g->m,cast<uint32_t>((addr + i)));
 }
 }}
 }
@@ -9981,10 +9982,10 @@ uint32_t vi = cast<uint32_t>((first + i));
 if (indexed && vertexFast.eligible) { vi=vertexFast.index(i); }
 else if (indexed) {
 if (idx16) {
-vi = cast<uint32_t>((cast<uint32_t>(n3ds_Machine_Read(m,cast<uint32_t>((idxAddr + cast<uint32_t>((i * cast<uint32_t>(2ULL))))))) | shl<uint32_t>(cast<uint32_t>(n3ds_Machine_Read(m,cast<uint32_t>((cast<uint32_t>((idxAddr + cast<uint32_t>((i * cast<uint32_t>(2ULL))))) + cast<uint32_t>(1ULL))))),cast<int64_t>(8ULL))));
+vi = cast<uint32_t>((cast<uint32_t>(rrbatch::read(m,cast<uint32_t>((idxAddr + cast<uint32_t>((i * cast<uint32_t>(2ULL))))))) | shl<uint32_t>(cast<uint32_t>(rrbatch::read(m,cast<uint32_t>((cast<uint32_t>((idxAddr + cast<uint32_t>((i * cast<uint32_t>(2ULL))))) + cast<uint32_t>(1ULL))))),cast<int64_t>(8ULL))));
 }
 else {
-vi = cast<uint32_t>(n3ds_Machine_Read(m,cast<uint32_t>((idxAddr + i))));
+vi = cast<uint32_t>(rrbatch::read(m,cast<uint32_t>((idxAddr + i))));
 }
 }
 if(vertexFast.reuse(vi,i,outs)){vertexProfile.reuse(vi);return true;}
@@ -10012,19 +10013,19 @@ val[cast<int64_t>(3ULL)] = cast<float>(1.00000000000000000e+00);
 {
 switch(cast<uint64_t>((f & cast<uint64_t>(3ULL)))){
 case cast<uint64_t>(0ULL):{
-val[j] = cast<float>(cast<int8_t>(n3ds_Machine_Read(m,p)));
+val[j] = cast<float>(cast<int8_t>(rrbatch::read(m,p)));
 p++;
 break;}
 case cast<uint64_t>(1ULL):{
-val[j] = cast<float>(n3ds_Machine_Read(m,p));
+val[j] = cast<float>(rrbatch::read(m,p));
 p++;
 break;}
 case cast<uint64_t>(2ULL):{
-val[j] = cast<float>(cast<int16_t>(cast<uint16_t>((cast<uint16_t>(n3ds_Machine_Read(m,p)) | shl<uint16_t>(cast<uint16_t>(n3ds_Machine_Read(m,cast<uint32_t>((p + cast<uint32_t>(1ULL))))),cast<int64_t>(8ULL))))));
+val[j] = cast<float>(cast<int16_t>(cast<uint16_t>((cast<uint16_t>(rrbatch::read(m,p)) | shl<uint16_t>(cast<uint16_t>(rrbatch::read(m,cast<uint32_t>((p + cast<uint32_t>(1ULL))))),cast<int64_t>(8ULL))))));
 p += cast<uint32_t>(2ULL);
 break;}
 case cast<uint64_t>(3ULL):{
-val[j] = n3ds_f32bits(n3ds_Machine_ReadWord(m,p));
+val[j] = n3ds_f32bits(rrbatch::readWord(m,p));
 p += cast<uint32_t>(4ULL);
 break;}
 }}
@@ -10153,7 +10154,7 @@ n3ds_GPU_invalidateTextures(g,fb.colorAddr,cast<uint32_t>((cast<uint32_t>(((((ca
 }
 // tools/platform/n3ds/gpu_raster.go:379:1
 void n3ds_GPU_fill(n3ds_GPU* g,n3ds_fbState* fb,n3ds_lightState* ls,n3ds_tevState* tv,Slice<n3ds_rasterTri> tris){
-rrprof::Scope profile(2,"PICA software rasterizer");auto graphics=rrgpu::Operation::draw(g,fb,ls,tv,tris);if(graphics.execute())return;rrperf::Fallback fallbackProfile(g,fb,ls,tv,tris,graphics.target!=nullptr);{
+rrprof::Scope profile(2,"PICA software rasterizer");auto graphics=rrgpu::Operation::draw(g,fb,ls,tv,tris);if(rrbatch::enqueue(graphics,g,fb,ls,tv,tris))return;rrbatch::flush();if(graphics.execute())return;rrperf::Fallback fallbackProfile(g,fb,ls,tv,tris,graphics.target!=nullptr);{
 if ((len(tris) == cast<int64_t>(0ULL))) {
 return ;
 }
@@ -10355,8 +10356,8 @@ refZ = cast<uint32_t>((cast<uint32_t>((shl<uint32_t>(cast<uint32_t>(dst[cast<int
 refS = dst[cast<int64_t>(3ULL)];
 }
 else {
-refZ = cast<uint32_t>((cast<uint32_t>((shl<uint32_t>(cast<uint32_t>(n3ds_Machine_Read(g->m,p)),cast<int64_t>(16ULL)) | shl<uint32_t>(cast<uint32_t>(n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL))))),cast<int64_t>(8ULL)))) | cast<uint32_t>(n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(2ULL)))))));
-refS = n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(3ULL))));
+refZ = cast<uint32_t>((cast<uint32_t>((shl<uint32_t>(cast<uint32_t>(rrbatch::read(g->m,p)),cast<int64_t>(16ULL)) | shl<uint32_t>(cast<uint32_t>(rrbatch::read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL))))),cast<int64_t>(8ULL)))) | cast<uint32_t>(rrbatch::read(g->m,cast<uint32_t>((p + cast<uint32_t>(2ULL)))))));
+refS = rrbatch::read(g->m,cast<uint32_t>((p + cast<uint32_t>(3ULL))));
 }
 if ((z >= refZ)) {
 return ;
@@ -10599,7 +10600,7 @@ old = cast<uint32_t>((cast<uint32_t>((cast<uint32_t>(d[cast<int64_t>(0ULL)]) | s
 }
 else {
 uint32_t p = cast<uint32_t>((fb->depthAddr + off));
-old = cast<uint32_t>((cast<uint32_t>((cast<uint32_t>(n3ds_Machine_Read(g->m,p)) | shl<uint32_t>(cast<uint32_t>(n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL))))),cast<int64_t>(8ULL)))) | shl<uint32_t>(cast<uint32_t>(n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(2ULL))))),cast<int64_t>(16ULL))));
+old = cast<uint32_t>((cast<uint32_t>((cast<uint32_t>(rrbatch::read(g->m,p)) | shl<uint32_t>(cast<uint32_t>(rrbatch::read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL))))),cast<int64_t>(8ULL)))) | shl<uint32_t>(cast<uint32_t>(rrbatch::read(g->m,cast<uint32_t>((p + cast<uint32_t>(2ULL))))),cast<int64_t>(16ULL))));
 }
 uint32_t nv = cast<uint32_t>(cast<float>((depth * cast<float>(1.67772150000000000e+07))));
 {
@@ -10670,10 +10671,10 @@ dr = std::get<3>(tmp183);
 }
 else {
 uint32_t p = cast<uint32_t>((fb->colorAddr + off));
-auto tmp184 = std::make_tuple(n3ds_Machine_Read(g->m,p),n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL)))));
+auto tmp184 = std::make_tuple(rrbatch::read(g->m,p),rrbatch::read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL)))));
 da = std::get<0>(tmp184);
 db = std::get<1>(tmp184);
-auto tmp185 = std::make_tuple(n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(2ULL)))),n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(3ULL)))));
+auto tmp185 = std::make_tuple(rrbatch::read(g->m,cast<uint32_t>((p + cast<uint32_t>(2ULL)))),rrbatch::read(g->m,cast<uint32_t>((p + cast<uint32_t>(3ULL)))));
 dg = std::get<0>(tmp185);
 dr = std::get<1>(tmp185);
 }
@@ -10769,7 +10770,7 @@ if (bool(fb->depthBuf)) {
 old = fb->depthBuf[cast<uint32_t>((cast<uint32_t>((fb->depthOff32 + off)) + cast<uint32_t>(3ULL)))];
 }
 else {
-old = n3ds_Machine_Read(g->m,cast<uint32_t>((cast<uint32_t>((fb->depthAddr + off)) + cast<uint32_t>(3ULL))));
+old = rrbatch::read(g->m,cast<uint32_t>((cast<uint32_t>((fb->depthAddr + off)) + cast<uint32_t>(3ULL))));
 }
 auto tmp188 = std::make_tuple(cast<uint8_t>(shr<uint32_t>(cfg,cast<int64_t>(16ULL))),cast<uint8_t>(shr<uint32_t>(cfg,cast<int64_t>(24ULL))));
 uint8_t ref = std::get<0>(tmp188);
@@ -12277,19 +12278,19 @@ img->pix[cast<uint32_t>((p + cast<uint32_t>(3ULL)))] = std::get<3>(tmp264);
 switch(format){
 case cast<uint32_t>(0ULL):{
 n3ds_GPU_eachTexel(g,addr,w,h,cast<uint32_t>(4ULL),[&](uint32_t x,uint32_t y,uint32_t p)->void{
-put(x,y,n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(3ULL)))),n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(2ULL)))),n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL)))),n3ds_Machine_Read(g->m,p));
+put(x,y,rrbatch::read(g->m,cast<uint32_t>((p + cast<uint32_t>(3ULL)))),rrbatch::read(g->m,cast<uint32_t>((p + cast<uint32_t>(2ULL)))),rrbatch::read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL)))),rrbatch::read(g->m,p));
 }
 );
 break;}
 case cast<uint32_t>(1ULL):{
 n3ds_GPU_eachTexel(g,addr,w,h,cast<uint32_t>(3ULL),[&](uint32_t x,uint32_t y,uint32_t p)->void{
-put(x,y,n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(2ULL)))),n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL)))),n3ds_Machine_Read(g->m,p),cast<uint8_t>(255ULL));
+put(x,y,rrbatch::read(g->m,cast<uint32_t>((p + cast<uint32_t>(2ULL)))),rrbatch::read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL)))),rrbatch::read(g->m,p),cast<uint8_t>(255ULL));
 }
 );
 break;}
 case cast<uint32_t>(2ULL):{
 n3ds_GPU_eachTexel(g,addr,w,h,cast<uint32_t>(2ULL),[&](uint32_t x,uint32_t y,uint32_t p)->void{
-uint16_t v = cast<uint16_t>((cast<uint16_t>(n3ds_Machine_Read(g->m,p)) | shl<uint16_t>(cast<uint16_t>(n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL))))),cast<int64_t>(8ULL))));
+uint16_t v = cast<uint16_t>((cast<uint16_t>(rrbatch::read(g->m,p)) | shl<uint16_t>(cast<uint16_t>(rrbatch::read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL))))),cast<int64_t>(8ULL))));
 uint8_t r = cast<uint8_t>((cast<uint8_t>(shr<uint16_t>(v,cast<int64_t>(11ULL))) & cast<uint8_t>(31ULL)));
 uint8_t gr = cast<uint8_t>((cast<uint8_t>(shr<uint16_t>(v,cast<int64_t>(6ULL))) & cast<uint8_t>(31ULL)));
 uint8_t b = cast<uint8_t>((cast<uint8_t>(shr<uint16_t>(v,cast<int64_t>(1ULL))) & cast<uint8_t>(31ULL)));
@@ -12299,7 +12300,7 @@ put(x,y,cast<uint8_t>((shl<uint8_t>(r,cast<int64_t>(3ULL)) | shr<uint8_t>(r,cast
 break;}
 case cast<uint32_t>(3ULL):{
 n3ds_GPU_eachTexel(g,addr,w,h,cast<uint32_t>(2ULL),[&](uint32_t x,uint32_t y,uint32_t p)->void{
-uint16_t v = cast<uint16_t>((cast<uint16_t>(n3ds_Machine_Read(g->m,p)) | shl<uint16_t>(cast<uint16_t>(n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL))))),cast<int64_t>(8ULL))));
+uint16_t v = cast<uint16_t>((cast<uint16_t>(rrbatch::read(g->m,p)) | shl<uint16_t>(cast<uint16_t>(rrbatch::read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL))))),cast<int64_t>(8ULL))));
 uint8_t r = cast<uint8_t>((cast<uint8_t>(shr<uint16_t>(v,cast<int64_t>(11ULL))) & cast<uint8_t>(31ULL)));
 uint8_t gr = cast<uint8_t>((cast<uint8_t>(shr<uint16_t>(v,cast<int64_t>(5ULL))) & cast<uint8_t>(63ULL)));
 uint8_t b = cast<uint8_t>((cast<uint8_t>(v) & cast<uint8_t>(31ULL)));
@@ -12309,14 +12310,14 @@ put(x,y,cast<uint8_t>((shl<uint8_t>(r,cast<int64_t>(3ULL)) | shr<uint8_t>(r,cast
 break;}
 case cast<uint32_t>(4ULL):{
 n3ds_GPU_eachTexel(g,addr,w,h,cast<uint32_t>(2ULL),[&](uint32_t x,uint32_t y,uint32_t p)->void{
-uint16_t v = cast<uint16_t>((cast<uint16_t>(n3ds_Machine_Read(g->m,p)) | shl<uint16_t>(cast<uint16_t>(n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL))))),cast<int64_t>(8ULL))));
+uint16_t v = cast<uint16_t>((cast<uint16_t>(rrbatch::read(g->m,p)) | shl<uint16_t>(cast<uint16_t>(rrbatch::read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL))))),cast<int64_t>(8ULL))));
 put(x,y,cast<uint8_t>((cast<uint8_t>(shr<uint16_t>(v,cast<int64_t>(12ULL))) * cast<uint8_t>(17ULL))),cast<uint8_t>((cast<uint8_t>(cast<uint16_t>((shr<uint16_t>(v,cast<int64_t>(8ULL)) & cast<uint16_t>(15ULL)))) * cast<uint8_t>(17ULL))),cast<uint8_t>((cast<uint8_t>(cast<uint16_t>((shr<uint16_t>(v,cast<int64_t>(4ULL)) & cast<uint16_t>(15ULL)))) * cast<uint8_t>(17ULL))),cast<uint8_t>((cast<uint8_t>(cast<uint16_t>((v & cast<uint16_t>(15ULL)))) * cast<uint8_t>(17ULL))));
 }
 );
 break;}
 case cast<uint32_t>(5ULL):{
 n3ds_GPU_eachTexel(g,addr,w,h,cast<uint32_t>(2ULL),[&](uint32_t x,uint32_t y,uint32_t p)->void{
-auto tmp265 = std::make_tuple(n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL)))),n3ds_Machine_Read(g->m,p));
+auto tmp265 = std::make_tuple(rrbatch::read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL)))),rrbatch::read(g->m,p));
 uint8_t l = std::get<0>(tmp265);
 uint8_t a = std::get<1>(tmp265);
 put(x,y,l,l,l,a);
@@ -12325,26 +12326,26 @@ put(x,y,l,l,l,a);
 break;}
 case cast<uint32_t>(6ULL):{
 n3ds_GPU_eachTexel(g,addr,w,h,cast<uint32_t>(2ULL),[&](uint32_t x,uint32_t y,uint32_t p)->void{
-put(x,y,n3ds_Machine_Read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL)))),n3ds_Machine_Read(g->m,p),cast<uint8_t>(0ULL),cast<uint8_t>(255ULL));
+put(x,y,rrbatch::read(g->m,cast<uint32_t>((p + cast<uint32_t>(1ULL)))),rrbatch::read(g->m,p),cast<uint8_t>(0ULL),cast<uint8_t>(255ULL));
 }
 );
 break;}
 case cast<uint32_t>(7ULL):{
 n3ds_GPU_eachTexel(g,addr,w,h,cast<uint32_t>(1ULL),[&](uint32_t x,uint32_t y,uint32_t p)->void{
-uint8_t l = n3ds_Machine_Read(g->m,p);
+uint8_t l = rrbatch::read(g->m,p);
 put(x,y,l,l,l,cast<uint8_t>(255ULL));
 }
 );
 break;}
 case cast<uint32_t>(8ULL):{
 n3ds_GPU_eachTexel(g,addr,w,h,cast<uint32_t>(1ULL),[&](uint32_t x,uint32_t y,uint32_t p)->void{
-put(x,y,cast<uint8_t>(255ULL),cast<uint8_t>(255ULL),cast<uint8_t>(255ULL),n3ds_Machine_Read(g->m,p));
+put(x,y,cast<uint8_t>(255ULL),cast<uint8_t>(255ULL),cast<uint8_t>(255ULL),rrbatch::read(g->m,p));
 }
 );
 break;}
 case cast<uint32_t>(9ULL):{
 n3ds_GPU_eachTexel(g,addr,w,h,cast<uint32_t>(1ULL),[&](uint32_t x,uint32_t y,uint32_t p)->void{
-uint8_t v = n3ds_Machine_Read(g->m,p);
+uint8_t v = rrbatch::read(g->m,p);
 uint8_t l = cast<uint8_t>((shr<uint8_t>(v,cast<int64_t>(4ULL)) * cast<uint8_t>(17ULL)));
 put(x,y,l,l,l,cast<uint8_t>((cast<uint8_t>((v & cast<uint8_t>(15ULL))) * cast<uint8_t>(17ULL))));
 }
@@ -12366,7 +12367,7 @@ case cast<uint32_t>(12ULL):{
 uint32_t size = divi<uint32_t>(cast<uint32_t>((w * h)),cast<uint32_t>(2ULL));
 Slice<uint8_t> data = Slice<uint8_t>::make(size);
 {uint32_t i = cast<uint32_t>(0ULL);for (;(i < size);i++){
-data[i] = n3ds_Machine_Read(g->m,cast<uint32_t>((addr + i)));
+data[i] = rrbatch::read(g->m,cast<uint32_t>((addr + i)));
 }
 }gcopy(img->pix,rrDecodeETC(data,w,h,false));
 break;}
@@ -12374,7 +12375,7 @@ case cast<uint32_t>(13ULL):{
 uint32_t size = cast<uint32_t>((w * h));
 Slice<uint8_t> data = Slice<uint8_t>::make(size);
 {uint32_t i = cast<uint32_t>(0ULL);for (;(i < size);i++){
-data[i] = n3ds_Machine_Read(g->m,cast<uint32_t>((addr + i)));
+data[i] = rrbatch::read(g->m,cast<uint32_t>((addr + i)));
 }
 }gcopy(img->pix,rrDecodeETC(data,w,h,true));
 break;}
@@ -12419,7 +12420,7 @@ uint32_t x = cast<uint32_t>((cast<uint32_t>((cast<uint32_t>((i & cast<uint32_t>(
 uint32_t y = cast<uint32_t>((cast<uint32_t>((cast<uint32_t>((shr<uint32_t>(i,cast<int64_t>(1ULL)) & cast<uint32_t>(1ULL))) | cast<uint32_t>((shr<uint32_t>(i,cast<int64_t>(2ULL)) & cast<uint32_t>(2ULL))))) | cast<uint32_t>((shr<uint32_t>(i,cast<int64_t>(3ULL)) & cast<uint32_t>(4ULL)))));
 uint8_t n={};
 if ((!half)) {
-hold = n3ds_Machine_Read(g->m,p);
+hold = rrbatch::read(g->m,p);
 p++;
 n = cast<uint8_t>((hold & cast<uint8_t>(15ULL)));
 }

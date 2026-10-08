@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright');
 const [media,checkpoint,out,fields='520']=process.argv.slice(2);
+assert(['','reject','counter','length'].includes(process.env.BATCH_FAULT||''),'Unknown batch fault');
 assert(['full','none'].includes(process.env.CAPTURE_MODE||'full'),'Unknown capture mode');
 const browser=await chromium.launch({channel:'chrome',headless:true});
 try{
@@ -10,7 +11,7 @@ try{
  await page.exposeFunction('progress',message=>console.log(JSON.stringify(message)));
  await page.goto('http://127.0.0.1:8790/tools/browser/tests/graphics-live-3ds.html');
  await page.locator('#media').setInputFiles(media);await page.locator('#checkpoint').setInputFiles(checkpoint);
- const result=await page.evaluate(async ({fields,captureMode,requiredKind})=>{
+ const result=await page.evaluate(async ({fields,captureMode,requiredKind,batchFault})=>{
   const {default:factory}=await import('/tools/platform/n3ds/browser/web/core.js');
   const {createLive3DSGraphics}=await import('/site/emulators/graphics-live-3ds.js');
   const {create3DSExecution}=await import('/site/emulators/execution-3ds.js');
@@ -19,7 +20,15 @@ try{
   const check=(ok,why)=>{if(!ok)throw Error(why||core.UTF8ToString(core._rr_error()));};let p=core._rr_input(media.length);check(p);core.HEAPU8.set(media,p);check(core._rr_init(media.length));media=null;
   const initial=new Uint8Array(await document.querySelector('#checkpoint').files[0].arrayBuffer());
   const backend=await createLive3DSGraphics(core),execution=create3DSExecution({reference:backend.reference,experimental:backend.experimental});check(backend.experimental.available,backend.reason);
-  const supportedKinds={},transfer=core.graphicsTransfer;core.graphicsTransfer=async packet=>{const result=await transfer(packet);if(result.supported)supportedKinds[packet.kind]=(supportedKinds[packet.kind]||0)+1;return result;};
+  const supportedKinds={},transfer=core.graphicsTransfer,batchTransfer=core.graphicsBatch;core.graphicsTransfer=async packet=>{const result=await transfer(packet);if(result.supported)supportedKinds[packet.kind]=(supportedKinds[packet.kind]||0)+1;return result;};
+  let injectedBatchFaults=0;
+  core.graphicsBatch=async packets=>{const result=await batchTransfer(packets);
+   if(result.supported&&packets.length>1&&batchFault&&!injectedBatchFaults++){
+    if(batchFault==='reject')return {supported:false,reason:'Injected batch rejection'};
+    if(batchFault==='counter')return {...result,counts:result.counts.map((c,i)=>i===result.counts.length-1?{...c,drawn:-1}:c)};
+    if(batchFault==='length')return {...result,bytes:result.bytes.slice(1)};
+   }
+   if(result.supported)for(const packet of packets)supportedKinds[packet.kind]=(supportedKinds[packet.kind]||0)+1;return result;};
   const restore=bytes=>{const at=core._rr_state_input(bytes.length);core.HEAPU8.set(bytes,at);check(core._rr_state_load(bytes.length));};
   const save=()=>{let n=core._rr_state_save();check(n);return core.HEAPU8.slice(core._rr_state_data(),core._rr_state_data()+n);};
   const json=fn=>JSON.parse(core.UTF8ToString(core[fn]())),status=()=>json('_rr_status');
@@ -59,10 +68,10 @@ try{
    }
    const stats=backend.stats();trials.push({shaders:Object.fromEntries(Object.entries(core.picaShaders.snapshot()).map(([k,v])=>[k,v-shaderBefore[k]])),mixed,fields,switches,ms:performance.now()-start,checkpoints,captures,memory,allocations,supportedKinds:kindCounts(),accelerated:stats.accelerated.map((n,i)=>n-statsBefore.accelerated[i])});
   }
-  return {schema:1,fields,captureMode,requiredKind,trials};
+  return {schema:1,fields,captureMode,requiredKind,batchFault,injectedBatchFaults:Math.min(1,injectedBatchFaults),trials};
   }finally{core.picaShaders.dispose();backend.dispose();}
- },{fields:Number(fields),captureMode:process.env.CAPTURE_MODE||'full',requiredKind:Number(process.env.RASTER_KIND||6)});
- assert.deepEqual(errors,[]);const [reference,mixed]=result.trials;
+ },{fields:Number(fields),captureMode:process.env.CAPTURE_MODE||'full',requiredKind:Number(process.env.RASTER_KIND||6),batchFault:process.env.BATCH_FAULT||''});
+ assert.deepEqual(errors,[]);if(result.batchFault)assert.equal(result.injectedBatchFaults,1);const [reference,mixed]=result.trials;
  assert.deepEqual(mixed.checkpoints,reference.checkpoints,'Switched continuation differs');assert.deepEqual(mixed.captures,reference.captures,'Capture pixels or histories differ');assert(mixed.switches>=Number(fields)/2);assert(mixed.accelerated.some(n=>n>0));
  assert(mixed.allocations.every(a=>a.gpu<=32*1024*1024),'GPU scratch exceeds fixture budget');
  for(let i=1;i<mixed.allocations.length;i++)assert(mixed.allocations[i].accelerated[3]>mixed.allocations[i-1].accelerated[3],'Scene stopped producing accelerated draws');
