@@ -18,11 +18,12 @@ emulator is outside scope. This is a new performance campaign after the complete
 M0–M5 prototype and unlit depth extension; the original ARM debugger/recompiler
 milestone remains relevant to the CPU stage below.
 
-Implementation progress: [D0 running-demo baseline](3DS-ACCELERATION-D0.md) is
-validated. Five ordinary candidate trials average 318.63 ms/interval (5.23%
-nominal), with identical canonical continuation and sampled images. The next
-step is D1 vertex reuse/direct fetching; 55.9% of vertices repeat an index within
-their draw. The 25% acceptance gate remains unmet.
+Implementation progress: [D0 running-demo baseline](3DS-ACCELERATION-D0.md) and
+[D1a vertex reuse/direct fetching](3DS-ACCELERATION-VERTICES.md) are validated.
+Five alternating comparisons reduce average whole-scene time from 321.12 to
+256.67 ms/interval (5.19% to 6.49% nominal), with identical canonical continuation
+and sampled images. The vertex stage is 3.10× faster. SIMD, shader compilation
+and the remaining rendering/CPU stages are still open; the 25% gate remains unmet.
 
 ## What the new profile establishes
 

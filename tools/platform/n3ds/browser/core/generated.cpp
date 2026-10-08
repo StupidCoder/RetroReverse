@@ -1881,6 +1881,7 @@ uint64_t n3ds_nsToTick(int64_t ns);
 #include "capture-hooks.h"
 #include "performance.h"
 #include "graphics-stream.h"
+#include "vertex-fast.h"
 // tools/cpu/arm/arm.go:109:1
 uint32_t arm_signExtend(uint32_t v,uint64_t n){
 {
@@ -9972,10 +9973,12 @@ g->outs = Slice<n3ds_vsOut>::make(count);
 Slice<n3ds_vsOut> outs = sub(g->outs,0,count);
 int64_t entry = cast<int64_t>(cast<uint32_t>((g->Regs[cast<int64_t>(698ULL)] & cast<uint32_t>(4095ULL))));
 int64_t maxIn = cast<int64_t>((cast<int64_t>(cast<uint32_t>((g->Regs[cast<int64_t>(697ULL)] & cast<uint32_t>(15ULL)))) + cast<int64_t>(1ULL)));
+rrvertex::Draw vertexFast(g,indexed,physBase,fmtWord,fixedMask,bufs,comps,idxAddr,idx16,count,trace);
 auto shadeVertex = [&](uint32_t i,std::array<std::array<float,4>,16>* vin,std::array<std::array<float,4>,16>* vout,std::array<std::array<float,4>,16>* attrs)->bool{
 rrperf::Vertex vertexProfile;
 uint32_t vi = cast<uint32_t>((first + i));
-if (indexed) {
+if (indexed && vertexFast.eligible) { vi=vertexFast.index(i); }
+else if (indexed) {
 if (idx16) {
 vi = cast<uint32_t>((cast<uint32_t>(n3ds_Machine_Read(m,cast<uint32_t>((idxAddr + cast<uint32_t>((i * cast<uint32_t>(2ULL))))))) | shl<uint32_t>(cast<uint32_t>(n3ds_Machine_Read(m,cast<uint32_t>((cast<uint32_t>((idxAddr + cast<uint32_t>((i * cast<uint32_t>(2ULL))))) + cast<uint32_t>(1ULL))))),cast<int64_t>(8ULL))));
 }
@@ -9983,6 +9986,8 @@ else {
 vi = cast<uint32_t>(n3ds_Machine_Read(m,cast<uint32_t>((idxAddr + i))));
 }
 }
+if(vertexFast.reuse(vi,i,outs)){vertexProfile.reuse(vi);return true;}
+if(!vertexFast.fetch(vi,attrs)){
 {int64_t a = cast<int64_t>(0ULL);for (;(a < cast<int64_t>(16ULL));a++){
 (*attrs)[a] = std::array<float,4>{cast<float>(0.00000000000000000e+00),cast<float>(0.00000000000000000e+00),cast<float>(0.00000000000000000e+00),cast<float>(1.00000000000000000e+00)};
 if ((cast<uint32_t>((shr<uint32_t>(fixedMask,cast<uint64_t>(a)) & cast<uint32_t>(1ULL))) != cast<uint32_t>(0ULL))) {
@@ -10026,6 +10031,7 @@ break;}
 }(*attrs)[c] = val;
 }}
 }}
+}
 n3ds_mapAttrsToInputs(vin,attrs,inPerm,maxIn);
 vertexProfile.shade(vi);
 if ((!n3ds_GPU_shaderRun(g,vin,vout,entry))) {
@@ -10033,6 +10039,7 @@ return false;
 }
 vertexProfile.finish();
 n3ds_GPU_mapOutputs(g,vout,(&outs[i]));
+vertexFast.remember(vi,i);
 if ((trace && (i < cast<uint32_t>(8ULL)))) {
 n3ds_vsOut* r = (&outs[i]);
 go_fmt_Printf(std::string("  v%-3d (i=%d) clip=%v\012",23),vi,i,r->pos);
