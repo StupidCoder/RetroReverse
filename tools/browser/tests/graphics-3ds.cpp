@@ -136,18 +136,20 @@ int main(int argc,char**argv){
  }
  // General stencil: every compare, fail/depth-fail/pass operation and write
  // mask, with alpha before stencil, optional depth, lighting and ordered overdraw.
- for(bool lit:{false,true})for(uint32_t trial=0;trial<192;trial++){
+ for(bool alpha:{true,false})for(bool lit:{false,true})for(uint32_t trial=0;trial<192;trial++){
   fb.depthAddr=r->base+0x30000;fb.width=fb.height=64;fb.depthTest=trial%3!=0;fb.depthWr=(trial/3)%2;
   fb.depthFunc=(trial/8)%8;fb.depthZBuffer=trial%2;fb.depthScale=1;fb.depthOff=0;fb.colorMask=(trial/4)%16;
   const uint32_t reference=(trial%4==0?0:trial%4==1?255:trial%4==2?0x5a:0xa5),mask=trial%5?255:0x5a,writeMask=trial%7?255:0xa5;
   g->Regs[0x105]=1|((trial%8)<<4)|(writeMask<<8)|(reference<<16)|(mask<<24);
   g->Regs[0x106]=((trial/8)%8)|(((trial/16+3)%8)<<4)|(((trial/24+5)%8)<<8);g->Regs[0x115]=trial%5!=0;g->Regs[0x116]=3;
-  tv={};tv.texEnable=trial%2;tv.alphaTest=true;tv.alphaFunc=(trial/3)%8;tv.alphaRef=127;
+  tv={};tv.texEnable=trial%2;tv.alphaTest=alpha;tv.alphaFunc=(trial/3)%8;tv.alphaRef=127;
   for(auto&stage:tv.stages){stage={};stage.colr[0]=stage.alph[0]={15,0};}
   tv.stages[0].colr[0]={uint8_t(lit?1:0),0};tv.stages[0].alph[0]={0,0};
   ls={};ls.enabled=lit;ls.count=1;ls.env=0;ls.noD0=ls.noD1=ls.noFR=ls.noRR=ls.noRG=ls.noRB=true;
   auto&light=ls.lights[0];light.directional=true;light.pos={.25f,.5f,1};light.diffuse={.75f,.5f,.25f};light.ambient={.1f,.2f,.3f};
-  tri.maxX=tri.maxY=64;tri.v0.x=.5f;tri.v0.y=.5f;tri.v1.x=63.5f;tri.v1.y=.5f;tri.v2.x=.5f;tri.v2.y=63.5f;tri.area=63.f*63.f;
+  // Quarter-pixel vertex keeps alpha-disabled NEVER cases on general raster,
+  // rather than the separate integer-only stencil shortcut.
+  tri.maxX=tri.maxY=64;tri.v0.x=alpha?.5f:.25f;tri.v0.y=.5f;tri.v1.x=63.5f;tri.v1.y=.5f;tri.v2.x=.5f;tri.v2.y=63.5f;tri.area=n3ds_edgeFn(tri.v0.x,tri.v0.y,tri.v1.x,tri.v1.y,tri.v2.x,tri.v2.y);
   int k=0;for(auto*v:{&tri.v0,&tri.v1,&tri.v2}){v->iw=k==0?.7f:k==1?1.3f:.9f;v->z=.2f+float(k)*.15f;v->col={.2f,.6f,.9f,float(k)*.5f};v->quat={.1f,.2f,.3f,.9f};v->view={float(k),.5f,-1};k++;}
   auto second=tri;second.v0.z+=.4f;second.v1.z+=.4f;second.v2.z+=.4f;
   auto depth=rrgpu::range(machine,fb.depthAddr,64*64*4);

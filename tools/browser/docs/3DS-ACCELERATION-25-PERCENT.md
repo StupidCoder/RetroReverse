@@ -69,6 +69,15 @@ all trials and the slower material-only timestamp run are retained. The three-wa
 experiment also validates occupied-tile dispatch, but leaves it disabled because
 its GPU copies do not yield a consistent end-to-end gain. The 25% gate remains unmet.
 
+[D4c early rejection and in-place raster experiments](3DS-ACCELERATION-RASTER-OWNERSHIP.md)
+pass exact GPU parity and 32 handoff switches with failed-batch recovery, but do
+not earn a default change: five trials average 119.85 ms for released D4b,
+127.70 ms for early rejection and 121.65 ms for the combined prototype. All three
+experimental options remain off. Cutting empty workgroups by 74.2% saves only
+about 1 ms GPU compute in the timestamp run. Prioritize reducing the 28 submissions
+per interval, including small draws that interrupt batches, and the remaining
+35 ms ARM/Horizon cost. The fresh control's 13.91% rate is not a new speedup claim.
+
 ## What the new profile establishes
 
 The October 8 screenshot shows Mario running through the landscape on the top

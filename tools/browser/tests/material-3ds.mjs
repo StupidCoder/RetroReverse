@@ -32,7 +32,7 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
  const m=mock(),gpu=await create3DSGraphics({gpu:m.gpu,measureGPU:false,specializeLighting:false});
  m.defer();const original={...packet,params:[...params]};
  const running=gpu.execute(original);original.params[2]=7;assert(!(await running).materialSpecialized);
- await tick();assert.equal(m.compiled.at(-1).code,code,'Deferred source must use the immutable key snapshot');
+ await tick();assert.equal(m.compiled.at(-1).code,specializeMaterialWGSL(m.compiled[0].code,packet),'Deferred source must use the immutable key snapshot');
  assert(!(await gpu.execute(original)).materialSpecialized);await tick();
  original.params[2]=3;assert(!(await gpu.execute(original)).materialSpecialized);
  assert.equal(gpu.materialCompilation().pending,2);assert.equal(gpu.materialCompilation().requested,2);

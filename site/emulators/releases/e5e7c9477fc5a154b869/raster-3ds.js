@@ -99,7 +99,7 @@ fn rfloor(x:u32)->i32{
 }
 `;
 
-export const rasterWGSL=`
+export function makeRasterWGSL(inPlace=false,earlyRejection=false){return `
 ${rasterFloatWGSL}
 ${lightingWGSL}
 fn redge(a:u32,b:u32,x:u32,y:u32)->u32{
@@ -133,11 +133,15 @@ fn rstencil(word:u32,newDepth:u32)->vec2<u32>{
 }
 fn rasterPixel(index:u32)->u32{
  let w=p[4];let h=p[5];let tile=index/64u;let mo=index%64u;
- let x=(tile%(w/8u))*8u+(mo&1u)+((mo>>1u)&2u)+((mo>>2u)&4u);
+${earlyRejection?` // When alpha cannot discard, stencil/depth rejection has no dependency on
+ // shading. Preserve stencil writes and rejection counters, but avoid texture
+ // sampling, quaternion interpolation and lighting for hidden fragments.
+ let earlyStencil=operation>=9u&&((p[12]&1u)==0u||((p[12]>>4u)&7u)==1u);
+`:``} let x=(tile%(w/8u))*8u+(mo&1u)+((mo>>1u)&2u)+((mo>>2u)&4u);
  let ty=(tile/(w/8u))*8u+((mo>>1u)&1u)+((mo>>2u)&2u)+((mo>>3u)&4u);let y=h-1u-ty;
  let px=bitcast<u32>(f32(x)+0.5);let py=bitcast<u32>(f32(y)+0.5);
  let bin=((y/16u)*p[40]+x/16u)*2u;let begin=src[bin];let end=begin+src[bin+1u];
- let original=old[index];var dstColor=vec4<i32>(i32(original>>24u),i32((original>>16u)&255u),i32((original>>8u)&255u),i32(original&255u));var count=0u;var killed=0u;var depthWord=0u;if(operation>=7u){depthWord=old[w*h+index];}
+ let original=${inPlace?'dst':'old'}[index];var dstColor=vec4<i32>(i32(original>>24u),i32((original>>16u)&255u),i32((original>>8u)&255u),i32(original&255u));var count=0u;var killed=0u;var depthWord=0u;if(operation>=7u){depthWord=${inPlace?'dst':'old'}[w*h+index];}
  for(var at=begin;at<end;at++){
   let t=src[at];if(x<src[t]||x>=src[t+1u]||y<src[t+2u]||y>=src[t+3u]){continue;}
   let a=t+5u;let stride=select(select(13u,14u,operation>=7u),21u,(operation==8u||operation==10u));let b=a+stride;let c=b+stride;
@@ -156,7 +160,8 @@ fn rasterPixel(index:u32)->u32{
    newDepth=u32(rfloor(rmul(depth,0x4b7fffffu)));
    if(operation<9u&&!rdepthPass(newDepth,depthWord&0xffffffu,(p[55]>>4u)&7u)){killed++;continue;}
   }
-  var vertex:vec4<i32>;for(var channel=0u;channel<4u;channel++){vertex[channel]=rbyte(rmul(rpc(a,3u+channel,l,iw),0x437f0000u));}
+${earlyRejection?`  if(earlyStencil){let tested=rstencil(depthWord,newDepth);depthWord=tested.x;if(tested.y!=0u){if(tested.y==2u){killed++;}continue;}}
+`:``}  var vertex:vec4<i32>;for(var channel=0u;channel<4u;channel++){vertex[channel]=rbyte(rmul(rpc(a,3u+channel,l,iw),0x437f0000u));}
   var tex:array<vec4<i32>,3>;
   for(var unit=0u;unit<3u;unit++){
    if((p[42]&(1u<<unit))==0u){continue;}let desc=43u+unit*4u;let tw=p[desc+1u];let th=p[desc+2u];
@@ -176,10 +181,11 @@ fn rasterPixel(index:u32)->u32{
    let light=lighting(q,view,tex);color=litTev(vertex,light[0],light[1],tex);
   }else{color=tev(vertex,tex);}
   if(alphaPass(color.a)){
-   if(operation>=9u){let tested=rstencil(depthWord,newDepth);depthWord=tested.x;if(tested.y!=0u){if(tested.y==2u){killed++;}continue;}}
+   if(operation>=9u${earlyRejection?'&&!earlyStencil':''}){let tested=rstencil(depthWord,newDepth);depthWord=tested.x;if(tested.y!=0u){if(tested.y==2u){killed++;}continue;}}
    let value=blend(color,dstColor);for(var channel=0u;channel<4u;channel++){if((p[6]&(1u<<channel))!=0u){dstColor[channel]=value[channel];}}if(operation>=7u&&(p[55]&2u)!=0u){depthWord=(depthWord&0xff000000u)|newDepth;}count++;}
  }
  if(operation>=7u){dst[w*h+index]=depthWord;if(killed!=0u){atomicAdd(&counts.depthKilled,killed);}}
  if(count!=0u){atomicAdd(&counts.drawn,count);}
  return (u32(dstColor.r)<<24u)|(u32(dstColor.g)<<16u)|(u32(dstColor.b)<<8u)|u32(dstColor.a);
-}`;
+}`;}
+export const rasterWGSL=makeRasterWGSL();

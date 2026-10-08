@@ -11,7 +11,7 @@ try{
  await page.exposeFunction('progress',message=>console.log(JSON.stringify(message)));
  await page.goto('http://127.0.0.1:8790/tools/browser/tests/graphics-live-3ds.html');
  await page.locator('#media').setInputFiles(media);await page.locator('#checkpoint').setInputFiles(checkpoint);
- const result=await page.evaluate(async ({fields,captureMode,requiredKind,batchFault})=>{
+ const result=await page.evaluate(async ({fields,captureMode,requiredKind,batchFault,rasterExperiment})=>{
   const {default:factory}=await import('/tools/platform/n3ds/browser/web/core.js');
   const {createLive3DSGraphics}=await import('/site/emulators/graphics-live-3ds.js');
   const {create3DSExecution}=await import('/site/emulators/execution-3ds.js');
@@ -19,7 +19,8 @@ try{
   const core=await factory({picaShaders:createPicaShaders()});let media=new Uint8Array(await document.querySelector('#media').files[0].arrayBuffer());
   const check=(ok,why)=>{if(!ok)throw Error(why||core.UTF8ToString(core._rr_error()));};let p=core._rr_input(media.length);check(p);core.HEAPU8.set(media,p);check(core._rr_init(media.length));media=null;
   const initial=new Uint8Array(await document.querySelector('#checkpoint').files[0].arrayBuffer());
-  const backend=await createLive3DSGraphics(core),execution=create3DSExecution({reference:backend.reference,experimental:backend.experimental});check(backend.experimental.available,backend.reason);
+  const {create3DSGraphics}=await import('/site/emulators/graphics-3ds.js');
+  const backend=await createLive3DSGraphics(core,rasterExperiment?{createGPU:options=>create3DSGraphics({...options,sparseRaster:true,inPlaceRaster:true,earlyRejection:true})}:{}),execution=create3DSExecution({reference:backend.reference,experimental:backend.experimental});check(backend.experimental.available,backend.reason);
   const alphaModes={},recordAlpha=p=>{if(p.kind>=5){const key=p.kind+'/'+p.params[8];alphaModes[key]=(alphaModes[key]||0)+1;}},supportedKinds={},transfer=core.graphicsTransfer,batchTransfer=core.graphicsBatch;core.graphicsTransfer=async packet=>{recordAlpha(packet);const result=await transfer(packet);if(result.supported)supportedKinds[packet.kind]=(supportedKinds[packet.kind]||0)+1;return result;};
   let injectedBatchFaults=0;
   core.graphicsBatch=async packets=>{packets.forEach(recordAlpha);const result=await batchTransfer(packets);
@@ -68,9 +69,9 @@ try{
    }
    const stats=backend.stats();trials.push({shaders:Object.fromEntries(Object.entries(core.picaShaders.snapshot()).map(([k,v])=>[k,v-shaderBefore[k]])),mixed,fields,switches,ms:performance.now()-start,checkpoints,captures,memory,allocations,supportedKinds:kindCounts(),accelerated:stats.accelerated.map((n,i)=>n-statsBefore.accelerated[i])});
   }
-  return {schema:1,alphaModes,fields,captureMode,requiredKind,batchFault,injectedBatchFaults:Math.min(1,injectedBatchFaults),trials};
+  return {schema:1,alphaModes,fields,captureMode,requiredKind,batchFault,rasterExperiment,injectedBatchFaults:Math.min(1,injectedBatchFaults),trials};
   }finally{core.picaShaders.dispose();backend.dispose();}
- },{fields:Number(fields),captureMode:process.env.CAPTURE_MODE||'full',requiredKind:Number(process.env.RASTER_KIND||6),batchFault:process.env.BATCH_FAULT||''});
+ },{fields:Number(fields),captureMode:process.env.CAPTURE_MODE||'full',requiredKind:Number(process.env.RASTER_KIND||6),batchFault:process.env.BATCH_FAULT||'',rasterExperiment:process.env.RASTER_EXPERIMENT==='1'});
  assert.deepEqual(errors,[]);if(result.batchFault)assert.equal(result.injectedBatchFaults,1);const [reference,mixed]=result.trials;
  assert.deepEqual(mixed.checkpoints,reference.checkpoints,'Switched continuation differs');assert.deepEqual(mixed.captures,reference.captures,'Capture pixels or histories differ');assert(mixed.switches>=Number(fields)/2);assert(mixed.accelerated.some(n=>n>0));
  assert(mixed.allocations.every(a=>a.gpu<=32*1024*1024),'GPU scratch exceeds fixture budget');

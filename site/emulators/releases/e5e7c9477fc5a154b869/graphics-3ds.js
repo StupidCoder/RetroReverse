@@ -1,6 +1,7 @@
 import {create3DSPresentation} from './presentation-3ds.js';
 import {fragmentWGSL} from './fragment-3ds.js';
-import {rasterWGSL} from './raster-3ds.js';
+import {makeRasterWGSL} from './raster-3ds.js';
+import {materialKey,specializeMaterialWGSL} from './material-3ds.js';
 // Immutable, versioned GX input packets. No private media is stored in this module.
 export function decodeGraphicsStream(bytes){
  const data=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes),v=new DataView(data.buffer,data.byteOffset,data.byteLength);
@@ -104,7 +105,7 @@ function rasterSupport(packet){
  }
  return end===words?null:'Trailing raster inputs';
 }
-export const transferWGSL=`
+function transferShader(inPlaceRaster=false,earlyRejection=false){return `
 override operation:u32;
 @group(0) @binding(0) var<storage,read> p:array<u32>;
 @group(0) @binding(1) var<storage,read> src:array<u32>;
@@ -149,16 +150,25 @@ fn byte(i:u32)->u32{
  return (v>>((i%2u)*8u))&255u;
 }
 ${fragmentWGSL}
-${rasterWGSL}
+${makeRasterWGSL(inPlaceRaster,earlyRejection)}
 @compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id:vec3<u32>){
- let index=id.x+id.y*4194240u;let i=index*4u;if(i>=p[2]){return;}
+ var index=id.x+id.y*4194240u;
+ if(operation>=6u&&p[3]!=0u){
+  let binIndex=index/256u;if(binIndex>=p[p[3]]){return;}
+  let bin=p[p[3]+1u+binIndex];let sub=(index/64u)%4u;
+  let tx=(bin%p[40])*2u+(sub&1u);let row=(bin/p[40])*2u+(sub>>1u);
+  if(tx>=p[4]/8u||row>=p[5]/8u){return;}
+  index=((p[5]/8u-1u-row)*(p[4]/8u)+tx)*64u+index%64u;
+ }
+ let i=index*4u;if(i>=p[2]){return;}
  if(operation==4u){dst[index]=stencil(index);return;}
  if(operation==5u){dst[index]=fragmentPixel(index);return;}
  if(operation>=6u){if(index<p[4]*p[5]){dst[index]=rasterPixel(index);}return;}
  dst[index]=byte(i)|(byte(i+1u)<<8u)|(byte(i+2u)<<16u)|(byte(i+3u)<<24u);
-}`;
+}`;}
+export const transferWGSL=transferShader();
 
-export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()=>{},measureGPU=true,specializeLighting=true}={}){
+export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()=>{},measureGPU=true,specializeLighting=true,specializeMaterials=true,sparseRaster=false,inPlaceRaster=false,earlyRejection=false}={}){
  if(!gpu)throw Error('WebGPU is unavailable in this browser');
  const adapter=await gpu.requestAdapter();if(!adapter)throw Error('No WebGPU adapter is available');
  const timestamps=measureGPU&&adapter.features.has('timestamp-query');
@@ -166,7 +176,7 @@ export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()
  const queries=timestamps?device.createQuerySet({type:'timestamp',count:16}):null;
  device.lost.then(info=>{lost=info.message||'WebGPU device lost';if(!closed)onLost(lost);});
  const warmStart=performance.now();device.pushErrorScope('validation');
- const module=device.createShaderModule({code:transferWGSL});
+ const shaderSource=transferShader(inPlaceRaster,earlyRejection),module=device.createShaderModule({code:shaderSource});
  let pipelines,bindLayout,pipelineLayout;
  try{
   bindLayout=device.createBindGroupLayout({entries:Array.from({length:5},(_,binding)=>({binding,visibility:GPUShaderStage.COMPUTE,buffer:{type:binding<3?'read-only-storage':'storage'}}))});
@@ -182,20 +192,37 @@ export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()
  // inputs. Only immutable mode words are specialized. A bounded asynchronous
  // cache uses the already validated generic kernel while compilation is pending.
  const lightingPipelines=new Map();let lightingPending=0;
- function pipelineFor(packet){
+ function lightingPipelineFor(packet){
   if(![8,10].includes(packet.kind)||!specializeLighting)return pipelines[packet.kind-1];
   const operation=packet.kind,fields=[56,57,58,59,60,62],values=fields.map(i=>packet.params[i]),key=operation+'/'+values.join('/');const generic=pipelines[operation-1];
   const known=lightingPipelines.get(key);if(known)return known.pipeline||generic;
-  if(lightingPipelines.size>=64||lightingPending>=2)return generic;
+  if(lightingPipelines.size>=64||lightingPending+materialPending>=2)return generic;
   const entry={pipeline:null,failed:false};lightingPipelines.set(key,entry);lightingPending++;
   Promise.resolve().then(async()=>{
    if(closed||lost)return;
-   let code=transferWGSL;for(let i=0;i<fields.length;i++)code=code.replaceAll('p['+(fields[i]+4)+']',values[i]+'u');
+   let code=shaderSource;for(let i=0;i<fields.length;i++)code=code.replaceAll('p['+(fields[i]+4)+']',values[i]+'u');
    const module=device.createShaderModule({code});
    const pipeline=await device.createComputePipelineAsync({layout:pipelineLayout,compute:{module,entryPoint:'main',constants:{operation}}});
    if(!closed&&!lost)entry.pipeline=pipeline;
   }).catch(()=>{entry.failed=true;}).finally(()=>{lightingPending--;});
   return generic;
+ }
+ const materialPipelines=new Map();let materialPending=0;
+ function pipelineFor(packet){
+  const fallback=lightingPipelineFor(packet);
+  if(packet.kind<5||!specializeMaterials)return {pipeline:fallback,material:false};
+  const key=materialKey(packet),known=materialPipelines.get(key);
+  if(known)return {pipeline:known.pipeline||fallback,material:!!known.pipeline};
+  if(materialPipelines.size>=64||materialPending+lightingPending>=2)return {pipeline:fallback,material:false};
+  const snapshot={kind:packet.kind,params:[...packet.params]};
+  const entry={pipeline:null,failed:false};materialPipelines.set(key,entry);materialPending++;
+  Promise.resolve().then(async()=>{
+   if(closed||lost)return;
+   const module=device.createShaderModule({code:specializeMaterialWGSL(shaderSource,snapshot)});
+   const pipeline=await device.createComputePipelineAsync({layout:pipelineLayout,compute:{module,entryPoint:'main',constants:{operation:snapshot.kind}}});
+   if(!closed&&!lost)entry.pipeline=pipeline;
+  }).catch(()=>{entry.failed=true;}).finally(()=>{materialPending--;});
+  return {pipeline:fallback,material:false};
  }
  let presentation=null;
  function release(){if(allocation){for(const b of allocation.buffers)b.destroy();for(const slot of allocation.slots)for(const b of slot.buffers)b.destroy();}allocation=null;}
@@ -216,6 +243,15 @@ export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()
   const params=device.createBuffer({size:65536,usage:U.STORAGE|U.COPY_DST}),src=device.createBuffer({size:capacity,usage:U.STORAGE|U.COPY_DST}),counter=device.createBuffer({size:8,usage:U.STORAGE|U.COPY_DST|U.COPY_SRC});
   return a.slots[index-1]={capacity,params,src,counter,buffers:[params,src,counter]};
  }
+ function dispatchFor(packet){
+  const full=Math.ceil(packet.before.length/(packet.kind>=7?512:256));
+  if(!sparseRaster||packet.kind<6)return {groups:full,bins:null};
+  const count=packet.params[36]*packet.params[37],bins=[],v=new DataView(packet.input.buffer,packet.input.byteOffset,packet.input.byteLength);
+  for(let i=0;i<count;i++)if(v.getUint32((i*2+1)*4,true))bins.push(i);
+  // Dense draws avoid the indirection. In-place raster preserves inactive bins
+  // without copies; the optional ping-pong path must copy them first.
+  return bins.length<count*.75?{groups:Math.max(1,bins.length*4),bins}:{groups:full,bins:null};
+ }
  const padded=b=>{if(b.length%4===0&&b.length)return b;const out=new Uint8Array(Math.max(4,align(b.length)));out.set(b);return out;};
  async function executePackets(packets,batch){
   if(!Array.isArray(packets)||!packets.length||packets.length>8)return {supported:false,reason:'Invalid graphics batch size'};
@@ -232,25 +268,32 @@ export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()
    const a=buffers(Math.max(...packets.map(p=>p.input.length),readSize)),read=a.buffers[4];readBuffer=read;
    let old=a.buffers[2],out=a.buffers[3];
    device.queue.writeBuffer(old,0,padded(first.before));
+   const dispatches=packets.map(dispatchFor);
    const slots=packets.map((packet,i)=>{
     const slot=slotFor(a,i,packet.input.length);
-    device.queue.writeBuffer(slot.params,0,new Uint32Array([packet.kind,packet.input.length,length,0,...packet.params]));
+    const bins=dispatches[i].bins;
+    device.queue.writeBuffer(slot.params,0,new Uint32Array([packet.kind,packet.input.length,length,bins?packet.params.length+4:0,...packet.params,...(bins?[bins.length,...bins]:[])]));
     device.queue.writeBuffer(slot.src,0,padded(packet.input));return slot;
    });
-   const uploaded=performance.now(),encoder=device.createCommandEncoder(),specialized=[];
+   const uploaded=performance.now(),encoder=device.createCommandEncoder(),specialized=[],materialSpecialized=[];
    for(let i=0;i<count;i++){
     const packet=packets[i],slot=slots[i];encoder.clearBuffer(slot.counter);
-    const bind=slot.bind??=device.createBindGroup({layout:bindLayout,entries:[slot.params,slot.src,old,out,slot.counter].map((buffer,binding)=>({binding,resource:{buffer}}))});
+    // Raster invocations own disjoint color/depth words. They may read/write the
+    // same target; texture inputs are immutable snapshots in a separate buffer.
+    // Keep the unused read-only binding distinct to avoid storage aliasing.
+    const inPlace=inPlaceRaster&&packet.kind>=6,bindKey=inPlace?'inPlaceBind':'bind';
+    const bind=slot[bindKey]??=device.createBindGroup({layout:bindLayout,entries:[slot.params,slot.src,inPlace?out:old,inPlace?old:out,slot.counter].map((buffer,binding)=>({binding,resource:{buffer}}))});
+    if(dispatches[i].bins&&!inPlace)encoder.copyBufferToBuffer(old,0,out,0,length);
     const pass=encoder.beginComputePass(measured?{timestampWrites:{querySet:queries,beginningOfPassWriteIndex:i*2,endOfPassWriteIndex:i*2+1}}:{});
-    const pipeline=pipelineFor(packet);specialized.push([8,10].includes(packet.kind)&&pipeline!==pipelines[packet.kind-1]);
-    pass.setPipeline(pipeline);pass.setBindGroup(0,bind);const groups=Math.ceil(length/(packet.kind>=7?512:256));pass.dispatchWorkgroups(Math.min(groups,65535),Math.ceil(groups/65535));pass.end();
-    encoder.copyBufferToBuffer(slot.counter,0,read,outputSize+i*8,8);[old,out]=[out,old];
+    const {pipeline,material}=pipelineFor(packet);materialSpecialized.push(material);specialized.push([8,10].includes(packet.kind)&&pipeline!==pipelines[packet.kind-1]);
+    pass.setPipeline(pipeline);pass.setBindGroup(0,bind);const groups=dispatches[i].groups;pass.dispatchWorkgroups(Math.min(groups,65535),Math.ceil(groups/65535));pass.end();
+    encoder.copyBufferToBuffer(slot.counter,0,read,outputSize+i*8,8);if(!inPlace)[old,out]=[out,old];
    }
    encoder.copyBufferToBuffer(old,0,read,0,outputSize);
    if(measured){encoder.resolveQuerySet(queries,0,count*2,a.buffers[5],0);encoder.copyBufferToBuffer(a.buffers[5],0,read,timestampOffset,count*16);}
    device.queue.submit([encoder.finish()]);const submitted=performance.now();
-   // Ordered dispatches share the two surface buffers, with one upload and one
-   // map. Neither guest surface is committed until every draw has validated.
+   // Ordered raster passes share one target, with one upload and one map.
+   // Neither guest surface is committed until every draw has validated.
    const validation=device.popErrorScope();scoped=false;
    const [,err]=await Promise.all([read.mapAsync(GPUMapMode.READ,0,readSize),validation]);const mapped=performance.now();
    if(err)throw Error(err.message);if(lost)throw Error(lost);
@@ -259,7 +302,7 @@ export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()
     const drawn=view.getUint32(outputSize+i*8,true),depthKilled=view.getUint32(outputSize+i*8+4,true),packet=packets[i];
     if(packet.kind>=6&&(drawn&0x80000000))return {supported:false,reason:'Raster arithmetic requires Reference'};
     if(packet.kind>=6&&(drawn+depthKilled>packet.params[9]))return {supported:false,reason:'Invalid raster result counters'};
-    counts.push({drawn,depthKilled,specialized:specialized[i]});
+    counts.push({drawn,depthKilled,specialized:specialized[i],materialSpecialized:materialSpecialized[i],sparse:!!dispatches[i].bins,inPlace:inPlaceRaster&&packet.kind>=6,workgroups:dispatches[i].groups});
    }
    let gpuMs=null;if(measured){const t=new BigUint64Array(mappedBytes,timestampOffset,count*2);gpuMs=0;for(let i=0;i<count;i++)gpuMs+=Number(t[i*2+1]-t[i*2])/1e6;}
    const bytes=new Uint8Array(mappedBytes).slice(0,length);read.unmap();readBuffer=null;
@@ -269,5 +312,5 @@ export async function create3DSGraphics({gpu=globalThis.navigator?.gpu,onLost=()
  }
  const execute=packet=>executePackets([packet],false),executeBatch=packets=>executePackets(packets,true);
 
- return {execute,executeBatch,warmupMs,lightingCompilation:()=>({requested:lightingPipelines.size,ready:[...lightingPipelines.values()].filter(e=>e.pipeline).length,pending:lightingPending,failed:[...lightingPipelines.values()].filter(e=>e.failed).length}),setTimingEnabled(value){timingEnabled=!!value;},get measuringGPU(){return timestamps&&timingEnabled;},info:{vendor:adapter.info?.vendor,architecture:adapter.info?.architecture,timestamps},async preparePresentation(){presentation??=await create3DSPresentation(device);},present(core){if(closed||lost)return null;return presentation?.present(core)??null;},get bytesAllocated(){return (allocation?65536+allocation.capacity*4+8+(timestamps?128:0)+allocation.slots.reduce((sum,s)=>sum+65536+s.capacity+8,0):0)+(presentation?.bytesAllocated??0);},get busy(){return busy;},destroy(){closed=true;presentation?.destroy();presentation=null;release();queries?.destroy();device.destroy();}};
+ return {execute,executeBatch,warmupMs,materialCompilation:()=>({requested:materialPipelines.size,ready:[...materialPipelines.values()].filter(e=>e.pipeline).length,pending:materialPending,failed:[...materialPipelines.values()].filter(e=>e.failed).length}),lightingCompilation:()=>({requested:lightingPipelines.size,ready:[...lightingPipelines.values()].filter(e=>e.pipeline).length,pending:lightingPending,failed:[...lightingPipelines.values()].filter(e=>e.failed).length}),setTimingEnabled(value){timingEnabled=!!value;},get measuringGPU(){return timestamps&&timingEnabled;},info:{vendor:adapter.info?.vendor,architecture:adapter.info?.architecture,timestamps},async preparePresentation(){presentation??=await create3DSPresentation(device);},present(core){if(closed||lost)return null;return presentation?.present(core)??null;},get bytesAllocated(){return (allocation?65536+allocation.capacity*4+8+(timestamps?128:0)+allocation.slots.reduce((sum,s)=>sum+65536+s.capacity+8,0):0)+(presentation?.bytesAllocated??0);},get busy(){return busy;},destroy(){closed=true;presentation?.destroy();presentation=null;release();queries?.destroy();device.destroy();}};
 }

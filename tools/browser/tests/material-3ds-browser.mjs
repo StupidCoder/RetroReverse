@@ -18,7 +18,7 @@ try{
   // Recreate the bounded cache in chunks so EVERY Reference fixture executes a
   // ready material shader, even though the full corpus exceeds the cache cap.
   for(let start=0;start<records.length;start+=48){
-   const gpu=await create3DSGraphics({sparseRaster:true});
+   const gpu=await create3DSGraphics({sparseRaster:true,inPlaceRaster:true,earlyRejection:true});
    try{for(let i=start;i<Math.min(start+48,records.length);i++){
     const p=records[i],warm=await gpu.execute(p);check(matches(warm,p),'Warm output differs at '+i);await ready(gpu);
     const r=await gpu.execute(p);check(r.materialSpecialized&&matches(r,p),'Material output differs at '+i);
@@ -26,7 +26,7 @@ try{
    }}finally{gpu.destroy();}
    await window.materialProgress({records:rows.length,total:records.length});
   }
-  const gpu=await create3DSGraphics({sparseRaster:true});try{
+  const gpu=await create3DSGraphics({sparseRaster:true,inPlaceRaster:true,earlyRejection:true});try{
    for(const p of sparse){check(matches(await gpu.execute(p),p),'Sparse warm output differs');await ready(gpu);const r=await gpu.execute(p);check(r.materialSpecialized&&matches(r,p),'Sparse specialized output differs');rows.push({kind:p.kind,sparse:r.sparse,groups:r.workgroups,bytes:r.bytes.length,drawn:r.drawn,depthKilled:r.depthKilled,material:r.materialSpecialized});}
    for(const size of [1,2,3,4,8])for(let i=0;i<sparse.length;){
     const group=[sparse[i++]];while(i<sparse.length&&group.length<size&&sparse[i].before.length===group[0].before.length)group.push(sparse[i++]);

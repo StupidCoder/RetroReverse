@@ -42,7 +42,7 @@ onmessage=async event=>{
    for(const packet of packets){traffic.operations++;traffic.fullWorkgroups+=Math.ceil(packet.before.length/(packet.kind>=7?512:256));traffic.inputBytes+=packet.input.length;traffic.kinds[packet.kind]=(traffic.kinds[packet.kind]||0)+1;}
    traffic.beforeBytes+=packets[0].before.length;
    const result=await(batch?batchTransfer(packets):transfer(packets[0]));
-   if(result.supported){for(const [i,c] of (batch?result.counts:[result]).entries()){traffic.sparseDraws+=Number(!!c.sparse);traffic.workgroups+=c.workgroups??Math.ceil(packets[i].before.length/(packets[i].kind>=7?512:256));traffic.deviceCopyBytes+=c.sparse?packets[i].before.length:0;}traffic.specializedMaterials+=batch?result.counts.filter(c=>c.materialSpecialized).length:Number(!!result.materialSpecialized);traffic.specializedLighting+=batch?result.counts.filter(c=>c.specialized).length:Number(!!result.specialized);traffic.outputBytes+=result.bytes.length;}
+   if(result.supported){for(const [i,c] of (batch?result.counts:[result]).entries()){traffic.sparseDraws+=Number(!!c.sparse);traffic.workgroups+=c.workgroups??Math.ceil(packets[i].before.length/(packets[i].kind>=7?512:256));traffic.deviceCopyBytes+=c.sparse&&!c.inPlace?packets[i].before.length:0;}traffic.specializedMaterials+=batch?result.counts.filter(c=>c.materialSpecialized).length:Number(!!result.materialSpecialized);traffic.specializedLighting+=batch?result.counts.filter(c=>c.specialized).length:Number(!!result.specialized);traffic.outputBytes+=result.bytes.length;}
    else traffic.refusals[result.reason]=(traffic.refusals[result.reason]||0)+1;return result;
   };
   core.graphicsTransfer=packet=>record([packet],false);core.graphicsBatch=packets=>record(packets,true);
