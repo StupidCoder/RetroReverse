@@ -28,6 +28,9 @@ The [unlit depth extension](3DS-ACCELERATION-DEPTH.md), selected from the
 animated-title fallback census, adds exact depth comparisons and paired
 color/depth commits. Its acceptance evidence distinguishes complete captures
 from the existing dense-scene trace limit.
+The [25 percent demo performance plan](3DS-ACCELERATION-25-PERCENT.md) defines
+the next campaign: measured vertex acceleration, remaining GPU coverage,
+coherent batching and CPU work, with a sustained 15-display-interval/s target.
 Keep the default reference mode usable at every milestone.
 
 ## Product decision
