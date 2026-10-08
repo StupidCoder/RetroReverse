@@ -1879,6 +1879,7 @@ uint64_t n3ds_nsToTick(int64_t ns);
 
 #include "adapters.h"
 #include "capture-hooks.h"
+#include "performance.h"
 #include "graphics-stream.h"
 // tools/cpu/arm/arm.go:109:1
 uint32_t arm_signExtend(uint32_t v,uint64_t n){
@@ -9876,6 +9877,7 @@ return cast<uint32_t>(0ULL);
 }
 // tools/platform/n3ds/gpu_raster.go:46:1
 void n3ds_GPU_draw(n3ds_GPU* g,bool indexed){
+rrperf::Draw drawProfile(g,indexed);
 {
 if ((((g->TraceDraws > cast<int64_t>(0ULL)) && (g->Draws >= g->TraceFrom)) && (cast<uint32_t>((g->Regs[cast<int64_t>(143ULL)] & cast<uint32_t>(1ULL))) != cast<uint32_t>(0ULL)))) {
 n3ds_GPU_dumpLighting(g);
@@ -9971,6 +9973,7 @@ Slice<n3ds_vsOut> outs = sub(g->outs,0,count);
 int64_t entry = cast<int64_t>(cast<uint32_t>((g->Regs[cast<int64_t>(698ULL)] & cast<uint32_t>(4095ULL))));
 int64_t maxIn = cast<int64_t>((cast<int64_t>(cast<uint32_t>((g->Regs[cast<int64_t>(697ULL)] & cast<uint32_t>(15ULL)))) + cast<int64_t>(1ULL)));
 auto shadeVertex = [&](uint32_t i,std::array<std::array<float,4>,16>* vin,std::array<std::array<float,4>,16>* vout,std::array<std::array<float,4>,16>* attrs)->bool{
+rrperf::Vertex vertexProfile;
 uint32_t vi = cast<uint32_t>((first + i));
 if (indexed) {
 if (idx16) {
@@ -10024,9 +10027,11 @@ break;}
 }}
 }}
 n3ds_mapAttrsToInputs(vin,attrs,inPerm,maxIn);
+vertexProfile.shade(vi);
 if ((!n3ds_GPU_shaderRun(g,vin,vout,entry))) {
 return false;
 }
+vertexProfile.finish();
 n3ds_GPU_mapOutputs(g,vout,(&outs[i]));
 if ((trace && (i < cast<uint32_t>(8ULL)))) {
 n3ds_vsOut* r = (&outs[i]);
@@ -10090,6 +10095,7 @@ return ;
 }}
 }
 n3ds_Machine_profEnd(m,cast<int64_t>(1ULL),tv);
+rrperf::Clip clipProfile;
 time_Time tr = n3ds_Machine_profStart(m);
 auto tmp156=defer([&](){n3ds_Machine_profEnd(m,cast<int64_t>(2ULL),tr);});
 n3ds_fbState fb = n3ds_GPU_fbstate(g);
@@ -10130,6 +10136,7 @@ return ;
 break;}
 }}
 g->tris = tris;
+clipProfile.finish();
 n3ds_GPU_fill(g,(&fb),(&ls),(&tev),tris);
 if (((fb.colorMask != cast<uint32_t>(0ULL)) || fb.shadowMode)) {
 n3ds_GPU_invalidateTextures(g,fb.colorAddr,cast<uint32_t>((cast<uint32_t>(((((cast<uint32_t>((fb.width + cast<uint32_t>(7ULL)))) & ~(cast<uint32_t>(7ULL)))) * (((cast<uint32_t>((fb.height + cast<uint32_t>(7ULL)))) & ~(cast<uint32_t>(7ULL)))))) * cast<uint32_t>(4ULL))));
@@ -10138,7 +10145,7 @@ n3ds_GPU_invalidateTextures(g,fb.colorAddr,cast<uint32_t>((cast<uint32_t>(((((ca
 }
 // tools/platform/n3ds/gpu_raster.go:379:1
 void n3ds_GPU_fill(n3ds_GPU* g,n3ds_fbState* fb,n3ds_lightState* ls,n3ds_tevState* tv,Slice<n3ds_rasterTri> tris){
-rrprof::Scope profile(2,"PICA software rasterizer");auto graphics=rrgpu::Operation::draw(g,fb,ls,tv,tris);if(graphics.execute())return;{
+rrprof::Scope profile(2,"PICA software rasterizer");auto graphics=rrgpu::Operation::draw(g,fb,ls,tv,tris);if(graphics.execute())return;rrperf::Fallback fallbackProfile(g,fb,ls,tv,tris,graphics.target!=nullptr);{
 if ((len(tris) == cast<int64_t>(0ULL))) {
 return ;
 }
@@ -12447,6 +12454,7 @@ return divi<uint32_t>(cast<uint32_t>((cast<uint32_t>((k.w * k.h)) * bpp)),cast<u
 }
 // tools/platform/n3ds/gpu_texture.go:351:1
 void n3ds_GPU_invalidateTextures(n3ds_GPU* g,uint32_t addr,uint32_t size){
+{
 // Erase through the returned iterator: C++ unordered_map erasure invalidates
 // the current iterator, unlike deletion during a Go map range.
 if(!size)return;
@@ -12455,7 +12463,7 @@ for(auto it=g->texCache.p->begin();it!=g->texCache.p->end();){
  if(uint64_t(k.addr)<uint64_t(addr)+size&&uint64_t(addr)<uint64_t(k.addr)+n3ds_texBytes(k))it=g->texCache.p->erase(it);
  else ++it;
 }
-}
+}}
 // tools/platform/n3ds/gsp_mem.go:45:1
 uint32_t n3ds_Machine_gpuAddrToVirt(n3ds_Machine* m,uint32_t a){
 {

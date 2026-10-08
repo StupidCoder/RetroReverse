@@ -9,12 +9,13 @@ inline uint32_t rgba(n3ds_rgba c){return uint32_t(c.r)|(uint32_t(c.g)<<8)|(uint3
 namespace rrgpu {
 inline Operation Operation::fragments(n3ds_GPU*g,n3ds_fbState*fb,n3ds_lightState*ls,n3ds_tevState*tv,Slice<n3ds_rasterTri>tris){
  Operation o;auto m=g->m;
- if((!enabled&&!recording)||m->OnRead||m->OnWrite||m->OnPixel||m->HidTrace||m->Profile||ls->enabled||fb->shadowMode||(g->Regs[0x105]&1)||!tris.n||tris.n>1024||!fb->width||!fb->height||fb->width>1024||fb->height>1024||fb->width%8||fb->height%8)return o;
- uint32_t blend=g->Regs[0x101];if(g->Regs[0x100]&256){if((blend&7)>4||((blend>>8)&7)>4)return o;for(int s=16;s<=28;s+=4)if(((blend>>s)&15)>14)return o;}
- if(!std::get<1>(n3ds_tevState_run(tv,{},{},{},{})))return o;
+ auto refuse=[&](const char*why){rrperf::refuse(why);return Operation{};};
+ if((!enabled&&!recording)||m->OnRead||m->OnWrite||m->OnPixel||m->HidTrace||m->Profile||ls->enabled||fb->shadowMode||(g->Regs[0x105]&1)||!tris.n||tris.n>1024||!fb->width||!fb->height||fb->width>1024||fb->height>1024||fb->width%8||fb->height%8)return refuse(ls->enabled?"lighting":fb->shadowMode?"shadow-write":(g->Regs[0x105]&1)?"stencil":"disabled-observed-or-dimensions");
+ uint32_t blend=g->Regs[0x101];if(g->Regs[0x100]&256){if((blend&7)>4||((blend>>8)&7)>4)return refuse("blend-equation");for(int s=16;s<=28;s+=4)if(((blend>>s)&15)>14)return refuse("blend-factor");}
+ if(!std::get<1>(n3ds_tevState_run(tv,{},{},{},{})))return refuse("tev");
  // Shadow sampling changes canonical counters; it remains in Reference.
- if((tv->texEnable&1)&&((g->Regs[0x83]>>28)&7)!=0)return o;
- for(int u=0;u<3;u++)if(tv->texEnable&(1u<<u)){auto[dim,param,addr,fmt]=n3ds_texUnitRegs(u);if((g->Regs[fmt]&15)>13)return o;}
+ if((tv->texEnable&1)&&((g->Regs[0x83]>>28)&7)!=0)return refuse("shadow-sampling");
+ for(int u=0;u<3;u++)if(tv->texEnable&(1u<<u)){auto[dim,param,addr,fmt]=n3ds_texUnitRegs(u);if((g->Regs[fmt]&15)>13)return refuse("texture-format");}
  const uint32_t pixels=fb->width*fb->height;
  if(!range(m,fb->colorAddr,uint64_t(pixels)*4))return o;
  uint64_t work=0;
@@ -29,9 +30,10 @@ inline Operation Operation::fragments(n3ds_GPU*g,n3ds_fbState*fb,n3ds_lightState
   }
  }
  // Preparation is bounded and speculative. A fallback has committed no writes.
- if(work<4096||uint64_t(pixels)*4+work*20>16u*1024*1024)return o;
+ if(work<4096)return refuse("small-draw");
+ if(uint64_t(pixels)*4+work*20>16u*1024*1024)return refuse("work-limit");
  auto gpuRaster=raster(g,fb,tv,tris,work);if(gpuRaster.target)return gpuRaster;
- if(fb->depthTest)return o; // The CPU-prepared fragment tail has no depth buffer.
+ if(fb->depthTest)return refuse("depth-raster-bounds-or-cold-texture"); // The CPU-prepared fragment tail has no depth buffer.
  rrprof::Scope preparation(6,"PICA coverage / sampling / GPU inputs");
  std::vector<uint32_t> data(pixels,UINT32_MAX),tails(pixels,UINT32_MAX);data.reserve(pixels+work*5);
  for(auto&t:tris){auto&a=t.v0;auto&b=t.v1;auto&c=t.v2;
@@ -59,5 +61,5 @@ inline Operation Operation::fragments(n3ds_GPU*g,n3ds_fbState*fb,n3ds_lightState
  o.fragmentWords=std::move(data);o.source=reinterpret_cast<uint8_t*>(o.fragmentWords.data());o.inputSize=o.fragmentWords.size()*4;if(recording)o.input.assign(o.source,o.source+o.inputSize);o.statsOwner=g;o.statsBefore=g->PixelsDrawn;
  return o;
 }
-inline Operation Operation::draw(n3ds_GPU*g,n3ds_fbState*fb,n3ds_lightState*ls,n3ds_tevState*tv,Slice<n3ds_rasterTri>tris){auto o=stencil(g,fb,ls,tv,tris);if(o.target)return o;return fragments(g,fb,ls,tv,tris);}
+inline Operation Operation::draw(n3ds_GPU*g,n3ds_fbState*fb,n3ds_lightState*ls,n3ds_tevState*tv,Slice<n3ds_rasterTri>tris){rrperf::refuse("fragment-input-bounds");auto o=stencil(g,fb,ls,tv,tris);if(o.target)return o;return fragments(g,fb,ls,tv,tris);}
 }

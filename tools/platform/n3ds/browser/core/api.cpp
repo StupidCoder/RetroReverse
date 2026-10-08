@@ -13,6 +13,8 @@ const char*rr_error(){return errorText.c_str();}
 const char*rr_status(){if(!machine)return "{}";std::ostringstream s;s<<"{\"steps\":"<<machine->instrs<<",\"frames\":"<<machine->vblankCount<<",\"inputSeconds\":"<<double(machine->instrs)/(double(n3ds_stepsPerFrame)*60)<<",\"pc\":"<<machine->CPU->R[15]<<",\"width\":400,\"height\":480,\"draws\":"<<machine->gpu->Draws<<"}";reply=s.str();return reply.c_str();}
 const char*rr_proof(){reply=proof(machine);return reply.c_str();}
 const char*rr_profile(){return rrprof::json();}
+int rr_perf_enable(uint32_t stride){return rrperf::enable(stride);}
+const char*rr_perf_stats(){reply=rrperf::json();return reply.c_str();}
 uint8_t*rr_frame(){pixels=frame(machine);return pixels.data();}
 }
 #include "state.h"

@@ -1040,7 +1040,7 @@ func main() {
 					case "n3ds_GPU_Execute":
 						pre = `rrprof::Scope profile(1,"PICA commands / vertex processing");rr3ds::Command command(g->m,"PICA command list",addr,size);`
 					case "n3ds_GPU_fill":
-						pre = `rrprof::Scope profile(2,"PICA software rasterizer");auto graphics=rrgpu::Operation::draw(g,fb,ls,tv,tris);if(graphics.execute())return;`
+						pre = `rrprof::Scope profile(2,"PICA software rasterizer");auto graphics=rrgpu::Operation::draw(g,fb,ls,tv,tris);if(graphics.execute())return;rrperf::Fallback fallbackProfile(g,fb,ls,tv,tris,graphics.target!=nullptr);`
 					case "n3ds_Machine_dspTick":
 						pre = `rrprof::Scope profile(4,"DSP HLE mixer");`
 					case "n3ds_Machine_gxMemoryFill":
@@ -1086,7 +1086,7 @@ for(auto it=g->texCache.p->begin();it!=g->texCache.p->end();){
 }
 }`
 					}
-					body = pre + body
+					body = pre + instrumentPerformance(name, body)
 					if name == "n3ds_GPU_depthCompare" || name == "n3ds_GPU_depthWrite" || name == "n3ds_GPU_writePixel" {
 						body = strings.ReplaceAll(body, "sub(fb->", "borrowSub(fb->")
 					}
@@ -1103,6 +1103,6 @@ for(auto it=g->texCache.p->begin();it!=g->texCache.p->end();){
 		}
 	}
 	_ = sort.Strings
-	out += "\n#include \"adapters-decl.h\"\n" + globals + protos + "\n#include \"adapters.h\"\n#include \"capture-hooks.h\"\n#include \"graphics-stream.h\"\n" + bodies
+	out += "\n#include \"adapters-decl.h\"\n" + globals + protos + "\n#include \"adapters.h\"\n#include \"capture-hooks.h\"\n#include \"performance.h\"\n#include \"graphics-stream.h\"\n" + bodies
 	must(os.WriteFile("tools/platform/n3ds/browser/core/generated.cpp", []byte(out), 0644))
 }

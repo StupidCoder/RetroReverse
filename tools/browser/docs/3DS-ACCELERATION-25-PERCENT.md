@@ -18,6 +18,12 @@ emulator is outside scope. This is a new performance campaign after the complete
 M0–M5 prototype and unlit depth extension; the original ARM debugger/recompiler
 milestone remains relevant to the CPU stage below.
 
+Implementation progress: [D0 running-demo baseline](3DS-ACCELERATION-D0.md) is
+validated. Five ordinary candidate trials average 318.63 ms/interval (5.23%
+nominal), with identical canonical continuation and sampled images. The next
+step is D1 vertex reuse/direct fetching; 55.9% of vertices repeat an index within
+their draw. The 25% acceptance gate remains unmet.
+
 ## What the new profile establishes
 
 The October 8 screenshot shows Mario running through the landscape on the top
